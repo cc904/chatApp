@@ -7,7 +7,7 @@ class CounterPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(create: (_) => CounterCubit(), child: CounterView());
+    return BlocProvider(create: (_) => CounterCubit(), child: const CounterView());
   }
 }
 
@@ -17,11 +17,11 @@ class CounterView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Cubit 计数器')),
+      appBar: AppBar(title: const Text('Cubit 计数器')),
       body: Center(
         child: BlocBuilder<CounterCubit, int>(
           builder: (context, count) {
-            return Text('$count', style: TextStyle(fontSize: 24));
+            return Text('$count', style: const TextStyle(fontSize: 24));
           },
         ),
       ),
@@ -30,12 +30,12 @@ class CounterView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           FloatingActionButton(
-            child: Icon(Icons.add),
+            child: const Icon(Icons.add),
             // 直接调用方法
             onPressed: () => context.read<CounterCubit>().increment(),
           ),
-          SizedBox(height: 8),
-          FloatingActionButton(child: Icon(Icons.remove), onPressed: () => context.read<CounterCubit>().decrement()),
+          const SizedBox(height: 8),
+          FloatingActionButton(child: const Icon(Icons.remove), onPressed: () => context.read<CounterCubit>().decrement()),
         ],
       ),
     );

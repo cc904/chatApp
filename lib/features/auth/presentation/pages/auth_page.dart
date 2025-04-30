@@ -68,8 +68,19 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                     labelColor: Colors.black,
                     unselectedLabelColor: Colors.grey,
                     indicatorColor: Colors.green,
+                    indicatorWeight: 3,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    labelStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 16,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                 ),
+                const Divider(height: 1),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
