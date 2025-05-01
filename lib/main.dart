@@ -16,23 +16,43 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     dev.log('MyApp build');
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'WhatsApp Clone',
       theme: ThemeData(
-        // 这是你应用程序的主题。
-        //
-        // 试试这个：用"flutter run"运行你的应用程序。你会看到
-        // 应用程序有一个紫色的工具栏。然后，在不退出应用程序的情况下，
-        // 尝试将下面colorScheme中的seedColor更改为Colors.green，
-        // 然后触发"热重载"（在支持Flutter的IDE中保存更改或按"热重载"
-        // 按钮，如果你使用命令行启动应用程序，则按"r"）。
-        //
-        // 注意计数器没有重置回零；在重载过程中应用程序的状态不会丢失。
-        // 要重置状态，请使用热重启。
-        //
-        // 这不仅适用于值，也适用于代码：大多数代码更改都可以
-        // 通过热重载来测试。
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        // 使用绿色作为主题色
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.green,
+          primary: Colors.green,
+          secondary: Colors.green[700],
+          background: Colors.green[50],
+        ),
         useMaterial3: true,
+        // 设置按钮主题
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        // 设置输入框主题
+        inputDecorationTheme: InputDecorationTheme(
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        // 设置TabBar主题
+        tabBarTheme: TabBarTheme(
+          labelColor: Colors.green[800],
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.green,
+          indicatorSize: TabBarIndicatorSize.label,
+        ),
       ),
       // home: const MyHomePage(title: 'Flutter Demo Home Page'),
       home: BlocProvider(

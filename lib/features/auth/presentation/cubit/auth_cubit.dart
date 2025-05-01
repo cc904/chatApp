@@ -201,6 +201,65 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  Future<void> resetPassword(String phoneNumber, String newPassword, String verificationCode) async {
+    dev.log('重置密码请求: $phoneNumber');
+    try {
+      // 验证手机号
+      if (phoneNumber.isEmpty) {
+        dev.log('手机号为空');
+        throw '请输入手机号码';
+      }
+      if (phoneNumber.length != 11) {
+        dev.log('手机号错误: $phoneNumber');
+        throw '请输入正确的手机号码';
+      }
+
+      // 验证验证码
+      if (verificationCode.isEmpty) {
+        dev.log('验证码为空');
+        throw '请输入验证码';
+      }
+
+      // 验证密码
+      if (newPassword.isEmpty) {
+        dev.log('密码为空');
+        throw '请输入新密码';
+      }
+      if (newPassword.length < 6 || !RegExp(r'[a-zA-Z]').hasMatch(newPassword) || !RegExp(r'[0-9]').hasMatch(newPassword)) {
+        dev.log('密码不符合要求');
+        throw '密码至少6位，包含字母和数字';
+      }
+
+      emit(AuthLoading());
+      dev.log('重置密码中...');
+
+      // TODO: 实现重置密码API调用
+      await Future.delayed(const Duration(seconds: 2)); // 模拟网络请求
+
+      // 模拟一些可能的错误情况（测试用）
+      if (phoneNumber == '13800000000') {
+        throw '该手机号未注册';
+      }
+      if (verificationCode == '000000') {
+        throw '验证码错误';
+      }
+
+      dev.log('重置密码成功');
+      emit(const AuthSuccess('mock_token'));
+    } catch (e) {
+      dev.log('重置密码错误: $e');
+      emit(AuthError(e.toString()));
+      // 重置为表单状态
+      emit(AuthFormState(
+        phoneNumber: phoneNumber,
+        verificationCode: verificationCode,
+        password: newPassword,
+      ));
+      // 重新抛出异常，以便上层代码捕获
+      throw e;
+    }
+  }
+
   @override
   Future<void> close() {
     _countdownTimer?.cancel();
