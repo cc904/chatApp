@@ -15,12 +15,51 @@ class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
+class AuthFormState extends AuthState {
+  final String? phoneNumber;
+  final String? verificationCode;
+  final String? password;
+  final bool isCodeSent;
+  final int? countdown;
+
+  const AuthFormState({
+    this.phoneNumber,
+    this.verificationCode,
+    this.password,
+    this.isCodeSent = false,
+    this.countdown,
+  });
+
+  AuthFormState copyWith({
+    String? phoneNumber,
+    String? verificationCode,
+    String? password,
+    bool? isCodeSent,
+    int? countdown,
+  }) {
+    return AuthFormState(
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      verificationCode: verificationCode ?? this.verificationCode,
+      password: password ?? this.password,
+      isCodeSent: isCodeSent ?? this.isCodeSent,
+      countdown: countdown ?? this.countdown,
+    );
+  }
+
+  @override
+  List<Object> get props => [phoneNumber ?? '', verificationCode ?? '', password ?? '', isCodeSent, countdown ?? 0];
+}
+
 class AuthVerificationCodeSent extends AuthState {
   const AuthVerificationCodeSent();
 }
 
 class AuthSuccess extends AuthState {
-  const AuthSuccess();
+  final String token;
+  const AuthSuccess(this.token);
+
+  @override
+  List<Object> get props => [token];
 }
 
 class AuthError extends AuthState {

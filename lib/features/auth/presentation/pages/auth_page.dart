@@ -15,7 +15,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
-  bool _isLogin = true;
 
   @override
   void initState() {
@@ -146,11 +145,11 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                         children: [
                           TextButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
+                              final authCubit = BlocProvider.of<AuthCubit>(context);
+                              Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) => BlocProvider.value(
-                                    value: context.read<AuthCubit>(),
+                                    value: authCubit,
                                     child: const RegisterPage(),
                                   ),
                                 ),
