@@ -7,33 +7,55 @@ class ContactsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     dev.log('ContactsPage build');
-    return ListView.separated(
-      itemCount: 30, // 模拟数据数量
-      separatorBuilder: (context, index) => const Divider(
-        height: 1,
-        indent: 72,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('通讯录', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // 搜索联系人
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () {
+              // 扫描二维码
+            },
+          ),
+        ],
       ),
-      itemBuilder: (context, index) {
-        // 显示分组标题
-        if (index == 0) {
-          return _buildSectionHeader('A');
-        } else if (index == 6) {
-          return _buildSectionHeader('B');
-        } else if (index == 12) {
-          return _buildSectionHeader('C');
-        } else if (index == 18) {
-          return _buildSectionHeader('L');
-        } else if (index == 24) {
-          return _buildSectionHeader('Z');
-        }
+      body: ListView.separated(
+        itemCount: 30, // 模拟数据数量
+        separatorBuilder: (context, index) => const Divider(
+          height: 1,
+          indent: 72,
+        ),
+        itemBuilder: (context, index) {
+          // 显示分组标题
+          if (index == 0) {
+            return _buildSectionHeader('A');
+          } else if (index == 6) {
+            return _buildSectionHeader('B');
+          } else if (index == 12) {
+            return _buildSectionHeader('C');
+          } else if (index == 18) {
+            return _buildSectionHeader('L');
+          } else if (index == 24) {
+            return _buildSectionHeader('Z');
+          }
 
-        // 显示联系人项
-        return _buildContactItem(
-          name: '联系人 ${index + 1}',
-          subtitle: index % 3 == 0 ? '+86 1381234${(1000 + index).toString().padLeft(4, '0')}' : '状态: ${index % 2 == 0 ? '在线' : '离线'}',
-          avatarUrl: 'https://picsum.photos/200?random=${index + 50}',
-        );
-      },
+          // 显示联系人项
+          return _buildContactItem(
+            name: '联系人 ${index + 1}',
+            subtitle: index % 3 == 0 ? '+86 1381234${(1000 + index).toString().padLeft(4, '0')}' : '状态: ${index % 2 == 0 ? '在线' : '离线'}',
+            avatarUrl: 'https://picsum.photos/200?random=${index + 50}',
+          );
+        },
+      ),
     );
   }
 

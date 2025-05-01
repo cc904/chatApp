@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as dev;
+import '../cubit/home_cubit.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -7,16 +9,78 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     dev.log('ProfilePage build');
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // 个人信息卡片
-          _buildProfileCard(),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('我的', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'logout') {
+                _handleLogout(context);
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'settings',
+                  child: Text('账号设置'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'privacy',
+                  child: Text('隐私设置'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'feedback',
+                  child: Text('反馈建议'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Text('退出登录'),
+                ),
+              ];
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // 个人信息卡片
+            _buildProfileCard(),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // 功能列表
-          _buildFunctionList(context),
+            // 功能列表
+            _buildFunctionList(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 处理用户登出
+  void _handleLogout(BuildContext context) {
+    // 显示确认对话框
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('确定要退出登录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // 关闭对话框
+              context.read<HomeCubit>().logout();
+            },
+            child: const Text('确定', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );

@@ -8,115 +8,161 @@ class CallsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     dev.log('CallsPage build');
-    return Column(
-      children: [
-        // 通话连接卡片
-        Card(
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('通话', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // 搜索通话记录
+            },
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              // 更多选项
+              showModalBottomSheet(
+                context: context,
+                builder: (context) => Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.link,
-                      color: Colors.green[700],
+                    ListTile(
+                      leading: const Icon(Icons.delete),
+                      title: const Text('清空通话记录'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        dev.log('清空通话记录');
+                      },
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        '创建通话连接',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    ListTile(
+                      leading: const Icon(Icons.settings),
+                      title: const Text('通话设置'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        dev.log('通话设置');
+                      },
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  '分享一个链接，邀请任何人加入WhatsApp通话，即使他们没有WhatsApp',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
+              );
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // 通话连接卡片
+          Card(
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.link,
+                        color: Colors.green[700],
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          '创建通话连接',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    // 创建通话连接
-                    dev.log('创建通话连接');
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.green[50],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                  child: Text(
-                    '创建连接',
+                  const SizedBox(height: 8),
+                  const Text(
+                    '分享一个链接，邀请任何人加入WhatsApp通话，即使他们没有WhatsApp',
                     style: TextStyle(
-                      color: Colors.green[700],
-                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                      fontSize: 14,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      // 创建通话连接
+                      dev.log('创建通话连接');
+                    },
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.green[50],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: Text(
+                      '创建连接',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 通话历史记录标题
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Text(
+                  '最近',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
                   ),
                 ),
               ],
             ),
           ),
-        ),
 
-        // 通话历史记录标题
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Text(
-                '最近',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
+          // 通话历史记录列表
+          Expanded(
+            child: ListView.separated(
+              itemCount: 10,
+              separatorBuilder: (context, index) => const Divider(
+                height: 1,
+                indent: 72,
               ),
-            ],
-          ),
-        ),
+              itemBuilder: (context, index) {
+                // 随机生成通话类型和方向
+                final bool isVideo = math.Random().nextBool();
+                final bool isOutgoing = math.Random().nextBool();
+                final bool isMissed = !isOutgoing && math.Random().nextBool();
 
-        // 通话历史记录列表
-        Expanded(
-          child: ListView.separated(
-            itemCount: 10,
-            separatorBuilder: (context, index) => const Divider(
-              height: 1,
-              indent: 72,
+                return _buildCallItem(
+                  name: '联系人 ${index + 1}',
+                  time: '${isOutgoing ? '拨出' : '拨入'} · 今天 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
+                  avatarUrl: 'https://picsum.photos/200?random=${index + 30}',
+                  isVideo: isVideo,
+                  isOutgoing: isOutgoing,
+                  isMissed: isMissed,
+                  callCount: math.Random().nextInt(3) + 1,
+                );
+              },
             ),
-            itemBuilder: (context, index) {
-              // 随机生成通话类型和方向
-              final bool isVideo = math.Random().nextBool();
-              final bool isOutgoing = math.Random().nextBool();
-              final bool isMissed = !isOutgoing && math.Random().nextBool();
-
-              return _buildCallItem(
-                name: '联系人 ${index + 1}',
-                time: '${isOutgoing ? '拨出' : '拨入'} · 今天 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
-                avatarUrl: 'https://picsum.photos/200?random=${index + 30}',
-                isVideo: isVideo,
-                isOutgoing: isOutgoing,
-                isMissed: isMissed,
-                callCount: math.Random().nextInt(3) + 1,
-              );
-            },
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

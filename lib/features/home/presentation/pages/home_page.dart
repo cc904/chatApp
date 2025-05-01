@@ -56,61 +56,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         child: BlocBuilder<HomeCubit, HomeState>(
           builder: (context, state) {
             return Scaffold(
-              appBar: AppBar(
-                title: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w600)),
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () {
-                      // 搜索功能
-                    },
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      // 处理菜单选项
-                      switch (value) {
-                        case 'settings':
-                          // 打开设置页面
-                          break;
-                        case 'logout':
-                          _handleLogout(context);
-                          break;
-                      }
-                    },
-                    itemBuilder: (BuildContext context) {
-                      return [
-                        const PopupMenuItem<String>(
-                          value: 'new_group',
-                          child: Text('新建群组'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'new_broadcast',
-                          child: Text('新建广播'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'linked_devices',
-                          child: Text('已关联的设备'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'starred_messages',
-                          child: Text('标星消息'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'settings',
-                          child: Text('设置'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'logout',
-                          child: Text('退出登录'),
-                        ),
-                      ];
-                    },
-                  ),
-                ],
-              ),
               body: state is HomeLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.green))
                   : TabBarView(
