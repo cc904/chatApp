@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
+import 'register_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -44,7 +45,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -55,9 +56,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             child: Column(
               children: [
                 Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   ),
                   child: TabBar(
                     controller: _tabController,
@@ -77,16 +79,93 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                     unselectedLabelStyle: const TextStyle(
                       fontSize: 16,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                 ),
-                const Divider(height: 1),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
                     children: [
-                      _buildQuickLogin(),
-                      _buildPasswordLogin(),
+                      const SizedBox(height: 30),
+                      TextField(
+                        controller: _phoneController,
+                        decoration: const InputDecoration(
+                          labelText: '请输入您的手机号码',
+                          prefixIcon: Icon(Icons.phone),
+                        ),
+                        keyboardType: TextInputType.phone,
+                        onChanged: (value) => context.read<AuthCubit>().updatePhoneNumber(value),
+                      ),
+                      const SizedBox(height: 30),
+                      SizedBox(
+                        height: 48,
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildQuickLogin(),
+                            _buildPasswordLogin(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 60),
+                      BlocConsumer<AuthCubit, AuthState>(
+                        listener: (context, state) {
+                          if (state is AuthSuccess) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('登录成功')),
+                            );
+                          } else if (state is AuthError) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(state.message)),
+                            );
+                          }
+                        },
+                        builder: (context, state) {
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(48),
+                              ),
+                              onPressed: state is AuthLoading ? null : () => context.read<AuthCubit>().login(_tabController.index == 0),
+                              child: state is AuthLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(color: Colors.white),
+                                    )
+                                  : const Text('登录'),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 30),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => BlocProvider.value(
+                                    value: context.read<AuthCubit>(),
+                                    child: const RegisterPage(),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Text('新用户注册'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: 忘记密码
+                            },
+                            child: const Text('忘记密码？'),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -99,106 +178,48 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildQuickLogin() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _phoneController,
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _verificationCodeController,
             decoration: const InputDecoration(
-              labelText: '手机号',
-              prefixIcon: Icon(Icons.phone),
+              labelText: '请输入验证码',
+              prefixIcon: Icon(Icons.message),
             ),
-            keyboardType: TextInputType.phone,
+            onChanged: (value) => context.read<AuthCubit>().updateVerificationCode(value),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _verificationCodeController,
-                  decoration: const InputDecoration(
-                    labelText: '验证码',
-                    prefixIcon: Icon(Icons.message),
-                  ),
+        ),
+        const SizedBox(width: 8),
+        BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            if (state is AuthFormState) {
+              return ElevatedButton(
+                onPressed: state.isCodeSent ? null : () => context.read<AuthCubit>().sendVerificationCode(),
+                child: Text(
+                  state.isCodeSent ? '${state.countdown}s后重试' : '获取验证码',
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () {
-                  // TODO: 发送验证码
-                },
-                child: const Text('获取验证码'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: 验证码登录
-            },
-            child: const Text('登录'),
-          ),
-        ],
-      ),
+              );
+            }
+            return const ElevatedButton(
+              onPressed: null,
+              child: Text('获取验证码'),
+            );
+          },
+        ),
+      ],
     );
   }
 
   Widget _buildPasswordLogin() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _phoneController,
-            decoration: const InputDecoration(
-              labelText: '手机号',
-              prefixIcon: Icon(Icons.phone),
-            ),
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _passwordController,
-            decoration: const InputDecoration(
-              labelText: '密码',
-              prefixIcon: Icon(Icons.lock),
-            ),
-            obscureText: true,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isLogin = false;
-                  });
-                },
-                child: const Text('新用户注册'),
-              ),
-              TextButton(
-                onPressed: () {
-                  // TODO: 忘记密码
-                },
-                child: const Text('忘记密码？'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              if (_isLogin) {
-                // TODO: 密码登录
-              } else {
-                // TODO: 注册
-              }
-            },
-            child: Text(_isLogin ? '登录' : '注册'),
-          ),
-        ],
+    return TextField(
+      controller: _passwordController,
+      decoration: const InputDecoration(
+        labelText: '请输入密码',
+        prefixIcon: Icon(Icons.lock),
       ),
+      obscureText: true,
+      onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
     );
   }
 }
