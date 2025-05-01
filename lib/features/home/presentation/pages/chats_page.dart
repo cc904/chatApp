@@ -65,56 +65,51 @@ class _ChatsPageState extends State<ChatsPage> {
           child: Container(
             color: Colors.green,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                // 搜索框：占据大部分空间，用于搜索聊天内容
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        hintText: '搜索',
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        prefixIcon: Container(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: const Icon(Icons.search, color: Colors.grey, size: 20),
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                        isDense: true,
-                        // 当有输入内容时显示清除按钮
-                        suffixIcon: _isSearching
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () {
-                                  setState(() {
-                                    _searchController.clear();
-                                    _isSearching = false;
-                                  });
-                                },
-                              )
-                            : null,
-                      ),
-                      style: const TextStyle(fontSize: 14),
-                      onChanged: (value) {
-                        setState(() {
-                          _isSearching = value.isNotEmpty;
-                        });
-                        // 搜索内容
-                        dev.log('搜索内容: $value');
-                      },
-                    ),
-                  ),
+            child: TextField(
+              controller: _searchController,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '搜索',
+                hintStyle: const TextStyle(color: Colors.grey),
+                // 删除搜索图标
+                prefixIcon: null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                isDense: true,
+                // 因为删除了外层Container，需要添加圆角和背景颜色
+                filled: true,
+                fillColor: Colors.white,
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              ],
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                // 当有输入内容时显示清除按钮
+                suffixIcon: _isSearching
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _isSearching = false;
+                          });
+                        },
+                      )
+                    : null,
+              ),
+              style: const TextStyle(fontSize: 14),
+              onChanged: (value) {
+                setState(() {
+                  _isSearching = value.isNotEmpty;
+                });
+                // 搜索内容
+                dev.log('搜索内容: $value');
+              },
             ),
           ),
         ),
@@ -129,28 +124,100 @@ class _ChatsPageState extends State<ChatsPage> {
             });
           }
         },
-        child: ListView.separated(
-          itemCount: 20, // 模拟数据数量
-          separatorBuilder: (context, index) => Divider(
-            height: 1,
-            indent: 72,
-          ),
-          itemBuilder: (context, index) {
-            final itemId = index.toString();
-            // 模拟聊天列表数据
-            return _buildSwipeableItem(
-              id: itemId,
-              name: '联系人 ${index + 1}',
-              message: '这是最近的一条消息 ${index + 1}',
-              time: '下午 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
-              unreadCount: index % 3 == 0 ? index % 5 : 0,
-              avatarUrl: 'https://picsum.photos/200?random=$index',
-              isOpen: _openedItemId == itemId,
-            );
-          },
-        ),
+        child: _buildChatList(),
       ),
     );
+  }
+
+  // 构建聊天列表，添加空状态处理
+  Widget _buildChatList() {
+    // 模拟聊天数据
+    final List<Map<String, dynamic>> chatData = _getChatData();
+
+    // 如果聊天列表为空，显示空状态视图
+    if (chatData.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    // 显示正常聊天列表
+    return ListView.separated(
+      itemCount: chatData.length,
+      separatorBuilder: (context, index) => Divider(
+        height: 1,
+        indent: 72,
+      ),
+      itemBuilder: (context, index) {
+        final chat = chatData[index];
+        final itemId = chat['id'];
+
+        return _buildSwipeableItem(
+          id: itemId,
+          name: chat['name'],
+          message: chat['message'],
+          time: chat['time'],
+          unreadCount: chat['unreadCount'],
+          avatarUrl: chat['avatarUrl'],
+          isOpen: _openedItemId == itemId,
+        );
+      },
+    );
+  }
+
+  // 构建空状态视图
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '暂无聊天消息',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '点击右下角按钮开始新的聊天',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 获取模拟聊天数据
+  List<Map<String, dynamic>> _getChatData() {
+    // 这里可以从后端API获取数据，或本地数据库
+    // 现在我们使用模拟数据
+    List<Map<String, dynamic>> data = [];
+
+    // 模拟20条聊天记录
+    for (int i = 0; i < 20; i++) {
+      data.add({
+        'id': i.toString(),
+        'name': '联系人 ${i + 1}',
+        'message': '这是最近的一条消息 ${i + 1}',
+        'time': '下午 ${(i % 12) + 1}:${i % 60 < 10 ? '0' : ''}${i % 60}',
+        'unreadCount': i % 3 == 0 ? i % 5 : 0,
+        'avatarUrl': 'https://picsum.photos/200?random=$i',
+      });
+    }
+
+    // 如果需要测试空状态，可以取消注释下面这行
+    // return [];
+
+    return data;
   }
 
   // 构建可滑动的聊天项
