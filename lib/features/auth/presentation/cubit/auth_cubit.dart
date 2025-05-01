@@ -164,9 +164,9 @@ class AuthCubit extends Cubit<AuthState> {
         _logger('密码为空');
         throw '请输入密码';
       }
-      if (password.length < 6 || !RegExp(r'[a-zA-Z]').hasMatch(password) || !RegExp(r'[0-9]').hasMatch(password)) {
+      if (password.length < 6) {
         _logger('密码不符合要求');
-        throw '密码至少6位，包含字母和数字';
+        throw '密码长度至少6位';
       }
 
       // 验证昵称
@@ -225,9 +225,9 @@ class AuthCubit extends Cubit<AuthState> {
         dev.log('密码为空');
         throw '请输入新密码';
       }
-      if (newPassword.length < 6 || !RegExp(r'[a-zA-Z]').hasMatch(newPassword) || !RegExp(r'[0-9]').hasMatch(newPassword)) {
+      if (newPassword.length < 6) {
         dev.log('密码不符合要求');
-        throw '密码至少6位，包含字母和数字';
+        throw '密码长度至少6位';
       }
 
       emit(AuthLoading());

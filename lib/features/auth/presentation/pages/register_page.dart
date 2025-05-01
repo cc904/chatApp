@@ -164,7 +164,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     decoration: const InputDecoration(
                       labelText: '密码',
                       prefixIcon: Icon(Icons.lock),
-                      helperText: '密码长度至少6位，包含字母和数字',
+                      helperText: '密码长度至少6位',
                       contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                     obscureText: true,
@@ -247,9 +247,9 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     // 验证密码复杂度
-    if (_passwordController.text.length < 6 || !RegExp(r'[a-zA-Z]').hasMatch(_passwordController.text) || !RegExp(r'[0-9]').hasMatch(_passwordController.text)) {
+    if (_passwordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('密码至少6位，包含字母和数字')),
+        const SnackBar(content: Text('密码长度至少6位')),
       );
       return;
     }

@@ -290,23 +290,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               prefixIcon: Icon(Icons.lock),
               contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
+            obscureText: true,
+            onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
           ),
         ));
-
-    // Row(
-    //   children: [
-    //     Expanded(
-    //         child: TextField(
-    //       controller: _passwordController,
-    //       decoration: const InputDecoration(
-    //         labelText: '请输入密码',
-    //         prefixIcon: Icon(Icons.lock),
-    //         contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-    //       ),
-    //       obscureText: true,
-    //       onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
-    //     ))
-    //   ],
-    // );
   }
 }

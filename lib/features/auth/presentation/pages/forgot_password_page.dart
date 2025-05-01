@@ -284,7 +284,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           decoration: const InputDecoration(
             labelText: '新密码',
             prefixIcon: Icon(Icons.lock),
-            helperText: '密码长度至少6位，包含字母和数字',
+            helperText: '密码长度至少6位',
             contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
           obscureText: true,
@@ -336,8 +336,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           _showErrorMessage('请输入新密码');
           return false;
         }
-        if (_newPasswordController.text.length < 6 || !RegExp(r'[a-zA-Z]').hasMatch(_newPasswordController.text) || !RegExp(r'[0-9]').hasMatch(_newPasswordController.text)) {
-          _showErrorMessage('密码至少6位，包含字母和数字');
+        if (_newPasswordController.text.length < 6) {
+          _showErrorMessage('密码长度至少6位');
           return false;
         }
         if (_confirmPasswordController.text != _newPasswordController.text) {
