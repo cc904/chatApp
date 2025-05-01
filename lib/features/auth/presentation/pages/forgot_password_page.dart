@@ -28,11 +28,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     super.dispose();
   }
 
+  /// 构建忘记密码页面的UI
+  ///
+  /// 包含三个步骤的Stepper组件：手机号验证、验证码验证和设置新密码
   @override
   Widget build(BuildContext context) {
     dev.log('ForgotPasswordPage build');
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('忘记密码'),
         centerTitle: true,
@@ -143,17 +146,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         }
                       },
                       onStepContinue: () {
-                        if (_currentStep < 2) {
-                          // 验证当前步骤
-                          bool canProceed = _validateCurrentStep();
-                          if (canProceed) {
+                        // 验证当前步骤
+                        bool canProceed = _validateCurrentStep();
+                        if (canProceed) {
+                          if (_currentStep < 2) {
                             setState(() {
                               _currentStep += 1;
                             });
+                          } else {
+                            // 最后一步，提交重置密码
+                            _resetPassword();
                           }
-                        } else {
-                          // 最后一步，提交重置密码
-                          _resetPassword();
                         }
                       },
                       onStepTapped: (step) {
@@ -195,6 +198,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
+  /// 构建手机号验证步骤的UI
   Widget _buildPhoneVerificationStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,6 +223,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
+  /// 构建验证码验证步骤的UI
   Widget _buildCodeVerificationStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,6 +279,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
+  /// 构建设置新密码步骤的UI
   Widget _buildNewPasswordStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,6 +315,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
+  /// 验证当前步骤的输入是否有效
+  ///
+  /// 根据当前步骤[_currentStep]验证对应的输入字段
+  /// 返回bool值表示验证是否通过
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0:
@@ -337,7 +347,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           return false;
         }
         if (_newPasswordController.text.length < 6) {
-          _showErrorMessage('密码长度至少6位');
+          _showErrorMessage('密码长度至少6位1');
           return false;
         }
         if (_confirmPasswordController.text != _newPasswordController.text) {
@@ -350,6 +360,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     }
   }
 
+  /// 执行重置密码的操作
+  ///
+  /// 向AuthCubit发送重置密码请求，并处理成功和失败的情况
+  /// 成功时显示成功对话框，失败时显示错误消息
   void _resetPassword() {
     dev.log('重置密码: ${_phoneController.text}');
 
@@ -371,6 +385,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         )
         .then((_) {
       // 关闭加载指示器
+      if (!mounted) return;
       Navigator.pop(context);
 
       // 显示成功消息和确认对话框
@@ -398,6 +413,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       );
     }).catchError((error) {
       // 关闭加载指示器
+      if (!mounted) return;
       Navigator.pop(context);
 
       // 显示错误消息
@@ -407,12 +423,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     });
   }
 
+  /// 显示错误消息提示
+  ///
+  /// [message] 要显示的错误消息文本
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red[700],
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),

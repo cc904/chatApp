@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
           seedColor: Colors.green,
           primary: Colors.green,
           secondary: Colors.green[700],
-          background: Colors.green[50],
+          surface: Colors.green[50],
         ),
         useMaterial3: true,
         // 设置按钮主题

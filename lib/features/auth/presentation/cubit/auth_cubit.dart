@@ -256,7 +256,7 @@ class AuthCubit extends Cubit<AuthState> {
         password: newPassword,
       ));
       // 重新抛出异常，以便上层代码捕获
-      throw e;
+      rethrow;
     }
   }
 
