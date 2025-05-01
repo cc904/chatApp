@@ -347,7 +347,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           return false;
         }
         if (_newPasswordController.text.length < 6) {
-          _showErrorMessage('密码长度至少6位1');
+          _showErrorMessage('密码长度至少6位');
           return false;
         }
         if (_confirmPasswordController.text != _newPasswordController.text) {
