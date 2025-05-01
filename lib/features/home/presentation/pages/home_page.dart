@@ -4,8 +4,9 @@ import 'dart:developer' as dev;
 
 import '../cubit/home_cubit.dart';
 import 'chats_page.dart';
-import 'status_page.dart';
+import 'contacts_page.dart';
 import 'calls_page.dart';
+import 'profile_page.dart';
 import '../../../../features/auth/presentation/pages/auth_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,7 +22,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
 
     // 添加监听器以响应标签切换
     _tabController.addListener(() {
@@ -109,30 +110,49 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     },
                   ),
                 ],
-                bottom: TabBar(
-                  controller: _tabController,
-                  tabs: const [
-                    Tab(text: '聊天'),
-                    Tab(text: '状态'),
-                    Tab(text: '通话'),
-                  ],
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  indicatorColor: Colors.white,
-                  indicatorWeight: 3.0,
-                ),
               ),
               body: state is HomeLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.green))
                   : TabBarView(
                       controller: _tabController,
-                      children: [
+                      children: const [
                         ChatsPage(),
-                        StatusPage(),
+                        ContactsPage(),
                         CallsPage(),
+                        ProfilePage(),
                       ],
                     ),
               floatingActionButton: _buildFloatingActionButton(),
+              bottomNavigationBar: Material(
+                color: Colors.white,
+                elevation: 8,
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(
+                      icon: Icon(Icons.chat),
+                      text: '聊天',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.contacts),
+                      text: '通讯录',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.call),
+                      text: '通话',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.person),
+                      text: '我的',
+                    ),
+                  ],
+                  labelColor: Colors.green,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.green,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  labelStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
             );
           },
         ),
@@ -188,26 +208,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           backgroundColor: Colors.green,
           child: const Icon(Icons.chat, color: Colors.white),
         );
-      case 1: // 状态页
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FloatingActionButton.small(
-              onPressed: () {
-                // 创建文字状态
-              },
-              backgroundColor: Colors.grey[200],
-              child: Icon(Icons.edit, color: Colors.green[800]),
-            ),
-            const SizedBox(height: 16),
-            FloatingActionButton(
-              onPressed: () {
-                // 创建相机状态
-              },
-              backgroundColor: Colors.green,
-              child: const Icon(Icons.camera_alt, color: Colors.white),
-            ),
-          ],
+      case 1: // 通讯录页
+        return FloatingActionButton(
+          onPressed: () {
+            // 添加新联系人
+          },
+          backgroundColor: Colors.green,
+          child: const Icon(Icons.person_add, color: Colors.white),
         );
       case 2: // 通话页
         return FloatingActionButton(
@@ -217,7 +224,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           backgroundColor: Colors.green,
           child: const Icon(Icons.add_call, color: Colors.white),
         );
-      default:
+      default: // 我的页面不显示浮动按钮
         return const SizedBox.shrink();
     }
   }
