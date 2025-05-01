@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:developer' as dev;
 import '../cubit/home_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'search_page.dart';
+import 'scan_code_page.dart';
 
 class ChatsPage extends StatefulWidget {
   const ChatsPage({super.key});
@@ -49,56 +51,59 @@ class _ChatsPageState extends State<ChatsPage> {
 
         // 右侧操作按钮区域 - 添加新聊天按钮
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.add),
-            offset: const Offset(0, 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+          Theme(
+            data: Theme.of(context).copyWith(
+              // 设置弹出菜单的主题
+              popupMenuTheme: const PopupMenuThemeData(
+                // 强制控制菜单的宽度
+                textStyle: TextStyle(fontSize: 14),
+              ),
             ),
-            elevation: 3,
-            // 移除固定宽度限制，使用内容自然宽度
-            constraints: null,
-            // 修改菜单位置，使其更靠右
-            position: PopupMenuPosition.under,
-            onSelected: (value) {
-              if (value == 'group') {
-                // 发起群聊
-                dev.log('发起群聊');
-              } else if (value == 'friend') {
-                // 添加朋友
-                dev.log('添加朋友');
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem<String>(
-                value: 'group',
-                height: 40, // 减小高度
-                // padding: const EdgeInsets.symmetric(horizontal: 12), // 减小水平内边距
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min, // 使Row仅适应内容宽度
-                  children: [
-                    Icon(Icons.group_add, color: Colors.green, size: 20),
-                    SizedBox(width: 10),
-                    Text('发起群聊', style: TextStyle(fontSize: 14)),
-                  ],
-                ),
+            child: PopupMenuButton<String>(
+              icon: const Icon(Icons.add),
+              offset: const Offset(0, 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              // 添加更小的分隔线
-              const PopupMenuDivider(height: 0.5),
-              PopupMenuItem<String>(
-                value: 'friend',
-                height: 40, // 减小高度
-                padding: const EdgeInsets.symmetric(horizontal: 12), // 减小水平内边距
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min, // 使Row仅适应内容宽度
-                  children: [
-                    Icon(Icons.person_add, color: Colors.green, size: 20),
-                    SizedBox(width: 10),
-                    Text('添加朋友', style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-            ],
+              elevation: 3,
+              // 设置菜单的总宽度
+              constraints: const BoxConstraints(maxWidth: 145),
+              // 修改菜单位置
+              position: PopupMenuPosition.under,
+              // 调整项目宽度自适应内容
+              onSelected: (value) {
+                if (value == 'scan') {
+                  // 扫一扫功能
+                  dev.log('打开扫一扫');
+                  _openQRScanner(context);
+                } else if (value == 'group') {
+                  // 发起群聊
+                  dev.log('发起群聊');
+                  // 打开搜索页面，默认选择找群标签
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SearchPage(),
+                    ),
+                  );
+                } else if (value == 'friend') {
+                  // 添加朋友
+                  dev.log('添加朋友');
+                  // 打开搜索页面，默认选择找人标签
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SearchPage(),
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (context) => <PopupMenuEntry<String>>[
+                _buildMenuItem('friend', Icons.person_add, '添加朋友或群'),
+                const PopupMenuDivider(height: 0.5),
+                _buildMenuItem('group', Icons.group_add, '发起群聊'),
+                const PopupMenuDivider(height: 0.5),
+                _buildMenuItem('scan', Icons.qr_code_scanner, '扫一扫'),
+              ],
+            ),
           ),
         ],
         centerTitle: true, // 标题居中显示
@@ -514,6 +519,37 @@ class _ChatsPageState extends State<ChatsPage> {
                 Navigator.pop(context);
                 dev.log('筛选星标会话');
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openQRScanner(BuildContext context) {
+    // 导航到二维码扫描页面
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ScanCodePage(),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _buildMenuItem(String value, IconData iconData, String label) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 40,
+      padding: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(iconData, color: Colors.green, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14),
             ),
           ],
         ),
