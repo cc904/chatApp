@@ -68,7 +68,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Colors.white,
-                hintText: _tabController.index == 0 ? '输入ID号或微信号搜索' : '输入群ID号搜索',
+                hintText: _tabController.index == 0 ? '输入ID号或手机号搜索' : '输入群ID号搜索',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 suffixIcon: _isSearching
                     ? IconButton(
@@ -138,7 +138,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
             ),
             const SizedBox(height: 16),
             Text(
-              '输入${isPerson ? 'ID号或微信号' : '群ID号'}开始搜索',
+              '输入${isPerson ? 'ID号或手机号' : '群ID号'}开始搜索',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
