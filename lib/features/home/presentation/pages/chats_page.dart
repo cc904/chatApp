@@ -13,6 +13,8 @@ class ChatsPage extends StatefulWidget {
 class _ChatsPageState extends State<ChatsPage> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
+  // 跟踪当前打开的滑动项的ID
+  String? _openedItemId;
 
   @override
   void dispose() {
@@ -34,32 +36,18 @@ class _ChatsPageState extends State<ChatsPage> {
         elevation: 0,
         automaticallyImplyLeading: false, // 禁用默认返回按钮
 
-        // 左侧编辑按钮：底部对齐，点击进入多选模式
+        // 左侧筛选按钮
         leading: Container(
-          padding: const EdgeInsets.only(bottom: 4),
-          alignment: Alignment.bottomCenter,
-          child: TextButton(
+          child: IconButton(
+            icon: const Icon(Icons.filter_list),
             onPressed: () {
-              // 进入多选删除模式
-              dev.log('进入多选删除模式');
+              // 显示筛选选项
+              _showFilterDialog();
             },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              '编辑',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
           ),
         ),
 
-        // 右侧操作按钮区域 - 添加新聊天
+        // 右侧操作按钮区域 - 添加新聊天按钮
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -71,7 +59,7 @@ class _ChatsPageState extends State<ChatsPage> {
         ],
         centerTitle: true, // 标题居中显示
 
-        // 底部搜索区域：包含搜索框和筛选按钮
+        // 底部搜索区域
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60), // 设置底部区域高度
           child: Container(
@@ -89,11 +77,16 @@ class _ChatsPageState extends State<ChatsPage> {
                     ),
                     child: TextField(
                       controller: _searchController,
+                      textAlign: TextAlign.center,
                       decoration: InputDecoration(
                         hintText: '搜索',
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        prefixIcon: Container(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: const Icon(Icons.search, color: Colors.grey, size: 20),
+                        ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
                         isDense: true,
                         // 当有输入内容时显示清除按钮
                         suffixIcon: _isSearching
@@ -121,47 +114,252 @@ class _ChatsPageState extends State<ChatsPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                // 筛选按钮：显示筛选选项的弹出菜单
-                Container(
-                  height: 40,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    shape: BoxShape.circle,
+              ],
+            ),
+          ),
+        ),
+      ),
+      // 聊天列表主体
+      body: GestureDetector(
+        // 点击空白区域时关闭打开的滑动菜单
+        onTap: () {
+          if (_openedItemId != null) {
+            setState(() {
+              _openedItemId = null;
+            });
+          }
+        },
+        child: ListView.separated(
+          itemCount: 20, // 模拟数据数量
+          separatorBuilder: (context, index) => Divider(
+            height: 1,
+            indent: 72,
+          ),
+          itemBuilder: (context, index) {
+            final itemId = index.toString();
+            // 模拟聊天列表数据
+            return _buildSwipeableItem(
+              id: itemId,
+              name: '联系人 ${index + 1}',
+              message: '这是最近的一条消息 ${index + 1}',
+              time: '下午 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
+              unreadCount: index % 3 == 0 ? index % 5 : 0,
+              avatarUrl: 'https://picsum.photos/200?random=$index',
+              isOpen: _openedItemId == itemId,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // 构建可滑动的聊天项
+  Widget _buildSwipeableItem({
+    required String id,
+    required String name,
+    required String message,
+    required String time,
+    required int unreadCount,
+    required String avatarUrl,
+    required bool isOpen,
+  }) {
+    // 菜单宽度
+    const double menuWidth = 180; // 三个按钮的总宽度
+
+    return Stack(
+      children: [
+        // 1. 操作菜单背景
+        Positioned(
+          top: 0,
+          bottom: 0,
+          right: 0,
+          child: Container(
+            width: menuWidth,
+            color: Colors.grey[100],
+            child: Row(
+              children: [
+                // 已读/未读按钮
+                GestureDetector(
+                  onTap: () {
+                    dev.log(unreadCount > 0 ? '将$name标为已读' : '将$name标为未读');
+                    setState(() {
+                      _openedItemId = null; // 操作后关闭菜单
+                    });
+                  },
+                  child: Container(
+                    width: 60,
+                    color: Colors.blue,
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadCount > 0 ? '已读' : '未读',
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   ),
-                  child: IconButton(
-                    icon: const Icon(Icons.filter_list, color: Colors.white, size: 20),
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      // 筛选功能
-                      dev.log('打开筛选');
-                      _showFilterDialog();
-                    },
+                ),
+                // 不显示按钮
+                GestureDetector(
+                  onTap: () {
+                    dev.log('不显示聊天: $name');
+                    setState(() {
+                      _openedItemId = null; // 操作后关闭菜单
+                    });
+                  },
+                  child: Container(
+                    width: 60,
+                    color: Colors.orange,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '不显示',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+                // 删除按钮
+                GestureDetector(
+                  onTap: () {
+                    dev.log('删除聊天: $name');
+                    setState(() {
+                      _openedItemId = null; // 操作后关闭菜单
+                    });
+                  },
+                  child: Container(
+                    width: 60,
+                    color: Colors.red,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '删除',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-      ),
-      body: ListView.separated(
-        itemCount: 20, // 模拟数据数量
-        separatorBuilder: (context, index) => const Divider(
-          height: 1,
-          indent: 72,
+
+        // 2. 可滑动的前景内容
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250), // 添加动画效果
+          curve: Curves.easeOut,
+          transform: Matrix4.translationValues(
+            isOpen ? -menuWidth : 0, // 如果打开则向左移动菜单宽度
+            0,
+            0,
+          ),
+          child: GestureDetector(
+            onHorizontalDragStart: (details) {
+              // 开始拖动时，如果有其他项目已打开，先关闭它
+              if (_openedItemId != null && _openedItemId != id) {
+                setState(() {
+                  _openedItemId = null;
+                });
+              }
+            },
+            onHorizontalDragUpdate: (details) {
+              // 跟踪水平拖动，仅允许向左拖动（负增量）
+              if (details.delta.dx < 0) {
+                setState(() {
+                  _openedItemId = id; // 向左拖动时打开当前项
+                });
+              } else if (details.delta.dx > 0 && _openedItemId == id) {
+                // 向右拖动时关闭当前项
+                setState(() {
+                  _openedItemId = null;
+                });
+              }
+            },
+            onHorizontalDragEnd: (details) {
+              // 拖动结束时，根据速度决定是否打开或关闭
+              if (details.primaryVelocity != null) {
+                if (details.primaryVelocity! < -500) {
+                  // 快速向左滑动，打开菜单
+                  setState(() {
+                    _openedItemId = id;
+                  });
+                } else if (details.primaryVelocity! > 500) {
+                  // 快速向右滑动，关闭菜单
+                  setState(() {
+                    _openedItemId = null;
+                  });
+                }
+              }
+            },
+            child: Container(
+              color: Colors.white,
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: NetworkImage(avatarUrl),
+                  radius: 24,
+                ),
+                title: Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        message,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: unreadCount > 0 ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                    if (unreadCount > 0)
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 16),
+                  ],
+                ),
+                onTap: () {
+                  // 如果菜单是打开的，则先关闭菜单
+                  if (_openedItemId == id) {
+                    setState(() {
+                      _openedItemId = null;
+                    });
+                  } else {
+                    // 打开聊天详情页
+                    dev.log('打开聊天: $name');
+                  }
+                },
+              ),
+            ),
+          ),
         ),
-        itemBuilder: (context, index) {
-          // 模拟聊天列表数据
-          return _buildChatItem(
-            name: '联系人 ${index + 1}',
-            message: '这是最近的一条消息 ${index + 1}',
-            time: '下午 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
-            unreadCount: index % 3 == 0 ? index % 5 : 0,
-            avatarUrl: 'https://picsum.photos/200?random=$index',
-          );
-        },
-      ),
+      ],
     );
   }
 
@@ -234,78 +432,6 @@ class _ChatsPageState extends State<ChatsPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildChatItem({
-    required String name,
-    required String message,
-    required String time,
-    required int unreadCount,
-    required String avatarUrl,
-  }) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: NetworkImage(avatarUrl),
-        radius: 24,
-      ),
-      title: Text(
-        name,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-      ),
-      subtitle: Row(
-        children: [
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 12,
-              color: unreadCount > 0 ? Colors.green : Colors.grey,
-            ),
-          ),
-          if (unreadCount > 0)
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
-          else
-            const SizedBox(height: 16),
-        ],
-      ),
-      onTap: () {
-        // 打开聊天详情页
-        dev.log('打开聊天: $name');
-      },
     );
   }
 }
