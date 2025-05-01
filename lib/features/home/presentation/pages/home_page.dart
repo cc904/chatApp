@@ -7,7 +7,6 @@ import 'chats_page.dart';
 import 'contacts_page.dart';
 import 'calls_page.dart';
 import 'profile_page.dart';
-import '../../../../features/auth/presentation/pages/auth_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -101,49 +100,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           },
         ),
       ),
-    );
-  }
-
-  /// 处理用户登出
-  void _handleLogout(BuildContext context) {
-    // 显示确认对话框
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // 关闭对话框
-              _confirmLogout(context);
-            },
-            child: const Text('确定', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 确认登出，执行登出操作
-  void _confirmLogout(BuildContext context) async {
-    // 在异步操作前捕获必要信息并使用context
-    final cubit = context.read<HomeCubit>();
-    final navigator = Navigator.of(context);
-
-    await cubit.logout();
-
-    // 检查组件是否仍然挂载
-    if (!mounted) return;
-
-    // 登出成功，导航到登录页面
-    navigator.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const AuthPage()),
-      (route) => false, // 清除所有路由历史
     );
   }
 }

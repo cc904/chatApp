@@ -550,9 +550,8 @@ class UserDetailPage extends StatelessWidget {
 
                   // 添加好友按钮
                   if (!isFriend)
-                    Container(
+                    SizedBox(
                       width: double.infinity,
-                      margin: const EdgeInsets.only(top: 20),
                       child: ElevatedButton.icon(
                         onPressed: () {
                           _showAddFriendDialog(context, name, userId);
@@ -562,28 +561,6 @@ class UserDetailPage extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(top: 20),
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // 发送消息
-                          dev.log('发送消息给: $name');
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.message),
-                        label: const Text('发送消息'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green,
-                          side: const BorderSide(color: Colors.green),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -626,7 +603,7 @@ class UserDetailPage extends StatelessWidget {
               color: Colors.white,
               padding: const EdgeInsets.all(20),
               child: isFriend
-                  ? Container(
+                  ? SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () {
@@ -646,7 +623,7 @@ class UserDetailPage extends StatelessWidget {
                         ),
                       ),
                     )
-                  : Container(
+                  : SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () {
@@ -902,9 +879,8 @@ class GroupDetailPage extends StatelessWidget {
 
                   // 加入群聊按钮
                   if (!isJoined)
-                    Container(
+                    SizedBox(
                       width: double.infinity,
-                      margin: const EdgeInsets.only(top: 20),
                       child: ElevatedButton.icon(
                         onPressed: () {
                           _showJoinGroupDialog(context, name, groupId);
@@ -922,9 +898,8 @@ class GroupDetailPage extends StatelessWidget {
                       ),
                     )
                   else
-                    Container(
+                    SizedBox(
                       width: double.infinity,
-                      margin: const EdgeInsets.only(top: 20),
                       child: OutlinedButton.icon(
                         onPressed: () {
                           // 打开群聊
@@ -1019,7 +994,7 @@ class GroupDetailPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            index == 0 ? '群主' : '成员${index}',
+                            index == 0 ? '群主' : '成员$index',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[800],

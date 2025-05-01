@@ -194,30 +194,4 @@ class _ScanCodePageState extends State<ScanCodePage> {
       },
     );
   }
-
-  // 处理扫描结果
-  void _handleScanResult(String code) {
-    dev.log('扫描结果: $code');
-    // 根据扫描结果类型进行不同处理
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('扫描结果'),
-        content: Text(code),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // 处理结果，例如打开链接或添加好友等
-            },
-            child: const Text('处理', style: TextStyle(color: Colors.green)),
-          ),
-        ],
-      ),
-    );
-  }
 }
