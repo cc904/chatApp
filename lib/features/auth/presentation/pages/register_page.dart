@@ -14,6 +14,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
+  final _nicknameController = TextEditingController();
 
   @override
   void dispose() {
@@ -21,6 +22,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _verificationCodeController.dispose();
+    _nicknameController.dispose();
     super.dispose();
   }
 
@@ -93,6 +95,15 @@ class _RegisterPageState extends State<RegisterPage> {
                       },
                     ),
                   ],
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nicknameController,
+                  decoration: const InputDecoration(
+                    labelText: '请输入您的昵称',
+                    prefixIcon: Icon(Icons.person),
+                  ),
+                  onChanged: (value) => context.read<AuthCubit>().updateNickname(value),
                 ),
                 const SizedBox(height: 20),
                 TextField(
@@ -180,10 +191,19 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // 验证昵称
+    if (_nicknameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入昵称')),
+      );
+      return;
+    }
+
     context.read<AuthCubit>().register(
           _phoneController.text,
           _passwordController.text,
           _verificationCodeController.text,
+          _nicknameController.text,
         );
   }
 }

@@ -19,6 +19,7 @@ class AuthFormState extends AuthState {
   final String? phoneNumber;
   final String? verificationCode;
   final String? password;
+  final String? nickname;
   final bool isCodeSent;
   final int? countdown;
 
@@ -26,6 +27,7 @@ class AuthFormState extends AuthState {
     this.phoneNumber,
     this.verificationCode,
     this.password,
+    this.nickname,
     this.isCodeSent = false,
     this.countdown,
   });
@@ -34,6 +36,7 @@ class AuthFormState extends AuthState {
     String? phoneNumber,
     String? verificationCode,
     String? password,
+    String? nickname,
     bool? isCodeSent,
     int? countdown,
   }) {
@@ -41,13 +44,14 @@ class AuthFormState extends AuthState {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       verificationCode: verificationCode ?? this.verificationCode,
       password: password ?? this.password,
+      nickname: nickname ?? this.nickname,
       isCodeSent: isCodeSent ?? this.isCodeSent,
       countdown: countdown ?? this.countdown,
     );
   }
 
   @override
-  List<Object> get props => [phoneNumber ?? '', verificationCode ?? '', password ?? '', isCodeSent, countdown ?? 0];
+  List<Object> get props => [phoneNumber ?? '', verificationCode ?? '', password ?? '', nickname ?? '', isCodeSent, countdown ?? 0];
 }
 
 class AuthVerificationCodeSent extends AuthState {
