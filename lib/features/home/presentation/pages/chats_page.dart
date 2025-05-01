@@ -132,18 +132,56 @@ class _ChatsPageState extends State<ChatsPage> {
                   borderSide: BorderSide.none,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                // 当有输入内容时显示清除按钮
+                // 当有输入内容时显示清除按钮和搜索按钮
                 suffixIcon: _isSearching
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _isSearching = false;
-                          });
-                        },
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _isSearching = false;
+                              });
+                            },
+                          ),
+                          Container(
+                            height: 24,
+                            width: 1,
+                            color: Colors.grey[300],
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: InkWell(
+                              onTap: () {
+                                // 执行搜索
+                                final query = _searchController.text;
+                                dev.log('执行搜索: $query');
+                                // 隐藏键盘
+                                FocusScope.of(context).unfocus();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Text(
+                                  '搜索',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       )
                     : null,
               ),
