@@ -191,7 +191,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('注册成功')),
                         );
-                        Navigator.pop(context); // 返回登录页
+                        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
                       } else if (state is AuthError) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(state.message)),

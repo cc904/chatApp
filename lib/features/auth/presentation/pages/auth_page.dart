@@ -157,6 +157,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('登录成功')),
                             );
+                            Navigator.of(context).pushReplacementNamed('/home');
                           } else if (state is AuthError) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(state.message)),
