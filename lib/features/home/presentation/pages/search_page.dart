@@ -205,7 +205,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${isPerson ? '添加好友' : '加入群聊'}'),
+        title: Text(isPerson ? '添加好友' : '加入群聊'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

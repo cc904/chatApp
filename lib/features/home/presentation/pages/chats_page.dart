@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as dev;
-import '../cubit/home_cubit.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
 
@@ -39,14 +37,12 @@ class _ChatsPageState extends State<ChatsPage> {
         automaticallyImplyLeading: false, // 禁用默认返回按钮
 
         // 左侧筛选按钮
-        leading: Container(
-          child: IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              // 显示筛选选项
-              _showFilterDialog();
-            },
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.filter_list),
+          onPressed: () {
+            // 显示筛选选项
+            _showFilterDialog();
+          },
         ),
 
         // 右侧操作按钮区域 - 添加新聊天按钮

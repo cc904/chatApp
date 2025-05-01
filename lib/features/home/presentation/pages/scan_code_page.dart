@@ -69,7 +69,7 @@ class _ScanCodePageState extends State<ScanCodePage> {
                     child: Container(
                       height: 2,
                       width: 250,
-                      color: Colors.green.withOpacity(0.5),
+                      color: Colors.green.withAlpha(128),
                     ),
                   ),
                 ],
@@ -88,7 +88,7 @@ class _ScanCodePageState extends State<ScanCodePage> {
                   Text(
                     '将二维码/条码放入框内，即可自动扫描',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withAlpha(204),
                       fontSize: 14,
                     ),
                   ),
@@ -120,14 +120,14 @@ class _ScanCodePageState extends State<ScanCodePage> {
                             children: [
                               Icon(
                                 Icons.photo_library,
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withAlpha(204),
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 '相册',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withAlpha(204),
                                   fontSize: 14,
                                 ),
                               ),

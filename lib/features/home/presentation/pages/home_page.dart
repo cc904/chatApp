@@ -130,14 +130,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   /// 确认登出，执行登出操作
-  void _confirmLogout(BuildContext context) {
-    context.read<HomeCubit>().logout().then((_) {
-      // 登出成功，导航到登录页面
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const AuthPage()),
-        (route) => false, // 清除所有路由历史
-      );
-    });
+  void _confirmLogout(BuildContext context) async {
+    // 在异步操作前捕获必要信息并使用context
+    final cubit = context.read<HomeCubit>();
+    final navigator = Navigator.of(context);
+
+    await cubit.logout();
+
+    // 检查组件是否仍然挂载
+    if (!mounted) return;
+
+    // 登出成功，导航到登录页面
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const AuthPage()),
+      (route) => false, // 清除所有路由历史
+    );
   }
 }
