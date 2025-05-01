@@ -67,7 +67,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ProfilePage(),
                       ],
                     ),
-              floatingActionButton: _buildFloatingActionButton(),
               bottomNavigationBar: Material(
                 color: Colors.white,
                 elevation: 8,
@@ -140,37 +139,5 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         (route) => false, // 清除所有路由历史
       );
     });
-  }
-
-  /// 根据当前选中的标签页构建相应的浮动按钮
-  Widget _buildFloatingActionButton() {
-    switch (_tabController.index) {
-      case 0: // 聊天页
-        return FloatingActionButton(
-          onPressed: () {
-            // 打开联系人列表或新建聊天
-          },
-          backgroundColor: Colors.green,
-          child: const Icon(Icons.chat, color: Colors.white),
-        );
-      case 1: // 通讯录页
-        return FloatingActionButton(
-          onPressed: () {
-            // 添加新联系人
-          },
-          backgroundColor: Colors.green,
-          child: const Icon(Icons.person_add, color: Colors.white),
-        );
-      case 2: // 通话页
-        return FloatingActionButton(
-          onPressed: () {
-            // 新建通话
-          },
-          backgroundColor: Colors.green,
-          child: const Icon(Icons.add_call, color: Colors.white),
-        );
-      default: // 我的页面不显示浮动按钮
-        return const SizedBox.shrink();
-    }
   }
 }

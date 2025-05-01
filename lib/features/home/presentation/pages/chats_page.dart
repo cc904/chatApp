@@ -49,12 +49,56 @@ class _ChatsPageState extends State<ChatsPage> {
 
         // 右侧操作按钮区域 - 添加新聊天按钮
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.add),
-            onPressed: () {
-              // 新建聊天窗口
-              dev.log('新建聊天窗口');
+            offset: const Offset(0, 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 3,
+            // 移除固定宽度限制，使用内容自然宽度
+            constraints: null,
+            // 修改菜单位置，使其更靠右
+            position: PopupMenuPosition.under,
+            onSelected: (value) {
+              if (value == 'group') {
+                // 发起群聊
+                dev.log('发起群聊');
+              } else if (value == 'friend') {
+                // 添加朋友
+                dev.log('添加朋友');
+              }
             },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'group',
+                height: 40, // 减小高度
+                // padding: const EdgeInsets.symmetric(horizontal: 12), // 减小水平内边距
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min, // 使Row仅适应内容宽度
+                  children: [
+                    Icon(Icons.group_add, color: Colors.green, size: 20),
+                    SizedBox(width: 10),
+                    Text('发起群聊', style: TextStyle(fontSize: 14)),
+                  ],
+                ),
+              ),
+              // 添加更小的分隔线
+              const PopupMenuDivider(height: 0.5),
+              PopupMenuItem<String>(
+                value: 'friend',
+                height: 40, // 减小高度
+                padding: const EdgeInsets.symmetric(horizontal: 12), // 减小水平内边距
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min, // 使Row仅适应内容宽度
+                  children: [
+                    Icon(Icons.person_add, color: Colors.green, size: 20),
+                    SizedBox(width: 10),
+                    Text('添加朋友', style: TextStyle(fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
         centerTitle: true, // 标题居中显示
@@ -473,31 +517,6 @@ class _ChatsPageState extends State<ChatsPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // 处理用户登出
-  void _handleLogout(BuildContext context) {
-    // 显示确认对话框
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // 关闭对话框
-              context.read<HomeCubit>().logout();
-            },
-            child: const Text('确定', style: TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
     );
   }
