@@ -15,6 +15,7 @@ class ChatsPage extends StatelessWidget {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.search),

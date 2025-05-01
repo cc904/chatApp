@@ -15,6 +15,7 @@ class ProfilePage extends StatelessWidget {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
