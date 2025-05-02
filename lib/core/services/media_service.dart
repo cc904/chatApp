@@ -28,8 +28,8 @@ class MediaService {
   bool _isPlaying = false;
 
   // 回调函数
-  Function(double)? _onProgressCallback;
   VoidCallback? _onCompleteCallback;
+  void Function(double)? _onProgressCallback;
 
   // 状态订阅
   StreamSubscription<Duration>? _positionSubscription;
@@ -88,8 +88,8 @@ class MediaService {
   /// 播放本地音频文件
   Future<void> playAudio(
     String filePath, {
-    Function(double)? onProgress,
     VoidCallback? onComplete,
+    void Function(double)? onProgress,
   }) async {
     try {
       _logger.i('准备播放音频文件: $filePath');
@@ -98,8 +98,8 @@ class MediaService {
       await stopAudio();
 
       // 保存回调函数
-      _onProgressCallback = onProgress;
       _onCompleteCallback = onComplete;
+      _onProgressCallback = onProgress;
 
       // 获取播放器
       AudioPlayer player;
@@ -159,16 +159,22 @@ class MediaService {
       _logger.i('音频时长: ${duration?.inMilliseconds ?? "未知"}毫秒');
 
       // 设置进度监听器
-      if (onProgress != null) {
-        _positionSubscription = player.positionStream.listen((position) {
-          if (duration != null && duration.inMilliseconds > 0) {
-            final progress = position.inMilliseconds / duration.inMilliseconds;
-            onProgress(progress.clamp(0.0, 1.0));
+      _positionSubscription = player.positionStream.listen((position) {
+        if (duration != null && duration.inMilliseconds > 0) {
+          final progress = position.inMilliseconds / duration.inMilliseconds;
+
+          // 调用进度回调
+          if (_onProgressCallback != null) {
+            _onProgressCallback!(progress);
           }
-        }, onError: (e) {
-          _logger.e('播放进度监听错误', error: e);
-        });
-      }
+
+          if (progress >= 1.0 && _onCompleteCallback != null) {
+            _onCompleteCallback!();
+          }
+        }
+      }, onError: (e) {
+        _logger.e('播放进度监听错误', error: e);
+      });
 
       // 开始播放
       _logger.i('开始播放音频');
@@ -178,8 +184,8 @@ class MediaService {
       _logger.e('播放音频失败', error: e);
       // 清理状态
       _isPlaying = false;
-      _onProgressCallback = null;
       _onCompleteCallback = null;
+      _onProgressCallback = null;
       await _clearPositionListener();
       rethrow;
     }
@@ -188,8 +194,8 @@ class MediaService {
   /// 从URL播放音频
   Future<void> playAudioFromUrl(
     String url, {
-    Function(double)? onProgress,
     VoidCallback? onComplete,
+    void Function(double)? onProgress,
   }) async {
     try {
       _logger.i('准备播放URL音频: $url');
@@ -198,8 +204,8 @@ class MediaService {
       await stopAudio();
 
       // 保存回调函数
-      _onProgressCallback = onProgress;
       _onCompleteCallback = onComplete;
+      _onProgressCallback = onProgress;
 
       // 获取播放器
       AudioPlayer player;
@@ -252,16 +258,22 @@ class MediaService {
       _logger.i('音频时长: ${duration?.inMilliseconds ?? "未知"}毫秒');
 
       // 设置进度监听器
-      if (onProgress != null) {
-        _positionSubscription = player.positionStream.listen((position) {
-          if (duration != null && duration.inMilliseconds > 0) {
-            final progress = position.inMilliseconds / duration.inMilliseconds;
-            onProgress(progress.clamp(0.0, 1.0));
+      _positionSubscription = player.positionStream.listen((position) {
+        if (duration != null && duration.inMilliseconds > 0) {
+          final progress = position.inMilliseconds / duration.inMilliseconds;
+
+          // 调用进度回调
+          if (_onProgressCallback != null) {
+            _onProgressCallback!(progress);
           }
-        }, onError: (e) {
-          _logger.e('播放进度监听错误', error: e);
-        });
-      }
+
+          if (progress >= 1.0 && _onCompleteCallback != null) {
+            _onCompleteCallback!();
+          }
+        }
+      }, onError: (e) {
+        _logger.e('播放进度监听错误', error: e);
+      });
 
       // 开始播放
       _logger.i('开始播放音频URL');
@@ -271,8 +283,8 @@ class MediaService {
       _logger.e('播放URL音频失败', error: e);
       // 清理状态
       _isPlaying = false;
-      _onProgressCallback = null;
       _onCompleteCallback = null;
+      _onProgressCallback = null;
       await _clearPositionListener();
       rethrow;
     }
@@ -317,8 +329,8 @@ class MediaService {
       _logger.i('停止音频播放');
 
       // 清理回调
-      _onProgressCallback = null;
       _onCompleteCallback = null;
+      _onProgressCallback = null;
 
       // 清理位置监听器
       await _clearPositionListener();
@@ -354,8 +366,8 @@ class MediaService {
       }
 
       // 清理回调
-      _onProgressCallback = null;
       _onCompleteCallback = null;
+      _onProgressCallback = null;
 
       // 如果有活动播放器，释放资源
       if (_audioPlayer != null && _isPlayerInitialized) {

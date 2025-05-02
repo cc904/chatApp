@@ -7,7 +7,7 @@ import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
+// import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'dart:developer' as dev;
 import 'dart:math' as math;
@@ -208,7 +208,7 @@ class FileUploadService {
 
       // 生成彩色渐变
       final Gradient gradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [
-        primaryColor.withOpacity(0.8),
+        primaryColor.withAlpha(204), // 0.8 * 255 = 204
         secondaryColor,
         tertiaryColor,
       ], stops: const [
@@ -251,7 +251,7 @@ class FileUploadService {
 
       // 添加网格图案增加视觉效果
       final Paint gridPaint = Paint()
-        ..color = Colors.white.withOpacity(0.1)
+        ..color = Colors.white.withAlpha(26) // 0.1 * 255 = 25.5 ≈ 26
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
 
@@ -266,7 +266,7 @@ class FileUploadService {
       // 添加视频图标
       const double iconSize = 80.0;
       final Paint iconCirclePaint = Paint()
-        ..color = Colors.white.withOpacity(0.2)
+        ..color = Colors.white.withAlpha(51) // 0.2 * 255 = 51
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(width / 2, height / 2), iconSize / 1.5, iconCirclePaint);
@@ -294,7 +294,7 @@ class FileUploadService {
           Shadow(
             offset: const Offset(1.0, 1.0),
             blurRadius: 3.0,
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withAlpha(128), // 0.5 * 255 = 127.5 ≈ 128
           ),
         ],
       );
@@ -314,7 +314,7 @@ class FileUploadService {
       final Rect textBgRect = Rect.fromLTWH(20, height - fileNamePainter.height - 40, fileNamePainter.width + 20, fileNamePainter.height + 10);
 
       final Paint textBgPaint = Paint()
-        ..color = Colors.black.withOpacity(0.5)
+        ..color = Colors.black.withAlpha(128) // 0.5 * 255 = 127.5 ≈ 128
         ..style = PaintingStyle.fill;
 
       canvas.drawRRect(RRect.fromRectAndRadius(textBgRect, const Radius.circular(5)), textBgPaint);
@@ -332,7 +332,7 @@ class FileUploadService {
             Shadow(
               offset: const Offset(1.0, 1.0),
               blurRadius: 2.0,
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withAlpha(128), // 0.5 * 255 = 127.5 ≈ 128
             ),
           ],
         );
@@ -406,7 +406,7 @@ class FileUploadService {
       // 添加一些几何图案作为装饰
       for (int i = 0; i < 5; i++) {
         final Paint decorPaint = Paint()
-          ..color = Colors.white.withOpacity(0.1)
+          ..color = Colors.white.withAlpha(26) // 0.1 * 255 = 25.5 ≈ 26
           ..style = PaintingStyle.fill;
 
         final double size = 80 + i * 40.0;
@@ -415,7 +415,7 @@ class FileUploadService {
 
       // 添加视频图标
       final Paint iconCirclePaint = Paint()
-        ..color = Colors.white.withOpacity(0.9)
+        ..color = Colors.white.withAlpha(230) // 0.9 * 255 = 229.5 ≈ 230
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(width / 2, height / 2), 40, iconCirclePaint);
@@ -442,7 +442,7 @@ class FileUploadService {
             Shadow(
               offset: const Offset(1, 1),
               blurRadius: 3,
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withAlpha(128), // 0.5 * 255 = 127.5 ≈ 128
             ),
           ],
         ),
@@ -470,7 +470,7 @@ class FileUploadService {
             Shadow(
               offset: const Offset(1, 1),
               blurRadius: 2,
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withAlpha(179), // 0.7 * 255 = 178.5 ≈ 179
             ),
           ],
         ),
@@ -490,7 +490,7 @@ class FileUploadService {
       final Rect nameBgRect = Rect.fromLTWH((width - namePainter.width) / 2 - 10, height - 40, namePainter.width + 20, namePainter.height + 8);
 
       final Paint nameBgPaint = Paint()
-        ..color = Colors.black.withOpacity(0.5)
+        ..color = Colors.black.withAlpha(128) // 0.5 * 255 = 127.5 ≈ 128
         ..style = PaintingStyle.fill;
 
       canvas.drawRRect(RRect.fromRectAndRadius(nameBgRect, const Radius.circular(4)), nameBgPaint);

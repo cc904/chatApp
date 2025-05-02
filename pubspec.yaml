@@ -41,6 +41,7 @@ dependencies:
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1 # 仅用于非web平台
   path_provider: ^2.1.2
+  path: ^1.8.3
   
   # 文件和媒体处理
   file_picker: ^6.1.1

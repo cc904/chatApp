@@ -6,6 +6,7 @@ import 'package:cc/core/database/models/message.dart';
 import 'dart:developer' as dev;
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
 
 /// 图片查看器组件
 class ImageViewerPage extends StatefulWidget {
@@ -56,7 +57,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.5),
+        backgroundColor: Colors.black.withAlpha(128),
         foregroundColor: Colors.white,
         title: const Text('图片查看'),
         leading: IconButton(
@@ -180,9 +181,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     } catch (e) {
       dev.log('分享图片失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败: $e')),
-        );
+        UINotificationService().showError('分享失败: $e');
       }
     } finally {
       if (mounted) {
@@ -207,16 +206,12 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('图片已保存')),
-        );
+        UINotificationService().showSuccess('图片已保存');
       }
     } catch (e) {
       dev.log('保存图片失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
-        );
+        UINotificationService().showError('保存失败: $e');
       }
     } finally {
       if (mounted) {
@@ -383,7 +378,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.5),
+        backgroundColor: Colors.black.withAlpha(128),
         foregroundColor: Colors.white,
         title: const Text('视频查看'),
         leading: IconButton(
@@ -460,9 +455,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
     } catch (e) {
       dev.log('分享视频失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败: $e')),
-        );
+        UINotificationService().showError('分享失败: $e');
       }
     } finally {
       if (mounted) {
@@ -484,16 +477,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('视频已保存')),
-        );
+        UINotificationService().showSuccess('视频已保存');
       }
     } catch (e) {
       dev.log('保存视频失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
-        );
+        UINotificationService().showError('保存失败: $e');
       }
     } finally {
       if (mounted) {
@@ -579,9 +568,7 @@ class MediaViewer {
     final mediaUrl = message.mediaUrl;
 
     if (localPath == null && mediaUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法查看：找不到媒体文件')),
-      );
+      UINotificationService().showError('无法查看：找不到媒体文件');
       return;
     }
 

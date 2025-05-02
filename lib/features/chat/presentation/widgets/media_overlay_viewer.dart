@@ -6,6 +6,7 @@ import 'dart:developer' as dev;
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
 
 /// 全屏媒体浮窗查看器组件
 /// 直接覆盖在当前页面上，无需导航到新页面
@@ -277,14 +278,19 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
 
   // 分享媒体
   Future<void> _shareMedia() async {
-    try {
-      setState(() => _isLoading = true);
+    if (_isLoading) return;
 
+    setState(() => _isLoading = true);
+
+    try {
       String? filePath;
       if (widget.localPath != null && File(widget.localPath!).existsSync()) {
         filePath = widget.localPath;
       } else if (widget.mediaUrl != null && widget.mediaUrl!.startsWith('file://')) {
-        filePath = widget.mediaUrl!.substring(7);
+        final file = File(widget.mediaUrl!.substring(7));
+        if (file.existsSync()) {
+          filePath = file.path;
+        }
       }
 
       if (filePath != null) {
@@ -293,18 +299,10 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
           text: '分享${widget.mediaType == MessageType.image ? '图片' : '视频'}',
         );
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法分享：找不到有效的文件')),
-          );
-        }
+        UINotificationService().showError('无法分享：找不到有效的文件');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败: $e')),
-        );
-      }
+      UINotificationService().showError('分享失败: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -336,13 +334,13 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         scale: _animation,
         child: PopScope(
           canPop: false,
-          onPopInvoked: (didPop) {
+          onPopInvokedWithResult: (didPop, result) {
             if (!didPop) {
               _closeViewer();
             }
           },
           child: Scaffold(
-            backgroundColor: Colors.black.withOpacity(0.9),
+            backgroundColor: Colors.black.withAlpha(230),
             body: SafeArea(
               child: Stack(
                 children: [
@@ -357,7 +355,7 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
                     left: 0,
                     right: 0,
                     child: Container(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withAlpha(128),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

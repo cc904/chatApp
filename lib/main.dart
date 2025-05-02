@@ -20,6 +20,7 @@ import 'core/database/models/message.dart';
 import 'features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'features/contacts/domain/repositories/contacts_repository.dart';
 import 'features/contacts/presentation/cubit/contacts_cubit.dart';
+import 'core/services/ui_notification_service.dart';
 
 void main() async {
   // 确保Flutter初始化完成
@@ -215,6 +216,8 @@ class MyApp extends StatelessWidget {
         ],
         child: MaterialApp(
           title: 'WhatsApp Clone',
+          // 使用UINotificationService的全局key
+          scaffoldMessengerKey: UINotificationService().scaffoldMessengerKey,
           theme: ThemeData(
             // 使用绿色作为主题色
             colorScheme: ColorScheme.fromSeed(

@@ -8,7 +8,6 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:logger/logger.dart';
 import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:developer' as dev;
 
 /// ChatRepository的实现类
@@ -288,7 +287,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  @override
   Future<void> markMessagesAsRead(String conversationId) async {
     try {
       await _isar.writeTxn(() async {
@@ -544,8 +542,6 @@ class ChatRepositoryImpl implements ChatRepository {
         await _isar.writeTxn(() async {
           if (isSuccess) {
             // 模拟服务器生成缩略图
-            final appDocDir = await getApplicationDocumentsDirectory();
-            final thumbnailPath = '${appDocDir.path}/media/thumbnails/server_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
             // 获取视频文件以模拟生成缩略图
             if (message.localPath != null) {
@@ -578,7 +574,6 @@ class ChatRepositoryImpl implements ChatRepository {
     });
   }
 
-  @override
   Future<Message> sendLocationMessage(
     String conversationId,
     double latitude,

@@ -59,6 +59,9 @@ abstract class ChatRepository {
   /// 删除会话和会话中的所有消息
   Future<void> deleteConversation(String conversationId);
 
+  /// 清空会话中的所有消息但保留会话
+  Future<void> clearConversationMessages(String conversationId);
+
   /// 监听会话列表变化
   Stream<void> watchConversations();
 

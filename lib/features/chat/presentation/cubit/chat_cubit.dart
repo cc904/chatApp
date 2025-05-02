@@ -469,6 +469,26 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 清空会话消息
+  Future<void> clearConversationMessages(String conversationId) async {
+    try {
+      _isSourceOfChange = true;
+      await _repository.clearConversationMessages(conversationId);
+
+      // 清空当前状态中的会话消息
+      emit(state.copyWithMessagesForConversation(conversationId, []));
+
+      // 重新加载会话列表，因为最后一条消息已被清空
+      await loadConversations();
+
+      _isSourceOfChange = false;
+    } catch (e) {
+      _logger.e('清空会话消息失败', error: e);
+      emit(state.copyWithError('清空会话消息失败: $e'));
+      _isSourceOfChange = false;
+    }
+  }
+
   /// 添加联系人
   Future<void> addContact(User user) async {
     try {

@@ -10,10 +10,11 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/file_upload_service.dart';
+import 'package:path/path.dart' as path;
 import 'package:cc/features/chat/presentation/widgets/media_overlay_viewer.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
-import 'package:flutter/rendering.dart';
+import 'package:cc/core/services/ui_notification_service.dart'; // 导入UI通知服务
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -139,9 +140,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       chatCubit.setCurrentConversation(widget.conversationId);
     } catch (e) {
       dev.log('加载会话失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载会话失败: $e')),
-      );
+      UINotificationService().showError('加载会话失败: $e');
     }
   }
 
@@ -251,7 +250,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           // 上传图片
           final uploadResult = await _fileUploadService.uploadImage(_selectedAttachment!);
           if (uploadResult == null) {
-            _showErrorMessage('图片上传失败');
+            UINotificationService().showError('图片上传失败');
             return;
           }
 
@@ -272,7 +271,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           // 上传文件
           final uploadResult = await _fileUploadService.uploadFile(_selectedAttachment!);
           if (uploadResult == null) {
-            _showErrorMessage('文件上传失败');
+            UINotificationService().showError('文件上传失败');
             return;
           }
 
@@ -292,7 +291,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           // 上传视频
           final uploadResult = await _fileUploadService.uploadVideo(_selectedAttachment!);
           if (uploadResult == null) {
-            _showErrorMessage('视频上传失败');
+            UINotificationService().showError('视频上传失败');
             return;
           }
 
@@ -324,7 +323,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           break;
 
         default:
-          _showErrorMessage('不支持的附件类型');
+          UINotificationService().showError('不支持的附件类型');
           return;
       }
 
@@ -356,7 +355,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       }
     } catch (e) {
       if (mounted) {
-        _showErrorMessage('发送附件失败: $e');
+        UINotificationService().showError('发送附件失败: $e');
       }
     }
   }
@@ -405,7 +404,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 if (conversation.type == ConversationType.private)
                   Text(
                     '在线', // 这里可以显示对方的状态
-                    style: TextStyle(fontSize: 12, color: Colors.white.withAlpha(204)),
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 204)),
                   ),
               ],
             ),
@@ -547,14 +546,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 26),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   _formatMessageTime(message.createdAt),
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 179),
                   ),
                 ),
               ),
@@ -855,8 +854,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   // 构建视频气泡
   Widget _buildVideoBubble(Message message, bool isMe) {
-    final localPath = message.localPath;
-    final mediaUrl = message.mediaUrl;
     final thumbnailUrl = message.thumbnailUrl;
     final duration = message.duration;
 
@@ -1223,11 +1220,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
     // 检查是否有有效路径
     if (localPath == null && mediaUrl == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开：找不到文件')),
-        );
-      }
+      UINotificationService().showError('无法打开：找不到文件');
       return;
     }
 
@@ -1247,7 +1240,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         // 提前获取需要的实例和变量，避免后续使用BuildContext
         final senderId = message.senderId;
         final chatCubit = context.read<ChatCubit>();
-        final currentContext = context;
 
         final bool fileExists = await file.exists();
         if (!mounted) return;
@@ -1259,61 +1251,49 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           // 特定类型使用特定查看器
           if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension)) {
             // 图片使用图片查看器
-            MediaOverlayViewer.show(
-              currentContext,
-              imagePath: effectivePath,
-              mediaUrl: mediaUrl,
-              onDelete: senderId == '1'
-                  ? () {
-                      chatCubit.deleteMessage(message.messageId);
-                    }
-                  : null,
-            );
+            if (mounted) {
+              MediaOverlayViewer.show(
+                context,
+                imagePath: effectivePath,
+                mediaUrl: mediaUrl,
+                onDelete: senderId == '1'
+                    ? () {
+                        chatCubit.deleteMessage(message.messageId);
+                      }
+                    : null,
+              );
+            }
           } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension)) {
             // 视频使用视频查看器
-            MediaOverlayViewer.show(
-              currentContext,
-              videoPath: effectivePath,
-              mediaUrl: mediaUrl,
-              onDelete: senderId == '1'
-                  ? () {
-                      chatCubit.deleteMessage(message.messageId);
-                    }
-                  : null,
-            );
+            if (mounted) {
+              MediaOverlayViewer.show(
+                context,
+                videoPath: effectivePath,
+                mediaUrl: mediaUrl,
+                onDelete: senderId == '1'
+                    ? () {
+                        chatCubit.deleteMessage(message.messageId);
+                      }
+                    : null,
+              );
+            }
           } else {
             // 其他文件尝试使用系统打开
             // 实际项目中，可以使用open_file或url_launcher等插件
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('尝试打开文件: $effectivePath')),
-              );
-            }
+            UINotificationService().showMessage('尝试打开文件: $effectivePath');
             dev.log('打开文件: $effectivePath');
           }
         } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('文件不存在')),
-            );
-          }
+          UINotificationService().showError('文件不存在');
         }
       } else if (mediaUrl != null) {
         // 处理网络文件
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('正在打开网络文件: $mediaUrl')),
-          );
-        }
+        UINotificationService().showMessage('正在打开网络文件: $mediaUrl');
         dev.log('打开网络文件: $mediaUrl');
       }
     } catch (e) {
       dev.log('打开文件失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开文件失败: $e')),
-        );
-      }
+      UINotificationService().showError('打开文件失败: $e');
     }
   }
 
@@ -1334,7 +1314,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(26),
+              color: Colors.black.withValues(alpha: 26),
               blurRadius: 4,
               offset: const Offset(0, -1),
             ),
@@ -1605,13 +1585,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         duration: const Duration(milliseconds: 200),
         height: 48,
         decoration: BoxDecoration(
-          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.1)) : Colors.grey[200],
+          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withValues(alpha: 51) : Colors.green.withValues(alpha: 26)) : Colors.grey[200],
           borderRadius: BorderRadius.circular(24),
-          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.green.withValues(alpha: 0.5), width: _isCancellingRecord ? 2.0 : 1.5) : null,
+          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.green.withValues(alpha: 128), width: _isCancellingRecord ? 2.0 : 1.5) : null,
           boxShadow: _isRecordingAudio
               ? [
                   BoxShadow(
-                    color: _isCancellingRecord ? Colors.red.withValues(alpha: 0.4) : Colors.green.withValues(alpha: 0.3),
+                    color: _isCancellingRecord ? Colors.red.withValues(alpha: 102) : Colors.green.withValues(alpha: 77),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -1857,28 +1837,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   // 显示删除确认对话框
   void _showDeleteConfirmation(BuildContext context) {
+    final conversationId = widget.conversationId;
+    final chatCubit = context.read<ChatCubit>();
+
+    AlertDialog dialog = AlertDialog(
+      title: const Text('清空聊天记录'),
+      content: const Text('确定要清空聊天记录吗？此操作不可恢复。'),
+      actions: [
+        TextButton(
+          child: const Text('取消'),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        TextButton(
+          child: const Text('清空', style: TextStyle(color: Colors.red)),
+          onPressed: () {
+            Navigator.pop(context);
+            dev.log('清空聊天记录');
+            // 实现清空聊天记录功能
+            chatCubit.clearConversationMessages(conversationId);
+            UINotificationService().showSuccess('聊天记录已清空');
+          },
+        ),
+      ],
+    );
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('清空聊天记录'),
-        content: const Text('确定要清空聊天记录吗？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            child: const Text('取消'),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          TextButton(
-            child: const Text('清空', style: TextStyle(color: Colors.red)),
-            onPressed: () {
-              Navigator.pop(context);
-              dev.log('清空聊天记录');
-              // TODO: 实现清空聊天记录功能
-            },
-          ),
-        ],
-      ),
+      builder: (context) => dialog,
     );
   }
 
@@ -2030,7 +2017,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: _isRecordingVoice ? Colors.red.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                  color: _isRecordingVoice ? Colors.red.withValues(alpha: 26) : Colors.grey.withValues(alpha: 26),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -2074,6 +2061,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               onPressed: () async {
                 if (!_isRecordingVoice) {
                   // 开始录音
+                  final navigator = Navigator.of(context); // 提前获取navigator引用
                   final success = await _mediaService.startRecording();
                   if (!mounted) return;
 
@@ -2093,16 +2081,21 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                       });
                     });
                   } else {
-                    _showErrorMessage('无法开始录音');
-                    if (mounted) {
-                      Navigator.of(context).pop(false);
-                    }
+                    UINotificationService().showError('无法开始录音');
+                    if (!mounted) return;
+
+                    navigator.pop(false); // 使用提前获取的navigator
                     return;
                   }
                 } else {
                   // 停止录音并处理录音结果
                   _recordingTimer?.cancel();
                   _recordingTimer = null;
+
+                  // 提前获取需要的引用
+                  final navigator = Navigator.of(context);
+                  final chatCubit = context.read<ChatCubit>();
+                  final conversationId = widget.conversationId;
 
                   final result = await _mediaService.stopRecording();
                   if (!mounted) return;
@@ -2112,14 +2105,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                   });
 
                   if (result == null) {
-                    if (mounted) {
-                      Navigator.of(context).pop(false);
-                    }
+                    if (!mounted) return;
+
+                    navigator.pop(false); // 使用提前获取的navigator
                     return;
                   }
-
-                  // 获取ChatCubit实例
-                  final chatCubit = context.read<ChatCubit>();
 
                   // 上传语音文件
                   final uploadResult = await _fileUploadService.uploadVoice(
@@ -2130,32 +2120,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                   if (!mounted) return;
 
                   if (uploadResult == null) {
-                    _showErrorMessage('语音上传失败');
-                    Navigator.of(context).pop(false);
+                    UINotificationService().showError('语音上传失败');
+                    if (!mounted) return;
+
+                    navigator.pop(false); // 使用提前获取的navigator
                     return;
                   }
 
                   // 发送语音消息
-                  if (mounted) {
-                    await chatCubit.sendVoiceMessage(
-                      widget.conversationId,
-                      uploadResult.localPath,
-                      uploadResult.duration ?? 0,
-                      mediaUrl: uploadResult.remoteUrl,
-                    );
+                  await chatCubit.sendVoiceMessage(
+                    conversationId,
+                    uploadResult.localPath,
+                    uploadResult.duration ?? 0,
+                    mediaUrl: uploadResult.remoteUrl,
+                  );
 
-                    // 隐藏处理中提示
+                  if (!mounted) return;
+
+                  // 隐藏处理中提示
+                  UINotificationService().hideCurrentMessage();
+
+                  // 关闭对话框，返回true表示成功
+                  navigator.pop(true);
+
+                  // 滚动到底部
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      _scrollToBottom();
                     }
-
-                    // 滚动到底部
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        _scrollToBottom();
-                      }
-                    });
-                  }
+                  });
                 }
               },
               child: Text(_isRecordingVoice ? '停止' : '开始'),
@@ -2172,7 +2165,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.2),
+        color: Colors.red.withValues(alpha: 51),
         shape: BoxShape.circle,
       ),
       child: Center(
@@ -2180,7 +2173,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.3),
+            color: Colors.red.withValues(alpha: 77),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -2203,18 +2196,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     );
   }
 
-  // 显示错误消息
-  void _showErrorMessage(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   // 播放语音消息
   Future<void> _playVoiceMessage(Message message) async {
     final localPath = message.localPath;
@@ -2222,11 +2203,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     final messageId = message.messageId;
 
     if (localPath == null && mediaUrl == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法播放：找不到语音文件')),
-        );
-      }
+      UINotificationService().showError('无法播放：找不到语音文件');
       return;
     }
 
@@ -2339,12 +2316,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       }
     } catch (e) {
       dev.log('播放语音失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放语音失败: $e')),
-        );
+      UINotificationService().showError('播放语音失败: $e');
 
-        // 确保状态被重置
+      // 确保状态被重置
+      if (mounted) {
         setState(() {
           _isPlayingVoiceMessage = false;
           _currentPlayingVoiceId = null;
@@ -2389,9 +2364,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       }
     } catch (e) {
       dev.log('处理消息点击失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('打开媒体失败: $e')),
-      );
+      UINotificationService().showError('打开媒体失败: $e');
     }
   }
 
@@ -2404,6 +2377,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       final bool isCurrentUserSender = message.senderId == '1'; // 假设'1'是当前用户ID
 
       // 使用弹出浮窗方式查看图片
+      if (!mounted) return;
+
       MediaOverlayViewer.show(
         context,
         imagePath: localPath,
@@ -2412,9 +2387,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       );
     } catch (e) {
       dev.log('打开图片消息失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('无法打开图片: $e')),
-      );
+      UINotificationService().showError('无法打开图片: $e');
     }
   }
 
@@ -2427,6 +2400,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       final bool isCurrentUserSender = message.senderId == '1'; // 假设'1'是当前用户ID
 
       // 使用弹出浮窗方式查看视频
+      if (!mounted) return;
+
       MediaOverlayViewer.show(
         context,
         videoPath: localPath,
@@ -2435,9 +2410,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       );
     } catch (e) {
       dev.log('打开视频消息失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('无法打开视频: $e')),
-      );
+      UINotificationService().showError('无法打开视频: $e');
     }
   }
 
@@ -2448,9 +2421,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       chatCubit.deleteMessage(messageId);
     } catch (e) {
       dev.log('删除消息失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除消息失败: $e')),
-      );
+      UINotificationService().showError('删除消息失败: $e');
     }
   }
 
@@ -2472,11 +2443,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       });
 
       // 显示录音开始提示
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('录音已开始'),
-        duration: Duration(milliseconds: 500),
-        backgroundColor: Colors.green,
-      ));
+      UINotificationService().showSuccess('录音已开始', duration: const Duration(milliseconds: 500));
 
       setState(() {
         _isRecordingAudio = true;
@@ -2488,7 +2455,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       _waveformController.reset();
       _waveformController.repeat();
     } else {
-      _showErrorMessage('无法开始录音');
+      UINotificationService().showError('无法开始录音');
     }
   }
 
@@ -2513,35 +2480,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     if (!send) {
       // 取消录音
       _mediaService.stopRecording();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('录音已取消'),
-          backgroundColor: Colors.orange,
-        ));
-      }
+      // 使用通知服务，不需要检查mounted
+      UINotificationService().showWarning('录音已取消');
       return;
     }
 
     // 显示处理中提示
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                )),
-            SizedBox(width: 10),
-            Text('正在处理语音消息...'),
-          ],
-        ),
-        duration: Duration(seconds: 2),
-        backgroundColor: Colors.blue,
-      ));
-    }
+    UINotificationService().showProcessing('正在处理语音消息...');
 
     // 计算录音时长
     final now = DateTime.now();
@@ -2550,26 +2495,22 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     // 如果录音时间太短（小于1.5秒），显示提示
     if (recordDuration < 1500) {
       _mediaService.stopRecording();
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('录音时间太短，请至少录制1.5秒'),
-          backgroundColor: Colors.red,
-        ));
-      }
+      UINotificationService().hideCurrentMessage();
+      UINotificationService().showError('录音时间太短，请至少录制1.5秒');
       return;
     }
 
     // 提前获取ChatCubit实例
     final chatCubit = context.read<ChatCubit>();
+    final conversationId = widget.conversationId;
 
     // 停止录音并获取结果
     final result = await _mediaService.stopRecording();
     if (!mounted) return;
 
     if (result == null) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showErrorMessage('录音失败');
+      UINotificationService().hideCurrentMessage();
+      UINotificationService().showError('录音失败');
       return;
     }
 
@@ -2581,14 +2522,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     if (!mounted) return;
 
     if (uploadResult == null) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showErrorMessage('语音上传失败');
+      UINotificationService().hideCurrentMessage();
+      UINotificationService().showError('语音上传失败');
       return;
     }
 
     // 发送语音消息
     await chatCubit.sendVoiceMessage(
-      widget.conversationId,
+      conversationId,
       uploadResult.localPath,
       uploadResult.duration ?? 0,
       mediaUrl: uploadResult.remoteUrl,
@@ -2596,7 +2537,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     if (!mounted) return;
 
     // 隐藏处理中提示
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    UINotificationService().hideCurrentMessage();
 
     // 滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {
