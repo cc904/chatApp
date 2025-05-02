@@ -11,6 +11,7 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:intl/intl.dart';
 import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
+import 'package:cc/features/chat/presentation/widgets/media_overlay_viewer.dart';
 import 'package:video_player/video_player.dart';
 
 class ChatDetailPage extends StatefulWidget {
@@ -504,9 +505,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                       style: const TextStyle(fontSize: 16),
                     )
                   else if (message.type == MessageType.image)
-                    _buildImageMessage(message)
+                    _buildImageBubble(message, isFromMe)
                   else if (message.type == MessageType.video)
-                    _buildVideoMessage(message)
+                    _buildVideoBubble(message, isFromMe)
                   else if (message.type == MessageType.voice)
                     _buildVoiceMessage(message)
                   else if (message.type == MessageType.file)
@@ -567,405 +568,297 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 
-  // 构建图片消息
-  Widget _buildImageMessage(Message message) {
-    // 打印图片消息信息，便于调试
-    dev.log('图片消息路径信息: localPath=${message.localPath}, mediaUrl=${message.mediaUrl}');
+  // 构建图片气泡
+  Widget _buildImageBubble(Message message, bool isMe) {
+    final localPath = message.localPath;
+    final mediaUrl = message.mediaUrl;
 
-    // 优先使用本地路径
-    if (message.localPath != null && message.localPath!.isNotEmpty) {
-      return GestureDetector(
-        onTap: () {
-          MediaViewer.openImage(
-            context,
-            imagePath: message.localPath!,
-            mediaUrl: message.mediaUrl,
-          );
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.file(
-            File(message.localPath!),
-            width: 200,
-            height: 150,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              dev.log('本地图片加载失败: $error, 尝试加载mediaUrl');
-              return _buildImageFromMediaUrl(message.mediaUrl);
-            },
+    // 图片已有缓存或已本地保存
+    if (localPath != null && File(localPath).existsSync()) {
+      final imageFile = File(localPath);
+
+      return Container(
+        constraints: const BoxConstraints(
+          maxWidth: 220,
+          maxHeight: 300,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: GestureDetector(
+          onTap: () => _handleMessageTap(message),
+          child: Hero(
+            tag: 'image_${message.messageId}',
+            child: Image.file(
+              imageFile,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                dev.log('图片加载失败: $error');
+                return Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                );
+              },
+            ),
           ),
         ),
       );
     }
 
-    // 尝试使用mediaUrl
-    return _buildImageFromMediaUrl(message.mediaUrl);
-  }
+    // 仅有远程URL
+    if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      final filePath = mediaUrl.startsWith('file://') ? mediaUrl.substring(7) : '';
+      final fileExists = filePath.isNotEmpty && File(filePath).existsSync();
 
-  // 从mediaUrl构建图片
-  Widget _buildImageFromMediaUrl(String? mediaUrl) {
-    if (mediaUrl == null || mediaUrl.isEmpty) {
-      return _buildImageErrorPlaceholder();
-    }
+      // 本地文件存在
+      if (fileExists) {
+        final imageFile = File(filePath);
 
-    // 处理file://协议的URL
-    if (mediaUrl.startsWith('file://')) {
-      final filePath = mediaUrl.substring(7); // 去除file://前缀
-      dev.log('从file://URL加载本地图片: $filePath');
-
-      return GestureDetector(
-        onTap: () {
-          MediaViewer.openImage(
-            context,
-            imagePath: filePath,
-            mediaUrl: mediaUrl,
-          );
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.file(
-            File(filePath),
-            width: 200,
-            height: 150,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              dev.log('file://URL图片加载失败: $error, 路径: $filePath');
-              return _buildImageErrorPlaceholder();
-            },
+        return Container(
+          constraints: const BoxConstraints(
+            maxWidth: 220,
+            maxHeight: 300,
           ),
-        ),
-      );
-    }
-
-    // 处理网络URL
-    return GestureDetector(
-      onTap: () {
-        MediaViewer.openImage(
-          context,
-          imagePath: "",
-          mediaUrl: mediaUrl,
-        );
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          mediaUrl,
-          width: 200,
-          height: 150,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            dev.log('网络图片加载失败: $error');
-            return _buildImageErrorPlaceholder();
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              width: 200,
-              height: 150,
-              color: Colors.grey[200],
-              child: Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
-                  color: Colors.green,
-                ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: GestureDetector(
+            onTap: () => _handleMessageTap(message),
+            child: Hero(
+              tag: 'image_${message.messageId}',
+              child: Image.file(
+                imageFile,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  dev.log('图片加载失败: $error');
+                  return Container(
+                    width: 200,
+                    height: 200,
+                    color: Colors.grey.shade300,
+                    child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+            ),
+          ),
+        );
+      }
 
-  // 图片加载失败的占位符
-  Widget _buildImageErrorPlaceholder() {
+      // 网络URL
+      return Container(
+        constraints: const BoxConstraints(
+          maxWidth: 220,
+          maxHeight: 300,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: GestureDetector(
+          onTap: () => _handleMessageTap(message),
+          child: Hero(
+            tag: 'image_${message.messageId}',
+            child: Image.network(
+              mediaUrl,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.grey.shade200,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 没有可用图片
     return Container(
       width: 200,
-      height: 150,
-      color: Colors.grey[300],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.broken_image, color: Colors.grey, size: 48),
-          const SizedBox(height: 8),
-          Text(
-            '图片加载失败',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
-          ),
-        ],
+      height: 200,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.grey.shade300,
+      ),
+      child: GestureDetector(
+        onTap: () => _handleMessageTap(message),
+        child: const Center(
+          child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+        ),
       ),
     );
   }
 
-  // 构建视频消息
-  Widget _buildVideoMessage(Message message) {
-    // 打印视频消息信息，便于调试
-    dev.log('视频消息路径信息: localPath=${message.localPath}, mediaUrl=${message.mediaUrl}, thumbnailUrl=${message.thumbnailUrl}, status=${message.status}');
+  // 构建视频气泡
+  Widget _buildVideoBubble(Message message, bool isMe) {
+    final localPath = message.localPath;
+    final mediaUrl = message.mediaUrl;
+    final thumbnailUrl = message.thumbnailUrl;
+    final duration = message.duration;
 
-    // 视频缩略图容器
-    return GestureDetector(
-      onTap: () {
-        // 如果视频正在处理中，不允许播放
-        if (message.status == 'processing') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('视频缩略图正在处理中，请稍后再试')),
+    Widget thumbnailWidget = Container(
+      width: 200,
+      height: 150,
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white),
+      ),
+    );
+
+    // 如果有缩略图
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      // 检查是否是本地文件URL
+      if (thumbnailUrl.startsWith('file://')) {
+        final file = File(thumbnailUrl.substring(7));
+        if (file.existsSync()) {
+          thumbnailWidget = Stack(
+            alignment: Alignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  file,
+                  width: 200,
+                  height: 150,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.black38,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
+              ),
+              if (duration != null && duration > 0)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _formatDuration(duration),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+            ],
           );
-          return;
         }
-
-        final localPath = message.localPath;
-        final mediaUrl = message.mediaUrl;
-
-        if (localPath == null && mediaUrl == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法播放：找不到视频文件')),
-          );
-          return;
-        }
-
-        // 使用工厂方法打开视频查看器
-        MediaViewer.openVideo(
-          context,
-          videoPath: localPath ?? "",
-          mediaUrl: mediaUrl,
-        );
-      },
-      child: Container(
-        width: 200,
-        height: 150,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
+      } else {
+        // 网络缩略图
+        thumbnailWidget = Stack(
           alignment: Alignment.center,
           children: [
-            // 根据消息状态显示不同的缩略图
-            if (message.status == 'processing')
-              _buildProcessingThumbnail()
-            else if (message.thumbnailUrl != null && message.thumbnailUrl!.isNotEmpty)
-              _buildVideoThumbnail(message.thumbnailUrl!)
-            else if (message.status == 'thumbnail_failed')
-              _buildThumbnailFailedPlaceholder()
-            else
-              _buildVideoPlaceholder(message),
-
-            // 播放按钮
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                color: Colors.white,
-                size: 32,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                thumbnailUrl,
+                width: 200,
+                height: 150,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    width: 200,
+                    height: 150,
+                    color: Colors.black,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 200,
+                    height: 150,
+                    color: Colors.black,
+                    child: const Center(
+                      child: Icon(Icons.error_outline, size: 48, color: Colors.white),
+                    ),
+                  );
+                },
               ),
             ),
-
-            // 视频时长
-            if (message.duration != null)
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.black38,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
+            ),
+            if (duration != null && duration > 0)
               Positioned(
                 bottom: 8,
                 right: 8,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black54,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    _formatDuration(message.duration!),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
+                    _formatDuration(duration),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // 构建处理中状态的缩略图
-  Widget _buildProcessingThumbnail() {
-    return Container(
-      width: 200,
-      height: 150,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(
-            width: 40,
-            height: 40,
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              strokeWidth: 3,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "服务器处理中...",
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          )
-        ],
-      ),
-    );
-  }
-
-  // 构建缩略图处理失败的占位图
-  Widget _buildThumbnailFailedPlaceholder() {
-    return Container(
-      width: 200,
-      height: 150,
-      decoration: BoxDecoration(
-        color: Colors.red.shade800,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.white,
-            size: 40,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "缩略图处理失败",
-            style: TextStyle(color: Colors.white, fontSize: 12),
-          )
-        ],
-      ),
-    );
-  }
-
-  // 构建视频缩略图
-  Widget _buildVideoThumbnail(String thumbnailUrl) {
-    // 处理file://协议的URL
-    if (thumbnailUrl.startsWith('file://')) {
-      final filePath = thumbnailUrl.substring(7); // 去除file://前缀
-      dev.log('从file://URL加载本地视频缩略图: $filePath');
-
-      // 检查文件是否存在
-      if (!File(filePath).existsSync()) {
-        dev.log('本地视频缩略图文件不存在: $filePath');
-        return _buildDefaultVideoThumbnail();
+        );
       }
-
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          File(filePath),
-          width: 200,
-          height: 150,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            dev.log('本地视频缩略图加载失败: $error');
-            return _buildDefaultVideoThumbnail();
-          },
-        ),
-      );
-    } else {
-      // 处理网络URL
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          thumbnailUrl,
-          width: 200,
-          height: 150,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            dev.log('网络视频缩略图加载失败: $error');
-            return _buildDefaultVideoThumbnail();
-          },
-        ),
-      );
     }
-  }
 
-  // 构建默认视频缩略图
-  Widget _buildDefaultVideoThumbnail() {
     return Container(
-      width: 200,
-      height: 150,
       decoration: BoxDecoration(
-        color: Colors.blue.shade800,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
       ),
-      child: const Center(
-        child: Icon(
-          Icons.videocam,
-          color: Colors.white,
-          size: 48,
+      clipBehavior: Clip.antiAlias,
+      child: GestureDetector(
+        onTap: () => _handleMessageTap(message),
+        child: Hero(
+          tag: 'video_${message.messageId}',
+          child: thumbnailWidget,
         ),
       ),
     );
-  }
-
-  // 构建视频占位符，使用视频名称
-  Widget _buildVideoPlaceholder(Message message) {
-    final String fileName = _extractFileNameFromPath(message.localPath ?? message.mediaUrl ?? "未知视频");
-
-    return Container(
-      width: 200,
-      height: 150,
-      decoration: BoxDecoration(
-        color: Colors.blue.shade800,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.videocam,
-            color: Colors.white,
-            size: 48,
-          ),
-          const SizedBox(height: 8),
-          if (fileName.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(
-                fileName.length > 20 ? '${fileName.substring(0, 17)}...' : fileName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // 从路径中提取文件名
-  String _extractFileNameFromPath(String path) {
-    if (path.isEmpty) return "";
-
-    try {
-      if (path.startsWith('file://')) {
-        path = path.substring(7);
-      }
-
-      return path.split('/').last;
-    } catch (e) {
-      dev.log('提取文件名失败: $e');
-      return path;
-    }
   }
 
   // 构建语音消息
@@ -1162,17 +1055,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           // 特定类型使用特定查看器
           if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension)) {
             // 图片使用图片查看器
-            MediaViewer.openImage(
+            MediaOverlayViewer.show(
               context,
               imagePath: effectivePath,
               mediaUrl: mediaUrl,
+              onDelete: message.senderId == '1'
+                  ? () {
+                      context.read<ChatCubit>().deleteMessage(message.messageId);
+                    }
+                  : null,
             );
           } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension)) {
             // 视频使用视频查看器
-            MediaViewer.openVideo(
+            MediaOverlayViewer.show(
               context,
               videoPath: effectivePath,
               mediaUrl: mediaUrl,
+              onDelete: message.senderId == '1'
+                  ? () {
+                      context.read<ChatCubit>().deleteMessage(message.messageId);
+                    }
+                  : null,
             );
           } else {
             // 其他文件尝试使用系统打开
@@ -1965,10 +1868,61 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   // 格式化视频时长
-  String _formatDuration(int milliseconds) {
-    final duration = Duration(milliseconds: milliseconds);
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+  String _formatDuration(int? seconds) {
+    if (seconds == null || seconds <= 0) {
+      return '00:00';
+    }
+
+    final minutes = (seconds / 60).floor();
+    final remainingSeconds = seconds % 60;
+
+    final minutesStr = minutes.toString().padLeft(2, '0');
+    final secondsStr = remainingSeconds.toString().padLeft(2, '0');
+
+    return '$minutesStr:$secondsStr';
+  }
+
+  // 处理消息点击
+  void _handleMessageTap(Message message) {
+    // 根据消息类型处理点击事件
+    switch (message.type) {
+      case MessageType.image:
+        // 显示图片查看器
+        if (message.localPath != null || message.mediaUrl != null) {
+          MediaOverlayViewer.show(
+            context,
+            imagePath: message.localPath,
+            mediaUrl: message.mediaUrl,
+            onDelete: message.senderId == '1'
+                ? () {
+                    context.read<ChatCubit>().deleteMessage(message.messageId);
+                  }
+                : null,
+          );
+        }
+        break;
+      case MessageType.video:
+        // 显示视频查看器
+        if (message.localPath != null || message.mediaUrl != null) {
+          MediaOverlayViewer.show(
+            context,
+            videoPath: message.localPath,
+            mediaUrl: message.mediaUrl,
+            onDelete: message.senderId == '1'
+                ? () {
+                    context.read<ChatCubit>().deleteMessage(message.messageId);
+                  }
+                : null,
+          );
+        }
+        break;
+      case MessageType.file:
+        // 打开文件查看器
+        _openFile(message);
+        break;
+      default:
+        // 其他类型消息不做特殊处理
+        break;
+    }
   }
 }
