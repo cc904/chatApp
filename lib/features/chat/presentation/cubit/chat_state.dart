@@ -116,6 +116,51 @@ class ChatState extends Equatable {
     );
   }
 
+  /// 复制状态，并将新的消息添加到指定会话的现有消息列表中
+  ChatState copyWithAdditionalMessagesForConversation(String conversationId, List<Message> additionalMessages) {
+    final newMessagesByConversation = Map<String, List<Message>>.from(messagesByConversation);
+
+    // 获取现有消息
+    final existingMessages = newMessagesByConversation[conversationId] ?? [];
+
+    // 合并消息并去重
+    final allMessageIds = <String>{};
+    final mergedMessages = <Message>[];
+
+    // 添加现有消息
+    for (final message in existingMessages) {
+      if (!allMessageIds.contains(message.id.toString())) {
+        allMessageIds.add(message.id.toString());
+        mergedMessages.add(message);
+      }
+    }
+
+    // 添加新消息，确保不重复
+    for (final message in additionalMessages) {
+      if (!allMessageIds.contains(message.id.toString())) {
+        allMessageIds.add(message.id.toString());
+        mergedMessages.add(message);
+      }
+    }
+
+    // 按时间排序
+    mergedMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // 更新消息列表
+    newMessagesByConversation[conversationId] = mergedMessages;
+
+    return ChatState(
+      conversations: conversations,
+      contacts: contacts,
+      messagesByConversation: newMessagesByConversation,
+      currentConversationId: currentConversationId,
+      isLoading: isLoading,
+      error: error,
+      searchQuery: searchQuery,
+      searchResults: searchResults,
+    );
+  }
+
   @override
   List<Object?> get props => [
         conversations,

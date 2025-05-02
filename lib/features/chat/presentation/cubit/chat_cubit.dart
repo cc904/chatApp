@@ -20,6 +20,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   // 标记是否正在加载，避免重复加载
   bool _isLoadingConversations = false;
+  // ignore: prefer_final_fields
   Map<String, bool> _isLoadingMessages = {};
 
   // 标记数据变更的来源
@@ -130,8 +131,14 @@ class ChatCubit extends Cubit<ChatState> {
         before: before,
       );
 
-      // 更新状态
-      emit(state.copyWithMessagesForConversation(conversationId, messages));
+      // 更新状态 - 处理新加载的消息
+      if (before != null) {
+        // 加载更多历史消息，合并到现有消息列表
+        emit(state.copyWithAdditionalMessagesForConversation(conversationId, messages));
+      } else {
+        // 初始加载消息，替换现有消息列表
+        emit(state.copyWithMessagesForConversation(conversationId, messages));
+      }
 
       // 如果是当前会话，标记为已读
       if (state.currentConversationId == conversationId) {

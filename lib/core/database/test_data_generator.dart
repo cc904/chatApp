@@ -275,7 +275,7 @@ class TestDataGenerator {
           break;
         case MessageType.voice:
           message.duration = 10 + (i % 50); // 10-60秒的语音
-          message.mediaUrl = 'https://example.com/voice_${i}.mp3';
+          message.mediaUrl = 'https://example.com/voice_$i.mp3';
           break;
         default:
           message.text = '未知类型消息';

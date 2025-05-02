@@ -109,8 +109,9 @@ class _ChatTestPageState extends State<ChatTestPage> with AutomaticKeepAliveClie
                 if (previous.error != current.error) return true;
                 if (_isSearching && previous.searchResults != current.searchResults) return true;
                 if (previous.conversations != current.conversations) return true;
-                if (_currentConversationId.isNotEmpty && previous.messagesByConversation[_currentConversationId] != current.messagesByConversation[_currentConversationId])
+                if (_currentConversationId.isNotEmpty && previous.messagesByConversation[_currentConversationId] != current.messagesByConversation[_currentConversationId]) {
                   return true;
+                }
                 return false;
               },
               builder: (context, state) {

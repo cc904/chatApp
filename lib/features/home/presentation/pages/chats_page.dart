@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
 
@@ -452,6 +453,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 leading: CircleAvatar(
                   backgroundImage: _getAvatarImage(avatarUrl),
                   backgroundColor: Colors.green[100],
+                  radius: 24,
                   child: avatarUrl.isEmpty || avatarUrl.startsWith('https://picsum.photos')
                       ? Text(
                           conversation.avatarText,
@@ -461,7 +463,6 @@ class _ChatsPageState extends State<ChatsPage> {
                           ),
                         )
                       : null,
-                  radius: 24,
                 ),
                 title: Text(
                   name,
@@ -526,7 +527,13 @@ class _ChatsPageState extends State<ChatsPage> {
                     // 打开聊天详情页
                     dev.log('打开聊天: $name (ID: $id)');
                     context.read<ChatCubit>().setCurrentConversation(id);
-                    // TODO: 导航到聊天详情页
+
+                    // 导航到聊天详情页
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ChatDetailPage(conversationId: id),
+                      ),
+                    );
                   }
                 },
               ),

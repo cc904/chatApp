@@ -202,22 +202,24 @@ class _ContactsPageState extends State<ContactsPage> {
 
   Widget _buildContactItem({required User contact}) {
     // 决定子标题显示电话还是状态
-    final subtitle = contact.phone != null && contact.phone!.isNotEmpty ? '+86 ${contact.phone}' : '状态: ${contact.status ?? '离线'}';
+    final phone = contact.phone ?? '';
+    final subtitle = phone.isNotEmpty ? '+86 $phone' : '状态: ${contact.status ?? '离线'}';
 
     // 获取头像URL或使用默认头像
-    final hasAvatar = contact.avatar != null && contact.avatar!.isNotEmpty;
+    final avatar = contact.avatar ?? '';
+    final hasAvatar = avatar.isNotEmpty;
 
     return ListTile(
       leading: CircleAvatar(
         backgroundImage: hasAvatar ? NetworkImage(contact.avatar!) : null,
         backgroundColor: hasAvatar ? null : Colors.green[100],
+        radius: 24,
         child: hasAvatar
             ? null
             : Text(
                 contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
               ),
-        radius: 24,
       ),
       title: Text(
         contact.name,
