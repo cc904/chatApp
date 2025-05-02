@@ -15,6 +15,7 @@ import 'package:cc/features/chat/presentation/widgets/media_overlay_viewer.dart'
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'package:cc/core/services/ui_notification_service.dart'; // 导入UI通知服务
+import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -404,7 +405,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 if (conversation.type == ConversationType.private)
                   Text(
                     '在线', // 这里可以显示对方的状态
-                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 204)),
+                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8)),
                   ),
               ],
             ),
@@ -412,19 +413,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
             foregroundColor: Colors.white,
             actions: [
               IconButton(
-                icon: const Icon(Icons.videocam),
-                onPressed: () {
-                  dev.log('视频通话');
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.call),
-                onPressed: () {
-                  dev.log('语音通话');
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_vert),
+                icon: const Icon(Icons.more_horiz), // 使用水平省略号图标，更像微信
+                tooltip: '更多选项',
                 onPressed: () {
                   _showMoreOptions(context, conversation);
                 },
@@ -1586,13 +1576,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         duration: const Duration(milliseconds: 200),
         height: 48,
         decoration: BoxDecoration(
-          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withValues(alpha: 51) : Colors.green.withValues(alpha: 26)) : Colors.grey[200],
+          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.1)) : Colors.grey[200],
           borderRadius: BorderRadius.circular(24),
-          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.green.withValues(alpha: 128), width: _isCancellingRecord ? 2.0 : 1.5) : null,
+          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.green.withOpacity(0.5), width: _isCancellingRecord ? 2.0 : 1.5) : null,
           boxShadow: _isRecordingAudio
               ? [
                   BoxShadow(
-                    color: _isCancellingRecord ? Colors.red.withValues(alpha: 102) : Colors.green.withValues(alpha: 77),
+                    color: _isCancellingRecord ? Colors.red.withOpacity(0.4) : Colors.green.withOpacity(0.3),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -1782,122 +1772,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   // 显示更多选项菜单
   void _showMoreOptions(BuildContext context, Conversation conversation) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('查看资料'),
-              onTap: () {
-                Navigator.pop(context);
-                dev.log('查看资料');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.search),
-              title: const Text('搜索聊天记录'),
-              onTap: () {
-                Navigator.pop(context);
-                dev.log('搜索聊天记录');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_off),
-              title: const Text('消息免打扰'),
-              onTap: () {
-                Navigator.pop(context);
-                dev.log('消息免打扰');
-              },
-            ),
-            if (conversation.type == ConversationType.group)
-              ListTile(
-                leading: const Icon(Icons.group),
-                title: const Text('查看群成员'),
-                onTap: () {
-                  Navigator.pop(context);
-                  dev.log('查看群成员');
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('清空聊天记录', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteConfirmation(context);
-              },
-            ),
-          ],
-        ),
+    // 导航到聊天信息页面，而不是显示底部菜单
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChatInfoPage(conversationId: widget.conversationId),
       ),
     );
-  }
-
-  // 显示删除确认对话框
-  void _showDeleteConfirmation(BuildContext context) {
-    final conversationId = widget.conversationId;
-    final chatCubit = context.read<ChatCubit>();
-
-    AlertDialog dialog = AlertDialog(
-      title: const Text('清空聊天记录'),
-      content: const Text('确定要清空聊天记录吗？此操作不可恢复。'),
-      actions: [
-        TextButton(
-          child: const Text('取消'),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        TextButton(
-          child: const Text('清空', style: TextStyle(color: Colors.red)),
-          onPressed: () {
-            Navigator.pop(context);
-            dev.log('清空聊天记录');
-            // 实现清空聊天记录功能
-            chatCubit.clearConversationMessages(conversationId);
-            UINotificationService().showSuccess('聊天记录已清空');
-          },
-        ),
-      ],
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => dialog,
-    );
-  }
-
-  // 格式化消息时间 - 遵循微信风格
-  String _formatMessageTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-    final difference = today.difference(messageDate).inDays;
-
-    // 格式化时间部分
-    final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-
-    if (messageDate == today) {
-      // 今天的消息只显示时间
-      return timeStr;
-    } else if (messageDate == yesterday) {
-      // 昨天的消息显示昨天+时间
-      return '昨天 $timeStr';
-    } else if (difference < 7) {
-      // 一周内的消息显示星期几
-      const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-      return '${weekdays[dateTime.weekday % 7]} $timeStr';
-    } else if (dateTime.year == now.year) {
-      // 同一年的消息显示月日+时间
-      return '${dateTime.month}月${dateTime.day}日 $timeStr';
-    } else {
-      // 不同年的消息显示年月日+时间
-      return '${dateTime.year}年${dateTime.month}月${dateTime.day}日 $timeStr';
-    }
   }
 
   // 关闭附件菜单
@@ -2018,17 +1898,33 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: _isRecordingVoice ? Colors.red.withValues(alpha: 26) : Colors.grey.withValues(alpha: 26),
+                  color: Colors.red.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: _isRecordingVoice
-                      ? _buildSimpleRecordingAnimation()
-                      : Icon(
-                          Icons.mic,
-                          size: 40,
-                          color: Colors.grey[600],
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
                         ),
+                        child: const Icon(
+                          Icons.mic,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -2157,43 +2053,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           ],
         );
       },
-    );
-  }
-
-  // 构建简单的录音动画（不使用AnimationController）
-  Widget _buildSimpleRecordingAnimation() {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 51),
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 77),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.mic,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -2546,5 +2405,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         _scrollToBottom();
       }
     });
+  }
+
+  // 格式化消息时间 - 遵循微信风格
+  String _formatMessageTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = today.difference(messageDate).inDays;
+
+    // 格式化时间部分
+    final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+
+    if (messageDate == today) {
+      // 今天的消息只显示时间
+      return timeStr;
+    } else if (messageDate == yesterday) {
+      // 昨天的消息显示昨天+时间
+      return '昨天 $timeStr';
+    } else if (difference < 7) {
+      // 一周内的消息显示星期几
+      const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+      return '${weekdays[dateTime.weekday % 7]} $timeStr';
+    } else if (dateTime.year == now.year) {
+      // 同一年的消息显示月日+时间
+      return '${dateTime.month}月${dateTime.day}日 $timeStr';
+    } else {
+      // 不同年的消息显示年月日+时间
+      return '${dateTime.year}年${dateTime.month}月${dateTime.day}日 $timeStr';
+    }
   }
 }
