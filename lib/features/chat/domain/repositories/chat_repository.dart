@@ -48,7 +48,7 @@ abstract class ChatRepository {
   Future<Message> sendFileMessage(String conversationId, String localPath, String fileName, double fileSize, {String? mediaUrl});
 
   /// 发送视频消息
-  Future<Message> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl});
+  Future<Message> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false});
 
   /// 标记会话消息为已读
   Future<void> markConversationAsRead(String conversationId);

@@ -28,6 +28,15 @@ void main() async {
   // 创建日志记录器
   final logger = Logger();
 
+  // 初始化媒体目录
+  try {
+    logger.i('开始初始化媒体目录');
+    await _initMediaDirectories();
+    logger.i('媒体目录初始化成功');
+  } catch (e) {
+    logger.e('媒体目录初始化失败', error: e);
+  }
+
   // 初始化数据库
   try {
     // 尝试初始化数据库
@@ -253,5 +262,48 @@ class MyApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 初始化媒体目录
+Future<void> _initMediaDirectories() async {
+  final appDocDir = await getApplicationDocumentsDirectory();
+  final logger = Logger();
+
+  // 创建所有需要的媒体目录
+  final directories = [
+    'media/images',
+    'media/videos',
+    'media/voice',
+    'media/files',
+    'media/thumbnails',
+    'temp',
+  ];
+
+  for (final dirPath in directories) {
+    final dir = Directory('${appDocDir.path}/$dirPath');
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+      logger.d('创建目录: ${dir.path}');
+    }
+  }
+
+  // 清理临时目录中的文件
+  try {
+    final tempDir = Directory('${appDocDir.path}/temp');
+    if (await tempDir.exists()) {
+      await for (final entity in tempDir.list()) {
+        if (entity is File) {
+          try {
+            await entity.delete();
+            logger.d('删除临时文件: ${entity.path}');
+          } catch (e) {
+            logger.w('删除临时文件失败: ${entity.path}, 错误: $e');
+          }
+        }
+      }
+    }
+  } catch (e) {
+    logger.w('清理临时目录失败', error: e);
   }
 }

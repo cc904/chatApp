@@ -253,7 +253,19 @@ class ChatCubit extends Cubit<ChatState> {
 
     try {
       _isSourceOfChange = true;
-      await _repository.sendTextMessage(conversationId, text);
+      // 发送消息并获取返回的消息对象
+      final message = await _repository.sendTextMessage(conversationId, text);
+
+      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      final currentMessages = state.messagesByConversation[conversationId] ?? [];
+      final newMessages = [message, ...currentMessages];
+
+      // 直接更新状态
+      emit(state.copyWithMessagesForConversation(conversationId, newMessages));
+
+      // 再次加载完整消息列表以确保同步
+      await loadMessagesForConversation(conversationId);
+
       _isSourceOfChange = false;
     } catch (e) {
       _logger.e('发送文本消息失败', error: e);
@@ -266,7 +278,19 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> sendImageMessage(String conversationId, String localPath, {String? mediaUrl}) async {
     try {
       _isSourceOfChange = true;
-      await _repository.sendImageMessage(conversationId, localPath, mediaUrl: mediaUrl);
+      // 发送消息并获取返回的消息对象
+      final message = await _repository.sendImageMessage(conversationId, localPath, mediaUrl: mediaUrl);
+
+      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      final currentMessages = state.messagesByConversation[conversationId] ?? [];
+      final newMessages = [message, ...currentMessages];
+
+      // 直接更新状态
+      emit(state.copyWithMessagesForConversation(conversationId, newMessages));
+
+      // 再次加载完整消息列表以确保同步
+      await loadMessagesForConversation(conversationId);
+
       _isSourceOfChange = false;
     } catch (e) {
       _logger.e('发送图片消息失败', error: e);
@@ -279,11 +303,73 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> sendVoiceMessage(String conversationId, String localPath, int duration, {String? mediaUrl}) async {
     try {
       _isSourceOfChange = true;
-      await _repository.sendVoiceMessage(conversationId, localPath, duration, mediaUrl: mediaUrl);
+      // 发送消息并获取返回的消息对象
+      final message = await _repository.sendVoiceMessage(conversationId, localPath, duration, mediaUrl: mediaUrl);
+
+      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      final currentMessages = state.messagesByConversation[conversationId] ?? [];
+      final newMessages = [message, ...currentMessages];
+
+      // 直接更新状态
+      emit(state.copyWithMessagesForConversation(conversationId, newMessages));
+
+      // 再次加载完整消息列表以确保同步
+      await loadMessagesForConversation(conversationId);
+
       _isSourceOfChange = false;
     } catch (e) {
       _logger.e('发送语音消息失败', error: e);
       emit(state.copyWithError('发送语音失败: $e'));
+      _isSourceOfChange = false;
+    }
+  }
+
+  /// 发送文件消息
+  Future<void> sendFileMessage(String conversationId, String localPath, String fileName, double fileSize, {String? mediaUrl}) async {
+    try {
+      _isSourceOfChange = true;
+      // 发送消息并获取返回的消息对象
+      final message = await _repository.sendFileMessage(conversationId, localPath, fileName, fileSize, mediaUrl: mediaUrl);
+
+      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      final currentMessages = state.messagesByConversation[conversationId] ?? [];
+      final newMessages = [message, ...currentMessages];
+
+      // 直接更新状态
+      emit(state.copyWithMessagesForConversation(conversationId, newMessages));
+
+      // 再次加载完整消息列表以确保同步
+      await loadMessagesForConversation(conversationId);
+
+      _isSourceOfChange = false;
+    } catch (e) {
+      _logger.e('发送文件消息失败', error: e);
+      emit(state.copyWithError('发送文件失败: $e'));
+      _isSourceOfChange = false;
+    }
+  }
+
+  /// 发送视频消息
+  Future<void> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false}) async {
+    try {
+      _isSourceOfChange = true;
+      // 发送消息并获取返回的消息对象
+      final message = await _repository.sendVideoMessage(conversationId, localPath, duration, thumbnailUrl: thumbnailUrl, mediaUrl: mediaUrl, isServerProcessed: isServerProcessed);
+
+      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      final currentMessages = state.messagesByConversation[conversationId] ?? [];
+      final newMessages = [message, ...currentMessages];
+
+      // 直接更新状态
+      emit(state.copyWithMessagesForConversation(conversationId, newMessages));
+
+      // 再次加载完整消息列表以确保同步
+      await loadMessagesForConversation(conversationId);
+
+      _isSourceOfChange = false;
+    } catch (e) {
+      _logger.e('发送视频消息失败', error: e);
+      emit(state.copyWithError('发送视频失败: $e'));
       _isSourceOfChange = false;
     }
   }

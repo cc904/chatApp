@@ -44,6 +44,7 @@ class DatabaseInitializer {
         [UserSchema, ConversationSchema, MessageSchema],
         directory: dir.path,
         inspector: kDebugMode, // 调试模式启用检查器
+        name: 'default', // 显式指定数据库名称
       );
 
       // 验证和记录集合是否已正确创建
