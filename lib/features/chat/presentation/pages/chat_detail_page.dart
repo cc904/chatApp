@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:developer' as dev;
 import 'package:cc/core/database/models/conversation.dart';
@@ -13,6 +15,161 @@ import 'package:intl/intl.dart';
 import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
 import 'package:cc/features/chat/presentation/widgets/media_overlay_viewer.dart';
 import 'package:video_player/video_player.dart';
+import 'dart:async';
+import 'package:flutter/rendering.dart';
+
+// 波形动画绘制器
+class WaveformPainter extends CustomPainter {
+  final double progress;
+  final List<double> _heights = [];
+  final Color activeColor;
+  final Color inactiveColor;
+
+  WaveformPainter({
+    required this.progress,
+    this.activeColor = Colors.blue,
+    this.inactiveColor = Colors.grey,
+  }) {
+    // 生成随机高度，但有规律性
+    final random = math.Random(42); // 固定种子使波形看起来一致
+    for (int i = 0; i < 30; i++) {
+      // 创建一个有规律的波形 - 中间高，两边低
+      final position = i / 30;
+      final baseHeight = 0.3 + 0.7 * math.sin(position * math.pi);
+      final randomness = 0.2 * random.nextDouble();
+      _heights.add(baseHeight + randomness);
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint activePaint = Paint()
+      ..color = activeColor
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3;
+
+    final Paint inactivePaint = Paint()
+      ..color = inactiveColor
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3;
+
+    final barWidth = size.width / _heights.length;
+    final middle = size.height / 2;
+
+    for (int i = 0; i < _heights.length; i++) {
+      final x = i * barWidth;
+      final barHeight = _heights[i] * size.height;
+
+      // 计算当前柱状体是否在进度内
+      final isActive = i / _heights.length <= progress;
+
+      canvas.drawLine(
+        Offset(x + barWidth / 2, middle - barHeight / 2),
+        Offset(x + barWidth / 2, middle + barHeight / 2),
+        isActive ? activePaint : inactivePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant WaveformPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+// 静态波形绘制器
+class StaticWaveformPainter extends CustomPainter {
+  final List<double> _heights = [];
+  final Color color;
+
+  StaticWaveformPainter({
+    this.color = Colors.grey,
+  }) {
+    // 生成随机高度，但有规律性
+    final random = math.Random(42); // 固定种子使波形看起来一致
+    for (int i = 0; i < 30; i++) {
+      // 创建一个有规律的波形 - 中间高，两边低
+      final position = i / 30;
+      final baseHeight = 0.3 + 0.7 * math.sin(position * math.pi);
+      final randomness = 0.2 * random.nextDouble();
+      _heights.add(baseHeight + randomness);
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3;
+
+    final barWidth = size.width / _heights.length;
+    final middle = size.height / 2;
+
+    for (int i = 0; i < _heights.length; i++) {
+      final x = i * barWidth;
+      final barHeight = _heights[i] * size.height;
+
+      canvas.drawLine(
+        Offset(x + barWidth / 2, middle - barHeight / 2),
+        Offset(x + barWidth / 2, middle + barHeight / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant StaticWaveformPainter oldDelegate) {
+    return false; // 静态波形不需要重绘
+  }
+}
+
+// 录音波形绘制器
+class RecordingWaveformPainter extends CustomPainter {
+  final List<double> _waveHeights = [];
+  final Color color;
+  final double animationValue;
+
+  RecordingWaveformPainter({
+    this.color = Colors.red,
+    this.animationValue = 0.0,
+  }) {
+    // 生成波形高度
+    final random = math.Random(DateTime.now().millisecondsSinceEpoch);
+    for (int i = 0; i < 4; i++) {
+      _waveHeights.add(0.3 + random.nextDouble() * 0.7);
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2.0;
+
+    final width = size.width / (_waveHeights.length + 1);
+    final maxHeight = size.height * 0.7;
+    final middle = size.height / 2;
+
+    for (int i = 0; i < _waveHeights.length; i++) {
+      // 使用动画值和索引创建动态波形
+      final offset = (animationValue + i / _waveHeights.length) % 1.0;
+      final height = maxHeight * _waveHeights[i] * (0.5 + 0.5 * math.sin(offset * math.pi * 2));
+
+      canvas.drawLine(
+        Offset((i + 0.5) * width, middle - height / 2),
+        Offset((i + 0.5) * width, middle + height / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant RecordingWaveformPainter oldDelegate) {
+    return oldDelegate.animationValue != animationValue;
+  }
+}
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -26,7 +183,7 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> {
+class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -34,6 +191,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   bool _isAtBottom = true;
   bool _isLoadingMore = false;
   bool _dataInitialized = false;
+  bool _isVoiceInputMode = false; // 新增：语音输入模式标志
+  bool _isRecordingAudio = false; // 新增：是否正在录音
+  bool _isCancellingRecord = false; // 新增：是否正在取消录音
+  DateTime? _recordStartTime; // 新增：录音开始时间
+
+  // 录音波形动画控制
+  late AnimationController _waveformController;
+  double _waveformValue = 0.0;
 
   // 媒体服务
   final MediaService _mediaService = MediaService();
@@ -41,6 +206,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   // 录音状态
   bool _isRecordingVoice = false;
+  double? _recordingDuration;
+  DateTime? _recordingStartTime;
+  Timer? _recordingTimer;
 
   // 添加选择的附件状态
   File? _selectedAttachment;
@@ -64,6 +232,36 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
     // 监听焦点变化，输入框获得焦点时关闭附件菜单
     _focusNode.addListener(_onFocusChange);
+
+    // 初始化波形动画控制器
+    _waveformController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..addListener(() {
+        setState(() {
+          _waveformValue = _waveformController.value;
+        });
+      });
+    _waveformController.repeat();
+  }
+
+  @override
+  void dispose() {
+    // 停止所有音频播放
+    _mediaService.stopAudio();
+    _mediaService.disposeAudio();
+
+    _messageController.dispose();
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _waveformController.dispose();
+
+    // 清理录音计时器
+    _recordingTimer?.cancel();
+
+    super.dispose();
   }
 
   @override
@@ -77,16 +275,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         _scrollToBottom();
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.removeListener(_scrollListener);
-    _scrollController.dispose();
-    _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
-    super.dispose();
   }
 
   // 加载会话和消息
@@ -865,46 +1053,76 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   Widget _buildVoiceMessage(Message message) {
     final duration = message.duration ?? 0;
     final seconds = (duration / 1000).round();
+    final isPlaying = _isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId;
 
     return GestureDetector(
       onTap: () => _playVoiceMessage(message),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isPlaying ? Colors.blue.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isPlaying ? Colors.blue.withOpacity(0.3) : Colors.grey.withOpacity(0.2)),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              _isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId ? Icons.pause : Icons.play_arrow,
-              color: Colors.grey[700],
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            // 进度条
+            // 播放/暂停图标
             Container(
-              width: 80.0 + (seconds > 60 ? 80.0 : seconds.toDouble()),
-              height: 2,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                gradient: _isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId
-                    ? LinearGradient(
-                        colors: [Colors.green, Colors.grey[400]!],
-                        stops: [_voicePlayProgress, _voicePlayProgress],
-                      )
-                    : null,
-                color: _isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId ? null : Colors.grey[400],
-                borderRadius: BorderRadius.circular(1),
+                color: isPlaying ? Colors.blue : Colors.grey[400],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isPlaying ? Icons.pause : Icons.play_arrow,
+                color: Colors.white,
+                size: 24,
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '$seconds秒',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-              ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 波形动画效果
+                SizedBox(
+                  width: 100 + (seconds > 60 ? 60 : seconds.toDouble()),
+                  height: 24,
+                  child: isPlaying ? _buildWaveformAnimation(progress: _voicePlayProgress) : _buildStaticWaveform(),
+                ),
+                const SizedBox(height: 4),
+                // 时间显示
+                Text(
+                  _formatDuration(seconds),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isPlaying ? Colors.blue[700] : Colors.grey[600],
+                    fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // 构建语音波形动画
+  Widget _buildWaveformAnimation({required double progress}) {
+    return CustomPaint(
+      painter: WaveformPainter(progress: progress),
+      size: const Size(double.infinity, 24),
+    );
+  }
+
+  // 构建静态波形
+  Widget _buildStaticWaveform() {
+    return CustomPaint(
+      painter: StaticWaveformPainter(),
+      size: const Size(double.infinity, 24),
     );
   }
 
@@ -1291,35 +1509,46 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               children: [
                 // 语音/键盘切换按钮
                 IconButton(
-                  icon: const Icon(Icons.keyboard_voice),
+                  icon: Icon(_isVoiceInputMode ? Icons.keyboard : Icons.keyboard_voice),
                   color: Colors.grey[600],
-                  onPressed: _handleRecordVoice,
+                  onPressed: () {
+                    setState(() {
+                      _isVoiceInputMode = !_isVoiceInputMode;
+                      if (_isVoiceInputMode) {
+                        _focusNode.unfocus(); // 切换到语音模式时收起键盘
+                      }
+                    });
+                  },
                 ),
+                const SizedBox(width: 10),
 
-                // 消息输入框
+                // 根据模式显示不同的输入控件
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    focusNode: _focusNode,
-                    maxLines: 4,
-                    minLines: 1,
-                    decoration: InputDecoration(
-                      hintText: '输入消息...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                    ),
-                    onChanged: (value) {
-                      // 如何有需要，可以在这里处理输入变化
-                    },
-                  ),
+                  child: _isVoiceInputMode
+                      ? _buildVoiceRecordButton() // 语音模式：显示长按录音按钮
+                      : TextField(
+                          // 文本模式：显示文本输入框
+                          controller: _messageController,
+                          focusNode: _focusNode,
+                          maxLines: 4,
+                          minLines: 1,
+                          decoration: InputDecoration(
+                            hintText: '输入消息...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[200],
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            // 如何有需要，可以在这里处理输入变化
+                          },
+                        ),
                 ),
 
                 // 附件按钮
@@ -1338,18 +1567,134 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                   },
                 ),
 
-                // 发送按钮
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  color: Colors.green,
-                  onPressed: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? _sendMessage : null,
-                ),
+                // 发送按钮，在语音模式或有内容时显示
+                _isVoiceInputMode || _messageController.text.trim().isNotEmpty || _selectedAttachment != null
+                    ? IconButton(
+                        icon: const Icon(Icons.send),
+                        color: Colors.green,
+                        onPressed: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? _sendMessage : null,
+                      )
+                    : const SizedBox.shrink(),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  // 构建语音录制按钮
+  Widget _buildVoiceRecordButton() {
+    return GestureDetector(
+      // 长按录音，松开结束
+      onLongPress: _startRecording,
+      onLongPressUp: () => _stopRecording(true), // 松开发送
+      onLongPressCancel: () => _stopRecording(false), // 取消发送
+      // 记录手指位置，用于判断上滑取消
+      onLongPressMoveUpdate: (details) {
+        // 如果正在录音且向上滑动超过一定距离，显示"松开手指取消发送"
+        if (_isRecordingAudio && details.offsetFromOrigin.dy < -50) {
+          // 设置取消标志
+          if (!_isCancellingRecord) {
+            setState(() {
+              _isCancellingRecord = true;
+            });
+            // 震动反馈
+            HapticFeedback.lightImpact();
+          }
+        } else if (_isCancellingRecord) {
+          // 恢复正常录音状态
+          setState(() {
+            _isCancellingRecord = false;
+          });
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 48,
+        decoration: BoxDecoration(
+          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withOpacity(0.2) : Colors.red.withOpacity(0.1)) : Colors.grey[200],
+          borderRadius: BorderRadius.circular(24),
+          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.red.withOpacity(0.5), width: _isCancellingRecord ? 2.0 : 1.5) : null,
+          boxShadow: _isRecordingAudio
+              ? [
+                  BoxShadow(
+                    color: _isCancellingRecord ? Colors.red.withOpacity(0.4) : Colors.red.withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 录音图标
+              Icon(
+                _isRecordingAudio ? (_isCancellingRecord ? Icons.delete : Icons.mic_none) : Icons.mic,
+                color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.red.withOpacity(0.8)) : Colors.grey[700],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+
+              // 录音波形动画（仅在录音且未取消时显示）
+              if (_isRecordingAudio && !_isCancellingRecord) ...[
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: _buildRecordingIndicator(),
+                ),
+                const SizedBox(width: 8),
+              ],
+
+              // 提示文字
+              Text(
+                _isRecordingAudio ? (_isCancellingRecord ? '松开手指，取消发送' : '松开发送，上滑取消') : '按住说话',
+                style: TextStyle(
+                  color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.red.withOpacity(0.8)) : Colors.grey[700],
+                  fontSize: 16,
+                  fontWeight: _isCancellingRecord ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+
+              // 录音时长
+              if (_isRecordingAudio && !_isCancellingRecord) ...[
+                const SizedBox(width: 8),
+                Text(
+                  _getRecordDuration(),
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 构建录音指示器动画
+  Widget _buildRecordingIndicator() {
+    return CustomPaint(
+      painter: RecordingWaveformPainter(animationValue: _waveformValue),
+      size: const Size(20, 20),
+    );
+  }
+
+  // 获取录音时长文本
+  String _getRecordDuration() {
+    if (_recordStartTime == null) return "0:00";
+
+    final duration = DateTime.now().difference(_recordStartTime!);
+    final seconds = duration.inSeconds;
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+
+    return "$minutes:${remainingSeconds.toString().padLeft(2, '0')}";
   }
 
   // 获取附件预览颜色
@@ -1654,22 +1999,48 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     return StatefulBuilder(
       builder: (context, setState) {
         return AlertDialog(
-          title: const Text('语音录制'),
+          title: Text(
+            _isRecordingVoice ? '正在录音' : '语音录制',
+            style: TextStyle(
+              color: _isRecordingVoice ? Colors.red : Colors.black,
+              fontWeight: _isRecordingVoice ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _isRecordingVoice ? Icons.mic : Icons.mic_none,
-                size: 48,
-                color: _isRecordingVoice ? Colors.red : Colors.grey,
+              // 录音动画
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: _isRecordingVoice ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: _isRecordingVoice
+                      ? _buildSimpleRecordingAnimation()
+                      : Icon(
+                          Icons.mic,
+                          size: 40,
+                          color: Colors.grey[600],
+                        ),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Text(
-                _isRecordingVoice ? '正在录音，点击停止...' : '点击开始录音',
+                _isRecordingVoice ? '轻触停止录音' : '轻触开始录音',
                 style: TextStyle(
                   color: _isRecordingVoice ? Colors.red : Colors.grey[600],
                 ),
               ),
+              if (_isRecordingVoice) ...[
+                const SizedBox(height: 16),
+                Text(
+                  '录音时长: ${_recordingDuration?.toInt() ?? 0}秒',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ],
             ],
           ),
           actions: [
@@ -1691,6 +2062,17 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                   if (success) {
                     setState(() {
                       _isRecordingVoice = true;
+                      _recordingDuration = 0.0;
+                      _recordingStartTime = DateTime.now();
+                    });
+
+                    // 启动计时器更新录音时长
+                    _recordingTimer?.cancel();
+                    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+                      final duration = DateTime.now().difference(_recordingStartTime!).inSeconds.toDouble();
+                      setState(() {
+                        _recordingDuration = duration;
+                      });
                     });
                   } else {
                     _showErrorMessage('无法开始录音');
@@ -1698,6 +2080,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                   }
                 } else {
                   // 停止录音并处理录音结果
+                  _recordingTimer?.cancel();
+                  _recordingTimer = null;
+
                   final result = await _mediaService.stopRecording();
                   setState(() {
                     _isRecordingVoice = false;
@@ -1744,6 +2129,26 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 
+  // 构建简单的录音动画（不使用AnimationController）
+  Widget _buildSimpleRecordingAnimation() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Icon(
+          Icons.mic,
+          size: 40,
+          color: Colors.red,
+        ),
+        ...List.generate(3, (index) {
+          return PulsingCircle(
+            radius: 30.0 + (index * 10.0),
+            delay: (index * 0.3),
+          );
+        }),
+      ],
+    );
+  }
+
   // 显示错误消息
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1767,51 +2172,49 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     }
 
     try {
-      String? effectivePath;
-
-      // 确定有效路径
-      if (localPath != null && localPath.isNotEmpty) {
-        effectivePath = localPath;
-      } else if (mediaUrl != null && mediaUrl.startsWith('file://')) {
-        effectivePath = mediaUrl.substring(7); // 去除file://前缀
-      }
-
+      // 如果正在播放当前语音，暂停/停止
       if (_isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId) {
-        // 正在播放当前语音，暂停
-        _mediaService.pauseAudio();
+        // 完全停止当前播放，避免使用暂停功能
+        await _mediaService.stopAudio();
         setState(() {
           _isPlayingVoiceMessage = false;
+          _currentPlayingVoiceId = null;
+          _voicePlayProgress = 0.0;
         });
         return;
       }
 
-      // 停止之前的播放
+      // 先停止任何正在播放的音频
       if (_isPlayingVoiceMessage) {
-        _mediaService.stopAudio();
+        await _mediaService.stopAudio();
       }
 
-      if (effectivePath != null) {
-        // 开始播放
-        final file = File(effectivePath);
-        if (await file.exists()) {
-          setState(() {
-            _isPlayingVoiceMessage = true;
-            _currentPlayingVoiceId = message.messageId;
-            _voicePlayProgress = 0.0;
-          });
+      // 设置播放状态
+      setState(() {
+        _isPlayingVoiceMessage = true;
+        _currentPlayingVoiceId = message.messageId;
+        _voicePlayProgress = 0.0;
+      });
 
-          // 播放语音
+      // 添加日志
+      dev.log('准备播放语音消息: ID=${message.messageId}, 本地路径=$localPath, URL=$mediaUrl');
+
+      // 确定播放路径并播放
+      try {
+        if (localPath != null && localPath.isNotEmpty) {
+          // 本地文件优先
+          dev.log('使用本地文件路径播放: $localPath');
           await _mediaService.playAudio(
-            effectivePath,
+            localPath,
             onProgress: (progress) {
-              if (mounted) {
+              if (mounted && _currentPlayingVoiceId == message.messageId) {
                 setState(() {
                   _voicePlayProgress = progress;
                 });
               }
             },
             onComplete: () {
-              if (mounted) {
+              if (mounted && _currentPlayingVoiceId == message.messageId) {
                 setState(() {
                   _isPlayingVoiceMessage = false;
                   _currentPlayingVoiceId = null;
@@ -1820,50 +2223,56 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               }
             },
           );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('语音文件不存在')),
+        } else if (mediaUrl != null) {
+          // 使用媒体URL
+          dev.log('使用媒体URL播放: $mediaUrl');
+          await _mediaService.playAudioFromUrl(
+            mediaUrl,
+            onProgress: (progress) {
+              if (mounted && _currentPlayingVoiceId == message.messageId) {
+                setState(() {
+                  _voicePlayProgress = progress;
+                });
+              }
+            },
+            onComplete: () {
+              if (mounted && _currentPlayingVoiceId == message.messageId) {
+                setState(() {
+                  _isPlayingVoiceMessage = false;
+                  _currentPlayingVoiceId = null;
+                  _voicePlayProgress = 0.0;
+                });
+              }
+            },
           );
         }
-      } else if (mediaUrl != null) {
-        // 处理网络语音
-        setState(() {
-          _isPlayingVoiceMessage = true;
-          _currentPlayingVoiceId = message.messageId;
-          _voicePlayProgress = 0.0;
-        });
-
-        // 播放网络语音
-        await _mediaService.playAudioFromUrl(
-          mediaUrl,
-          onProgress: (progress) {
-            if (mounted) {
-              setState(() {
-                _voicePlayProgress = progress;
-              });
-            }
-          },
-          onComplete: () {
-            if (mounted) {
-              setState(() {
-                _isPlayingVoiceMessage = false;
-                _currentPlayingVoiceId = null;
-                _voicePlayProgress = 0.0;
-              });
-            }
-          },
-        );
+      } catch (playError) {
+        dev.log('播放语音过程中发生错误: $playError');
+        // 如果播放过程中发生错误，重置状态
+        if (mounted) {
+          setState(() {
+            _isPlayingVoiceMessage = false;
+            _currentPlayingVoiceId = null;
+            _voicePlayProgress = 0.0;
+          });
+        }
+        rethrow;
       }
     } catch (e) {
       dev.log('播放语音失败: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('播放语音失败: $e')),
       );
+
+      // 确保状态被重置
       setState(() {
         _isPlayingVoiceMessage = false;
         _currentPlayingVoiceId = null;
         _voicePlayProgress = 0.0;
       });
+
+      // 确保资源被释放
+      _mediaService.stopAudio();
     }
   }
 
@@ -1924,5 +2333,209 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         // 其他类型消息不做特殊处理
         break;
     }
+  }
+
+  // 开始录音
+  void _startRecording() async {
+    // 已经在录音则不重复开始
+    if (_isRecordingAudio) return;
+
+    final success = await _mediaService.startRecording();
+    if (success) {
+      // 添加触感反馈
+      HapticFeedback.mediumImpact();
+
+      // 震动屏幕反馈
+      Future.delayed(const Duration(milliseconds: 50), () {
+        HapticFeedback.vibrate();
+      });
+
+      // 显示录音开始提示
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('录音已开始'),
+        duration: Duration(milliseconds: 500),
+        backgroundColor: Colors.green,
+      ));
+
+      setState(() {
+        _isRecordingAudio = true;
+        _isCancellingRecord = false;
+        _recordStartTime = DateTime.now();
+      });
+
+      // 重新启动波形动画
+      _waveformController.reset();
+      _waveformController.repeat();
+    } else {
+      _showErrorMessage('无法开始录音');
+    }
+  }
+
+  // 停止录音
+  void _stopRecording(bool send) async {
+    if (!_isRecordingAudio) return;
+
+    // 添加触感反馈
+    HapticFeedback.mediumImpact();
+
+    // 如果是在取消状态下停止录音，强制将send设为false
+    if (_isCancellingRecord) {
+      send = false;
+    }
+
+    // 重置录音状态
+    setState(() {
+      _isRecordingAudio = false;
+      _isCancellingRecord = false;
+    });
+
+    if (!send) {
+      // 取消录音
+      _mediaService.stopRecording();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('录音已取消'),
+        backgroundColor: Colors.orange,
+      ));
+      return;
+    }
+
+    // 显示处理中提示
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Row(
+        children: [
+          SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              )),
+          SizedBox(width: 10),
+          Text('正在处理语音消息...'),
+        ],
+      ),
+      duration: Duration(seconds: 2),
+      backgroundColor: Colors.blue,
+    ));
+
+    // 计算录音时长
+    final now = DateTime.now();
+    final recordDuration = now.difference(_recordStartTime!).inMilliseconds;
+
+    // 如果录音时间太短（小于1.5秒），显示提示
+    if (recordDuration < 1500) {
+      _mediaService.stopRecording();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('录音时间太短，请至少录制1.5秒'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    // 停止录音并获取结果
+    final result = await _mediaService.stopRecording();
+    if (result == null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _showErrorMessage('录音失败');
+      return;
+    }
+
+    // 上传语音文件
+    final uploadResult = await _fileUploadService.uploadVoice(
+      result.file,
+      result.duration,
+    );
+
+    if (uploadResult == null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _showErrorMessage('语音上传失败');
+      return;
+    }
+
+    // 发送语音消息
+    await context.read<ChatCubit>().sendVoiceMessage(
+          widget.conversationId,
+          uploadResult.localPath,
+          uploadResult.duration ?? 0,
+          mediaUrl: uploadResult.remoteUrl,
+        );
+
+    // 隐藏处理中提示
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    // 滚动到底部
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+  }
+}
+
+// 脉冲圆圈动画组件
+class PulsingCircle extends StatefulWidget {
+  final double radius;
+  final double delay;
+
+  const PulsingCircle({
+    Key? key,
+    required this.radius,
+    this.delay = 0.0,
+  }) : super(key: key);
+
+  @override
+  State<PulsingCircle> createState() => _PulsingCircleState();
+}
+
+class _PulsingCircleState extends State<PulsingCircle> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+
+    _animation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // 添加延迟后开始动画
+    Future.delayed(Duration(milliseconds: (widget.delay * 1000).toInt()), () {
+      if (mounted) {
+        _controller.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          width: widget.radius * 2 * _animation.value,
+          height: widget.radius * 2 * _animation.value,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.red.withOpacity(0.7 - (widget.radius * 0.005)),
+              width: 2,
+            ),
+          ),
+        );
+      },
+    );
   }
 }

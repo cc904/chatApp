@@ -5,6 +5,7 @@ import 'package:logger/logger.dart';
 import 'chat_state.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 
 /// 聊天Cubit
@@ -406,7 +407,42 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> deleteMessage(String messageId) async {
     try {
       _isSourceOfChange = true;
+
+      // 首先获取要删除的消息，以确定它属于哪个会话
+      Message? messageToDelete;
+      String? conversationId;
+
+      // 遍历所有会话的消息列表查找该消息
+      for (final entry in state.messagesByConversation.entries) {
+        final messages = entry.value;
+        final message = messages.firstWhere(
+          (m) => m.messageId == messageId,
+          orElse: () => Message()..messageId = '-1',
+        );
+
+        if (message.messageId != '-1') {
+          messageToDelete = message;
+          conversationId = entry.key;
+          break;
+        }
+      }
+
+      // 调用repository删除消息
       await _repository.deleteMessage(messageId);
+
+      // 如果找到了消息和对应的会话，立即更新UI状态
+      if (messageToDelete != null && conversationId != null) {
+        // 从消息列表中移除该消息
+        final currentMessages = state.messagesByConversation[conversationId] ?? [];
+        final newMessages = currentMessages.where((m) => m.messageId != messageId).toList();
+
+        // 更新状态
+        emit(state.copyWithMessagesForConversation(conversationId, newMessages));
+
+        // 再次加载会话列表，因为最后一条消息可能已更改
+        await loadConversations();
+      }
+
       _isSourceOfChange = false;
     } catch (e) {
       _logger.e('删除消息失败', error: e);

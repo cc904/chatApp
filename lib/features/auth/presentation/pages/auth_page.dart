@@ -38,6 +38,15 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // 直接进入主页，跳过登录验证
+          Navigator.of(context).pushReplacementNamed('/home');
+        },
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.login, color: Colors.white),
+        tooltip: '测试登录',
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Container(
@@ -47,7 +56,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -257,7 +266,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                 onPressed: state.isCodeSent ? null : () => context.read<AuthCubit>().sendVerificationCode(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                  disabledBackgroundColor: Colors.green.withOpacity(0.5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

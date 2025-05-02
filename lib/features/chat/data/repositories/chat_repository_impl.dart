@@ -625,12 +625,26 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<void> deleteMessage(String messageId) async {
     try {
       final id = int.tryParse(messageId) ?? 0;
+
+      // 先获取消息以获取媒体文件路径信息
+      final message = await _messages.get(id);
+      if (message == null) {
+        throw Exception('找不到要删除的消息');
+      }
+
+      // 用于存储要删除的文件路径
+      final filesToDelete = _collectMediaFilePaths(message);
+
+      // 在数据库事务中删除消息
       await _isar.writeTxn(() async {
         final success = await _messages.delete(id);
         if (!success) {
-          throw Exception('找不到要删除的消息');
+          throw Exception('删除消息失败');
         }
       });
+
+      // 删除关联的媒体文件
+      await _deleteMediaFiles(filesToDelete);
     } catch (e) {
       _logger.e('删除消息失败', error: e);
       rethrow;
@@ -641,6 +655,16 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<void> deleteConversation(String conversationId) async {
     try {
       final id = int.tryParse(conversationId) ?? 0;
+
+      // 先获取所有相关消息，以便收集需要删除的媒体文件
+      final messages = await _messages.filter().conversationIdEqualTo(conversationId).findAll();
+
+      // 收集所有媒体文件路径
+      final filesToDelete = <String>[];
+      for (final message in messages) {
+        filesToDelete.addAll(_collectMediaFilePaths(message));
+      }
+
       await _isar.writeTxn(() async {
         // 删除会话中的所有消息
         await _messages.filter().conversationIdEqualTo(conversationId).deleteAll();
@@ -651,6 +675,9 @@ class ChatRepositoryImpl implements ChatRepository {
           throw Exception('找不到要删除的会话');
         }
       });
+
+      // 删除关联的媒体文件
+      await _deleteMediaFiles(filesToDelete);
     } catch (e) {
       _logger.e('删除会话失败', error: e);
       rethrow;
@@ -660,6 +687,16 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<void> clearConversationMessages(String conversationId) async {
     try {
+      // 先获取所有相关消息，以便收集需要删除的媒体文件
+      final messages = await _messages.filter().conversationIdEqualTo(conversationId).findAll();
+
+      // 收集所有媒体文件路径
+      final filesToDelete = <String>[];
+      for (final message in messages) {
+        filesToDelete.addAll(_collectMediaFilePaths(message));
+      }
+
+      // 在数据库事务中删除所有消息
       await _isar.writeTxn(() async {
         // 删除会话中的所有消息
         await _messages.filter().conversationIdEqualTo(conversationId).deleteAll();
@@ -673,9 +710,52 @@ class ChatRepositoryImpl implements ChatRepository {
           await _conversations.put(conversation);
         }
       });
+
+      // 删除关联的媒体文件
+      await _deleteMediaFiles(filesToDelete);
     } catch (e) {
       _logger.e('清空会话消息失败', error: e);
       rethrow;
+    }
+  }
+
+  /// 辅助方法：收集消息中的媒体文件路径
+  List<String> _collectMediaFilePaths(Message message) {
+    final filesToDelete = <String>[];
+
+    if (message.type == MessageType.image || message.type == MessageType.video || message.type == MessageType.voice || message.type == MessageType.file) {
+      // 检查本地文件路径
+      if (message.localPath != null && message.localPath!.isNotEmpty) {
+        filesToDelete.add(message.localPath!);
+      }
+
+      // 检查媒体URL（如果是本地file://）
+      if (message.mediaUrl != null && message.mediaUrl!.startsWith('file://')) {
+        filesToDelete.add(message.mediaUrl!.substring(7)); // 移除file://前缀
+      }
+
+      // 检查缩略图URL（如果是本地file://）
+      if (message.thumbnailUrl != null && message.thumbnailUrl!.startsWith('file://')) {
+        filesToDelete.add(message.thumbnailUrl!.substring(7)); // 移除file://前缀
+      }
+    }
+
+    return filesToDelete;
+  }
+
+  /// 辅助方法：删除媒体文件
+  Future<void> _deleteMediaFiles(List<String> filePaths) async {
+    for (final filePath in filePaths) {
+      try {
+        final file = File(filePath);
+        if (await file.exists()) {
+          await file.delete();
+          _logger.d('已删除媒体文件: $filePath');
+        }
+      } catch (fileError) {
+        // 文件删除失败，但不要中断整个删除过程
+        _logger.w('删除媒体文件失败: $filePath, 错误: $fileError');
+      }
     }
   }
 }

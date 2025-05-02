@@ -46,7 +46,6 @@ dependencies:
   file_picker: ^6.1.1
   image_picker: ^0.8.9
   record: ^4.4.4
-  audioplayers: ^4.1.0
   file_saver: ^0.2.9
   photo_view: ^0.14.0      # 图片查看器
   video_player: ^2.7.2     # 视频播放器
@@ -59,6 +58,7 @@ dependencies:
   logger: ^2.0.2+1
   uuid: ^3.0.7
   video_thumbnail: ^0.5.3
+  just_audio: ^0.10.2
 
 dev_dependencies:
   flutter_test:
