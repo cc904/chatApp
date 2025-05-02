@@ -7,6 +7,7 @@ import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/home/presentation/cubit/home_cubit.dart';
 import 'core/database/database_initializer.dart';
+import 'core/database/test_data_generator.dart';
 import 'features/chat/data/repositories/chat_repository_impl.dart';
 import 'features/chat/domain/repositories/chat_repository.dart';
 import 'features/chat/presentation/cubit/chat_cubit.dart';
@@ -45,9 +46,17 @@ void main() async {
       logger.d('会话集合: ${conversationsCollection.name}');
       logger.d('消息集合: ${messagesCollection.name}');
       logger.i('数据库集合验证成功');
+
+      // 生成更多的测试数据
+      logger.i('开始生成更多测试数据...');
+      await TestDataGenerator.generateMoreTestData(
+        conversationCount: 20, // 生成20个会话（10个私聊，10个群聊）
+        messageCount: 15, // 每个会话至少15条消息
+      );
+      logger.i('测试数据生成成功');
     } catch (e) {
-      logger.e('数据库集合验证失败', error: e);
-      throw Exception('数据库集合验证失败: $e');
+      logger.e('数据库集合验证或测试数据生成失败', error: e);
+      throw Exception('数据库集合验证或测试数据生成失败: $e');
     }
   } catch (e) {
     logger.e('数据库初始化失败', error: e);
@@ -98,6 +107,11 @@ void main() async {
       logger.d('用户集合: ${usersCollection.name}');
       logger.d('会话集合: ${conversationsCollection.name}');
       logger.d('消息集合: ${messagesCollection.name}');
+
+      // 生成测试数据
+      logger.i('开始生成测试数据...');
+      await TestDataGenerator.generateMoreTestData();
+      logger.i('测试数据生成成功');
     } catch (e2) {
       logger.e('数据库恢复失败', error: e2);
       runApp(const DatabaseErrorApp());

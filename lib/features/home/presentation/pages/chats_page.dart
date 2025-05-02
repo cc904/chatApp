@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as dev;
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
 
@@ -15,6 +19,19 @@ class _ChatsPageState extends State<ChatsPage> {
   bool _isSearching = false;
   // 跟踪当前打开的滑动项的ID
   String? _openedItemId;
+
+  @override
+  void initState() {
+    super.initState();
+    // 加载会话数据
+    _loadConversations();
+  }
+
+  void _loadConversations() async {
+    // 使用ChatCubit加载会话
+    final chatCubit = context.read<ChatCubit>();
+    await chatCubit.loadConversations();
+  }
 
   @override
   void dispose() {
@@ -160,7 +177,9 @@ class _ChatsPageState extends State<ChatsPage> {
                               onTap: () {
                                 // 执行搜索
                                 final query = _searchController.text;
-                                dev.log('执行搜索: $query');
+                                if (query.isNotEmpty) {
+                                  context.read<ChatCubit>().searchConversations(query);
+                                }
                                 // 隐藏键盘
                                 FocusScope.of(context).unfocus();
                               },
@@ -190,8 +209,10 @@ class _ChatsPageState extends State<ChatsPage> {
                 setState(() {
                   _isSearching = value.isNotEmpty;
                 });
-                // 搜索内容
-                dev.log('搜索内容: $value');
+                // 搜索内容变化时实时搜索
+                if (value.isNotEmpty) {
+                  context.read<ChatCubit>().searchConversations(value);
+                }
               },
             ),
           ),
@@ -214,33 +235,41 @@ class _ChatsPageState extends State<ChatsPage> {
 
   // 构建聊天列表，添加空状态处理
   Widget _buildChatList() {
-    // 模拟聊天数据
-    final List<Map<String, dynamic>> chatData = _getChatData();
+    return BlocBuilder<ChatCubit, ChatState>(
+      builder: (context, state) {
+        if (state.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    // 如果聊天列表为空，显示空状态视图
-    if (chatData.isEmpty) {
-      return _buildEmptyState();
-    }
+        if (state.error != null) {
+          return Center(child: Text('错误: ${state.error}'));
+        }
 
-    // 显示正常聊天列表
-    return ListView.separated(
-      itemCount: chatData.length,
-      separatorBuilder: (context, index) => Divider(
-        height: 1,
-        indent: 72,
-      ),
-      itemBuilder: (context, index) {
-        final chat = chatData[index];
-        final itemId = chat['id'];
+        // 获取要显示的会话列表 - 搜索结果或所有会话
+        final List<Conversation> conversations = _isSearching && state.searchQuery != null ? (state.searchResults.whereType<Conversation>().toList()) : state.conversations;
 
-        return _buildSwipeableItem(
-          id: itemId,
-          name: chat['name'],
-          message: chat['message'],
-          time: chat['time'],
-          unreadCount: chat['unreadCount'],
-          avatarUrl: chat['avatarUrl'],
-          isOpen: _openedItemId == itemId,
+        // 如果会话列表为空，显示空状态视图
+        if (conversations.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        // 显示会话列表
+        return ListView.separated(
+          itemCount: conversations.length,
+          separatorBuilder: (context, index) => const Divider(
+            height: 1,
+            indent: 72,
+          ),
+          itemBuilder: (context, index) {
+            final conversation = conversations[index];
+            final itemId = conversation.id.toString();
+
+            return _buildSwipeableItem(
+              id: itemId,
+              conversation: conversation,
+              isOpen: _openedItemId == itemId,
+            );
+          },
         );
       },
     );
@@ -268,7 +297,7 @@ class _ChatsPageState extends State<ChatsPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '点击右下角按钮开始新的聊天',
+            '点击右上角按钮开始新的聊天',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[500],
@@ -279,40 +308,19 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  // 获取模拟聊天数据
-  List<Map<String, dynamic>> _getChatData() {
-    // 这里可以从后端API获取数据，或本地数据库
-    // 现在我们使用模拟数据
-    List<Map<String, dynamic>> data = [];
-
-    // 模拟20条聊天记录
-    for (int i = 0; i < 20; i++) {
-      data.add({
-        'id': i.toString(),
-        'name': '联系人 ${i + 1}',
-        'message': '这是最近的一条消息 ${i + 1}',
-        'time': '下午 ${(i % 12) + 1}:${i % 60 < 10 ? '0' : ''}${i % 60}',
-        'unreadCount': i % 3 == 0 ? i % 5 : 0,
-        'avatarUrl': 'https://picsum.photos/200?random=$i',
-      });
-    }
-
-    // 如果需要测试空状态，可以取消注释下面这行
-    // return [];
-
-    return data;
-  }
-
   // 构建可滑动的聊天项
   Widget _buildSwipeableItem({
     required String id,
-    required String name,
-    required String message,
-    required String time,
-    required int unreadCount,
-    required String avatarUrl,
+    required Conversation conversation,
     required bool isOpen,
   }) {
+    // 获取会话信息
+    final String name = conversation.name ?? '未命名会话';
+    final String message = conversation.lastMessagePreview ?? '暂无消息';
+    final String time = _formatMessageTime(conversation.lastMessageTime);
+    final int unreadCount = conversation.unreadCount;
+    final String avatarUrl = conversation.avatar ?? 'https://picsum.photos/200?random=${conversation.id}';
+
     // 菜单宽度
     const double menuWidth = 180; // 三个按钮的总宽度
 
@@ -332,6 +340,9 @@ class _ChatsPageState extends State<ChatsPage> {
                 GestureDetector(
                   onTap: () {
                     dev.log(unreadCount > 0 ? '将$name标为已读' : '将$name标为未读');
+                    if (unreadCount > 0) {
+                      context.read<ChatCubit>().markConversationAsRead(id);
+                    }
                     setState(() {
                       _openedItemId = null; // 操作后关闭菜单
                     });
@@ -368,6 +379,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 GestureDetector(
                   onTap: () {
                     dev.log('删除聊天: $name');
+                    context.read<ChatCubit>().deleteConversation(id);
                     setState(() {
                       _openedItemId = null; // 操作后关闭菜单
                     });
@@ -438,7 +450,17 @@ class _ChatsPageState extends State<ChatsPage> {
               color: Colors.white,
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: NetworkImage(avatarUrl),
+                  backgroundImage: _getAvatarImage(avatarUrl),
+                  backgroundColor: Colors.green[100],
+                  child: avatarUrl.isEmpty || avatarUrl.startsWith('https://picsum.photos')
+                      ? Text(
+                          conversation.avatarText,
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
                   radius: 24,
                 ),
                 title: Text(
@@ -477,7 +499,7 @@ class _ChatsPageState extends State<ChatsPage> {
                     if (unreadCount > 0)
                       Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
                         ),
@@ -502,7 +524,9 @@ class _ChatsPageState extends State<ChatsPage> {
                     });
                   } else {
                     // 打开聊天详情页
-                    dev.log('打开聊天: $name');
+                    dev.log('打开聊天: $name (ID: $id)');
+                    context.read<ChatCubit>().setCurrentConversation(id);
+                    // TODO: 导航到聊天详情页
                   }
                 },
               ),
@@ -511,6 +535,42 @@ class _ChatsPageState extends State<ChatsPage> {
         ),
       ],
     );
+  }
+
+  // 获取头像图片
+  ImageProvider _getAvatarImage(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return const AssetImage('assets/images/default_avatar.png');
+    }
+
+    return NetworkImage(avatarUrl);
+  }
+
+  // 格式化消息时间
+  String _formatMessageTime(DateTime? dateTime) {
+    if (dateTime == null) {
+      return '';
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    if (messageDate == today) {
+      // 今天的消息显示时间
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else if (messageDate == yesterday) {
+      // 昨天的消息
+      return '昨天';
+    } else if (now.difference(dateTime).inDays < 7) {
+      // 本周内的消息显示星期
+      const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      return weekdays[dateTime.weekday - 1];
+    } else {
+      // 超过一周的消息显示日期
+      return '${dateTime.month}-${dateTime.day}';
+    }
   }
 
   void _showFilterDialog() {
