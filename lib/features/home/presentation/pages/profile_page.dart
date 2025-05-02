@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:developer' as dev;
 import '../cubit/home_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cc/features/chat/presentation/pages/chat_test_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -188,6 +189,19 @@ class ProfilePage extends StatelessWidget {
       ),
       child: Column(
         children: [
+          _buildListTile(
+            icon: Icons.bug_report,
+            title: '聊天测试工具',
+            subtitle: '用于测试聊天功能',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ChatTestPage(),
+                ),
+              );
+            },
+          ),
+          const Divider(height: 1),
           _buildListTile(
             icon: Icons.payment,
             title: '支付',

@@ -3,6 +3,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:developer' as dev;
 
 /// 聊天功能测试页面
 /// 用于验证聊天功能是否正常运行
@@ -13,19 +14,44 @@ class ChatTestPage extends StatefulWidget {
   State<ChatTestPage> createState() => _ChatTestPageState();
 }
 
-class _ChatTestPageState extends State<ChatTestPage> {
+class _ChatTestPageState extends State<ChatTestPage> with AutomaticKeepAliveClientMixin {
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   String _currentConversationId = '';
   bool _isSearching = false;
+  bool _dataInitialized = false;
+
+  @override
+  bool get wantKeepAlive => true; // 保持页面状态，避免反复重建
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    dev.log('ChatTestPage - initState');
+    // 将会在didChangeDependencies中加载数据
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    dev.log('ChatTestPage - didChangeDependencies, initialized: $_dataInitialized');
+    // 只在第一次构建时加载数据，避免重复加载
+    if (!_dataInitialized) {
+      _loadData();
+      _dataInitialized = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    dev.log('ChatTestPage - dispose');
+    _messageController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadData() async {
+    dev.log('ChatTestPage - _loadData');
     // 加载会话和联系人
     final chatCubit = context.read<ChatCubit>();
     await chatCubit.loadConversations();
@@ -34,6 +60,9 @@ class _ChatTestPageState extends State<ChatTestPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // 必须调用super.build
+    dev.log('ChatTestPage - build');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('聊天测试'),
@@ -74,6 +103,16 @@ class _ChatTestPageState extends State<ChatTestPage> {
           // 主体内容
           Expanded(
             child: BlocBuilder<ChatCubit, ChatState>(
+              buildWhen: (previous, current) {
+                // 只有当相关状态变化时才重建
+                if (previous.isLoading != current.isLoading) return true;
+                if (previous.error != current.error) return true;
+                if (_isSearching && previous.searchResults != current.searchResults) return true;
+                if (previous.conversations != current.conversations) return true;
+                if (_currentConversationId.isNotEmpty && previous.messagesByConversation[_currentConversationId] != current.messagesByConversation[_currentConversationId])
+                  return true;
+                return false;
+              },
               builder: (context, state) {
                 if (state.isLoading) {
                   return const Center(child: CircularProgressIndicator());
@@ -143,6 +182,10 @@ class _ChatTestPageState extends State<ChatTestPage> {
 
   // 构建会话列表
   Widget _buildConversationList(ChatState state) {
+    if (state.conversations.isEmpty) {
+      return const Center(child: Text('暂无会话'));
+    }
+
     return ListView.builder(
       itemCount: state.conversations.length,
       itemBuilder: (context, index) {
@@ -162,10 +205,12 @@ class _ChatTestPageState extends State<ChatTestPage> {
                 )
               : null,
           onTap: () {
-            setState(() {
-              _currentConversationId = conversation.id.toString();
-            });
-            context.read<ChatCubit>().setCurrentConversation(conversation.id.toString());
+            if (_currentConversationId != conversation.id.toString()) {
+              setState(() {
+                _currentConversationId = conversation.id.toString();
+              });
+              context.read<ChatCubit>().setCurrentConversation(conversation.id.toString());
+            }
           },
         );
       },
@@ -175,6 +220,10 @@ class _ChatTestPageState extends State<ChatTestPage> {
   // 构建消息列表
   Widget _buildMessageList(ChatState state) {
     final messages = state.currentMessages;
+
+    if (messages.isEmpty) {
+      return const Center(child: Text('暂无消息'));
+    }
 
     return Column(
       children: [

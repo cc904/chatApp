@@ -4,6 +4,7 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:logger/logger.dart';
+import 'package:isar/isar.dart';
 
 /// ChatRepository的实现类
 class ChatRepositoryImpl implements ChatRepository {
@@ -15,10 +16,19 @@ class ChatRepositoryImpl implements ChatRepository {
   // 模拟当前用户ID，实际应该从认证服务获取
   int get _currentUserId => 1; // 假设当前用户的ID为1
 
+  // 获取用户集合
+  IsarCollection<User> get _users => _isar.collection<User>();
+
+  // 获取会话集合
+  IsarCollection<Conversation> get _conversations => _isar.collection<Conversation>();
+
+  // 获取消息集合
+  IsarCollection<Message> get _messages => _isar.collection<Message>();
+
   @override
   Future<List<User>> getAllContacts() async {
     try {
-      return await _isar.users.filter().isFriendEqualTo(true).sortByName().findAll();
+      return await _users.filter().isFriendEqualTo(true).sortByName().findAll();
     } catch (e) {
       _logger.e('获取联系人失败', error: e);
       return _getMockContacts();
@@ -43,7 +53,7 @@ class ChatRepositoryImpl implements ChatRepository {
         return getAllContacts();
       }
 
-      return await _isar.users
+      return await _users
           .filter()
           .isFriendEqualTo(true)
           .group((q) => q
@@ -66,7 +76,7 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<User?> getContactById(String userId) async {
     try {
       int id = int.tryParse(userId) ?? 0;
-      return await _isar.users.get(id);
+      return await _users.get(id);
     } catch (e) {
       _logger.e('获取联系人信息失败', error: e);
       return null;
@@ -79,10 +89,10 @@ class ChatRepositoryImpl implements ChatRepository {
       // 确保是好友状态
       user.isFriend = true;
       await _isar.writeTxn(() async {
-        user.id = await _isar.users.put(user);
+        user.id = await _users.put(user);
         // 同步ID字段
         DatabaseInitializer.syncIds(user);
-        await _isar.users.put(user);
+        await _users.put(user);
       });
     } catch (e) {
       _logger.e('添加联系人失败', error: e);
@@ -93,7 +103,8 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<List<Conversation>> getAllConversations() async {
     try {
-      final conversations = await _isar.conversations.where().findAll();
+      // 使用生成的访问器
+      final conversations = await _conversations.where().findAll();
       // 手动按lastMessageTime降序排序，将null值排在最后
       conversations.sort((a, b) {
         if (a.lastMessageTime == null) return 1;
@@ -126,7 +137,8 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Conversation?> getConversationById(String conversationId) async {
     try {
       int id = int.tryParse(conversationId) ?? 0;
-      return await _isar.conversations.get(id);
+      // 使用生成的访问器
+      return await _conversations.get(id);
     } catch (e) {
       _logger.e('获取会话信息失败', error: e);
       return null;
@@ -136,9 +148,8 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<Conversation> getOrCreatePrivateConversation(String contactUserId) async {
     try {
-
       // 先查找已有的私聊会话
-      final existing = await _isar.conversations.filter().typeEqualTo(ConversationType.private).and().contactUserIdEqualTo(contactUserId).findFirst();
+      final existing = await _conversations.filter().typeEqualTo(ConversationType.private).and().contactUserIdEqualTo(contactUserId).findFirst();
 
       if (existing != null) {
         return existing;
@@ -156,10 +167,10 @@ class ChatRepositoryImpl implements ChatRepository {
       conversation.contactUserId = contactUserId;
 
       await _isar.writeTxn(() async {
-        conversation.id = await _isar.conversations.put(conversation);
+        conversation.id = await _conversations.put(conversation);
         // 同步ID字段
         DatabaseInitializer.syncIds(conversation);
-        await _isar.conversations.put(conversation);
+        await _conversations.put(conversation);
 
         // 添加会话参与者
         conversation.participants.add(contact);
@@ -185,13 +196,13 @@ class ChatRepositoryImpl implements ChatRepository {
 
       await _isar.writeTxn(() async {
         // 保存会话
-        conversation.id = await _isar.conversations.put(conversation);
+        conversation.id = await _conversations.put(conversation);
         // 同步ID字段
         DatabaseInitializer.syncIds(conversation);
-        await _isar.conversations.put(conversation);
+        await _conversations.put(conversation);
 
         // 添加当前用户
-        final currentUser = await _isar.users.get(_currentUserId);
+        final currentUser = await _users.get(_currentUserId);
         if (currentUser != null) {
           conversation.participants.add(currentUser);
         }
@@ -217,7 +228,7 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<List<Message>> getConversationMessages(String conversationId, {int limit = 20, DateTime? before}) async {
     try {
-      final query = _isar.messages.filter().conversationIdEqualTo(conversationId).optional(before != null, (q) => q.createdAtLessThan(before!)).sortByCreatedAtDesc();
+      final query = _messages.filter().conversationIdEqualTo(conversationId).optional(before != null, (q) => q.createdAtLessThan(before!)).sortByCreatedAtDesc();
 
       final messages = await query.limit(limit).findAll();
       return messages;
@@ -234,7 +245,7 @@ class ChatRepositoryImpl implements ChatRepository {
         return [];
       }
 
-      var query = _isar.messages.filter().textContains(keyword, caseSensitive: false);
+      var query = _messages.filter().textContains(keyword, caseSensitive: false);
 
       // 如果指定了会话ID，只返回该会话中的消息
       if (conversationId != null) {
@@ -261,17 +272,17 @@ class ChatRepositoryImpl implements ChatRepository {
         conv.unreadCount = 0;
         // 同步会话ID字段
         DatabaseInitializer.syncIds(conv);
-        await _isar.conversations.put(conv);
+        await _conversations.put(conv);
 
         // 标记所有非自己发送的消息为已读
         final unreadMessages =
-            await _isar.messages.filter().conversationIdEqualTo(conversationId).and().not().senderIdEqualTo(_currentUserId.toString()).and().isReadEqualTo(false).findAll();
+            await _messages.filter().conversationIdEqualTo(conversationId).and().not().senderIdEqualTo(_currentUserId.toString()).and().isReadEqualTo(false).findAll();
 
         for (final message in unreadMessages) {
           message.isRead = true;
           // 同步消息ID字段
           DatabaseInitializer.syncIds(message);
-          await _isar.messages.put(message);
+          await _messages.put(message);
         }
       });
     } catch (e) {
@@ -285,7 +296,7 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       int id = int.tryParse(messageId) ?? 0;
       await _isar.writeTxn(() async {
-        await _isar.messages.delete(id);
+        await _messages.delete(id);
       });
     } catch (e) {
       _logger.e('删除消息失败', error: e);
@@ -298,19 +309,10 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       int id = int.tryParse(conversationId) ?? 0;
       await _isar.writeTxn(() async {
-        // 先查找会话
-        final conversation = await _isar.conversations.get(id);
-        if (conversation != null) {
-          // 删除会话中的所有消息
-          final messages = await _isar.messages.filter().conversationIdEqualTo(conversationId).findAll();
-
-          for (final message in messages) {
-            await _isar.messages.delete(message.id);
-          }
-
-          // 删除会话
-          await _isar.conversations.delete(conversation.id);
-        }
+        // 删除会话关联的所有消息
+        await _messages.filter().conversationIdEqualTo(conversationId).deleteAll();
+        // 删除会话本身
+        await _conversations.delete(id);
       });
     } catch (e) {
       _logger.e('删除会话失败', error: e);
@@ -320,17 +322,17 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Stream<void> watchConversations() {
-    return _isar.conversations.watchLazy();
+    return _conversations.watchLazy();
   }
 
   @override
   Stream<void> watchConversationMessages(String conversationId) {
-    return _isar.messages.filter().conversationIdEqualTo(conversationId).watchLazy();
+    return _messages.filter().conversationIdEqualTo(conversationId).watchLazy();
   }
 
   @override
   Stream<void> watchContacts() {
-    return _isar.users.watchLazy();
+    return _users.watchLazy();
   }
 
   @override
@@ -346,10 +348,10 @@ class ChatRepositoryImpl implements ChatRepository {
       message.status = 'sent';
 
       await _isar.writeTxn(() async {
-        message.id = await _isar.messages.put(message);
+        message.id = await _messages.put(message);
         // 同步ID字段
         DatabaseInitializer.syncIds(message);
-        await _isar.messages.put(message);
+        await _messages.put(message);
 
         // 更新会话最后消息预览
         final conversation = await getConversationById(conversationId);
@@ -358,7 +360,7 @@ class ChatRepositoryImpl implements ChatRepository {
           conversation.lastMessagePreview = text;
           // 同步会话ID字段
           DatabaseInitializer.syncIds(conversation);
-          await _isar.conversations.put(conversation);
+          await _conversations.put(conversation);
         }
       });
 
@@ -383,10 +385,10 @@ class ChatRepositoryImpl implements ChatRepository {
       message.status = 'sent';
 
       await _isar.writeTxn(() async {
-        message.id = await _isar.messages.put(message);
+        message.id = await _messages.put(message);
         // 同步ID字段
         DatabaseInitializer.syncIds(message);
-        await _isar.messages.put(message);
+        await _messages.put(message);
 
         // 更新会话最后消息预览
         final conversation = await getConversationById(conversationId);
@@ -395,7 +397,7 @@ class ChatRepositoryImpl implements ChatRepository {
           conversation.lastMessagePreview = '[图片]';
           // 同步会话ID字段
           DatabaseInitializer.syncIds(conversation);
-          await _isar.conversations.put(conversation);
+          await _conversations.put(conversation);
         }
       });
 
@@ -421,10 +423,10 @@ class ChatRepositoryImpl implements ChatRepository {
       message.status = 'sent';
 
       await _isar.writeTxn(() async {
-        message.id = await _isar.messages.put(message);
+        message.id = await _messages.put(message);
         // 同步ID字段
         DatabaseInitializer.syncIds(message);
-        await _isar.messages.put(message);
+        await _messages.put(message);
 
         // 更新会话最后消息预览
         final conversation = await getConversationById(conversationId);
@@ -433,7 +435,7 @@ class ChatRepositoryImpl implements ChatRepository {
           conversation.lastMessagePreview = '[语音]';
           // 同步会话ID字段
           DatabaseInitializer.syncIds(conversation);
-          await _isar.conversations.put(conversation);
+          await _conversations.put(conversation);
         }
       });
 
@@ -460,10 +462,10 @@ class ChatRepositoryImpl implements ChatRepository {
       message.status = 'sent';
 
       await _isar.writeTxn(() async {
-        message.id = await _isar.messages.put(message);
+        message.id = await _messages.put(message);
         // 同步ID字段
         DatabaseInitializer.syncIds(message);
-        await _isar.messages.put(message);
+        await _messages.put(message);
 
         // 更新会话最后消息预览
         final conversation = await getConversationById(conversationId);
@@ -472,7 +474,7 @@ class ChatRepositoryImpl implements ChatRepository {
           conversation.lastMessagePreview = '[文件] $fileName';
           // 同步会话ID字段
           DatabaseInitializer.syncIds(conversation);
-          await _isar.conversations.put(conversation);
+          await _conversations.put(conversation);
         }
       });
 
@@ -499,10 +501,10 @@ class ChatRepositoryImpl implements ChatRepository {
       message.status = 'sent';
 
       await _isar.writeTxn(() async {
-        message.id = await _isar.messages.put(message);
+        message.id = await _messages.put(message);
         // 同步ID字段
         DatabaseInitializer.syncIds(message);
-        await _isar.messages.put(message);
+        await _messages.put(message);
 
         // 更新会话最后消息预览
         final conversation = await getConversationById(conversationId);
@@ -511,7 +513,7 @@ class ChatRepositoryImpl implements ChatRepository {
           conversation.lastMessagePreview = '[视频]';
           // 同步会话ID字段
           DatabaseInitializer.syncIds(conversation);
-          await _isar.conversations.put(conversation);
+          await _conversations.put(conversation);
         }
       });
 

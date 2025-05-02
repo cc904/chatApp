@@ -18,22 +18,17 @@ class ChatCubit extends Cubit<ChatState> {
   StreamSubscription? _contactsSubscription;
   final Map<String, StreamSubscription> _messagesSubscriptions = {};
 
+  // 标记是否正在加载，避免重复加载
+  bool _isLoadingConversations = false;
+  Map<String, bool> _isLoadingMessages = {};
+
+  // 标记数据变更的来源
+  bool _isSourceOfChange = false;
+
   ChatCubit({required ChatRepository repository})
       : _repository = repository,
         super(ChatState.initial()) {
-    // 初始化时加载数据
-    _initializeData();
-  }
-
-  /// 初始化数据
-  Future<void> _initializeData() async {
-    // 加载会话列表
-    await loadConversations();
-
-    // 加载联系人列表
-    await loadContacts();
-
-    // 设置订阅
+    // 初始化时设置订阅，但不主动加载数据
     _setupSubscriptions();
   }
 
@@ -42,19 +37,28 @@ class ChatCubit extends Cubit<ChatState> {
     // 监听会话列表变化
     _conversationsSubscription?.cancel();
     _conversationsSubscription = _repository.watchConversations().listen((_) {
-      loadConversations();
+      // 只有当数据变更不是由自身引起的才重新加载
+      if (!_isLoadingConversations && !_isSourceOfChange) {
+        loadConversations();
+      }
     });
 
     // 监听联系人变化
     _contactsSubscription?.cancel();
     _contactsSubscription = _repository.watchContacts().listen((_) {
-      loadContacts();
+      // 只有当数据变更不是由自身引起的才重新加载
+      if (!_isSourceOfChange) {
+        loadContacts();
+      }
     });
   }
 
   /// 加载会话列表
   Future<void> loadConversations() async {
+    if (_isLoadingConversations) return; // 防止重复加载
+
     try {
+      _isLoadingConversations = true;
       emit(state.copyWithLoading());
       final conversations = await _repository.getAllConversations();
       emit(state.copyWith(
@@ -65,13 +69,15 @@ class ChatCubit extends Cubit<ChatState> {
       // 为每个会话设置消息监听
       _setupMessageSubscriptions(conversations);
 
-      // 加载每个会话的最近消息
-      for (final conversation in conversations) {
-        loadMessagesForConversation(conversation.id.toString());
+      // 加载每个会话的最近消息 (限制只加载当前选中的会话消息以减少刷新)
+      if (state.currentConversationId != null) {
+        loadMessagesForConversation(state.currentConversationId!);
       }
     } catch (e) {
       _logger.e('加载会话列表失败', error: e);
       emit(state.copyWithError('加载会话列表失败: $e'));
+    } finally {
+      _isLoadingConversations = false;
     }
   }
 
@@ -82,16 +88,16 @@ class ChatCubit extends Cubit<ChatState> {
     _messagesSubscriptions.keys.where((id) => !validIds.contains(id)).toList().forEach((id) {
       _messagesSubscriptions[id]?.cancel();
       _messagesSubscriptions.remove(id);
+      _isLoadingMessages.remove(id); // 清理加载状态标记
     });
 
-    // 添加新的订阅
-    for (final conversation in conversations) {
-      final id = conversation.id.toString();
-      if (!_messagesSubscriptions.containsKey(id)) {
-        _messagesSubscriptions[id] = _repository.watchConversationMessages(id).listen((_) {
-          loadMessagesForConversation(id);
-        });
-      }
+    // 只为当前会话添加监听，减少不必要的刷新
+    if (state.currentConversationId != null && !_messagesSubscriptions.containsKey(state.currentConversationId)) {
+      _messagesSubscriptions[state.currentConversationId!] = _repository.watchConversationMessages(state.currentConversationId!).listen((_) {
+        if (!(_isLoadingMessages[state.currentConversationId!] ?? false) && !_isSourceOfChange) {
+          loadMessagesForConversation(state.currentConversationId!);
+        }
+      });
     }
   }
 
@@ -112,7 +118,12 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 加载指定会话的消息
   Future<void> loadMessagesForConversation(String conversationId, {int limit = 20, DateTime? before}) async {
+    // 防止同一会话的消息并发加载
+    if (_isLoadingMessages[conversationId] ?? false) return;
+
     try {
+      _isLoadingMessages[conversationId] = true;
+
       final messages = await _repository.getConversationMessages(
         conversationId,
         limit: limit,
@@ -129,6 +140,8 @@ class ChatCubit extends Cubit<ChatState> {
     } catch (e) {
       _logger.e('加载会话消息失败', error: e);
       // 不影响主UI，仅记录错误
+    } finally {
+      _isLoadingMessages[conversationId] = false;
     }
   }
 
@@ -136,6 +149,15 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> setCurrentConversation(String conversationId) async {
     try {
       emit(state.copyWith(currentConversationId: conversationId));
+
+      // 添加对当前会话的消息监听
+      if (!_messagesSubscriptions.containsKey(conversationId)) {
+        _messagesSubscriptions[conversationId] = _repository.watchConversationMessages(conversationId).listen((_) {
+          if (!(_isLoadingMessages[conversationId] ?? false) && !_isSourceOfChange) {
+            loadMessagesForConversation(conversationId);
+          }
+        });
+      }
 
       // 加载消息
       await loadMessagesForConversation(conversationId);
@@ -151,12 +173,12 @@ class ChatCubit extends Cubit<ChatState> {
   /// 标记会话为已读
   Future<void> markConversationAsRead(String conversationId) async {
     try {
+      _isSourceOfChange = true;
       await _repository.markConversationAsRead(conversationId);
-
-      // 通过监听会自动更新UI
+      _isSourceOfChange = false;
     } catch (e) {
       _logger.e('标记会话已读失败', error: e);
-      // 不影响主UI，仅记录错误
+      _isSourceOfChange = false;
     }
   }
 
@@ -223,42 +245,52 @@ class ChatCubit extends Cubit<ChatState> {
     if (text.trim().isEmpty) return;
 
     try {
+      _isSourceOfChange = true;
       await _repository.sendTextMessage(conversationId, text);
-      // 消息会通过监听自动更新UI
+      _isSourceOfChange = false;
     } catch (e) {
       _logger.e('发送文本消息失败', error: e);
       emit(state.copyWithError('发送消息失败: $e'));
+      _isSourceOfChange = false;
     }
   }
 
   /// 发送图片消息
   Future<void> sendImageMessage(String conversationId, String localPath, {String? mediaUrl}) async {
     try {
+      _isSourceOfChange = true;
       await _repository.sendImageMessage(conversationId, localPath, mediaUrl: mediaUrl);
-      // 消息会通过监听自动更新UI
+      _isSourceOfChange = false;
     } catch (e) {
       _logger.e('发送图片消息失败', error: e);
       emit(state.copyWithError('发送图片失败: $e'));
+      _isSourceOfChange = false;
     }
   }
 
   /// 发送语音消息
   Future<void> sendVoiceMessage(String conversationId, String localPath, int duration, {String? mediaUrl}) async {
     try {
+      _isSourceOfChange = true;
       await _repository.sendVoiceMessage(conversationId, localPath, duration, mediaUrl: mediaUrl);
-      // 消息会通过监听自动更新UI
+      _isSourceOfChange = false;
     } catch (e) {
       _logger.e('发送语音消息失败', error: e);
       emit(state.copyWithError('发送语音失败: $e'));
+      _isSourceOfChange = false;
     }
   }
 
   /// 获取或创建私聊会话
   Future<Conversation> getOrCreatePrivateConversation(String contactUserId) async {
     try {
-      return await _repository.getOrCreatePrivateConversation(contactUserId);
+      _isSourceOfChange = true;
+      final result = await _repository.getOrCreatePrivateConversation(contactUserId);
+      _isSourceOfChange = false;
+      return result;
     } catch (e) {
       _logger.e('获取或创建私聊会话失败', error: e);
+      _isSourceOfChange = false;
       rethrow;
     }
   }
@@ -266,9 +298,13 @@ class ChatCubit extends Cubit<ChatState> {
   /// 创建群聊
   Future<Conversation> createGroupConversation(String name, List<String> memberIds, {String? avatar}) async {
     try {
-      return await _repository.createGroupConversation(name, memberIds, avatar: avatar);
+      _isSourceOfChange = true;
+      final result = await _repository.createGroupConversation(name, memberIds, avatar: avatar);
+      _isSourceOfChange = false;
+      return result;
     } catch (e) {
       _logger.e('创建群聊失败', error: e);
+      _isSourceOfChange = false;
       rethrow;
     }
   }
@@ -276,19 +312,22 @@ class ChatCubit extends Cubit<ChatState> {
   /// 删除消息
   Future<void> deleteMessage(String messageId) async {
     try {
+      _isSourceOfChange = true;
       await _repository.deleteMessage(messageId);
-      // 消息会通过监听自动更新UI
+      _isSourceOfChange = false;
     } catch (e) {
       _logger.e('删除消息失败', error: e);
       emit(state.copyWithError('删除消息失败: $e'));
+      _isSourceOfChange = false;
     }
   }
 
   /// 删除会话
   Future<void> deleteConversation(String conversationId) async {
     try {
+      _isSourceOfChange = true;
       await _repository.deleteConversation(conversationId);
-      // 会话会通过监听自动更新UI
+      _isSourceOfChange = false;
 
       // 如果删除的是当前会话，清空当前会话ID
       if (state.currentConversationId == conversationId) {
@@ -297,17 +336,20 @@ class ChatCubit extends Cubit<ChatState> {
     } catch (e) {
       _logger.e('删除会话失败', error: e);
       emit(state.copyWithError('删除会话失败: $e'));
+      _isSourceOfChange = false;
     }
   }
 
   /// 添加联系人
   Future<void> addContact(User user) async {
     try {
+      _isSourceOfChange = true;
       await _repository.addContact(user);
-      // 联系人会通过监听自动更新UI
+      _isSourceOfChange = false;
     } catch (e) {
       _logger.e('添加联系人失败', error: e);
       emit(state.copyWithError('添加联系人失败: $e'));
+      _isSourceOfChange = false;
     }
   }
 
