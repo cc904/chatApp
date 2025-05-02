@@ -211,7 +211,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundImage: hasAvatar ? NetworkImage(contact.avatar!) : null,
+        backgroundImage: hasAvatar ? NetworkImage(avatar) : null,
         backgroundColor: hasAvatar ? null : Colors.green[100],
         radius: 24,
         child: hasAvatar

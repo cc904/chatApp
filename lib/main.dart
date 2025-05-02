@@ -17,6 +17,9 @@ import 'dart:io';
 import 'core/database/models/user.dart';
 import 'core/database/models/conversation.dart';
 import 'core/database/models/message.dart';
+import 'features/contacts/data/repositories/contacts_repository_impl.dart';
+import 'features/contacts/domain/repositories/contacts_repository.dart';
+import 'features/contacts/presentation/cubit/contacts_cubit.dart';
 
 void main() async {
   // 确保Flutter初始化完成
@@ -180,6 +183,10 @@ class MyApp extends StatelessWidget {
         RepositoryProvider<ChatRepository>(
           create: (context) => ChatRepositoryImpl(),
         ),
+        // 添加ContactsRepository
+        RepositoryProvider<ContactsRepository>(
+          create: (context) => ContactsRepositoryImpl(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -188,6 +195,12 @@ class MyApp extends StatelessWidget {
           BlocProvider<ChatCubit>(
             create: (context) => ChatCubit(
               repository: context.read<ChatRepository>(),
+            ),
+          ),
+          // 添加ContactsCubit
+          BlocProvider<ContactsCubit>(
+            create: (context) => ContactsCubit(
+              repository: context.read<ContactsRepository>(),
             ),
           ),
         ],
