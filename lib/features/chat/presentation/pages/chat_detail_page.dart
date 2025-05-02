@@ -473,6 +473,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                             controller: _scrollController,
                             reverse: true, // 最新消息在底部
                             physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 8.0), // 添加底部间距
                             itemCount: messages.length,
                             itemBuilder: (context, index) {
                               if (index >= messages.length) {
@@ -546,14 +547,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 26),
+                  color: Colors.black.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   _formatMessageTime(message.createdAt),
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.black.withValues(alpha: 179),
+                    color: Colors.black.withOpacity(0.7),
                   ),
                 ),
               ),
@@ -1314,7 +1315,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 26),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 4,
               offset: const Offset(0, -1),
             ),
