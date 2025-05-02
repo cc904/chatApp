@@ -10,166 +10,10 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/file_upload_service.dart';
-import 'package:path/path.dart' as path;
-import 'package:intl/intl.dart';
-import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
 import 'package:cc/features/chat/presentation/widgets/media_overlay_viewer.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'package:flutter/rendering.dart';
-
-// 波形动画绘制器
-class WaveformPainter extends CustomPainter {
-  final double progress;
-  final List<double> _heights = [];
-  final Color activeColor;
-  final Color inactiveColor;
-
-  WaveformPainter({
-    required this.progress,
-    this.activeColor = Colors.blue,
-    this.inactiveColor = Colors.grey,
-  }) {
-    // 生成随机高度，但有规律性
-    final random = math.Random(42); // 固定种子使波形看起来一致
-    for (int i = 0; i < 30; i++) {
-      // 创建一个有规律的波形 - 中间高，两边低
-      final position = i / 30;
-      final baseHeight = 0.3 + 0.7 * math.sin(position * math.pi);
-      final randomness = 0.2 * random.nextDouble();
-      _heights.add(baseHeight + randomness);
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint activePaint = Paint()
-      ..color = activeColor
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 3;
-
-    final Paint inactivePaint = Paint()
-      ..color = inactiveColor
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 3;
-
-    final barWidth = size.width / _heights.length;
-    final middle = size.height / 2;
-
-    for (int i = 0; i < _heights.length; i++) {
-      final x = i * barWidth;
-      final barHeight = _heights[i] * size.height;
-
-      // 计算当前柱状体是否在进度内
-      final isActive = i / _heights.length <= progress;
-
-      canvas.drawLine(
-        Offset(x + barWidth / 2, middle - barHeight / 2),
-        Offset(x + barWidth / 2, middle + barHeight / 2),
-        isActive ? activePaint : inactivePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant WaveformPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-// 静态波形绘制器
-class StaticWaveformPainter extends CustomPainter {
-  final List<double> _heights = [];
-  final Color color;
-
-  StaticWaveformPainter({
-    this.color = Colors.grey,
-  }) {
-    // 生成随机高度，但有规律性
-    final random = math.Random(42); // 固定种子使波形看起来一致
-    for (int i = 0; i < 30; i++) {
-      // 创建一个有规律的波形 - 中间高，两边低
-      final position = i / 30;
-      final baseHeight = 0.3 + 0.7 * math.sin(position * math.pi);
-      final randomness = 0.2 * random.nextDouble();
-      _heights.add(baseHeight + randomness);
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = color
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 3;
-
-    final barWidth = size.width / _heights.length;
-    final middle = size.height / 2;
-
-    for (int i = 0; i < _heights.length; i++) {
-      final x = i * barWidth;
-      final barHeight = _heights[i] * size.height;
-
-      canvas.drawLine(
-        Offset(x + barWidth / 2, middle - barHeight / 2),
-        Offset(x + barWidth / 2, middle + barHeight / 2),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant StaticWaveformPainter oldDelegate) {
-    return false; // 静态波形不需要重绘
-  }
-}
-
-// 录音波形绘制器
-class RecordingWaveformPainter extends CustomPainter {
-  final List<double> _waveHeights = [];
-  final Color color;
-  final double animationValue;
-
-  RecordingWaveformPainter({
-    this.color = Colors.red,
-    this.animationValue = 0.0,
-  }) {
-    // 生成波形高度
-    final random = math.Random(DateTime.now().millisecondsSinceEpoch);
-    for (int i = 0; i < 4; i++) {
-      _waveHeights.add(0.3 + random.nextDouble() * 0.7);
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 2.0;
-
-    final width = size.width / (_waveHeights.length + 1);
-    final maxHeight = size.height * 0.7;
-    final middle = size.height / 2;
-
-    for (int i = 0; i < _waveHeights.length; i++) {
-      // 使用动画值和索引创建动态波形
-      final offset = (animationValue + i / _waveHeights.length) % 1.0;
-      final height = maxHeight * _waveHeights[i] * (0.5 + 0.5 * math.sin(offset * math.pi * 2));
-
-      canvas.drawLine(
-        Offset((i + 0.5) * width, middle - height / 2),
-        Offset((i + 0.5) * width, middle + height / 2),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant RecordingWaveformPainter oldDelegate) {
-    return oldDelegate.animationValue != animationValue;
-  }
-}
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -183,7 +27,7 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProviderStateMixin {
+class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -221,6 +65,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
   String? _currentPlayingVoiceId;
   double _voicePlayProgress = 0.0;
 
+  // 添加语音动画控制器
+  late AnimationController _voiceAnimationController;
+
   @override
   void initState() {
     super.initState();
@@ -243,6 +90,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
         });
       });
     _waveformController.repeat();
+
+    // 初始化语音动画控制器
+    _voiceAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    );
+    _voiceAnimationController.repeat(reverse: true);
   }
 
   @override
@@ -255,8 +109,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
+    _focusNode.dispose(); // 确保添加这行
     _waveformController.dispose();
+    _voiceAnimationController.dispose();
 
     // 清理录音计时器
     _recordingTimer?.cancel();
@@ -279,8 +134,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
   // 加载会话和消息
   void _loadConversation() {
-    final chatCubit = context.read<ChatCubit>();
-    chatCubit.setCurrentConversation(widget.conversationId);
+    try {
+      final chatCubit = context.read<ChatCubit>();
+      chatCubit.setCurrentConversation(widget.conversationId);
+    } catch (e) {
+      dev.log('加载会话失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('加载会话失败: $e')),
+      );
+    }
   }
 
   // 滚动到底部
@@ -312,7 +174,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
   // 加载更多历史消息
   Future<void> _loadMoreMessages() async {
-    final state = context.read<ChatCubit>().state;
+    // 在异步操作前保存必要的实例
+    final chatCubit = context.read<ChatCubit>();
+    final state = chatCubit.state;
     final messages = state.messagesByConversation[widget.conversationId] ?? [];
 
     if (messages.isEmpty) return;
@@ -326,17 +190,19 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
       final earliestMessage = messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
 
       // 加载更早的消息
-      await context.read<ChatCubit>().loadMessagesForConversation(
-            widget.conversationId,
-            before: earliestMessage.createdAt,
-            limit: 20,
-          );
+      await chatCubit.loadMessagesForConversation(
+        widget.conversationId,
+        before: earliestMessage.createdAt,
+        limit: 20,
+      );
     } catch (e) {
       dev.log('加载更多消息失败: $e');
     } finally {
-      setState(() {
-        _isLoadingMore = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -377,6 +243,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
         _isAtBottom = true;
       });
 
+      // 提前获取ChatCubit实例
+      final chatCubit = context.read<ChatCubit>();
+
       switch (_attachmentType) {
         case MessageType.image:
           // 上传图片
@@ -390,11 +259,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           dev.log('图片上传成功: localPath=${uploadResult.localPath}, remoteUrl=${uploadResult.remoteUrl}');
 
           // 发送图片消息
-          await context.read<ChatCubit>().sendImageMessage(
-                widget.conversationId,
-                uploadResult.localPath,
-                mediaUrl: uploadResult.remoteUrl,
-              );
+          if (mounted) {
+            await chatCubit.sendImageMessage(
+              widget.conversationId,
+              uploadResult.localPath,
+              mediaUrl: uploadResult.remoteUrl,
+            );
+          }
           break;
 
         case MessageType.file:
@@ -406,13 +277,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           }
 
           // 发送文件消息
-          await context.read<ChatCubit>().sendFileMessage(
-                widget.conversationId,
-                uploadResult.localPath,
-                _attachmentName ?? '未知文件',
-                _attachmentSize ?? _selectedAttachment!.lengthSync().toDouble(),
-                mediaUrl: uploadResult.remoteUrl,
-              );
+          if (mounted) {
+            await chatCubit.sendFileMessage(
+              widget.conversationId,
+              uploadResult.localPath,
+              _attachmentName ?? '未知文件',
+              _attachmentSize ?? _selectedAttachment!.lengthSync().toDouble(),
+              mediaUrl: uploadResult.remoteUrl,
+            );
+          }
           break;
 
         case MessageType.video:
@@ -435,14 +308,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           }
 
           // 发送视频消息
-          await context.read<ChatCubit>().sendVideoMessage(
-                widget.conversationId,
-                uploadResult.localPath,
-                videoDuration,
-                thumbnailUrl: uploadResult.thumbnailUrl,
-                mediaUrl: uploadResult.remoteUrl,
-                isServerProcessed: uploadResult.serverProcessed,
-              );
+          if (mounted) {
+            await chatCubit.sendVideoMessage(
+              widget.conversationId,
+              uploadResult.localPath,
+              videoDuration,
+              thumbnailUrl: uploadResult.thumbnailUrl,
+              mediaUrl: uploadResult.remoteUrl,
+              isServerProcessed: uploadResult.serverProcessed,
+            );
+          }
 
           dev.log(
               '视频发送成功: localPath=${uploadResult.localPath}, mediaUrl=${uploadResult.remoteUrl}, thumbnailUrl=${uploadResult.thumbnailUrl}, serverProcessed=${uploadResult.serverProcessed}');
@@ -454,29 +329,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
       }
 
       // 清除附件
-      setState(() {
-        _selectedAttachment = null;
-        _attachmentType = null;
-        _attachmentName = null;
-        _attachmentSize = null;
-      });
+      if (mounted) {
+        setState(() {
+          _selectedAttachment = null;
+          _attachmentType = null;
+          _attachmentName = null;
+          _attachmentSize = null;
+        });
 
-      // 清空消息输入框
-      _messageController.clear();
+        // 清空消息输入框
+        _messageController.clear();
 
-      // 滚动到底部 - 使用延迟确保消息已加载
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
+        // 滚动到底部 - 使用延迟确保消息已加载
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToBottom();
+          }
+        });
 
-      // 再添加一次延迟滚动，以处理可能的数据库延迟
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _scrollToBottom();
-        }
-      });
+        // 再添加一次延迟滚动，以处理可能的数据库延迟
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _scrollToBottom();
+          }
+        });
+      }
     } catch (e) {
-      _showErrorMessage('发送附件失败: $e');
+      if (mounted) {
+        _showErrorMessage('发送附件失败: $e');
+      }
     }
   }
 
@@ -653,107 +534,179 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
   // 构建消息项
   Widget _buildMessageItem(Message message, bool isFromMe) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 发送者头像（仅在非自己发送的消息显示）
-          if (!isFromMe)
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey[300],
-              backgroundImage: message.senderAvatar != null && message.senderAvatar!.isNotEmpty ? NetworkImage(message.senderAvatar!) : null,
-              child: message.senderAvatar == null || message.senderAvatar!.isEmpty
-                  ? Text(
-                      message.senderName != null && message.senderName!.isNotEmpty ? message.senderName![0].toUpperCase() : '?',
-                      style: const TextStyle(color: Colors.white),
-                    )
-                  : null,
-            ),
+    // 检查是否需要显示时间气泡
+    final bool showTimeBubble = _shouldShowTimeBubble(message);
 
-          if (!isFromMe) const SizedBox(width: 8),
-
-          // 消息气泡
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isFromMe ? Colors.green[100] : Colors.grey[200],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 消息内容
-                  if (message.type == MessageType.text)
-                    Text(
-                      message.text ?? '',
-                      style: const TextStyle(fontSize: 16),
-                    )
-                  else if (message.type == MessageType.image)
-                    _buildImageBubble(message, isFromMe)
-                  else if (message.type == MessageType.video)
-                    _buildVideoBubble(message, isFromMe)
-                  else if (message.type == MessageType.voice)
-                    _buildVoiceMessage(message)
-                  else if (message.type == MessageType.file)
-                    _buildFileMessage(message)
-                  else
-                    Text(
-                      '[${message.type.toString().split('.').last}]',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-
-                  // 消息时间
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _formatMessageTime(message.createdAt),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        if (isFromMe) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            message.status == 'sent' ? Icons.done_all : Icons.done,
-                            size: 12,
-                            color: message.isRead ? Colors.blue : Colors.grey[600],
-                          ),
-                        ],
-                      ],
-                    ),
+    return Column(
+      children: [
+        // 时间气泡 - 仅在需要时显示
+        if (showTimeBubble)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _formatMessageTime(message.createdAt),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black.withOpacity(0.7),
                   ),
-                ],
+                ),
               ),
             ),
           ),
 
-          if (isFromMe) const SizedBox(width: 8),
+        // 消息气泡
+        Container(
+          width: double.infinity, // 让消息容器占满整个宽度
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          child: Row(
+            mainAxisAlignment: isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 发送者头像（仅在非自己发送的消息显示）
+              if (!isFromMe)
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.grey[300],
+                  backgroundImage: message.senderAvatar != null && message.senderAvatar!.isNotEmpty ? NetworkImage(message.senderAvatar!) : null,
+                  child: message.senderAvatar == null || message.senderAvatar!.isEmpty
+                      ? Text(
+                          message.senderName != null && message.senderName!.isNotEmpty ? message.senderName![0].toUpperCase() : '?',
+                          style: const TextStyle(color: Colors.white),
+                        )
+                      : null,
+                ),
 
-          // 自己的头像（仅在自己发送的消息显示）
-          if (isFromMe)
-            const CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.green,
-              child: Text(
-                '我',
-                style: TextStyle(color: Colors.white, fontSize: 12),
+              if (!isFromMe) const SizedBox(width: 8),
+
+              Column(
+                crossAxisAlignment: isFromMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 消息内容行 - 包含气泡和状态
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // 自己发送的消息状态（只在气泡左侧显示，删除右侧的）
+                      if (isFromMe)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4, bottom: 4),
+                          child: Text(
+                            message.isRead ? '已读' : '已送达',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: message.isRead ? Colors.blue : Colors.grey[600],
+                            ),
+                          ),
+                        ),
+
+                      // 消息气泡
+                      Flexible(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 250),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isFromMe ? Colors.green[100] : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 消息内容
+                              if (message.type == MessageType.text)
+                                Text(
+                                  message.text ?? '',
+                                  style: const TextStyle(fontSize: 16),
+                                )
+                              else if (message.type == MessageType.image)
+                                _buildImageBubble(message, isFromMe)
+                              else if (message.type == MessageType.video)
+                                _buildVideoBubble(message, isFromMe)
+                              else if (message.type == MessageType.voice)
+                                _buildVoiceMessage(message)
+                              else if (message.type == MessageType.file)
+                                _buildFileMessage(message)
+                              else
+                                Text(
+                                  '[${message.type.toString().split('.').last}]',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // 删除右侧的已读/已送达状态显示
+                    ],
+                  ),
+                ],
               ),
-            ),
-        ],
-      ),
+
+              if (isFromMe) const SizedBox(width: 8),
+
+              // 自己的头像（仅在自己发送的消息显示）
+              if (isFromMe)
+                const CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.green,
+                  child: Text(
+                    '我',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  // 添加判断是否显示时间气泡的方法
+  bool _shouldShowTimeBubble(Message message) {
+    try {
+      // 获取当前消息的索引
+      final state = context.read<ChatCubit>().state;
+      final messages = state.messagesByConversation[widget.conversationId] ?? [];
+
+      // 安全检查：消息列表为空
+      if (messages.isEmpty) {
+        return true;
+      }
+
+      final index = messages.indexOf(message);
+
+      // 安全检查：消息不在列表中
+      if (index < 0) {
+        return true;
+      }
+
+      // 第一条消息始终显示时间
+      if (index == messages.length - 1) {
+        return true;
+      }
+
+      // 获取前一条消息
+      final previousMessage = messages[index + 1];
+
+      // 如果与前一条消息时间相差超过5分钟，显示时间
+      final timeDifference = message.createdAt.difference(previousMessage.createdAt).inMinutes.abs();
+      return timeDifference >= 5;
+    } catch (e) {
+      // 发生异常时默认显示时间气泡
+      dev.log('计算时间气泡显示时发生错误: $e');
+      return true;
+    }
   }
 
   // 构建图片气泡
@@ -1055,74 +1008,96 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     final seconds = (duration / 1000).round();
     final isPlaying = _isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId;
 
+    // 计算剩余时间
+    int remainingSeconds = seconds;
+    if (isPlaying && seconds > 0) {
+      remainingSeconds = (seconds * (1 - _voicePlayProgress)).round();
+    }
+
     return GestureDetector(
       onTap: () => _playVoiceMessage(message),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isPlaying ? Colors.blue.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isPlaying ? Colors.blue.withOpacity(0.3) : Colors.grey.withOpacity(0.2)),
+          color: Colors.transparent, // 微信风格语音气泡背景透明
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // 播放/暂停图标
             Container(
-              width: 36,
-              height: 36,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
-                color: isPlaying ? Colors.blue : Colors.grey[400],
+                color: isPlaying ? Colors.green : Colors.grey[400],
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isPlaying ? Icons.pause : Icons.play_arrow,
                 color: Colors.white,
-                size: 24,
+                size: 14,
               ),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 波形动画效果
-                SizedBox(
-                  width: 100 + (seconds > 60 ? 60 : seconds.toDouble()),
-                  height: 24,
-                  child: isPlaying ? _buildWaveformAnimation(progress: _voicePlayProgress) : _buildStaticWaveform(),
+            const SizedBox(width: 8),
+
+            // 语音条形图标(更接近微信的风格)
+            AnimatedBuilder(
+              animation: _voiceAnimationController,
+              builder: (context, child) {
+                return Row(
+                  children: List.generate(4, (index) {
+                    double height;
+                    if (isPlaying) {
+                      // 播放时使用动画高度，错开每个条的动画相位
+                      final baseHeight = 4.0 + index * 2.0; // 基础高度随索引递增
+                      final animValue = _voiceAnimationController.value;
+                      // 每个条使用不同的相位偏移，创造波浪效果
+                      final phaseOffset = index * 0.25;
+                      final adjustedValue = (animValue + phaseOffset) % 1.0;
+
+                      // 正弦动画效果
+                      final sinValue = math.sin(adjustedValue * math.pi * 2);
+                      height = baseHeight + 4.0 * sinValue.abs();
+                    } else {
+                      // 静态高度，微信风格各条高度不同
+                      height = 4.0 + (index * 1.5);
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                      child: Container(
+                        width: 2,
+                        height: height,
+                        decoration: BoxDecoration(
+                          color: isPlaying ? Colors.green : Colors.grey[500],
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
+
+            const SizedBox(width: 8),
+
+            // 时间显示和倒计时 - 微信风格
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                isPlaying ? '$remainingSeconds″' : '$seconds″',
+                key: ValueKey<bool>(isPlaying),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isPlaying ? Colors.green : Colors.grey[600],
+                  fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
                 ),
-                const SizedBox(height: 4),
-                // 时间显示
-                Text(
-                  _formatDuration(seconds),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isPlaying ? Colors.blue[700] : Colors.grey[600],
-                    fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  // 构建语音波形动画
-  Widget _buildWaveformAnimation({required double progress}) {
-    return CustomPaint(
-      painter: WaveformPainter(progress: progress),
-      size: const Size(double.infinity, 24),
-    );
-  }
-
-  // 构建静态波形
-  Widget _buildStaticWaveform() {
-    return CustomPaint(
-      painter: StaticWaveformPainter(),
-      size: const Size(double.infinity, 24),
     );
   }
 
@@ -1248,9 +1223,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
     // 检查是否有有效路径
     if (localPath == null && mediaUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法打开：找不到文件')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法打开：找不到文件')),
+        );
+      }
       return;
     }
 
@@ -1266,7 +1243,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
       if (effectivePath != null) {
         final file = File(effectivePath);
-        if (await file.exists()) {
+
+        // 提前获取需要的实例和变量，避免后续使用BuildContext
+        final senderId = message.senderId;
+        final chatCubit = context.read<ChatCubit>();
+        final currentContext = context;
+
+        final bool fileExists = await file.exists();
+        if (!mounted) return;
+
+        if (fileExists) {
           // 检查文件类型
           final extension = effectivePath.split('.').last.toLowerCase();
 
@@ -1274,52 +1260,60 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension)) {
             // 图片使用图片查看器
             MediaOverlayViewer.show(
-              context,
+              currentContext,
               imagePath: effectivePath,
               mediaUrl: mediaUrl,
-              onDelete: message.senderId == '1'
+              onDelete: senderId == '1'
                   ? () {
-                      context.read<ChatCubit>().deleteMessage(message.messageId);
+                      chatCubit.deleteMessage(message.messageId);
                     }
                   : null,
             );
           } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension)) {
             // 视频使用视频查看器
             MediaOverlayViewer.show(
-              context,
+              currentContext,
               videoPath: effectivePath,
               mediaUrl: mediaUrl,
-              onDelete: message.senderId == '1'
+              onDelete: senderId == '1'
                   ? () {
-                      context.read<ChatCubit>().deleteMessage(message.messageId);
+                      chatCubit.deleteMessage(message.messageId);
                     }
                   : null,
             );
           } else {
             // 其他文件尝试使用系统打开
             // 实际项目中，可以使用open_file或url_launcher等插件
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('尝试打开文件: $effectivePath')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('尝试打开文件: $effectivePath')),
+              );
+            }
             dev.log('打开文件: $effectivePath');
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('文件不存在')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('文件不存在')),
+            );
+          }
         }
       } else if (mediaUrl != null) {
         // 处理网络文件
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('正在打开网络文件: $mediaUrl')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('正在打开网络文件: $mediaUrl')),
+          );
+        }
         dev.log('打开网络文件: $mediaUrl');
       }
     } catch (e) {
       dev.log('打开文件失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('打开文件失败: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('打开文件失败: $e')),
+        );
+      }
     }
   }
 
@@ -1568,13 +1562,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                 ),
 
                 // 发送按钮，在语音模式或有内容时显示
-                _isVoiceInputMode || _messageController.text.trim().isNotEmpty || _selectedAttachment != null
-                    ? IconButton(
-                        icon: const Icon(Icons.send),
-                        color: Colors.green,
-                        onPressed: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? _sendMessage : null,
-                      )
-                    : const SizedBox.shrink(),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  color: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? Colors.green : Colors.grey[400],
+                  onPressed: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? _sendMessage : null,
+                ),
               ],
             ),
           ],
@@ -1613,13 +1605,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
         duration: const Duration(milliseconds: 200),
         height: 48,
         decoration: BoxDecoration(
-          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withOpacity(0.2) : Colors.red.withOpacity(0.1)) : Colors.grey[200],
+          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.1)) : Colors.grey[200],
           borderRadius: BorderRadius.circular(24),
-          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.red.withOpacity(0.5), width: _isCancellingRecord ? 2.0 : 1.5) : null,
+          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.green.withValues(alpha: 0.5), width: _isCancellingRecord ? 2.0 : 1.5) : null,
           boxShadow: _isRecordingAudio
               ? [
                   BoxShadow(
-                    color: _isCancellingRecord ? Colors.red.withOpacity(0.4) : Colors.red.withOpacity(0.3),
+                    color: _isCancellingRecord ? Colors.red.withValues(alpha: 0.4) : Colors.green.withValues(alpha: 0.3),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -1632,18 +1624,31 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
             children: [
               // 录音图标
               Icon(
-                _isRecordingAudio ? (_isCancellingRecord ? Icons.delete : Icons.mic_none) : Icons.mic,
-                color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.red.withOpacity(0.8)) : Colors.grey[700],
+                _isRecordingAudio ? (_isCancellingRecord ? Icons.delete : Icons.mic) : Icons.mic,
+                color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.green) : Colors.grey[700],
                 size: 20,
               ),
               const SizedBox(width: 8),
 
-              // 录音波形动画（仅在录音且未取消时显示）
+              // 录音指示 (替换原来的波形)
               if (_isRecordingAudio && !_isCancellingRecord) ...[
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: _buildRecordingIndicator(),
+                Row(
+                  children: List.generate(4, (index) {
+                    // 使用正弦函数创建高度变化，模拟微信风格的简单动画
+                    final phase = index * 0.25;
+                    final adjustedValue = (_waveformValue + phase) % 1.0;
+                    final height = 6.0 + 6.0 * math.sin(adjustedValue * math.pi * 2).abs();
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      width: 2.5,
+                      height: height,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(1.0),
+                      ),
+                    );
+                  }),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -1652,7 +1657,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
               Text(
                 _isRecordingAudio ? (_isCancellingRecord ? '松开手指，取消发送' : '松开发送，上滑取消') : '按住说话',
                 style: TextStyle(
-                  color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.red.withOpacity(0.8)) : Colors.grey[700],
+                  color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.green) : Colors.grey[700],
                   fontSize: 16,
                   fontWeight: _isCancellingRecord ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -1664,7 +1669,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                 Text(
                   _getRecordDuration(),
                   style: TextStyle(
-                    color: Colors.red[700],
+                    color: Colors.green[700],
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1674,14 +1679,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           ),
         ),
       ),
-    );
-  }
-
-  // 构建录音指示器动画
-  Widget _buildRecordingIndicator() {
-    return CustomPaint(
-      painter: RecordingWaveformPainter(animationValue: _waveformValue),
-      size: const Size(20, 20),
     );
   }
 
@@ -1885,22 +1882,33 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     );
   }
 
-  // 格式化消息时间
+  // 格式化消息时间 - 遵循微信风格
   String _formatMessageTime(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = today.difference(messageDate).inDays;
+
+    // 格式化时间部分
+    final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 
     if (messageDate == today) {
-      // 今天的消息显示时间
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      // 今天的消息只显示时间
+      return timeStr;
     } else if (messageDate == yesterday) {
-      // 昨天的消息
-      return '昨天 ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      // 昨天的消息显示昨天+时间
+      return '昨天 $timeStr';
+    } else if (difference < 7) {
+      // 一周内的消息显示星期几
+      const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+      return '${weekdays[dateTime.weekday % 7]} $timeStr';
+    } else if (dateTime.year == now.year) {
+      // 同一年的消息显示月日+时间
+      return '${dateTime.month}月${dateTime.day}日 $timeStr';
     } else {
-      // 其他日期的消息
-      return '${dateTime.month}-${dateTime.day} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      // 不同年的消息显示年月日+时间
+      return '${dateTime.year}年${dateTime.month}月${dateTime.day}日 $timeStr';
     }
   }
 
@@ -1919,12 +1927,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     if (file == null) return;
 
     // 设置选择的图片附件
-    setState(() {
-      _selectedAttachment = file;
-      _attachmentType = MessageType.image;
-      _attachmentName = path.basename(file.path);
-      _attachmentSize = file.lengthSync().toDouble();
-    });
+    if (mounted) {
+      setState(() {
+        _selectedAttachment = file;
+        _attachmentType = MessageType.image;
+        _attachmentName = path.basename(file.path);
+        _attachmentSize = file.lengthSync().toDouble();
+      });
+    }
   }
 
   // 处理拍照
@@ -1935,12 +1945,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     if (file == null) return;
 
     // 设置拍摄的照片附件
-    setState(() {
-      _selectedAttachment = file;
-      _attachmentType = MessageType.image;
-      _attachmentName = '拍摄的照片';
-      _attachmentSize = file.lengthSync().toDouble();
-    });
+    if (mounted) {
+      setState(() {
+        _selectedAttachment = file;
+        _attachmentType = MessageType.image;
+        _attachmentName = '拍摄的照片';
+        _attachmentSize = file.lengthSync().toDouble();
+      });
+    }
   }
 
   // 处理视频选择
@@ -1951,12 +1963,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     if (file == null) return;
 
     // 设置选择的视频附件
-    setState(() {
-      _selectedAttachment = file;
-      _attachmentType = MessageType.video;
-      _attachmentName = path.basename(file.path);
-      _attachmentSize = file.lengthSync().toDouble();
-    });
+    if (mounted) {
+      setState(() {
+        _selectedAttachment = file;
+        _attachmentType = MessageType.video;
+        _attachmentName = path.basename(file.path);
+        _attachmentSize = file.lengthSync().toDouble();
+      });
+    }
   }
 
   // 处理文件选择
@@ -1970,12 +1984,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     final fileName = file.path.split('/').last;
 
     // 设置选择的文件附件
-    setState(() {
-      _selectedAttachment = file;
-      _attachmentType = MessageType.file;
-      _attachmentName = fileName;
-      _attachmentSize = file.lengthSync().toDouble();
-    });
+    if (mounted) {
+      setState(() {
+        _selectedAttachment = file;
+        _attachmentType = MessageType.file;
+        _attachmentName = fileName;
+        _attachmentSize = file.lengthSync().toDouble();
+      });
+    }
   }
 
   // 处理语音录制
@@ -2014,7 +2030,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: _isRecordingVoice ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                  color: _isRecordingVoice ? Colors.red.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -2059,6 +2075,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                 if (!_isRecordingVoice) {
                   // 开始录音
                   final success = await _mediaService.startRecording();
+                  if (!mounted) return;
+
                   if (success) {
                     setState(() {
                       _isRecordingVoice = true;
@@ -2076,7 +2094,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                     });
                   } else {
                     _showErrorMessage('无法开始录音');
-                    Navigator.of(context).pop(false);
+                    if (mounted) {
+                      Navigator.of(context).pop(false);
+                    }
+                    return;
                   }
                 } else {
                   // 停止录音并处理录音结果
@@ -2084,20 +2105,29 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                   _recordingTimer = null;
 
                   final result = await _mediaService.stopRecording();
+                  if (!mounted) return;
+
                   setState(() {
                     _isRecordingVoice = false;
                   });
 
                   if (result == null) {
-                    Navigator.of(context).pop(false);
+                    if (mounted) {
+                      Navigator.of(context).pop(false);
+                    }
                     return;
                   }
+
+                  // 获取ChatCubit实例
+                  final chatCubit = context.read<ChatCubit>();
 
                   // 上传语音文件
                   final uploadResult = await _fileUploadService.uploadVoice(
                     result.file,
                     result.duration,
                   );
+
+                  if (!mounted) return;
 
                   if (uploadResult == null) {
                     _showErrorMessage('语音上传失败');
@@ -2106,19 +2136,26 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
                   }
 
                   // 发送语音消息
-                  await context.read<ChatCubit>().sendVoiceMessage(
-                        widget.conversationId,
-                        uploadResult.localPath,
-                        uploadResult.duration ?? 0,
-                        mediaUrl: uploadResult.remoteUrl,
-                      );
+                  if (mounted) {
+                    await chatCubit.sendVoiceMessage(
+                      widget.conversationId,
+                      uploadResult.localPath,
+                      uploadResult.duration ?? 0,
+                      mediaUrl: uploadResult.remoteUrl,
+                    );
 
-                  // 滚动到底部
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _scrollToBottom();
-                  });
+                    // 隐藏处理中提示
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    }
 
-                  Navigator.of(context).pop(true);
+                    // 滚动到底部
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        _scrollToBottom();
+                      }
+                    });
+                  }
                 }
               },
               child: Text(_isRecordingVoice ? '停止' : '开始'),
@@ -2131,55 +2168,82 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
   // 构建简单的录音动画（不使用AnimationController）
   Widget _buildSimpleRecordingAnimation() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Icon(
-          Icons.mic,
-          size: 40,
-          color: Colors.red,
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.3),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.mic,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
         ),
-        ...List.generate(3, (index) {
-          return PulsingCircle(
-            radius: 30.0 + (index * 10.0),
-            delay: (index * 0.3),
-          );
-        }),
-      ],
+      ),
     );
   }
 
   // 显示错误消息
   void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // 播放语音消息
   Future<void> _playVoiceMessage(Message message) async {
     final localPath = message.localPath;
     final mediaUrl = message.mediaUrl;
+    final messageId = message.messageId;
 
     if (localPath == null && mediaUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无法播放：找不到语音文件')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法播放：找不到语音文件')),
+        );
+      }
       return;
     }
 
     try {
       // 如果正在播放当前语音，暂停/停止
-      if (_isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId) {
+      if (_isPlayingVoiceMessage && _currentPlayingVoiceId == messageId) {
         // 完全停止当前播放，避免使用暂停功能
         await _mediaService.stopAudio();
+        if (!mounted) return;
+
         setState(() {
           _isPlayingVoiceMessage = false;
           _currentPlayingVoiceId = null;
           _voicePlayProgress = 0.0;
+
+          // 停止语音动画
+          _voiceAnimationController.stop();
         });
         return;
       }
@@ -2187,17 +2251,23 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
       // 先停止任何正在播放的音频
       if (_isPlayingVoiceMessage) {
         await _mediaService.stopAudio();
+        if (!mounted) return;
       }
 
       // 设置播放状态
       setState(() {
         _isPlayingVoiceMessage = true;
-        _currentPlayingVoiceId = message.messageId;
+        _currentPlayingVoiceId = messageId;
         _voicePlayProgress = 0.0;
+
+        // 开始语音动画
+        if (!_voiceAnimationController.isAnimating) {
+          _voiceAnimationController.repeat(reverse: true);
+        }
       });
 
       // 添加日志
-      dev.log('准备播放语音消息: ID=${message.messageId}, 本地路径=$localPath, URL=$mediaUrl');
+      dev.log('准备播放语音消息: ID=$messageId, 本地路径=$localPath, URL=$mediaUrl');
 
       // 确定播放路径并播放
       try {
@@ -2207,18 +2277,21 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           await _mediaService.playAudio(
             localPath,
             onProgress: (progress) {
-              if (mounted && _currentPlayingVoiceId == message.messageId) {
+              if (mounted && _currentPlayingVoiceId == messageId) {
                 setState(() {
                   _voicePlayProgress = progress;
                 });
               }
             },
             onComplete: () {
-              if (mounted && _currentPlayingVoiceId == message.messageId) {
+              if (mounted && _currentPlayingVoiceId == messageId) {
                 setState(() {
                   _isPlayingVoiceMessage = false;
                   _currentPlayingVoiceId = null;
                   _voicePlayProgress = 0.0;
+
+                  // 停止语音动画
+                  _voiceAnimationController.stop();
                 });
               }
             },
@@ -2229,18 +2302,21 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
           await _mediaService.playAudioFromUrl(
             mediaUrl,
             onProgress: (progress) {
-              if (mounted && _currentPlayingVoiceId == message.messageId) {
+              if (mounted && _currentPlayingVoiceId == messageId) {
                 setState(() {
                   _voicePlayProgress = progress;
                 });
               }
             },
             onComplete: () {
-              if (mounted && _currentPlayingVoiceId == message.messageId) {
+              if (mounted && _currentPlayingVoiceId == messageId) {
                 setState(() {
                   _isPlayingVoiceMessage = false;
                   _currentPlayingVoiceId = null;
                   _voicePlayProgress = 0.0;
+
+                  // 停止语音动画
+                  _voiceAnimationController.stop();
                 });
               }
             },
@@ -2254,22 +2330,30 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
             _isPlayingVoiceMessage = false;
             _currentPlayingVoiceId = null;
             _voicePlayProgress = 0.0;
+
+            // 停止语音动画
+            _voiceAnimationController.stop();
           });
         }
         rethrow;
       }
     } catch (e) {
       dev.log('播放语音失败: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('播放语音失败: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('播放语音失败: $e')),
+        );
 
-      // 确保状态被重置
-      setState(() {
-        _isPlayingVoiceMessage = false;
-        _currentPlayingVoiceId = null;
-        _voicePlayProgress = 0.0;
-      });
+        // 确保状态被重置
+        setState(() {
+          _isPlayingVoiceMessage = false;
+          _currentPlayingVoiceId = null;
+          _voicePlayProgress = 0.0;
+
+          // 停止语音动画
+          _voiceAnimationController.stop();
+        });
+      }
 
       // 确保资源被释放
       _mediaService.stopAudio();
@@ -2293,45 +2377,80 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
 
   // 处理消息点击
   void _handleMessageTap(Message message) {
-    // 根据消息类型处理点击事件
-    switch (message.type) {
-      case MessageType.image:
-        // 显示图片查看器
-        if (message.localPath != null || message.mediaUrl != null) {
-          MediaOverlayViewer.show(
-            context,
-            imagePath: message.localPath,
-            mediaUrl: message.mediaUrl,
-            onDelete: message.senderId == '1'
-                ? () {
-                    context.read<ChatCubit>().deleteMessage(message.messageId);
-                  }
-                : null,
-          );
-        }
-        break;
-      case MessageType.video:
-        // 显示视频查看器
-        if (message.localPath != null || message.mediaUrl != null) {
-          MediaOverlayViewer.show(
-            context,
-            videoPath: message.localPath,
-            mediaUrl: message.mediaUrl,
-            onDelete: message.senderId == '1'
-                ? () {
-                    context.read<ChatCubit>().deleteMessage(message.messageId);
-                  }
-                : null,
-          );
-        }
-        break;
-      case MessageType.file:
-        // 打开文件查看器
+    try {
+      if (message.type == MessageType.image) {
+        _openImageMessage(message);
+      } else if (message.type == MessageType.video) {
+        _openVideoMessage(message);
+      } else if (message.type == MessageType.file) {
         _openFile(message);
-        break;
-      default:
-        // 其他类型消息不做特殊处理
-        break;
+      } else if (message.type == MessageType.voice) {
+        _playVoiceMessage(message);
+      }
+    } catch (e) {
+      dev.log('处理消息点击失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('打开媒体失败: $e')),
+      );
+    }
+  }
+
+  // 打开图片消息
+  void _openImageMessage(Message message) {
+    try {
+      final String localPath = message.localPath ?? '';
+      final String? mediaUrl = message.mediaUrl;
+      final String mediaMsgId = message.id.toString();
+      final bool isCurrentUserSender = message.senderId == '1'; // 假设'1'是当前用户ID
+
+      // 使用弹出浮窗方式查看图片
+      MediaOverlayViewer.show(
+        context,
+        imagePath: localPath,
+        mediaUrl: mediaUrl,
+        onDelete: isCurrentUserSender ? () => _deleteMessageById(mediaMsgId) : null,
+      );
+    } catch (e) {
+      dev.log('打开图片消息失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('无法打开图片: $e')),
+      );
+    }
+  }
+
+  // 打开视频消息
+  void _openVideoMessage(Message message) {
+    try {
+      final String localPath = message.localPath ?? '';
+      final String? mediaUrl = message.mediaUrl;
+      final String mediaMsgId = message.id.toString();
+      final bool isCurrentUserSender = message.senderId == '1'; // 假设'1'是当前用户ID
+
+      // 使用弹出浮窗方式查看视频
+      MediaOverlayViewer.show(
+        context,
+        videoPath: localPath,
+        mediaUrl: mediaUrl,
+        onDelete: isCurrentUserSender ? () => _deleteMessageById(mediaMsgId) : null,
+      );
+    } catch (e) {
+      dev.log('打开视频消息失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('无法打开视频: $e')),
+      );
+    }
+  }
+
+  // 删除消息
+  void _deleteMessageById(String messageId) {
+    try {
+      final chatCubit = context.read<ChatCubit>();
+      chatCubit.deleteMessage(messageId);
+    } catch (e) {
+      dev.log('删除消息失败: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('删除消息失败: $e')),
+      );
     }
   }
 
@@ -2341,6 +2460,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     if (_isRecordingAudio) return;
 
     final success = await _mediaService.startRecording();
+    if (!mounted) return;
+
     if (success) {
       // 添加触感反馈
       HapticFeedback.mediumImpact();
@@ -2392,31 +2513,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     if (!send) {
       // 取消录音
       _mediaService.stopRecording();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('录音已取消'),
-        backgroundColor: Colors.orange,
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('录音已取消'),
+          backgroundColor: Colors.orange,
+        ));
+      }
       return;
     }
 
     // 显示处理中提示
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Row(
-        children: [
-          SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              )),
-          SizedBox(width: 10),
-          Text('正在处理语音消息...'),
-        ],
-      ),
-      duration: Duration(seconds: 2),
-      backgroundColor: Colors.blue,
-    ));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                )),
+            SizedBox(width: 10),
+            Text('正在处理语音消息...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+        backgroundColor: Colors.blue,
+      ));
+    }
 
     // 计算录音时长
     final now = DateTime.now();
@@ -2425,16 +2550,23 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     // 如果录音时间太短（小于1.5秒），显示提示
     if (recordDuration < 1500) {
       _mediaService.stopRecording();
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('录音时间太短，请至少录制1.5秒'),
-        backgroundColor: Colors.red,
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('录音时间太短，请至少录制1.5秒'),
+          backgroundColor: Colors.red,
+        ));
+      }
       return;
     }
 
+    // 提前获取ChatCubit实例
+    final chatCubit = context.read<ChatCubit>();
+
     // 停止录音并获取结果
     final result = await _mediaService.stopRecording();
+    if (!mounted) return;
+
     if (result == null) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _showErrorMessage('录音失败');
@@ -2446,6 +2578,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
       result.file,
       result.duration,
     );
+    if (!mounted) return;
 
     if (uploadResult == null) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -2454,88 +2587,22 @@ class _ChatDetailPageState extends State<ChatDetailPage> with SingleTickerProvid
     }
 
     // 发送语音消息
-    await context.read<ChatCubit>().sendVoiceMessage(
-          widget.conversationId,
-          uploadResult.localPath,
-          uploadResult.duration ?? 0,
-          mediaUrl: uploadResult.remoteUrl,
-        );
+    await chatCubit.sendVoiceMessage(
+      widget.conversationId,
+      uploadResult.localPath,
+      uploadResult.duration ?? 0,
+      mediaUrl: uploadResult.remoteUrl,
+    );
+    if (!mounted) return;
 
     // 隐藏处理中提示
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     // 滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
-  }
-}
-
-// 脉冲圆圈动画组件
-class PulsingCircle extends StatefulWidget {
-  final double radius;
-  final double delay;
-
-  const PulsingCircle({
-    Key? key,
-    required this.radius,
-    this.delay = 0.0,
-  }) : super(key: key);
-
-  @override
-  State<PulsingCircle> createState() => _PulsingCircleState();
-}
-
-class _PulsingCircleState extends State<PulsingCircle> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
-
-    _animation = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // 添加延迟后开始动画
-    Future.delayed(Duration(milliseconds: (widget.delay * 1000).toInt()), () {
       if (mounted) {
-        _controller.repeat(reverse: true);
+        _scrollToBottom();
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          width: widget.radius * 2 * _animation.value,
-          height: widget.radius * 2 * _animation.value,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.red.withOpacity(0.7 - (widget.radius * 0.005)),
-              width: 2,
-            ),
-          ),
-        );
-      },
-    );
   }
 }

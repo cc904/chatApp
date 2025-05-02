@@ -196,78 +196,82 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
     }
   }
 
+  // 初始化视频播放器
   Future<void> _initVideoPlayer() async {
     try {
-      if (widget.localPath != null) {
-        final file = File(widget.localPath!);
+      String? effectivePath;
+
+      // 确定有效路径
+      if (widget.localPath != null && widget.localPath!.isNotEmpty) {
+        effectivePath = widget.localPath;
+      } else if (widget.mediaUrl != null && widget.mediaUrl!.startsWith('file://')) {
+        effectivePath = widget.mediaUrl!.substring(7);
+      }
+
+      // 创建视频控制器
+      if (effectivePath != null) {
+        final file = File(effectivePath);
         if (file.existsSync()) {
           _videoController = VideoPlayerController.file(file);
-        } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty) {
-          if (widget.mediaUrl!.startsWith('http')) {
+          dev.log('浮窗使用本地文件初始化视频: ${file.path}');
+        } else {
+          dev.log('浮窗视频文件不存在: $effectivePath');
+          if (widget.mediaUrl != null && !widget.mediaUrl!.startsWith('file://')) {
             _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
-          } else if (widget.mediaUrl!.startsWith('file://')) {
-            final videoFile = File(widget.mediaUrl!.substring(7));
-            _videoController = VideoPlayerController.file(videoFile);
+            dev.log('浮窗回退使用网络URL初始化视频: ${widget.mediaUrl}');
+          } else {
+            throw Exception('未找到有效的视频文件');
           }
         }
-      } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty) {
-        if (widget.mediaUrl!.startsWith('http')) {
-          _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
-        } else if (widget.mediaUrl!.startsWith('file://')) {
-          final videoFile = File(widget.mediaUrl!.substring(7));
-          _videoController = VideoPlayerController.file(videoFile);
-        }
+      } else if (widget.mediaUrl != null && !widget.mediaUrl!.startsWith('file://')) {
+        _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
+        dev.log('浮窗使用网络URL初始化视频: ${widget.mediaUrl}');
+      } else {
+        throw Exception('未找到有效的视频文件');
       }
 
-      if (_videoController == null) {
-        throw Exception('无法创建视频控制器：没有有效的视频源');
-      }
-
+      // 初始化视频控制器
       await _videoController!.initialize();
+      dev.log('浮窗视频播放器初始化成功');
 
+      if (!mounted) return;
+
+      // 创建Chewie控制器
       _chewieController = ChewieController(
         videoPlayerController: _videoController!,
         autoPlay: true,
         looping: false,
-        allowPlaybackSpeedChanging: true,
+        showControlsOnInitialize: false,
         allowFullScreen: false,
-        showControls: true,
-        placeholder: Container(
-          color: Colors.black,
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-        materialProgressColors: ChewieProgressColors(
-          playedColor: Colors.blue,
-          handleColor: Colors.blueAccent,
-          backgroundColor: Colors.grey,
-          bufferedColor: Colors.lightBlue,
-        ),
+        aspectRatio: _videoController!.value.aspectRatio,
         errorBuilder: (context, errorMessage) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, color: Colors.white, size: 42),
-                const SizedBox(height: 16),
-                Text(
-                  '视频加载失败: $errorMessage',
-                  style: const TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, color: Colors.white, size: 42),
+              const SizedBox(height: 16),
+              Text(
+                '视频加载失败: $errorMessage',
+                style: const TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
           );
         },
       );
 
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     } catch (e) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = '视频初始化失败: $e';
-        _isLoading = false;
-      });
-      dev.log('视频初始化失败: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = '视频初始化失败: $e';
+          _isLoading = false;
+        });
+      }
+      dev.log('浮窗视频初始化失败: $e');
     }
   }
 
@@ -289,14 +293,18 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
           text: '分享${widget.mediaType == MessageType.image ? '图片' : '视频'}',
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法分享：找不到有效的文件')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法分享：找不到有效的文件')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('分享失败: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('分享失败: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -326,10 +334,12 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
       opacity: _animation,
       child: ScaleTransition(
         scale: _animation,
-        child: WillPopScope(
-          onWillPop: () async {
-            _closeViewer();
-            return false;
+        child: PopScope(
+          canPop: false,
+          onPopInvoked: (didPop) {
+            if (!didPop) {
+              _closeViewer();
+            }
           },
           child: Scaffold(
             backgroundColor: Colors.black.withOpacity(0.9),
@@ -428,21 +438,25 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         final file = File(widget.localPath!);
         if (file.existsSync()) {
           imageProvider = FileImage(file);
+          dev.log('浮窗使用本地文件显示图片: ${file.path}');
         }
       }
 
       if (imageProvider == null && widget.mediaUrl != null) {
         if (widget.mediaUrl!.startsWith('http')) {
           imageProvider = NetworkImage(widget.mediaUrl!);
+          dev.log('浮窗使用网络URL显示图片: ${widget.mediaUrl}');
         } else if (widget.mediaUrl!.startsWith('file://')) {
           final file = File(widget.mediaUrl!.substring(7));
           if (file.existsSync()) {
             imageProvider = FileImage(file);
+            dev.log('浮窗使用file://路径显示图片: ${file.path}');
           }
         }
       }
 
       if (imageProvider == null) {
+        dev.log('浮窗无法加载图片: localPath=${widget.localPath}, mediaUrl=${widget.mediaUrl}');
         return const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

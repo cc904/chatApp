@@ -10,7 +10,6 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'dart:developer' as dev;
-import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:math' as math;
 
 /// 文件上传服务
@@ -160,7 +159,7 @@ class FileUploadService {
       }
     } catch (e) {
       _logServerProcess('生成缩略图失败: $e');
-      throw e; // 重新抛出异常，让调用者处理
+      rethrow; // 重新抛出异常，让调用者处理
     }
   }
 
@@ -232,7 +231,8 @@ class FileUploadService {
         }
         await videoController.dispose();
       } catch (e) {
-        _logClientProcess('无法获取视频信息: $e');
+        _logClientProcess('无法获取视频信息: $e，使用默认值');
+        // 出错时使用默认值即可，不需要抛出异常
       }
 
       // 创建一个生动的缩略图

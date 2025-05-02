@@ -134,7 +134,7 @@ class MediaService {
         _logger.e('音频文件大小为0');
         throw Exception('音频文件无效（大小为0）');
       }
-      _logger.i('音频文件大小: ${fileSize}字节');
+      _logger.i('音频文件大小: $fileSize字节');
 
       // 清理之前的位置监听器
       await _clearPositionListener();

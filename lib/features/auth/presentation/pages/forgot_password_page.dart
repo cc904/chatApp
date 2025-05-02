@@ -53,7 +53,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -250,7 +250,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     onPressed: state.isCodeSent ? null : () => context.read<AuthCubit>().sendVerificationCode(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
-                      disabledBackgroundColor: Colors.green.withOpacity(0.5),
+                      disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -367,6 +367,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   void _resetPassword() {
     dev.log('重置密码: ${_phoneController.text}');
 
+    // 保存当前需要的数据
+    final phoneNumber = _phoneController.text;
+    final newPassword = _newPasswordController.text;
+    final verificationCode = _verificationCodeController.text;
+
     // 显示加载指示器
     showDialog(
       context: context,
@@ -379,9 +384,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     context
         .read<AuthCubit>()
         .resetPassword(
-          _phoneController.text,
-          _newPasswordController.text,
-          _verificationCodeController.text,
+          phoneNumber,
+          newPassword,
+          verificationCode,
         )
         .then((_) {
       // 关闭加载指示器

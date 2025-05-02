@@ -29,7 +29,7 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   void _loadConversations() async {
-    // 使用ChatCubit加载会话
+    // 提前获取ChatCubit实例，避免异步操作后使用BuildContext
     final chatCubit = context.read<ChatCubit>();
     await chatCubit.loadConversations();
   }

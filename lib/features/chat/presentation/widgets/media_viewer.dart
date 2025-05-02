@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'dart:developer' as dev;
@@ -37,13 +36,19 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   }
 
   void _initImagePath() {
-    // 检查媒体URL是否是file://开头
-    if (widget.mediaUrl != null && widget.mediaUrl!.startsWith('file://')) {
-      _effectivePath = widget.mediaUrl!.substring(7); // 移除file://前缀
-    } else {
-      _effectivePath = widget.imagePath;
+    try {
+      // 检查媒体URL是否是file://开头
+      if (widget.mediaUrl != null && widget.mediaUrl!.startsWith('file://')) {
+        _effectivePath = widget.mediaUrl!.substring(7); // 移除file://前缀
+      } else {
+        _effectivePath = widget.imagePath;
+      }
+      dev.log('图片查看器路径: $_effectivePath');
+    } catch (e) {
+      dev.log('初始化图片路径失败: $e');
+      _effectivePath = widget.imagePath; // 使用原始路径作为回退
+      _hasError = true;
     }
-    dev.log('图片查看器路径: $_effectivePath');
   }
 
   @override
@@ -149,10 +154,14 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty && !widget.mediaUrl!.startsWith('file://')) {
         return NetworkImage(widget.mediaUrl!);
       } else {
+        dev.log('图片文件不存在: $_effectivePath');
         throw Exception('图片文件不存在');
       }
     } catch (e) {
       dev.log('获取图片失败: $e');
+      setState(() {
+        _hasError = true;
+      });
       throw Exception('图片加载失败');
     }
   }
@@ -288,13 +297,19 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
   }
 
   void _initVideoPath() {
-    // 检查媒体URL是否是file://开头
-    if (widget.mediaUrl != null && widget.mediaUrl!.startsWith('file://')) {
-      _effectivePath = widget.mediaUrl!.substring(7); // 移除file://前缀
-    } else {
-      _effectivePath = widget.videoPath;
+    try {
+      // 检查媒体URL是否是file://开头
+      if (widget.mediaUrl != null && widget.mediaUrl!.startsWith('file://')) {
+        _effectivePath = widget.mediaUrl!.substring(7); // 移除file://前缀
+      } else {
+        _effectivePath = widget.videoPath;
+      }
+      dev.log('视频查看器路径: $_effectivePath');
+    } catch (e) {
+      dev.log('初始化视频路径失败: $e');
+      _effectivePath = widget.videoPath; // 使用原始路径作为回退
+      _hasError = true;
     }
-    dev.log('视频查看器路径: $_effectivePath');
   }
 
   // 初始化视频播放器
@@ -306,18 +321,25 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
 
     try {
       // 根据路径创建不同类型的控制器
-      if (File(_effectivePath).existsSync()) {
+      final file = File(_effectivePath);
+      if (file.existsSync()) {
         // 本地文件
-        _videoPlayerController = VideoPlayerController.file(File(_effectivePath));
+        _videoPlayerController = VideoPlayerController.file(file);
+        dev.log('使用本地文件初始化视频: ${file.path}');
       } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty && !widget.mediaUrl!.startsWith('file://')) {
         // 网络URL
         _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
+        dev.log('使用网络URL初始化视频: ${widget.mediaUrl}');
       } else {
+        dev.log('无法找到有效的视频文件: $_effectivePath');
         throw Exception('无法加载视频: 找不到有效的文件或URL');
       }
 
       // 初始化视频播放器
       await _videoPlayerController!.initialize();
+      dev.log('视频播放器初始化成功');
+
+      if (!mounted) return;
 
       // 创建Chewie控制器
       _chewieController = ChewieController(
