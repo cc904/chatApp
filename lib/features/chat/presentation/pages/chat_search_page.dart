@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:developer' as dev;
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/core/database/database_initializer.dart'; // 添加导入数据库初始化器
+import 'package:isar/isar.dart'; // 添加导入Isar数据库
 
 // 定义过滤类型枚举
 enum FilterType {
@@ -49,12 +51,12 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   void initState() {
     super.initState();
     // 自动聚焦到搜索框
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       FocusScope.of(context).requestFocus(_searchFocusNode);
       // 预加载所有消息
       _loadAllMessages();
-      // 预加载有消息的日期
-      _loadMessageDates();
+      // 预加载有消息的日期 - 使用异步方法
+      await _loadMessageDates();
     });
   }
 
@@ -74,26 +76,41 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     _allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  // 加载所有有消息的日期
-  void _loadMessageDates() {
-    if (_allMessages.isEmpty) {
-      _loadAllMessages();
-    }
+  // 加载所有有消息的日期 - 直接从数据库获取唯一日期
+  Future<void> _loadMessageDates() async {
+    try {
+      // 显示日志
+      dev.log('开始加载所有消息日期...');
 
-    Set<DateTime> dates = {};
-    for (var message in _allMessages) {
-      // 提取日期部分（去掉时间）
-      final messageDate = DateTime(
-        message.createdAt.year,
-        message.createdAt.month,
-        message.createdAt.day,
-      );
-      dates.add(messageDate);
-    }
+      // 直接从数据库获取所有消息的唯一日期
+      final Isar db = DatabaseInitializer.isar;
 
-    setState(() {
-      _messageDates = dates;
-    });
+      // 获取此会话所有消息
+      final allMessages = await db.messages.filter().conversationIdEqualTo(widget.conversationId).findAll();
+
+      // 提取所有唯一日期
+      Set<DateTime> dates = {};
+      for (var message in allMessages) {
+        // 转换为日期（只保留年月日）
+        final date = DateTime(
+          message.createdAt.year,
+          message.createdAt.month,
+          message.createdAt.day,
+        );
+        dates.add(date);
+      }
+
+      // 显示找到的日期数量
+      dev.log('找到 ${dates.length} 个唯一日期');
+
+      if (mounted) {
+        setState(() {
+          _messageDates = dates;
+        });
+      }
+    } catch (e) {
+      dev.log('直接从数据库加载消息日期失败: $e');
+    }
   }
 
   // 检查指定日期是否有消息
@@ -230,10 +247,60 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
   // 修改日期选择方法，使用自定义选择器并禁用没有消息的日期
   Future<void> _selectDate(BuildContext context) async {
-    // 确保消息已加载
-    if (_allMessages.isEmpty) {
-      _loadAllMessages();
-      _loadMessageDates();
+    // 显示加载指示器
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('加载消息日期中...'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      // 强制重新加载所有日期 - 确保完整性
+      await _loadMessageDates();
+
+      // 如果没有找到任何日期，显示提示
+      if (_messageDates.isEmpty) {
+        // 关闭加载指示器
+        Navigator.of(context).pop();
+
+        // 显示没有消息的提示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('未找到任何聊天记录')),
+        );
+        return;
+      }
+
+      // 关闭加载指示器
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      // 发生错误，关闭加载指示器并显示错误
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载消息日期失败: $e')),
+        );
+      }
+      return;
     }
 
     // 使用自定义日期选择器，点击日期后直接跳转
