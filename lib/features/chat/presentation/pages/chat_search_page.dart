@@ -5,6 +5,7 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/database_initializer.dart'; // 添加导入数据库初始化器
 import 'package:isar/isar.dart'; // 添加导入Isar数据库
+import 'package:flutter_localizations/flutter_localizations.dart'; // 导入本地化支持
 
 // 定义过滤类型枚举
 enum FilterType {
@@ -45,7 +46,10 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   DateTime? _selectedDate;
 
   // 有消息记录的日期集合
-  Set<DateTime> _messageDates = {};
+  final Set<DateTime> _messageDates = {};
+
+  // 添加已加载月份集合
+  final Set<String> _loadedMonths = {};
 
   @override
   void initState() {
@@ -53,10 +57,10 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     // 自动聚焦到搜索框
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       FocusScope.of(context).requestFocus(_searchFocusNode);
-      // 预加载所有消息
+      // 预加载当前消息
       _loadAllMessages();
-      // 预加载有消息的日期 - 使用异步方法
-      await _loadMessageDates();
+      // 预加载最近3个月的消息日期
+      await _preloadRecentMessageDates();
     });
   }
 
@@ -76,28 +80,79 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     _allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  // 加载所有有消息的日期 - 直接从数据库获取唯一日期
-  Future<void> _loadMessageDates() async {
+  // 预加载最近3个月的消息日期
+  Future<void> _preloadRecentMessageDates() async {
     try {
-      // 显示日志
-      dev.log('开始加载所有消息日期...');
+      final now = DateTime.now();
 
-      // 直接从数据库获取所有消息的唯一日期
+      // 加载当前月份
+      await _loadMessageDates(targetMonth: DateTime(now.year, now.month));
+
+      // 计算前两个月，处理年份变化
+      DateTime prevMonth1;
+      DateTime prevMonth2;
+
+      // 处理当前是1月或2月的情况
+      if (now.month == 1) {
+        prevMonth1 = DateTime(now.year - 1, 12);
+        prevMonth2 = DateTime(now.year - 1, 11);
+      } else if (now.month == 2) {
+        prevMonth1 = DateTime(now.year, 1);
+        prevMonth2 = DateTime(now.year - 1, 12);
+      } else {
+        prevMonth1 = DateTime(now.year, now.month - 1);
+        prevMonth2 = DateTime(now.year, now.month - 2);
+      }
+
+      // 加载前两个月
+      await _loadMessageDates(targetMonth: prevMonth1);
+      await _loadMessageDates(targetMonth: prevMonth2);
+
+      dev.log('预加载了最近3个月的消息日期: ${now.year}年${now.month}月, ${prevMonth1.year}年${prevMonth1.month}月, ${prevMonth2.year}年${prevMonth2.month}月');
+    } catch (e) {
+      dev.log('预加载最近消息日期失败: $e');
+    }
+  }
+
+  // 加载消息日期 - 只加载指定月份的消息日期
+  Future<void> _loadMessageDates({DateTime? targetMonth}) async {
+    try {
+      // 如果没有指定月份，则使用当前月份
+      final now = DateTime.now();
+      final month = targetMonth ?? DateTime(now.year, now.month);
+
+      // 构建月份的唯一标识，用于检查是否已加载
+      final monthKey = '${month.year}-${month.month}';
+
+      // 检查该月份是否已加载过，避免重复加载
+      if (_loadedMonths.contains(monthKey)) {
+        dev.log('月份 $monthKey 已加载过，跳过');
+        return;
+      }
+
+      dev.log('加载指定月份的消息日期: ${month.year}年${month.month}月');
+
+      // 从数据库获取消息日期
       final Isar db = DatabaseInitializer.isar;
-
-      // 获取此会话所有消息
-      final allMessages = await db.messages.filter().conversationIdEqualTo(widget.conversationId).findAll();
-
-      // 提取所有唯一日期
       Set<DateTime> dates = {};
-      for (var message in allMessages) {
-        // 转换为日期（只保留年月日）
-        final date = DateTime(
+
+      // 计算月份的起止日期范围
+      final startDate = DateTime(month.year, month.month, 1);
+      // 使用正确的方法计算月末
+      final endDate = DateTime(month.year, month.month + 1, 1).subtract(const Duration(days: 1));
+
+      dev.log('查询日期范围: ${startDate.toString()} 至 ${endDate.toString()}');
+
+      // 查询指定时间范围内的消息
+      final messages = await db.messages.filter().conversationIdEqualTo(widget.conversationId).createdAtBetween(startDate, endDate.add(const Duration(days: 1))).findAll();
+
+      // 提取日期
+      for (var message in messages) {
+        dates.add(DateTime(
           message.createdAt.year,
           message.createdAt.month,
           message.createdAt.day,
-        );
-        dates.add(date);
+        ));
       }
 
       // 显示找到的日期数量
@@ -105,11 +160,14 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
       if (mounted) {
         setState(() {
-          _messageDates = dates;
+          // 添加到现有日期集合，保留之前加载的其他月份日期
+          _messageDates.addAll(dates);
+          // 记录该月份已加载
+          _loadedMonths.add(monthKey);
         });
       }
     } catch (e) {
-      dev.log('直接从数据库加载消息日期失败: $e');
+      dev.log('从数据库加载消息日期失败: $e');
     }
   }
 
@@ -253,28 +311,15 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('加载消息日期中...'),
-              ),
-            ],
-          ),
+          child: CircularProgressIndicator(),
         );
       },
     );
 
     try {
-      // 强制重新加载所有日期 - 确保完整性
-      await _loadMessageDates();
+      // 加载当前月份的日期
+      final now = DateTime.now();
+      await _loadMessageDates(targetMonth: DateTime(now.year, now.month));
 
       // 如果没有找到任何日期，显示提示
       if (_messageDates.isEmpty) {
@@ -362,6 +407,40 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                             // 点击日期后立即关闭对话框并跳转
                             Navigator.of(context).pop();
                             _jumpToChatAtDate(date);
+                          },
+                          onDisplayedMonthChanged: (DateTime month) {
+                            // 当显示的月份改变时，加载该月的消息日期
+                            dev.log('显示月份已更改至: ${month.year}年${month.month}月');
+
+                            // 加载当前显示的月份数据
+                            _loadMessageDates(targetMonth: month);
+
+                            // 预加载附近月份数据，处理年份边界问题
+                            DateTime nextMonth;
+                            DateTime prevMonth;
+
+                            // 处理12月到下一年1月
+                            if (month.month == 12) {
+                              nextMonth = DateTime(month.year + 1, 1, 1);
+                            } else {
+                              nextMonth = DateTime(month.year, month.month + 1, 1);
+                            }
+
+                            // 处理1月到上一年12月
+                            if (month.month == 1) {
+                              prevMonth = DateTime(month.year - 1, 12, 1);
+                            } else {
+                              prevMonth = DateTime(month.year, month.month - 1, 1);
+                            }
+
+                            // 加载前后月份数据（如果在合理范围内）
+                            if (prevMonth.year >= 2000) {
+                              _loadMessageDates(targetMonth: prevMonth);
+                            }
+
+                            if (nextMonth.isBefore(DateTime.now())) {
+                              _loadMessageDates(targetMonth: nextMonth);
+                            }
                           },
                         ),
                       ),

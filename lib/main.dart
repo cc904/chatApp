@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'dart:developer' as dev;
 import 'package:logger/logger.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
@@ -218,6 +219,17 @@ class MyApp extends StatelessWidget {
           title: 'WhatsApp Clone',
           // 使用UINotificationService的全局key
           scaffoldMessengerKey: UINotificationService().scaffoldMessengerKey,
+          // 添加本地化支持
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('zh', 'CN'), // 中文简体
+            Locale('en', 'US'), // 英文
+          ],
+          locale: const Locale('zh', 'CN'), // 默认使用中文简体
           theme: ThemeData(
             // 使用绿色作为主题色
             colorScheme: ColorScheme.fromSeed(
