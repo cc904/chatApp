@@ -1,5 +1,9 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
+这是一个模仿whatapp的flutter项目
+使用Cubit作为状态管理
+使用integration_test作为测试框架
+不要自动运行项目,如需要测试,请告知我来手动运行
