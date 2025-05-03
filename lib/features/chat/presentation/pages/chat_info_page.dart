@@ -5,6 +5,7 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
 
 class ChatInfoPage extends StatefulWidget {
   final String conversationId;
@@ -28,7 +29,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     // 获取主题颜色
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final backgroundColor = theme.scaffoldBackgroundColor;
 
     return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
@@ -184,8 +184,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
             title: const Text('查找聊天记录', style: TextStyle(fontSize: 15)),
             trailing: const Icon(Icons.chevron_right, color: Colors.grey),
             onTap: () {
-              // 实现查找聊天记录功能
-              dev.log('查找聊天记录');
+              // 打开聊天记录搜索页面
+              _openChatSearch(context, conversation);
             },
           ),
         ],
@@ -407,5 +407,35 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         ],
       ),
     );
+  }
+
+  // 打开聊天记录搜索页面
+  void _openChatSearch(BuildContext context, Conversation conversation) {
+    // 使用局部变量
+    final conversationId = widget.conversationId;
+    final conversationName = conversation.name ?? '未知会话';
+
+    // 使用延迟调用来避免直接使用BuildContext
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final navigator = Navigator.of(context);
+      navigator
+          .push<String>(
+        MaterialPageRoute(
+          builder: (context) => ChatSearchPage(
+            conversationId: conversationId,
+            conversationName: conversationName,
+          ),
+        ),
+      )
+          .then((messageId) {
+        if (!mounted) return;
+        if (messageId != null) {
+          dev.log('需要跳转到消息: $messageId');
+          navigator.pop(messageId);
+        }
+      });
+    });
   }
 }

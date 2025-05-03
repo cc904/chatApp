@@ -1,7 +1,5 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:developer' as dev;
 import 'package:cc/core/database/models/conversation.dart';
@@ -10,12 +8,9 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/file_upload_service.dart';
-import 'package:path/path.dart' as path;
-import 'package:cc/features/chat/presentation/widgets/media_overlay_viewer.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'package:cc/core/services/ui_notification_service.dart'; // 导入UI通知服务
-import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -37,23 +32,19 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   bool _isAtBottom = true;
   bool _isLoadingMore = false;
   bool _dataInitialized = false;
-  bool _isVoiceInputMode = false; // 新增：语音输入模式标志
-  bool _isRecordingAudio = false; // 新增：是否正在录音
-  bool _isCancellingRecord = false; // 新增：是否正在取消录音
-  DateTime? _recordStartTime; // 新增：录音开始时间
+// 新增：语音输入模式标志
+// 新增：是否正在录音
+// 新增：是否正在取消录音
+// 新增：录音开始时间
 
   // 录音波形动画控制
   late AnimationController _waveformController;
-  double _waveformValue = 0.0;
 
   // 媒体服务
   final MediaService _mediaService = MediaService();
   final FileUploadService _fileUploadService = FileUploadService();
 
   // 录音状态
-  bool _isRecordingVoice = false;
-  double? _recordingDuration;
-  DateTime? _recordingStartTime;
   Timer? _recordingTimer;
 
   // 添加选择的附件状态
@@ -63,9 +54,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   double? _attachmentSize;
 
   // 语音消息播放相关状态
-  bool _isPlayingVoiceMessage = false;
-  String? _currentPlayingVoiceId;
-  double _voicePlayProgress = 0.0;
 
   // 添加语音动画控制器
   late AnimationController _voiceAnimationController;
@@ -87,9 +75,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..addListener(() {
-        setState(() {
-          _waveformValue = _waveformController.value;
-        });
+        setState(() {});
       });
     _waveformController.repeat();
 
@@ -405,7 +391,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 if (conversation.type == ConversationType.private)
                   Text(
                     '在线', // 这里可以显示对方的状态
-                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8)),
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 204)),
                   ),
               ],
             ),
@@ -537,14 +523,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   _formatMessageTime(message.createdAt),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black87,
                   ),
                 ),
               ),
@@ -699,1741 +685,221 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     }
   }
 
-  // 构建图片气泡
-  Widget _buildImageBubble(Message message, bool isMe) {
-    final localPath = message.localPath;
-    final mediaUrl = message.mediaUrl;
-
-    // 图片已有缓存或已本地保存
-    if (localPath != null && File(localPath).existsSync()) {
-      final imageFile = File(localPath);
-
-      return Container(
-        constraints: const BoxConstraints(
-          maxWidth: 220,
-          maxHeight: 300,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: GestureDetector(
-          onTap: () => _handleMessageTap(message),
-          child: Hero(
-            tag: 'image_${message.messageId}',
-            child: Image.file(
-              imageFile,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                dev.log('图片加载失败: $error');
-                return Container(
-                  width: 200,
-                  height: 200,
-                  color: Colors.grey.shade300,
-                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
-                );
-              },
-            ),
-          ),
-        ),
-      );
-    }
-
-    // 仅有远程URL
-    if (mediaUrl != null && mediaUrl.isNotEmpty) {
-      final filePath = mediaUrl.startsWith('file://') ? mediaUrl.substring(7) : '';
-      final fileExists = filePath.isNotEmpty && File(filePath).existsSync();
-
-      // 本地文件存在
-      if (fileExists) {
-        final imageFile = File(filePath);
-
-        return Container(
-          constraints: const BoxConstraints(
-            maxWidth: 220,
-            maxHeight: 300,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: GestureDetector(
-            onTap: () => _handleMessageTap(message),
-            child: Hero(
-              tag: 'image_${message.messageId}',
-              child: Image.file(
-                imageFile,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  dev.log('图片加载失败: $error');
-                  return Container(
-                    width: 200,
-                    height: 200,
-                    color: Colors.grey.shade300,
-                    child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      }
-
-      // 网络URL
-      return Container(
-        constraints: const BoxConstraints(
-          maxWidth: 220,
-          maxHeight: 300,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: GestureDetector(
-          onTap: () => _handleMessageTap(message),
-          child: Hero(
-            tag: 'image_${message.messageId}',
-            child: Image.network(
-              mediaUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  width: 200,
-                  height: 200,
-                  color: Colors.grey.shade200,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 200,
-                  height: 200,
-                  color: Colors.grey.shade300,
-                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
-                );
-              },
-            ),
-          ),
-        ),
-      );
-    }
-
-    // 没有可用图片
-    return Container(
-      width: 200,
-      height: 200,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.shade300,
-      ),
-      child: GestureDetector(
-        onTap: () => _handleMessageTap(message),
-        child: const Center(
-          child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  // 构建视频气泡
-  Widget _buildVideoBubble(Message message, bool isMe) {
-    final thumbnailUrl = message.thumbnailUrl;
-    final duration = message.duration;
-
-    Widget thumbnailWidget = Container(
-      width: 200,
-      height: 150,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Center(
-        child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white),
-      ),
-    );
-
-    // 如果有缩略图
-    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-      // 检查是否是本地文件URL
-      if (thumbnailUrl.startsWith('file://')) {
-        final file = File(thumbnailUrl.substring(7));
-        if (file.existsSync()) {
-          thumbnailWidget = Stack(
-            alignment: Alignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  file,
-                  width: 200,
-                  height: 150,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.black38,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
-              ),
-              if (duration != null && duration > 0)
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _formatDuration(duration),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                ),
-            ],
-          );
-        }
-      } else {
-        // 网络缩略图
-        thumbnailWidget = Stack(
-          alignment: Alignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                thumbnailUrl,
-                width: 200,
-                height: 150,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    width: 200,
-                    height: 150,
-                    color: Colors.black,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 200,
-                    height: 150,
-                    color: Colors.black,
-                    child: const Center(
-                      child: Icon(Icons.error_outline, size: 48, color: Colors.white),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.black38,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
-            ),
-            if (duration != null && duration > 0)
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _formatDuration(duration),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-              ),
-          ],
-        );
-      }
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: isMe ? Colors.blue.shade100 : Colors.grey.shade200,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: GestureDetector(
-        onTap: () => _handleMessageTap(message),
-        child: Hero(
-          tag: 'video_${message.messageId}',
-          child: thumbnailWidget,
-        ),
-      ),
-    );
-  }
-
-  // 构建语音消息
-  Widget _buildVoiceMessage(Message message) {
-    final duration = message.duration ?? 0;
-    final seconds = (duration / 1000).round();
-    final isPlaying = _isPlayingVoiceMessage && _currentPlayingVoiceId == message.messageId;
-
-    // 计算剩余时间
-    int remainingSeconds = seconds;
-    if (isPlaying && seconds > 0) {
-      remainingSeconds = (seconds * (1 - _voicePlayProgress)).round();
-    }
-
-    return GestureDetector(
-      onTap: () => _playVoiceMessage(message),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.transparent, // 微信风格语音气泡背景透明
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 播放/暂停图标
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: isPlaying ? Colors.green : Colors.grey[400],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white,
-                size: 14,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // 语音条形图标(更接近微信的风格)
-            AnimatedBuilder(
-              animation: _voiceAnimationController,
-              builder: (context, child) {
-                return Row(
-                  children: List.generate(4, (index) {
-                    double height;
-                    if (isPlaying) {
-                      // 播放时使用动画高度，错开每个条的动画相位
-                      final baseHeight = 4.0 + index * 2.0; // 基础高度随索引递增
-                      final animValue = _voiceAnimationController.value;
-                      // 每个条使用不同的相位偏移，创造波浪效果
-                      final phaseOffset = index * 0.25;
-                      final adjustedValue = (animValue + phaseOffset) % 1.0;
-
-                      // 正弦动画效果
-                      final sinValue = math.sin(adjustedValue * math.pi * 2);
-                      height = baseHeight + 4.0 * sinValue.abs();
-                    } else {
-                      // 静态高度，微信风格各条高度不同
-                      height = 4.0 + (index * 1.5);
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                      child: Container(
-                        width: 2,
-                        height: height,
-                        decoration: BoxDecoration(
-                          color: isPlaying ? Colors.green : Colors.grey[500],
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                    );
-                  }),
-                );
-              },
-            ),
-
-            const SizedBox(width: 8),
-
-            // 时间显示和倒计时 - 微信风格
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Text(
-                isPlaying ? '$remainingSeconds″' : '$seconds″',
-                key: ValueKey<bool>(isPlaying),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isPlaying ? Colors.green : Colors.grey[600],
-                  fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 构建文件消息
-  Widget _buildFileMessage(Message message) {
-    final fileName = message.fileName ?? '未知文件';
-    final fileSize = message.fileSize ?? 0;
-
-    // 文件大小格式化
-    String formattedSize;
-    if (fileSize < 1024) {
-      formattedSize = '${fileSize.toStringAsFixed(0)} B';
-    } else if (fileSize < 1024 * 1024) {
-      formattedSize = '${(fileSize / 1024).toStringAsFixed(1)} KB';
-    } else if (fileSize < 1024 * 1024 * 1024) {
-      formattedSize = '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
-    } else {
-      formattedSize = '${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue[100]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(_getFileIcon(fileName), color: Colors.blue[700], size: 32),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fileName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      formattedSize,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: () => _openFile(message),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue[700],
-              side: BorderSide(color: Colors.blue[300]!),
-              minimumSize: const Size(double.infinity, 30),
-              padding: const EdgeInsets.symmetric(vertical: 0),
-            ),
-            child: const Text('打开', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 获取文件图标
-  IconData _getFileIcon(String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
-
-    // 根据文件扩展名返回对应图标
-    switch (extension) {
-      case 'pdf':
-        return Icons.picture_as_pdf;
-      case 'doc':
-      case 'docx':
-        return Icons.description;
-      case 'xls':
-      case 'xlsx':
-        return Icons.grid_on;
-      case 'ppt':
-      case 'pptx':
-        return Icons.slideshow;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'bmp':
-        return Icons.image;
-      case 'mp3':
-      case 'wav':
-      case 'aac':
-        return Icons.audiotrack;
-      case 'mp4':
-      case 'mov':
-      case 'avi':
-        return Icons.movie;
-      case 'zip':
-      case 'rar':
-      case '7z':
-        return Icons.folder_zip;
-      case 'txt':
-        return Icons.text_snippet;
-      default:
-        return Icons.insert_drive_file;
-    }
-  }
-
-  // 打开文件
-  Future<void> _openFile(Message message) async {
-    final localPath = message.localPath;
-    final mediaUrl = message.mediaUrl;
-
-    // 检查是否有有效路径
-    if (localPath == null && mediaUrl == null) {
-      UINotificationService().showError('无法打开：找不到文件');
-      return;
-    }
-
-    try {
-      String? effectivePath;
-
-      // 确定有效路径
-      if (localPath != null && localPath.isNotEmpty) {
-        effectivePath = localPath;
-      } else if (mediaUrl != null && mediaUrl.startsWith('file://')) {
-        effectivePath = mediaUrl.substring(7); // 去除file://前缀
-      }
-
-      if (effectivePath != null) {
-        final file = File(effectivePath);
-
-        // 提前获取需要的实例和变量，避免后续使用BuildContext
-        final senderId = message.senderId;
-        final chatCubit = context.read<ChatCubit>();
-
-        final bool fileExists = await file.exists();
-        if (!mounted) return;
-
-        if (fileExists) {
-          // 检查文件类型
-          final extension = effectivePath.split('.').last.toLowerCase();
-
-          // 特定类型使用特定查看器
-          if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension)) {
-            // 图片使用图片查看器
-            if (mounted) {
-              MediaOverlayViewer.show(
-                context,
-                imagePath: effectivePath,
-                mediaUrl: mediaUrl,
-                onDelete: senderId == '1'
-                    ? () {
-                        chatCubit.deleteMessage(message.messageId);
-                      }
-                    : null,
-              );
-            }
-          } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension)) {
-            // 视频使用视频查看器
-            if (mounted) {
-              MediaOverlayViewer.show(
-                context,
-                videoPath: effectivePath,
-                mediaUrl: mediaUrl,
-                onDelete: senderId == '1'
-                    ? () {
-                        chatCubit.deleteMessage(message.messageId);
-                      }
-                    : null,
-              );
-            }
-          } else {
-            // 其他文件尝试使用系统打开
-            // 实际项目中，可以使用open_file或url_launcher等插件
-            UINotificationService().showMessage('尝试打开文件: $effectivePath');
-            dev.log('打开文件: $effectivePath');
-          }
-        } else {
-          UINotificationService().showError('文件不存在');
-        }
-      } else if (mediaUrl != null) {
-        // 处理网络文件
-        UINotificationService().showMessage('正在打开网络文件: $mediaUrl');
-        dev.log('打开网络文件: $mediaUrl');
-      }
-    } catch (e) {
-      dev.log('打开文件失败: $e');
-      UINotificationService().showError('打开文件失败: $e');
-    }
-  }
-
-  // 构建消息输入区域
-  Widget _buildMessageInput() {
-    // 计算键盘高度，确保输入框不会被键盘遮挡
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return SafeArea(
-      child: Container(
-        padding: EdgeInsets.only(
-          left: 10,
-          right: 10,
-          top: 10,
-          bottom: bottomInset > 0 ? 8 : 10, // 根据键盘是否显示调整底部间距
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -1),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 附件预览
-            if (_selectedAttachment != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    // 附件类型图标
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _getAttachmentColor(),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: _getAttachmentPreview(),
-                    ),
-                    const SizedBox(width: 8),
-                    // 附件信息
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _attachmentName ?? '附件',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (_attachmentSize != null)
-                            Text(
-                              _formatFileSize(_attachmentSize!),
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                        ],
-                      ),
-                    ),
-                    // 删除按钮
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        setState(() {
-                          _selectedAttachment = null;
-                          _attachmentType = null;
-                          _attachmentName = null;
-                          _attachmentSize = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-            // 附件菜单
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              height: _isAttachmentMenuOpen ? 150 : 0,
-              // 动画过程中剪裁溢出内容
-              clipBehavior: Clip.hardEdge,
-              decoration: const BoxDecoration(),
-              child: _isAttachmentMenuOpen
-                  ? SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 10),
-                          // 第一行4个选项
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildAttachmentOption(
-                                Icons.image,
-                                '图片',
-                                Colors.green,
-                                onTap: _handlePickImage,
-                              ),
-                              _buildAttachmentOption(
-                                Icons.camera_alt,
-                                '拍摄',
-                                Colors.blue,
-                                onTap: _handleTakePhoto,
-                              ),
-                              _buildAttachmentOption(
-                                Icons.videocam,
-                                '视频',
-                                Colors.orange,
-                                onTap: _handlePickVideo,
-                              ),
-                              _buildAttachmentOption(
-                                Icons.location_on,
-                                '位置',
-                                Colors.red,
-                                onTap: () {
-                                  // 暂未实现位置分享功能
-                                  dev.log('位置分享功能暂未实现');
-                                  _closeAttachmentMenu();
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          // 第二行4个选项
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildAttachmentOption(
-                                Icons.mic,
-                                '语音',
-                                Colors.purple,
-                                onTap: _handleRecordVoice,
-                              ),
-                              _buildAttachmentOption(
-                                Icons.text_snippet,
-                                '文件',
-                                Colors.brown,
-                                onTap: _handlePickFile,
-                              ),
-                              _buildAttachmentOption(
-                                Icons.person,
-                                '名片',
-                                Colors.indigo,
-                                onTap: () {
-                                  // 暂未实现名片分享功能
-                                  dev.log('名片分享功能暂未实现');
-                                  _closeAttachmentMenu();
-                                },
-                              ),
-                              _buildAttachmentOption(
-                                Icons.money,
-                                '收付款',
-                                Colors.teal,
-                                onTap: () {
-                                  // 暂未实现收付款功能
-                                  dev.log('收付款功能暂未实现');
-                                  _closeAttachmentMenu();
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-
-            // 输入栏
-            Row(
-              children: [
-                // 语音/键盘切换按钮
-                IconButton(
-                  icon: Icon(_isVoiceInputMode ? Icons.keyboard : Icons.keyboard_voice),
-                  color: Colors.grey[600],
-                  onPressed: () {
-                    setState(() {
-                      _isVoiceInputMode = !_isVoiceInputMode;
-                      if (_isVoiceInputMode) {
-                        _focusNode.unfocus(); // 切换到语音模式时收起键盘
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(width: 10),
-
-                // 根据模式显示不同的输入控件
-                Expanded(
-                  child: _isVoiceInputMode
-                      ? _buildVoiceRecordButton() // 语音模式：显示长按录音按钮
-                      : TextField(
-                          // 文本模式：显示文本输入框
-                          controller: _messageController,
-                          focusNode: _focusNode,
-                          maxLines: 4,
-                          minLines: 1,
-                          decoration: InputDecoration(
-                            hintText: '输入消息...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[200],
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            // 如何有需要，可以在这里处理输入变化
-                          },
-                        ),
-                ),
-
-                // 附件按钮
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  color: Colors.grey[600],
-                  onPressed: () {
-                    // 切换附件菜单状态
-                    setState(() {
-                      _isAttachmentMenuOpen = !_isAttachmentMenuOpen;
-                      // 如果打开附件菜单，则让输入框失去焦点
-                      if (_isAttachmentMenuOpen) {
-                        _focusNode.unfocus();
-                      }
-                    });
-                  },
-                ),
-
-                // 发送按钮，在语音模式或有内容时显示
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  color: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? Colors.green : Colors.grey[400],
-                  onPressed: (_messageController.text.trim().isNotEmpty || _selectedAttachment != null) ? _sendMessage : null,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 构建语音录制按钮
-  Widget _buildVoiceRecordButton() {
-    return GestureDetector(
-      // 长按录音，松开结束
-      onLongPress: _startRecording,
-      onLongPressUp: () => _stopRecording(true), // 松开发送
-      onLongPressCancel: () => _stopRecording(false), // 取消发送
-      // 记录手指位置，用于判断上滑取消
-      onLongPressMoveUpdate: (details) {
-        // 如果正在录音且向上滑动超过一定距离，显示"松开手指取消发送"
-        if (_isRecordingAudio && details.offsetFromOrigin.dy < -50) {
-          // 设置取消标志
-          if (!_isCancellingRecord) {
-            setState(() {
-              _isCancellingRecord = true;
-            });
-            // 震动反馈
-            HapticFeedback.lightImpact();
-          }
-        } else if (_isCancellingRecord) {
-          // 恢复正常录音状态
-          setState(() {
-            _isCancellingRecord = false;
-          });
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 48,
-        decoration: BoxDecoration(
-          color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.1)) : Colors.grey[200],
-          borderRadius: BorderRadius.circular(24),
-          border: _isRecordingAudio ? Border.all(color: _isCancellingRecord ? Colors.red : Colors.green.withOpacity(0.5), width: _isCancellingRecord ? 2.0 : 1.5) : null,
-          boxShadow: _isRecordingAudio
-              ? [
-                  BoxShadow(
-                    color: _isCancellingRecord ? Colors.red.withOpacity(0.4) : Colors.green.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Center(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 录音图标
-              Icon(
-                _isRecordingAudio ? (_isCancellingRecord ? Icons.delete : Icons.mic) : Icons.mic,
-                color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.green) : Colors.grey[700],
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-
-              // 录音指示 (替换原来的波形)
-              if (_isRecordingAudio && !_isCancellingRecord) ...[
-                Row(
-                  children: List.generate(4, (index) {
-                    // 使用正弦函数创建高度变化，模拟微信风格的简单动画
-                    final phase = index * 0.25;
-                    final adjustedValue = (_waveformValue + phase) % 1.0;
-                    final height = 6.0 + 6.0 * math.sin(adjustedValue * math.pi * 2).abs();
-
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      width: 2.5,
-                      height: height,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(1.0),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(width: 8),
-              ],
-
-              // 提示文字
-              Text(
-                _isRecordingAudio ? (_isCancellingRecord ? '松开手指，取消发送' : '松开发送，上滑取消') : '按住说话',
-                style: TextStyle(
-                  color: _isRecordingAudio ? (_isCancellingRecord ? Colors.red : Colors.green) : Colors.grey[700],
-                  fontSize: 16,
-                  fontWeight: _isCancellingRecord ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-
-              // 录音时长
-              if (_isRecordingAudio && !_isCancellingRecord) ...[
-                const SizedBox(width: 8),
-                Text(
-                  _getRecordDuration(),
-                  style: TextStyle(
-                    color: Colors.green[700],
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 获取录音时长文本
-  String _getRecordDuration() {
-    if (_recordStartTime == null) return "0:00";
-
-    final duration = DateTime.now().difference(_recordStartTime!);
-    final seconds = duration.inSeconds;
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-
-    return "$minutes:${remainingSeconds.toString().padLeft(2, '0')}";
-  }
-
-  // 获取附件预览颜色
-  Color _getAttachmentColor() {
-    switch (_attachmentType) {
-      case MessageType.image:
-        return Colors.green[100]!;
-      case MessageType.file:
-        return Colors.blue[100]!;
-      case MessageType.video:
-        return Colors.orange[100]!;
-      default:
-        return Colors.grey[300]!;
-    }
-  }
-
-  // 获取附件预览图标或图片
-  Widget _getAttachmentPreview() {
-    if (_attachmentType == MessageType.image && _selectedAttachment != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Image.file(
-          _selectedAttachment!,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    IconData iconData;
-    Color iconColor;
-
-    switch (_attachmentType) {
-      case MessageType.image:
-        iconData = Icons.image;
-        iconColor = Colors.green;
-        break;
-      case MessageType.video:
-        iconData = Icons.videocam;
-        iconColor = Colors.orange;
-        break;
-      case MessageType.file:
-        iconData = Icons.insert_drive_file;
-        iconColor = Colors.blue;
-        break;
-      default:
-        iconData = Icons.attach_file;
-        iconColor = Colors.grey;
-    }
-
-    return Icon(
-      iconData,
-      color: iconColor,
-      size: 24,
-    );
-  }
-
-  // 格式化文件大小
-  String _formatFileSize(double fileSize) {
-    if (fileSize < 1024) {
-      return '${fileSize.toStringAsFixed(0)} B';
-    } else if (fileSize < 1024 * 1024) {
-      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
-    } else if (fileSize < 1024 * 1024 * 1024) {
-      return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
-    } else {
-      return '${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-  }
-
-  // 构建附件选项
-  Widget _buildAttachmentOption(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: color.withAlpha(26),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 18,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[700],
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
+  // 滚动到特定消息
 
   // 显示更多选项菜单
   void _showMoreOptions(BuildContext context, Conversation conversation) {
-    // 导航到聊天信息页面，而不是显示底部菜单
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ChatInfoPage(conversationId: widget.conversationId),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildOptionItem(Icons.search, '搜索聊天记录'),
+            _buildOptionItem(Icons.notifications_none, '消息通知'),
+            _buildOptionItem(Icons.settings, '聊天设置'),
+            if (conversation.type == ConversationType.group) _buildOptionItem(Icons.group, '查看群成员'),
+          ],
+        ),
       ),
     );
   }
 
-  // 关闭附件菜单
-  void _closeAttachmentMenu() {
-    setState(() {
-      _isAttachmentMenuOpen = false;
-    });
-  }
-
-  // 处理图片选择
-  Future<void> _handlePickImage() async {
-    _closeAttachmentMenu();
-
-    final file = await _mediaService.pickImage(fromCamera: false);
-    if (file == null) return;
-
-    // 设置选择的图片附件
-    if (mounted) {
-      setState(() {
-        _selectedAttachment = file;
-        _attachmentType = MessageType.image;
-        _attachmentName = path.basename(file.path);
-        _attachmentSize = file.lengthSync().toDouble();
-      });
-    }
-  }
-
-  // 处理拍照
-  Future<void> _handleTakePhoto() async {
-    _closeAttachmentMenu();
-
-    final file = await _mediaService.pickImage(fromCamera: true);
-    if (file == null) return;
-
-    // 设置拍摄的照片附件
-    if (mounted) {
-      setState(() {
-        _selectedAttachment = file;
-        _attachmentType = MessageType.image;
-        _attachmentName = '拍摄的照片';
-        _attachmentSize = file.lengthSync().toDouble();
-      });
-    }
-  }
-
-  // 处理视频选择
-  Future<void> _handlePickVideo() async {
-    _closeAttachmentMenu();
-
-    final file = await _mediaService.pickVideo(fromCamera: false);
-    if (file == null) return;
-
-    // 设置选择的视频附件
-    if (mounted) {
-      setState(() {
-        _selectedAttachment = file;
-        _attachmentType = MessageType.video;
-        _attachmentName = path.basename(file.path);
-        _attachmentSize = file.lengthSync().toDouble();
-      });
-    }
-  }
-
-  // 处理文件选择
-  Future<void> _handlePickFile() async {
-    _closeAttachmentMenu();
-
-    final file = await _mediaService.pickFile();
-    if (file == null) return;
-
-    // 获取文件名
-    final fileName = file.path.split('/').last;
-
-    // 设置选择的文件附件
-    if (mounted) {
-      setState(() {
-        _selectedAttachment = file;
-        _attachmentType = MessageType.file;
-        _attachmentName = fileName;
-        _attachmentSize = file.lengthSync().toDouble();
-      });
-    }
-  }
-
-  // 处理语音录制
-  Future<void> _handleRecordVoice() async {
-    _closeAttachmentMenu();
-
-    // 显示录音对话框
-    bool? result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _buildVoiceRecordingDialog(),
-    );
-
-    if (result != true) return;
-
-    // 录音结果在对话框内部处理并发送
-  }
-
-  // 构建语音录制对话框
-  Widget _buildVoiceRecordingDialog() {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return AlertDialog(
-          title: Text(
-            _isRecordingVoice ? '正在录音' : '语音录制',
-            style: TextStyle(
-              color: _isRecordingVoice ? Colors.red : Colors.black,
-              fontWeight: _isRecordingVoice ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 录音动画
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.mic,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _isRecordingVoice ? '轻触停止录音' : '轻触开始录音',
-                style: TextStyle(
-                  color: _isRecordingVoice ? Colors.red : Colors.grey[600],
-                ),
-              ),
-              if (_isRecordingVoice) ...[
-                const SizedBox(height: 16),
-                Text(
-                  '录音时长: ${_recordingDuration?.toInt() ?? 0}秒',
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // 如果正在录音，先停止录音
-                if (_isRecordingVoice) {
-                  _mediaService.stopRecording();
-                }
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (!_isRecordingVoice) {
-                  // 开始录音
-                  final navigator = Navigator.of(context); // 提前获取navigator引用
-                  final success = await _mediaService.startRecording();
-                  if (!mounted) return;
-
-                  if (success) {
-                    setState(() {
-                      _isRecordingVoice = true;
-                      _recordingDuration = 0.0;
-                      _recordingStartTime = DateTime.now();
-                    });
-
-                    // 启动计时器更新录音时长
-                    _recordingTimer?.cancel();
-                    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-                      final duration = DateTime.now().difference(_recordingStartTime!).inSeconds.toDouble();
-                      setState(() {
-                        _recordingDuration = duration;
-                      });
-                    });
-                  } else {
-                    UINotificationService().showError('无法开始录音');
-                    if (!mounted) return;
-
-                    navigator.pop(false); // 使用提前获取的navigator
-                    return;
-                  }
-                } else {
-                  // 停止录音并处理录音结果
-                  _recordingTimer?.cancel();
-                  _recordingTimer = null;
-
-                  // 提前获取需要的引用
-                  final navigator = Navigator.of(context);
-                  final chatCubit = context.read<ChatCubit>();
-                  final conversationId = widget.conversationId;
-
-                  final result = await _mediaService.stopRecording();
-                  if (!mounted) return;
-
-                  setState(() {
-                    _isRecordingVoice = false;
-                  });
-
-                  if (result == null) {
-                    if (!mounted) return;
-
-                    navigator.pop(false); // 使用提前获取的navigator
-                    return;
-                  }
-
-                  // 上传语音文件
-                  final uploadResult = await _fileUploadService.uploadVoice(
-                    result.file,
-                    result.duration,
-                  );
-
-                  if (!mounted) return;
-
-                  if (uploadResult == null) {
-                    UINotificationService().showError('语音上传失败');
-                    if (!mounted) return;
-
-                    navigator.pop(false); // 使用提前获取的navigator
-                    return;
-                  }
-
-                  // 发送语音消息
-                  await chatCubit.sendVoiceMessage(
-                    conversationId,
-                    uploadResult.localPath,
-                    uploadResult.duration ?? 0,
-                    mediaUrl: uploadResult.remoteUrl,
-                  );
-
-                  if (!mounted) return;
-
-                  // 隐藏处理中提示
-                  UINotificationService().hideCurrentMessage();
-
-                  // 关闭对话框，返回true表示成功
-                  navigator.pop(true);
-
-                  // 滚动到底部
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      _scrollToBottom();
-                    }
-                  });
-                }
-              },
-              child: Text(_isRecordingVoice ? '停止' : '开始'),
-            ),
-          ],
-        );
+  // 构建选项项
+  Widget _buildOptionItem(IconData icon, String text) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.green),
+      title: Text(text),
+      onTap: () {
+        Navigator.pop(context);
+        dev.log('选择了选项: $text');
+        // 这里添加相应选项的处理逻辑
       },
     );
   }
 
-  // 播放语音消息
-  Future<void> _playVoiceMessage(Message message) async {
-    final localPath = message.localPath;
-    final mediaUrl = message.mediaUrl;
-    final messageId = message.messageId;
-
-    if (localPath == null && mediaUrl == null) {
-      UINotificationService().showError('无法播放：找不到语音文件');
-      return;
-    }
-
-    try {
-      // 如果正在播放当前语音，暂停/停止
-      if (_isPlayingVoiceMessage && _currentPlayingVoiceId == messageId) {
-        // 完全停止当前播放，避免使用暂停功能
-        await _mediaService.stopAudio();
-        if (!mounted) return;
-
-        setState(() {
-          _isPlayingVoiceMessage = false;
-          _currentPlayingVoiceId = null;
-          _voicePlayProgress = 0.0;
-
-          // 停止语音动画
-          _voiceAnimationController.stop();
-        });
-        return;
-      }
-
-      // 先停止任何正在播放的音频
-      if (_isPlayingVoiceMessage) {
-        await _mediaService.stopAudio();
-        if (!mounted) return;
-      }
-
-      // 设置播放状态
-      setState(() {
-        _isPlayingVoiceMessage = true;
-        _currentPlayingVoiceId = messageId;
-        _voicePlayProgress = 0.0;
-
-        // 开始语音动画
-        if (!_voiceAnimationController.isAnimating) {
-          _voiceAnimationController.repeat(reverse: true);
-        }
-      });
-
-      // 添加日志
-      dev.log('准备播放语音消息: ID=$messageId, 本地路径=$localPath, URL=$mediaUrl');
-
-      // 确定播放路径并播放
-      try {
-        if (localPath != null && localPath.isNotEmpty) {
-          // 本地文件优先
-          dev.log('使用本地文件路径播放: $localPath');
-          await _mediaService.playAudio(
-            localPath,
-            onProgress: (progress) {
-              if (mounted && _currentPlayingVoiceId == messageId) {
-                setState(() {
-                  _voicePlayProgress = progress;
-                });
-              }
+  // 其他方法实现
+  // 实现_buildMessageInput方法
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 13),
+            blurRadius: 3,
+            offset: const Offset(0, -1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            color: Colors.grey[700],
+            onPressed: () {
+              // 显示附件选择菜单
             },
-            onComplete: () {
-              if (mounted && _currentPlayingVoiceId == messageId) {
-                setState(() {
-                  _isPlayingVoiceMessage = false;
-                  _currentPlayingVoiceId = null;
-                  _voicePlayProgress = 0.0;
-
-                  // 停止语音动画
-                  _voiceAnimationController.stop();
-                });
-              }
-            },
-          );
-        } else if (mediaUrl != null) {
-          // 使用媒体URL
-          dev.log('使用媒体URL播放: $mediaUrl');
-          await _mediaService.playAudioFromUrl(
-            mediaUrl,
-            onProgress: (progress) {
-              if (mounted && _currentPlayingVoiceId == messageId) {
-                setState(() {
-                  _voicePlayProgress = progress;
-                });
-              }
-            },
-            onComplete: () {
-              if (mounted && _currentPlayingVoiceId == messageId) {
-                setState(() {
-                  _isPlayingVoiceMessage = false;
-                  _currentPlayingVoiceId = null;
-                  _voicePlayProgress = 0.0;
-
-                  // 停止语音动画
-                  _voiceAnimationController.stop();
-                });
-              }
-            },
-          );
-        }
-      } catch (playError) {
-        dev.log('播放语音过程中发生错误: $playError');
-        // 如果播放过程中发生错误，重置状态
-        if (mounted) {
-          setState(() {
-            _isPlayingVoiceMessage = false;
-            _currentPlayingVoiceId = null;
-            _voicePlayProgress = 0.0;
-
-            // 停止语音动画
-            _voiceAnimationController.stop();
-          });
-        }
-        rethrow;
-      }
-    } catch (e) {
-      dev.log('播放语音失败: $e');
-      UINotificationService().showError('播放语音失败: $e');
-
-      // 确保状态被重置
-      if (mounted) {
-        setState(() {
-          _isPlayingVoiceMessage = false;
-          _currentPlayingVoiceId = null;
-          _voicePlayProgress = 0.0;
-
-          // 停止语音动画
-          _voiceAnimationController.stop();
-        });
-      }
-
-      // 确保资源被释放
-      _mediaService.stopAudio();
-    }
-  }
-
-  // 格式化视频时长
-  String _formatDuration(int? seconds) {
-    if (seconds == null || seconds <= 0) {
-      return '00:00';
-    }
-
-    final minutes = (seconds / 60).floor();
-    final remainingSeconds = seconds % 60;
-
-    final minutesStr = minutes.toString().padLeft(2, '0');
-    final secondsStr = remainingSeconds.toString().padLeft(2, '0');
-
-    return '$minutesStr:$secondsStr';
-  }
-
-  // 处理消息点击
-  void _handleMessageTap(Message message) {
-    try {
-      if (message.type == MessageType.image) {
-        _openImageMessage(message);
-      } else if (message.type == MessageType.video) {
-        _openVideoMessage(message);
-      } else if (message.type == MessageType.file) {
-        _openFile(message);
-      } else if (message.type == MessageType.voice) {
-        _playVoiceMessage(message);
-      }
-    } catch (e) {
-      dev.log('处理消息点击失败: $e');
-      UINotificationService().showError('打开媒体失败: $e');
-    }
-  }
-
-  // 打开图片消息
-  void _openImageMessage(Message message) {
-    try {
-      final String localPath = message.localPath ?? '';
-      final String? mediaUrl = message.mediaUrl;
-      final String mediaMsgId = message.id.toString();
-      final bool isCurrentUserSender = message.senderId == '1'; // 假设'1'是当前用户ID
-
-      // 使用弹出浮窗方式查看图片
-      if (!mounted) return;
-
-      MediaOverlayViewer.show(
-        context,
-        imagePath: localPath,
-        mediaUrl: mediaUrl,
-        onDelete: isCurrentUserSender ? () => _deleteMessageById(mediaMsgId) : null,
-      );
-    } catch (e) {
-      dev.log('打开图片消息失败: $e');
-      UINotificationService().showError('无法打开图片: $e');
-    }
-  }
-
-  // 打开视频消息
-  void _openVideoMessage(Message message) {
-    try {
-      final String localPath = message.localPath ?? '';
-      final String? mediaUrl = message.mediaUrl;
-      final String mediaMsgId = message.id.toString();
-      final bool isCurrentUserSender = message.senderId == '1'; // 假设'1'是当前用户ID
-
-      // 使用弹出浮窗方式查看视频
-      if (!mounted) return;
-
-      MediaOverlayViewer.show(
-        context,
-        videoPath: localPath,
-        mediaUrl: mediaUrl,
-        onDelete: isCurrentUserSender ? () => _deleteMessageById(mediaMsgId) : null,
-      );
-    } catch (e) {
-      dev.log('打开视频消息失败: $e');
-      UINotificationService().showError('无法打开视频: $e');
-    }
-  }
-
-  // 删除消息
-  void _deleteMessageById(String messageId) {
-    try {
-      final chatCubit = context.read<ChatCubit>();
-      chatCubit.deleteMessage(messageId);
-    } catch (e) {
-      dev.log('删除消息失败: $e');
-      UINotificationService().showError('删除消息失败: $e');
-    }
-  }
-
-  // 开始录音
-  void _startRecording() async {
-    // 已经在录音则不重复开始
-    if (_isRecordingAudio) return;
-
-    final success = await _mediaService.startRecording();
-    if (!mounted) return;
-
-    if (success) {
-      // 添加触感反馈
-      HapticFeedback.mediumImpact();
-
-      // 震动屏幕反馈
-      Future.delayed(const Duration(milliseconds: 50), () {
-        HapticFeedback.vibrate();
-      });
-
-      // 显示录音开始提示
-      UINotificationService().showSuccess('录音已开始', duration: const Duration(milliseconds: 500));
-
-      setState(() {
-        _isRecordingAudio = true;
-        _isCancellingRecord = false;
-        _recordStartTime = DateTime.now();
-      });
-
-      // 重新启动波形动画
-      _waveformController.reset();
-      _waveformController.repeat();
-    } else {
-      UINotificationService().showError('无法开始录音');
-    }
-  }
-
-  // 停止录音
-  void _stopRecording(bool send) async {
-    if (!_isRecordingAudio) return;
-
-    // 添加触感反馈
-    HapticFeedback.mediumImpact();
-
-    // 如果是在取消状态下停止录音，强制将send设为false
-    if (_isCancellingRecord) {
-      send = false;
-    }
-
-    // 重置录音状态
-    setState(() {
-      _isRecordingAudio = false;
-      _isCancellingRecord = false;
-    });
-
-    if (!send) {
-      // 取消录音
-      _mediaService.stopRecording();
-      // 使用通知服务，不需要检查mounted
-      UINotificationService().showWarning('录音已取消');
-      return;
-    }
-
-    // 显示处理中提示
-    UINotificationService().showProcessing('正在处理语音消息...');
-
-    // 计算录音时长
-    final now = DateTime.now();
-    final recordDuration = now.difference(_recordStartTime!).inMilliseconds;
-
-    // 如果录音时间太短（小于1.5秒），显示提示
-    if (recordDuration < 1500) {
-      _mediaService.stopRecording();
-      UINotificationService().hideCurrentMessage();
-      UINotificationService().showError('录音时间太短，请至少录制1.5秒');
-      return;
-    }
-
-    // 提前获取ChatCubit实例
-    final chatCubit = context.read<ChatCubit>();
-    final conversationId = widget.conversationId;
-
-    // 停止录音并获取结果
-    final result = await _mediaService.stopRecording();
-    if (!mounted) return;
-
-    if (result == null) {
-      UINotificationService().hideCurrentMessage();
-      UINotificationService().showError('录音失败');
-      return;
-    }
-
-    // 上传语音文件
-    final uploadResult = await _fileUploadService.uploadVoice(
-      result.file,
-      result.duration,
+          ),
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: '发送消息...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              maxLines: 5,
+              minLines: 1,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendMessage(),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.send),
+            color: Colors.green,
+            onPressed: _sendMessage,
+          ),
+        ],
+      ),
     );
-    if (!mounted) return;
-
-    if (uploadResult == null) {
-      UINotificationService().hideCurrentMessage();
-      UINotificationService().showError('语音上传失败');
-      return;
-    }
-
-    // 发送语音消息
-    await chatCubit.sendVoiceMessage(
-      conversationId,
-      uploadResult.localPath,
-      uploadResult.duration ?? 0,
-      mediaUrl: uploadResult.remoteUrl,
-    );
-    if (!mounted) return;
-
-    // 隐藏处理中提示
-    UINotificationService().hideCurrentMessage();
-
-    // 滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _scrollToBottom();
-      }
-    });
   }
 
-  // 格式化消息时间 - 遵循微信风格
+  // 实现_formatMessageTime方法
   String _formatMessageTime(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-    final difference = today.difference(messageDate).inDays;
-
-    // 格式化时间部分
-    final timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 
     if (messageDate == today) {
-      // 今天的消息只显示时间
-      return timeStr;
+      return '今天 ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     } else if (messageDate == yesterday) {
-      // 昨天的消息显示昨天+时间
-      return '昨天 $timeStr';
-    } else if (difference < 7) {
-      // 一周内的消息显示星期几
-      const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-      return '${weekdays[dateTime.weekday % 7]} $timeStr';
-    } else if (dateTime.year == now.year) {
-      // 同一年的消息显示月日+时间
-      return '${dateTime.month}月${dateTime.day}日 $timeStr';
+      return '昨天 ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     } else {
-      // 不同年的消息显示年月日+时间
-      return '${dateTime.year}年${dateTime.month}月${dateTime.day}日 $timeStr';
+      return '${dateTime.month}月${dateTime.day}日 ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     }
+  }
+
+  // 实现_buildImageBubble方法
+  Widget _buildImageBubble(Message message, bool isFromMe) {
+    return GestureDetector(
+      onTap: () {
+        // 查看大图
+      },
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 200),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            message.mediaUrl ?? message.localPath ?? '',
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: 150,
+                height: 150,
+                color: Colors.grey[300],
+                child: const Center(child: CircularProgressIndicator()),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: 150,
+                height: 150,
+                color: Colors.grey[300],
+                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 实现_buildVideoBubble方法
+  Widget _buildVideoBubble(Message message, bool isFromMe) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 200),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 150,
+              height: 150,
+              color: Colors.black,
+              child: const Icon(Icons.video_library, size: 50, color: Colors.white),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.play_circle_fill, size: 50, color: Colors.white),
+            onPressed: () {
+              // 播放视频
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 实现_buildVoiceMessage方法
+  Widget _buildVoiceMessage(Message message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.mic, color: Colors.green),
+          const SizedBox(width: 8),
+          Text('${message.duration ?? 0}″', style: const TextStyle(color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  // 实现_buildFileMessage方法
+  Widget _buildFileMessage(Message message) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 250),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.insert_drive_file, color: Colors.blue),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.fileName ?? '未知文件',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text('${message.fileSize ?? '未知大小'}'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
