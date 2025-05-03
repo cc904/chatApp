@@ -11,6 +11,7 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'package:cc/core/services/ui_notification_service.dart'; // 导入UI通知服务
+import 'package:cc/features/chat/presentation/pages/chat_info_page.dart'; // 导入聊天信息页面
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -402,7 +403,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 icon: const Icon(Icons.more_horiz), // 使用水平省略号图标，更像微信
                 tooltip: '更多选项',
                 onPressed: () {
-                  _showMoreOptions(context, conversation);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatInfoPage(
+                        conversationId: widget.conversationId,
+                      ),
+                    ),
+                  );
                 },
               ),
             ],
@@ -686,42 +694,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   }
 
   // 滚动到特定消息
-
-  // 显示更多选项菜单
-  void _showMoreOptions(BuildContext context, Conversation conversation) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildOptionItem(Icons.search, '搜索聊天记录'),
-            _buildOptionItem(Icons.notifications_none, '消息通知'),
-            _buildOptionItem(Icons.settings, '聊天设置'),
-            if (conversation.type == ConversationType.group) _buildOptionItem(Icons.group, '查看群成员'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 构建选项项
-  Widget _buildOptionItem(IconData icon, String text) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.green),
-      title: Text(text),
-      onTap: () {
-        Navigator.pop(context);
-        dev.log('选择了选项: $text');
-        // 这里添加相应选项的处理逻辑
-      },
-    );
-  }
 
   // 其他方法实现
   // 实现_buildMessageInput方法
