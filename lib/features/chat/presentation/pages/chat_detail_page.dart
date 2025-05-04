@@ -98,7 +98,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
       _logger.i('接收到路由参数: $args, 类型: ${args.runtimeType}');
 
-      if (!(args is Map)) {
+      if (args is! Map) {
         _logger.w('路由参数不是Map类型，无法处理');
         return;
       }
@@ -941,11 +941,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           // 为目标消息添加高亮背景和动画效果
           decoration: isTargetMessage
               ? BoxDecoration(
-                  color: Colors.yellow.withOpacity(0.3),
+                  color: Colors.yellow.withValues(red: 255, green: 255, blue: 51, alpha: 76),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.orange.withOpacity(0.3),
+                      color: Colors.orange.withValues(red: 255, green: 140, blue: 0, alpha: 76),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),

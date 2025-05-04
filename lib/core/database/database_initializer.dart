@@ -64,16 +64,16 @@ class DatabaseInitializer {
       _logger.i('开始创建数据库索引');
       await isar.writeTxn(() async {
         // 用户索引
-        await isar.users.where().filter().isFriendEqualTo(true).build();
-        await isar.users.where().filter().isFriendEqualTo(false).build();
+        isar.users.where().filter().isFriendEqualTo(true).build();
+        isar.users.where().filter().isFriendEqualTo(false).build();
 
         // 会话索引
-        await isar.conversations.where().filter().typeEqualTo(ConversationType.private).build();
-        await isar.conversations.where().filter().typeEqualTo(ConversationType.group).build();
+        isar.conversations.where().filter().typeEqualTo(ConversationType.private).build();
+        isar.conversations.where().filter().typeEqualTo(ConversationType.group).build();
 
         // 消息索引
-        await isar.messages.where().filter().conversationIdEqualTo('').build();
-        await isar.messages.where().filter().senderIdEqualTo('').build();
+        isar.messages.where().filter().conversationIdEqualTo('').build();
+        isar.messages.where().filter().senderIdEqualTo('').build();
       });
       _logger.i('数据库索引创建完成');
     } catch (e) {
