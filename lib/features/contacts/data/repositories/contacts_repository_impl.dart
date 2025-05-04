@@ -2,11 +2,11 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:isar/isar.dart';
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// ContactsRepository的实现类
 class ContactsRepositoryImpl implements ContactsRepository {
-  final Logger _logger = Logger();
+  final _logger = LogService('contacts_repository_impl.dart');
 
   // 获取当前数据库实例
   Isar get _isar => DatabaseInitializer.isar;
@@ -64,15 +64,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
   }
 
   @override
-  Future<void> addContact(User user) async {
+  Future<void> addContact(User contact) async {
     try {
-      // 确保用户标记为朋友
-      user.isFriend = true;
-
       await _isar.writeTxn(() async {
-        user.id = await _users.put(user);
-        DatabaseInitializer.syncIds(user);
-        await _users.put(user);
+        contact.id = await _users.put(contact);
       });
     } catch (e) {
       _logger.e('添加联系人失败', error: e);
@@ -86,14 +81,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       final id = int.tryParse(userId);
       if (id == null) return;
 
-      final user = await _users.get(id);
-      if (user == null) return;
-
-      // 将用户的isFriend设为false，而不是真正删除
-      user.isFriend = false;
-
       await _isar.writeTxn(() async {
-        await _users.put(user);
+        await _users.delete(id);
       });
     } catch (e) {
       _logger.e('删除联系人失败', error: e);
@@ -102,16 +91,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
   }
 
   @override
-  Future<void> updateContact(User user) async {
+  Future<void> updateContact(User contact) async {
     try {
-      // 确保用户存在
-      if (user.id <= 0) {
-        throw Exception('无效的用户ID');
-      }
-
       await _isar.writeTxn(() async {
-        DatabaseInitializer.syncIds(user);
-        await _users.put(user);
+        await _users.put(contact);
       });
     } catch (e) {
       _logger.e('更新联系人失败', error: e);

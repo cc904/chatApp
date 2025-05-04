@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
@@ -9,13 +9,12 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 // import 'dart:typed_data';
 import 'package:flutter/services.dart';
-import 'dart:developer' as dev;
 import 'dart:math' as math;
 
 /// 文件上传服务
 /// 负责处理文件的上传和本地存储
 class FileUploadService {
-  final Logger _logger = Logger();
+  final _logger = LogService('file_upload_service.dart');
   final Uuid _uuid = const Uuid();
 
   // 单例模式
@@ -39,7 +38,7 @@ class FileUploadService {
         final mediaDir = Directory('${appDocDir.path}/media/$dir');
         if (!await mediaDir.exists()) {
           await mediaDir.create(recursive: true);
-          dev.log('创建目录: ${mediaDir.path}');
+          _logger.i('创建目录: ${mediaDir.path}');
         }
       }
     } catch (e) {
@@ -99,7 +98,7 @@ class FileUploadService {
         _logServerProcess('缩略图生成成功');
       } catch (e) {
         _logServerProcess('生成缩略图失败: $e');
-        _logger.w('服务器生成缩略图失败，将返回没有缩略图的视频', error: e);
+        _logger.w('服务器生成缩略图失败，将返回没有缩略图的视频', extra: {'error': e});
       }
 
       if (thumbnailFile != null) {
@@ -574,12 +573,12 @@ class FileUploadService {
 
   /// 记录服务器端日志
   void _logServerProcess(String message) {
-    dev.log('[服务器模拟] $message');
+    _logger.i('[服务器模拟] $message');
   }
 
   /// 记录客户端日志
   void _logClientProcess(String message) {
-    dev.log('[客户端] $message');
+    _logger.i('[客户端] $message');
   }
 }
 

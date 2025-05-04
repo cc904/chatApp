@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 
 import 'chat_state.dart';
 import 'package:cc/core/database/models/user.dart';
@@ -12,7 +12,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 /// 负责管理聊天相关的状态和业务逻辑
 class ChatCubit extends Cubit<ChatState> {
   final ChatRepository _repository;
-  final Logger _logger = Logger();
+  late final LogService _logger;
 
   // 订阅管理
   StreamSubscription? _conversationsSubscription;
@@ -30,12 +30,14 @@ class ChatCubit extends Cubit<ChatState> {
   ChatCubit({required ChatRepository repository})
       : _repository = repository,
         super(ChatState.initial()) {
+    _logger = LogService('chat_cubit.dart');
     // 初始化时设置订阅，但不主动加载数据
     _setupSubscriptions();
   }
 
   /// 设置数据变化订阅
   void _setupSubscriptions() {
+    _logger.i('设置数据变化订阅');
     // 监听会话列表变化
     _conversationsSubscription?.cancel();
     _conversationsSubscription = _repository.watchConversations().listen((_) {
@@ -57,6 +59,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 加载会话列表
   Future<void> loadConversations() async {
+    _logger.i('开始加载会话列表');
     if (_isLoadingConversations) return; // 防止重复加载
 
     try {
@@ -105,6 +108,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 加载联系人列表
   Future<void> loadContacts() async {
+    _logger.i('开始加载联系人列表');
     try {
       emit(state.copyWithLoading());
       final contacts = await _repository.getAllContacts();
@@ -120,6 +124,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 加载指定会话的消息
   Future<void> loadMessagesForConversation(String conversationId, {int limit = 20, DateTime? before}) async {
+    _logger.i('开始加载会话消息', extra: {'conversationId': conversationId, 'limit': limit});
     // 防止同一会话的消息并发加载
     if (_isLoadingMessages[conversationId] ?? false) return;
 
@@ -250,6 +255,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送文本消息
   Future<void> sendTextMessage(String conversationId, String text) async {
+    _logger.i('发送文本消息', extra: {'conversationId': conversationId, 'text': text});
     if (text.trim().isEmpty) return;
 
     try {
@@ -277,6 +283,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送图片消息
   Future<void> sendImageMessage(String conversationId, String localPath, {String? mediaUrl}) async {
+    _logger.i('发送图片消息', extra: {'conversationId': conversationId, 'imagePath': localPath});
     try {
       _isSourceOfChange = true;
       // 发送消息并获取返回的消息对象
@@ -302,6 +309,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送语音消息
   Future<void> sendVoiceMessage(String conversationId, String localPath, int duration, {String? mediaUrl}) async {
+    _logger.i('发送语音消息', extra: {'conversationId': conversationId, 'voicePath': localPath, 'duration': duration});
     try {
       _isSourceOfChange = true;
       // 发送消息并获取返回的消息对象
@@ -327,6 +335,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送文件消息
   Future<void> sendFileMessage(String conversationId, String localPath, String fileName, double fileSize, {String? mediaUrl}) async {
+    _logger.i('发送文件消息', extra: {'conversationId': conversationId, 'filePath': localPath});
     try {
       _isSourceOfChange = true;
       // 发送消息并获取返回的消息对象
@@ -352,6 +361,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送视频消息
   Future<void> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false}) async {
+    _logger.i('发送视频消息', extra: {'conversationId': conversationId, 'videoPath': localPath});
     try {
       _isSourceOfChange = true;
       // 发送消息并获取返回的消息对象
@@ -405,6 +415,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 删除消息
   Future<void> deleteMessage(String messageId) async {
+    _logger.i('删除消息', extra: {'messageId': messageId});
     try {
       _isSourceOfChange = true;
 
@@ -471,6 +482,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 清空会话消息
   Future<void> clearConversationMessages(String conversationId) async {
+    _logger.i('清除会话消息', extra: {'conversationId': conversationId});
     try {
       _isSourceOfChange = true;
       await _repository.clearConversationMessages(conversationId);
@@ -502,8 +514,107 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  // 添加通过ID获取消息的方法
+  Future<Message?> getMessageById(String messageId) async {
+    try {
+      // 遍历所有会话的消息，查找匹配ID的消息
+      for (final entry in state.messagesByConversation.entries) {
+        final messages = entry.value;
+        for (final message in messages) {
+          if (message.messageId == messageId) {
+            return message;
+          }
+        }
+      }
+
+      // 如果未找到，返回null
+      return null;
+    } catch (e) {
+      _logger.e('通过ID获取消息失败', error: e);
+      return null;
+    }
+  }
+
+  // 加载指定日期前后的消息
+  Future<void> loadMessagesAroundDate(String conversationId, DateTime targetDate) async {
+    try {
+      emit(state.copyWith(isLoading: true));
+
+      // 计算时间范围 - 目标日期当天到目标日期后10天的消息
+      final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
+      final endRange = startOfDay.add(const Duration(days: 10));
+
+      // 从数据库加载该日期范围的消息
+      final messages = await _repository.getMessagesByDateRange(conversationId, startOfDay, endRange, limit: 50 // 设置合理的限制，避免加载过多消息
+          );
+
+      // 如果找不到当天消息，尝试加载一个更大的范围
+      if (!messages.any((m) => m.createdAt.year == targetDate.year && m.createdAt.month == targetDate.month && m.createdAt.day == targetDate.day)) {
+        // 也加载目标日期前10天的消息
+        final extendedStartRange = startOfDay.subtract(const Duration(days: 10));
+        final earlierMessages = await _repository.getMessagesByDateRange(conversationId, extendedStartRange, startOfDay, limit: 30);
+
+        // 合并两个范围的消息
+        messages.addAll(earlierMessages);
+      }
+
+      // 更新状态
+      final currentMessages = state.messagesByConversation[conversationId] ?? [];
+
+      // 合并新旧消息，避免重复
+      final Map<String, Message> uniqueMessages = {};
+      for (var msg in [...currentMessages, ...messages]) {
+        uniqueMessages[msg.messageId] = msg;
+      }
+
+      final updatedMessages = uniqueMessages.values.toList();
+
+      // 按时间排序
+      updatedMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // 更新状态
+      final updatedMessagesByConversation = Map<String, List<Message>>.from(state.messagesByConversation);
+      updatedMessagesByConversation[conversationId] = updatedMessages;
+
+      emit(state.copyWith(isLoading: false, messagesByConversation: updatedMessagesByConversation));
+    } catch (e) {
+      _logger.e('加载日期附近消息失败', error: e);
+      emit(state.copyWith(isLoading: false, error: '加载消息失败: $e'));
+    }
+  }
+
+  /// 根据日期加载会话消息，从指定日期开始获取消息
+  Future<void> loadMessagesForConversationByDate(String conversationId, {required DateTime targetDate, int limit = 30}) async {
+    _logger.i('加载指定日期的消息', extra: {'conversationId': conversationId, 'targetDate': targetDate, 'limit': limit});
+    try {
+      emit(state.copyWith(isLoading: true));
+
+      _logger.i('从目标日期加载消息', extra: {'targetDate': targetDate, 'conversationId': conversationId, 'limit': limit});
+
+      // 从指定日期开始获取消息（包括该日期的消息）
+      // 注意：这里不使用日期范围查询，而是从该日期开始获取消息
+      final messages = await _repository.getConversationMessagesFromDate(conversationId, targetDate, limit: limit);
+
+      if (messages.isEmpty) {
+        _logger.i('未找到从日期开始的消息', extra: {'targetDate': targetDate});
+      } else {
+        _logger.i('已加载消息', extra: {'count': messages.length, 'targetDate': targetDate});
+      }
+
+      // 替换现有的消息列表，确保当天消息显示在顶部
+      final updatedMessagesByConversation = Map<String, List<Message>>.from(state.messagesByConversation);
+      updatedMessagesByConversation[conversationId] = messages;
+
+      emit(state.copyWith(isLoading: false, messagesByConversation: updatedMessagesByConversation));
+    } catch (e) {
+      _logger.e('从指定日期加载消息失败', error: e);
+      emit(state.copyWith(isLoading: false, error: '加载消息失败: $e'));
+    }
+  }
+
   @override
   Future<void> close() {
+    _logger.i('关闭ChatCubit');
     // 取消所有订阅
     _conversationsSubscription?.cancel();
     _contactsSubscription?.cancel();

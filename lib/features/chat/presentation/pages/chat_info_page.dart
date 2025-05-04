@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:developer' as dev;
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
+import 'package:cc/core/services/log_service.dart';
 
 class ChatInfoPage extends StatefulWidget {
   final String conversationId;
@@ -20,6 +20,7 @@ class ChatInfoPage extends StatefulWidget {
 }
 
 class _ChatInfoPageState extends State<ChatInfoPage> {
+  final _logger = LogService('chat_info_page.dart');
   // 模拟属性值，实际应该保存在数据库中
   bool _isMuted = false;
   bool _isPinned = false;
@@ -154,7 +155,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   _isMuted = value;
                 });
                 // 实现消息免打扰功能
-                dev.log('设置消息免打扰: $value');
+                _logger.i('设置消息免打扰', extra: {'value': value});
               },
             ),
           ),
@@ -172,7 +173,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   _isPinned = value;
                 });
                 // 实现置顶聊天功能
-                dev.log('设置置顶聊天: $value');
+                _logger.i('设置置顶聊天', extra: {'value': value});
               },
             ),
           ),
@@ -421,7 +422,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
       final navigator = Navigator.of(context);
       navigator
-          .push<String>(
+          .push<dynamic>(
         MaterialPageRoute(
           builder: (context) => ChatSearchPage(
             conversationId: conversationId,
@@ -429,11 +430,66 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
           ),
         ),
       )
-          .then((messageId) {
+          .then((result) async {
         if (!mounted) return;
-        if (messageId != null) {
-          dev.log('需要跳转到消息: $messageId');
-          navigator.pop(messageId);
+        if (result != null) {
+          // 处理搜索页面返回的结果
+          if (result is Map && result.containsKey('jumpToDate')) {
+            // 验证参数类型
+            final jumpToDateObj = result['jumpToDate'];
+
+            if (jumpToDateObj is DateTime) {
+              // 确保使用一致的日期格式(只保留年月日)
+              final dateOnly = DateTime(jumpToDateObj.year, jumpToDateObj.month, jumpToDateObj.day);
+              final standardArgs = <String, dynamic>{'jumpToDate': dateOnly};
+
+              // 直接将标准化的Map传递回chat_detail_page
+              if (mounted) {
+                Navigator.pop(context, standardArgs);
+              }
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('日期格式无效，无法跳转'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } else if (result is String) {
+            // 处理消息ID的情况
+            Navigator.pop(context, {'targetMessageId': result});
+          } else {
+            // 对于其他类型的返回值（包括DateTime），统一转换为标准格式
+            try {
+              // 尝试将其转换为日期参数Map
+              final DateTime? dateTime = (result is DateTime) ? result : null;
+
+              if (dateTime != null) {
+                // 标准化日期格式(只保留年月日)
+                final dateOnly = DateTime(dateTime.year, dateTime.month, dateTime.day);
+                final standardArgs = <String, dynamic>{'jumpToDate': dateOnly};
+                Navigator.pop(context, standardArgs);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('参数格式无效，无法处理'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            } catch (e) {
+              _logger.e('参数处理错误', error: e);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('参数处理失败: $e'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          }
         }
       });
     });

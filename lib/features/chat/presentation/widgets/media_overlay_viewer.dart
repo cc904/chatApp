@@ -2,11 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'dart:developer' as dev;
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// 全屏媒体浮窗查看器组件
 /// 直接覆盖在当前页面上，无需导航到新页面
@@ -116,6 +116,8 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
 
+  final _logger = LogService('media_overlay_viewer.dart');
+
   @override
   void initState() {
     super.initState();
@@ -165,7 +167,7 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         _errorMessage = '媒体加载失败: $e';
         _isLoading = false;
       });
-      dev.log('媒体加载失败: $e');
+      _logger.e('媒体加载失败', error: e);
     }
   }
 
@@ -214,26 +216,26 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         final file = File(effectivePath);
         if (file.existsSync()) {
           _videoController = VideoPlayerController.file(file);
-          dev.log('浮窗使用本地文件初始化视频: ${file.path}');
+          _logger.i('浮窗使用本地文件初始化视频', extra: {'path': file.path});
         } else {
-          dev.log('浮窗视频文件不存在: $effectivePath');
+          _logger.i('浮窗视频文件不存在', extra: {'path': effectivePath});
           if (widget.mediaUrl != null && !widget.mediaUrl!.startsWith('file://')) {
             _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
-            dev.log('浮窗回退使用网络URL初始化视频: ${widget.mediaUrl}');
+            _logger.i('浮窗回退使用网络URL初始化视频', extra: {'url': widget.mediaUrl});
           } else {
             throw Exception('未找到有效的视频文件');
           }
         }
       } else if (widget.mediaUrl != null && !widget.mediaUrl!.startsWith('file://')) {
         _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
-        dev.log('浮窗使用网络URL初始化视频: ${widget.mediaUrl}');
+        _logger.i('浮窗使用网络URL初始化视频', extra: {'url': widget.mediaUrl});
       } else {
         throw Exception('未找到有效的视频文件');
       }
 
       // 初始化视频控制器
       await _videoController!.initialize();
-      dev.log('浮窗视频播放器初始化成功');
+      _logger.i('浮窗视频播放器初始化成功');
 
       if (!mounted) return;
 
@@ -272,7 +274,7 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
           _isLoading = false;
         });
       }
-      dev.log('浮窗视频初始化失败: $e');
+      _logger.e('浮窗视频初始化失败', error: e);
     }
   }
 
@@ -436,25 +438,25 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         final file = File(widget.localPath!);
         if (file.existsSync()) {
           imageProvider = FileImage(file);
-          dev.log('浮窗使用本地文件显示图片: ${file.path}');
+          _logger.i('浮窗使用本地文件显示图片', extra: {'path': file.path});
         }
       }
 
       if (imageProvider == null && widget.mediaUrl != null) {
         if (widget.mediaUrl!.startsWith('http')) {
           imageProvider = NetworkImage(widget.mediaUrl!);
-          dev.log('浮窗使用网络URL显示图片: ${widget.mediaUrl}');
+          _logger.i('浮窗使用网络URL显示图片', extra: {'url': widget.mediaUrl});
         } else if (widget.mediaUrl!.startsWith('file://')) {
           final file = File(widget.mediaUrl!.substring(7));
           if (file.existsSync()) {
             imageProvider = FileImage(file);
-            dev.log('浮窗使用file://路径显示图片: ${file.path}');
+            _logger.i('浮窗使用file://路径显示图片', extra: {'path': file.path});
           }
         }
       }
 
       if (imageProvider == null) {
-        dev.log('浮窗无法加载图片: localPath=${widget.localPath}, mediaUrl=${widget.mediaUrl}');
+        _logger.e('浮窗无法加载图片', extra: {'localPath': widget.localPath, 'mediaUrl': widget.mediaUrl});
         return const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -485,7 +487,7 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         },
       );
     } catch (e) {
-      dev.log('构建图片查看器失败: $e');
+      _logger.e('构建图片查看器失败', error: e);
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

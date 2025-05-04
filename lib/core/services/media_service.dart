@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import 'package:just_audio/just_audio.dart';
@@ -13,7 +13,7 @@ import 'package:just_audio/just_audio.dart';
 /// 媒体服务类
 /// 负责处理图片、视频、语音和文件选择和存储
 class MediaService {
-  final Logger _logger = Logger();
+  final _logger = LogService('media_service.dart');
   final ImagePicker _imagePicker = ImagePicker();
   final Record _audioRecorder = Record();
   final Uuid _uuid = const Uuid();

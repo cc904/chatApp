@@ -70,4 +70,19 @@ abstract class ChatRepository {
 
   /// 监听联系人列表变化
   Stream<void> watchContacts();
+
+  /// 根据日期范围获取消息
+  Future<List<Message>> getMessagesByDateRange(
+    String conversationId,
+    DateTime startDate,
+    DateTime endDate, {
+    int limit = 50,
+  });
+
+  /// 从指定日期开始获取会话消息（包括该日期当天的消息）
+  Future<List<Message>> getConversationMessagesFromDate(
+    String conversationId,
+    DateTime startDate, {
+    int limit = 30,
+  });
 }

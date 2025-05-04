@@ -753,4 +753,79 @@ class ChatRepositoryImpl implements ChatRepository {
       }
     }
   }
+
+  @override
+  Future<List<Message>> getMessagesByDateRange(
+    String conversationId,
+    DateTime startDate,
+    DateTime endDate, {
+    int limit = 50,
+  }) async {
+    try {
+      int id = int.tryParse(conversationId) ?? 0;
+
+      // 确保转换为有效的DateTime对象，避免日期比较问题
+      final safeStartDate = DateTime.utc(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      );
+      final safeEndDate = DateTime.utc(
+        endDate.year,
+        endDate.month,
+        endDate.day,
+        23,
+        59,
+        59,
+      );
+
+      dev.log('按日期范围查询消息: 会话ID=$id, 开始日期=${safeStartDate.toString()}, 结束日期=${safeEndDate.toString()}, 限制=$limit');
+
+      // 查询指定日期范围内的消息
+      final messages = await _messages
+          .filter()
+          .conversationIdEqualTo(id.toString())
+          .createdAtBetween(safeStartDate, safeEndDate)
+          .sortByCreatedAt() // 按时间正序排序
+          .limit(limit)
+          .findAll();
+
+      dev.log('按日期范围查询结果: 找到${messages.length}条消息');
+      return messages;
+    } catch (e) {
+      dev.log('根据日期范围获取消息失败: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Message>> getConversationMessagesFromDate(
+    String conversationId,
+    DateTime startDate, {
+    int limit = 30,
+  }) async {
+    try {
+      int id = int.tryParse(conversationId) ?? 0;
+
+      // 确保使用日期的开始时间
+      final dayStart = DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
+
+      dev.log('从特定日期开始获取消息: 会话ID=$id, 开始日期=${dayStart.toString()}, 限制=$limit');
+
+      // 查询从指定日期开始的消息
+      final messages = await _messages
+          .filter()
+          .conversationIdEqualTo(id.toString())
+          .createdAtGreaterThan(dayStart.subtract(const Duration(seconds: 1))) // 大于等于指定日期
+          .sortByCreatedAt() // 按时间正序排序，确保最早的消息在前
+          .limit(limit)
+          .findAll();
+
+      dev.log('从日期获取消息结果: 找到${messages.length}条消息');
+      return messages;
+    } catch (e) {
+      dev.log('从指定日期获取消息失败: $e');
+      return [];
+    }
+  }
 }

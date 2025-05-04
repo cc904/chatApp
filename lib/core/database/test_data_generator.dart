@@ -4,12 +4,12 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// 测试数据生成器
 /// 用于生成更多的模拟聊天数据
 class TestDataGenerator {
-  static final Logger _logger = Logger();
+  static final _logger = LogService('test_data_generator.dart');
 
   /// 生成更多测试数据
   static Future<void> generateMoreTestData({int conversationCount = 20, int messageCount = 10}) async {
@@ -42,13 +42,19 @@ class TestDataGenerator {
 
       // 创建或补充群聊会话
       final groupConversations = await isar.conversations.where().filter().typeEqualTo(ConversationType.group).findAll();
-      final groupCount = (conversationCount ~/ 2);
+      final groupCount = conversationCount - privateCount;
       if (groupConversations.length < groupCount) {
         await createGroupConversations(isar, currentUser, contacts, groupCount - groupConversations.length);
       }
 
-      // 确保每个会话有足够的消息
-      await ensureMessagesForAllConversations(isar, currentUser, contacts, messageCount);
+      // 为每个会话生成消息
+      final allConversations = await isar.conversations.where().findAll();
+      for (final conversation in allConversations) {
+        final existingMessages = await isar.messages.where().filter().conversationIdEqualTo(conversation.id.toString()).count();
+        if (existingMessages < messageCount) {
+          await createMessages(isar, conversation, currentUser, contacts, messageCount - existingMessages);
+        }
+      }
 
       _logger.i('测试数据生成完成');
     } catch (e) {
@@ -196,21 +202,8 @@ class TestDataGenerator {
     });
   }
 
-  /// 确保所有会话都有足够的消息
-  static Future<void> ensureMessagesForAllConversations(Isar isar, User currentUser, List<User> contacts, int minimumMessageCount) async {
-    final conversations = await isar.conversations.where().findAll();
-
-    for (final conversation in conversations) {
-      final existingMessageCount = await isar.messages.where().filter().conversationIdEqualTo(conversation.id.toString()).count();
-
-      if (existingMessageCount < minimumMessageCount) {
-        await createMessagesForConversation(isar, conversation, currentUser, contacts, minimumMessageCount - existingMessageCount);
-      }
-    }
-  }
-
   /// 为会话创建消息
-  static Future<void> createMessagesForConversation(Isar isar, Conversation conversation, User currentUser, List<User> contacts, int count) async {
+  static Future<void> createMessages(Isar isar, Conversation conversation, User currentUser, List<User> contacts, int count) async {
     // 简化模型：为每个会话使用3个随机联系人作为消息发送者
     final shuffledContacts = List<User>.from(contacts)..shuffle();
     final randomParticipants = shuffledContacts.take(3).toList();

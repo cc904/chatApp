@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'dart:developer' as dev;
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
@@ -28,7 +27,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 创建日志记录器
-  final logger = Logger();
+  final logger = LogService('main.dart');
 
   // 初始化媒体目录
   try {
@@ -187,7 +186,8 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    dev.log('MyApp build');
+    final logger = LogService('main.dart');
+    logger.i('MyApp build');
     return MultiRepositoryProvider(
       providers: [
         // 注册仓库
@@ -283,7 +283,7 @@ class MyApp extends StatelessWidget {
 /// 初始化媒体目录
 Future<void> _initMediaDirectories() async {
   final appDocDir = await getApplicationDocumentsDirectory();
-  final logger = Logger();
+  final logger = LogService('main.dart');
 
   // 创建所有需要的媒体目录
   final directories = [
@@ -319,6 +319,6 @@ Future<void> _initMediaDirectories() async {
       }
     }
   } catch (e) {
-    logger.w('清理临时目录失败', error: e);
+    logger.w('清理临时目录失败', extra: {'error': e});
   }
 }

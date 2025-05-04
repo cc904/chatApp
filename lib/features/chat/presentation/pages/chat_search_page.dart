@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:developer' as dev;
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/database_initializer.dart'; // 添加导入数据库初始化器
 import 'package:isar/isar.dart'; // 添加导入Isar数据库
-import 'package:flutter_localizations/flutter_localizations.dart'; // 导入本地化支持
+import 'package:cc/core/services/log_service.dart';
+// 导入本地化支持
 
 // 定义过滤类型枚举
 enum FilterType {
@@ -33,6 +33,7 @@ class ChatSearchPage extends StatefulWidget {
 }
 
 class _ChatSearchPageState extends State<ChatSearchPage> {
+  final _logger = LogService('chat_search_page.dart');
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   List<Message> _searchResults = [];
@@ -108,9 +109,10 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       await _loadMessageDates(targetMonth: prevMonth1);
       await _loadMessageDates(targetMonth: prevMonth2);
 
-      dev.log('预加载了最近3个月的消息日期: ${now.year}年${now.month}月, ${prevMonth1.year}年${prevMonth1.month}月, ${prevMonth2.year}年${prevMonth2.month}月');
+      _logger.i('预加载了最近3个月的消息日期',
+          extra: {'current': '${now.year}年${now.month}月', 'prev1': '${prevMonth1.year}年${prevMonth1.month}月', 'prev2': '${prevMonth2.year}年${prevMonth2.month}月'});
     } catch (e) {
-      dev.log('预加载最近消息日期失败: $e');
+      _logger.e('预加载最近消息日期失败', error: e);
     }
   }
 
@@ -126,11 +128,11 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
       // 检查该月份是否已加载过，避免重复加载
       if (_loadedMonths.contains(monthKey)) {
-        dev.log('月份 $monthKey 已加载过，跳过');
+        _logger.d('月份已加载过，跳过', extra: {'monthKey': monthKey});
         return;
       }
 
-      dev.log('加载指定月份的消息日期: ${month.year}年${month.month}月');
+      _logger.i('加载指定月份的消息日期', extra: {'year': month.year, 'month': month.month});
 
       // 从数据库获取消息日期
       final Isar db = DatabaseInitializer.isar;
@@ -141,7 +143,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       // 使用正确的方法计算月末
       final endDate = DateTime(month.year, month.month + 1, 1).subtract(const Duration(days: 1));
 
-      dev.log('查询日期范围: ${startDate.toString()} 至 ${endDate.toString()}');
+      _logger.d('查询日期范围', extra: {'start': startDate.toString(), 'end': endDate.toString()});
 
       // 查询指定时间范围内的消息
       final messages = await db.messages.filter().conversationIdEqualTo(widget.conversationId).createdAtBetween(startDate, endDate.add(const Duration(days: 1))).findAll();
@@ -156,7 +158,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       }
 
       // 显示找到的日期数量
-      dev.log('找到 ${dates.length} 个唯一日期');
+      _logger.i('找到唯一日期', extra: {'count': dates.length});
 
       if (mounted) {
         setState(() {
@@ -167,7 +169,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         });
       }
     } catch (e) {
-      dev.log('从数据库加载消息日期失败: $e');
+      _logger.e('从数据库加载消息日期失败', error: e);
     }
   }
 
@@ -309,8 +311,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Center(
+      builder: (BuildContext dialogContext) {
+        return const Center(
           child: CircularProgressIndicator(),
         );
       },
@@ -324,12 +326,16 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       // 如果没有找到任何日期，显示提示
       if (_messageDates.isEmpty) {
         // 关闭加载指示器
-        Navigator.of(context).pop();
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
 
         // 显示没有消息的提示
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('未找到任何聊天记录')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('未找到任何聊天记录')),
+          );
+        }
         return;
       }
 
@@ -339,8 +345,14 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       }
     } catch (e) {
       // 发生错误，关闭加载指示器并显示错误
+      _logger.e('加载消息日期失败', error: e);
       if (context.mounted) {
-        Navigator.of(context).pop();
+        try {
+          Navigator.of(context).pop();
+        } catch (navError) {
+          // 忽略可能的导航错误
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('加载消息日期失败: $e')),
         );
@@ -349,12 +361,14 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     }
 
     // 使用自定义日期选择器，点击日期后直接跳转
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(
+            constraints: const BoxConstraints(
               maxWidth: 350.0, // 限制最大宽度
             ),
             child: Theme(
@@ -362,7 +376,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                 colorScheme: ColorScheme.light(
                   primary: Theme.of(context).colorScheme.primary,
                 ),
-                dialogTheme: DialogTheme(
+                dialogTheme: const DialogTheme(
                   backgroundColor: Colors.white,
                 ),
               ),
@@ -378,7 +392,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
+                          const Text(
                             '选择日期',
                             style: TextStyle(
                               fontSize: 18,
@@ -386,8 +400,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.close),
-                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
                             splashRadius: 20,
                           ),
                         ],
@@ -405,12 +419,12 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                           },
                           onDateChanged: (date) {
                             // 点击日期后立即关闭对话框并跳转
-                            Navigator.of(context).pop();
+                            Navigator.of(dialogContext).pop();
                             _jumpToChatAtDate(date);
                           },
                           onDisplayedMonthChanged: (DateTime month) {
                             // 当显示的月份改变时，加载该月的消息日期
-                            dev.log('显示月份已更改至: ${month.year}年${month.month}月');
+                            _logger.i('显示月份已更改至', extra: {'year': month.year, 'month': month.month});
 
                             // 加载当前显示的月份数据
                             _loadMessageDates(targetMonth: month);
@@ -474,54 +488,52 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     return sortedDates.first; // 返回最近的一个日期
   }
 
-  // 查找最接近所选日期的消息并跳转到聊天界面
+  // 查找所选日期的消息并跳转到聊天界面
   void _jumpToChatAtDate(DateTime date) {
-    // 确保所有消息已加载
-    if (_allMessages.isEmpty) {
-      _loadAllMessages();
-    }
+    try {
+      _logger.i('开始跳转到日期', extra: {'date': date.toString(), 'type': date.runtimeType});
 
-    // 计算所选日期的开始和结束
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+      // 创建包含jumpToDate键的Map，注意日期类型必须保持一致
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final args = <String, dynamic>{'jumpToDate': dateOnly};
+      _logger.i('创建参数Map', extra: {'args': args, 'type': args.runtimeType, 'jumpToDate': args['jumpToDate'], 'jumpToDateType': args['jumpToDate'].runtimeType});
 
-    // 查找当天的消息
-    final messagesOnDate =
-        _allMessages.where((m) => m.createdAt.isAfter(startOfDay.subtract(const Duration(seconds: 1))) && m.createdAt.isBefore(endOfDay.add(const Duration(seconds: 1)))).toList();
+      // 使用延迟避免在build过程中调用setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          try {
+            // 使用标准格式的Map参数返回
+            Navigator.of(context).pop(args);
+            _logger.i('成功返回日期参数Map', extra: {'args': args});
+          } catch (e) {
+            _logger.e('返回日期参数失败', error: e);
 
-    Message? targetMessage;
-
-    // 如果当天有消息，选择按时间排序的第一条作为目标
-    if (messagesOnDate.isNotEmpty) {
-      // 按时间顺序从早到晚排序（升序）
-      messagesOnDate.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-      // 选择当天的第一条消息
-      targetMessage = messagesOnDate.first;
-      dev.log('找到当日第一条消息: ${targetMessage.messageId}, 时间: ${targetMessage.createdAt}');
-    } else {
-      // 如果当天没有消息，找最接近的消息
-      // 按与目标日期的时间差排序
-      _allMessages.sort((a, b) {
-        final diffA = (a.createdAt.difference(startOfDay)).abs();
-        final diffB = (b.createdAt.difference(startOfDay)).abs();
-        return diffA.compareTo(diffB);
+            // 显示错误消息
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('返回日期失败: $e'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          _logger.w('组件已卸载，无法执行导航');
+        }
       });
+    } catch (e) {
+      _logger.e('跳转到日期消息失败', error: e);
 
-      // 选择时间最接近的
-      if (_allMessages.isNotEmpty) {
-        targetMessage = _allMessages.first;
-        dev.log('找到最接近该日期的消息: ${targetMessage.messageId}, 时间: ${targetMessage.createdAt}');
+      // 显示错误消息
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('日期选择失败: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
-    }
-
-    // 如果找到目标消息，跳转到聊天界面
-    if (targetMessage != null) {
-      dev.log('跳转到日期: ${date.toString()}, 消息ID: ${targetMessage.messageId}');
-      Navigator.pop(context, targetMessage.messageId);
-    } else {
-      // 如果没有找到消息，直接返回，不显示提示
-      Navigator.pop(context);
     }
   }
 
@@ -955,7 +967,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   Widget _buildImageThumbnail(Message message) {
     return GestureDetector(
       onTap: () {
-        dev.log('点击图片: ${message.messageId}');
+        _logger.i('点击图片', extra: {'messageId': message.messageId});
         Navigator.pop(context, message.messageId);
       },
       child: Container(
@@ -978,7 +990,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   Widget _buildVideoThumbnail(Message message) {
     return GestureDetector(
       onTap: () {
-        dev.log('点击视频: ${message.messageId}');
+        _logger.i('点击视频', extra: {'messageId': message.messageId});
         Navigator.pop(context, message.messageId);
       },
       child: Stack(
@@ -1029,8 +1041,14 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     return InkWell(
       onTap: () {
         // 跳转到消息位置的实现可以在这里添加
-        dev.log('跳转到消息: ${message.messageId}');
-        Navigator.pop(context, message.messageId);
+        _logger.i('跳转到消息', extra: {'messageId': message.messageId});
+
+        // 使用标准格式Map返回消息ID
+        final result = {'targetMessageId': message.messageId};
+        _logger.i('准备返回消息ID，使用Map格式', extra: {'result': result, 'type': result.runtimeType});
+
+        Navigator.pop(context, result);
+        _logger.i('已调用Navigator.pop传递消息ID参数');
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
