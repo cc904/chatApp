@@ -6,13 +6,12 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/core/services/file_upload_service.dart';
-import 'package:logger/logger.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';
-import 'dart:developer' as dev;
 
 /// ChatRepository的实现类
 class ChatRepositoryImpl implements ChatRepository {
-  final Logger _logger = Logger();
+  final LogService _logger = LogService('chat_repository_impl.dart');
 
   // 消息流控制器，用于通知UI消息更新
   final StreamController<Message> _messageStreamController = StreamController<Message>.broadcast();
@@ -124,23 +123,23 @@ class ChatRepositoryImpl implements ChatRepository {
       return conversations;
     } catch (e, stack) {
       _logger.e('获取会话列表失败', error: e, stackTrace: stack);
-      dev.log('获取会话列表失败: $e\n$stack');
+      _logger.d('获取会话列表失败');
       // 尝试检查是否为数据库初始化问题
       try {
         if (_isar.isOpen) {
-          dev.log('Isar 数据库已打开');
-          dev.log('尝试获取其他集合信息');
+          _logger.d('Isar 数据库已打开');
+          _logger.d('尝试获取其他集合信息');
           try {
             final usersCount = await _users.count();
-            dev.log('用户集合数量: $usersCount');
+            _logger.d('用户集合数量', extra: {'count': usersCount});
           } catch (e) {
-            dev.log('无法获取用户集合: $e');
+            _logger.e('无法获取用户集合', error: e);
           }
         } else {
-          dev.log('Isar 数据库未打开');
+          _logger.d('Isar 数据库未打开');
         }
       } catch (checkError) {
-        dev.log('检查数据库状态失败: $checkError');
+        _logger.e('检查数据库状态失败', error: checkError);
       }
       return _getMockConversations();
     }
@@ -574,6 +573,7 @@ class ChatRepositoryImpl implements ChatRepository {
     });
   }
 
+  @override
   Future<Message> sendLocationMessage(
     String conversationId,
     double latitude,
@@ -745,11 +745,11 @@ class ChatRepositoryImpl implements ChatRepository {
         final file = File(filePath);
         if (await file.exists()) {
           await file.delete();
-          _logger.d('已删除媒体文件: $filePath');
+          _logger.d('已删除媒体文件', extra: {'path': filePath});
         }
       } catch (fileError) {
         // 文件删除失败，但不要中断整个删除过程
-        _logger.w('删除媒体文件失败: $filePath, 错误: $fileError');
+        _logger.w('删除媒体文件失败', extra: {'path': filePath, 'error': fileError.toString()});
       }
     }
   }
@@ -779,7 +779,7 @@ class ChatRepositoryImpl implements ChatRepository {
         59,
       );
 
-      dev.log('按日期范围查询消息: 会话ID=$id, 开始日期=${safeStartDate.toString()}, 结束日期=${safeEndDate.toString()}, 限制=$limit');
+      _logger.d('按日期范围查询消息', extra: {'会话ID': id, '开始日期': safeStartDate.toString(), '结束日期': safeEndDate.toString(), '限制': limit});
 
       // 查询指定日期范围内的消息
       final messages = await _messages
@@ -790,10 +790,10 @@ class ChatRepositoryImpl implements ChatRepository {
           .limit(limit)
           .findAll();
 
-      dev.log('按日期范围查询结果: 找到${messages.length}条消息');
+      _logger.d('按日期范围查询结果', extra: {'找到消息数': messages.length});
       return messages;
     } catch (e) {
-      dev.log('根据日期范围获取消息失败: $e');
+      _logger.e('根据日期范围获取消息失败', error: e);
       return [];
     }
   }
@@ -810,7 +810,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 确保使用日期的开始时间
       final dayStart = DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
 
-      dev.log('从特定日期开始获取消息: 会话ID=$id, 开始日期=${dayStart.toString()}, 限制=$limit');
+      _logger.d('从特定日期开始获取消息', extra: {'会话ID': id, '开始日期': dayStart.toString(), '限制': limit});
 
       // 查询从指定日期开始的消息
       final messages = await _messages
@@ -821,10 +821,10 @@ class ChatRepositoryImpl implements ChatRepository {
           .limit(limit)
           .findAll();
 
-      dev.log('从日期获取消息结果: 找到${messages.length}条消息');
+      _logger.d('从日期获取消息结果', extra: {'找到消息数': messages.length});
       return messages;
     } catch (e) {
-      dev.log('从指定日期获取消息失败: $e');
+      _logger.e('从指定日期获取消息失败', error: e);
       return [];
     }
   }
