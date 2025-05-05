@@ -6,18 +6,8 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 // 添加导入Isar数据库
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/utils/date_picker_utility.dart';
+import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 // 导入本地化支持
-
-// 定义过滤类型枚举
-enum FilterType {
-  all,
-  text,
-  media, // 合并图片和视频
-  file,
-  date, // 选择日期
-  month, // 最近一个月
-  year, // 最近一年
-}
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -37,12 +27,10 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   final _logger = LogService('chat_search_page.dart');
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  List<Message> _searchResults = [];
-  bool _isSearching = false;
-
-  // 添加过滤状态
-  FilterType _currentFilter = FilterType.all;
   List<Message> _allMessages = []; // 所有消息的缓存
+
+  // 添加SearchCubit实例变量
+  late final SearchCubit _searchCubit;
 
   // 修改为单个日期
   DateTime? _selectedDate;
@@ -53,6 +41,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   @override
   void initState() {
     super.initState();
+    // 初始化SearchCubit
+    _searchCubit = SearchCubit();
+
     // 初始化日期选择器工具类
     _datePickerUtility = DatePickerUtility(conversationId: widget.conversationId);
 
@@ -70,6 +61,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _searchCubit.close(); // 关闭cubit
     super.dispose();
   }
 
@@ -82,130 +74,15 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     _allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-
   // 执行搜索
   void _performSearch(String query) {
-    if (query.trim().isEmpty && _currentFilter == FilterType.all) {
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _isSearching = true;
-    });
-
     // 获取会话中的所有消息（如果未预加载）
     if (_allMessages.isEmpty) {
       _loadAllMessages();
     }
 
-    // 先应用过滤器
-    var filteredMessages = _applyFilter(_allMessages);
-
-    // 再应用搜索文本
-    if (query.trim().isNotEmpty) {
-      final searchQuery = query.toLowerCase();
-      filteredMessages = filteredMessages.where((message) {
-        // 文本消息搜索内容
-        if (message.type == MessageType.text) {
-          return message.text?.toLowerCase().contains(searchQuery) ?? false;
-        }
-        // 文件消息搜索文件名
-        else if (message.type == MessageType.file) {
-          return message.fileName?.toLowerCase().contains(searchQuery) ?? false;
-        }
-        return false;
-      }).toList();
-    }
-
-    setState(() {
-      _searchResults = filteredMessages;
-      _isSearching = false;
-    });
-  }
-
-  // 应用过滤器
-  List<Message> _applyFilter(List<Message> messages) {
-    switch (_currentFilter) {
-      case FilterType.all:
-        return messages;
-
-      case FilterType.text:
-        return messages.where((m) => m.type == MessageType.text).toList();
-
-      case FilterType.media:
-        // 合并图片和视频
-        return messages.where((m) => m.type == MessageType.image || m.type == MessageType.video).toList();
-
-      case FilterType.file:
-        return messages.where((m) => m.type == MessageType.file).toList();
-
-      case FilterType.date:
-        // 日期过滤
-        if (_selectedDate == null) {
-          return messages;
-        }
-
-        final startOfDay = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day);
-        final endOfDay = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day, 23, 59, 59);
-
-        return messages
-            .where((m) => m.createdAt.isAfter(startOfDay.subtract(const Duration(seconds: 1))) && m.createdAt.isBefore(endOfDay.add(const Duration(seconds: 1))))
-            .toList();
-
-      case FilterType.month:
-        // 最近一个月
-        final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
-        return messages.where((m) => m.createdAt.isAfter(oneMonthAgo)).toList();
-
-      case FilterType.year:
-        // 最近一年
-        final oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
-        return messages.where((m) => m.createdAt.isAfter(oneYearAgo)).toList();
-    }
-  }
-
-  // 获取过滤器名称
-  String _getFilterName(FilterType filter) {
-    switch (filter) {
-      case FilterType.all:
-        return '全部';
-      case FilterType.text:
-        return '文本';
-      case FilterType.media:
-        return '图片/视频';
-      case FilterType.file:
-        return '文件';
-      case FilterType.date:
-        return '日期';
-      case FilterType.month:
-        return '最近一月';
-      case FilterType.year:
-        return '最近一年';
-    }
-  }
-
-  // 获取过滤器图标
-  IconData _getFilterIcon(FilterType filter) {
-    switch (filter) {
-      case FilterType.all:
-        return Icons.all_inclusive;
-      case FilterType.text:
-        return Icons.text_fields;
-      case FilterType.media:
-        return Icons.perm_media;
-      case FilterType.file:
-        return Icons.insert_drive_file;
-      case FilterType.date:
-        return Icons.date_range;
-      case FilterType.month:
-        return Icons.calendar_today;
-      case FilterType.year:
-        return Icons.calendar_month;
-    }
+    // 使用SearchCubit执行搜索
+    _searchCubit.performSearch(query, _allMessages);
   }
 
   // 调用日期选择器并处理选中结果
@@ -216,10 +93,16 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
       // 如果选中了日期，则跳转到对应日期的聊天记录
       if (selectedDate != null) {
+        // 更新SearchCubit中的日期和过滤器
+        _searchCubit.setSelectedDate(selectedDate);
+
+        // 更新本地状态
         setState(() {
           _selectedDate = selectedDate;
-          _currentFilter = FilterType.date;
         });
+
+        // 重新执行搜索以应用过滤器
+        _performSearch(_searchController.text);
 
         _jumpToChatAtDate(selectedDate);
       }
@@ -303,90 +186,97 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: TextField(
-          controller: _searchController,
-          focusNode: _searchFocusNode,
-          decoration: InputDecoration(
-            hintText: '搜索',
-            hintStyle: TextStyle(color: Colors.grey),
-            border: InputBorder.none,
-            isDense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.black87,
-          ),
-          textInputAction: TextInputAction.search,
-          onChanged: (value) {
-            if (value.isEmpty && _currentFilter == FilterType.all) {
-              setState(() {
-                _searchResults = [];
-              });
-            }
-          },
-          onSubmitted: _performSearch,
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: primaryColor),
-            onPressed: () => _performSearch(_searchController.text),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // 快速过滤器栏
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // 筛选按钮组
-                  _buildFilterChip(FilterType.all, primaryColor),
-                  _buildFilterChip(FilterType.date, primaryColor),
-                  _buildFilterChip(FilterType.media, primaryColor),
-                  _buildFilterChip(FilterType.file, primaryColor),
-                ],
+    // 使用BlocProvider提供已创建的SearchCubit实例
+    return BlocProvider.value(
+      value: _searchCubit,
+      child: BlocBuilder<SearchCubit, SearchState>(
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                decoration: InputDecoration(
+                  hintText: '搜索',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+                textInputAction: TextInputAction.search,
+                onChanged: (value) {
+                  if (value.isEmpty && state.currentFilter == FilterType.all) {
+                    // 清空结果
+                    _searchCubit.performSearch('', _allMessages);
+                  }
+                },
+                onSubmitted: _performSearch,
               ),
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: Colors.black87),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(Icons.search, color: primaryColor),
+                  onPressed: () => _performSearch(_searchController.text),
+                ),
+              ],
             ),
-          ),
-          const Divider(height: 1),
+            body: Column(
+              children: [
+                // 快速过滤器栏
+                Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        // 筛选按钮组
+                        _buildFilterChip(FilterType.all, primaryColor, state),
+                        _buildFilterChip(FilterType.date, primaryColor, state),
+                        _buildFilterChip(FilterType.media, primaryColor, state),
+                        _buildFilterChip(FilterType.file, primaryColor, state),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
 
-          // 搜索中指示器
-          if (_isSearching) const LinearProgressIndicator(),
+                // 搜索中指示器
+                if (state.isSearching) const LinearProgressIndicator(),
 
-          // 搜索结果
-          Expanded(
-            child: _searchResults.isEmpty
-                ? _buildEmptyResults()
-                : _currentFilter == FilterType.media
-                    ? _buildMediaGrid()
-                    : ListView.builder(
-                        itemCount: _searchResults.length,
-                        itemBuilder: (context, index) {
-                          return _buildSearchResultItem(_searchResults[index]);
-                        },
-                      ),
-          ),
-        ],
+                // 搜索结果
+                Expanded(
+                  child: state.searchResults.isEmpty
+                      ? _buildEmptyResults(state)
+                      : state.currentFilter == FilterType.media
+                          ? _buildMediaGrid(state.searchResults)
+                          : ListView.builder(
+                              itemCount: state.searchResults.length,
+                              itemBuilder: (context, index) {
+                                return _buildSearchResultItem(state.searchResults[index]);
+                              },
+                            ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   // 构建过滤器Chip
-  Widget _buildFilterChip(FilterType type, Color primaryColor) {
-    final isSelected = _currentFilter == type;
+  Widget _buildFilterChip(FilterType type, Color primaryColor, SearchState state) {
+    final isSelected = state.currentFilter == type;
 
     // 日期筛选器需要特殊处理
     if (type == FilterType.date) {
@@ -424,9 +314,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentFilter = type;
-        });
+        // 更新过滤器类型并执行搜索
+        _searchCubit.setFilter(type);
         _performSearch(_searchController.text);
       },
       child: Container(
@@ -459,8 +348,48 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     );
   }
 
+  // 获取过滤器名称
+  String _getFilterName(FilterType filter) {
+    switch (filter) {
+      case FilterType.all:
+        return '全部';
+      case FilterType.text:
+        return '文本';
+      case FilterType.media:
+        return '图片/视频';
+      case FilterType.file:
+        return '文件';
+      case FilterType.date:
+        return '日期';
+      case FilterType.month:
+        return '最近一月';
+      case FilterType.year:
+        return '最近一年';
+    }
+  }
+
+  // 获取过滤器图标
+  IconData _getFilterIcon(FilterType filter) {
+    switch (filter) {
+      case FilterType.all:
+        return Icons.all_inclusive;
+      case FilterType.text:
+        return Icons.text_fields;
+      case FilterType.media:
+        return Icons.perm_media;
+      case FilterType.file:
+        return Icons.insert_drive_file;
+      case FilterType.date:
+        return Icons.date_range;
+      case FilterType.month:
+        return Icons.calendar_today;
+      case FilterType.year:
+        return Icons.calendar_month;
+    }
+  }
+
   // 构建空搜索结果
-  Widget _buildEmptyResults() {
+  Widget _buildEmptyResults(SearchState state) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -472,17 +401,17 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            _searchController.text.isEmpty && _currentFilter == FilterType.all ? '输入关键词开始搜索' : '未找到符合条件的消息',
+            _searchController.text.isEmpty && state.currentFilter == FilterType.all ? '输入关键词开始搜索' : '未找到符合条件的消息',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],
             ),
           ),
-          if (_currentFilter != FilterType.all)
+          if (state.currentFilter != FilterType.all)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                _currentFilter == FilterType.date && _selectedDate != null ? '选择日期: ${_formatDate()}' : '当前筛选: ${_getFilterName(_currentFilter)}',
+                state.currentFilter == FilterType.date && _selectedDate != null ? '选择日期: ${_formatDate()}' : '当前筛选: ${_getFilterName(state.currentFilter!)}',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[500],
@@ -495,7 +424,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   }
 
   // 构建媒体网格视图
-  Widget _buildMediaGrid() {
+  Widget _buildMediaGrid(List<Message> messages) {
     return GridView.builder(
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -503,9 +432,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
       ),
-      itemCount: _searchResults.length,
+      itemCount: messages.length,
       itemBuilder: (context, index) {
-        final message = _searchResults[index];
+        final message = messages[index];
         if (message.type == MessageType.image) {
           return _buildImageThumbnail(message);
         } else if (message.type == MessageType.video) {
