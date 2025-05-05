@@ -279,7 +279,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               ),
               const SizedBox(width: 4),
               Text(
-                isSelected && state.selectedDate != null ? _formatDate(state) : '日期',
+                '日期',
                 style: TextStyle(
                   color: isSelected ? Colors.white : Colors.grey[700],
                   fontSize: 13,
@@ -391,7 +391,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                state.currentFilter == FilterType.date && state.selectedDate != null ? '选择日期: ${_formatDate(state)}' : '当前筛选: ${_getFilterName(state.currentFilter!)}',
+                '当前筛选: ${_getFilterName(state.currentFilter!)}',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[500],
