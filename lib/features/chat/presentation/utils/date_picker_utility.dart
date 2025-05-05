@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:isar/isar.dart';
@@ -142,11 +144,15 @@ class DatePickerUtility {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
+        _logger.i('显示加载指示器');
         return const Center(
           child: CircularProgressIndicator(),
         );
       },
     );
+
+    // 非阻塞式延迟5秒以模拟加载过程
+    // await Future.delayed(const Duration(seconds: 5));
 
     try {
       // 加载当前月份的日期

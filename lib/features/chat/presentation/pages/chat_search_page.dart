@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-// 添加导入数据库初始化器
 // 添加导入Isar数据库
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/utils/date_picker_utility.dart';
@@ -89,15 +88,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   // 日期选择
   Future<void> _selectDate(BuildContext context) async {
     try {
-      _logger.i('开始选择日期');
-
-      // 使用UINotificationHelper.wrapWithNotification包装日期选择异步操作
-      final selectedDate = await UINotificationHelper.wrapWithNotification<DateTime?>(
-        action: () => _datePicker.selectDate(context),
-        loadingMessage: '加载日期信息...',
-        shouldShowSuccess: false, // 不显示成功消息，因为我们只需要返回结果
-        errorMessage: '日期选择失败',
-      );
+      _logger.i('打开日期选择器');
+      final selectedDate = await _datePicker.selectDate(context);
 
       // 如果选中了日期，则跳转到对应日期的聊天记录
       if (selectedDate != null) {
