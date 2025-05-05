@@ -87,218 +87,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       duration: const Duration(milliseconds: 750),
     );
     _voiceAnimationController.repeat(reverse: true);
-
-    // 检查是否有需要高亮显示的消息ID或目标日期（从路由参数中获取）
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _logger.i('准备检查路由参数');
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args == null) {
-        _logger.w('没有接收到任何路由参数');
-        return;
-      }
-
-      _logger.i('接收到路由参数: $args, 类型: ${args.runtimeType}');
-
-      if (args is! Map) {
-        _logger.w('路由参数不是Map类型，无法处理');
-        return;
-      }
-
-      _logger.i('参数包含的键: ${args.keys.toList()}');
-
-      // 首先检查是否有jumpToDate键（处理从chat_info_page传来的日期）
-      if (args.containsKey('jumpToDate')) {
-        _logger.i('检测到jumpToDate参数');
-        final jumpToDateObj = args['jumpToDate'];
-
-        _logger.i('jumpToDate参数类型: ${jumpToDateObj.runtimeType}, 值: $jumpToDateObj');
-
-        if (jumpToDateObj is DateTime) {
-          final targetDate = jumpToDateObj;
-          _logger.i('准备跳转到日期: $targetDate');
-
-          // 显示加载指示器
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            },
-          );
-
-          try {
-            // 获取ChatCubit实例
-            final chatCubit = context.read<ChatCubit>();
-
-            // 计算所选日期的开始
-            final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
-            _logger.i('日期开始时间: ${startOfDay.toString()}');
-
-            // 从数据库加载该日期为起点的消息
-            await chatCubit.loadMessagesForConversationByDate(widget.conversationId, targetDate: startOfDay, limit: 30);
-
-            // 确保context仍然有效
-            if (!mounted) return;
-
-            // 关闭加载指示器
-            Navigator.of(context).pop();
-
-            // 检查是否有当天的消息
-            final messages = chatCubit.state.messagesByConversation[widget.conversationId] ?? [];
-            final dateOnlyMessages =
-                messages.where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day).toList();
-
-            if (dateOnlyMessages.isNotEmpty) {
-              try {
-                // 找到当天第一条消息进行短暂高亮显示
-                final firstMessageOfDay =
-                    messages.lastWhere((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day);
-
-                // 短暂高亮显示该消息
-                setState(() {
-                  _targetMessageId = firstMessageOfDay.messageId;
-                });
-
-                // 3秒后取消高亮
-                Future.delayed(const Duration(seconds: 3), () {
-                  if (mounted) {
-                    setState(() {
-                      _targetMessageId = null;
-                    });
-                  }
-                });
-
-                // 显示成功提示
-                UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
-              } catch (e) {
-                _logger.e('找到日期消息但无法找到具体消息: $e');
-              }
-            } else {
-              UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
-            }
-          } catch (e) {
-            _logger.e('加载指定日期消息失败: $e');
-            if (mounted) {
-              try {
-                Navigator.of(context).pop(); // 关闭加载指示器
-              } catch (navError) {
-                // 忽略可能的导航错误
-              }
-
-              UINotificationHelper.showError('跳转失败: $e');
-            }
-          }
-        } else {
-          _logger.e('【初始化】接收到的jumpToDate参数不是DateTime类型: ${jumpToDateObj.runtimeType}');
-        }
-      } else if (args.containsKey('targetMessageId')) {
-        final targetId = args['targetMessageId'] as String;
-        if (targetId.isNotEmpty) {
-          _logger.i('从路由参数中获取到目标消息ID: $targetId');
-          // 直接设置目标消息ID进行高亮显示，无需滚动
-          setState(() {
-            _targetMessageId = targetId;
-          });
-
-          // 3秒后取消高亮
-          Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) {
-              setState(() {
-                _targetMessageId = null;
-              });
-            }
-          });
-        }
-      } else if (args.containsKey('targetDate')) {
-        // 处理目标日期 - 这个可能从chat_info_page以Map形式传入
-        final targetDateObj = args['targetDate'];
-        DateTime targetDate;
-
-        if (targetDateObj is DateTime) {
-          targetDate = targetDateObj;
-          _logger.i('从路由参数中获取到目标日期: $targetDate');
-        } else {
-          _logger.e('接收到的targetDate参数不是DateTime类型: ${targetDateObj.runtimeType}');
-          return;
-        }
-
-        // 显示加载指示器
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          },
-        );
-
-        try {
-          // 获取ChatCubit实例
-          final chatCubit = context.read<ChatCubit>();
-
-          // 计算所选日期的开始
-          final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
-          _logger.i('日期开始时间: ${startOfDay.toString()}');
-
-          // 从数据库加载该日期为起点的消息
-          await chatCubit.loadMessagesForConversationByDate(widget.conversationId, targetDate: startOfDay, limit: 30);
-
-          // 确保context仍然有效
-          if (!mounted) return;
-
-          // 关闭加载指示器
-          Navigator.of(context).pop();
-
-          // 检查是否有当天的消息
-          final messages = chatCubit.state.messagesByConversation[widget.conversationId] ?? [];
-          final dateOnlyMessages =
-              messages.where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day).toList();
-
-          if (dateOnlyMessages.isNotEmpty) {
-            try {
-              // 找到当天第一条消息进行短暂高亮显示
-              final firstMessageOfDay =
-                  messages.lastWhere((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day);
-
-              // 短暂高亮显示该消息
-              setState(() {
-                _targetMessageId = firstMessageOfDay.messageId;
-              });
-
-              // 3秒后取消高亮
-              Future.delayed(const Duration(seconds: 3), () {
-                if (mounted) {
-                  setState(() {
-                    _targetMessageId = null;
-                  });
-                }
-              });
-
-              // 显示成功提示
-              UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
-            } catch (e) {
-              _logger.e('找到日期消息但无法找到具体消息: $e');
-            }
-          } else {
-            UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
-          }
-        } catch (e) {
-          _logger.e('加载指定日期消息失败: $e');
-          if (mounted) {
-            try {
-              Navigator.of(context).pop(); // 关闭加载指示器
-            } catch (navError) {
-              // 忽略可能的导航错误
-            }
-
-            UINotificationHelper.showError('跳转失败: $e');
-          }
-        }
-      }
-    });
   }
 
   @override
@@ -431,8 +219,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     _messageController.clear();
 
     // 强制设置为底部标志，确保新消息出现时滚动到底部
-    setState(() {
-    });
+    setState(() {});
 
     // 滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -446,8 +233,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
     try {
       // 强制设置为底部标志，确保新消息出现时滚动到底部
-      setState(() {
-      });
+      setState(() {});
 
       // 提前获取ChatCubit实例
       final chatCubit = context.read<ChatCubit>();
@@ -733,8 +519,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                         // 添加滚动通知监听，更精确地捕获滚动事件
                         onNotification: (scrollInfo) {
                           if (scrollInfo is ScrollEndNotification) {
-                            setState(() {
-                            });
+                            setState(() {});
                           }
                           return false;
                         },

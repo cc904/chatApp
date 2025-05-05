@@ -598,7 +598,7 @@ class ChatCubit extends Cubit<ChatState> {
       if (messages.isEmpty) {
         _logger.i('未找到从日期开始的消息', extra: {'targetDate': targetDate});
       } else {
-        _logger.i('已加载消息', extra: {'count': messages.length, 'targetDate': targetDate});
+        _logger.i('--------> 已加载消息', extra: {'count': messages.length, 'targetDate': targetDate});
       }
 
       // 替换现有的消息列表，确保当天消息显示在顶部

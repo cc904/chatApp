@@ -93,11 +93,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         // 更新SearchCubit中的日期和过滤器
         _searchCubit.setSelectedDate(selectedDate);
 
-        // 更新本地变量用于格式化显示
-
-        // 重新执行搜索以应用过滤器
-        _performSearch(_searchController.text);
-
         _jumpToChatAtDate(selectedDate);
       }
     } catch (e) {
