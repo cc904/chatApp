@@ -13,6 +13,8 @@ class ChatState extends Equatable {
   final String? error;
   final String? searchQuery;
   final List<dynamic> searchResults; // 可能是联系人、会话或消息
+  // 页面间交互数据
+  final Map<String, dynamic>? navigationData;
 
   const ChatState({
     this.conversations = const [],
@@ -23,6 +25,7 @@ class ChatState extends Equatable {
     this.error,
     this.searchQuery,
     this.searchResults = const [],
+    this.navigationData,
   });
 
   /// 获取当前会话
@@ -59,6 +62,7 @@ class ChatState extends Equatable {
       error: null,
       searchQuery: searchQuery,
       searchResults: searchResults,
+      navigationData: navigationData,
     );
   }
 
@@ -73,6 +77,7 @@ class ChatState extends Equatable {
       error: errorMessage,
       searchQuery: searchQuery,
       searchResults: searchResults,
+      navigationData: navigationData,
     );
   }
 
@@ -86,6 +91,7 @@ class ChatState extends Equatable {
     String? error,
     String? searchQuery,
     List<dynamic>? searchResults,
+    Map<String, dynamic>? navigationData,
   }) {
     return ChatState(
       conversations: conversations ?? this.conversations,
@@ -96,6 +102,7 @@ class ChatState extends Equatable {
       error: error ?? this.error,
       searchQuery: searchQuery ?? this.searchQuery,
       searchResults: searchResults ?? this.searchResults,
+      navigationData: navigationData ?? this.navigationData,
     );
   }
 
@@ -113,6 +120,7 @@ class ChatState extends Equatable {
       error: error,
       searchQuery: searchQuery,
       searchResults: searchResults,
+      navigationData: navigationData,
     );
   }
 
@@ -158,6 +166,22 @@ class ChatState extends Equatable {
       error: error,
       searchQuery: searchQuery,
       searchResults: searchResults,
+      navigationData: navigationData,
+    );
+  }
+
+  /// 清除导航数据但保留其他状态
+  ChatState copyWithClearedNavigationData() {
+    return ChatState(
+      conversations: conversations,
+      contacts: contacts,
+      messagesByConversation: messagesByConversation,
+      currentConversationId: currentConversationId,
+      isLoading: isLoading,
+      error: error,
+      searchQuery: searchQuery,
+      searchResults: searchResults,
+      navigationData: null,
     );
   }
 
@@ -171,5 +195,6 @@ class ChatState extends Equatable {
         error,
         searchQuery,
         searchResults,
+        navigationData,
       ];
 }

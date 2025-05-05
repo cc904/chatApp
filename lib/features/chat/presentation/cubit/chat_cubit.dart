@@ -612,6 +612,39 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 设置页面间交互数据，用于在不同页面之间传递信息
+  void setNavigationData(Map<String, dynamic> data) {
+    emit(state.copyWith(navigationData: data));
+  }
+
+  /// 清除页面间交互数据
+  void clearNavigationData() {
+    emit(state.copyWithClearedNavigationData());
+  }
+
+  /// 处理跳转到指定日期的消息
+  Future<void> jumpToDate(String conversationId, DateTime targetDate) async {
+    try {
+      // 计算所选日期的开始
+      final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+      // 从数据库加载该日期为起点的消息
+      await loadMessagesForConversationByDate(conversationId, targetDate: startOfDay, limit: 30);
+
+      // 更新导航数据，包含跳转信息
+      setNavigationData({'jumpToDate': targetDate});
+    } catch (e) {
+      _logger.e('跳转到指定日期失败', error: e);
+      emit(state.copyWithError('跳转到指定日期失败: $e'));
+    }
+  }
+
+  /// 跳转到指定消息
+  void jumpToMessage(String messageId) {
+    setNavigationData({'targetMessageId': messageId});
+  }
+
+  /// 关闭ChatCubit
   @override
   Future<void> close() {
     _logger.i('关闭ChatCubit');

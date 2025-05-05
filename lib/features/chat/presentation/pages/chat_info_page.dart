@@ -434,6 +434,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
           .then((result) async {
         if (!mounted) return;
         if (result != null) {
+          final chatCubit = context.read<ChatCubit>();
           // 处理搜索页面返回的结果
           if (result is Map && result.containsKey('jumpToDate')) {
             // 验证参数类型
@@ -442,18 +443,19 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
             if (jumpToDateObj is DateTime) {
               // 确保使用一致的日期格式(只保留年月日)
               final dateOnly = DateTime(jumpToDateObj.year, jumpToDateObj.month, jumpToDateObj.day);
-              final standardArgs = <String, dynamic>{'jumpToDate': dateOnly};
 
-              // 直接将标准化的Map传递回chat_detail_page
-              if (mounted) {
-                Navigator.pop(context, standardArgs);
-              }
+              // 使用Cubit更新状态
+              await chatCubit.jumpToDate(conversationId, dateOnly);
+
+              // 返回上一页
+              Navigator.pop(context);
             } else {
               UINotificationHelper.showError('日期格式无效，无法跳转');
             }
           } else if (result is String) {
             // 处理消息ID的情况
-            Navigator.pop(context, {'targetMessageId': result});
+            chatCubit.jumpToMessage(result);
+            Navigator.pop(context);
           } else {
             // 对于其他类型的返回值（包括DateTime），统一转换为标准格式
             try {
@@ -463,8 +465,12 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               if (dateTime != null) {
                 // 标准化日期格式(只保留年月日)
                 final dateOnly = DateTime(dateTime.year, dateTime.month, dateTime.day);
-                final standardArgs = <String, dynamic>{'jumpToDate': dateOnly};
-                Navigator.pop(context, standardArgs);
+
+                // 使用Cubit更新状态
+                await chatCubit.jumpToDate(conversationId, dateOnly);
+
+                // 返回上一页
+                Navigator.pop(context);
               } else {
                 UINotificationHelper.showError('参数格式无效，无法处理');
               }

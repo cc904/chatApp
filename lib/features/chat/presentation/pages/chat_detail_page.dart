@@ -33,10 +33,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
   bool _isAttachmentMenuOpen = false;
-  bool _isAtBottom = true;
   bool _isLoadingMore = false;
   bool _dataInitialized = false;
   String? _targetMessageId; // 目标消息ID，用于滚动定位
+  List<Message> _messages = []; // 缓存的消息列表
 
   // 录音波形动画控制
   late AnimationController _waveformController;
@@ -371,7 +371,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   void _scrollListener() {
     // 检测是否到达底部
     if (_scrollController.hasClients) {
-      _isAtBottom = _scrollController.position.pixels == 0; // 因为reverse=true，所以0是底部位置
+// 因为reverse=true，所以0是底部位置
 
       // 检测是否到达顶部（旧消息方向），用于加载更多历史消息
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9 && !_isLoadingMore) {
@@ -432,7 +432,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
     // 强制设置为底部标志，确保新消息出现时滚动到底部
     setState(() {
-      _isAtBottom = true;
     });
 
     // 滚动到底部
@@ -448,7 +447,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     try {
       // 强制设置为底部标志，确保新消息出现时滚动到底部
       setState(() {
-        _isAtBottom = true;
       });
 
       // 提前获取ChatCubit实例
@@ -579,43 +577,114 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ChatCubit, ChatState>(
-      builder: (context, state) {
-        // 获取当前会话
-        final conversation = state.conversations.firstWhere(
-          (c) => c.id.toString() == widget.conversationId,
-          orElse: () => Conversation()..name = '未知会话',
-        );
+    // 使用BlocConsumer代替BlocBuilder
+    return BlocConsumer<ChatCubit, ChatState>(
+      listener: (context, state) {
+        // 处理导航数据
+        if (state.navigationData != null) {
+          final navigationData = state.navigationData!;
 
-        // 获取消息列表
-        final messages = state.messagesByConversation[widget.conversationId] ?? [];
+          if (navigationData.containsKey('jumpToDate')) {
+            final jumpToDateObj = navigationData['jumpToDate'];
 
-        // 当消息加载完成后自动滚动到底部
-        if (messages.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_scrollController.hasClients && _isAtBottom) {
-              _scrollToBottom();
+            if (jumpToDateObj is DateTime) {
+              final targetDate = jumpToDateObj;
+
+              // 显示加载指示器
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                },
+              );
+
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                try {
+                  // 检查是否有当天的消息
+                  final messages = state.messagesByConversation[widget.conversationId] ?? [];
+                  final dateOnlyMessages =
+                      messages.where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day).toList();
+
+                  // 确保context仍然有效
+                  if (!mounted) return;
+
+                  // 关闭加载指示器
+                  Navigator.of(context).pop();
+
+                  if (dateOnlyMessages.isNotEmpty) {
+                    // 找到当天第一条消息进行短暂高亮显示
+                    final firstMessageOfDay = dateOnlyMessages.first;
+
+                    // 短暂高亮显示该消息
+                    setState(() {
+                      _targetMessageId = firstMessageOfDay.messageId;
+                    });
+
+                    // 3秒后取消高亮
+                    Future.delayed(const Duration(seconds: 3), () {
+                      if (mounted) {
+                        setState(() {
+                          _targetMessageId = null;
+                        });
+                      }
+                    });
+
+                    // 显示成功提示
+                    UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
+                  } else {
+                    UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
+                  }
+                } catch (e) {
+                  _logger.e('处理跳转日期失败: $e');
+                  if (mounted) {
+                    try {
+                      Navigator.of(context).pop(); // 关闭加载指示器
+                    } catch (navError) {
+                      // 忽略可能的导航错误
+                    }
+
+                    UINotificationHelper.showError('跳转失败: $e');
+                  }
+                }
+              });
             }
-          });
+          } else if (navigationData.containsKey('targetMessageId')) {
+            final targetId = navigationData['targetMessageId'];
+            if (targetId != null && targetId is String && targetId.isNotEmpty) {
+              // 直接设置目标消息ID以高亮显示
+              setState(() {
+                _targetMessageId = targetId;
+              });
+
+              // 3秒后取消高亮
+              Future.delayed(const Duration(seconds: 3), () {
+                if (mounted) {
+                  setState(() {
+                    _targetMessageId = null;
+                  });
+                }
+              });
+            }
+          }
+
+          // 清除已处理的导航数据
+          context.read<ChatCubit>().clearNavigationData();
+        }
+      },
+      builder: (context, state) {
+        // 防止Widget重新构建时重新获取消息列表
+        if (_messages.isEmpty) {
+          _messages = state.messagesByConversation[widget.conversationId] ?? [];
         }
 
         return Scaffold(
-          // 确保键盘不会将输入框顶起
-          resizeToAvoidBottomInset: true,
           appBar: AppBar(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  conversation.name ?? '未知会话',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                if (conversation.type == ConversationType.private)
-                  Text(
-                    '在线', // 这里可以显示对方的状态
-                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(red: 255, green: 255, blue: 255, alpha: 204)),
-                  ),
-              ],
+            title: Text(
+              _getConversationTitle(state),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
@@ -632,111 +701,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                         conversationId: widget.conversationId,
                       ),
                     ),
-                  ).then((result) {
-                    if (result != null && mounted) {
-                      // 处理从ChatInfoPage返回的数据
-                      if (result is Map && result.containsKey('jumpToDate')) {
-                        final jumpToDateObj = result['jumpToDate'];
-
-                        // 创建与路由参数相同格式的参数并调用initState中的处理逻辑
-                        WidgetsBinding.instance.addPostFrameCallback((_) async {
-                          try {
-                            if (jumpToDateObj is DateTime) {
-                              final targetDate = jumpToDateObj;
-
-                              // 显示加载指示器
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (BuildContext context) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                },
-                              );
-
-                              try {
-                                // 获取ChatCubit实例
-                                final chatCubit = context.read<ChatCubit>();
-
-                                // 计算所选日期的开始
-                                final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
-
-                                // 从数据库加载该日期为起点的消息
-                                await chatCubit.loadMessagesForConversationByDate(widget.conversationId, targetDate: startOfDay, limit: 30);
-
-                                // 确保context仍然有效
-                                if (!mounted) return;
-
-                                // 关闭加载指示器
-                                Navigator.of(context).pop();
-
-                                // 检查是否有当天的消息
-                                final messages = chatCubit.state.messagesByConversation[widget.conversationId] ?? [];
-                                final dateOnlyMessages = messages
-                                    .where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day)
-                                    .toList();
-
-                                if (dateOnlyMessages.isNotEmpty) {
-                                  // 找到当天第一条消息进行短暂高亮显示
-                                  final firstMessageOfDay = dateOnlyMessages.first;
-
-                                  // 短暂高亮显示该消息
-                                  setState(() {
-                                    _targetMessageId = firstMessageOfDay.messageId;
-                                  });
-
-                                  // 3秒后取消高亮
-                                  Future.delayed(const Duration(seconds: 3), () {
-                                    if (mounted) {
-                                      setState(() {
-                                        _targetMessageId = null;
-                                      });
-                                    }
-                                  });
-
-                                  // 显示成功提示
-                                  UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
-                                } else {
-                                  UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
-                                }
-                              } catch (e) {
-                                _logger.e('加载指定日期消息失败: $e');
-                                if (mounted) {
-                                  try {
-                                    Navigator.of(context).pop(); // 关闭加载指示器
-                                  } catch (navError) {
-                                    // 忽略可能的导航错误
-                                  }
-
-                                  UINotificationHelper.showError('跳转失败: $e');
-                                }
-                              }
-                            }
-                          } catch (e) {
-                            _logger.e('处理jumpToDate参数时出错: $e');
-                          }
-                        });
-                      } else if (result is Map && result.containsKey('targetMessageId')) {
-                        final targetId = result['targetMessageId'];
-                        if (targetId != null && targetId is String && targetId.isNotEmpty) {
-                          // 直接设置目标消息ID以高亮显示
-                          setState(() {
-                            _targetMessageId = targetId;
-                          });
-
-                          // 3秒后取消高亮
-                          Future.delayed(const Duration(seconds: 3), () {
-                            if (mounted) {
-                              setState(() {
-                                _targetMessageId = null;
-                              });
-                            }
-                          });
-                        }
-                      }
-                    }
-                  });
+                  );
+                  // 不再使用.then()回调，而是通过BlocConsumer监听状态变化
                 },
               ),
             ],
@@ -761,14 +727,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
               // 消息列表
               Expanded(
-                child: messages.isEmpty
+                child: _messages.isEmpty
                     ? _buildEmptyChat()
                     : NotificationListener<ScrollNotification>(
                         // 添加滚动通知监听，更精确地捕获滚动事件
                         onNotification: (scrollInfo) {
                           if (scrollInfo is ScrollEndNotification) {
                             setState(() {
-                              _isAtBottom = _scrollController.position.pixels <= 1;
                             });
                           }
                           return false;
@@ -779,18 +744,18 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                             scrollbars: false,
                           ),
                           child: ListView.builder(
-                            key: ValueKey('message_list_${messages.length}'), // 添加key让Flutter知道列表已更新
+                            key: ValueKey('message_list_${_messages.length}'), // 添加key让Flutter知道列表已更新
                             controller: _scrollController,
                             reverse: true, // 最新消息在底部
                             physics: const BouncingScrollPhysics(),
                             padding: const EdgeInsets.only(bottom: 8.0), // 添加底部间距
-                            itemCount: messages.length,
+                            itemCount: _messages.length,
                             itemBuilder: (context, index) {
-                              if (index >= messages.length) {
+                              if (index >= _messages.length) {
                                 return const SizedBox(); // 防止索引越界
                               }
 
-                              final message = messages[index];
+                              final message = _messages[index];
                               final isFromMe = message.senderId == '1'; // 假设当前用户ID为1
 
                               return _buildMessageItem(message, isFromMe);
@@ -1228,5 +1193,98 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         ],
       ),
     );
+  }
+
+  // 处理跳转到指定日期的方法
+  void _handleJumpToDate(BuildContext context, DateTime? targetDate) async {
+    if (targetDate == null) return;
+
+    try {
+      // 显示加载指示器
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
+
+      // 确保context仍然有效
+      if (!mounted) return;
+
+      // 关闭加载指示器
+      Navigator.of(context).pop();
+
+      // 检查是否有当天的消息
+      final chatCubit = context.read<ChatCubit>();
+      final messages = chatCubit.state.messagesByConversation[widget.conversationId] ?? [];
+      final dateOnlyMessages =
+          messages.where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day).toList();
+
+      if (dateOnlyMessages.isNotEmpty) {
+        // 找到当天第一条消息进行短暂高亮显示
+        final firstMessageOfDay = dateOnlyMessages.first;
+
+        // 短暂高亮显示该消息
+        setState(() {
+          _targetMessageId = firstMessageOfDay.messageId;
+        });
+
+        // 3秒后取消高亮
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _targetMessageId = null;
+            });
+          }
+        });
+
+        // 显示成功提示
+        UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
+      } else {
+        UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
+      }
+    } catch (e) {
+      _logger.e('加载指定日期消息失败: $e');
+      if (mounted) {
+        try {
+          Navigator.of(context).pop(); // 关闭加载指示器
+        } catch (navError) {
+          // 忽略可能的导航错误
+        }
+
+        UINotificationHelper.showError('跳转失败: $e');
+      }
+    }
+  }
+
+  // 处理高亮显示指定消息
+  void _handleHighlightMessage(String? targetId) {
+    if (targetId == null || targetId.isEmpty) return;
+
+    // 设置目标消息ID以高亮显示
+    setState(() {
+      _targetMessageId = targetId;
+    });
+
+    // 3秒后取消高亮
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _targetMessageId = null;
+        });
+      }
+    });
+  }
+
+  // 获取会话标题
+  String _getConversationTitle(ChatState state) {
+    final conversation = state.conversations.firstWhere(
+      (c) => c.id.toString() == widget.conversationId,
+      orElse: () => Conversation()..name = '未知会话',
+    );
+    return conversation.name ?? '未知会话';
   }
 }
