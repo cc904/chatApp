@@ -8,6 +8,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/utils/date_picker_utility.dart';
 import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 // 导入本地化支持
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -36,7 +37,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   DateTime? _selectedDate;
 
   // 日期选择器工具类
-  late DatePickerUtility _datePickerUtility;
+  late DatePickerUtility _datePicker;
 
   @override
   void initState() {
@@ -45,7 +46,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     _searchCubit = SearchCubit();
 
     // 初始化日期选择器工具类
-    _datePickerUtility = DatePickerUtility(conversationId: widget.conversationId);
+    _datePicker = DatePickerUtility(conversationId: widget.conversationId);
 
     // 自动聚焦到搜索框
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -53,7 +54,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       // 预加载当前消息
       _loadAllMessages();
       // 预加载最近3个月的消息日期
-      await _datePickerUtility.preloadRecentMessageDates();
+      await _datePicker.preloadRecentMessageDates();
     });
   }
 
@@ -85,21 +86,26 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     _searchCubit.performSearch(query, _allMessages);
   }
 
-  // 调用日期选择器并处理选中结果
+  // 日期选择
   Future<void> _selectDate(BuildContext context) async {
     try {
-      // 使用日期选择器工具类打开日期选择器
-      final selectedDate = await _datePickerUtility.selectDate(context);
+      _logger.i('开始选择日期');
+
+      // 使用UINotificationHelper.wrapWithNotification包装日期选择异步操作
+      final selectedDate = await UINotificationHelper.wrapWithNotification<DateTime?>(
+        action: () => _datePicker.selectDate(context),
+        loadingMessage: '加载日期信息...',
+        shouldShowSuccess: false, // 不显示成功消息，因为我们只需要返回结果
+        errorMessage: '日期选择失败',
+      );
 
       // 如果选中了日期，则跳转到对应日期的聊天记录
       if (selectedDate != null) {
         // 更新SearchCubit中的日期和过滤器
         _searchCubit.setSelectedDate(selectedDate);
 
-        // 更新本地状态
-        setState(() {
-          _selectedDate = selectedDate;
-        });
+        // 更新本地变量用于格式化显示
+        _selectedDate = selectedDate;
 
         // 重新执行搜索以应用过滤器
         _performSearch(_searchController.text);
@@ -107,17 +113,12 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         _jumpToChatAtDate(selectedDate);
       }
     } catch (e) {
+      // 通知Cubit日期选择失败
+      _searchCubit.dateSelectionFailed(e.toString());
       _logger.e('日期选择失败', error: e);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('日期选择失败: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      // 使用全局UINotificationService代替直接使用ScaffoldMessenger
+      UINotificationHelper.showError('日期选择失败: $e');
     }
   }
 
@@ -131,7 +132,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       final args = <String, dynamic>{'jumpToDate': dateOnly};
       _logger.i('创建参数Map', extra: {'args': args, 'type': args.runtimeType, 'jumpToDate': args['jumpToDate'], 'jumpToDateType': args['jumpToDate'].runtimeType});
 
-      // 使用延迟避免在build过程中调用setState
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
@@ -141,14 +141,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
           } catch (e) {
             _logger.e('返回日期参数失败', error: e);
 
-            // 显示错误消息
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('返回日期失败: $e'),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            // 使用UINotificationHelper
+            UINotificationHelper.showError('返回日期失败: $e');
           }
         } else {
           _logger.w('组件已卸载，无法执行导航');
@@ -157,27 +151,21 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     } catch (e) {
       _logger.e('跳转到日期消息失败', error: e);
 
-      // 显示错误消息
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('日期选择失败: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      // 使用UINotificationHelper
+      UINotificationHelper.showError('日期选择失败: $e');
     }
   }
 
   // 格式化日期的显示
-  String _formatDate() {
-    if (_selectedDate == null) {
+  String _formatDate(SearchState state) {
+    final selectedDate = state.selectedDate ?? _selectedDate;
+
+    if (selectedDate == null) {
       return '日期';
     }
 
     // 格式化日期
-    return '${_selectedDate!.year}年${_selectedDate!.month}月${_selectedDate!.day}日';
+    return '${selectedDate.year}年${selectedDate.month}月${selectedDate.day}日';
   }
 
   @override
@@ -299,7 +287,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               ),
               const SizedBox(width: 4),
               Text(
-                isSelected && _selectedDate != null ? _formatDate() : '日期',
+                isSelected && state.selectedDate != null ? _formatDate(state) : '日期',
                 style: TextStyle(
                   color: isSelected ? Colors.white : Colors.grey[700],
                   fontSize: 13,
@@ -411,7 +399,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                state.currentFilter == FilterType.date && _selectedDate != null ? '选择日期: ${_formatDate()}' : '当前筛选: ${_getFilterName(state.currentFilter!)}',
+                state.currentFilter == FilterType.date && state.selectedDate != null ? '选择日期: ${_formatDate(state)}' : '当前筛选: ${_getFilterName(state.currentFilter!)}',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[500],

@@ -13,6 +13,7 @@ import 'package:cc/core/services/ui_notification_service.dart'; // 导入UI通�
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart'; // 导入聊天信息页面
 // 导入聊天搜索页面
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -170,24 +171,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 });
 
                 // 显示成功提示
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日'),
-                    backgroundColor: Colors.green,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
+                UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
               } catch (e) {
                 _logger.e('找到日期消息但无法找到具体消息: $e');
               }
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息'),
-                  backgroundColor: Colors.orange,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
             }
           } catch (e) {
             _logger.e('加载指定日期消息失败: $e');
@@ -198,13 +187,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 // 忽略可能的导航错误
               }
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('跳转失败: $e'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              UINotificationHelper.showError('跳转失败: $e');
             }
           }
         } else {
@@ -295,24 +278,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               });
 
               // 显示成功提示
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日'),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
             } catch (e) {
               _logger.e('找到日期消息但无法找到具体消息: $e');
             }
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
           }
         } catch (e) {
           _logger.e('加载指定日期消息失败: $e');
@@ -323,13 +294,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               // 忽略可能的导航错误
             }
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('跳转失败: $e'),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            UINotificationHelper.showError('跳转失败: $e');
           }
         }
       }
@@ -731,21 +696,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                                   });
 
                                   // 显示成功提示
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日'),
-                                      backgroundColor: Colors.green,
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
+                                  UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息'),
-                                      backgroundColor: Colors.orange,
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
+                                  UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
                                 }
                               } catch (e) {
                                 _logger.e('加载指定日期消息失败: $e');
@@ -756,13 +709,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                                     // 忽略可能的导航错误
                                   }
 
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('跳转失败: $e'),
-                                      backgroundColor: Colors.red,
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
+                                  UINotificationHelper.showError('跳转失败: $e');
                                 }
                               }
                             }

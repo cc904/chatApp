@@ -118,6 +118,22 @@ class SearchCubit extends Cubit<SearchState> {
     ));
   }
 
+  // 日期选择操作开始（显示加载状态）
+  void dateSelectionStarted() {
+    emit(state.copyWith(isSearching: true));
+  }
+
+  // 日期选择操作结束（隐藏加载状态）
+  void dateSelectionEnded() {
+    emit(state.copyWith(isSearching: false));
+  }
+
+  // 日期选择失败
+  void dateSelectionFailed(String errorMessage) {
+    _logger.e('日期选择失败', error: errorMessage);
+    emit(state.copyWith(isSearching: false));
+  }
+
   // 应用过滤器
   List<Message> _applyFilter(List<Message> messages) {
     switch (state.currentFilter) {

@@ -7,6 +7,7 @@ import 'chats_page.dart';
 import 'contacts_page.dart';
 import 'calls_page.dart';
 import 'profile_page.dart';
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -44,12 +45,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         listener: (context, state) {
           if (state is HomeError) {
             // 显示错误消息
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
+            UINotificationHelper.showError(state.message);
           }
         },
         child: BlocBuilder<HomeCubit, HomeState>(

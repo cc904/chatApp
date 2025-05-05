@@ -4,6 +4,7 @@ import '../cubit/auth_cubit.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
 import 'dart:developer' as dev;
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -163,14 +164,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       BlocConsumer<AuthCubit, AuthState>(
                         listener: (context, state) {
                           if (state is AuthSuccess) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('登录成功')),
-                            );
+                            UINotificationHelper.showSuccess('登录成功');
                             Navigator.of(context).pushReplacementNamed('/home');
                           } else if (state is AuthError) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(state.message)),
-                            );
+                            UINotificationHelper.showError(state.message);
                           }
                         },
                         builder: (context, state) {

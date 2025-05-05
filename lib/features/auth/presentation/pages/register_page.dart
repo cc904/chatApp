@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -188,14 +189,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   BlocConsumer<AuthCubit, AuthState>(
                     listener: (context, state) {
                       if (state is AuthSuccess) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('注册成功')),
-                        );
+                        UINotificationHelper.showSuccess('注册成功');
                         Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
                       } else if (state is AuthError) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(state.message)),
-                        );
+                        UINotificationHelper.showError(state.message);
                       }
                     },
                     builder: (context, state) {

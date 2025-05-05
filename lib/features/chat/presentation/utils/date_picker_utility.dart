@@ -4,6 +4,7 @@ import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'dart:async';
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class DatePickerUtility {
   final LogService _logger = LogService('date_picker_utility.dart');
@@ -159,12 +160,9 @@ class DatePickerUtility {
           Navigator.of(context).pop();
         }
 
-        // 显示没有消息的提示
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('未找到任何聊天记录')),
-          );
-        }
+        // 使用UINotificationHelper显示没有消息的提示
+        UINotificationHelper.showWarning('未找到任何聊天记录');
+
         completer.complete(null);
         return completer.future;
       }
@@ -183,9 +181,8 @@ class DatePickerUtility {
           // 忽略可能的导航错误
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载消息日期失败: $e')),
-        );
+        // 使用UINotificationHelper显示错误
+        UINotificationHelper.showError('加载消息日期失败: $e');
       }
       completer.complete(null);
       return completer.future;

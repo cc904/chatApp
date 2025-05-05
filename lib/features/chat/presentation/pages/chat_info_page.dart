@@ -6,6 +6,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class ChatInfoPage extends StatefulWidget {
   final String conversationId;
@@ -448,13 +449,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 Navigator.pop(context, standardArgs);
               }
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('日期格式无效，无法跳转'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              UINotificationHelper.showError('日期格式无效，无法跳转');
             }
           } else if (result is String) {
             // 处理消息ID的情况
@@ -471,23 +466,11 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 final standardArgs = <String, dynamic>{'jumpToDate': dateOnly};
                 Navigator.pop(context, standardArgs);
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('参数格式无效，无法处理'),
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
+                UINotificationHelper.showError('参数格式无效，无法处理');
               }
             } catch (e) {
               _logger.e('参数处理错误', error: e);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('参数处理失败: $e'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              UINotificationHelper.showError('参数处理失败: $e');
             }
           }
         }

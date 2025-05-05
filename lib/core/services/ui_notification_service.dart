@@ -15,6 +15,9 @@ class UINotificationService {
   // 获取当前的ScaffoldMessengerState
   ScaffoldMessengerState? get _messenger => scaffoldMessengerKey.currentState;
 
+  // 便捷的静态访问方法
+  static UINotificationService get instance => _instance;
+
   // 显示一般消息
   void showMessage(String message, {Duration? duration}) {
     _messenger?.showSnackBar(SnackBar(

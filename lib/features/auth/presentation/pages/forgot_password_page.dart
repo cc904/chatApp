@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
 import 'dart:developer' as dev;
+import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -432,17 +433,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   ///
   /// [message] 要显示的错误消息文本
   void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red[700],
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
+    UINotificationHelper.showError(message);
   }
 }
