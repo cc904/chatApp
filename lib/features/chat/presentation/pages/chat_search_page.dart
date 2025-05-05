@@ -113,7 +113,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       // 创建包含jumpToDate键的Map，注意日期类型必须保持一致
       final dateOnly = DateTime(date.year, date.month, date.day);
       final args = <String, dynamic>{'jumpToDate': dateOnly};
-      _logger.i('创建参数Map', extra: {'args': args, 'type': args.runtimeType, 'jumpToDate': args['jumpToDate'], 'jumpToDateType': args['jumpToDate'].runtimeType});
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {

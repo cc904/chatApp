@@ -32,7 +32,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  bool _isAttachmentMenuOpen = false;
   bool _isLoadingMore = false;
   bool _dataInitialized = false;
   String? _targetMessageId; // 目标消息ID，用于滚动定位
@@ -69,9 +68,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     // 监听滚动事件，用于加载历史消息
     _scrollController.addListener(_scrollListener);
 
-    // 监听焦点变化，输入框获得焦点时关闭附件菜单
-    _focusNode.addListener(_onFocusChange);
-
     // 初始化波形动画控制器
     _waveformController = AnimationController(
       vsync: this,
@@ -95,7 +91,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     _messageController.dispose();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
-    _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     _waveformController.dispose();
     _voiceAnimationController.dispose();
@@ -350,14 +345,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       if (mounted) {
         UINotificationService().showError('发送附件失败: $e');
       }
-    }
-  }
-
-  void _onFocusChange() {
-    if (_focusNode.hasFocus && _isAttachmentMenuOpen) {
-      setState(() {
-        _isAttachmentMenuOpen = false;
-      });
     }
   }
 
