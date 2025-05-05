@@ -32,9 +32,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   // 添加SearchCubit实例变量
   late final SearchCubit _searchCubit;
 
-  // 修改为单个日期
-  DateTime? _selectedDate;
-
   // 日期选择器工具类
   late DatePickerUtility _datePicker;
 
@@ -97,7 +94,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         _searchCubit.setSelectedDate(selectedDate);
 
         // 更新本地变量用于格式化显示
-        _selectedDate = selectedDate;
 
         // 重新执行搜索以应用过滤器
         _performSearch(_searchController.text);
@@ -146,18 +142,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       // 使用UINotificationHelper
       UINotificationHelper.showError('日期选择失败: $e');
     }
-  }
-
-  // 格式化日期的显示
-  String _formatDate(SearchState state) {
-    final selectedDate = state.selectedDate ?? _selectedDate;
-
-    if (selectedDate == null) {
-      return '日期';
-    }
-
-    // 格式化日期
-    return '${selectedDate.year}年${selectedDate.month}月${selectedDate.day}日';
   }
 
   @override
