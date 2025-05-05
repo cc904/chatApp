@@ -355,6 +355,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       listener: (context, state) {
         // 处理导航数据
         if (state.navigationData != null) {
+          _logger.i('-----> 处理导航数据', extra: {'navigationData': state.navigationData});
           final navigationData = state.navigationData!;
 
           if (navigationData.containsKey('jumpToDate')) {

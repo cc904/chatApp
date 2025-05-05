@@ -110,21 +110,19 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     try {
       _logger.i('开始跳转到日期', extra: {'date': date.toString(), 'type': date.runtimeType});
 
-      // 创建包含jumpToDate键的Map，注意日期类型必须保持一致
-      final dateOnly = DateTime(date.year, date.month, date.day);
-      final args = <String, dynamic>{'jumpToDate': dateOnly};
-
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
+            final chatCubit = context.read<ChatCubit>();
+            chatCubit.jumpToDate(widget.conversationId, date);
             // 使用标准格式的Map参数返回
-            Navigator.of(context).pop(args);
-            _logger.i('成功返回日期参数Map', extra: {'args': args});
+            Navigator.of(context).pop();
+            _logger.i('跳转到聊天界面', extra: {'set navigationData': date});
           } catch (e) {
-            _logger.e('返回日期参数失败', error: e);
+            _logger.e('跳转到聊天界面失败', error: e);
 
             // 使用UINotificationHelper
-            UINotificationHelper.showError('返回日期失败: $e');
+            UINotificationHelper.showError('跳转到聊天界面失败: $e');
           }
         } else {
           _logger.w('组件已卸载，无法执行导航');

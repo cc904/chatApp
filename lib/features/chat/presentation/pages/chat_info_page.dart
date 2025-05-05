@@ -422,65 +422,14 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       if (!mounted) return;
 
       final navigator = Navigator.of(context);
-      navigator
-          .push<dynamic>(
+      navigator.push<dynamic>(
         MaterialPageRoute(
           builder: (context) => ChatSearchPage(
             conversationId: conversationId,
             conversationName: conversationName,
           ),
         ),
-      )
-          .then((result) async {
-        if (!mounted) return;
-        if (result != null) {
-          final chatCubit = context.read<ChatCubit>();
-          // 处理搜索页面返回的结果
-          if (result is Map && result.containsKey('jumpToDate')) {
-            // 验证参数类型
-            final jumpToDateObj = result['jumpToDate'];
-
-            if (jumpToDateObj is DateTime) {
-              // 确保使用一致的日期格式(只保留年月日)
-              final dateOnly = DateTime(jumpToDateObj.year, jumpToDateObj.month, jumpToDateObj.day);
-
-              // 使用Cubit更新状态
-              await chatCubit.jumpToDate(conversationId, dateOnly);
-
-              // 返回上一页
-              Navigator.pop(context);
-            } else {
-              UINotificationHelper.showError('日期格式无效，无法跳转');
-            }
-          } else if (result is String) {
-            // 处理消息ID的情况
-            chatCubit.jumpToMessage(result);
-            Navigator.pop(context);
-          } else {
-            // 对于其他类型的返回值（包括DateTime），统一转换为标准格式
-            try {
-              // 尝试将其转换为日期参数Map
-              final DateTime? dateTime = (result is DateTime) ? result : null;
-
-              if (dateTime != null) {
-                // 标准化日期格式(只保留年月日)
-                final dateOnly = DateTime(dateTime.year, dateTime.month, dateTime.day);
-
-                // 使用Cubit更新状态
-                await chatCubit.jumpToDate(conversationId, dateOnly);
-
-                // 返回上一页
-                Navigator.pop(context);
-              } else {
-                UINotificationHelper.showError('参数格式无效，无法处理');
-              }
-            } catch (e) {
-              _logger.e('参数处理错误', error: e);
-              UINotificationHelper.showError('参数处理失败: $e');
-            }
-          }
-        }
-      });
+      );
     });
   }
 }

@@ -632,6 +632,7 @@ class ChatCubit extends Cubit<ChatState> {
       await loadMessagesForConversationByDate(conversationId, targetDate: startOfDay, limit: 30);
 
       // 更新导航数据，包含跳转信息
+      _logger.i('更新导航数据，包含跳转信息', extra: {'jumpToDate': targetDate});
       setNavigationData({'jumpToDate': targetDate});
     } catch (e) {
       _logger.e('跳转到指定日期失败', error: e);
