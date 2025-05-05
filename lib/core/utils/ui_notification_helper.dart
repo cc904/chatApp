@@ -5,28 +5,28 @@ import '../services/ui_notification_service.dart';
 class UINotificationHelper {
   /// 在异步操作中安全地显示消息
   /// 不需要检查context.mounted或在异步操作后使用context
-  static void showMessage(String message) {
-    UINotificationService.instance.showMessage(message);
+  static void showMessage(String message, {Duration? duration}) {
+    UINotificationService.instance.showMessage(message, duration: duration);
   }
 
   /// 在异步操作中安全地显示错误消息
-  static void showError(String message) {
-    UINotificationService.instance.showError(message);
+  static void showError(String message, {Duration? duration}) {
+    UINotificationService.instance.showError(message, duration: duration);
   }
 
   /// 在异步操作中安全地显示成功消息
-  static void showSuccess(String message) {
-    UINotificationService.instance.showSuccess(message);
+  static void showSuccess(String message, {Duration? duration}) {
+    UINotificationService.instance.showSuccess(message, duration: duration);
   }
 
   /// 在异步操作中安全地显示警告消息
-  static void showWarning(String message) {
-    UINotificationService.instance.showWarning(message);
+  static void showWarning(String message, {Duration? duration}) {
+    UINotificationService.instance.showWarning(message, duration: duration);
   }
 
   /// 在异步操作中安全地显示处理中消息
-  static void showProcessing(String message) {
-    UINotificationService.instance.showProcessing(message);
+  static void showProcessing(String message, {Duration? duration}) {
+    UINotificationService.instance.showProcessing(message, duration: duration);
   }
 
   /// 示例：如何在异步操作中使用此辅助工具

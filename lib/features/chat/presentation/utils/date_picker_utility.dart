@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -167,7 +166,7 @@ class DatePickerUtility {
         }
 
         // 使用UINotificationHelper显示没有消息的提示
-        UINotificationHelper.showWarning('未找到任何聊天记录');
+        UINotificationHelper.showWarning('未找到任何聊天记录', duration: const Duration(seconds: 2));
 
         completer.complete(null);
         return completer.future;
@@ -188,7 +187,7 @@ class DatePickerUtility {
         }
 
         // 使用UINotificationHelper显示错误
-        UINotificationHelper.showError('加载消息日期失败: $e');
+        UINotificationHelper.showError('加载消息日期失败: $e', duration: const Duration(seconds: 4));
       }
       completer.complete(null);
       return completer.future;
