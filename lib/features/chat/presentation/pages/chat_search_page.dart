@@ -117,6 +117,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
             chatCubit.jumpToDate(widget.conversationId, date);
             // 使用标准格式的Map参数返回
             Navigator.of(context).pop();
+            Navigator.of(context).pop();
             _logger.i('跳转到聊天界面', extra: {'set navigationData': date});
           } catch (e) {
             _logger.e('跳转到聊天界面失败', error: e);

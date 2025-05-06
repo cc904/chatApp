@@ -6,7 +6,6 @@ import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class ChatInfoPage extends StatefulWidget {
   final String conversationId;
