@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 
 import '../cubit/home_cubit.dart';
 import 'chats_page.dart';
@@ -18,6 +18,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _logger = LogService('home_page.dart');
 
   @override
   void initState() {
@@ -38,7 +39,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    dev.log('HomePage build');
+    _logger.d('HomePage build');
     return BlocProvider(
       create: (context) => HomeCubit(),
       child: BlocListener<HomeCubit, HomeState>(

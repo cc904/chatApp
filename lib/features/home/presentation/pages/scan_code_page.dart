@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 
 class ScanCodePage extends StatefulWidget {
   const ScanCodePage({super.key});
@@ -11,6 +11,7 @@ class ScanCodePage extends StatefulWidget {
 class _ScanCodePageState extends State<ScanCodePage> {
   bool _flashOn = false;
   bool _isGalleryMode = false;
+  final _logger = LogService('scan_code_page.dart');
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +28,7 @@ class _ScanCodePageState extends State<ScanCodePage> {
               setState(() {
                 _flashOn = !_flashOn;
               });
-              dev.log('闪光灯: $_flashOn');
+              _logger.d('闪光灯', extra: {'status': _flashOn});
               // 这里应该添加实际控制闪光灯的代码
             },
           ),
@@ -113,7 +114,7 @@ class _ScanCodePageState extends State<ScanCodePage> {
                             setState(() {
                               _isGalleryMode = true;
                             });
-                            dev.log('从相册选择二维码图片');
+                            _logger.d('从相册选择二维码图片');
                           },
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -189,7 +190,7 @@ class _ScanCodePageState extends State<ScanCodePage> {
       ),
       onTap: () {
         Navigator.pop(context);
-        dev.log('选择了选项: $text');
+        _logger.d('选择了选项', extra: {'option': text});
         // 这里添加相应选项的处理逻辑
       },
     );

@@ -3,7 +3,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 
 /// 聊天功能测试页面
 /// 用于验证聊天功能是否正常运行
@@ -17,6 +17,7 @@ class ChatTestPage extends StatefulWidget {
 class _ChatTestPageState extends State<ChatTestPage> with AutomaticKeepAliveClientMixin {
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final _logger = LogService('chat_test_page.dart');
   String _currentConversationId = '';
   bool _isSearching = false;
   bool _dataInitialized = false;
@@ -27,14 +28,14 @@ class _ChatTestPageState extends State<ChatTestPage> with AutomaticKeepAliveClie
   @override
   void initState() {
     super.initState();
-    dev.log('ChatTestPage - initState');
+    _logger.d('ChatTestPage - initState');
     // 将会在didChangeDependencies中加载数据
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    dev.log('ChatTestPage - didChangeDependencies, initialized: $_dataInitialized');
+    _logger.d('ChatTestPage - didChangeDependencies', extra: {'initialized': _dataInitialized});
     // 只在第一次构建时加载数据，避免重复加载
     if (!_dataInitialized) {
       _loadData();
@@ -44,14 +45,14 @@ class _ChatTestPageState extends State<ChatTestPage> with AutomaticKeepAliveClie
 
   @override
   void dispose() {
-    dev.log('ChatTestPage - dispose');
+    _logger.d('ChatTestPage - dispose');
     _messageController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   void _loadData() async {
-    dev.log('ChatTestPage - _loadData');
+    _logger.d('ChatTestPage - _loadData');
     // 加载会话和联系人
     final chatCubit = context.read<ChatCubit>();
     await chatCubit.loadConversations();
@@ -61,7 +62,7 @@ class _ChatTestPageState extends State<ChatTestPage> with AutomaticKeepAliveClie
   @override
   Widget build(BuildContext context) {
     super.build(context); // 必须调用super.build
-    dev.log('ChatTestPage - build');
+    _logger.d('ChatTestPage - build');
 
     return Scaffold(
       appBar: AppBar(

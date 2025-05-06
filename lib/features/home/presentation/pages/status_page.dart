@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 
 class StatusPage extends StatelessWidget {
   const StatusPage({super.key});
 
+  static final _logger = LogService('status_page.dart');
+
   @override
   Widget build(BuildContext context) {
-    dev.log('StatusPage build');
+    _logger.d('StatusPage build');
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -45,7 +47,7 @@ class StatusPage extends StatelessWidget {
               subtitle: const Text('点击添加状态更新'),
               onTap: () {
                 // 添加状态更新
-                dev.log('添加状态更新');
+                _logger.d('添加状态更新');
               },
             ),
 
@@ -145,7 +147,7 @@ class StatusPage extends StatelessWidget {
       subtitle: Text(time),
       onTap: () {
         // 查看状态
-        dev.log('查看状态: $name');
+        _logger.d('查看状态', extra: {'name': name});
       },
     );
   }

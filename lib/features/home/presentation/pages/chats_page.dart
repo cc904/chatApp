@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as dev;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
 
@@ -17,6 +17,7 @@ class ChatsPage extends StatefulWidget {
 
 class _ChatsPageState extends State<ChatsPage> {
   final TextEditingController _searchController = TextEditingController();
+  final _logger = LogService('chats_page.dart');
   bool _isSearching = false;
   // 跟踪当前打开的滑动项的ID
   String? _openedItemId;
@@ -42,7 +43,7 @@ class _ChatsPageState extends State<ChatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    dev.log('ChatsPage build');
+    _logger.d('ChatsPage build');
     return Scaffold(
       // AppBar: 自定义导航栏，包含标题、编辑按钮和新建聊天按钮
       // 顶部导航区配置了底部搜索栏作为扩展部分
@@ -88,11 +89,11 @@ class _ChatsPageState extends State<ChatsPage> {
               onSelected: (value) {
                 if (value == 'scan') {
                   // 扫一扫功能
-                  dev.log('打开扫一扫');
+                  _logger.d('打开扫一扫');
                   _openQRScanner(context);
                 } else if (value == 'group') {
                   // 发起群聊
-                  dev.log('发起群聊');
+                  _logger.d('发起群聊');
                   // 打开搜索页面，默认选择找群标签
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -101,7 +102,7 @@ class _ChatsPageState extends State<ChatsPage> {
                   );
                 } else if (value == 'friend') {
                   // 添加朋友
-                  dev.log('添加朋友');
+                  _logger.d('添加朋友');
                   // 打开搜索页面，默认选择找人标签
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -340,7 +341,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 // 已读/未读按钮
                 GestureDetector(
                   onTap: () {
-                    dev.log(unreadCount > 0 ? '将$name标为已读' : '将$name标为未读');
+                    _logger.d(unreadCount > 0 ? '将$name标为已读' : '将$name标为未读');
                     if (unreadCount > 0) {
                       context.read<ChatCubit>().markConversationAsRead(id);
                     }
@@ -361,7 +362,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 // 不显示按钮
                 GestureDetector(
                   onTap: () {
-                    dev.log('不显示聊天: $name');
+                    _logger.d('不显示聊天: $name');
                     setState(() {
                       _openedItemId = null; // 操作后关闭菜单
                     });
@@ -379,7 +380,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 // 删除按钮
                 GestureDetector(
                   onTap: () {
-                    dev.log('删除聊天: $name');
+                    _logger.d('删除聊天: $name');
                     context.read<ChatCubit>().deleteConversation(id);
                     setState(() {
                       _openedItemId = null; // 操作后关闭菜单
@@ -525,7 +526,7 @@ class _ChatsPageState extends State<ChatsPage> {
                     });
                   } else {
                     // 打开聊天详情页
-                    dev.log('打开聊天: $name (ID: $id)');
+                    _logger.d('打开聊天: $name (ID: $id)');
                     context.read<ChatCubit>().setCurrentConversation(id);
 
                     // 导航到聊天详情页
@@ -602,7 +603,7 @@ class _ChatsPageState extends State<ChatsPage> {
               title: const Text('未读消息'),
               onTap: () {
                 Navigator.pop(context);
-                dev.log('筛选未读消息');
+                _logger.d('筛选未读消息');
               },
             ),
             ListTile(
@@ -610,7 +611,7 @@ class _ChatsPageState extends State<ChatsPage> {
               title: const Text('群聊'),
               onTap: () {
                 Navigator.pop(context);
-                dev.log('筛选群聊');
+                _logger.d('筛选群聊');
               },
             ),
             ListTile(
@@ -618,7 +619,7 @@ class _ChatsPageState extends State<ChatsPage> {
               title: const Text('星标会话'),
               onTap: () {
                 Navigator.pop(context);
-                dev.log('筛选星标会话');
+                _logger.d('筛选星标会话');
               },
             ),
           ],

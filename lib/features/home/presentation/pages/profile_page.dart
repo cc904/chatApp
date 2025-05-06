@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 import '../cubit/home_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/features/chat/presentation/pages/chat_test_page.dart';
@@ -7,9 +7,12 @@ import 'package:cc/features/chat/presentation/pages/chat_test_page.dart';
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
+  // 创建静态logger实例
+  static final _logger = LogService('profile_page.dart');
+
   @override
   Widget build(BuildContext context) {
-    dev.log('ProfilePage build');
+    _logger.d('ProfilePage build');
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -207,7 +210,7 @@ class ProfilePage extends StatelessWidget {
             title: '支付',
             subtitle: '查看您的支付记录',
             onTap: () {
-              dev.log('点击支付');
+              _logger.d('点击支付');
             },
           ),
           const Divider(height: 1),
@@ -216,7 +219,7 @@ class ProfilePage extends StatelessWidget {
             title: '收藏',
             subtitle: '查看您的收藏内容',
             onTap: () {
-              dev.log('点击收藏');
+              _logger.d('点击收藏');
             },
           ),
           const Divider(height: 1),
@@ -225,7 +228,7 @@ class ProfilePage extends StatelessWidget {
             title: '相册',
             subtitle: '查看您的共享相册',
             onTap: () {
-              dev.log('点击相册');
+              _logger.d('点击相册');
             },
           ),
           const Divider(height: 1),
@@ -234,7 +237,7 @@ class ProfilePage extends StatelessWidget {
             title: '设置',
             subtitle: '隐私、安全和通知设置',
             onTap: () {
-              dev.log('点击设置');
+              _logger.d('点击设置');
             },
           ),
           const Divider(height: 1),
@@ -243,7 +246,7 @@ class ProfilePage extends StatelessWidget {
             title: '帮助与反馈',
             subtitle: '常见问题和提交反馈',
             onTap: () {
-              dev.log('点击帮助与反馈');
+              _logger.d('点击帮助与反馈');
             },
           ),
         ],

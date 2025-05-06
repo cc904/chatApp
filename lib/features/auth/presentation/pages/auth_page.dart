@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class AuthPage extends StatefulWidget {
@@ -18,12 +18,13 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
+  final _logger = LogService('auth_page.dart');
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    dev.log('AuthPage initialized');
+    _logger.d('AuthPage initialized');
   }
 
   @override

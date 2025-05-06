@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as dev;
 import 'package:flutter/services.dart';
+import 'package:cc/core/services/log_service.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -15,6 +15,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   bool _isSearching = false;
   bool _hasSearched = false;
   String _selectedFilter = '全部'; // 当前选中的筛选选项
+  final _logger = LogService('search_page.dart');
 
   // 筛选选项
   final List<String> _personFilters = ['全部', '国内', '国外', '最近活跃'];
@@ -383,7 +384,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
   void _performSearch(String keyword) {
     final type = _tabController.index == 0 ? '用户' : '群聊';
-    dev.log('搜索$type: $keyword, 筛选条件: $_selectedFilter');
+    _logger.d('搜索', extra: {'类型': type, '关键词': keyword, '筛选条件': _selectedFilter});
     // 这里应该调用API进行实际搜索
   }
 }
@@ -394,6 +395,7 @@ class UserDetailPage extends StatelessWidget {
   final String description;
   final bool isOnline;
   final bool isFriend;
+  static final _logger = LogService('user_detail_page.dart');
 
   const UserDetailPage({
     super.key,
@@ -429,7 +431,7 @@ class UserDetailPage extends StatelessWidget {
                       title: const Text('拉黑该用户'),
                       onTap: () {
                         Navigator.pop(context);
-                        dev.log('拉黑用户: $name');
+                        _logger.d('拉黑用户', extra: {'name': name});
                       },
                     ),
                     ListTile(
@@ -437,7 +439,7 @@ class UserDetailPage extends StatelessWidget {
                       title: const Text('举报'),
                       onTap: () {
                         Navigator.pop(context);
-                        dev.log('举报用户: $name');
+                        _logger.d('举报用户', extra: {'name': name});
                       },
                     ),
                   ],
@@ -608,7 +610,7 @@ class UserDetailPage extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: () {
                           // 发送消息
-                          dev.log('发送消息给: $name');
+                          _logger.d('发送消息给', extra: {'name': name});
                           Navigator.pop(context);
                         },
                         icon: const Icon(Icons.message),
@@ -727,7 +729,7 @@ class UserDetailPage extends StatelessWidget {
               Navigator.pop(context);
               // 发送请求
               final verification = verificationController.text;
-              dev.log('添加好友: $name, ID: $userId, 验证信息: $verification');
+              _logger.d('添加好友', extra: {'name': name, 'ID': userId, '验证信息': verification});
 
               // 显示结果提示
               ScaffoldMessenger.of(context).showSnackBar(
@@ -903,7 +905,7 @@ class GroupDetailPage extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           // 打开群聊
-                          dev.log('打开群聊: $name');
+                          _logger.d('打开群聊', extra: {'name': name});
                           Navigator.pop(context);
                         },
                         icon: const Icon(Icons.message),
@@ -1044,7 +1046,7 @@ class GroupDetailPage extends StatelessWidget {
             onPressed: () {
               Navigator.pop(context);
               // 发送请求
-              dev.log('加入群聊: $name, ID: $groupId');
+              _logger.d('加入群聊', extra: {'name': name, 'ID': groupId});
 
               // 显示结果提示
               ScaffoldMessenger.of(context).showSnackBar(

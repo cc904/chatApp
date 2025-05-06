@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 
 // Home状态类
 abstract class HomeState extends Equatable {
@@ -28,11 +28,13 @@ class HomeError extends HomeState {
 
 // HomeCubit
 class HomeCubit extends Cubit<HomeState> {
+  final _logger = LogService('home_cubit.dart');
+
   HomeCubit() : super(HomeInitial());
 
   /// 用户登出
   Future<void> logout() async {
-    dev.log('用户登出');
+    _logger.d('用户登出');
     emit(HomeLoading());
 
     try {
@@ -45,14 +47,14 @@ class HomeCubit extends Cubit<HomeState> {
       // 登出成功后，应用程序会回到登录页面
       // 通过路由处理，这里不需要特殊的状态
     } catch (e) {
-      dev.log('登出错误: $e');
+      _logger.e('登出错误', error: e);
       emit(HomeError('登出失败: $e'));
     }
   }
 
   /// 刷新消息列表
   Future<void> refreshMessages() async {
-    dev.log('刷新消息列表');
+    _logger.d('刷新消息列表');
 
     try {
       // 实现消息刷新逻辑
@@ -61,14 +63,14 @@ class HomeCubit extends Cubit<HomeState> {
       // 刷新成功，保持当前状态或者更新为特定状态
       emit(HomeInitial());
     } catch (e) {
-      dev.log('刷新错误: $e');
+      _logger.e('刷新错误', error: e);
       emit(HomeError('刷新失败: $e'));
     }
   }
 
   /// 处理通知权限
   Future<void> handleNotificationPermission() async {
-    dev.log('处理通知权限');
+    _logger.d('处理通知权限');
 
     try {
       // 检查和请求通知权限的逻辑
@@ -77,7 +79,7 @@ class HomeCubit extends Cubit<HomeState> {
       // 权限处理完成
       emit(HomeInitial());
     } catch (e) {
-      dev.log('权限处理错误: $e');
+      _logger.e('权限处理错误', error: e);
       emit(HomeError('权限处理失败: $e'));
     }
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
@@ -16,6 +16,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _verificationCodeController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _logger = LogService('forgot_password_page.dart');
 
   // 重置密码的步骤
   int _currentStep = 0;
@@ -34,7 +35,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   /// 包含三个步骤的Stepper组件：手机号验证、验证码验证和设置新密码
   @override
   Widget build(BuildContext context) {
-    dev.log('ForgotPasswordPage build');
+    _logger.d('ForgotPasswordPage build');
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
@@ -366,7 +367,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   /// 向AuthCubit发送重置密码请求，并处理成功和失败的情况
   /// 成功时显示成功对话框，失败时显示错误消息
   void _resetPassword() {
-    dev.log('重置密码: ${_phoneController.text}');
+    _logger.d('重置密码', extra: {'phoneNumber': _phoneController.text});
 
     // 保存当前需要的数据
     final phoneNumber = _phoneController.text;

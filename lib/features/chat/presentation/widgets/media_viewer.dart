@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
@@ -29,6 +29,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   late String _effectivePath;
   bool _isLoading = false;
   bool _hasError = false;
+  final _logger = LogService('image_viewer_page.dart');
 
   @override
   void initState() {
@@ -44,9 +45,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       } else {
         _effectivePath = widget.imagePath;
       }
-      dev.log('图片查看器路径: $_effectivePath');
+      _logger.d('图片查看器路径', extra: {'path': _effectivePath});
     } catch (e) {
-      dev.log('初始化图片路径失败: $e');
+      _logger.e('初始化图片路径失败', error: e);
       _effectivePath = widget.imagePath; // 使用原始路径作为回退
       _hasError = true;
     }
@@ -86,7 +87,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
           PhotoView(
             imageProvider: _getImageProvider(),
             errorBuilder: (context, error, stackTrace) {
-              dev.log('图片查看器加载失败: $error');
+              _logger.e('图片查看器加载失败', error: error);
               if (!_hasError) {
                 setState(() {
                   _hasError = true;
@@ -155,11 +156,11 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty && !widget.mediaUrl!.startsWith('file://')) {
         return NetworkImage(widget.mediaUrl!);
       } else {
-        dev.log('图片文件不存在: $_effectivePath');
+        _logger.e('图片文件不存在', extra: {'path': _effectivePath});
         throw Exception('图片文件不存在');
       }
     } catch (e) {
-      dev.log('获取图片失败: $e');
+      _logger.e('获取图片失败', error: e);
       setState(() {
         _hasError = true;
       });
@@ -179,7 +180,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         text: '分享图片',
       );
     } catch (e) {
-      dev.log('分享图片失败: $e');
+      _logger.e('分享图片失败', error: e);
       if (mounted) {
         UINotificationService().showError('分享失败: $e');
       }
@@ -209,7 +210,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         UINotificationService().showSuccess('图片已保存');
       }
     } catch (e) {
-      dev.log('保存图片失败: $e');
+      _logger.e('保存图片失败', error: e);
       if (mounted) {
         UINotificationService().showError('保存失败: $e');
       }
@@ -272,6 +273,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
   late String _effectivePath;
   bool _isLoading = true;
   bool _hasError = false;
+  final _logger = LogService('video_viewer_page.dart');
 
   // 视频播放控制器
   VideoPlayerController? _videoPlayerController;
@@ -299,9 +301,9 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
       } else {
         _effectivePath = widget.videoPath;
       }
-      dev.log('视频查看器路径: $_effectivePath');
+      _logger.d('视频查看器路径', extra: {'path': _effectivePath});
     } catch (e) {
-      dev.log('初始化视频路径失败: $e');
+      _logger.e('初始化视频路径失败', error: e);
       _effectivePath = widget.videoPath; // 使用原始路径作为回退
       _hasError = true;
     }
@@ -320,19 +322,19 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
       if (file.existsSync()) {
         // 本地文件
         _videoPlayerController = VideoPlayerController.file(file);
-        dev.log('使用本地文件初始化视频: ${file.path}');
+        _logger.d('使用本地文件初始化视频', extra: {'path': file.path});
       } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty && !widget.mediaUrl!.startsWith('file://')) {
         // 网络URL
         _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
-        dev.log('使用网络URL初始化视频: ${widget.mediaUrl}');
+        _logger.d('使用网络URL初始化视频', extra: {'url': widget.mediaUrl});
       } else {
-        dev.log('无法找到有效的视频文件: $_effectivePath');
+        _logger.e('无法找到有效的视频文件', extra: {'path': _effectivePath});
         throw Exception('无法加载视频: 找不到有效的文件或URL');
       }
 
       // 初始化视频播放器
       await _videoPlayerController!.initialize();
-      dev.log('视频播放器初始化成功');
+      _logger.d('视频播放器初始化成功');
 
       if (!mounted) return;
 
@@ -363,7 +365,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         });
       }
     } catch (e) {
-      dev.log('视频播放器初始化失败: $e');
+      _logger.e('视频播放器初始化失败', error: e);
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -453,7 +455,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         text: '分享视频',
       );
     } catch (e) {
-      dev.log('分享视频失败: $e');
+      _logger.e('分享视频失败', error: e);
       if (mounted) {
         UINotificationService().showError('分享失败: $e');
       }
@@ -480,7 +482,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         UINotificationService().showSuccess('视频已保存');
       }
     } catch (e) {
-      dev.log('保存视频失败: $e');
+      _logger.e('保存视频失败', error: e);
       if (mounted) {
         UINotificationService().showError('保存失败: $e');
       }

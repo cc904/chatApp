@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contacts_state.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -14,6 +14,7 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   final TextEditingController _searchController = TextEditingController();
+  final _logger = LogService('contacts_page.dart');
   bool _isSearching = false;
 
   @override
@@ -36,7 +37,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    dev.log('ContactsPage build');
+    _logger.d('ContactsPage build');
     return Scaffold(
       appBar: AppBar(
         title: _isSearching
@@ -77,7 +78,7 @@ class _ContactsPageState extends State<ContactsPage> {
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () {
               // 扫描二维码
-              dev.log('扫描二维码');
+              _logger.d('扫描二维码');
             },
           ),
         ],
@@ -237,7 +238,7 @@ class _ContactsPageState extends State<ContactsPage> {
       ),
       onTap: () {
         // 打开联系人详情
-        dev.log('打开联系人: ${contact.name}');
+        _logger.d('打开联系人', extra: {'name': contact.name});
       },
     );
   }

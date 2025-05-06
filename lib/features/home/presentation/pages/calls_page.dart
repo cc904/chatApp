@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as dev;
+import 'package:cc/core/services/log_service.dart';
 import 'dart:math' as math;
 
 class CallsPage extends StatelessWidget {
@@ -7,7 +7,8 @@ class CallsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    dev.log('CallsPage build');
+    final _logger = LogService('calls_page.dart');
+    _logger.d('CallsPage build');
     return Scaffold(
       appBar: AppBar(
         title: const Text('通话', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -36,7 +37,7 @@ class CallsPage extends StatelessWidget {
                       title: const Text('清空通话记录'),
                       onTap: () {
                         Navigator.pop(context);
-                        dev.log('清空通话记录');
+                        _logger.d('清空通话记录');
                       },
                     ),
                     ListTile(
@@ -44,7 +45,7 @@ class CallsPage extends StatelessWidget {
                       title: const Text('通话设置'),
                       onTap: () {
                         Navigator.pop(context);
-                        dev.log('通话设置');
+                        _logger.d('通话设置');
                       },
                     ),
                   ],
@@ -97,7 +98,7 @@ class CallsPage extends StatelessWidget {
                   TextButton(
                     onPressed: () {
                       // 创建通话连接
-                      dev.log('创建通话连接');
+                      _logger.d('创建通话连接');
                     },
                     style: TextButton.styleFrom(
                       backgroundColor: Colors.green[50],
@@ -151,6 +152,7 @@ class CallsPage extends StatelessWidget {
                 final bool isMissed = !isOutgoing && math.Random().nextBool();
 
                 return _buildCallItem(
+                  context,
                   name: '联系人 ${index + 1}',
                   time: '${isOutgoing ? '拨出' : '拨入'} · 今天 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
                   avatarUrl: 'https://picsum.photos/200?random=${index + 30}',
@@ -167,7 +169,8 @@ class CallsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCallItem({
+  Widget _buildCallItem(
+    BuildContext context, {
     required String name,
     required String time,
     required String avatarUrl,
@@ -176,6 +179,7 @@ class CallsPage extends StatelessWidget {
     required bool isMissed,
     required int callCount,
   }) {
+    final _logger = LogService('calls_page.dart');
     return ListTile(
       leading: CircleAvatar(
         backgroundImage: NetworkImage(avatarUrl),
@@ -224,14 +228,13 @@ class CallsPage extends StatelessWidget {
         ),
         onPressed: () {
           // 发起通话
-          dev.log('发起${isVideo ? '视频' : '语音'}通话: $name');
+          _logger.d('发起通话', extra: {'类型': isVideo ? '视频' : '语音', '联系人': name});
         },
       ),
       onTap: () {
         // 查看通话详情
-        dev.log('查看通话详情: $name');
+        _logger.d('查看通话详情', extra: {'联系人': name});
       },
     );
   }
 }
- 
