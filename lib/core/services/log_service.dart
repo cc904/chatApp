@@ -1,7 +1,8 @@
 import 'dart:developer' as dev;
+import 'package:stack_trace/stack_trace.dart';
 
 /// 日志服务
-/// 提供统一的日志记录功能，自动添加文件名信息
+/// 提供统一的日志记录功能，自动添加文件名和函数名信息
 class LogService {
   static final Map<String, LogService> _instances = {};
 
@@ -23,9 +24,31 @@ class LogService {
     return fileName.endsWith('.dart') ? fileName.substring(0, fileName.length - 5) : fileName;
   }
 
+  /// 获取调用函数名
+  String _getFunctionName() {
+    try {
+      final frames = Trace.current().frames;
+      // 需要找到第一个不在LogService类中的帧
+      for (var i = 0; i < frames.length; i++) {
+        final frame = frames[i];
+        final member = frame.member ?? '';
+        // 跳过LogService类中的方法
+        if (!member.contains('LogService')) {
+          // 提取函数名
+          final parts = member.split('.');
+          return parts.length > 1 ? parts.last : member;
+        }
+      }
+    } catch (e) {
+      // 无法获取函数名时，返回unknown
+    }
+    return 'unknown';
+  }
+
   /// 格式化日志消息
   String _formatMessage(String message, {Map<String, dynamic>? extra, Object? error}) {
-    var formattedMessage = '[$_shortFileName] $message';
+    final funcName = _getFunctionName();
+    var formattedMessage = '[ $_shortFileName -> $funcName ] $message';
     if (extra != null && extra.isNotEmpty) {
       formattedMessage += ' : $extra';
     }

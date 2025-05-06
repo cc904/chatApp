@@ -810,8 +810,6 @@ class ChatRepositoryImpl implements ChatRepository {
       // 确保使用日期的开始时间
       final dayStart = DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
 
-      _logger.d('从特定日期开始获取消息', extra: {'会话ID': id, '开始日期': dayStart.toString(), '限制': limit});
-
       // 查询从指定日期开始的消息
       final messages = await _messages
           .filter()

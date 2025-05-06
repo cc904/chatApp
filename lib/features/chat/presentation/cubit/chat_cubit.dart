@@ -585,11 +585,8 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 根据日期加载会话消息，从指定日期开始获取消息
   Future<void> loadMessagesForConversationByDate(String conversationId, {required DateTime targetDate, int limit = 30}) async {
-    _logger.i('加载指定日期的消息', extra: {'conversationId': conversationId, 'targetDate': targetDate, 'limit': limit});
     try {
       emit(state.copyWith(isLoading: true));
-
-      _logger.i('从目标日期加载消息', extra: {'targetDate': targetDate, 'conversationId': conversationId, 'limit': limit});
 
       // 从指定日期开始获取消息（包括该日期的消息）
       // 注意：这里不使用日期范围查询，而是从该日期开始获取消息
@@ -598,7 +595,7 @@ class ChatCubit extends Cubit<ChatState> {
       if (messages.isEmpty) {
         _logger.i('未找到从日期开始的消息', extra: {'targetDate': targetDate});
       } else {
-        _logger.i('--------> 已加载消息', extra: {'count': messages.length, 'targetDate': targetDate});
+        _logger.i('已加载消息', extra: {'count': messages.length, 'targetDate': targetDate});
       }
 
       // 替换现有的消息列表，确保当天消息显示在顶部

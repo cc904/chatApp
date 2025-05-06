@@ -62,6 +62,7 @@ dependencies:
   uuid: ^3.0.7
   video_thumbnail: ^0.5.3
   just_audio: ^0.10.2
+  stack_trace: ^1.12.1
 
 dev_dependencies:
   flutter_test:
