@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/user_service.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 part 'auth_state.dart';
 
@@ -130,13 +132,109 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         await Future.delayed(const Duration(seconds: 2)); // 模拟网络请求
+
+        // 模拟从服务器获取的用户ID
+        final String serverUserId = _generateMockUserId(currentState.phoneNumber!);
+        // 模拟从服务器获取的token
+        final String serverToken = _generateMockToken(serverUserId);
+
+        // 初始化或切换到该用户的数据库
+        await _initUserDatabase(serverUserId);
+
+        // 保存或更新用户信息
+        await _saveUserInfoToDatabase(currentState.phoneNumber!, serverUserId, nickname: currentState.nickname);
+
         _logger.i('登录成功');
-        emit(const AuthSuccess('mock_token'));
+        emit(AuthSuccess(userId: serverUserId, token: serverToken));
       } catch (e) {
         _logger.e('登录错误: $e');
         emit(AuthError(e.toString()));
         emit(currentState);
       }
+    }
+  }
+
+  /// 初始化用户数据库
+  Future<void> _initUserDatabase(String userId) async {
+    try {
+      _logger.i('初始化用户数据库: $userId');
+
+      // 检查用户数据库是否存在
+      final dbExists = await DatabaseInitializer.userDatabaseExists(userId);
+
+      // 检查数据库是否已初始化
+      final isInitialized = DatabaseInitializer.isInitialized;
+
+      if (!isInitialized) {
+        _logger.i('数据库尚未初始化，首次创建数据库');
+      }
+
+      if (dbExists) {
+        _logger.i('用户数据库已存在，切换到该数据库');
+        await DatabaseInitializer.switchUserDatabase(userId);
+      } else {
+        _logger.i('用户数据库不存在，创建新数据库');
+        await DatabaseInitializer.init(userId: userId);
+      }
+    } catch (e) {
+      _logger.e('初始化用户数据库失败', error: e);
+      // 如果用户数据库初始化失败，回退到默认数据库
+      if (!DatabaseInitializer.isInitialized) {
+        _logger.i('尝试回退到默认数据库');
+        await DatabaseInitializer.init();
+      }
+    }
+  }
+
+  /// 生成模拟用户ID (实际环境应该由服务器返回)
+  String _generateMockUserId(String phoneNumber) {
+    // 移除模拟ID生成中的随机性，确保同一个手机号总是得到相同的ID
+    return 'u${phoneNumber.substring(phoneNumber.length - 6)}';
+  }
+
+  /// 生成模拟token (实际环境应该由服务器返回)
+  String _generateMockToken(String userId) {
+    return 'token_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// 将用户信息保存到数据库
+  Future<void> _saveUserInfoToDatabase(String phone, String userId, {String? nickname}) async {
+    try {
+      _logger.i('保存用户信息到数据库');
+
+      // 检查是否已有当前用户
+      final existingUser = await UserService.getCurrentUser();
+
+      if (existingUser != null) {
+        // 更新已有用户信息
+        _logger.i('更新已有用户信息');
+        await UserService.updateUser(
+          existingUser.userId,
+          phone: phone,
+          name: nickname ?? existingUser.name,
+          status: 'online',
+        );
+      } else {
+        // 创建新用户
+        _logger.i('创建新用户');
+        // 先创建一个基本用户
+        final newUser = await UserService.createCurrentUser();
+
+        if (newUser != null) {
+          // 然后更新用户信息
+          await UserService.updateUser(
+            newUser.userId,
+            phone: phone,
+            name: nickname ?? '用户${phone.substring(phone.length - 4)}', // 如果没有昵称，使用手机号后4位作为默认昵称
+            status: 'online',
+          );
+        }
+      }
+
+      _logger.i('用户信息保存成功');
+    } catch (e) {
+      _logger.e('保存用户信息到数据库失败', error: e);
+      // 不抛出异常，确保登录流程正常进行
     }
   }
 
@@ -186,8 +284,19 @@ class AuthCubit extends Cubit<AuthState> {
         throw '该手机号已注册';
       }
 
+      // 模拟从服务器获取的用户ID
+      final String serverUserId = _generateMockUserId(phoneNumber);
+      // 模拟从服务器获取的token
+      final String serverToken = _generateMockToken(serverUserId);
+
+      // 初始化用户数据库
+      await _initUserDatabase(serverUserId);
+
+      // 保存用户信息
+      await _saveUserInfoToDatabase(phoneNumber, serverUserId, nickname: nickname);
+
       _logger.i('注册成功');
-      emit(const AuthSuccess('mock_token'));
+      emit(AuthSuccess(userId: serverUserId, token: serverToken));
     } catch (e) {
       _logger.e('注册错误: $e');
       emit(AuthError(e.toString()));
@@ -244,8 +353,25 @@ class AuthCubit extends Cubit<AuthState> {
         throw '验证码错误';
       }
 
+      // 模拟从服务器获取的用户ID
+      final String serverUserId = _generateMockUserId(phoneNumber);
+      // 模拟从服务器获取的token
+      final String serverToken = _generateMockToken(serverUserId);
+
+      // 初始化用户数据库
+      await _initUserDatabase(serverUserId);
+
+      // 更新用户信息
+      final existingUser = await UserService.getCurrentUser();
+      if (existingUser != null) {
+        await UserService.updateUser(
+          existingUser.userId,
+          phone: phoneNumber,
+        );
+      }
+
       _logger.i('重置密码成功');
-      emit(const AuthSuccess('mock_token'));
+      emit(AuthSuccess(userId: serverUserId, token: serverToken));
     } catch (e) {
       _logger.e('重置密码错误: $e');
       emit(AuthError(e.toString()));

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
@@ -12,9 +13,14 @@ import 'package:path_provider/path_provider.dart';
 class DatabaseInitializer {
   static final _logger = LogService('database_initializer.dart');
   static Isar? _isar;
+  static String? _currentUserId;
+  static const String _defaultDbName = 'default.isar';
 
   /// 数据库是否已初始化
   static bool get isInitialized => _isar != null;
+
+  /// 当前用户ID
+  static String? get currentUserId => _currentUserId;
 
   /// 获取数据库实例
   static Isar get isar {
@@ -25,15 +31,29 @@ class DatabaseInitializer {
   }
 
   /// 初始化数据库
-  static Future<void> init() async {
+  ///
+  /// 不指定userId时使用默认数据库
+  static Future<void> init({String? userId}) async {
     try {
-      if (_isar != null) {
-        _logger.i('数据库已经初始化');
+      // 如果数据库已经初始化，且用户ID相同，则直接返回
+      if (_isar != null && _currentUserId == userId) {
+        _logger.i('数据库已经初始化，当前用户ID: $_currentUserId');
         return;
       }
 
-      _logger.i('开始初始化数据库');
+      // 如果数据库已经初始化，但用户ID不同，则先关闭当前数据库
+      if (_isar != null) {
+        _logger.i('切换用户，关闭当前数据库');
+        await close();
+      }
+
+      _logger.i('开始初始化数据库，用户ID: ${userId ?? "默认"}');
+
       final dir = await getApplicationDocumentsDirectory();
+      String dbName = userId != null ? 'user_$userId.isar' : _defaultDbName;
+
+      _logger.i('使用数据库文件: $dbName');
+
       _isar = await Isar.open(
         [
           UserSchema,
@@ -41,14 +61,17 @@ class DatabaseInitializer {
           MessageSchema,
         ],
         directory: dir.path,
+        name: dbName,
       );
+
+      _currentUserId = userId;
 
       // 创建索引
       await _createIndexes();
       _logger.i('数据库初始化完成');
 
       // 在调试模式下生成测试数据
-      if (kDebugMode) {
+      if (kDebugMode && userId == null) {
         _logger.i('开始生成测试数据');
         await TestDataGenerator.generateMoreTestData();
       }
@@ -56,6 +79,12 @@ class DatabaseInitializer {
       _logger.e('数据库初始化失败', error: e);
       rethrow;
     }
+  }
+
+  /// 切换用户数据库
+  static Future<void> switchUserDatabase(String userId) async {
+    _logger.i('切换到用户数据库: $userId');
+    await init(userId: userId);
   }
 
   /// 创建数据库索引
@@ -103,11 +132,53 @@ class DatabaseInitializer {
         _logger.i('开始关闭数据库');
         await _isar!.close();
         _isar = null;
+        _currentUserId = null;
         _logger.i('数据库关闭完成');
       }
     } catch (e) {
       _logger.e('关闭数据库失败', error: e);
       rethrow;
+    }
+  }
+
+  /// 检查用户数据库是否存在
+  static Future<bool> userDatabaseExists(String userId) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final dbFile = File('${dir.path}/user_$userId.isar');
+      return await dbFile.exists();
+    } catch (e) {
+      _logger.e('检查用户数据库失败', error: e);
+      return false;
+    }
+  }
+
+  /// 删除用户数据库
+  static Future<bool> deleteUserDatabase(String userId) async {
+    try {
+      // 如果当前打开的是要删除的数据库，先关闭它
+      if (_currentUserId == userId && _isar != null) {
+        await close();
+      }
+
+      final dir = await getApplicationDocumentsDirectory();
+      final dbFile = File('${dir.path}/user_$userId.isar');
+      final lockFile = File('${dir.path}/user_$userId.isar.lock');
+
+      if (await dbFile.exists()) {
+        await dbFile.delete();
+        _logger.i('删除用户数据库文件: ${dbFile.path}');
+      }
+
+      if (await lockFile.exists()) {
+        await lockFile.delete();
+        _logger.i('删除用户数据库锁文件: ${lockFile.path}');
+      }
+
+      return true;
+    } catch (e) {
+      _logger.e('删除用户数据库失败', error: e);
+      return false;
     }
   }
 }

@@ -59,11 +59,16 @@ class AuthVerificationCodeSent extends AuthState {
 }
 
 class AuthSuccess extends AuthState {
+  final String userId;
   final String token;
-  const AuthSuccess(this.token);
+
+  const AuthSuccess({
+    required this.userId,
+    required this.token,
+  });
 
   @override
-  List<Object> get props => [token];
+  List<Object> get props => [userId, token];
 }
 
 class AuthError extends AuthState {
@@ -73,3 +78,4 @@ class AuthError extends AuthState {
   @override
   List<Object> get props => [message];
 }
+

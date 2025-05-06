@@ -42,6 +42,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // 直接进入主页，跳过登录验证
+          // 仅用于测试，不再隐式初始化数据库
+          // 在正式流程中应通过登录获取userId并初始化数据库
           Navigator.of(context).pushReplacementNamed('/home');
         },
         backgroundColor: Colors.green,
@@ -165,6 +167,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                         listener: (context, state) {
                           if (state is AuthSuccess) {
                             UINotificationHelper.showSuccess('登录成功');
+                            // 这里可以添加保存token的逻辑，例如存入共享偏好或安全存储
+                            // 例如: SharedPreferences.getInstance().then((prefs) => prefs.setString('auth_token', state.token));
+                            // 在实际项目中应使用更安全的方式存储token
                             Navigator.of(context).pushReplacementNamed('/home');
                           } else if (state is AuthError) {
                             UINotificationHelper.showError(state.message);
