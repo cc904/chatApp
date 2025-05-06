@@ -773,6 +773,7 @@ class GroupDetailPage extends StatelessWidget {
   final String description;
   final int memberCount;
   final bool isJoined;
+  static final _logger = LogService('group_detail_page.dart');
 
   const GroupDetailPage({
     super.key,
