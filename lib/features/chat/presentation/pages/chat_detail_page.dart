@@ -359,23 +359,28 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           final navigationData = state.navigationData!;
 
           if (navigationData.containsKey('jumpToDate')) {
+            _logger.i('-----> 处理导航数据 -> jumpToDate');
             final jumpToDateObj = navigationData['jumpToDate'];
 
             if (jumpToDateObj is DateTime) {
+              _logger.i('-----> 处理导航数据 -> is DateTime');
               final targetDate = jumpToDateObj;
 
-              // 显示加载指示器
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (BuildContext context) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                },
-              );
-
               WidgetsBinding.instance.addPostFrameCallback((_) async {
+                // 显示加载指示器
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  },
+                );
+                
+                //延迟3秒
+                await Future.delayed(const Duration(seconds: 3));
+
                 try {
                   // 检查是否有当天的消息
                   final messages = state.messagesByConversation[widget.conversationId] ?? [];

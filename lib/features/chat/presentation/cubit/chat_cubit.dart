@@ -623,10 +623,10 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> jumpToDate(String conversationId, DateTime targetDate) async {
     try {
       // 计算所选日期的开始
-      final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
+      // final startOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
 
       // 从数据库加载该日期为起点的消息
-      await loadMessagesForConversationByDate(conversationId, targetDate: startOfDay, limit: 30);
+      // await loadMessagesForConversationByDate(conversationId, targetDate: startOfDay, limit: 30);
 
       // 更新导航数据，包含跳转信息
       _logger.i('更新导航数据，包含跳转信息', extra: {'jumpToDate': targetDate});
