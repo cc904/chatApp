@@ -7,6 +7,7 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 /// 聊天Cubit
 /// 负责管理聊天相关的状态和业务逻辑
@@ -19,6 +20,18 @@ class ChatCubit extends Cubit<ChatState> {
   StreamSubscription? _contactsSubscription;
   final Map<String, StreamSubscription> _messagesSubscriptions = {};
 
+  // 实时通信相关的订阅
+  StreamSubscription? _typingStatusSubscription;
+  StreamSubscription? _onlineStatusSubscription;
+  StreamSubscription? _messageStatusSubscription;
+  StreamSubscription? _syncStatusSubscription;
+
+  // 打字状态管理
+  Map<String, Map<String, dynamic>> _typingUsers = {}; // conversationId -> {userId: {isTyping, timestamp}}
+  Timer? _typingStatusTimer;
+  bool _isUserTyping = false;
+  String? _lastTypingConversationId;
+
   // 标记是否正在加载，避免重复加载
   bool _isLoadingConversations = false;
   // ignore: prefer_final_fields
@@ -27,12 +40,44 @@ class ChatCubit extends Cubit<ChatState> {
   // 标记数据变更的来源
   bool _isSourceOfChange = false;
 
+  // 标记是否已初始化
+  bool _isInitialized = false;
+
   ChatCubit({required ChatRepository repository})
       : _repository = repository,
         super(ChatState.initial()) {
     _logger = LogService('chat_cubit.dart');
-    // 初始化时设置订阅，但不主动加载数据
-    _setupSubscriptions();
+    // 不在构造函数中设置订阅，而是等待initializeSubscriptions调用
+
+    // 设置实时通信相关的订阅
+    _setupRealTimeSubscriptions();
+  }
+
+  /// 初始化数据库相关订阅
+  /// 在确保数据库已初始化后调用此方法
+  Future<void> initializeSubscriptions() async {
+    if (_isInitialized) return;
+    _logger.i('初始化数据库订阅');
+
+    try {
+      // 检查数据库是否已初始化
+      if (!DatabaseInitializer.isInitialized) {
+        _logger.w('数据库尚未初始化，无法设置订阅');
+        return;
+      }
+
+      // 设置数据库订阅
+      _setupSubscriptions();
+
+      // 标记为已初始化
+      _isInitialized = true;
+
+      // 初始化后立即加载数据
+      await loadConversations();
+      await loadContacts();
+    } catch (e) {
+      _logger.e('初始化订阅失败', error: e);
+    }
   }
 
   /// 设置数据变化订阅
@@ -55,6 +100,211 @@ class ChatCubit extends Cubit<ChatState> {
         loadContacts();
       }
     });
+  }
+
+  /// 设置实时通信相关的订阅
+  void _setupRealTimeSubscriptions() {
+    _logger.i('设置实时通信订阅');
+
+    // 监听打字状态
+    _typingStatusSubscription?.cancel();
+    _typingStatusSubscription = _repository.getTypingStatusStream().listen((data) {
+      _handleTypingStatus(data);
+    });
+
+    // 监听在线状态
+    _onlineStatusSubscription?.cancel();
+    _onlineStatusSubscription = _repository.getOnlineStatusStream().listen((data) {
+      _handleOnlineStatus(data);
+    });
+
+    // 监听消息状态
+    _messageStatusSubscription?.cancel();
+    _messageStatusSubscription = _repository.getMessageStatusStream().listen((data) {
+      _handleMessageStatus(data);
+    });
+
+    // 监听同步状态
+    _syncStatusSubscription?.cancel();
+    _syncStatusSubscription = _repository.getSyncStatusStream().listen((status) {
+      _handleSyncStatus(status);
+    });
+
+    // 设置打字状态清理定时器
+    _typingStatusTimer?.cancel();
+    _typingStatusTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _cleanupTypingStatus();
+    });
+  }
+
+  /// 处理打字状态
+  void _handleTypingStatus(Map<String, dynamic> data) {
+    _logger.i('处理打字状态', extra: {'data': data});
+
+    final conversationId = data['conversationId'] as String?;
+    final userId = data['userId'] as String?;
+    final isTyping = data['isTyping'] as bool? ?? false;
+    final timestamp = data['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+
+    if (conversationId == null || userId == null) return;
+
+    // 更新打字状态缓存
+    if (!_typingUsers.containsKey(conversationId)) {
+      _typingUsers[conversationId] = {};
+    }
+
+    _typingUsers[conversationId]![userId] = {
+      'isTyping': isTyping,
+      'timestamp': timestamp,
+    };
+
+    // 更新UI状态
+    final typingUserIds = _getTypingUserIds(conversationId);
+    emit(state.copyWith(
+      typingUsers: Map<String, List<String>>.from(state.typingUsers)..update(conversationId, (_) => typingUserIds, ifAbsent: () => typingUserIds),
+    ));
+  }
+
+  /// 获取当前正在输入的用户ID列表
+  List<String> _getTypingUserIds(String conversationId) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final typingTimeout = 10000; // 10秒超时
+
+    return _typingUsers[conversationId]
+            ?.entries
+            .where((entry) => entry.value['isTyping'] == true && (now - (entry.value['timestamp'] as int)) < typingTimeout)
+            .map((entry) => entry.key)
+            .toList() ??
+        [];
+  }
+
+  /// 清理过期的打字状态
+  void _cleanupTypingStatus() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final typingTimeout = 10000; // 10秒超时
+    bool needsUpdate = false;
+
+    // 检查所有会话
+    for (final conversationId in _typingUsers.keys) {
+      final userEntries = _typingUsers[conversationId]!;
+
+      // 移除过期的状态
+      for (final userId in userEntries.keys.toList()) {
+        final data = userEntries[userId]!;
+        if (data['isTyping'] == true && (now - (data['timestamp'] as int)) >= typingTimeout) {
+          userEntries[userId] = {
+            'isTyping': false,
+            'timestamp': now,
+          };
+          needsUpdate = true;
+        }
+      }
+    }
+
+    // 如果有状态变更，更新UI
+    if (needsUpdate) {
+      final updatedTypingUsers = <String, List<String>>{};
+
+      for (final conversationId in _typingUsers.keys) {
+        updatedTypingUsers[conversationId] = _getTypingUserIds(conversationId);
+      }
+
+      emit(state.copyWith(typingUsers: updatedTypingUsers));
+    }
+  }
+
+  /// 处理在线状态
+  void _handleOnlineStatus(Map<String, dynamic> data) {
+    _logger.i('处理在线状态', extra: {'data': data});
+
+    final userId = data['userId'] as String?;
+    final isOnline = data['isOnline'] as bool? ?? false;
+
+    if (userId == null) return;
+
+    // 更新UI状态
+    final updatedOnlineUsers = Set<String>.from(state.onlineUsers);
+    if (isOnline) {
+      updatedOnlineUsers.add(userId);
+    } else {
+      updatedOnlineUsers.remove(userId);
+    }
+
+    emit(state.copyWith(onlineUsers: updatedOnlineUsers));
+  }
+
+  /// 处理消息状态
+  void _handleMessageStatus(Map<String, dynamic> data) {
+    _logger.i('处理消息状态', extra: {'data': data});
+
+    final messageId = data['messageId'] as String?;
+    final status = data['status'] as int?;
+    final conversationId = data['conversationId'] as String?;
+
+    if (messageId == null || status == null || conversationId == null) return;
+
+    // 获取当前会话的消息
+    final messages = state.messagesByConversation[conversationId] ?? [];
+    final messageIndex = messages.indexWhere((m) => m.messageId == messageId);
+
+    if (messageIndex >= 0) {
+      // 更新消息状态
+      final updatedMessages = List<Message>.from(messages);
+      final message = updatedMessages[messageIndex];
+
+      // 目前在数据模型中使用字符串表示状态，这里需要转换
+      String newStatus;
+      switch (status) {
+        case 0:
+          newStatus = 'sending';
+          break;
+        case 1:
+          newStatus = 'sent';
+          break;
+        case 2:
+          newStatus = 'delivered';
+          break;
+        case 3:
+          newStatus = 'read';
+          break;
+        case 4:
+          newStatus = 'failed';
+          break;
+        default:
+          newStatus = message.status;
+      }
+
+      if (message.status != newStatus) {
+        message.status = newStatus;
+
+        // 更新UI状态
+        emit(state.copyWithMessagesForConversation(conversationId, updatedMessages));
+      }
+    }
+  }
+
+  /// 处理同步状态
+  void _handleSyncStatus(SyncStatus status) {
+    _logger.i('处理同步状态', extra: {'status': status.toString()});
+
+    emit(state.copyWith(syncStatus: status));
+  }
+
+  /// 发送正在输入状态
+  Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
+    // 避免重复发送相同状态
+    if (_isUserTyping == isTyping && _lastTypingConversationId == conversationId) {
+      return;
+    }
+
+    _isUserTyping = isTyping;
+    _lastTypingConversationId = conversationId;
+
+    try {
+      await _repository.sendTypingStatus(conversationId, isTyping);
+    } catch (e) {
+      _logger.e('发送输入状态失败', error: e);
+    }
   }
 
   /// 加载会话列表
@@ -653,6 +903,13 @@ class ChatCubit extends Cubit<ChatState> {
       subscription.cancel();
     }
     _messagesSubscriptions.clear();
+
+    // 取消实时通信相关的订阅
+    _typingStatusSubscription?.cancel();
+    _onlineStatusSubscription?.cancel();
+    _messageStatusSubscription?.cancel();
+    _syncStatusSubscription?.cancel();
+    _typingStatusTimer?.cancel();
 
     return super.close();
   }

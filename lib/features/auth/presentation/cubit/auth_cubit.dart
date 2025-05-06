@@ -4,6 +4,9 @@ import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/user_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/core/services/socket_service.dart';
 
 part 'auth_state.dart';
 
@@ -13,7 +16,16 @@ class AuthCubit extends Cubit<AuthState> {
   Timer? _countdownTimer;
   static const int countdownDuration = 60;
 
-  AuthCubit() : super(const AuthFormState());
+  // 添加ChatRepository依赖，用于初始化Socket连接
+  final ChatRepository? _chatRepository;
+
+  // 添加ChatCubit依赖，用于在登录成功后初始化
+  final ChatCubit? _chatCubit;
+
+  AuthCubit({ChatRepository? chatRepository, ChatCubit? chatCubit})
+      : _chatRepository = chatRepository,
+        _chatCubit = chatCubit,
+        super(const AuthFormState());
 
   void updatePhoneNumber(String phoneNumber) {
     final currentState = state;
@@ -144,6 +156,12 @@ class AuthCubit extends Cubit<AuthState> {
         // 保存或更新用户信息
         await _saveUserInfoToDatabase(currentState.phoneNumber!, serverUserId, nickname: currentState.nickname);
 
+        // 初始化Socket.IO实时通信
+        await _initRealTimeConnection(serverUserId, serverToken);
+
+        // 初始化ChatCubit(在数据库和Socket初始化后)
+        await _initChatCubit();
+
         _logger.i('登录成功');
         emit(AuthSuccess(userId: serverUserId, token: serverToken));
       } catch (e) {
@@ -151,6 +169,43 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthError(e.toString()));
         emit(currentState);
       }
+    }
+  }
+
+  /// 初始化Socket.IO实时通信连接
+  Future<void> _initRealTimeConnection(String userId, String token) async {
+    try {
+      if (_chatRepository != null) {
+        _logger.i('初始化Socket.IO实时通信');
+
+        // 获取SocketService单例
+        final socketService = SocketService();
+
+        // 使用Protobuf二进制格式初始化连接
+        // 注意：在Web平台使用base64编码更合适
+        final isWeb = identical(0, 0.0);
+        final encoding = isWeb ? DataEncoding.base64 : DataEncoding.protobuf;
+
+        _logger.i('使用 ${encoding.toString()} 编码格式初始化Socket连接');
+
+        final success = await _chatRepository!.initRealTimeConnection(
+          userId,
+          token,
+          encoding: encoding,
+        );
+
+        if (success) {
+          _logger.i('Socket.IO实时通信初始化成功');
+        } else {
+          _logger.w('Socket.IO实时通信初始化失败，将在后台继续尝试');
+          // 可以在这里添加重试逻辑，或者让用户手动重试
+        }
+      } else {
+        _logger.w('未提供ChatRepository，无法初始化Socket.IO实时通信');
+      }
+    } catch (e) {
+      _logger.e('初始化Socket.IO实时通信出错', error: e);
+      // 不抛出异常，确保登录流程正常进行
     }
   }
 
@@ -238,6 +293,22 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// 初始化ChatCubit
+  Future<void> _initChatCubit() async {
+    try {
+      if (_chatCubit != null) {
+        _logger.i('初始化ChatCubit');
+        await _chatCubit!.initializeSubscriptions();
+        _logger.i('ChatCubit初始化成功');
+      } else {
+        _logger.w('未提供ChatCubit，无法初始化');
+      }
+    } catch (e) {
+      _logger.e('初始化ChatCubit出错', error: e);
+      // 不抛出异常，确保登录流程正常进行
+    }
+  }
+
   Future<void> register(String phoneNumber, String password, String verificationCode, String nickname) async {
     _logger.i('注册请求: $phoneNumber, 昵称: $nickname');
     try {
@@ -294,6 +365,12 @@ class AuthCubit extends Cubit<AuthState> {
 
       // 保存用户信息
       await _saveUserInfoToDatabase(phoneNumber, serverUserId, nickname: nickname);
+
+      // 初始化Socket.IO实时通信
+      await _initRealTimeConnection(serverUserId, serverToken);
+
+      // 初始化ChatCubit
+      await _initChatCubit();
 
       _logger.i('注册成功');
       emit(AuthSuccess(userId: serverUserId, token: serverToken));
@@ -369,6 +446,12 @@ class AuthCubit extends Cubit<AuthState> {
           phone: phoneNumber,
         );
       }
+
+      // 初始化Socket.IO实时通信
+      await _initRealTimeConnection(serverUserId, serverToken);
+
+      // 初始化ChatCubit
+      await _initChatCubit();
 
       _logger.i('重置密码成功');
       emit(AuthSuccess(userId: serverUserId, token: serverToken));

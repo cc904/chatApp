@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 
 /// 聊天状态类
 class ChatState extends Equatable {
@@ -16,6 +17,11 @@ class ChatState extends Equatable {
   // 页面间交互数据
   final Map<String, dynamic>? navigationData;
 
+  // 实时通信相关状态
+  final Set<String> onlineUsers; // 在线用户ID集合
+  final Map<String, List<String>> typingUsers; // 会话ID -> 正在输入的用户ID列表
+  final SyncStatus syncStatus; // 同步状态
+
   const ChatState({
     this.conversations = const [],
     this.contacts = const [],
@@ -26,6 +32,9 @@ class ChatState extends Equatable {
     this.searchQuery,
     this.searchResults = const [],
     this.navigationData,
+    this.onlineUsers = const {},
+    this.typingUsers = const {},
+    this.syncStatus = SyncStatus.idle,
   });
 
   /// 获取当前会话
@@ -46,6 +55,22 @@ class ChatState extends Equatable {
     return messagesByConversation[currentConversationId] ?? [];
   }
 
+  /// 获取当前会话正在输入的用户ID列表
+  List<String> get currentTypingUsers {
+    if (currentConversationId == null) return [];
+    return typingUsers[currentConversationId] ?? [];
+  }
+
+  /// 检查用户是否在线
+  bool isUserOnline(String userId) {
+    return onlineUsers.contains(userId);
+  }
+
+  /// 检查指定用户在指定会话中是否正在输入
+  bool isUserTyping(String userId, String conversationId) {
+    return typingUsers[conversationId]?.contains(userId) ?? false;
+  }
+
   /// 创建初始状态
   factory ChatState.initial() {
     return const ChatState();
@@ -63,6 +88,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery,
       searchResults: searchResults,
       navigationData: navigationData,
+      onlineUsers: onlineUsers,
+      typingUsers: typingUsers,
+      syncStatus: syncStatus,
     );
   }
 
@@ -78,6 +106,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery,
       searchResults: searchResults,
       navigationData: navigationData,
+      onlineUsers: onlineUsers,
+      typingUsers: typingUsers,
+      syncStatus: syncStatus,
     );
   }
 
@@ -92,6 +123,9 @@ class ChatState extends Equatable {
     String? searchQuery,
     List<dynamic>? searchResults,
     Map<String, dynamic>? navigationData,
+    Set<String>? onlineUsers,
+    Map<String, List<String>>? typingUsers,
+    SyncStatus? syncStatus,
   }) {
     return ChatState(
       conversations: conversations ?? this.conversations,
@@ -103,6 +137,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       searchResults: searchResults ?? this.searchResults,
       navigationData: navigationData ?? this.navigationData,
+      onlineUsers: onlineUsers ?? this.onlineUsers,
+      typingUsers: typingUsers ?? this.typingUsers,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -121,6 +158,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery,
       searchResults: searchResults,
       navigationData: navigationData,
+      onlineUsers: onlineUsers,
+      typingUsers: typingUsers,
+      syncStatus: syncStatus,
     );
   }
 
@@ -167,6 +207,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery,
       searchResults: searchResults,
       navigationData: navigationData,
+      onlineUsers: onlineUsers,
+      typingUsers: typingUsers,
+      syncStatus: syncStatus,
     );
   }
 
@@ -182,6 +225,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery,
       searchResults: searchResults,
       navigationData: null,
+      onlineUsers: onlineUsers,
+      typingUsers: typingUsers,
+      syncStatus: syncStatus,
     );
   }
 
@@ -196,5 +242,8 @@ class ChatState extends Equatable {
         searchQuery,
         searchResults,
         navigationData,
+        onlineUsers,
+        typingUsers,
+        syncStatus,
       ];
 }

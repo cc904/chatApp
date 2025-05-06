@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package cc;
+
+// 用户在线状态枚举
+enum UserStatus {
+  offline = 0;
+  online = 1;
+  away = 2;
+}
+
+// 用户信息
+message UserProto {
+  // 主要字段，完全匹配数据库模型
+  string user_id = 1;         // 对应 userId
+  string name = 2;            // 对应 name
+  string avatar = 3;          // 对应 avatar
+  string phone = 4;           // 对应 phone
+  string email = 5;           // 对应 email
+  string pinyin = 6;          // 对应 pinyin
+  int64 last_active_time = 7; // 对应 lastActiveTime
+  bool is_friend = 8;         // 对应 isFriend
+  string status = 9;          // 对应 status
+  
+  // 扩展字段，用于通信但数据库中没有
+  string username = 10;      // 用户名，可能和name相同
+  string display_name = 11;  // 显示名称，可能和name相同
+  bool is_typing = 12;       // 是否正在输入
+  string typing_in_conversation = 13; // 在哪个会话中输入
+}
+
+// 用户在线状态更新
+message UserStatusUpdate {
+  string user_id = 1;
+  string status = 2;    // 使用字符串保持一致性
+  int64 timestamp = 3;
+}
+
+// 用户打字状态更新
+message UserTypingUpdate {
+  string user_id = 1;
+  string conversation_id = 2;
+  bool is_typing = 3;
+  int64 timestamp = 4;
+}
+
+// 用户请求响应
+message UserResponse {
+  bool success = 1;
+  string message = 2;
+  UserProto user = 3;
+}
+
+// 用户列表
+message UserCollection {
+  repeated UserProto users = 1;
+} 

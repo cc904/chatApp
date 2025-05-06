@@ -85,4 +85,39 @@ abstract class ChatRepository {
     DateTime startDate, {
     int limit = 30,
   });
+
+  /// 初始化实时通信
+  /// [userId] - 用户ID
+  /// [token] - 认证令牌
+  /// [encoding] - 可选，指定数据编码方式，默认为JSON
+  Future<bool> initRealTimeConnection(String userId, String token, {Object? encoding});
+
+  /// 关闭实时通信连接
+  Future<void> closeRealTimeConnection();
+
+  /// 重新连接实时通信
+  Future<bool> reconnectRealTime();
+
+  /// 发送正在输入状态
+  Future<void> sendTypingStatus(String conversationId, bool isTyping);
+
+  /// 获取正在输入状态流
+  Stream<Map<String, dynamic>> getTypingStatusStream();
+
+  /// 获取在线状态流
+  Stream<Map<String, dynamic>> getOnlineStatusStream();
+
+  /// 获取消息状态流（已送达、已读）
+  Stream<Map<String, dynamic>> getMessageStatusStream();
+
+  /// 获取消息同步状态流
+  Stream<SyncStatus> getSyncStatusStream();
+}
+
+/// 同步状态枚举
+enum SyncStatus {
+  idle, // 空闲
+  syncing, // 同步中
+  completed, // 完成
+  error, // 错误
 }

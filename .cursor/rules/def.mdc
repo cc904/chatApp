@@ -7,3 +7,4 @@ alwaysApply: true
 使用Cubit作为状态管理
 使用isar作为数据库
 使用integration_test作为测试框架
+使用socket.io与后端next.js通讯

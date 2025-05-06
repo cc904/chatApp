@@ -6,17 +6,12 @@ import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/home/presentation/cubit/home_cubit.dart';
-import 'core/database/database_initializer.dart';
-import 'core/database/test_data_generator.dart';
 import 'features/chat/data/repositories/chat_repository_impl.dart';
 import 'features/chat/domain/repositories/chat_repository.dart';
 import 'features/chat/presentation/cubit/chat_cubit.dart';
 import 'features/chat/presentation/pages/chat_test_page.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'core/database/models/user.dart';
-import 'core/database/models/conversation.dart';
-import 'core/database/models/message.dart';
 import 'features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'features/contacts/domain/repositories/contacts_repository.dart';
 import 'features/contacts/presentation/cubit/contacts_cubit.dart';
@@ -110,13 +105,20 @@ class MyApp extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
-          BlocProvider<AuthCubit>(create: (context) => AuthCubit()),
-          BlocProvider<HomeCubit>(create: (context) => HomeCubit()),
+          // 先创建ChatCubit，以便可以将其传递给AuthCubit
           BlocProvider<ChatCubit>(
             create: (context) => ChatCubit(
               repository: context.read<ChatRepository>(),
             ),
           ),
+          // 创建AuthCubit，并传入ChatCubit
+          BlocProvider<AuthCubit>(
+            create: (context) => AuthCubit(
+              chatRepository: context.read<ChatRepository>(),
+              chatCubit: context.read<ChatCubit>(),
+            ),
+          ),
+          BlocProvider<HomeCubit>(create: (context) => HomeCubit()),
           // 添加ContactsCubit
           BlocProvider<ContactsCubit>(
             create: (context) => ContactsCubit(

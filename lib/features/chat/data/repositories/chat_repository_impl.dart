@@ -7,14 +7,34 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/socket_service.dart';
 import 'package:isar/isar.dart';
+
+/// 消息状态枚举
+enum MessageStatus {
+  sending, // 发送中
+  sent, // 已发送
+  delivered, // 已送达
+  read, // 已读
+  failed // 发送失败
+}
 
 /// ChatRepository的实现类
 class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService('chat_repository_impl.dart');
+  final SocketService _socketService = SocketService();
 
   // 消息流控制器，用于通知UI消息更新
   final StreamController<Message> _messageStreamController = StreamController<Message>.broadcast();
+
+  // 实时通信相关的流控制器
+  final StreamController<Map<String, dynamic>> _typingStatusController = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _onlineStatusController = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _messageStatusController = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<SyncStatus> _syncStatusController = StreamController<SyncStatus>.broadcast();
+
+  // Socket事件订阅
+  List<StreamSubscription> _socketSubscriptions = [];
 
   // 获取消息流
   Stream<Message> get messageStream => _messageStreamController.stream;
@@ -33,6 +53,17 @@ class ChatRepositoryImpl implements ChatRepository {
 
   // 获取消息集合
   IsarCollection<Message> get _messages => _isar.collection<Message>();
+
+  // Socket.IO服务器URL
+  static const String socketServerUrl = 'http://localhost:3000';
+
+  // Socket连接状态
+  bool _isSocketInitialized = false;
+
+  // 构造函数
+  ChatRepositoryImpl() {
+    _syncStatusController.add(SyncStatus.idle);
+  }
 
   @override
   Future<List<User>> getAllContacts() async {
@@ -331,31 +362,22 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<Message> sendTextMessage(String conversationId, String text) async {
     try {
-      final message = Message();
-      message.conversationId = conversationId;
-      message.senderId = _currentUserId.toString();
-      message.senderName = '我';
-      message.type = MessageType.text;
-      message.text = text;
-      message.isRead = true; // 自己发送的消息默认已读
-      message.status = 'sent';
+      // 创建消息对象
+      final message = await _createMessage(conversationId, text, MessageType.text);
 
-      await _isar.writeTxn(() async {
-        message.id = await _messages.put(message);
-        // 同步ID字段
-        DatabaseInitializer.syncIds(message);
-        await _messages.put(message);
+      // 保存到本地数据库
+      await _saveMessageToLocalDb(message);
 
-        // 更新会话最后消息预览
-        final conversation = await getConversationById(conversationId);
-        if (conversation != null) {
-          conversation.lastMessageTime = message.createdAt;
-          conversation.lastMessagePreview = text.length > 20 ? '${text.substring(0, 20)}...' : text;
-          // 同步会话ID字段
-          DatabaseInitializer.syncIds(conversation);
-          await _conversations.put(conversation);
+      // 如果Socket已初始化，发送到服务器
+      if (_isSocketInitialized) {
+        final messageData = _messageToJson(message);
+        final sent = _socketService.sendMessage(messageData);
+
+        if (!sent) {
+          // 更新消息状态为发送失败
+          await _updateMessageStatus(message, MessageStatus.failed);
         }
-      });
+      }
 
       return message;
     } catch (e) {
@@ -824,6 +846,481 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (e) {
       _logger.e('从指定日期获取消息失败', error: e);
       return [];
+    }
+  }
+
+  @override
+  Future<bool> initRealTimeConnection(String userId, String token, {Object? encoding}) async {
+    try {
+      _logger.i('初始化实时通信连接', extra: {'userId': userId});
+
+      if (_isSocketInitialized) {
+        _logger.w('Socket连接已初始化，断开旧连接');
+        await closeRealTimeConnection();
+      }
+
+      // 初始化Socket连接
+      final success = await _socketService.init(
+        serverUrl: socketServerUrl,
+        authToken: token,
+        encoding: encoding != null ? encoding as DataEncoding : DataEncoding.json,
+      );
+
+      if (success) {
+        _isSocketInitialized = true;
+        _setupSocketEventListeners();
+
+        // 发送用户上线状态
+        _socketService.sendUserOnline();
+
+        _logger.i('实时通信连接初始化成功');
+        return true;
+      } else {
+        _logger.e('实时通信连接初始化失败');
+        return false;
+      }
+    } catch (e) {
+      _logger.e('初始化实时通信连接失败', error: e);
+      return false;
+    }
+  }
+
+  @override
+  Future<void> closeRealTimeConnection() async {
+    _logger.i('关闭实时通信连接');
+
+    // 取消所有事件订阅
+    for (final subscription in _socketSubscriptions) {
+      await subscription.cancel();
+    }
+    _socketSubscriptions.clear();
+
+    // 发送用户下线状态
+    if (_isSocketInitialized) {
+      _socketService.sendUserOffline();
+    }
+
+    // 断开Socket连接
+    _socketService.disconnect();
+    _isSocketInitialized = false;
+  }
+
+  @override
+  Future<bool> reconnectRealTime() async {
+    _logger.i('尝试重新连接实时通信');
+
+    // 获取当前用户信息和令牌
+    final currentUser = await _users.filter().isFriendEqualTo(false).findFirst();
+    if (currentUser == null) {
+      _logger.e('无法重连：未找到当前用户信息');
+      return false;
+    }
+
+    // 简单模拟令牌
+    final token = 'token_${currentUser.userId}_${DateTime.now().millisecondsSinceEpoch}';
+
+    // 初始化新连接
+    return initRealTimeConnection(currentUser.userId.toString(), token);
+  }
+
+  /// 设置Socket事件监听
+  void _setupSocketEventListeners() {
+    // 取消之前的所有订阅
+    for (final subscription in _socketSubscriptions) {
+      subscription.cancel();
+    }
+    _socketSubscriptions.clear();
+
+    // 连接相关事件
+    _socketSubscriptions.add(_socketService.on(SocketEvent.connect).listen((_) {
+      _logger.i('Socket连接成功');
+      _syncStatusController.add(SyncStatus.idle);
+    }));
+
+    _socketSubscriptions.add(_socketService.on(SocketEvent.disconnect).listen((reason) {
+      _logger.w('Socket断开连接', extra: {'reason': reason});
+      _syncStatusController.add(SyncStatus.error);
+    }));
+
+    _socketSubscriptions.add(_socketService.on(SocketEvent.connectError).listen((error) {
+      _logger.e('Socket连接错误', error: error);
+      _syncStatusController.add(SyncStatus.error);
+    }));
+
+    // 用户状态事件
+    _socketSubscriptions.add(_socketService.on(SocketEvent.userOnline).listen((data) {
+      _logger.i('用户上线', extra: {'data': data});
+      _handleUserOnlineStatus(data, true);
+    }));
+
+    _socketSubscriptions.add(_socketService.on(SocketEvent.userOffline).listen((data) {
+      _logger.i('用户下线', extra: {'data': data});
+      _handleUserOnlineStatus(data, false);
+    }));
+
+    // 消息相关事件
+    _socketSubscriptions.add(_socketService.on(SocketEvent.newMessage).listen((data) {
+      _logger.i('收到新消息', extra: {'data': data});
+      _handleNewMessage(data);
+    }));
+
+    _socketSubscriptions.add(_socketService.on(SocketEvent.messageDelivered).listen((data) {
+      _logger.i('消息已送达', extra: {'data': data});
+      _handleMessageStatus(data, MessageStatus.delivered);
+    }));
+
+    _socketSubscriptions.add(_socketService.on(SocketEvent.messageRead).listen((data) {
+      _logger.i('消息已读', extra: {'data': data});
+      _handleMessageStatus(data, MessageStatus.read);
+    }));
+
+    // 输入状态事件
+    _socketSubscriptions.add(_socketService.on(SocketEvent.typing).listen((data) {
+      _logger.i('对方正在输入', extra: {'data': data});
+      _handleTypingStatus(data, true);
+    }));
+
+    _socketSubscriptions.add(_socketService.on(SocketEvent.stopTyping).listen((data) {
+      _logger.i('对方停止输入', extra: {'data': data});
+      _handleTypingStatus(data, false);
+    }));
+  }
+
+  /// 处理用户在线状态
+  void _handleUserOnlineStatus(Map<String, dynamic> data, bool isOnline) {
+    try {
+      final userId = data['userId'] as String?;
+      if (userId == null) return;
+
+      // 更新联系人状态
+      _isar.writeTxn(() async {
+        final user = await _users.get(int.tryParse(userId) ?? 0);
+        if (user != null) {
+          user.status = isOnline ? 'online' : 'offline';
+          user.lastActiveTime = isOnline ? null : DateTime.now();
+          await _users.put(user);
+        }
+      });
+
+      // 通知UI
+      _onlineStatusController.add({
+        'userId': userId,
+        'isOnline': isOnline,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      _logger.e('处理用户在线状态失败', error: e);
+    }
+  }
+
+  /// 处理新消息
+  Future<void> _handleNewMessage(Map<String, dynamic> data) async {
+    try {
+      _syncStatusController.add(SyncStatus.syncing);
+
+      // 提取消息数据
+      final messageId = data['messageId'] as String?;
+      final conversationId = data['conversationId'] as String?;
+      final senderId = data['senderId'] as String?;
+      final content = data['content'] as String?;
+      final messageType = data['type'] as String?;
+      final timestamp = data['timestamp'] as int?;
+
+      if (messageId == null || conversationId == null || senderId == null) {
+        _logger.w('收到的消息数据不完整', extra: {'data': data});
+        _syncStatusController.add(SyncStatus.error);
+        return;
+      }
+
+      // 检查消息是否已存在
+      final existingMessage = await _messages.filter().messageIdEqualTo(messageId).findFirst();
+      if (existingMessage != null) {
+        _logger.i('消息已存在，跳过', extra: {'messageId': messageId});
+        // 更新消息状态为已送达
+        await _updateMessageStatus(existingMessage, MessageStatus.delivered);
+        // 通知服务器消息已送达
+        _socketService.sendMessageRead(messageId, conversationId);
+        _syncStatusController.add(SyncStatus.completed);
+        return;
+      }
+
+      // 创建新消息
+      final message = Message();
+      message.messageId = messageId;
+      message.conversationId = conversationId;
+      message.senderId = senderId;
+      message.text = content ?? '';
+      message.type = _parseMessageType(messageType);
+      message.createdAt = timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp) : DateTime.now();
+      message.status = _messageStatusToString(MessageStatus.delivered);
+
+      // 处理特殊消息类型（如媒体消息）
+      if (message.type == MessageType.image || message.type == MessageType.voice || message.type == MessageType.file || message.type == MessageType.video) {
+        _handleMediaMessage(message, data);
+      }
+
+      // 保存消息到数据库
+      await _isar.writeTxn(() async {
+        message.id = await _messages.put(message);
+        // 同步ID字段
+        DatabaseInitializer.syncIds(message);
+        await _messages.put(message);
+
+        // 更新会话的最后一条消息
+        await _updateConversationLastMessage(conversationId, message);
+      });
+
+      // 通知服务器消息已送达
+      _socketService.sendMessageRead(messageId, conversationId);
+
+      // 通知UI新消息
+      _messageStreamController.add(message);
+
+      _syncStatusController.add(SyncStatus.completed);
+    } catch (e) {
+      _logger.e('处理新消息失败', error: e);
+      _syncStatusController.add(SyncStatus.error);
+    }
+  }
+
+  /// 消息状态枚举转字符串
+  String _messageStatusToString(MessageStatus status) {
+    switch (status) {
+      case MessageStatus.sending:
+        return 'sending';
+      case MessageStatus.sent:
+        return 'sent';
+      case MessageStatus.delivered:
+        return 'delivered';
+      case MessageStatus.read:
+        return 'read';
+      case MessageStatus.failed:
+        return 'failed';
+      default:
+        return 'sent';
+    }
+  }
+
+  /// 解析消息类型
+  MessageType _parseMessageType(String? type) {
+    switch (type) {
+      case 'text':
+        return MessageType.text;
+      case 'image':
+        return MessageType.image;
+      case 'voice':
+        return MessageType.voice;
+      case 'video':
+        return MessageType.video;
+      case 'file':
+        return MessageType.file;
+      case 'location':
+        return MessageType.location;
+      case 'system':
+        return MessageType.system;
+      default:
+        return MessageType.text;
+    }
+  }
+
+  /// 处理媒体消息
+  void _handleMediaMessage(Message message, Map<String, dynamic> data) {
+    // 解析媒体URL
+    final mediaUrl = data['mediaUrl'] as String?;
+    if (mediaUrl != null) {
+      message.mediaUrl = mediaUrl;
+    }
+
+    // 处理其他属性
+    if (message.type == MessageType.voice) {
+      message.duration = data['duration'] as int? ?? 0;
+    } else if (message.type == MessageType.video) {
+      message.duration = data['duration'] as int? ?? 0;
+      message.thumbnailUrl = data['thumbnailUrl'] as String?;
+    } else if (message.type == MessageType.file) {
+      message.fileName = data['fileName'] as String?;
+      message.fileSize = data['fileSize'] as double? ?? 0;
+    }
+  }
+
+  /// 更新会话的最后一条消息
+  Future<void> _updateConversationLastMessage(String conversationId, Message message) async {
+    final conversation = await _conversations.filter().conversationIdEqualTo(conversationId).findFirst();
+    if (conversation != null) {
+      conversation.lastMessagePreview = _generateMessagePreview(message);
+      conversation.lastMessageTime = message.createdAt;
+
+      // 如果消息不是当前用户发送的，增加未读计数
+      if (message.senderId != _currentUserId.toString()) {
+        conversation.unreadCount = (conversation.unreadCount ?? 0) + 1;
+      }
+
+      await _conversations.put(conversation);
+    }
+  }
+
+  /// 生成消息预览
+  String _generateMessagePreview(Message message) {
+    switch (message.type) {
+      case MessageType.text:
+        return message.text != null && message.text!.length > 20 ? '${message.text!.substring(0, 20)}...' : (message.text ?? '');
+      case MessageType.image:
+        return '[图片]';
+      case MessageType.voice:
+        return '[语音]';
+      case MessageType.video:
+        return '[视频]';
+      case MessageType.file:
+        return '[文件]${message.fileName ?? ''}';
+      case MessageType.location:
+        return '[位置]';
+      case MessageType.system:
+        return '[系统消息]';
+      default:
+        return '[消息]';
+    }
+  }
+
+  /// 更新消息状态
+  Future<void> _updateMessageStatus(Message message, MessageStatus status) async {
+    await _isar.writeTxn(() async {
+      message.status = _messageStatusToString(status);
+      await _messages.put(message);
+    });
+
+    // 通知UI消息状态已更新
+    _messageStatusController.add({
+      'messageId': message.messageId,
+      'status': status.index,
+      'conversationId': message.conversationId,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  /// 处理消息状态变更
+  Future<void> _handleMessageStatus(Map<String, dynamic> data, MessageStatus status) async {
+    try {
+      final messageId = data['messageId'] as String?;
+      if (messageId == null) return;
+
+      // 查找消息
+      final message = await _messages.filter().messageIdEqualTo(messageId).findFirst();
+      if (message != null) {
+        // 更新消息状态
+        await _updateMessageStatus(message, status);
+      }
+    } catch (e) {
+      _logger.e('处理消息状态变更失败', error: e);
+    }
+  }
+
+  /// 处理输入状态
+  void _handleTypingStatus(Map<String, dynamic> data, bool isTyping) {
+    try {
+      final conversationId = data['conversationId'] as String?;
+      final userId = data['userId'] as String?;
+
+      if (conversationId == null || userId == null) return;
+
+      // 通知UI
+      _typingStatusController.add({
+        'conversationId': conversationId,
+        'userId': userId,
+        'isTyping': isTyping,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      _logger.e('处理输入状态失败', error: e);
+    }
+  }
+
+  @override
+  Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
+    if (!_isSocketInitialized) {
+      _logger.w('Socket未初始化，无法发送输入状态');
+      return;
+    }
+
+    try {
+      if (isTyping) {
+        _socketService.sendTyping(conversationId);
+      } else {
+        _socketService.sendStopTyping(conversationId);
+      }
+    } catch (e) {
+      _logger.e('发送输入状态失败', error: e);
+    }
+  }
+
+  @override
+  Stream<Map<String, dynamic>> getTypingStatusStream() {
+    return _typingStatusController.stream;
+  }
+
+  @override
+  Stream<Map<String, dynamic>> getOnlineStatusStream() {
+    return _onlineStatusController.stream;
+  }
+
+  @override
+  Stream<Map<String, dynamic>> getMessageStatusStream() {
+    return _messageStatusController.stream;
+  }
+
+  @override
+  Stream<SyncStatus> getSyncStatusStream() {
+    return _syncStatusController.stream;
+  }
+
+  /// 将消息对象转换为JSON
+  Map<String, dynamic> _messageToJson(Message message) {
+    return {
+      'messageId': message.messageId,
+      'conversationId': message.conversationId,
+      'senderId': message.senderId,
+      'content': message.text,
+      'type': message.type.toString().split('.').last,
+      'timestamp': message.createdAt.millisecondsSinceEpoch,
+      'mediaUrl': message.mediaUrl,
+      'thumbnailUrl': message.thumbnailUrl,
+      'duration': message.duration,
+      'fileName': message.fileName,
+      'fileSize': message.fileSize,
+    };
+  }
+
+  /// 创建消息对象
+  Future<Message> _createMessage(String conversationId, String content, MessageType type) async {
+    final message = Message();
+    message.messageId = 'msg_${DateTime.now().millisecondsSinceEpoch}_${_currentUserId}';
+    message.conversationId = conversationId;
+    message.senderId = _currentUserId.toString();
+    message.text = content;
+    message.type = type;
+    message.createdAt = DateTime.now();
+    message.status = _messageStatusToString(MessageStatus.sending);
+
+    return message;
+  }
+
+  /// 保存消息到本地数据库
+  Future<void> _saveMessageToLocalDb(Message message) async {
+    try {
+      await _isar.writeTxn(() async {
+        message.id = await _messages.put(message);
+        // 同步ID字段
+        DatabaseInitializer.syncIds(message);
+        await _messages.put(message);
+
+        // 更新会话的最后一条消息
+        await _updateConversationLastMessage(message.conversationId, message);
+      });
+
+      // 通知UI新消息
+      _messageStreamController.add(message);
+    } catch (e) {
+      _logger.e('保存消息到本地数据库失败', error: e);
+      throw Exception('保存消息失败: $e');
     }
   }
 }

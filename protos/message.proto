@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package cc;
+
+// 消息类型枚举 - 与数据库模型完全匹配
+enum MessageType {
+  text = 0;
+  image = 1;
+  voice = 2;
+  file = 3;
+  video = 4;
+  location = 5;
+  system = 6;
+}
+
+// 消息状态枚举
+enum MessageStatus {
+  sending = 0;
+  sent = 1;
+  delivered = 2;
+  read = 3;
+  failed = 4;
+}
+
+// 基本消息结构
+message MessageProto {
+  // 主要字段，完全匹配数据库模型
+  string message_id = 1;
+  string conversation_id = 2;
+  string sender_id = 3;
+  string sender_name = 4;
+  string sender_avatar = 5;
+  int64 created_at = 6;
+  bool is_read = 7;
+  string status = 8; // 直接使用字符串而不是枚举
+  MessageType type = 9;
+  
+  // 消息内容
+  string text = 10;
+  
+  // 媒体消息相关字段
+  string media_url = 11;
+  string local_path = 12;
+  int32 duration = 13;
+  double file_size = 14;
+  string file_name = 15;
+  string thumbnail_url = 16;
+  
+  // 位置消息
+  double latitude = 17;
+  double longitude = 18;
+  string location_address = 19;
+  
+  // 引用消息
+  string quoted_message_id = 20;
+  
+  // 添加不同内容类型的嵌套消息，便于扩展
+  oneof content {
+    TextMessage text_message = 21;
+    MediaMessage media_message = 22;
+    LocationMessage location_message = 23;
+    SystemMessage system_message = 24;
+  }
+}
+
+// 文本消息内容
+message TextMessage {
+  string text = 1;
+}
+
+// 媒体消息内容（图片、语音、文件、视频）
+message MediaMessage {
+  string media_url = 1;
+  string local_path = 2;
+  int32 duration = 3; // 语音/视频时长(毫秒)
+  double file_size = 4; // 文件大小(KB)
+  string file_name = 5; // 文件名
+  string thumbnail_url = 6; // 缩略图URL
+  string mime_type = 7; // MIME类型
+}
+
+// 位置消息内容
+message LocationMessage {
+  double latitude = 1;
+  double longitude = 2;
+  string location_address = 3;
+}
+
+// 系统消息内容
+message SystemMessage {
+  string text = 1;
+  string action = 2; // 例如：group_created, member_added等
+}
+
+// 消息集合，用于批量操作
+message MessageCollection {
+  repeated MessageProto messages = 1;
+}
+
+// 消息响应结构
+message MessageResponse {
+  bool success = 1;
+  string message = 2;
+  string message_id = 3;
+  int64 timestamp = 4;
+} 
