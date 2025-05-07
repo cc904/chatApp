@@ -22,6 +22,7 @@ lib/
 ├── core/                     # 核心服务和工具
 │   ├── database/             # Isar数据库相关实现
 │   ├── services/             # 各种服务实现
+│   ├── network/              # 网络相关（Socket.IO, Auth服务等）
 │   ├── proto/                # Protobuf生成代码
 │   ├── adapters/             # 数据模型适配器
 │   └── utils/                # 工具类
@@ -41,7 +42,8 @@ lib/
 | `ConversationService` | 创建和管理会话，包括私聊和群聊 |
 | `MessageService` | 处理消息的发送、接收和存储 |
 | `UserService` | 用户信息的管理和存储 |
-| `SocketService` | 管理Socket.IO实时通信连接和事件处理 |
+| `SocketService` | 管理Socket.IO实时通信连接和事件处理，支持模拟模式 |
+| `AuthService` | 处理用户认证流程，与后端交互 |
 | `LogService` | 应用日志记录与管理 |
 | `ProtoConverter` | 处理Protobuf与JSON/二进制数据的互相转换 |
 
@@ -73,13 +75,14 @@ lib/features/auth/
 #### 6.1.2 主要组件
 
 **`auth_state.dart`**
-- 定义认证流程中的各种状态：
-  - `AuthInitial` - 初始状态
-  - `AuthLoading` - 加载中状态
-  - `AuthFormState` - 表单状态，包含手机号、验证码、密码等信息
-  - `AuthVerificationCodeSent` - 验证码已发送状态
-  - `AuthSuccess` - 认证成功状态
-  - `AuthError` - 认证错误状态
+- 定义统一认证状态类，使用字段组合和辅助方法判断当前状态：
+  - `phoneNumber`, `verificationCode`, `password`, `nickname` - 表单数据
+  - `isCodeSent`, `countdown` - 验证码发送状态
+  - `isLoading` - 加载状态
+  - `errorMessage` - 错误信息
+  - `userId`, `token` - 认证成功信息
+  - 状态判断方法：`isInitial`, `hasError`, `isAuthenticated`
+  - 状态转换方法：`toLoadingState()`, `toErrorState()`, `toAuthenticatedState()`
 
 **`auth_cubit.dart`**
 - 管理认证相关的业务逻辑，主要方法：
@@ -91,9 +94,7 @@ lib/features/auth/
   - `login()` - 登录逻辑(支持验证码和密码两种方式)
   - `register()` - 注册逻辑
   - `resetPassword()` - 重置密码逻辑
-  - `_initUserDatabase()` - 初始化用户数据库
-  - `_saveUserInfoToDatabase()` - 保存用户信息到数据库
-  - `_initRealTimeConnection()` - 初始化Socket.IO实时通信连接
+  - `_initRealTimeCommunication()` - 认证成功后初始化Socket.IO实时通信连接
 
 **认证页面**
 - `auth_page.dart` - 登录页面，包含手机号输入、验证码/密码输入和登录按钮
@@ -141,6 +142,7 @@ lib/features/chat/
   - 监听数据变化并通知UI
   - 使用SocketService实现实时通信
   - 处理用户在线状态、消息状态和打字状态等实时事件
+  - 设置Socket事件监听器处理各类事件
 
 **`chat_state.dart`**
 - 定义聊天相关的状态：
@@ -173,21 +175,38 @@ lib/features/chat/
   - 会话搜索
   - 消息搜索
 
-### 6.3 实时通信模块
+### 6.3 网络通信模块
 
 #### 6.3.1 主要组件
 
 **`socket_service.dart`**
 - 实现Socket.IO客户端连接和事件处理：
-  - `init()` - 初始化Socket连接
+  - 单例模式设计：`getInstance()`确保全局单一实例
+  - `init()` - 初始化Socket连接，支持认证令牌和数据编码设置
+  - `initForAuth()` - 专为认证阶段初始化Socket连接
   - `disconnect()` - 断开Socket连接
   - `emit()` - 发送事件到服务器
   - `on()` - 监听Socket事件
-  - 自定义事件处理：
-    - 用户在线状态 (`userOnline`, `userOffline`)
-    - 消息事件 (`newMessage`, `messageDelivered`, `messageRead`)
-    - 输入状态 (`typing`, `stopTyping`)
-  - 连接状态管理和重连逻辑
+  - 事件辅助方法：`sendUserOnline()`, `sendUserOffline()`, `sendMessage()`, `sendMessageRead()`, `sendTyping()`, `sendStopTyping()`
+  - 模拟模式支持：`setSimulationMode()`, `_setupSimulationEventControllers()`
+  - 连接状态管理：`isConnected`, `isConnecting`
+
+**`auth_service.dart`**
+- 实现用户认证服务：
+  - 单例模式设计
+  - `init()` - 初始化认证服务，配置服务器URL和编码方式
+  - `sendVerificationCode()` - 发送验证码
+  - `loginWithCode()` - 验证码登录
+  - `loginWithPassword()` - 密码登录
+  - `register()` - 用户注册
+  - `resetPassword()` - 密码重置
+  - `_handleAuthResponse()` - 处理认证响应
+  - `getConnectionInfo()` - 获取连接信息，供实时通信使用
+
+**`types.dart`**
+- 定义通用枚举和类型：
+  - `SocketEvent` - Socket事件枚举
+  - `DataEncoding` - 数据编码方式枚举（json, protobuf, base64）
 
 ## 7. 功能清单
 
@@ -220,236 +239,47 @@ lib/features/chat/
 2. **Protobuf二进制** - 高效的二进制序列化格式
 3. **Base64编码的Protobuf** - 兼容性更好的Protobuf格式
 
-### 8.2 Protocol Buffers 实现
+详细通信协议请参考 `docs/socket_protocol.md`。
 
-项目中的通信协议对象使用Protocol Buffers (protobuf)定义，主要包括：
+### 8.2 认证协议
 
-- `message.proto` - 消息相关结构
-- `user.proto` - 用户相关结构
-- `conversation.proto` - 会话相关结构
+项目使用基于手机号的认证系统，支持以下认证方式：
+- 手机号+验证码登录
+- 手机号+密码登录
+- 手机号+验证码+密码+昵称注册
+- 手机号+验证码+新密码重置密码
 
-这些定义文件位于`protos/`目录，通过`scripts/generate_protos.sh`脚本生成Dart代码。生成的代码位于`lib/core/proto/generated/`目录下。
+详细认证协议请参考 `docs/auth_protocol.md`。
 
-#### 8.2.1 版本管理
+## 9. 最近更新
 
-项目使用以下依赖版本确保兼容性：
-- **protobuf**: ^3.1.0（Dart库）
-- **protoc_plugin**: 21.1.2（代码生成插件）
-- **fixnum**: ^1.1.0（处理Int64类型）
-
-> **注意**: 严格遵守版本兼容性至关重要。protoc_plugin 22.0.0及以上版本需要匹配protobuf 4.0.0库，而我们的项目使用21.1.2版本的protoc_plugin，配合protobuf 3.1.0库。
-
-#### 8.2.2 数据模型设计
-
-为确保与数据库模型完美匹配，我们定制了以下protobuf数据模型：
-
-**1. 消息模型 (message.proto)**
-```protobuf
-// 基本消息结构
-message MessageProto {
-  string message_id = 1;             // 对应 messageId
-  string conversation_id = 2;        // 对应 conversationId 
-  string sender_id = 3;              // 对应 senderId
-  string text = 10;                  // 对应 text
-  MessageType type = 9;              // 对应 type (枚举)
-  string status = 8;                 // 对应 status (使用字符串而非枚举)
-  // 更多字段...
-}
-```
-
-**2. 用户模型 (user.proto)**
-```protobuf
-message UserProto {
-  string user_id = 1;                // 对应 userId
-  string name = 2;                   // 对应 name
-  string avatar = 3;                 // 对应 avatar
-  // 更多字段...
-}
-```
-
-**3. 会话模型 (conversation.proto)**
-```protobuf
-message ConversationProto {
-  string conversation_id = 1;        // 对应 conversationId
-  string name = 2;                   // 对应 name
-  ConversationType type = 4;         // 对应 type (枚举)
-  // 更多字段...
-}
-```
-
-### 8.3 数据模型转换架构
-
-项目提供了以下工具类处理通信数据转换：
-
-1. **ProtoConverter** - 负责Protobuf与JSON/二进制数据的互相转换
-   - `messageToMap()` / `mapToMessage()` - 在Message proto与Map之间转换
-   - `userToMap()` / `mapToUser()` - 在User proto与Map之间转换
-   - `messageToBytes()` / `bytesToMessage()` - 处理二进制转换
-   - `messageToBase64()` / `base64ToMessage()` - 处理Base64转换
-
-2. **ProtoModelAdapter** - 负责数据库模型与Protobuf模型的互相转换
-   - `messageToProto()` / `protoToMessage()` - 数据库Message与Proto Message转换
-   - `userToProto()` / `protoToUser()` - 数据库User与Proto User转换
-   - `conversationToProto()` / `protoToConversation()` - 数据库Conversation与Proto转换
-   
-### 8.4 通信协议问题排查与解决
-
-在项目实现过程中遇到了"Target of URI hasn't been generated"错误，主要涉及以下核心问题与解决方案：
-
-1. **版本兼容问题**
-   - **问题**: protoc_plugin 22.0.x版本与protobuf 3.1.0库不兼容
-   - **解决方案**: 降级protoc_plugin至21.1.2版本，确保与protobuf 3.1.0兼容
-
-2. **模型定义匹配问题**
-   - **问题**: .proto文件中的字段定义与数据库模型不完全匹配
-   - **解决方案**: 重写message.proto、user.proto和conversation.proto文件，确保字段名称与类型与数据库模型一致
-
-3. **枚举类型问题**
-   - **问题**: 枚举类型大小写和命名不一致
-   - **解决方案**: 统一枚举值命名为小写(如`text = 0`而非`TEXT = 0`)，与数据库模型保持一致
-
-4. **适配器修正**
-   - **问题**: 字段名称变更导致ProtoModelAdapter中的字段访问错误
-   - **解决方案**: 更新adapter中的字段访问，确保正确映射新的proto字段名
-
-5. **生成脚本更新**
-   - **问题**: 生成脚本寻找路径不正确
-   - **解决方案**: 修复generate_protos.sh脚本，确保能正确指向proto文件
-
-### 8.5 通信协议的使用方式
-
-在初始化Socket连接时指定编码方式：
-
-```dart
-await socketService.init(
-  serverUrl: 'ws://api.example.com',
-  authToken: 'user-auth-token',
-  encoding: DataEncoding.protobuf, // 或 DataEncoding.base64, DataEncoding.json
-);
-```
-
-SocketService会自动处理数据的编码和解码过程。发送消息时，通过ProtoModelAdapter将数据库模型转换为proto模型，再通过SocketService发送；接收消息时则相反。
-
-### 8.6 Socket.IO 模拟模式
-
-为了便于开发和测试，SocketService提供了一个模拟模式，无需真实的服务器连接即可进行开发：
-
-#### 8.6.1 启用模拟模式
-
-可以通过两种方式启用模拟模式：
-
-1. 初始化时直接启用：
-
-```dart
-await socketService.init(
-  serverUrl: 'http://localhost:3000',
-  authToken: 'fake-token',
-  simulationMode: true // 启用模拟模式
-);
-```
-
-2. 动态切换模拟模式：
-
-```dart
-// 启用模拟模式
-socketService.setSimulationMode(true);
-
-// 禁用模拟模式，切换回真实通信
-socketService.setSimulationMode(false);
-```
-
-#### 8.6.2 模拟功能
-
-模拟模式中会自动模拟以下行为：
-
-- 模拟连接和断开连接事件
-- 模拟消息发送响应，包括：
-  - 自动回传消息确认
-  - 自动生成消息已送达状态通知
-  - 自动生成消息已读状态通知
-- 模拟用户在线状态变化
-- 模拟响应延迟，增加真实感
-
-#### 8.6.3 自定义模拟行为
-
-可以通过以下方法自定义模拟行为：
-
-```dart
-// 设置特定事件的模拟延迟时间（毫秒）
-socketService.setSimulationDelay('new_message', 500);
-socketService.setSimulationDelay('message_read', 2000);
-```
-
-#### 8.6.4 使用场景
-
-模拟模式特别适用于以下场景：
-
-- 开发初期，后端服务尚未准备就绪
-- 单元测试和集成测试
-- 演示和展示应用功能
-- 网络不可用环境下的开发
-- 快速原型验证
-
-### 8.7 Proto更新流程
-
-如需更新通信协议，遵循以下步骤：
-
-1. 修改`protos/*.proto`文件
-2. 执行`scripts/generate_protos.sh`生成代码
-3. 更新`ProtoModelAdapter`确保字段映射正确
-4. 运行测试验证兼容性
-
-维护版本兼容性是保证通信稳定的关键。
-
-## 9. 总结与展望
-
-该项目是一个功能完备的WhatsApp克隆应用，采用了清晰的分层架构和模块化设计。项目使用Cubit进行状态管理，Isar作为本地数据库，Socket.IO实现实时通信，并通过Protocol Buffers优化数据传输效率。
-
-主要特点:
-- 分层架构确保代码可维护性
-- 多种消息类型支持
-- 高效的二进制通信协议
-- 实时状态同步与推送
-
-未来计划:
-- 实现端到端加密确保通信安全
-- 增强群组功能与管理
-- 添加语音和视频通话能力
-- 优化离线消息同步机制
-
-## 最近更新
-
-### 2024-03-21
-1. 修复了`GroupDetailPage`中的日志记录问题
-   - 添加了静态`LogService`实例
-   - 修复了未定义`_logger`的错误
-
-2. 优化了`AuthCubit`中的空安全处理
-   - 移除了不必要的非空断言操作符(`!`)
-   - 改进了`_chatRepository`和`_chatCubit`的空安全检查
-
-3. 改进了实时通信初始化流程
-   - 优化了Socket连接初始化逻辑
-   - 完善了错误处理和日志记录
-
-4. 修复了认证服务中的响应处理错误
-   - 修复了模拟认证响应时的格式转换问题
-   - 优化了`AuthResponse`对象的处理逻辑
-   - 增加了对直接`AuthResponse`对象的支持
-
-5. 修复了认证失败后表单状态丢失问题
-   - 修改了`AuthCubit`中`_handleAuthResponse`方法
-   - 优化了`login`方法的错误处理逻辑
-   - 确保错误后能保留用户输入的手机号和其他表单数据
-
-6. 重构了`AuthState`状态管理
-   - 从多状态继承模式改为单状态包含模式
-   - 整合了所有状态字段到一个类中
-   - 通过状态标志和辅助方法判断当前状态
+### 2024-04-10
+1. **统一认证状态管理**
+   - 重构了`AuthState`，从多状态继承模式改为单状态包含模式
    - 简化了状态管理，防止状态切换时数据丢失
-   - 提高了代码可维护性和健壮性
+   - 增加了辅助方法判断当前状态：`isInitial`、`hasError`、`isAuthenticated`
+   - 添加了状态转换方法：`toLoadingState()`、`toErrorState()`、`toAuthenticatedState()`
 
-## 待办事项
+2. **完善Socket.IO通信实现**
+   - 增强了`SocketService`，添加了`initForAuth()`方法专门处理认证阶段的连接
+   - 完善了`DataEncoding`枚举，支持JSON、Protobuf和Base64编码的Protobuf
+   - 改进了模拟模式实现，添加更多模拟事件
+
+3. **优化认证与实时通信集成**
+   - 完善了`AuthCubit`中的`_initRealTimeCommunication()`方法
+   - 确保认证成功后自动建立Socket连接并初始化聊天状态
+   - 优化了认证错误处理，确保表单状态不丢失
+
+4. **界面优化**
+   - 改进了注册页面UI，增加了密码确认和更好的错误提示
+   - 添加了更好的输入验证，确保用户输入有效数据
+
+5. **文档完善**
+   - 创建了详细的`socket_protocol.md`记录所有通信协议
+   - 创建了`auth_protocol.md`记录认证流程
+   - 更新了项目整体文档
+
+## 10. 待办事项
 - [ ] 实现消息加密
 - [ ] 添加语音/视频通话
 - [ ] 优化消息同步机制
