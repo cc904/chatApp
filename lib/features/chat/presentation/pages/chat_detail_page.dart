@@ -37,6 +37,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   bool _dataInitialized = false;
   String? _targetMessageId; // 目标消息ID，用于滚动定位
   List<Message> _messages = []; // 缓存的消息列表
+  bool _isJumpingToDate = false; // 控制日期跳转加载指示器
 
   // 录音波形动画控制
   late AnimationController _waveformController;
@@ -368,18 +369,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               final targetDate = jumpToDateObj;
 
               WidgetsBinding.instance.addPostFrameCallback((_) async {
-                // 显示加载指示器
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (BuildContext context) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  },
-                );
+                // 使用一个布尔值来控制覆盖层显示
+                if (mounted) {
+                  setState(() {
+                    // 在这里可以设置一个状态变量来显示加载指示器
+                    _isJumpingToDate = true;
+                  });
+                }
 
-                //延迟3秒
+                // 延迟3秒
                 await Future.delayed(const Duration(seconds: 3));
 
                 try {
@@ -391,17 +389,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                   // 确保context仍然有效
                   if (!mounted) return;
 
-                  // 关闭加载指示器
-                  Navigator.of(context).pop();
+                  // 关闭加载状态
+                  if (mounted) {
+                    setState(() {
+                      // 在这里可以重置状态变量
+                      _isJumpingToDate = false;
+                    });
+                  }
 
                   if (dateOnlyMessages.isNotEmpty) {
                     // 找到当天第一条消息进行短暂高亮显示
                     final firstMessageOfDay = dateOnlyMessages.first;
 
                     // 短暂高亮显示该消息
-                    setState(() {
-                      _targetMessageId = firstMessageOfDay.messageId;
-                    });
+                    if (mounted) {
+                      setState(() {
+                        _targetMessageId = firstMessageOfDay.messageId;
+                      });
+                    }
 
                     // 3秒后取消高亮
                     Future.delayed(const Duration(seconds: 3), () {
@@ -420,11 +425,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 } catch (e) {
                   _logger.e('处理跳转日期失败: $e');
                   if (mounted) {
-                    try {
-                      Navigator.of(context).pop(); // 关闭加载指示器
-                    } catch (navError) {
-                      // 忽略可能的导航错误
-                    }
+                    setState(() {
+                      // 在这里可以重置状态变量
+                      _isJumpingToDate = false;
+                    });
 
                     UINotificationHelper.showError('跳转失败: $e');
                   }
@@ -487,65 +491,80 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               ),
             ],
           ),
-          body: Column(
+          body: Stack(
             children: [
-              // 加载更多指示器
-              if (_isLoadingMore)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                ),
-
-              // 消息列表
-              Expanded(
-                child: _messages.isEmpty
-                    ? _buildEmptyChat()
-                    : NotificationListener<ScrollNotification>(
-                        // 添加滚动通知监听，更精确地捕获滚动事件
-                        onNotification: (scrollInfo) {
-                          if (scrollInfo is ScrollEndNotification) {
-                            setState(() {});
-                          }
-                          return false;
-                        },
-                        child: ScrollConfiguration(
-                          // 自定义滚动行为，隐藏滚动条
-                          behavior: ScrollConfiguration.of(context).copyWith(
-                            scrollbars: false,
-                          ),
-                          child: ListView.builder(
-                            key: ValueKey('message_list_${_messages.length}'), // 添加key让Flutter知道列表已更新
-                            controller: _scrollController,
-                            reverse: true, // 最新消息在底部
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 8.0), // 添加底部间距
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) {
-                              if (index >= _messages.length) {
-                                return const SizedBox(); // 防止索引越界
-                              }
-
-                              final message = _messages[index];
-                              final isFromMe = message.senderId == '1'; // 假设当前用户ID为1
-
-                              return _buildMessageItem(message, isFromMe);
-                            },
+              Column(
+                children: [
+                  // 加载更多指示器
+                  if (_isLoadingMore)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.green,
                           ),
                         ),
                       ),
+                    ),
+
+                  // 消息列表
+                  Expanded(
+                    child: _messages.isEmpty
+                        ? _buildEmptyChat()
+                        : NotificationListener<ScrollNotification>(
+                            // 添加滚动通知监听，更精确地捕获滚动事件
+                            onNotification: (scrollInfo) {
+                              if (scrollInfo is ScrollEndNotification) {
+                                setState(() {});
+                              }
+                              return false;
+                            },
+                            child: ScrollConfiguration(
+                              // 自定义滚动行为，隐藏滚动条
+                              behavior: ScrollConfiguration.of(context).copyWith(
+                                scrollbars: false,
+                              ),
+                              child: ListView.builder(
+                                key: ValueKey('message_list_${_messages.length}'), // 添加key让Flutter知道列表已更新
+                                controller: _scrollController,
+                                reverse: true, // 最新消息在底部
+                                physics: const BouncingScrollPhysics(),
+                                padding: const EdgeInsets.only(bottom: 8.0), // 添加底部间距
+                                itemCount: _messages.length,
+                                itemBuilder: (context, index) {
+                                  if (index >= _messages.length) {
+                                    return const SizedBox(); // 防止索引越界
+                                  }
+
+                                  final message = _messages[index];
+                                  final isFromMe = message.senderId == '1'; // 假设当前用户ID为1
+
+                                  return _buildMessageItem(message, isFromMe);
+                                },
+                              ),
+                            ),
+                          ),
+                  ),
+
+                  // 消息输入区域
+                  _buildMessageInput(),
+                ],
               ),
 
-              // 消息输入区域
-              _buildMessageInput(),
+              // 日期跳转加载指示器
+              if (_isJumpingToDate)
+                Container(
+                  color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 128),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -973,10 +992,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       ),
     );
   }
-
-  // 处理跳转到指定日期的方法
-
-  // 处理高亮显示指定消息
 
   // 获取会话标题
   String _getConversationTitle(ChatState state) {
