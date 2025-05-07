@@ -104,7 +104,10 @@ class AuthService {
 
     AuthResponse response;
     try {
-      if (data is List<int>) {
+      if (data is AuthResponse) {
+        // 直接使用AuthResponse对象
+        response = data;
+      } else if (data is List<int>) {
         // 二进制Protobuf格式
         response = AuthResponse.fromBuffer(data);
       } else if (data is String) {
@@ -362,7 +365,7 @@ class AuthService {
     }
 
     // 发送模拟响应
-    _handleAuthResponse(response.toProto3Json());
+    _handleAuthResponse(response);
   }
 
   /// 模拟登录响应

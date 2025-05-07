@@ -154,3 +154,4 @@ class ProtoConverter {
     return AuthResponse.fromBuffer(bytes);
   }
 }
+ 

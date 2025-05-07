@@ -41,7 +41,7 @@ class AuthCubit extends Cubit<AuthState> {
         _serverUrl = serverUrl,
         _simulationMode = simulationMode,
         _dataEncoding = dataEncoding,
-        super(const AuthFormState()) {
+        super(AuthState.initial()) {
     // 初始化认证服务
     _initAuthService();
     // 订阅认证响应事件
@@ -59,13 +59,11 @@ class AuthCubit extends Cubit<AuthState> {
 
       if (!success) {
         _logger.e('初始化认证服务失败');
-        emit(const AuthError('初始化认证服务失败，请重试'));
-        emit(const AuthFormState());
+        emit(state.toErrorState('初始化认证服务失败，请重试'));
       }
     } catch (e) {
       _logger.e('初始化认证服务出错', error: e);
-      emit(AuthError(e.toString()));
-      emit(const AuthFormState());
+      emit(state.toErrorState(e.toString()));
     }
   }
 
@@ -74,19 +72,12 @@ class AuthCubit extends Cubit<AuthState> {
     _logger.i('收到认证响应', extra: {'success': response.success, 'message': response.message});
 
     if (!response.success) {
-      emit(AuthError(response.message));
-      // 恢复表单状态
-      final currentState = state;
-      if (currentState is AuthFormState) {
-        emit(currentState);
-      } else {
-        emit(const AuthFormState());
-      }
+      emit(state.toErrorState(response.message));
       return;
     }
 
     if (response.hasUserId() && response.hasToken()) {
-      emit(AuthSuccess(userId: response.userId, token: response.token));
+      emit(state.toAuthenticatedState(userId: response.userId, token: response.token));
 
       // 认证成功后，准备实时通信
       _initRealTimeCommunication(response.userId, response.token);
@@ -131,149 +122,127 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void updatePhoneNumber(String phoneNumber) {
-    final currentState = state;
     _logger.i('更新手机号: $phoneNumber');
-    if (currentState is AuthFormState) {
-      emit(currentState.copyWith(phoneNumber: phoneNumber));
-    }
+    emit(state.copyWith(phoneNumber: phoneNumber));
   }
 
   void updateVerificationCode(String code) {
-    final currentState = state;
     _logger.i('更新验证码: $code');
-    if (currentState is AuthFormState) {
-      emit(currentState.copyWith(verificationCode: code));
-    }
+    emit(state.copyWith(verificationCode: code));
   }
 
   void updatePassword(String password) {
-    final currentState = state;
     _logger.i('更新密码: $password');
-    if (currentState is AuthFormState) {
-      emit(currentState.copyWith(password: password));
-    }
+    emit(state.copyWith(password: password));
   }
 
   void updateNickname(String nickname) {
-    final currentState = state;
     _logger.i('更新昵称: $nickname');
-    if (currentState is AuthFormState) {
-      emit(currentState.copyWith(nickname: nickname));
-    }
+    emit(state.copyWith(nickname: nickname));
   }
 
   Future<void> sendVerificationCode() async {
-    final currentState = state;
     _logger.i('发送验证码');
-    if (currentState is AuthFormState) {
-      if (currentState.phoneNumber?.length != 11) {
-        _logger.e('手机号错误: ${currentState.phoneNumber}');
-        emit(const AuthError('请输入正确的手机号码'));
-        emit(currentState);
-        return;
+
+    if (state.phoneNumber?.length != 11) {
+      _logger.e('手机号错误: ${state.phoneNumber}');
+      emit(state.toErrorState('请输入正确的手机号码'));
+      return;
+    }
+
+    try {
+      _logger.i('发送验证码中...');
+      emit(state.toLoadingState());
+
+      // 使用认证服务发送验证码
+      final success = await _authService.sendVerificationCode(
+        state.phoneNumber!,
+        'login', // 用途：login/register/reset
+      );
+
+      if (!success) {
+        throw '发送验证码失败，请稍后再试';
       }
 
-      try {
-        _logger.i('发送验证码中...');
-        emit(AuthLoading());
+      emit(state.updateCodeSentStatus(
+        isCodeSent: true,
+        countdown: countdownDuration,
+      ));
+      _logger.i('验证码已发送，倒计时: $countdownDuration');
 
-        // 使用认证服务发送验证码
-        final success = await _authService.sendVerificationCode(
-          currentState.phoneNumber!,
-          'login', // 用途：login/register/reset
-        );
-
-        if (!success) {
-          throw '发送验证码失败，请稍后再试';
-        }
-
-        emit(currentState.copyWith(
-          isCodeSent: true,
-          countdown: countdownDuration,
-        ));
-        _logger.i('验证码已发送，倒计时: $countdownDuration');
-
-        _startCountdown();
-      } catch (e) {
-        _logger.e('发送验证码错误: $e');
-        emit(AuthError(e.toString()));
-        emit(currentState);
-      }
+      _startCountdown();
+    } catch (e) {
+      _logger.e('发送验证码错误: $e');
+      emit(state.toErrorState(e.toString()));
     }
   }
 
   void _startCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final currentState = state;
-      if (currentState is AuthFormState) {
-        final newCountdown = (currentState.countdown ?? 0) - 1;
-        if (newCountdown <= 0) {
-          timer.cancel();
-          emit(currentState.copyWith(isCodeSent: false, countdown: null));
-        } else {
-          emit(currentState.copyWith(countdown: newCountdown));
-        }
+      final newCountdown = (state.countdown ?? 0) - 1;
+      if (newCountdown <= 0) {
+        timer.cancel();
+        emit(state.updateCodeSentStatus(isCodeSent: false, countdown: null));
+      } else {
+        emit(state.copyWith(countdown: newCountdown));
       }
     });
   }
 
   Future<void> login(bool isQuickLogin) async {
-    final currentState = state;
     _logger.i('登录请求 - 快捷登录: $isQuickLogin');
-    if (currentState is AuthFormState) {
-      try {
-        // 验证手机号
-        if (currentState.phoneNumber?.isEmpty ?? true) {
-          _logger.i('手机号为空');
-          throw '请输入手机号码';
-        }
-        if (currentState.phoneNumber!.length != 11) {
-          _logger.e('手机号错误: ${currentState.phoneNumber}');
-          throw '请输入正确的手机号码';
-        }
 
-        emit(AuthLoading());
-        _logger.i('登录中...');
-
-        bool success = false;
-
-        if (isQuickLogin) {
-          // 验证码登录
-          if (currentState.verificationCode?.isEmpty ?? true) {
-            _logger.i('验证码为空');
-            throw '请输入验证码';
-          }
-
-          _logger.i('使用验证码登录: ${currentState.verificationCode}');
-          success = await _authService.loginWithCode(
-            currentState.phoneNumber!,
-            currentState.verificationCode!,
-          );
-        } else {
-          // 密码登录
-          if (currentState.password?.isEmpty ?? true) {
-            _logger.i('密码为空');
-            throw '请输入密码';
-          }
-
-          _logger.i('使用密码登录: ${currentState.password}');
-          success = await _authService.loginWithPassword(
-            currentState.phoneNumber!,
-            currentState.password!,
-          );
-        }
-
-        if (!success) {
-          throw '登录失败，请检查网络连接';
-        }
-
-        // 注意：登录结果将通过AuthService的onAuthResponse回调处理
-      } catch (e) {
-        _logger.e('登录错误: $e');
-        emit(AuthError(e.toString()));
-        emit(currentState);
+    try {
+      // 验证手机号
+      if (state.phoneNumber?.isEmpty ?? true) {
+        _logger.i('手机号为空');
+        throw '请输入手机号码';
       }
+      if (state.phoneNumber!.length != 11) {
+        _logger.e('手机号错误: ${state.phoneNumber}');
+        throw '请输入正确的手机号码';
+      }
+
+      emit(state.toLoadingState());
+      _logger.i('登录中...');
+
+      bool success = false;
+
+      if (isQuickLogin) {
+        // 验证码登录
+        if (state.verificationCode?.isEmpty ?? true) {
+          _logger.i('验证码为空');
+          throw '请输入验证码';
+        }
+
+        _logger.i('使用验证码登录: ${state.verificationCode}');
+        success = await _authService.loginWithCode(
+          state.phoneNumber!,
+          state.verificationCode!,
+        );
+      } else {
+        // 密码登录
+        if (state.password?.isEmpty ?? true) {
+          _logger.i('密码为空');
+          throw '请输入密码';
+        }
+
+        _logger.i('使用密码登录: ${state.password}');
+        success = await _authService.loginWithPassword(
+          state.phoneNumber!,
+          state.password!,
+        );
+      }
+
+      if (!success) {
+        throw '登录失败，请检查网络连接';
+      }
+
+      // 注意：登录结果将通过AuthService的onAuthResponse回调处理
+    } catch (e) {
+      _logger.e('登录错误: $e');
+      emit(state.toErrorState(e.toString()));
     }
   }
 
@@ -312,7 +281,15 @@ class AuthCubit extends Cubit<AuthState> {
         throw '请输入昵称';
       }
 
-      emit(AuthLoading());
+      // 更新表单数据
+      emit(state.copyWith(
+        phoneNumber: phoneNumber,
+        password: password,
+        verificationCode: verificationCode,
+        nickname: nickname,
+      ));
+
+      emit(state.toLoadingState());
       _logger.i('注册中...');
 
       final success = await _authService.register(phoneNumber, verificationCode, password, nickname);
@@ -324,14 +301,7 @@ class AuthCubit extends Cubit<AuthState> {
       // 注意：注册结果将通过AuthService的onAuthResponse回调处理
     } catch (e) {
       _logger.e('注册错误: $e');
-      emit(AuthError(e.toString()));
-      // 重置为表单状态
-      emit(AuthFormState(
-        phoneNumber: phoneNumber,
-        verificationCode: verificationCode,
-        password: password,
-        nickname: nickname,
-      ));
+      emit(state.toErrorState(e.toString()));
     }
   }
 
@@ -364,7 +334,14 @@ class AuthCubit extends Cubit<AuthState> {
         throw '密码长度至少6位';
       }
 
-      emit(AuthLoading());
+      // 更新表单数据
+      emit(state.copyWith(
+        phoneNumber: phoneNumber,
+        password: newPassword,
+        verificationCode: verificationCode,
+      ));
+
+      emit(state.toLoadingState());
       _logger.i('重置密码中...');
 
       final success = await _authService.resetPassword(phoneNumber, verificationCode, newPassword);
@@ -376,13 +353,7 @@ class AuthCubit extends Cubit<AuthState> {
       // 注意：重置密码结果将通过AuthService的onAuthResponse回调处理
     } catch (e) {
       _logger.e('重置密码错误: $e');
-      emit(AuthError(e.toString()));
-      // 重置为表单状态
-      emit(AuthFormState(
-        phoneNumber: phoneNumber,
-        verificationCode: verificationCode,
-        password: newPassword,
-      ));
+      emit(state.toErrorState(e.toString()));
       // 重新抛出异常，以便上层代码捕获
       rethrow;
     }

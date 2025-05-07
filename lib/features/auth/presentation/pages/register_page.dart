@@ -120,26 +120,21 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(width: 8),
                       BlocBuilder<AuthCubit, AuthState>(
                         builder: (context, state) {
-                          if (state is AuthFormState) {
-                            return ElevatedButton(
-                              onPressed: state.isCodeSent ? null : () => context.read<AuthCubit>().sendVerificationCode(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              child: Text(
-                                state.isCodeSent ? '${state.countdown}s' : '获取验证码',
-                              ),
-                            );
-                          }
                           return ElevatedButton(
-                            onPressed: null,
+                            onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(),
                             style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                              foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
-                            child: const Text('获取验证码'),
+                            child: Text(
+                              state.isCodeSent && state.countdown != null
+                                  ? '${state.countdown}s'
+                                  : state.isLoading
+                                      ? '发送中...'
+                                      : '获取验证码',
+                            ),
                           );
                         },
                       ),
@@ -188,11 +183,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   // 注册按钮
                   BlocConsumer<AuthCubit, AuthState>(
                     listener: (context, state) {
-                      if (state is AuthSuccess) {
+                      if (state.isAuthenticated) {
                         UINotificationHelper.showSuccess('注册成功');
                         Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-                      } else if (state is AuthError) {
-                        UINotificationHelper.showError(state.message);
+                      } else if (state.hasError) {
+                        UINotificationHelper.showError(state.errorMessage!);
                       }
                     },
                     builder: (context, state) {
@@ -200,8 +195,8 @@ class _RegisterPageState extends State<RegisterPage> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: state is AuthLoading ? null : () => _register(),
-                          child: state is AuthLoading
+                          onPressed: state.isLoading ? null : () => _register(),
+                          child: state.isLoading
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,

@@ -166,14 +166,14 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       // 登录按钮
                       BlocConsumer<AuthCubit, AuthState>(
                         listener: (context, state) {
-                          if (state is AuthSuccess) {
+                          if (state.isAuthenticated) {
                             UINotificationHelper.showSuccess('登录成功');
                             // 这里可以添加保存token的逻辑，例如存入共享偏好或安全存储
                             // 例如: SharedPreferences.getInstance().then((prefs) => prefs.setString('auth_token', state.token));
                             // 在实际项目中应使用更安全的方式存储token
                             Navigator.of(context).pushReplacementNamed('/home');
-                          } else if (state is AuthError) {
-                            UINotificationHelper.showError(state.message);
+                          } else if (state.hasError) {
+                            UINotificationHelper.showError(state.errorMessage!);
                           }
                         },
                         builder: (context, state) {
@@ -181,8 +181,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: state is AuthLoading ? null : () => context.read<AuthCubit>().login(_tabController.index == 0),
-                              child: state is AuthLoading
+                              onPressed: state.isLoading ? null : () => context.read<AuthCubit>().login(_tabController.index == 0),
+                              child: state.isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
@@ -264,26 +264,21 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         const SizedBox(width: 8),
         BlocBuilder<AuthCubit, AuthState>(
           builder: (context, state) {
-            if (state is AuthFormState) {
-              return ElevatedButton(
-                onPressed: state.isCodeSent ? null : () => context.read<AuthCubit>().sendVerificationCode(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: Text(
-                  state.isCodeSent ? '${state.countdown}s' : '获取验证码',
-                ),
-              );
-            }
             return ElevatedButton(
-              onPressed: null,
+              onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(),
               style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: const Text('获取验证码'),
+              child: Text(
+                state.isCodeSent && state.countdown != null
+                    ? '${state.countdown}s'
+                    : state.isLoading
+                        ? '发送中...'
+                        : '获取验证码',
+              ),
             );
           },
         ),

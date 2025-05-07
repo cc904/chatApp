@@ -247,26 +247,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             const SizedBox(width: 8),
             BlocBuilder<AuthCubit, AuthState>(
               builder: (context, state) {
-                if (state is AuthFormState) {
-                  return ElevatedButton(
-                    onPressed: state.isCodeSent ? null : () => context.read<AuthCubit>().sendVerificationCode(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: Text(
-                      state.isCodeSent ? '${state.countdown}s' : '获取验证码',
-                    ),
-                  );
-                }
                 return ElevatedButton(
-                  onPressed: null,
+                  onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(),
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('获取验证码'),
+                  child: Text(
+                    state.isCodeSent && state.countdown != null
+                        ? '${state.countdown}s'
+                        : state.isLoading
+                            ? '发送中...'
+                            : '获取验证码',
+                  ),
                 );
               },
             ),
