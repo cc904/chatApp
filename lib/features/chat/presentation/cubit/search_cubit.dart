@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/constants/message_types.dart';
 
 // 搜索状态
 class SearchState extends Equatable {

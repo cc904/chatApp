@@ -6,8 +6,8 @@ import 'types.dart';
 import 'package:fixnum/fixnum.dart';
 import '../proto/generated/auth.pb.dart';
 import '../database/database_initializer.dart';
-import '../database/models/user.dart';
-import '../services/user_service.dart';
+import '../database/models/my_user.dart';
+import '../services/my_user_service.dart';
 
 /// 认证服务
 /// 使用Socket.IO进行认证操作
@@ -31,7 +31,7 @@ class AuthService {
 
   // 当前用户信息
   UserSession? _currentSession;
-  User? _currentUser;
+  MyUser? _currentUser;
 
   // Socket配置
   String? _serverUrl;
@@ -48,7 +48,7 @@ class AuthService {
   UserSession? get currentSession => _currentSession;
 
   // 获取当前用户信息
-  User? get currentUser => _currentUser;
+  MyUser? get currentUser => _currentUser;
 
   // 是否已登录
   bool get isLoggedIn => _currentSession != null && _currentUser != null;
@@ -152,8 +152,8 @@ class AuthService {
       // 初始化数据库
       await _initUserDatabase(response.userId);
 
-      // 获取用户信息
-      _currentUser = await UserService.getCurrentUser();
+      // 保存当前用户信息
+      _currentUser = await MyUserService.saveFromUserSession(session);
     }
   }
 
@@ -282,7 +282,7 @@ class AuthService {
         ..purpose = purpose;
 
       // 发送请求
-      return _sendAuthRequest('auth/send_code', request);
+      return _sendAuthRequest('auth', request);
     } catch (e) {
       _logger.e('发送验证码失败', error: e);
       return false;
@@ -302,36 +302,35 @@ class AuthService {
   }
 
   /// 发送认证请求
-  bool _sendAuthRequest(String event, AuthRequest request) {
+  Future<bool> _sendAuthRequest(String event, AuthRequest request) async {
     try {
-      // 如果是模拟模式，模拟响应
       if (_simulationMode) {
-        _logger.i('模拟发送认证请求', extra: {'event': event, 'data': request.operationType.name});
+        _logger.i('模拟认证请求', extra: {'event': event, 'request': request.toString()});
 
-        // 延迟返回模拟响应，模拟网络延迟
-        Future.delayed(Duration(milliseconds: 300), () {
-          _simulateAuthResponse(request);
-        });
+        // 模拟延迟
+        await Future.delayed(const Duration(milliseconds: 500));
 
+        // 模拟认证响应
+        _simulateAuthResponse(request);
         return true;
       }
 
-      Object encodedData;
-
-      // 根据编码方式编码数据
-      if (_socketService.dataEncoding == DataEncoding.json) {
-        // JSON格式
-        encodedData = _protoConverter.authRequestToMap(request);
-      } else if (_socketService.dataEncoding == DataEncoding.protobuf) {
-        // 二进制Protobuf格式
-        encodedData = request.writeToBuffer();
-      } else {
-        // Base64编码的Protobuf
-        encodedData = _protoConverter.authRequestToBase64(request);
+      // 根据编码方式序列化请求
+      dynamic data;
+      switch (_dataEncoding) {
+        case DataEncoding.json:
+          data = _protoConverter.authRequestToMap(request);
+          break;
+        case DataEncoding.protobuf:
+          data = request.writeToBuffer();
+          break;
+        case DataEncoding.base64:
+          data = _protoConverter.base64FromAuthRequest(request);
+          break;
       }
 
       // 发送请求
-      return _socketService.emit(event, encodedData);
+      return _socketService.emit(event, data);
     } catch (e) {
       _logger.e('发送认证请求失败', error: e);
       return false;
@@ -340,12 +339,15 @@ class AuthService {
 
   /// 模拟认证响应
   void _simulateAuthResponse(AuthRequest request) {
-    _logger.i('生成模拟认证响应', extra: {'operationType': request.operationType.name});
+    _logger.i('模拟认证响应', extra: {'request': request.toString()});
 
-    // 创建模拟响应
-    final response = AuthResponse();
+    // 默认成功响应
+    final response = AuthResponse()
+      ..success = true
+      ..message = '操作成功'
+      ..timestamp = Int64(DateTime.now().millisecondsSinceEpoch);
 
-    // 模拟不同操作类型的响应
+    // 根据操作类型生成不同的响应
     switch (request.operationType) {
       case AuthOperationType.login:
         _simulateLoginResponse(request, response);
@@ -353,109 +355,136 @@ class AuthService {
       case AuthOperationType.register:
         _simulateRegisterResponse(request, response);
         break;
-      case AuthOperationType.send_code:
-        _simulateSendCodeResponse(request, response);
-        break;
       case AuthOperationType.reset_password:
         _simulateResetPasswordResponse(request, response);
+        break;
+      case AuthOperationType.send_code:
+        _simulateSendCodeResponse(request, response);
         break;
       default:
         response.success = false;
         response.message = '不支持的操作类型';
     }
 
-    // 发送模拟响应
-    _handleAuthResponse(response);
+    // 延迟发送响应
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _handleAuthResponse(response);
+    });
   }
 
   /// 模拟登录响应
   void _simulateLoginResponse(AuthRequest request, AuthResponse response) {
-    // 模拟简单的登录验证
-    final isValidPhone = request.phoneNumber.length == 11 && request.phoneNumber.startsWith('1');
-    final isValidCode = request.isQuickLogin && request.verificationCode == '123456';
-    final isValidPassword = !request.isQuickLogin && request.password.length >= 6;
-
-    if (isValidPhone && (isValidCode || isValidPassword)) {
-      response.success = true;
-      response.message = '登录成功';
-      response.userId = 'user_${request.phoneNumber}';
-      response.token = 'token_${DateTime.now().millisecondsSinceEpoch}';
-    } else {
+    // 验证登录参数
+    if (request.phoneNumber.isEmpty) {
       response.success = false;
-
-      if (!isValidPhone) {
-        response.message = '无效的手机号';
-      } else if (request.isQuickLogin && !isValidCode) {
-        response.message = '验证码错误';
-      } else {
-        response.message = '密码错误';
-      }
+      response.message = '手机号不能为空';
+      return;
     }
+
+    if (request.isQuickLogin && request.verificationCode.isEmpty) {
+      response.success = false;
+      response.message = '验证码不能为空';
+      return;
+    }
+
+    if (!request.isQuickLogin && request.password.isEmpty) {
+      response.success = false;
+      response.message = '密码不能为空';
+      return;
+    }
+
+    // 生成用户ID和令牌
+    final userId = 'u${request.phoneNumber.substring(request.phoneNumber.length - 6)}';
+    final token = 'token_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+
+    response.userId = userId;
+    response.token = token;
+    response.message = '登录成功';
   }
 
   /// 模拟注册响应
   void _simulateRegisterResponse(AuthRequest request, AuthResponse response) {
-    // 模拟简单的注册验证
-    final isValidPhone = request.phoneNumber.length == 11 && request.phoneNumber.startsWith('1');
-    final isValidCode = request.verificationCode == '123456';
-    final isValidPassword = request.password.length >= 6;
-    final isValidNickname = request.nickname.isNotEmpty;
-
-    if (isValidPhone && isValidCode && isValidPassword && isValidNickname) {
-      response.success = true;
-      response.message = '注册成功';
-      response.userId = 'user_${request.phoneNumber}';
-      response.token = 'token_${DateTime.now().millisecondsSinceEpoch}';
-    } else {
+    // 验证注册参数
+    if (request.phoneNumber.isEmpty) {
       response.success = false;
-
-      if (!isValidPhone) {
-        response.message = '无效的手机号';
-      } else if (!isValidCode) {
-        response.message = '验证码错误';
-      } else if (!isValidPassword) {
-        response.message = '密码长度不足';
-      } else {
-        response.message = '昵称不能为空';
-      }
+      response.message = '手机号不能为空';
+      return;
     }
-  }
 
-  /// 模拟发送验证码响应
-  void _simulateSendCodeResponse(AuthRequest request, AuthResponse response) {
-    // 模拟验证码发送
-    final isValidPhone = request.phoneNumber.length == 11 && request.phoneNumber.startsWith('1');
-
-    if (isValidPhone) {
-      response.success = true;
-      response.message = '验证码发送成功，模拟验证码为: 123456';
-    } else {
+    if (request.verificationCode.isEmpty) {
       response.success = false;
-      response.message = '无效的手机号';
+      response.message = '验证码不能为空';
+      return;
     }
+
+    if (request.password.isEmpty) {
+      response.success = false;
+      response.message = '密码不能为空';
+      return;
+    }
+
+    if (request.nickname.isEmpty) {
+      response.success = false;
+      response.message = '昵称不能为空';
+      return;
+    }
+
+    // 生成用户ID和令牌
+    final userId = 'u${request.phoneNumber.substring(request.phoneNumber.length - 6)}';
+    final token = 'token_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+
+    response.userId = userId;
+    response.token = token;
+    response.message = '注册成功';
+
+    // 模拟设置昵称
+    _currentSession = UserSession()
+      ..userId = userId
+      ..token = token
+      ..phoneNumber = request.phoneNumber
+      ..expireTime = Int64(DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch);
   }
 
   /// 模拟重置密码响应
   void _simulateResetPasswordResponse(AuthRequest request, AuthResponse response) {
-    // 模拟重置密码验证
-    final isValidPhone = request.phoneNumber.length == 11 && request.phoneNumber.startsWith('1');
-    final isValidCode = request.verificationCode == '123456';
-    final isValidPassword = request.password.length >= 6;
-
-    if (isValidPhone && isValidCode && isValidPassword) {
-      response.success = true;
-      response.message = '密码重置成功';
-    } else {
+    // 验证重置密码参数
+    if (request.phoneNumber.isEmpty) {
       response.success = false;
-
-      if (!isValidPhone) {
-        response.message = '无效的手机号';
-      } else if (!isValidCode) {
-        response.message = '验证码错误';
-      } else {
-        response.message = '新密码长度不足';
-      }
+      response.message = '手机号不能为空';
+      return;
     }
+
+    if (request.verificationCode.isEmpty) {
+      response.success = false;
+      response.message = '验证码不能为空';
+      return;
+    }
+
+    if (request.password.isEmpty) {
+      response.success = false;
+      response.message = '新密码不能为空';
+      return;
+    }
+
+    // 生成用户ID和令牌
+    final userId = 'u${request.phoneNumber.substring(request.phoneNumber.length - 6)}';
+    final token = 'token_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+
+    response.userId = userId;
+    response.token = token;
+    response.message = '密码重置成功';
+  }
+
+  /// 模拟发送验证码响应
+  void _simulateSendCodeResponse(AuthRequest request, AuthResponse response) {
+    // 验证手机号
+    if (request.phoneNumber.isEmpty) {
+      response.success = false;
+      response.message = '手机号不能为空';
+      return;
+    }
+
+    response.message = '验证码已发送';
   }
 
   /// 销毁资源

@@ -367,7 +367,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     userId: (10000 + index).toString(),
                     description: description,
                     isOnline: index % 3 == 0,
-                    isFriend: index % 3 == 0,
+                    isContact: index % 3 == 0,
                   )
                 : GroupDetailPage(
                     name: name,
@@ -394,7 +394,7 @@ class UserDetailPage extends StatelessWidget {
   final String userId;
   final String description;
   final bool isOnline;
-  final bool isFriend;
+  final bool isContact;
   static final _logger = LogService('user_detail_page.dart');
 
   const UserDetailPage({
@@ -403,7 +403,7 @@ class UserDetailPage extends StatelessWidget {
     required this.userId,
     required this.description,
     this.isOnline = false,
-    this.isFriend = false,
+    this.isContact = false,
   });
 
   @override
@@ -551,7 +551,7 @@ class UserDetailPage extends StatelessWidget {
                   ),
 
                   // 添加好友按钮
-                  if (!isFriend)
+                  if (!isContact)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -559,7 +559,7 @@ class UserDetailPage extends StatelessWidget {
                           _showAddFriendDialog(context, name, userId);
                         },
                         icon: const Icon(Icons.person_add),
-                        label: const Text('添加好友'),
+                        label: const Text('添加联系人'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
@@ -604,7 +604,7 @@ class UserDetailPage extends StatelessWidget {
             Container(
               color: Colors.white,
               padding: const EdgeInsets.all(20),
-              child: isFriend
+              child: isContact
                   ? SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -632,7 +632,7 @@ class UserDetailPage extends StatelessWidget {
                           _showAddFriendDialog(context, name, userId);
                         },
                         icon: const Icon(Icons.person_add),
-                        label: const Text('添加好友'),
+                        label: const Text('添加联系人'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
@@ -686,7 +686,7 @@ class UserDetailPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text(
-          '添加好友',
+          '添加联系人',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -695,7 +695,7 @@ class UserDetailPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '确定要添加 $name 为好友吗？',
+              '确定要添加 $name 为联系人吗？',
               style: TextStyle(
                 fontSize: 15,
                 color: Colors.grey[800],
@@ -729,7 +729,7 @@ class UserDetailPage extends StatelessWidget {
               Navigator.pop(context);
               // 发送请求
               final verification = verificationController.text;
-              _logger.d('添加好友', extra: {'name': name, 'ID': userId, '验证信息': verification});
+              _logger.d('添加联系人', extra: {'name': name, 'ID': userId, '验证信息': verification});
 
               // 显示结果提示
               ScaffoldMessenger.of(context).showSnackBar(
@@ -748,18 +748,14 @@ class UserDetailPage extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  margin: const EdgeInsets.all(8),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
             ),
-            child: const Text('确定'),
+            child: const Text('发送'),
           ),
         ],
       ),

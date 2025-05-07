@@ -48,7 +48,7 @@ class ChatDatabase {
 
   /// 获取所有联系人(好友)
   static Future<List<User>> getAllFriends() async {
-    return await _isar.users.filter().isFriendEqualTo(true).sortByName().findAll();
+    return await _isar.users.where().sortByName().findAll();
   }
 
   /// 根据ID获取联系人
@@ -66,8 +66,6 @@ class ChatDatabase {
 
     return await _isar.users
         .filter()
-        .isFriendEqualTo(true)
-        .and()
         .group((q) => q.nameContains(keyword, caseSensitive: false).or().phoneContains(keyword).or().emailContains(keyword, caseSensitive: false))
         .sortByName()
         .findAll();

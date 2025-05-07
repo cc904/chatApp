@@ -4,43 +4,10 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';
 
 /// 用户服务
-/// 负责处理用户信息的存储和查询
+/// 负责处理联系人信息的存储和查询
 class UserService {
   static final _logger = LogService('user_service.dart');
   static final _isar = DatabaseInitializer.isar;
-
-  /// 创建当前用户
-  static Future<User?> createCurrentUser() async {
-    try {
-      _logger.i('创建当前用户');
-
-      // 检查是否已存在当前用户
-      final existingUser = await _isar.users.where().filter().isFriendEqualTo(false).findFirst();
-      if (existingUser != null) {
-        _logger.w('当前用户已存在', extra: {'userId': existingUser.userId});
-        return existingUser;
-      }
-
-      // 创建新用户
-      final user = User()
-        ..name = '我'
-        ..isFriend = false
-        ..status = 'online';
-
-      // 保存用户
-      await _isar.writeTxn(() async {
-        user.id = await _isar.users.put(user);
-        user.userId = user.id.toString();
-        await _isar.users.put(user);
-      });
-
-      _logger.i('当前用户创建成功', extra: {'userId': user.userId});
-      return user;
-    } catch (e) {
-      _logger.e('创建当前用户失败', error: e);
-      return null;
-    }
-  }
 
   /// 创建联系人
   static Future<User?> createContact({
@@ -53,16 +20,15 @@ class UserService {
     try {
       _logger.i('创建联系人', extra: {'name': name});
 
-      // 创建新用户
+      // 创建新联系人
       final user = User()
         ..name = name
         ..avatar = avatar
         ..phone = phone
         ..email = email
-        ..status = status ?? 'offline'
-        ..isFriend = true;
+        ..status = status ?? 'offline';
 
-      // 保存用户
+      // 保存联系人
       await _isar.writeTxn(() async {
         user.id = await _isar.users.put(user);
         user.userId = user.id.toString();
@@ -77,25 +43,6 @@ class UserService {
     }
   }
 
-  /// 获取当前用户
-  static Future<User?> getCurrentUser() async {
-    try {
-      _logger.i('获取当前用户');
-
-      final user = await _isar.users.where().filter().isFriendEqualTo(false).findFirst();
-      if (user == null) {
-        _logger.w('当前用户不存在');
-        return null;
-      }
-
-      _logger.i('获取当前用户成功', extra: {'userId': user.userId});
-      return user;
-    } catch (e) {
-      _logger.e('获取当前用户失败', error: e);
-      return null;
-    }
-  }
-
   /// 获取联系人列表
   static Future<List<User>> getContacts({int limit = 20, int offset = 0}) async {
     try {
@@ -104,7 +51,7 @@ class UserService {
         'offset': offset,
       });
 
-      final contacts = await _isar.users.where().filter().isFriendEqualTo(true).sortByName().offset(offset).limit(limit).findAll();
+      final contacts = await _isar.users.where().sortByName().offset(offset).limit(limit).findAll();
 
       _logger.i('获取联系人列表成功', extra: {'count': contacts.length});
       return contacts;
@@ -123,7 +70,7 @@ class UserService {
       if (id == null) return null;
 
       final user = await _isar.users.get(id);
-      if (user == null || !user.isFriend) {
+      if (user == null) {
         _logger.w('联系人不存在', extra: {'userId': userId});
         return null;
       }
@@ -136,8 +83,8 @@ class UserService {
     }
   }
 
-  /// 更新用户信息
-  static Future<bool> updateUser(
+  /// 更新联系人信息
+  static Future<bool> updateContact(
     String userId, {
     String? name,
     String? avatar,
@@ -146,7 +93,7 @@ class UserService {
     String? status,
   }) async {
     try {
-      _logger.i('更新用户信息', extra: {
+      _logger.i('更新联系人信息', extra: {
         'userId': userId,
         'name': name,
         'avatar': avatar,
@@ -172,10 +119,10 @@ class UserService {
         return true;
       });
 
-      _logger.i('更新用户信息成功');
+      _logger.i('更新联系人信息成功');
       return success;
     } catch (e) {
-      _logger.e('更新用户信息失败', error: e);
+      _logger.e('更新联系人信息失败', error: e);
       return false;
     }
   }
@@ -190,7 +137,7 @@ class UserService {
 
       final success = await _isar.writeTxn(() async {
         final user = await _isar.users.get(id);
-        if (user == null || !user.isFriend) return false;
+        if (user == null) return false;
 
         await _isar.users.delete(id);
         return true;

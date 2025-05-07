@@ -229,6 +229,8 @@ class UserProto extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(13)
   $core.String get typingInConversation => $_getSZ(12);
+
+  $core.String? get token => null;
   @$pb.TagNumber(13)
   set typingInConversation($core.String v) { $_setString(12, v); }
   @$pb.TagNumber(13)

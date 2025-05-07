@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/test_data_generator.dart';
@@ -57,6 +58,7 @@ class DatabaseInitializer {
       _isar = await Isar.open(
         [
           UserSchema,
+          MyUserSchema,
           ConversationSchema,
           MessageSchema,
         ],
@@ -70,7 +72,7 @@ class DatabaseInitializer {
       await _createIndexes();
       _logger.i('数据库初始化完成');
 
-      // 在调试模式下生成测试数据
+      // 调试模式下生成测试数据(仅对默认数据库)
       if (kDebugMode && userId == null) {
         _logger.i('开始生成测试数据');
         await TestDataGenerator.generateMoreTestData();
@@ -92,9 +94,12 @@ class DatabaseInitializer {
     try {
       _logger.i('开始创建数据库索引');
       await isar.writeTxn(() async {
-        // 用户索引
-        isar.users.where().filter().isFriendEqualTo(true).build();
-        isar.users.where().filter().isFriendEqualTo(false).build();
+        // 联系人索引
+        isar.users.where().filter().nameContains('').build();
+        isar.users.where().filter().pinyinContains('').build();
+
+        // 当前用户索引
+        isar.myUsers.where().build();
 
         // 会话索引
         isar.conversations.where().filter().typeEqualTo(ConversationType.private).build();
@@ -117,6 +122,8 @@ class DatabaseInitializer {
     if (entity == null) return;
 
     if (entity is User) {
+      entity.userId = entity.id.toString();
+    } else if (entity is MyUser) {
       entity.userId = entity.id.toString();
     } else if (entity is Conversation) {
       entity.conversationId = entity.id.toString();

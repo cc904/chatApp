@@ -8,6 +8,7 @@ import 'package:cc/features/chat/presentation/utils/date_picker_utility.dart';
 import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 // 导入本地化支持
 import 'package:cc/core/utils/ui_notification_helper.dart';
+import 'package:cc/core/constants/message_types.dart';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;

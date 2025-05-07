@@ -36,7 +36,33 @@ class ProtoModelAdapter {
     proto.createdAt = Int64(message.createdAt.millisecondsSinceEpoch);
     proto.isRead = message.isRead;
     proto.status = message.status; // 直接使用字符串
-    proto.type = _convertMessageType(message.type);
+
+    // 根据字符串设置枚举值
+    switch (message.type) {
+      case 'text':
+        proto.type = MessageType.text;
+        break;
+      case 'image':
+        proto.type = MessageType.image;
+        break;
+      case 'voice':
+        proto.type = MessageType.voice;
+        break;
+      case 'file':
+        proto.type = MessageType.file;
+        break;
+      case 'video':
+        proto.type = MessageType.video;
+        break;
+      case 'location':
+        proto.type = MessageType.location;
+        break;
+      case 'system':
+        proto.type = MessageType.system;
+        break;
+      default:
+        proto.type = MessageType.text;
+    }
 
     // 设置内容字段
     if (message.text != null) {
@@ -99,8 +125,34 @@ class ProtoModelAdapter {
       ..senderAvatar = proto.hasSenderAvatar() ? proto.senderAvatar : null
       ..createdAt = DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
       ..isRead = proto.isRead
-      ..status = proto.status
-      ..type = _convertProtoMessageType(proto.type);
+      ..status = proto.status;
+
+    // 根据枚举值设置字符串类型
+    switch (proto.type) {
+      case MessageType.text:
+        message.type = 'text';
+        break;
+      case MessageType.image:
+        message.type = 'image';
+        break;
+      case MessageType.voice:
+        message.type = 'voice';
+        break;
+      case MessageType.file:
+        message.type = 'file';
+        break;
+      case MessageType.video:
+        message.type = 'video';
+        break;
+      case MessageType.location:
+        message.type = 'location';
+        break;
+      case MessageType.system:
+        message.type = 'system';
+        break;
+      default:
+        message.type = 'text';
+    }
 
     // 设置内容字段
     if (proto.hasText()) {
@@ -177,7 +229,6 @@ class ProtoModelAdapter {
     }
 
     proto.lastActiveTime = Int64(user.lastActiveTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch);
-    proto.isFriend = user.isFriend;
     proto.status = user.status ?? 'offline';
 
     // 设置扩展字段
@@ -191,14 +242,31 @@ class ProtoModelAdapter {
   db.User protoToUser(UserProto proto) {
     final user = db.User()
       ..userId = proto.userId
-      ..name = proto.name
-      ..avatar = proto.hasAvatar() ? proto.avatar : null
-      ..phone = proto.hasPhone() ? proto.phone : null
-      ..email = proto.hasEmail() ? proto.email : null
-      ..pinyin = proto.hasPinyin() ? proto.pinyin : null
-      ..lastActiveTime = DateTime.fromMillisecondsSinceEpoch(proto.lastActiveTime.toInt())
-      ..isFriend = proto.isFriend
-      ..status = proto.status;
+      ..name = proto.name;
+
+    if (proto.hasAvatar()) {
+      user.avatar = proto.avatar;
+    }
+
+    if (proto.hasPhone()) {
+      user.phone = proto.phone;
+    }
+
+    if (proto.hasEmail()) {
+      user.email = proto.email;
+    }
+
+    if (proto.hasPinyin()) {
+      user.pinyin = proto.pinyin;
+    }
+
+    if (proto.hasLastActiveTime()) {
+      user.lastActiveTime = DateTime.fromMillisecondsSinceEpoch(proto.lastActiveTime.toInt());
+    }
+
+    if (proto.hasStatus()) {
+      user.status = proto.status;
+    }
 
     return user;
   }
@@ -266,45 +334,5 @@ class ProtoModelAdapter {
     return conversation;
   }
 
-  // 辅助方法：转换消息类型
-  MessageType _convertMessageType(db.MessageType dbType) {
-    switch (dbType) {
-      case db.MessageType.text:
-        return MessageType.text;
-      case db.MessageType.image:
-        return MessageType.image;
-      case db.MessageType.voice:
-        return MessageType.voice;
-      case db.MessageType.file:
-        return MessageType.file;
-      case db.MessageType.video:
-        return MessageType.video;
-      case db.MessageType.location:
-        return MessageType.location;
-      case db.MessageType.system:
-        return MessageType.system;
-      }
-  }
-
-  // 辅助方法：从Proto转换消息类型
-  db.MessageType _convertProtoMessageType(MessageType protoType) {
-    switch (protoType) {
-      case MessageType.text:
-        return db.MessageType.text;
-      case MessageType.image:
-        return db.MessageType.image;
-      case MessageType.voice:
-        return db.MessageType.voice;
-      case MessageType.file:
-        return db.MessageType.file;
-      case MessageType.video:
-        return db.MessageType.video;
-      case MessageType.location:
-        return db.MessageType.location;
-      case MessageType.system:
-        return db.MessageType.system;
-      default:
-        return db.MessageType.text;
-    }
-  }
+  // 注：MyUserProto相关方法已移至MyUserService类中实现
 }

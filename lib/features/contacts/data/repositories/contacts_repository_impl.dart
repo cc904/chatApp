@@ -17,8 +17,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<List<User>> getAllContacts() async {
     try {
-      // 查询所有标记为朋友的用户
-      return await _users.where().filter().isFriendEqualTo(true).sortByName().findAll();
+      // 查询所有联系人
+      return await _users.where().sortByName().findAll();
     } catch (e) {
       _logger.e('获取联系人失败', error: e);
       return [];
@@ -33,12 +33,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
     try {
       // 搜索姓名、电话或邮箱包含关键词的联系人
-      final query = _users
-          .where()
-          .filter()
-          .isFriendEqualTo(true)
-          .and()
-          .group((q) => q.nameContains(keyword, caseSensitive: false).or().phoneContains(keyword).or().emailContains(keyword, caseSensitive: false));
+      final query = _users.where().filter().nameContains(keyword, caseSensitive: false).or().phoneContains(keyword).or().emailContains(keyword, caseSensitive: false);
 
       return await query.sortByName().findAll();
     } catch (e) {
@@ -54,7 +49,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       if (id == null) return null;
 
       final user = await _users.get(id);
-      if (user == null || !user.isFriend) return null;
+      if (user == null) return null;
 
       return user;
     } catch (e) {
@@ -104,6 +99,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
   @override
   Stream<void> watchContacts() {
-    return _users.where().filter().isFriendEqualTo(true).watchLazy();
+    return _users.where().watchLazy();
   }
 }

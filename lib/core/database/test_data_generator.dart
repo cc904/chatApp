@@ -1,58 +1,90 @@
+import 'dart:math';
 import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:flutter/foundation.dart';
-import 'package:isar/isar.dart';
+import 'package:cc/core/database/models/my_user.dart';
+import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/my_user_service.dart';
+import 'package:isar/isar.dart';
 
 /// 测试数据生成器
-/// 用于生成更多的模拟聊天数据
+/// 用于生成测试用的数据
 class TestDataGenerator {
   static final _logger = LogService('test_data_generator.dart');
+  static final _random = Random();
 
-  /// 生成更多测试数据
-  static Future<void> generateMoreTestData({int conversationCount = 20, int messageCount = 10}) async {
-    if (!kDebugMode) return; // 仅在调试模式下创建测试数据
-
+  /// 生成测试数据
+  static Future<void> generateTestData() async {
     try {
       final isar = DatabaseInitializer.isar;
-      _logger.i('开始生成更多测试数据');
 
-      // 检查是否已有测试数据
-      final hasUsers = await isar.users.count() > 0;
-      if (!hasUsers) {
-        _logger.w('没有用户数据，无法生成测试会话');
-        return;
+      // 创建当前用户
+      final myUser = await createCurrentUser(isar);
+
+      // 创建联系人
+      final contacts = await createContacts(isar, 20);
+
+      // 创建私聊会话
+      await createPrivateConversations(isar, myUser, contacts, 8);
+
+      // 创建群聊会话
+      await createGroupConversations(isar, myUser, contacts, 5);
+
+      // 为每个会话创建消息
+      final conversations = await isar.conversations.where().findAll();
+      for (final conversation in conversations) {
+        await createMessages(isar, conversation, myUser, contacts, 20);
       }
 
-      // 获取当前用户和现有联系人
-      final currentUser = await isar.users.where().filter().isFriendEqualTo(false).findFirst() ?? (await createCurrentUser(isar));
+      _logger.i('测试数据生成完成');
+    } catch (e) {
+      _logger.e('生成测试数据失败', error: e);
+    }
+  }
 
-      // 获取或创建足够的联系人
-      final existingContacts = await isar.users.where().filter().isFriendEqualTo(true).findAll();
-      final contacts = await ensureContacts(isar, existingContacts, 30); // 确保至少有30个联系人
+  /// 生成更多测试数据
+  static Future<void> generateMoreTestData() async {
+    try {
+      final isar = DatabaseInitializer.isar;
 
-      // 创建或补充私聊会话
+      // 确保有当前用户
+      final myUser = await MyUserService.getCurrentUser() ?? await createCurrentUser(isar);
+
+      // 确保有足够的联系人
+      final existingContacts = await isar.users.where().findAll();
+      final contactCount = 50;
+      if (existingContacts.length < contactCount) {
+        await createContacts(isar, contactCount - existingContacts.length);
+      }
+
+      // 获取所有联系人
+      final contacts = await isar.users.where().findAll();
+
+      // 创建会话
+      final conversationCount = 30;
+      final privateCount = 20;
+
+      // 确保有足够的私聊会话
       final privateConversations = await isar.conversations.where().filter().typeEqualTo(ConversationType.private).findAll();
-      final privateCount = (conversationCount ~/ 2);
       if (privateConversations.length < privateCount) {
-        await createPrivateConversations(isar, currentUser, contacts, privateCount - privateConversations.length);
+        await createPrivateConversations(isar, myUser, contacts, privateCount - privateConversations.length);
       }
 
-      // 创建或补充群聊会话
+      // 确保有足够的群聊会话
       final groupConversations = await isar.conversations.where().filter().typeEqualTo(ConversationType.group).findAll();
       final groupCount = conversationCount - privateCount;
       if (groupConversations.length < groupCount) {
-        await createGroupConversations(isar, currentUser, contacts, groupCount - groupConversations.length);
+        await createGroupConversations(isar, myUser, contacts, groupCount - groupConversations.length);
       }
 
       // 为每个会话生成消息
       final allConversations = await isar.conversations.where().findAll();
+      final messageCount = 30;
       for (final conversation in allConversations) {
-        final existingMessages = await isar.messages.where().filter().conversationIdEqualTo(conversation.id.toString()).count();
+        final existingMessages = await isar.messages.where().filter().conversationIdEqualTo(conversation.conversationId).count();
         if (existingMessages < messageCount) {
-          await createMessages(isar, conversation, currentUser, contacts, messageCount - existingMessages);
+          await createMessages(isar, conversation, myUser, contacts, messageCount - existingMessages);
         }
       }
 
@@ -63,49 +95,59 @@ class TestDataGenerator {
   }
 
   /// 确保存在当前用户，如不存在则创建
-  static Future<User> createCurrentUser(Isar isar) async {
-    final currentUser = User()
-      ..name = '我'
-      ..isFriend = false
-      ..phone = '13800000000'
-      ..email = 'me@example.com';
-
-    await isar.writeTxn(() async {
-      currentUser.id = await isar.users.put(currentUser);
-      DatabaseInitializer.syncIds(currentUser);
-      await isar.users.put(currentUser);
-    });
-
-    return currentUser;
-  }
-
-  /// 确保有足够的联系人
-  static Future<List<User>> ensureContacts(Isar isar, List<User> existingContacts, int requiredCount) async {
-    final contacts = List<User>.from(existingContacts);
-
-    if (contacts.length >= requiredCount) {
-      return contacts;
+  static Future<MyUser> createCurrentUser(Isar isar) async {
+    // 查询现有的当前用户
+    final existingUser = await isar.myUsers.where().findFirst();
+    if (existingUser != null) {
+      return existingUser;
     }
 
-    // 创建更多联系人直到达到所需数量
-    final needToCreate = requiredCount - contacts.length;
-    final newContacts = List.generate(needToCreate, (index) {
-      final i = existingContacts.length + index;
-      return User()
-        ..name = '联系人${i + 1}'
-        ..isFriend = true
-        ..status = index % 3 == 0 ? 'online' : 'offline'
-        ..phone = '1380000${(1000 + i).toString().padLeft(4, '0')}'
-        ..email = 'contact${i + 1}@example.com'
-        ..avatar = index % 5 == 0 ? 'https://picsum.photos/200?random=${1000 + i}' : '';
-    });
+    // 创建新的当前用户
+    final myUser = MyUser()
+      ..name = '我'
+      ..userId = 'u000001'
+      ..token = 'test_token_${DateTime.now().millisecondsSinceEpoch}'
+      ..phone = '13800000000'
+      ..email = 'me@example.com'
+      ..status = 'online'
+      ..lastLoginTime = DateTime.now();
 
     await isar.writeTxn(() async {
-      for (final contact in newContacts) {
-        contact.id = await isar.users.put(contact);
-        DatabaseInitializer.syncIds(contact);
-        await isar.users.put(contact);
-        contacts.add(contact);
+      myUser.id = await isar.myUsers.put(myUser);
+    });
+
+    return myUser;
+  }
+
+  /// 创建联系人
+  static Future<List<User>> createContacts(Isar isar, int count) async {
+    final contacts = <User>[];
+
+    // 联系人名称示例
+    final firstNames = ['张', '王', '李', '赵', '钱', '孙', '周', '吴', '郑', '刘'];
+    final lastNames = ['小', '大', '明', '华', '强', '伟', '芳', '娜', '文', '军'];
+
+    // 创建联系人
+    for (var i = 0; i < count; i++) {
+      final firstName = firstNames[_random.nextInt(firstNames.length)];
+      final lastName = lastNames[_random.nextInt(lastNames.length)];
+      final name = '$firstName$lastName${i + 1}';
+
+      final user = User()
+        ..name = name
+        ..phone = '138${(10000000 + i).toString().padLeft(8, '0')}'
+        ..email = 'user$i@example.com'
+        ..status = i % 3 == 0 ? 'online' : 'offline';
+
+      contacts.add(user);
+    }
+
+    // 保存联系人
+    await isar.writeTxn(() async {
+      for (final user in contacts) {
+        user.id = await isar.users.put(user);
+        DatabaseInitializer.syncIds(user);
+        await isar.users.put(user);
       }
     });
 
@@ -113,7 +155,7 @@ class TestDataGenerator {
   }
 
   /// 创建私聊会话
-  static Future<void> createPrivateConversations(Isar isar, User currentUser, List<User> contacts, int count) async {
+  static Future<void> createPrivateConversations(Isar isar, MyUser currentUser, List<User> contacts, int count) async {
     // 仅使用尚未有私聊的联系人
     final usedContactIds = <String>{};
     final existingPrivateConversations = await isar.conversations.where().filter().typeEqualTo(ConversationType.private).findAll();
@@ -124,7 +166,7 @@ class TestDataGenerator {
       }
     }
 
-    final availableContacts = contacts.where((c) => !usedContactIds.contains(c.id.toString())).toList();
+    final availableContacts = contacts.where((c) => !usedContactIds.contains(c.userId)).toList();
 
     // 创建新的私聊会话
     final newPrivateConversations = <Conversation>[];
@@ -133,7 +175,7 @@ class TestDataGenerator {
       final conversation = Conversation()
         ..type = ConversationType.private
         ..name = contact.name
-        ..contactUserId = contact.id.toString()
+        ..contactUserId = contact.userId
         ..createdAt = DateTime.now().subtract(Duration(days: i % 30))
         ..avatar = contact.avatar;
 
@@ -146,23 +188,12 @@ class TestDataGenerator {
         conversation.id = await isar.conversations.put(conversation);
         DatabaseInitializer.syncIds(conversation);
         await isar.conversations.put(conversation);
-
-        // 添加会话参与者
-        final contactId = int.tryParse(conversation.contactUserId ?? '0') ?? 0;
-        final contact = await isar.users.get(contactId);
-
-        if (contact != null) {
-          conversation.participants.add(currentUser);
-          conversation.participants.add(contact);
-          // 避免使用返回值
-          await conversation.participants.save();
-        }
       }
     });
   }
 
   /// 创建群聊会话
-  static Future<void> createGroupConversations(Isar isar, User currentUser, List<User> contacts, int count) async {
+  static Future<void> createGroupConversations(Isar isar, MyUser currentUser, List<User> contacts, int count) async {
     // 创建新的群聊会话
     final newGroupConversations = <Conversation>[];
     final groupTypes = ['学习群', '工作群', '兴趣群', '朋友群', '家庭群'];
@@ -179,131 +210,68 @@ class TestDataGenerator {
       newGroupConversations.add(conversation);
     }
 
-    // 保存会话和建立关系
+    // 保存会话
     await isar.writeTxn(() async {
       for (final conversation in newGroupConversations) {
         conversation.id = await isar.conversations.put(conversation);
         DatabaseInitializer.syncIds(conversation);
         await isar.conversations.put(conversation);
-
-        // 添加会话参与者 (当前用户 + 随机5-15个联系人)
-        conversation.participants.add(currentUser);
-
-        // 随机选择5-15个联系人
-        final memberCount = 5 + (conversation.id.toInt() % 10);
-        final shuffledContacts = List<User>.from(contacts)..shuffle();
-        for (var j = 0; j < memberCount && j < shuffledContacts.length; j++) {
-          conversation.participants.add(shuffledContacts[j]);
-        }
-
-        // 保存参与者关系，忽略返回值
-        await conversation.participants.save();
       }
     });
   }
 
   /// 为会话创建消息
-  static Future<void> createMessages(Isar isar, Conversation conversation, User currentUser, List<User> contacts, int count) async {
-    // 简化模型：为每个会话使用3个随机联系人作为消息发送者
-    final shuffledContacts = List<User>.from(contacts)..shuffle();
-    final randomParticipants = shuffledContacts.take(3).toList();
-
-    // 创建消息
+  static Future<void> createMessages(Isar isar, Conversation conversation, MyUser currentUser, List<User> contacts, int count) async {
     final messages = <Message>[];
-    final now = DateTime.now();
+    final messageTypes = ['text', 'image', 'voice'];
+    final statusOptions = ['sent', 'delivered', 'read'];
 
-    // 定义一些模拟的消息文本
-    final textMessages = [
-      '你好，最近怎么样？',
-      '我们今天需要讨论一下项目进度',
-      '周末有空一起出去玩吗？',
-      '刚才发的文件收到了吗？',
-      '这个问题我们明天再讨论吧',
-      '今天天气真好',
-      '新版本已经发布了，记得更新',
-      '恭喜你！',
-      '我这边已经准备好了',
-      '稍等，我马上发给你',
-      '这个周末我有事情，下次吧',
-      '好的，我知道了',
-      '谢谢你的提醒',
-      '这个主意不错',
-      '我正在路上，很快到',
-    ];
+    // 随机选择多个联系人作为发送者
+    final messageSenders = <User>[];
+    final shuffledContacts = List<User>.from(contacts)..shuffle();
+    final senderCount = min(5, shuffledContacts.length);
+    messageSenders.addAll(shuffledContacts.take(senderCount));
 
-    final messageTypes = [
-      MessageType.text,
-      MessageType.text,
-      MessageType.text,
-      MessageType.text,
-      MessageType.image,
-      MessageType.voice,
-    ];
-
+    // 生成消息
     for (var i = 0; i < count; i++) {
-      // 决定发送者
-      final isSentByCurrentUser = i % 2 == 0;
-      final sender = isSentByCurrentUser ? currentUser : randomParticipants[i % randomParticipants.length];
-
-      // 决定消息类型
+      final isCurrentUserSender = i % 2 == 0; // 交替发送者
       final type = messageTypes[i % messageTypes.length];
+      final status = statusOptions[i % statusOptions.length];
+      final createdAt = DateTime.now().subtract(Duration(minutes: count - i));
 
-      // 创建基本消息对象
       final message = Message()
-        ..conversationId = conversation.id.toString()
-        ..senderId = sender.id.toString()
-        ..senderName = sender.name
+        ..conversationId = conversation.conversationId
+        ..senderId = isCurrentUserSender ? currentUser.userId : messageSenders[i % senderCount].userId
+        ..senderName = isCurrentUserSender ? currentUser.name : messageSenders[i % senderCount].name
         ..type = type
-        ..isRead = isSentByCurrentUser || i % 3 != 0 // 当前用户发送的消息或部分其他消息已读
-        ..status = 'sent'
-        ..createdAt = now.subtract(Duration(minutes: (count - i) * 5 + (i * 3))); // 消息时间递增
+        ..status = status
+        ..createdAt = createdAt
+        ..isRead = !isCurrentUserSender; // 当前用户发送的消息默认未读，对方发送的默认已读
 
-      // 根据类型设置消息内容
+      // 根据消息类型设置内容
       switch (type) {
-        case MessageType.text:
-          message.text = textMessages[i % textMessages.length];
+        case 'text':
+          message.text = isCurrentUserSender ? '这是我发送的第${i + 1}条测试消息' : '收到你的消息了，这是回复${i + 1}';
           break;
-        case MessageType.image:
-          message.mediaUrl = 'https://picsum.photos/200?random=${1000 + i}';
+        case 'image':
+          message.text = '[图片消息]';
+          message.mediaUrl = 'https://picsum.photos/200/300?random=${conversation.id + i}';
           break;
-        case MessageType.voice:
-          message.duration = 10 + (i % 50); // 10-60秒的语音
-          message.mediaUrl = 'https://example.com/voice_$i.mp3';
+        case 'voice':
+          message.text = '[语音消息]';
+          message.duration = 10 + (i % 50); // 10-60秒不等
           break;
-        default:
-          message.text = '未知类型消息';
       }
 
       messages.add(message);
     }
 
-    // 保存所有消息
+    // 保存消息
     await isar.writeTxn(() async {
       for (final message in messages) {
         message.id = await isar.messages.put(message);
         DatabaseInitializer.syncIds(message);
         await isar.messages.put(message);
-      }
-
-      // 更新会话的最后消息信息
-      if (messages.isNotEmpty) {
-        messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        final lastMessage = messages.first;
-
-        conversation.lastMessageTime = lastMessage.createdAt;
-
-        if (lastMessage.type == MessageType.text) {
-          conversation.lastMessagePreview = lastMessage.text ?? '';
-        } else {
-          conversation.lastMessagePreview = '[${lastMessage.type.toString().split('.').last}]';
-        }
-
-        // 计算未读消息数量
-        conversation.unreadCount = messages.where((m) => m.senderId != currentUser.id.toString() && !m.isRead).length;
-
-        // 保存会话
-        DatabaseInitializer.syncIds(conversation);
-        await isar.conversations.put(conversation);
       }
     });
   }

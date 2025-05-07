@@ -1,19 +1,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:cc/core/database/models/message.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/constants/message_types.dart';
 
 /// 全屏媒体浮窗查看器组件
 /// 直接覆盖在当前页面上，无需导航到新页面
 class MediaOverlayViewer extends StatefulWidget {
   final String? localPath; // 本地路径
   final String? mediaUrl; // 媒体URL
-  final MessageType mediaType; // 媒体类型
+  final String mediaType; // 媒体类型
   final VoidCallback onClose; // 关闭回调
   final VoidCallback? onDelete; // 可选的删除回调
 
@@ -39,7 +39,7 @@ class MediaOverlayViewer extends StatefulWidget {
     final BuildContext rootContext = navigator.context;
 
     // 确定媒体类型
-    final MessageType mediaType;
+    final String mediaType;
     final String? localPath;
 
     if (videoPath != null) {

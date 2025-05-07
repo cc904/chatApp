@@ -2,6 +2,7 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/constants/message_types.dart';
 import 'package:isar/isar.dart';
 
 /// 消息服务
@@ -15,7 +16,7 @@ class MessageService {
     required String conversationId,
     required String senderId,
     required String senderName,
-    required MessageType type,
+    required String type,
     String? text,
     String? mediaUrl,
     String? localPath,
@@ -32,7 +33,7 @@ class MessageService {
       _logger.i('开始发送消息', extra: {
         'conversationId': conversationId,
         'senderId': senderId,
-        'type': type.toString(),
+        'type': type,
       });
 
       // 创建消息对象
@@ -97,6 +98,8 @@ class MessageService {
         return '[位置]';
       case MessageType.system:
         return '[系统消息]';
+      default:
+        return '[未知消息]';
     }
   }
 

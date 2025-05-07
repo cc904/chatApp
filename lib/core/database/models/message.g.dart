@@ -121,7 +121,6 @@ const MessageSchema = CollectionSchema(
       id: 20,
       name: r'type',
       type: IsarType.string,
-      enumMap: _MessagetypeEnumValueMap,
     )
   },
   estimateSize: _messageEstimateSize,
@@ -247,7 +246,7 @@ int _messageEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
-  bytesCount += 3 + object.type.name.length * 3;
+  bytesCount += 3 + object.type.length * 3;
   return bytesCount;
 }
 
@@ -277,7 +276,7 @@ void _messageSerialize(
   writer.writeString(offsets[17], object.text);
   writer.writeString(offsets[18], object.textForSearch);
   writer.writeString(offsets[19], object.thumbnailUrl);
-  writer.writeString(offsets[20], object.type.name);
+  writer.writeString(offsets[20], object.type);
 }
 
 Message _messageDeserialize(
@@ -307,9 +306,7 @@ Message _messageDeserialize(
   object.status = reader.readString(offsets[16]);
   object.text = reader.readStringOrNull(offsets[17]);
   object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
-  object.type =
-      _MessagetypeValueEnumMap[reader.readStringOrNull(offsets[20])] ??
-          MessageType.text;
+  object.type = reader.readString(offsets[20]);
   return object;
 }
 
@@ -361,31 +358,11 @@ P _messageDeserializeProp<P>(
     case 19:
       return (reader.readStringOrNull(offset)) as P;
     case 20:
-      return (_MessagetypeValueEnumMap[reader.readStringOrNull(offset)] ??
-          MessageType.text) as P;
+      return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
 }
-
-const _MessagetypeEnumValueMap = {
-  r'text': r'text',
-  r'image': r'image',
-  r'voice': r'voice',
-  r'file': r'file',
-  r'video': r'video',
-  r'location': r'location',
-  r'system': r'system',
-};
-const _MessagetypeValueEnumMap = {
-  r'text': MessageType.text,
-  r'image': MessageType.image,
-  r'voice': MessageType.voice,
-  r'file': MessageType.file,
-  r'video': MessageType.video,
-  r'location': MessageType.location,
-  r'system': MessageType.system,
-};
 
 Id _messageGetId(Message object) {
   return object.id;
@@ -3207,7 +3184,7 @@ extension MessageQueryFilter
   }
 
   QueryBuilder<Message, Message, QAfterFilterCondition> typeEqualTo(
-    MessageType value, {
+    String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
@@ -3220,7 +3197,7 @@ extension MessageQueryFilter
   }
 
   QueryBuilder<Message, Message, QAfterFilterCondition> typeGreaterThan(
-    MessageType value, {
+    String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
@@ -3235,7 +3212,7 @@ extension MessageQueryFilter
   }
 
   QueryBuilder<Message, Message, QAfterFilterCondition> typeLessThan(
-    MessageType value, {
+    String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
@@ -3250,8 +3227,8 @@ extension MessageQueryFilter
   }
 
   QueryBuilder<Message, Message, QAfterFilterCondition> typeBetween(
-    MessageType lower,
-    MessageType upper, {
+    String lower,
+    String upper, {
     bool includeLower = true,
     bool includeUpper = true,
     bool caseSensitive = true,
@@ -4153,7 +4130,7 @@ extension MessageQueryProperty
     });
   }
 
-  QueryBuilder<Message, MessageType, QQueryOperations> typeProperty() {
+  QueryBuilder<Message, String, QQueryOperations> typeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'type');
     });

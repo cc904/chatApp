@@ -153,5 +153,10 @@ class ProtoConverter {
     final bytes = base64Decode(base64String);
     return AuthResponse.fromBuffer(bytes);
   }
+
+  /// AuthRequest Proto对象转Base64字符串
+  String base64FromAuthRequest(AuthRequest request) {
+    final bytes = request.writeToBuffer();
+    return base64Encode(bytes);
+  }
 }
- 

@@ -51,7 +51,8 @@ lib/
 
 | 模型名称 | 描述 | 主要字段 |
 |---------|------|---------|
-| `User` | 用户信息 | id, userId, name, avatar, phone, status, isFriend |
+| `MyUser` | 当前登录用户的信息 | id, userId, token, name, avatar, phone, status, tokenExpireTime |
+| `User` | 联系人信息 | id, userId, name, avatar, phone, status, pinyin |
 | `Conversation` | 会话 | id, conversationId, type, name, lastMessage, participants |
 | `Message` | 消息 | id, messageId, conversationId, senderId, content, type, status, timestamp |
 
@@ -252,6 +253,18 @@ lib/features/chat/
 详细认证协议请参考 `docs/auth_protocol.md`。
 
 ## 9. 最近更新
+
+### 2024-04-15
+1. **数据库模型优化**
+   - 新增`MyUser`模型用于存储当前登录用户的信息，包含userId、token等认证信息
+   - 修改`User`模型，仅用于存储联系人信息，移除了`isFriend`字段
+   - 添加`MyUserService`服务类处理当前用户信息的存储和查询
+   - 优化`Message`模型，将`MessageType`从枚举改为字符串类型，提高灵活性
+
+2. **认证流程改进**
+   - 改进了`AuthService`中用户信息的保存方式，使用`MyUserService`统一管理
+   - 优化了测试数据生成器，支持新的数据模型结构
+   - 确保认证成功后正确保存当前用户信息，包括token和过期时间
 
 ### 2024-04-10
 1. **统一认证状态管理**

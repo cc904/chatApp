@@ -3,15 +3,12 @@ import 'conversation.dart';
 
 part 'message.g.dart';
 
-/// 消息类型枚举
-enum MessageType { text, image, voice, file, video, location, system }
-
 @collection
 class Message {
   // Isar ID
   Id id = Isar.autoIncrement;
 
-  // 兼容性字段，与id值保持一致
+  // 消息ID (来自服务器)
   String messageId = '';
 
   @Index(composite: [CompositeIndex('createdAt')])
@@ -24,11 +21,11 @@ class Message {
   DateTime createdAt = DateTime.now();
   bool isRead = false;
 
-  // 消息发送状态：sending, sent, failed
+  // 消息发送状态：sending, sent, delivered, read, failed
   String status = 'sent';
 
-  @Enumerated(EnumType.name)
-  late MessageType type;
+  // 消息类型: text, image, voice, file, video, location, system
+  late String type;
 
   // 消息内容(根据类型存储不同内容)
   String? text;

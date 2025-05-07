@@ -14,6 +14,7 @@ import 'package:cc/features/chat/presentation/pages/chat_info_page.dart'; // 导
 // 导入聊天搜索页面
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
+import 'package:cc/core/constants/message_types.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -49,7 +50,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   // 添加选择的附件状态
   File? _selectedAttachment;
-  MessageType? _attachmentType;
+  String? _attachmentType;
   String? _attachmentName;
   double? _attachmentSize;
 
@@ -377,7 +378,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                     );
                   },
                 );
-                
+
                 //延迟3秒
                 await Future.delayed(const Duration(seconds: 3));
 
@@ -974,88 +975,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   }
 
   // 处理跳转到指定日期的方法
-  void _handleJumpToDate(BuildContext context, DateTime? targetDate) async {
-    if (targetDate == null) return;
-
-    try {
-      // 显示加载指示器
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        },
-      );
-
-      // 确保context仍然有效
-      if (!mounted) return;
-
-      // 关闭加载指示器
-      Navigator.of(context).pop();
-
-      // 检查是否有当天的消息
-      final chatCubit = context.read<ChatCubit>();
-      final messages = chatCubit.state.messagesByConversation[widget.conversationId] ?? [];
-      final dateOnlyMessages =
-          messages.where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day).toList();
-
-      if (dateOnlyMessages.isNotEmpty) {
-        // 找到当天第一条消息进行短暂高亮显示
-        final firstMessageOfDay = dateOnlyMessages.first;
-
-        // 短暂高亮显示该消息
-        setState(() {
-          _targetMessageId = firstMessageOfDay.messageId;
-        });
-
-        // 3秒后取消高亮
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _targetMessageId = null;
-            });
-          }
-        });
-
-        // 显示成功提示
-        UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
-      } else {
-        UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
-      }
-    } catch (e) {
-      _logger.e('加载指定日期消息失败: $e');
-      if (mounted) {
-        try {
-          Navigator.of(context).pop(); // 关闭加载指示器
-        } catch (navError) {
-          // 忽略可能的导航错误
-        }
-
-        UINotificationHelper.showError('跳转失败: $e');
-      }
-    }
-  }
 
   // 处理高亮显示指定消息
-  void _handleHighlightMessage(String? targetId) {
-    if (targetId == null || targetId.isEmpty) return;
-
-    // 设置目标消息ID以高亮显示
-    setState(() {
-      _targetMessageId = targetId;
-    });
-
-    // 3秒后取消高亮
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _targetMessageId = null;
-        });
-      }
-    });
-  }
 
   // 获取会话标题
   String _getConversationTitle(ChatState state) {
