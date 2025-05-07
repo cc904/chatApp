@@ -19,6 +19,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
   final _logger = LogService('auth_page.dart');
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -41,15 +42,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // 直接进入主页，跳过登录验证
-          // 仅用于测试，不再隐式初始化数据库
-          // 在正式流程中应通过登录获取userId并初始化数据库
-          Navigator.of(context).pushReplacementNamed('/home');
-        },
+        onPressed: _isLoading ? null : _performTestLogin,
         backgroundColor: Colors.green,
         tooltip: '测试登录',
-        child: const Icon(Icons.login, color: Colors.white),
+        child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.login, color: Colors.white),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -302,5 +298,54 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
           ),
         ));
+  }
+
+  Future<void> _performTestLogin() async {
+    if (!mounted) return;
+
+    // 获取需要的对象，避免在异步操作后使用context
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final authCubit = context.read<AuthCubit>();
+
+    // 模拟发送数据登录
+    setState(() {
+      // 显示加载状态
+      _isLoading = true;
+    });
+
+    try {
+      // 模拟网络请求延迟
+      await Future.delayed(const Duration(seconds: 1));
+
+      // 模拟获取登录数据
+      final testUserId = "user_123";
+      final testToken = "test_token_${DateTime.now().millisecondsSinceEpoch}";
+
+      // 初始化用户数据和数据库
+      await authCubit.loginWithTestAccount(
+        userId: testUserId,
+        token: testToken,
+        username: "测试用户",
+      );
+
+      if (mounted) {
+        // 登录成功，跳转到主页
+        navigator.pushReplacementNamed('/home');
+      }
+    } catch (e) {
+      // 显示错误信息
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('测试登录失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 }

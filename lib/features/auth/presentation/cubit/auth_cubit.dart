@@ -6,6 +6,8 @@ import 'package:cc/core/network/index.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/proto/generated/auth.pb.dart';
+import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/services/my_user_service.dart';
 
 part 'auth_state.dart';
 
@@ -356,6 +358,49 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.toErrorState(e.toString()));
       // 重新抛出异常，以便上层代码捕获
       rethrow;
+    }
+  }
+
+  // 使用测试账户登录（仅用于测试）
+  Future<void> loginWithTestAccount({
+    required String userId,
+    required String token,
+    required String username,
+  }) async {
+    _logger.i('使用测试账户登录', extra: {'userId': userId, 'username': username});
+
+    try {
+      emit(state.toLoadingState());
+
+      // 初始化数据库（如果尚未初始化）
+      if (!DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.init(userId: userId);
+      }
+
+      // 保存测试用户信息
+      final myUser = await MyUserService.saveCurrentUser(
+        userId: userId,
+        token: token,
+        name: username,
+        avatar: null,
+        phone: '13800138000', // 测试手机号
+        tokenExpireTime: DateTime.now().add(const Duration(days: 7)), // 测试令牌7天有效期
+      );
+
+      if (myUser == null) {
+        throw '创建测试用户失败';
+      }
+
+      // 更新认证状态
+      emit(state.toAuthenticatedState(userId: userId, token: token));
+
+      // 初始化实时通信
+      await _initRealTimeCommunication(userId, token);
+
+      _logger.i('测试账户登录成功');
+    } catch (e) {
+      _logger.e('测试账户登录失败', error: e);
+      emit(state.toErrorState(e.toString()));
     }
   }
 
