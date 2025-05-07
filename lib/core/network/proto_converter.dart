@@ -54,26 +54,51 @@ class ProtoConverter {
 
   // ==== User 转换 ====
 
-  /// 将 UserProto 转换为 Base64 字符串
-  String userToBase64(UserProto user) {
-    final bytes = user.writeToBuffer();
+  /// 将 UserSession 转换为 Base64 字符串
+  String userSessionToBase64(UserSession user) {
+    final map = {
+      'userId': user.userId,
+      'token': user.token,
+      'phoneNumber': user.phoneNumber,
+      'expireTime': user.expireTime,
+    };
+    final jsonStr = json.encode(map);
+    final bytes = utf8.encode(jsonStr);
     return base64Encode(bytes);
   }
 
-  /// 将 Base64 字符串转换为 UserProto
-  UserProto base64ToUser(String base64Str) {
+  /// 将 Base64 字符串转换为 UserSession
+  UserSession base64ToUserSession(String base64Str) {
     final bytes = base64Decode(base64Str);
-    return UserProto.fromBuffer(bytes);
+    final jsonStr = utf8.decode(bytes);
+    final map = json.decode(jsonStr) as Map<String, dynamic>;
+
+    final user = UserSession();
+    user.userId = map['userId'] as String? ?? '';
+    user.token = map['token'] as String? ?? '';
+    user.phoneNumber = map['phoneNumber'] as String? ?? '';
+    user.expireTime = map['expireTime'] as int? ?? 0;
+    return user;
   }
 
-  /// 将 UserProto 转换为 Map
-  Map<String, dynamic> userToMap(UserProto user) {
-    return jsonDecode(jsonEncode(user.toProto3Json())) as Map<String, dynamic>;
+  /// 将 UserSession 转换为 Map
+  Map<String, dynamic> userSessionToMap(UserSession user) {
+    return {
+      'userId': user.userId,
+      'token': user.token,
+      'phoneNumber': user.phoneNumber,
+      'expireTime': user.expireTime,
+    };
   }
 
-  /// 将 Map 转换为 UserProto
-  UserProto mapToUser(Map<String, dynamic> map) {
-    return UserProto.create()..mergeFromProto3Json(map);
+  /// 将 Map 转换为 UserSession
+  UserSession mapToUserSession(Map<String, dynamic> map) {
+    final user = UserSession();
+    user.userId = map['userId'] as String? ?? '';
+    user.token = map['token'] as String? ?? '';
+    user.phoneNumber = map['phoneNumber'] as String? ?? '';
+    user.expireTime = map['expireTime'] as int? ?? 0;
+    return user;
   }
 
   // ==== Conversation 转换 ====
@@ -102,61 +127,50 @@ class ProtoConverter {
 
   // ==== Auth 转换 ====
 
-  /// AuthRequest Proto对象转Map
+  /// AuthRequest 转 Map (简化版)
   Map<String, dynamic> authRequestToMap(AuthRequest request) {
-    final jsonString = request.writeToJson();
-    final map = json.decode(jsonString) as Map<String, dynamic>;
-    return map;
+    return {
+      'operationType': request.operationType.index,
+      'phoneNumber': request.phoneNumber,
+      'password': request.password,
+      'verificationCode': request.verificationCode,
+      'nickname': request.nickname,
+      'purpose': request.purpose,
+      'isQuickLogin': request.isQuickLogin,
+    };
   }
 
-  /// Map转AuthRequest Proto对象
-  AuthRequest mapToAuthRequest(Map<String, dynamic> map) {
-    final jsonString = json.encode(map);
-    final request = AuthRequest.fromJson(jsonString);
-    return request;
-  }
-
-  /// AuthResponse Proto对象转Map
-  Map<String, dynamic> authResponseToMap(AuthResponse response) {
-    final jsonString = response.writeToJson();
-    final map = json.decode(jsonString) as Map<String, dynamic>;
-    return map;
-  }
-
-  /// Map转AuthResponse Proto对象
+  /// Map 转 AuthResponse (简化版)
   AuthResponse mapToAuthResponse(Map<String, dynamic> map) {
-    final jsonString = json.encode(map);
-    final response = AuthResponse.fromJson(jsonString);
+    final response = AuthResponse();
+    response.success = map['success'] as bool? ?? false;
+    response.message = map['message'] as String? ?? '';
+    response.userId = map['userId'] as String? ?? '';
+    response.token = map['token'] as String? ?? '';
+    response.timestamp = map['timestamp'] as int? ?? 0;
     return response;
   }
 
-  /// AuthRequest Proto对象转Base64字符串
-  String authRequestToBase64(AuthRequest request) {
-    final bytes = request.writeToBuffer();
-    return base64Encode(bytes);
-  }
-
-  /// Base64字符串转AuthRequest Proto对象
-  AuthRequest base64ToAuthRequest(String base64String) {
-    final bytes = base64Decode(base64String);
-    return AuthRequest.fromBuffer(bytes);
-  }
-
-  /// AuthResponse Proto对象转Base64字符串
-  String authResponseToBase64(AuthResponse response) {
-    final bytes = response.writeToBuffer();
-    return base64Encode(bytes);
-  }
-
-  /// Base64字符串转AuthResponse Proto对象
+  /// Base64 转 AuthResponse (简化版)
   AuthResponse base64ToAuthResponse(String base64String) {
-    final bytes = base64Decode(base64String);
-    return AuthResponse.fromBuffer(bytes);
+    try {
+      final jsonStr = utf8.decode(base64Decode(base64String));
+      final map = json.decode(jsonStr) as Map<String, dynamic>;
+      return mapToAuthResponse(map);
+    } catch (e) {
+      // 出错时返回一个默认响应
+      final response = AuthResponse();
+      response.success = false;
+      response.message = '数据解析错误: $e';
+      return response;
+    }
   }
 
-  /// AuthRequest Proto对象转Base64字符串
+  /// AuthRequest 转 Base64 (简化版)
   String base64FromAuthRequest(AuthRequest request) {
-    final bytes = request.writeToBuffer();
+    final map = authRequestToMap(request);
+    final jsonStr = json.encode(map);
+    final bytes = utf8.encode(jsonStr);
     return base64Encode(bytes);
   }
 }

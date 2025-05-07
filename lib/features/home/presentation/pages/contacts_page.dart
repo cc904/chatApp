@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/features/contacts/presentation/cubit/contacts_cubit.dart';
-import 'package:cc/features/contacts/presentation/cubit/contacts_state.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/features/contacts/presentation/cubit/contacts_cubit.dart';
+import 'package:cc/features/contacts/presentation/cubit/contacts_state.dart' as states;
+import 'package:cc/features/contacts/presentation/cubit/contacts_state_adapter.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -52,7 +53,7 @@ class _ContactsPageState extends State<ContactsPage> {
                 autofocus: true,
                 onChanged: (value) {
                   // 搜索联系人
-                  context.read<ContactsCubit>().searchContacts(value);
+                  _performSearch(value);
                 },
               )
             : const Text('通讯录', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -83,8 +84,11 @@ class _ContactsPageState extends State<ContactsPage> {
           ),
         ],
       ),
-      body: BlocBuilder<ContactsCubit, ContactsState>(
-        builder: (context, state) {
+      body: BlocBuilder<ContactsCubit, ContactsCubitState>(
+        builder: (context, cubitState) {
+          // 使用适配器转换状态
+          final state = ContactsStateAdapter.adapt(cubitState);
+
           if (state.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -144,18 +148,18 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   // 计算列表总项目数（字母标题+联系人）
-  int _getTotalItemCount(ContactsState state) {
+  int _getTotalItemCount(states.ContactsState state) {
     // 每个字母分组 + 该分组下的联系人数量
     int count = 0;
     for (var letter in state.sectionLetters) {
       // 加1是因为有一个字母分组标题
-      count += 1 + (state.groupedContacts[letter]?.length ?? 0);
+      count += 1 + (state.groupedContacts[letter]?.length ?? 0).toInt();
     }
     return count;
   }
 
   // 根据索引构建相应的列表项（字母标题或联系人）
-  Widget _buildListItem(BuildContext context, int index, ContactsState state) {
+  Widget _buildListItem(BuildContext context, int index, states.ContactsState state) {
     // 跟踪当前索引和偏移
     int currentIndex = 0;
 
@@ -180,7 +184,7 @@ class _ContactsPageState extends State<ContactsPage> {
       }
 
       // 更新当前索引为下一个字母组的起始索引
-      currentIndex += contacts.length;
+      currentIndex += contacts.length.toInt();
     }
 
     // 如果索引超出范围（不应该发生）
@@ -241,5 +245,24 @@ class _ContactsPageState extends State<ContactsPage> {
         _logger.d('打开联系人', extra: {'name': contact.name});
       },
     );
+  }
+
+  void _performSearch(String value) async {
+    final contactsCubit = context.read<ContactsCubit>();
+    // 如果搜索为空，显示所有联系人
+    if (value.isEmpty) {
+      ContactsStateAdapter.clearSearch();
+      contactsCubit.loadContacts();
+      return;
+    }
+    // 执行搜索
+    final searchResults = await contactsCubit.searchContacts(value);
+    _logger.d('搜索结果', extra: {'query': value, 'count': searchResults.length});
+
+    // 更新适配器存储的搜索结果
+    ContactsStateAdapter.setSearchResults(value, searchResults);
+
+    // 强制UI刷新
+    setState(() {});
   }
 }

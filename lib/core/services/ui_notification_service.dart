@@ -18,39 +18,58 @@ class UINotificationService {
   // 便捷的静态访问方法
   static UINotificationService get instance => _instance;
 
-  // 显示一般消息
-  void showMessage(String message, {Duration? duration}) {
-    _messenger?.showSnackBar(SnackBar(
-      content: Text(message),
-      duration: duration ?? const Duration(seconds: 3),
-    ));
+  /// 显示snackbar通知
+  void showNotification(
+    String message, {
+    Color backgroundColor = Colors.blue,
+    Duration duration = const Duration(seconds: 2),
+    SnackBarAction? action,
+  }) {
+    _messenger?.hideCurrentSnackBar();
+    _messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: duration,
+        action: action,
+      ),
+    );
   }
 
-  // 显示错误消息
-  void showError(String message, {Duration? duration}) {
-    _messenger?.showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-      duration: duration ?? const Duration(seconds: 4),
-    ));
-  }
-
-  // 显示成功消息
-  void showSuccess(String message, {Duration? duration}) {
-    _messenger?.showSnackBar(SnackBar(
-      content: Text(message),
+  /// 显示成功通知
+  void showSuccess(String message, {Duration duration = const Duration(seconds: 2)}) {
+    showNotification(
+      message,
       backgroundColor: Colors.green,
-      duration: duration ?? const Duration(seconds: 2),
-    ));
+      duration: duration,
+    );
   }
 
-  // 显示警告消息
-  void showWarning(String message, {Duration? duration}) {
-    _messenger?.showSnackBar(SnackBar(
-      content: Text(message),
+  /// 显示错误通知
+  void showError(String message, {Duration duration = const Duration(seconds: 3)}) {
+    showNotification(
+      message,
+      backgroundColor: Colors.red,
+      duration: duration,
+    );
+  }
+
+  /// 显示警告通知
+  void showWarning(String message, {Duration duration = const Duration(seconds: 3)}) {
+    showNotification(
+      message,
       backgroundColor: Colors.orange,
-      duration: duration ?? const Duration(seconds: 3),
-    ));
+      duration: duration,
+    );
+  }
+
+  /// 显示信息通知
+  void showInfo(String message, {Duration duration = const Duration(seconds: 2)}) {
+    showNotification(
+      message,
+      backgroundColor: Colors.blue,
+      duration: duration,
+    );
   }
 
   // 显示处理中消息

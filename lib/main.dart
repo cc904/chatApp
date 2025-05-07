@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/network/index.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
@@ -17,6 +16,7 @@ import 'features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'features/contacts/domain/repositories/contacts_repository.dart';
 import 'features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'core/services/ui_notification_service.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 void main() async {
   // 确保Flutter初始化完成
@@ -33,6 +33,10 @@ void main() async {
   } catch (e) {
     logger.e('媒体目录初始化失败', error: e);
   }
+
+  // 初始化timeago中文本地化
+  timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
+  timeago.setDefaultLocale('zh');
 
   // 不再在应用启动时初始化数据库
   // 而是等待用户登录后再初始化
@@ -119,7 +123,6 @@ class MyApp extends StatelessWidget {
               chatRepository: context.read<ChatRepository>(),
               chatCubit: context.read<ChatCubit>(),
               simulationMode: true, // 默认使用模拟模式
-              dataEncoding: DataEncoding.json, // 使用JSON编码
             ),
           ),
           BlocProvider<HomeCubit>(create: (context) => HomeCubit()),

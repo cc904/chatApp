@@ -1,6 +1,6 @@
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/my_user.dart';
-import 'package:cc/core/proto/generated/auth.pb.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';
 

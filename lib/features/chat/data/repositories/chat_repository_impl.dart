@@ -4,10 +4,11 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
-import 'package:cc/core/network/index.dart';
+import 'package:cc/features/chat/data/mock/mock_data.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
 
@@ -787,7 +788,6 @@ class ChatRepositoryImpl implements ChatRepository {
     String userId,
     String token,
     String serverUrl,
-    DataEncoding encoding,
     bool simulationMode,
   ) async {
     try {
@@ -802,7 +802,6 @@ class ChatRepositoryImpl implements ChatRepository {
       final success = await _socketService.init(
         serverUrl: serverUrl,
         authToken: token,
-        encoding: encoding,
         simulationMode: simulationMode,
       );
 
@@ -860,10 +859,109 @@ class ChatRepositoryImpl implements ChatRepository {
       // 获取令牌
       final token = currentUser.token;
       // 初始化新连接
-      return initRealTimeConnection(currentUser.userId, token, socketServerUrl, DataEncoding.json, false);
+      return initRealTimeConnection(currentUser.userId, token, socketServerUrl, false);
     } catch (e) {
       _logger.e('重连失败', error: e);
       return false;
+    }
+  }
+
+  @override
+  Future<bool> syncContacts() async {
+    try {
+      _logger.i('开始同步联系人列表');
+
+      // 获取当前用户信息
+      final currentUser = await MyUserService.getCurrentUser();
+      if (currentUser == null) {
+        _logger.e('同步失败：未找到当前用户信息');
+        return false;
+      }
+
+      // 向服务器发送同步请求
+      if (_socketService.isConnected) {
+        _socketService.emit('sync_contacts', {
+          'userId': currentUser.userId,
+          'token': currentUser.token,
+        });
+        _logger.i('已发送联系人同步请求');
+      }
+
+      // 添加模拟数据用于开发环境
+      if (_socketService.isSimulationMode) {
+        _logger.i('运行在模拟模式，生成模拟联系人数据');
+        await _generateMockContacts();
+      }
+
+      return true;
+    } catch (e) {
+      _logger.e('同步联系人失败', error: e);
+      return false;
+    }
+  }
+
+  /// 生成模拟联系人数据用于开发测试
+  Future<void> _generateMockContacts() async {
+    final isar = DatabaseInitializer.isar;
+
+    // 使用模拟数据生成器获取100个联系人
+    final mockContacts = MockDataGenerator.generateMockContacts();
+
+    // 保存到数据库
+    await isar.writeTxn(() async {
+      await isar.users.putAll(mockContacts);
+    });
+
+    _logger.i('已生成${mockContacts.length}个模拟联系人');
+  }
+
+  @override
+  Future<String?> createOrGetConversation(String userId) async {
+    try {
+      _logger.i('创建或获取与用户的对话', extra: {'userId': userId});
+
+      // 获取当前用户ID
+
+      // 检查是否已存在会话
+      final existingConversation = await _isar.conversations.filter().contactUserIdEqualTo(userId).findFirst();
+
+      if (existingConversation != null) {
+        _logger.i('找到已存在的会话', extra: {'conversationId': existingConversation.id.toString()});
+        return existingConversation.id.toString();
+      }
+
+      // 获取联系人信息
+      final user = await _isar.users.filter().userIdEqualTo(userId).findFirst();
+
+      if (user == null) {
+        _logger.e('创建会话失败：未找到用户信息');
+        return null;
+      }
+
+      // 创建新会话
+      final conversation = Conversation()
+        ..conversationId = '' // 会在保存后设置
+        ..type = ConversationType.private
+        ..contactUserId = userId
+        ..name = user.name
+        ..avatar = user.avatar
+        ..lastMessagePreview = ''
+        ..lastMessageTime = DateTime.now()
+        ..unreadCount = 0
+        ..createdAt = DateTime.now();
+
+      await _isar.writeTxn(() async {
+        await _isar.conversations.put(conversation);
+        // 设置conversationId为id的字符串表示
+        conversation.conversationId = conversation.id.toString();
+        await _isar.conversations.put(conversation);
+      });
+
+      _logger.i('创建了新会话', extra: {'conversationId': conversation.id.toString()});
+      return conversation.id.toString();
+    } catch (e) {
+      _logger.e('创建或获取会话失败', error: e);
+      return null;
     }
   }
 

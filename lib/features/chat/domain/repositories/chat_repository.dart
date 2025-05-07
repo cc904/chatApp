@@ -1,7 +1,6 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/network/index.dart';
 
 /// 聊天仓库接口
 /// 定义了聊天功能所需的各种操作方法
@@ -91,13 +90,11 @@ abstract class ChatRepository {
   /// [userId] - 用户ID
   /// [token] - 认证令牌
   /// [serverUrl] - 服务器URL
-  /// [encoding] - 指定数据编码方式
   /// [simulationMode] - 是否使用模拟模式
   Future<bool> initRealTimeConnection(
     String userId,
     String token,
     String serverUrl,
-    DataEncoding encoding,
     bool simulationMode,
   );
 
@@ -106,6 +103,12 @@ abstract class ChatRepository {
 
   /// 重新连接实时通信
   Future<bool> reconnectRealTime();
+
+  /// 同步联系人列表
+  Future<bool> syncContacts();
+
+  /// 创建或获取与用户的对话
+  Future<String?> createOrGetConversation(String userId);
 
   /// 发送正在输入状态
   Future<void> sendTypingStatus(String conversationId, bool isTyping);

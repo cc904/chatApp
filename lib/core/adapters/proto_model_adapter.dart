@@ -205,68 +205,23 @@ class ProtoModelAdapter {
     return message;
   }
 
-  /// 将数据库 User 模型转换为 Protobuf UserProto
-  UserProto userToProto(db.User user) {
-    final proto = UserProto()
-      ..userId = user.userId
-      ..name = user.name;
-
-    // 适应数据库模型的字段
-    if (user.avatar != null) {
-      proto.avatar = user.avatar!;
-    }
+  /// 将数据库 User 模型转换为 UserSession
+  UserSession userToSession(db.User user) {
+    final session = UserSession()..userId = user.userId;
 
     if (user.phone != null) {
-      proto.phone = user.phone!;
+      session.phoneNumber = user.phone!;
     }
 
-    if (user.email != null) {
-      proto.email = user.email!;
-    }
-
-    if (user.pinyin != null) {
-      proto.pinyin = user.pinyin!;
-    }
-
-    proto.lastActiveTime = Int64(user.lastActiveTime?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch);
-    proto.status = user.status ?? 'offline';
-
-    // 设置扩展字段
-    proto.username = user.name; // 使用name作为username
-    proto.displayName = user.name; // 使用name作为displayName
-
-    return proto;
+    return session;
   }
 
-  /// 将 Protobuf UserProto 转换为数据库 User 模型
-  db.User protoToUser(UserProto proto) {
+  /// 将 UserSession 转换为数据库 User 模型
+  db.User sessionToUser(UserSession session) {
     final user = db.User()
-      ..userId = proto.userId
-      ..name = proto.name;
-
-    if (proto.hasAvatar()) {
-      user.avatar = proto.avatar;
-    }
-
-    if (proto.hasPhone()) {
-      user.phone = proto.phone;
-    }
-
-    if (proto.hasEmail()) {
-      user.email = proto.email;
-    }
-
-    if (proto.hasPinyin()) {
-      user.pinyin = proto.pinyin;
-    }
-
-    if (proto.hasLastActiveTime()) {
-      user.lastActiveTime = DateTime.fromMillisecondsSinceEpoch(proto.lastActiveTime.toInt());
-    }
-
-    if (proto.hasStatus()) {
-      user.status = proto.status;
-    }
+      ..userId = session.userId
+      ..name = '' // 需要从其他地方获取名称
+      ..phone = session.phoneNumber;
 
     return user;
   }
@@ -333,6 +288,4 @@ class ProtoModelAdapter {
 
     return conversation;
   }
-
-  // 注：MyUserProto相关方法已移至MyUserService类中实现
 }

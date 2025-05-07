@@ -892,6 +892,54 @@ class ChatCubit extends Cubit<ChatState> {
     setNavigationData({'targetMessageId': messageId});
   }
 
+  /// 同步联系人列表
+  Future<void> syncContacts() async {
+    try {
+      _logger.i('开始同步联系人列表');
+
+      // 使用repository发送同步请求
+      final success = await _repository.syncContacts();
+
+      if (success) {
+        _logger.i('联系人同步请求已发送');
+      } else {
+        _logger.w('联系人同步请求失败');
+      }
+    } catch (e) {
+      _logger.e('同步联系人失败', error: e);
+    }
+  }
+
+  /// 开始与用户的对话
+  Future<void> startConversationWithUser({
+    required String userId,
+    required String name,
+    String? avatar,
+  }) async {
+    try {
+      _logger.i('开始与用户的对话', extra: {'userId': userId, 'name': name});
+
+      // 创建或获取现有会话
+      final conversationId = await _repository.createOrGetConversation(userId);
+
+      if (conversationId != null) {
+        // 跳转到聊天详情页
+        setNavigationData({
+          'route': '/chat',
+          'conversation': {
+            'id': conversationId,
+            'name': name,
+            'avatar': avatar,
+          },
+        });
+      } else {
+        _logger.e('创建会话失败');
+      }
+    } catch (e) {
+      _logger.e('开始对话失败', error: e);
+    }
+  }
+
   /// 关闭ChatCubit
   @override
   Future<void> close() {

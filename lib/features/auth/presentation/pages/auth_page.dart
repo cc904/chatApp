@@ -167,6 +167,15 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                             // 这里可以添加保存token的逻辑，例如存入共享偏好或安全存储
                             // 例如: SharedPreferences.getInstance().then((prefs) => prefs.setString('auth_token', state.token));
                             // 在实际项目中应使用更安全的方式存储token
+
+                            // 显示正在同步联系人的提示
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('正在同步联系人...'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+
                             Navigator.of(context).pushReplacementNamed('/home');
                           } else if (state.hasError) {
                             UINotificationHelper.showError(state.errorMessage!);
@@ -304,7 +313,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     if (!mounted) return;
 
     // 获取需要的对象，避免在异步操作后使用context
-    final navigator = Navigator.of(context);
+    Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final authCubit = context.read<AuthCubit>();
 
@@ -331,7 +340,16 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
 
       if (mounted) {
         // 登录成功，跳转到主页
-        navigator.pushReplacementNamed('/home');
+
+        // 显示正在同步联系人的提示
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('正在同步联系人...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.of(context).pushReplacementNamed('/home');
       }
     } catch (e) {
       // 显示错误信息

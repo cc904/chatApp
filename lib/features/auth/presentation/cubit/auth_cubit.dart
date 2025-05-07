@@ -29,20 +29,16 @@ class AuthCubit extends Cubit<AuthState> {
   final String _serverUrl;
   // 模拟模式
   final bool _simulationMode;
-  // 数据编码方式
-  final DataEncoding _dataEncoding;
 
   AuthCubit({
     required String serverUrl,
     ChatRepository? chatRepository,
     ChatCubit? chatCubit,
     bool simulationMode = false,
-    DataEncoding dataEncoding = DataEncoding.json,
   })  : _chatRepository = chatRepository,
         _chatCubit = chatCubit,
         _serverUrl = serverUrl,
         _simulationMode = simulationMode,
-        _dataEncoding = dataEncoding,
         super(AuthState.initial()) {
     // 初始化认证服务
     _initAuthService();
@@ -55,7 +51,6 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final success = await _authService.init(
         serverUrl: _serverUrl,
-        encoding: _dataEncoding,
         simulationMode: _simulationMode,
       );
 
@@ -104,7 +99,6 @@ class AuthCubit extends Cubit<AuthState> {
         userId,
         token,
         connectionInfo['serverUrl'] as String,
-        connectionInfo['dataEncoding'] as DataEncoding,
         connectionInfo['simulationMode'] as bool,
       );
 
@@ -116,6 +110,9 @@ class AuthCubit extends Cubit<AuthState> {
         // 初始化聊天相关订阅
         if (_chatCubit != null) {
           await _chatCubit.initializeSubscriptions();
+
+          // 同步联系人列表
+          await _chatCubit.syncContacts();
         }
       }
     } catch (e) {
