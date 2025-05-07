@@ -210,21 +210,38 @@ class _ContactsPageState extends State<ContactsPage> {
     final phone = contact.phone ?? '';
     final subtitle = phone.isNotEmpty ? '+86 $phone' : '状态: ${contact.status ?? '离线'}';
 
-    // 获取头像URL或使用默认头像
-    final avatar = contact.avatar ?? '';
-    final hasAvatar = avatar.isNotEmpty;
+    // 获取头像值
+    final avatar = contact.avatar;
+    final hasAvatar = avatar != null && avatar.isNotEmpty;
+
+    // 判断是否为颜色值
+    final isColorAvatar = hasAvatar && avatar.startsWith('#');
+
+    // 解析颜色
+    Color? avatarColor;
+    if (isColorAvatar) {
+      try {
+        final hexCode = avatar.replaceFirst('#', '');
+        avatarColor = Color(int.parse('FF$hexCode', radix: 16));
+      } catch (e) {
+        avatarColor = Colors.green[100];
+      }
+    }
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundImage: hasAvatar ? NetworkImage(avatar) : null,
-        backgroundColor: hasAvatar ? null : Colors.green[100],
+        backgroundImage: (hasAvatar && !isColorAvatar) ? NetworkImage(avatar) : null,
+        backgroundColor: isColorAvatar ? avatarColor : Colors.green[100],
         radius: 24,
-        child: hasAvatar
-            ? null
-            : Text(
+        child: (!hasAvatar || isColorAvatar)
+            ? Text(
                 contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-              ),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isColorAvatar ? Colors.white : Colors.green,
+                ),
+              )
+            : null,
       ),
       title: Text(
         contact.name,

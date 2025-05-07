@@ -292,6 +292,34 @@ lib/features/chat/
    - 创建了`auth_protocol.md`记录认证流程
    - 更新了项目整体文档
 
+### 2024-04-20
+1. **命名冲突与类型问题修复**
+   - 解决了`DataEncoding`命名冲突问题，创建统一的`types.dart`文件导出通用类型
+   - 修复了`ContactsState`命名冲突，将`contacts_cubit.dart`中的状态类重命名为`ContactsCubitState`
+   - 更新`ContactsStateAdapter`适配器以适应新的类名
+   - 修改了所有使用`ContactsCubit`的页面，使用新的类型名称
+
+2. **Proto文件与数据转换优化**
+   - 添加临时占位Proto文件，解决缺失的`.pb.dart`文件问题
+   - 在`ProtoConverter`类中使用`UserSession`替代`UserProto`
+   - 修复了数据模型转换中的类型不匹配问题
+
+3. **数据库初始化错误修复**
+   - 为`FriendRequest`模型添加了正确的`collection`注解
+   - 修复了`Enumerated`注解的使用方式
+   - 解决了集合名称不一致导致的数据库初始化错误
+
+4. **模拟数据功能增强**
+   - 创建了`mock_data.dart`文件，提供100个模拟联系人数据，支持中文、英文和数字ID用户
+   - 使用颜色代码替代网络头像，解决网络连接问题
+   - 修改UI组件以正确显示颜色头像
+   - 更新状态页面，使用随机颜色生成头像显示
+
+5. **枚举格式标准化**
+   - 修复了`AuthOperationType`枚举名称格式，使用lowerCamelCase规范
+   - 将`reset_password`改为`resetPassword`
+   - 将`send_code`改为`sendCode`
+
 ## 10. 待办事项
 - [ ] 实现消息加密
 - [ ] 添加语音/视频通话

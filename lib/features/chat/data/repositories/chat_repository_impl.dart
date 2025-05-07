@@ -62,12 +62,18 @@ class ChatRepositoryImpl implements ChatRepository {
       return await _users.where().sortByName().findAll();
     } catch (e) {
       _logger.e('获取联系人失败', error: e);
-      return _getMockContacts();
+      // 禁用旧的模拟数据生成方法
+      // return _getMockContacts();
+      // 改用新的模拟数据生成器
+      return MockDataGenerator.generateMockContacts();
     }
   }
 
-  // 返回模拟联系人数据
+  // 返回模拟联系人数据 - 已废弃，使用MockDataGenerator代替
+  // 保留此方法仅供参考
   List<User> _getMockContacts() {
+    // 此方法已废弃，不应再被调用
+    _logger.w('_getMockContacts方法已废弃，请使用MockDataGenerator');
     return List.generate(5, (index) {
       final user = User();
       user.name = '联系人$index';

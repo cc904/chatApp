@@ -1,10 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'dart:math' as math;
 
 class StatusPage extends StatelessWidget {
   const StatusPage({super.key});
 
   static final _logger = LogService('status_page.dart');
+
+  // 获取随机颜色
+  static Color getRandomColor(int seed) {
+    final random = math.Random(seed);
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.amber,
+      Colors.cyan,
+      Colors.indigo,
+      Colors.pink,
+    ];
+    return colors[random.nextInt(colors.length)];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +39,9 @@ class StatusPage extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: Stack(
                 children: [
-                  const CircleAvatar(
-                    backgroundImage: NetworkImage('https://picsum.photos/200?random=0'),
+                  CircleAvatar(
+                    backgroundColor: getRandomColor(0),
+                    child: const Text('我', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20)),
                     radius: 30,
                   ),
                   Positioned(
@@ -74,7 +94,7 @@ class StatusPage extends StatelessWidget {
                 return _buildStatusItem(
                   name: '好友 ${index + 1}',
                   time: '${index + 1}小时前',
-                  avatarUrl: 'https://picsum.photos/200?random=${index + 10}',
+                  avatarSeed: index + 10,
                   hasUnviewedStatus: index < 2,
                 );
               },
@@ -103,7 +123,7 @@ class StatusPage extends StatelessWidget {
                 return _buildStatusItem(
                   name: '好友 ${index + 6}',
                   time: '${index + 5}小时前',
-                  avatarUrl: 'https://picsum.photos/200?random=${index + 20}',
+                  avatarSeed: index + 20,
                   hasUnviewedStatus: false,
                 );
               },
@@ -117,7 +137,7 @@ class StatusPage extends StatelessWidget {
   Widget _buildStatusItem({
     required String name,
     required String time,
-    required String avatarUrl,
+    required int avatarSeed,
     required bool hasUnviewedStatus,
   }) {
     return ListTile(
@@ -133,7 +153,11 @@ class StatusPage extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(2),
           child: CircleAvatar(
-            backgroundImage: NetworkImage(avatarUrl),
+            backgroundColor: getRandomColor(avatarSeed),
+            child: Text(
+              name.substring(0, 1),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
             radius: 24,
           ),
         ),
