@@ -27,7 +27,7 @@ class ChatCubit extends Cubit<ChatState> {
   StreamSubscription? _syncStatusSubscription;
 
   // 打字状态管理
-  Map<String, Map<String, dynamic>> _typingUsers = {}; // conversationId -> {userId: {isTyping, timestamp}}
+  final Map<String, Map<String, dynamic>> _typingUsers = {}; // conversationId -> {userId: {isTyping, timestamp}}
   Timer? _typingStatusTimer;
   bool _isUserTyping = false;
   String? _lastTypingConversationId;

@@ -7,7 +7,7 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/socket_service.dart';
+import 'package:cc/core/network/index.dart';
 import 'package:isar/isar.dart';
 
 /// 消息状态枚举
@@ -22,7 +22,7 @@ enum MessageStatus {
 /// ChatRepository的实现类
 class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService('chat_repository_impl.dart');
-  final SocketService _socketService = SocketService();
+  final SocketService _socketService = SocketService.getInstance();
 
   // 消息流控制器，用于通知UI消息更新
   final StreamController<Message> _messageStreamController = StreamController<Message>.broadcast();
@@ -34,7 +34,7 @@ class ChatRepositoryImpl implements ChatRepository {
   final StreamController<SyncStatus> _syncStatusController = StreamController<SyncStatus>.broadcast();
 
   // Socket事件订阅
-  List<StreamSubscription> _socketSubscriptions = [];
+  final List<StreamSubscription> _socketSubscriptions = [];
 
   // 获取消息流
   Stream<Message> get messageStream => _messageStreamController.stream;
@@ -595,7 +595,6 @@ class ChatRepositoryImpl implements ChatRepository {
     });
   }
 
-  @override
   Future<Message> sendLocationMessage(
     String conversationId,
     double latitude,
@@ -850,9 +849,15 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<bool> initRealTimeConnection(String userId, String token, {Object? encoding}) async {
+  Future<bool> initRealTimeConnection(
+    String userId,
+    String token,
+    String serverUrl,
+    DataEncoding encoding,
+    bool simulationMode,
+  ) async {
     try {
-      _logger.i('初始化实时通信连接', extra: {'userId': userId});
+      _logger.i('初始化实时通信连接', extra: {'userId': userId, 'simulationMode': simulationMode});
 
       if (_isSocketInitialized) {
         _logger.w('Socket连接已初始化，断开旧连接');
@@ -861,9 +866,10 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 初始化Socket连接
       final success = await _socketService.init(
-        serverUrl: socketServerUrl,
+        serverUrl: serverUrl,
         authToken: token,
-        encoding: encoding != null ? encoding as DataEncoding : DataEncoding.json,
+        encoding: encoding,
+        simulationMode: simulationMode,
       );
 
       if (success) {
@@ -920,7 +926,7 @@ class ChatRepositoryImpl implements ChatRepository {
     final token = 'token_${currentUser.userId}_${DateTime.now().millisecondsSinceEpoch}';
 
     // 初始化新连接
-    return initRealTimeConnection(currentUser.userId.toString(), token);
+    return initRealTimeConnection(currentUser.userId.toString(), token, socketServerUrl, DataEncoding.json, false);
   }
 
   /// 设置Socket事件监听
@@ -1096,9 +1102,7 @@ class ChatRepositoryImpl implements ChatRepository {
         return 'read';
       case MessageStatus.failed:
         return 'failed';
-      default:
-        return 'sent';
-    }
+      }
   }
 
   /// 解析消息类型
@@ -1152,7 +1156,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 如果消息不是当前用户发送的，增加未读计数
       if (message.senderId != _currentUserId.toString()) {
-        conversation.unreadCount = (conversation.unreadCount ?? 0) + 1;
+        conversation.unreadCount = (conversation.unreadCount) + 1;
       }
 
       await _conversations.put(conversation);
@@ -1176,9 +1180,7 @@ class ChatRepositoryImpl implements ChatRepository {
         return '[位置]';
       case MessageType.system:
         return '[系统消息]';
-      default:
-        return '[消息]';
-    }
+      }
   }
 
   /// 更新消息状态
@@ -1292,7 +1294,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 创建消息对象
   Future<Message> _createMessage(String conversationId, String content, MessageType type) async {
     final message = Message();
-    message.messageId = 'msg_${DateTime.now().millisecondsSinceEpoch}_${_currentUserId}';
+    message.messageId = 'msg_${DateTime.now().millisecondsSinceEpoch}_$_currentUserId';
     message.conversationId = conversationId;
     message.senderId = _currentUserId.toString();
     message.text = content;

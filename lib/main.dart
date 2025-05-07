@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/network/index.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
@@ -114,8 +115,11 @@ class MyApp extends StatelessWidget {
           // 创建AuthCubit，并传入ChatCubit
           BlocProvider<AuthCubit>(
             create: (context) => AuthCubit(
+              serverUrl: 'http://localhost:3000', // 设置服务器URL
               chatRepository: context.read<ChatRepository>(),
               chatCubit: context.read<ChatCubit>(),
+              simulationMode: true, // 默认使用模拟模式
+              dataEncoding: DataEncoding.json, // 使用JSON编码
             ),
           ),
           BlocProvider<HomeCubit>(create: (context) => HomeCubit()),

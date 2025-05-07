@@ -7,8 +7,8 @@ class CallsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final _logger = LogService('calls_page.dart');
-    _logger.d('CallsPage build');
+    final logger = LogService('calls_page.dart');
+    logger.d('CallsPage build');
     return Scaffold(
       appBar: AppBar(
         title: const Text('通话', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -37,7 +37,7 @@ class CallsPage extends StatelessWidget {
                       title: const Text('清空通话记录'),
                       onTap: () {
                         Navigator.pop(context);
-                        _logger.d('清空通话记录');
+                        logger.d('清空通话记录');
                       },
                     ),
                     ListTile(
@@ -45,7 +45,7 @@ class CallsPage extends StatelessWidget {
                       title: const Text('通话设置'),
                       onTap: () {
                         Navigator.pop(context);
-                        _logger.d('通话设置');
+                        logger.d('通话设置');
                       },
                     ),
                   ],
@@ -98,7 +98,7 @@ class CallsPage extends StatelessWidget {
                   TextButton(
                     onPressed: () {
                       // 创建通话连接
-                      _logger.d('创建通话连接');
+                      logger.d('创建通话连接');
                     },
                     style: TextButton.styleFrom(
                       backgroundColor: Colors.green[50],
@@ -179,7 +179,7 @@ class CallsPage extends StatelessWidget {
     required bool isMissed,
     required int callCount,
   }) {
-    final _logger = LogService('calls_page.dart');
+    final logger = LogService('calls_page.dart');
     return ListTile(
       leading: CircleAvatar(
         backgroundImage: NetworkImage(avatarUrl),
@@ -228,12 +228,12 @@ class CallsPage extends StatelessWidget {
         ),
         onPressed: () {
           // 发起通话
-          _logger.d('发起通话', extra: {'类型': isVideo ? '视频' : '语音', '联系人': name});
+          logger.d('发起通话', extra: {'类型': isVideo ? '视频' : '语音', '联系人': name});
         },
       ),
       onTap: () {
         // 查看通话详情
-        _logger.d('查看通话详情', extra: {'联系人': name});
+        logger.d('查看通话详情', extra: {'联系人': name});
       },
     );
   }

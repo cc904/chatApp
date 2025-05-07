@@ -283,9 +283,7 @@ class ProtoModelAdapter {
         return MessageType.location;
       case db.MessageType.system:
         return MessageType.system;
-      default:
-        return MessageType.text;
-    }
+      }
   }
 
   // 辅助方法：从Proto转换消息类型

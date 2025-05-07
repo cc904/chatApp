@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../proto/generated/message.pb.dart';
 import '../proto/generated/user.pb.dart';
 import '../proto/generated/conversation.pb.dart';
+import '../proto/generated/auth.pb.dart';
 
 /// Protobuf 转换工具类
 /// 负责在 Socket.IO 通信中进行 Protobuf 和 JSON 之间的转换
@@ -97,5 +98,59 @@ class ProtoConverter {
   /// 将 Map 转换为 ConversationProto
   ConversationProto mapToConversation(Map<String, dynamic> map) {
     return ConversationProto.create()..mergeFromProto3Json(map);
+  }
+
+  // ==== Auth 转换 ====
+
+  /// AuthRequest Proto对象转Map
+  Map<String, dynamic> authRequestToMap(AuthRequest request) {
+    final jsonString = request.writeToJson();
+    final map = json.decode(jsonString) as Map<String, dynamic>;
+    return map;
+  }
+
+  /// Map转AuthRequest Proto对象
+  AuthRequest mapToAuthRequest(Map<String, dynamic> map) {
+    final jsonString = json.encode(map);
+    final request = AuthRequest.fromJson(jsonString);
+    return request;
+  }
+
+  /// AuthResponse Proto对象转Map
+  Map<String, dynamic> authResponseToMap(AuthResponse response) {
+    final jsonString = response.writeToJson();
+    final map = json.decode(jsonString) as Map<String, dynamic>;
+    return map;
+  }
+
+  /// Map转AuthResponse Proto对象
+  AuthResponse mapToAuthResponse(Map<String, dynamic> map) {
+    final jsonString = json.encode(map);
+    final response = AuthResponse.fromJson(jsonString);
+    return response;
+  }
+
+  /// AuthRequest Proto对象转Base64字符串
+  String authRequestToBase64(AuthRequest request) {
+    final bytes = request.writeToBuffer();
+    return base64Encode(bytes);
+  }
+
+  /// Base64字符串转AuthRequest Proto对象
+  AuthRequest base64ToAuthRequest(String base64String) {
+    final bytes = base64Decode(base64String);
+    return AuthRequest.fromBuffer(bytes);
+  }
+
+  /// AuthResponse Proto对象转Base64字符串
+  String authResponseToBase64(AuthResponse response) {
+    final bytes = response.writeToBuffer();
+    return base64Encode(bytes);
+  }
+
+  /// Base64字符串转AuthResponse Proto对象
+  AuthResponse base64ToAuthResponse(String base64String) {
+    final bytes = base64Decode(base64String);
+    return AuthResponse.fromBuffer(bytes);
   }
 }

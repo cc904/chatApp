@@ -2,11 +2,10 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/user_service.dart';
-import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/network/index.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/core/services/socket_service.dart';
+import 'package:cc/core/proto/generated/auth.pb.dart';
 
 part 'auth_state.dart';
 
@@ -22,10 +21,114 @@ class AuthCubit extends Cubit<AuthState> {
   // 添加ChatCubit依赖，用于在登录成功后初始化
   final ChatCubit? _chatCubit;
 
-  AuthCubit({ChatRepository? chatRepository, ChatCubit? chatCubit})
-      : _chatRepository = chatRepository,
+  // 认证服务
+  final AuthService _authService = AuthService.getInstance();
+  // 服务器URL，在构造函数中赋值
+  final String _serverUrl;
+  // 模拟模式
+  final bool _simulationMode;
+  // 数据编码方式
+  final DataEncoding _dataEncoding;
+
+  AuthCubit({
+    required String serverUrl,
+    ChatRepository? chatRepository,
+    ChatCubit? chatCubit,
+    bool simulationMode = false,
+    DataEncoding dataEncoding = DataEncoding.json,
+  })  : _chatRepository = chatRepository,
         _chatCubit = chatCubit,
-        super(const AuthFormState());
+        _serverUrl = serverUrl,
+        _simulationMode = simulationMode,
+        _dataEncoding = dataEncoding,
+        super(const AuthFormState()) {
+    // 初始化认证服务
+    _initAuthService();
+    // 订阅认证响应事件
+    _authService.onAuthResponse.listen(_handleAuthResponse);
+  }
+
+  // 初始化认证服务
+  Future<void> _initAuthService() async {
+    try {
+      final success = await _authService.init(
+        serverUrl: _serverUrl,
+        encoding: _dataEncoding,
+        simulationMode: _simulationMode,
+      );
+
+      if (!success) {
+        _logger.e('初始化认证服务失败');
+        emit(const AuthError('初始化认证服务失败，请重试'));
+        emit(const AuthFormState());
+      }
+    } catch (e) {
+      _logger.e('初始化认证服务出错', error: e);
+      emit(AuthError(e.toString()));
+      emit(const AuthFormState());
+    }
+  }
+
+  // 处理认证响应
+  void _handleAuthResponse(AuthResponse response) {
+    _logger.i('收到认证响应', extra: {'success': response.success, 'message': response.message});
+
+    if (!response.success) {
+      emit(AuthError(response.message));
+      // 恢复表单状态
+      final currentState = state;
+      if (currentState is AuthFormState) {
+        emit(currentState);
+      } else {
+        emit(const AuthFormState());
+      }
+      return;
+    }
+
+    if (response.hasUserId() && response.hasToken()) {
+      emit(AuthSuccess(userId: response.userId, token: response.token));
+
+      // 认证成功后，准备实时通信
+      _initRealTimeCommunication(response.userId, response.token);
+    }
+  }
+
+  // 初始化实时通信
+  Future<void> _initRealTimeCommunication(String userId, String token) async {
+    if (_chatRepository == null) {
+      _logger.w('聊天仓库未初始化，无法开启实时通信');
+      return;
+    }
+
+    try {
+      _logger.i('初始化实时通信连接', extra: {'userId': userId});
+
+      // 获取来自认证服务的连接信息
+      final connectionInfo = _authService.getConnectionInfo();
+
+      // 使用认证后的用户ID和令牌初始化实时通信
+      final success = await _chatRepository.initRealTimeConnection(
+        userId,
+        token,
+        connectionInfo['serverUrl'] as String,
+        connectionInfo['dataEncoding'] as DataEncoding,
+        connectionInfo['simulationMode'] as bool,
+      );
+
+      if (!success) {
+        _logger.e('初始化实时通信连接失败');
+      } else {
+        _logger.i('实时通信连接成功');
+
+        // 初始化聊天相关订阅
+        if (_chatCubit != null) {
+          await _chatCubit.initializeSubscriptions();
+        }
+      }
+    } catch (e) {
+      _logger.e('初始化实时通信错误', error: e);
+    }
+  }
 
   void updatePhoneNumber(String phoneNumber) {
     final currentState = state;
@@ -73,8 +176,16 @@ class AuthCubit extends Cubit<AuthState> {
       try {
         _logger.i('发送验证码中...');
         emit(AuthLoading());
-        // TODO: 实现发送验证码的API调用
-        await Future.delayed(const Duration(seconds: 1)); // 模拟网络请求
+
+        // 使用认证服务发送验证码
+        final success = await _authService.sendVerificationCode(
+          currentState.phoneNumber!,
+          'login', // 用途：login/register/reset
+        );
+
+        if (!success) {
+          throw '发送验证码失败，请稍后再试';
+        }
 
         emit(currentState.copyWith(
           isCodeSent: true,
@@ -125,187 +236,44 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthLoading());
         _logger.i('登录中...');
 
+        bool success = false;
+
         if (isQuickLogin) {
           // 验证码登录
           if (currentState.verificationCode?.isEmpty ?? true) {
             _logger.i('验证码为空');
             throw '请输入验证码';
           }
+
           _logger.i('使用验证码登录: ${currentState.verificationCode}');
-          // TODO: 实现验证码登录API调用
+          success = await _authService.loginWithCode(
+            currentState.phoneNumber!,
+            currentState.verificationCode!,
+          );
         } else {
           // 密码登录
           if (currentState.password?.isEmpty ?? true) {
             _logger.i('密码为空');
             throw '请输入密码';
           }
+
           _logger.i('使用密码登录: ${currentState.password}');
-          // TODO: 实现密码登录API调用
+          success = await _authService.loginWithPassword(
+            currentState.phoneNumber!,
+            currentState.password!,
+          );
         }
 
-        await Future.delayed(const Duration(seconds: 2)); // 模拟网络请求
+        if (!success) {
+          throw '登录失败，请检查网络连接';
+        }
 
-        // 模拟从服务器获取的用户ID
-        final String serverUserId = _generateMockUserId(currentState.phoneNumber!);
-        // 模拟从服务器获取的token
-        final String serverToken = _generateMockToken(serverUserId);
-
-        // 初始化或切换到该用户的数据库
-        await _initUserDatabase(serverUserId);
-
-        // 保存或更新用户信息
-        await _saveUserInfoToDatabase(currentState.phoneNumber!, serverUserId, nickname: currentState.nickname);
-
-        // 初始化Socket.IO实时通信
-        await _initRealTimeConnection(serverUserId, serverToken);
-
-        // 初始化ChatCubit(在数据库和Socket初始化后)
-        await _initChatCubit();
-
-        _logger.i('登录成功');
-        emit(AuthSuccess(userId: serverUserId, token: serverToken));
+        // 注意：登录结果将通过AuthService的onAuthResponse回调处理
       } catch (e) {
         _logger.e('登录错误: $e');
         emit(AuthError(e.toString()));
         emit(currentState);
       }
-    }
-  }
-
-  /// 初始化Socket.IO实时通信连接
-  Future<void> _initRealTimeConnection(String userId, String token) async {
-    try {
-      if (_chatRepository != null) {
-        _logger.i('初始化Socket.IO实时通信');
-
-        // 获取SocketService单例
-        final socketService = SocketService();
-
-        // 使用Protobuf二进制格式初始化连接
-        // 注意：在Web平台使用base64编码更合适
-        final isWeb = identical(0, 0.0);
-        final encoding = isWeb ? DataEncoding.base64 : DataEncoding.protobuf;
-
-        _logger.i('使用 ${encoding.toString()} 编码格式初始化Socket连接');
-
-        final success = await _chatRepository!.initRealTimeConnection(
-          userId,
-          token,
-          encoding: encoding,
-        );
-
-        if (success) {
-          _logger.i('Socket.IO实时通信初始化成功');
-        } else {
-          _logger.w('Socket.IO实时通信初始化失败，将在后台继续尝试');
-          // 可以在这里添加重试逻辑，或者让用户手动重试
-        }
-      } else {
-        _logger.w('未提供ChatRepository，无法初始化Socket.IO实时通信');
-      }
-    } catch (e) {
-      _logger.e('初始化Socket.IO实时通信出错', error: e);
-      // 不抛出异常，确保登录流程正常进行
-    }
-  }
-
-  /// 初始化用户数据库
-  Future<void> _initUserDatabase(String userId) async {
-    try {
-      _logger.i('初始化用户数据库: $userId');
-
-      // 检查用户数据库是否存在
-      final dbExists = await DatabaseInitializer.userDatabaseExists(userId);
-
-      // 检查数据库是否已初始化
-      final isInitialized = DatabaseInitializer.isInitialized;
-
-      if (!isInitialized) {
-        _logger.i('数据库尚未初始化，首次创建数据库');
-      }
-
-      if (dbExists) {
-        _logger.i('用户数据库已存在，切换到该数据库');
-        await DatabaseInitializer.switchUserDatabase(userId);
-      } else {
-        _logger.i('用户数据库不存在，创建新数据库');
-        await DatabaseInitializer.init(userId: userId);
-      }
-    } catch (e) {
-      _logger.e('初始化用户数据库失败', error: e);
-      // 如果用户数据库初始化失败，回退到默认数据库
-      if (!DatabaseInitializer.isInitialized) {
-        _logger.i('尝试回退到默认数据库');
-        await DatabaseInitializer.init();
-      }
-    }
-  }
-
-  /// 生成模拟用户ID (实际环境应该由服务器返回)
-  String _generateMockUserId(String phoneNumber) {
-    // 移除模拟ID生成中的随机性，确保同一个手机号总是得到相同的ID
-    return 'u${phoneNumber.substring(phoneNumber.length - 6)}';
-  }
-
-  /// 生成模拟token (实际环境应该由服务器返回)
-  String _generateMockToken(String userId) {
-    return 'token_${userId}_${DateTime.now().millisecondsSinceEpoch}';
-  }
-
-  /// 将用户信息保存到数据库
-  Future<void> _saveUserInfoToDatabase(String phone, String userId, {String? nickname}) async {
-    try {
-      _logger.i('保存用户信息到数据库');
-
-      // 检查是否已有当前用户
-      final existingUser = await UserService.getCurrentUser();
-
-      if (existingUser != null) {
-        // 更新已有用户信息
-        _logger.i('更新已有用户信息');
-        await UserService.updateUser(
-          existingUser.userId,
-          phone: phone,
-          name: nickname ?? existingUser.name,
-          status: 'online',
-        );
-      } else {
-        // 创建新用户
-        _logger.i('创建新用户');
-        // 先创建一个基本用户
-        final newUser = await UserService.createCurrentUser();
-
-        if (newUser != null) {
-          // 然后更新用户信息
-          await UserService.updateUser(
-            newUser.userId,
-            phone: phone,
-            name: nickname ?? '用户${phone.substring(phone.length - 4)}', // 如果没有昵称，使用手机号后4位作为默认昵称
-            status: 'online',
-          );
-        }
-      }
-
-      _logger.i('用户信息保存成功');
-    } catch (e) {
-      _logger.e('保存用户信息到数据库失败', error: e);
-      // 不抛出异常，确保登录流程正常进行
-    }
-  }
-
-  /// 初始化ChatCubit
-  Future<void> _initChatCubit() async {
-    try {
-      if (_chatCubit != null) {
-        _logger.i('初始化ChatCubit');
-        await _chatCubit!.initializeSubscriptions();
-        _logger.i('ChatCubit初始化成功');
-      } else {
-        _logger.w('未提供ChatCubit，无法初始化');
-      }
-    } catch (e) {
-      _logger.e('初始化ChatCubit出错', error: e);
-      // 不抛出异常，确保登录流程正常进行
     }
   }
 
@@ -347,33 +315,13 @@ class AuthCubit extends Cubit<AuthState> {
       emit(AuthLoading());
       _logger.i('注册中...');
 
-      // TODO: 实现注册API调用
-      await Future.delayed(const Duration(seconds: 2)); // 模拟网络请求
+      final success = await _authService.register(phoneNumber, verificationCode, password, nickname);
 
-      // 检查手机号是否已注册（模拟）
-      if (phoneNumber == '13800000000') {
-        throw '该手机号已注册';
+      if (!success) {
+        throw '注册失败，请检查网络连接';
       }
 
-      // 模拟从服务器获取的用户ID
-      final String serverUserId = _generateMockUserId(phoneNumber);
-      // 模拟从服务器获取的token
-      final String serverToken = _generateMockToken(serverUserId);
-
-      // 初始化用户数据库
-      await _initUserDatabase(serverUserId);
-
-      // 保存用户信息
-      await _saveUserInfoToDatabase(phoneNumber, serverUserId, nickname: nickname);
-
-      // 初始化Socket.IO实时通信
-      await _initRealTimeConnection(serverUserId, serverToken);
-
-      // 初始化ChatCubit
-      await _initChatCubit();
-
-      _logger.i('注册成功');
-      emit(AuthSuccess(userId: serverUserId, token: serverToken));
+      // 注意：注册结果将通过AuthService的onAuthResponse回调处理
     } catch (e) {
       _logger.e('注册错误: $e');
       emit(AuthError(e.toString()));
@@ -419,42 +367,13 @@ class AuthCubit extends Cubit<AuthState> {
       emit(AuthLoading());
       _logger.i('重置密码中...');
 
-      // TODO: 实现重置密码API调用
-      await Future.delayed(const Duration(seconds: 2)); // 模拟网络请求
+      final success = await _authService.resetPassword(phoneNumber, verificationCode, newPassword);
 
-      // 模拟一些可能的错误情况（测试用）
-      if (phoneNumber == '13800000000') {
-        throw '该手机号未注册';
-      }
-      if (verificationCode == '000000') {
-        throw '验证码错误';
+      if (!success) {
+        throw '重置密码失败，请检查网络连接';
       }
 
-      // 模拟从服务器获取的用户ID
-      final String serverUserId = _generateMockUserId(phoneNumber);
-      // 模拟从服务器获取的token
-      final String serverToken = _generateMockToken(serverUserId);
-
-      // 初始化用户数据库
-      await _initUserDatabase(serverUserId);
-
-      // 更新用户信息
-      final existingUser = await UserService.getCurrentUser();
-      if (existingUser != null) {
-        await UserService.updateUser(
-          existingUser.userId,
-          phone: phoneNumber,
-        );
-      }
-
-      // 初始化Socket.IO实时通信
-      await _initRealTimeConnection(serverUserId, serverToken);
-
-      // 初始化ChatCubit
-      await _initChatCubit();
-
-      _logger.i('重置密码成功');
-      emit(AuthSuccess(userId: serverUserId, token: serverToken));
+      // 注意：重置密码结果将通过AuthService的onAuthResponse回调处理
     } catch (e) {
       _logger.e('重置密码错误: $e');
       emit(AuthError(e.toString()));
