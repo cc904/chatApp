@@ -80,7 +80,7 @@ class DatabaseInitializer {
       // 模拟模式下生成模拟数据
       if (AppConfig().isSimulationMode) {
         _logger.i('开始生成模拟数据');
-        await MockDataGenerator.generateMoreMockData();
+        await MockDataGenerator.generateMockData();
       }
     } catch (e) {
       _logger.e('数据库初始化失败', error: e);

@@ -21,7 +21,7 @@ class MockDataGenerator {
   /// - 创建私聊会话
   /// - 创建群聊会话
   /// - 为每个会话创建消息
-  static Future<void> generateTestData() async {
+  static Future<void> generateMockData() async {
     try {
       // 确保模拟数据管理器已初始化
       await MockDataManager.init();
@@ -129,7 +129,7 @@ class MockDataGenerator {
     final myUser = MyUser()
       ..name = '我'
       ..userId = 'u000001'
-      ..token = 'test_token_${DateTime.now().millisecondsSinceEpoch}'
+      ..token = 'mock_token_${DateTime.now().millisecondsSinceEpoch}'
       ..phone = '13800000000'
       ..email = 'me@example.com'
       ..status = 'online'

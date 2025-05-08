@@ -33,7 +33,7 @@ class MockDataManager {
   ///
   /// 这个方法会：
   /// 1. 获取应用文档目录
-  /// 2. 创建并初始化testData.isar数据库
+  /// 2. 创建并初始化mockdata.isar数据库
   /// 3. 根据isSimulationMode决定是否生成模拟数据
   static Future<void> init() async {
     if (_isInitialized) {
@@ -53,12 +53,12 @@ class MockDataManager {
           MessageSchema,
         ],
         directory: dir.path,
-        name: 'testData',
+        name: 'mockdata',
         inspector: true,
       );
 
       _isInitialized = true;
-      _logger.i('模拟数据库初始化成功: ${dir.path}/testData.isar');
+      _logger.i('模拟数据库初始化成功: ${dir.path}/mockdata.isar');
 
       // 检查是否需要生成模拟数据
       final appConfig = AppConfig();
@@ -66,7 +66,7 @@ class MockDataManager {
         final contactCount = await _testIsar.users.count();
         if (contactCount == 0) {
           _logger.i('模拟数据库为空，开始生成模拟数据...');
-          await MockDataGenerator.generateTestData();
+          await MockDataGenerator.generateMockData();
         }
       }
     } catch (e) {
@@ -121,7 +121,7 @@ class MockDataManager {
 
     try {
       await clearAll();
-      await MockDataGenerator.generateTestData();
+      await MockDataGenerator.generateMockData();
       _logger.i('已重新生成模拟数据');
     } catch (e) {
       _logger.e('重新生成模拟数据失败', error: e);
@@ -218,7 +218,7 @@ class MockDataManager {
 
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/testData.isar');
+      final file = File('${dir.path}/mockdata.isar');
       final stat = await file.stat();
       return stat.size;
     } catch (e) {

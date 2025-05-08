@@ -344,7 +344,7 @@ lib/features/chat/
 项目使用Isar作为本地NoSQL数据库，以支持高性能的离线数据存储和查询。数据库设计的主要特点：
 
 1. **用户独立数据库** - 每个用户使用独立的数据库文件（`{userId}.isar`）
-2. **模拟数据分离** - 使用单独的`testData.isar`数据库存储模拟数据
+2. **模拟数据分离** - 使用单独的`mockdata.isar`数据库存储模拟数据
 3. **索引优化** - 对常用查询字段（如名称、拼音等）创建索引以提高查询性能
 4. **关系映射** - 使用Isar的关系功能表示实体之间的关联
 
@@ -358,7 +358,7 @@ lib/features/chat/
    - 数字ID联系人（20个）
 
 2. **模拟数据管理器** - 通过`MockDataManager`类管理模拟数据：
-   - 管理独立的`testData.isar`数据库
+   - 管理独立的`mockdata.isar`数据库
    - 提供模拟数据的初始化、查询和搜索功能
    - 确保模拟数据与用户数据隔离
 
@@ -408,6 +408,7 @@ lib/features/chat/
    - `TestDataGenerator` → `MockDataGenerator`
    - `generateTestData()` → `generateMockData()`
    - 所有测试数据相关的方法和描述都统一使用"模拟数据"
+   - 数据库文件名从`testData.isar`改为`mockdata.isar`
 
 2. **文件重命名** - 重命名了相关文件以保持一致性：
    - `test_data_manager.dart` → `mock_data_manager.dart`

@@ -328,14 +328,14 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       await Future.delayed(const Duration(seconds: 1));
 
       // 模拟获取登录数据
-      final testUserId = "user_123";
-      final testToken = "test_token_${DateTime.now().millisecondsSinceEpoch}";
+      final mockUserId = "user_123";
+      final mockToken = "mock_token_${DateTime.now().millisecondsSinceEpoch}";
 
       // 初始化用户数据和数据库
-      await authCubit.loginWithTestAccount(
-        userId: testUserId,
-        token: testToken,
-        username: "测试用户",
+      await authCubit.loginWithMockAccount(
+        userId: mockUserId,
+        token: mockToken,
+        username: "模拟用户",
       );
 
       if (mounted) {

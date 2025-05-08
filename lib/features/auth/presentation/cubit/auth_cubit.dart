@@ -393,13 +393,13 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // 使用测试账户登录（仅用于测试）
-  Future<void> loginWithTestAccount({
+  // 使用模拟账户登录（仅用于模拟环境）
+  Future<void> loginWithMockAccount({
     required String userId,
     required String token,
     required String username,
   }) async {
-    _logger.i('使用测试账户登录', extra: {'userId': userId, 'username': username});
+    _logger.i('使用模拟账户登录', extra: {'userId': userId, 'username': username});
 
     try {
       emit(state.toLoadingState());
@@ -409,18 +409,18 @@ class AuthCubit extends Cubit<AuthState> {
         await DatabaseInitializer.init(userId: userId);
       }
 
-      // 保存测试用户信息
+      // 保存模拟用户信息
       final myUser = await MyUserService.saveCurrentUser(
         userId: userId,
         token: token,
         name: username,
         avatar: null,
-        phone: '13800138000', // 测试手机号
-        tokenExpireTime: DateTime.now().add(const Duration(days: 7)), // 测试令牌7天有效期
+        phone: '13800138000', // 模拟手机号
+        tokenExpireTime: DateTime.now().add(const Duration(days: 7)), // 模拟令牌7天有效期
       );
 
       if (myUser == null) {
-        throw '创建测试用户失败';
+        throw '创建模拟用户失败';
       }
 
       // 更新认证状态
@@ -429,9 +429,9 @@ class AuthCubit extends Cubit<AuthState> {
       // 初始化实时通信
       await _initRealTimeCommunication(userId, token);
 
-      _logger.i('测试账户登录成功');
+      _logger.i('模拟账户登录成功');
     } catch (e) {
-      _logger.e('测试账户登录失败', error: e);
+      _logger.e('模拟账户登录失败', error: e);
       emit(state.toErrorState(e.toString()));
     }
   }
