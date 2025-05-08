@@ -31,10 +31,10 @@ class MockDataGenerator {
       final myUser = await createCurrentUser(isar);
 
       // 创建联系人
-      final contacts = await createContacts(isar, 20);
+      final contacts = await createContacts(isar, 100);
 
       // 创建私聊会话
-      await createPrivateConversations(isar, myUser, contacts, 8);
+      await createPrivateConversations(isar, myUser, contacts, 20);
 
       // 创建群聊会话
       await createGroupConversations(isar, myUser, contacts, 5);
@@ -42,67 +42,7 @@ class MockDataGenerator {
       // 为每个会话创建消息
       final conversations = await isar.conversations.where().findAll();
       for (final conversation in conversations) {
-        await createMessages(isar, conversation, myUser, contacts, 20);
-      }
-
-      _logger.i('模拟数据生成完成（写入到模拟数据库）');
-    } catch (e) {
-      _logger.e('生成模拟数据失败', error: e);
-    }
-  }
-
-  /// 生成更多模拟数据
-  ///
-  /// 这个函数会生成更全面的模拟数据到模拟数据库中，适合更复杂的模拟场景：
-  /// - 确保已有当前用户，如无则创建
-  /// - 确保有足够的联系人（至少50个）
-  /// - 创建充足的私聊会话（约20个）和群聊会话（约10个）
-  /// - 为每个会话生成约30条消息
-  static Future<void> generateMoreMockData() async {
-    try {
-      // 确保模拟数据管理器已初始化
-      await MockDataManager.init();
-      final isar = MockDataManager.mockIsar;
-
-      // 确保有当前用户
-      final existingUser = await isar.myUsers.where().findFirst();
-      final myUser = existingUser ?? await createCurrentUser(isar);
-
-      // 确保有足够的联系人
-      final existingContacts = await isar.users.where().findAll();
-      final contactCount = 50;
-      if (existingContacts.length < contactCount) {
-        await createContacts(isar, contactCount - existingContacts.length);
-      }
-
-      // 获取所有联系人
-      final contacts = await isar.users.where().findAll();
-
-      // 创建会话
-      final conversationCount = 30;
-      final privateCount = 20;
-
-      // 确保有足够的私聊会话
-      final privateConversations = await isar.conversations.where().filter().typeEqualTo(ConversationType.private).findAll();
-      if (privateConversations.length < privateCount) {
-        await createPrivateConversations(isar, myUser, contacts, privateCount - privateConversations.length);
-      }
-
-      // 确保有足够的群聊会话
-      final groupConversations = await isar.conversations.where().filter().typeEqualTo(ConversationType.group).findAll();
-      final groupCount = conversationCount - privateCount;
-      if (groupConversations.length < groupCount) {
-        await createGroupConversations(isar, myUser, contacts, groupCount - groupConversations.length);
-      }
-
-      // 为每个会话生成消息
-      final allConversations = await isar.conversations.where().findAll();
-      final messageCount = 30;
-      for (final conversation in allConversations) {
-        final existingMessages = await isar.messages.where().filter().conversationIdEqualTo(conversation.conversationId).count();
-        if (existingMessages < messageCount) {
-          await createMessages(isar, conversation, myUser, contacts, messageCount - existingMessages);
-        }
+        await createMessages(isar, conversation, myUser, contacts, 100);
       }
 
       _logger.i('模拟数据生成完成（写入到模拟数据库）');
@@ -249,7 +189,7 @@ class MockDataGenerator {
       final conversation = Conversation()
         ..type = ConversationType.group
         ..name = '$groupType $groupIndex'
-        ..createdAt = DateTime.now().subtract(Duration(days: i % 20))
+        ..createdAt = DateTime.now().subtract(Duration(days: i % 30))
         ..conversationId = 'conv_g_${2000 + i}';
 
       newGroupConversations.add(conversation);

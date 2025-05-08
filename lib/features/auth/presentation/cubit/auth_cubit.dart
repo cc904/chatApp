@@ -78,12 +78,12 @@ class AuthCubit extends Cubit<AuthState> {
     if (response.hasUserId() && response.hasToken()) {
       emit(state.toAuthenticatedState(userId: response.userId, token: response.token));
 
-      // 初始化数据库和测试数据
+      // 初始化数据库和模拟数据
       _initDatabases(response.userId, response.token);
     }
   }
 
-  // 初始化数据库和测试数据库
+  // 初始化数据库和模拟数据库
   Future<void> _initDatabases(String userId, String token) async {
     try {
       // 初始化用户数据库

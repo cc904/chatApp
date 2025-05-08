@@ -6,8 +6,10 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
 import 'dart:math' as math;
+import 'dart:async';
 
 /// ContactsRepository的实现类
 class ContactsRepositoryImpl implements ContactsRepository {
@@ -34,8 +36,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return users;
     } catch (e) {
       _logger.e('获取联系人列表失败', error: e);
-      // 使用MockDataManager获取模拟联系人
-      return await MockDataManager.getAllMockContacts();
+      // 只有在模拟模式下才使用MockDataManager获取模拟联系人
+      if (AppConfig().isSimulationMode) {
+        return await MockDataManager.getAllMockContacts();
+      }
+      return [];
     }
   }
 
@@ -48,8 +53,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return users;
     } catch (e) {
       _logger.e('搜索联系人失败', error: e);
-      // 使用MockDataManager搜索模拟联系人
-      return await MockDataManager.searchMockContacts(query);
+      // 只有在模拟模式下才使用MockDataManager搜索模拟联系人
+      if (AppConfig().isSimulationMode) {
+        return await MockDataManager.searchMockContacts(query);
+      }
+      return [];
     }
   }
 
@@ -63,8 +71,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return user;
     } catch (e) {
       _logger.e('获取联系人详情失败', error: e);
-      // 使用MockDataManager获取模拟联系人
-      return await MockDataManager.getMockContactById(userId);
+      // 只有在模拟模式下才使用MockDataManager获取模拟联系人
+      if (AppConfig().isSimulationMode) {
+        return await MockDataManager.getMockContactById(userId);
+      }
+      return null;
     }
   }
 
@@ -134,11 +145,53 @@ class ContactsRepositoryImpl implements ContactsRepository {
         });
       }
 
-      // 模拟网络延迟
-      await Future.delayed(Duration(milliseconds: 500 + _random.nextInt(1000)));
+      List<User> serverContacts = [];
 
-      // 使用MockDataManager获取模拟联系人
-      final serverContacts = await MockDataManager.getAllMockContacts();
+      // 根据全局配置决定是使用模拟数据还是真实数据
+      if (AppConfig().isSimulationMode) {
+        _logger.i('使用模拟模式同步联系人');
+        // 模拟网络延迟
+        await Future.delayed(Duration(milliseconds: 500 + _random.nextInt(1000)));
+        // 使用MockDataManager获取模拟联系人
+        serverContacts = await MockDataManager.getAllMockContacts();
+      } else {
+        _logger.i('使用真实网络同步联系人');
+        // 实际情况下，应该通过socket.io事件监听获取联系人数据
+        // 这里需要设置一个监听器来等待服务器返回的联系人数据
+        final completer = Completer<List<User>>();
+
+        // 设置一个超时，避免永久等待
+        final timeout = Timer(Duration(seconds: 10), () {
+          if (!completer.isCompleted) {
+            _logger.w('同步联系人超时');
+            completer.complete([]);
+          }
+        });
+
+        // 监听联系人同步结果
+        _socketService.on(SocketEvent.contacts_synced).listen((data) {
+          if (!completer.isCompleted) {
+            timeout.cancel();
+
+            // 解析服务器返回的联系人数据
+            final List<dynamic> contactsData = data['contacts'] ?? [];
+            final List<User> contacts = contactsData.map((contact) {
+              return User()
+                ..userId = contact['userId']
+                ..name = contact['name']
+                ..avatar = contact['avatar']
+                ..phone = contact['phone']
+                ..email = contact['email']
+                ..pinyin = contact['pinyin'] ?? contact['name'];
+            }).toList();
+
+            completer.complete(contacts);
+          }
+        });
+
+        // 等待服务器返回的联系人数据
+        serverContacts = await completer.future;
+      }
 
       // 保存到数据库
       await _isar.writeTxn(() async {
@@ -225,8 +278,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
         });
       }
 
-      // 模拟网络延迟
-      await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(700)));
+      // 只在模拟模式下模拟网络延迟
+      if (AppConfig().isSimulationMode) {
+        // 模拟网络延迟
+        await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(700)));
+      }
 
       _logger.i('发送好友请求成功');
       return true;
@@ -282,8 +338,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
         });
       }
 
-      // 模拟网络延迟
-      await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(700)));
+      // 只在模拟模式下模拟网络延迟
+      if (AppConfig().isSimulationMode) {
+        // 模拟网络延迟
+        await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(700)));
+      }
 
       _logger.i('接受好友请求成功');
       return true;
@@ -325,8 +384,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
         });
       }
 
-      // 模拟网络延迟
-      await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(700)));
+      // 只在模拟模式下模拟网络延迟
+      if (AppConfig().isSimulationMode) {
+        // 模拟网络延迟
+        await Future.delayed(Duration(milliseconds: 300 + _random.nextInt(700)));
+      }
 
       _logger.i('拒绝好友请求成功');
       return true;
