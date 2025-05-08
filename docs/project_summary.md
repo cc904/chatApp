@@ -23,8 +23,8 @@ lib/
 ├── core/                                          # 核心服务和工具
 │   ├── database/                                  # 数据库相关
 │   │   ├── database_initializer.dart              # 数据库初始化器
-│   │   ├── test_data_manager.dart                 # 测试数据管理器
-│   │   ├── test_data_generator.dart               # 测试数据生成器
+│   │   ├── mock_data_manager.dart                 # 模拟数据管理器
+│   │   ├── mock_data_generator.dart               # 模拟数据生成器
 │   │   └── models/                                # 数据模型
 │   │       ├── user.dart                          # 用户/联系人模型
 │   │       ├── my_user.dart                       # 当前用户模型
@@ -344,7 +344,7 @@ lib/features/chat/
 项目使用Isar作为本地NoSQL数据库，以支持高性能的离线数据存储和查询。数据库设计的主要特点：
 
 1. **用户独立数据库** - 每个用户使用独立的数据库文件（`{userId}.isar`）
-2. **测试数据分离** - 使用单独的`testData.isar`数据库存储测试数据
+2. **模拟数据分离** - 使用单独的`testData.isar`数据库存储模拟数据
 3. **索引优化** - 对常用查询字段（如名称、拼音等）创建索引以提高查询性能
 4. **关系映射** - 使用Isar的关系功能表示实体之间的关联
 
@@ -357,16 +357,27 @@ lib/features/chat/
    - 英文名联系人（30个）
    - 数字ID联系人（20个）
 
-2. **测试数据管理器** - 通过`TestDataManager`类管理测试数据：
+2. **模拟数据管理器** - 通过`MockDataManager`类管理模拟数据：
    - 管理独立的`testData.isar`数据库
    - 提供模拟数据的初始化、查询和搜索功能
-   - 确保测试数据与用户数据隔离
+   - 确保模拟数据与用户数据隔离
 
-3. **测试数据生成器** - 使用`TestDataGenerator`动态生成测试数据：
+3. **模拟数据生成器** - 使用`MockDataGenerator`动态生成模拟数据：
    - 生成联系人、会话和消息数据
    - 支持不同类型和状态的模拟数据生成
 
-### 9.3 数据重置功能
+### 9.3 模拟模式功能
+
+实现了完整的模拟模式功能，方便开发和测试：
+
+1. **配置管理** - 在`AppConfig`中通过`isSimulationMode`字段控制模拟模式
+2. **UI集成** - 在`ProfilePage`中添加模拟模式开关，并提供清晰的状态指示
+3. **运行效果**:
+   - 模拟模式开启时，应用将使用本地模拟数据，不会尝试进行真实网络连接
+   - 模拟模式下，所有网络请求使用本地模拟数据响应
+   - 模拟模式下，Socket.IO连接被模拟，不会真正连接到服务器
+
+### 9.4 数据重置功能
 
 实现了完整的数据重置功能，方便开发和测试：
 
@@ -377,7 +388,7 @@ lib/features/chat/
    - 删除所有媒体文件（位于`/media`目录）
    - 重置后自动退出应用
 
-### 9.4 数据库初始化改进
+### 9.5 数据库初始化改进
 
 对数据库初始化进行了以下改进：
 
@@ -386,21 +397,42 @@ lib/features/chat/
 3. **切换用户支持** - 添加数据库切换功能，支持多用户场景
 4. **错误处理优化** - 完善了异常捕获和日志记录
 
-## 10. 文件结构变更
+## 10. 最近重要更新
 
-最近的文件删除记录表明项目正在进行架构调整：
+### 10.1 术语统一
+
+最近进行了术语统一，使项目更加一致：
+
+1. **模拟数据命名** - 将所有涉及"测试数据"的术语更改为"模拟数据"：
+   - `TestDataManager` → `MockDataManager`
+   - `TestDataGenerator` → `MockDataGenerator`
+   - `generateTestData()` → `generateMockData()`
+   - 所有测试数据相关的方法和描述都统一使用"模拟数据"
+
+2. **文件重命名** - 重命名了相关文件以保持一致性：
+   - `test_data_manager.dart` → `mock_data_manager.dart`
+   - `test_data_generator.dart` → `mock_data_generator.dart`
+
+3. **模拟模式优化** - 完善了模拟模式的配置和使用：
+   - 在`AppConfig`中添加了详细的模拟模式描述
+   - 优化了模拟模式下的Socket.IO模拟实现
+   - 优化了模拟模式下的数据加载逻辑
+
+### 10.2 文件结构变更
+
+最近的文件删除和更新记录表明项目正在持续优化：
 
 1. 删除的文件：
-   - `lib/core/services/socket_service.dart` - 调整Socket通信服务
-   - `lib/core/services/proto_converter.dart` - 修改Protobuf转换逻辑
-   - `docs/socket_protocol.md` - 更新通信协议文档
-   - `lib/core/services/auth_service.dart` - 重构认证服务
-   - `protos/my_user.proto` - 更新用户Protobuf定义
-   - `lib/core/network/data_encoding.dart` - 调整数据编码方式
+   - `lib/core/database/test_data_generator.dart` - 更名为mock_data_generator.dart
+   - `lib/core/database/test_data_manager.dart` - 更名为mock_data_manager.dart
 
-这些变更表明项目正在进行网络通信层和数据序列化方面的重构，可能是为了提高性能或改进协议设计。
+2. 更新的文件：
+   - `lib/main.dart` - 更新了模拟数据管理器的引用
+   - `lib/features/auth/presentation/cubit/auth_cubit.dart` - 更新了模拟模式的处理逻辑
+   - `lib/features/home/presentation/pages/profile_page.dart` - 更新了模拟数据重生成功能和UI
+   - `lib/core/database/database_initializer.dart` - 更新了与模拟模式的集成
 
-## 10. 待办事项
+## 11. 待办事项
 - [ ] 实现消息加密
 - [ ] 添加语音/视频通话
 - [ ] 优化消息同步机制
