@@ -3,19 +3,19 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';
 
-/// 测试数据生成器
-/// 用于生成测试用的数据，只写入测试数据库
-class TestDataGenerator {
-  static final _logger = LogService('test_data_generator.dart');
+/// 模拟数据生成器
+/// 用于生成模拟用的数据，只写入模拟数据库
+class MockDataGenerator {
+  static final _logger = LogService('mock_data_generator.dart');
   static final _random = Random();
 
-  /// 生成测试数据
+  /// 生成模拟数据
   ///
-  /// 这个函数会生成基础测试数据到测试数据库中，包括：
+  /// 这个函数会生成基础模拟数据到模拟数据库中，包括：
   /// - 创建当前用户
   /// - 创建联系人
   /// - 创建私聊会话
@@ -23,9 +23,9 @@ class TestDataGenerator {
   /// - 为每个会话创建消息
   static Future<void> generateTestData() async {
     try {
-      // 确保测试数据管理器已初始化
-      await TestDataManager.init();
-      final isar = TestDataManager.testIsar;
+      // 确保模拟数据管理器已初始化
+      await MockDataManager.init();
+      final isar = MockDataManager.testIsar;
 
       // 创建当前用户
       final myUser = await createCurrentUser(isar);
@@ -45,24 +45,24 @@ class TestDataGenerator {
         await createMessages(isar, conversation, myUser, contacts, 20);
       }
 
-      _logger.i('测试数据生成完成（写入到测试数据库）');
+      _logger.i('模拟数据生成完成（写入到模拟数据库）');
     } catch (e) {
-      _logger.e('生成测试数据失败', error: e);
+      _logger.e('生成模拟数据失败', error: e);
     }
   }
 
-  /// 生成更多测试数据
+  /// 生成更多模拟数据
   ///
-  /// 这个函数会生成更全面的测试数据到测试数据库中，适合更复杂的测试场景：
+  /// 这个函数会生成更全面的模拟数据到模拟数据库中，适合更复杂的模拟场景：
   /// - 确保已有当前用户，如无则创建
   /// - 确保有足够的联系人（至少50个）
   /// - 创建充足的私聊会话（约20个）和群聊会话（约10个）
   /// - 为每个会话生成约30条消息
-  static Future<void> generateMoreTestData() async {
+  static Future<void> generateMoreMockData() async {
     try {
-      // 确保测试数据管理器已初始化
-      await TestDataManager.init();
-      final isar = TestDataManager.testIsar;
+      // 确保模拟数据管理器已初始化
+      await MockDataManager.init();
+      final isar = MockDataManager.testIsar;
 
       // 确保有当前用户
       final existingUser = await isar.myUsers.where().findFirst();
@@ -105,9 +105,9 @@ class TestDataGenerator {
         }
       }
 
-      _logger.i('测试数据生成完成（写入到测试数据库）');
+      _logger.i('模拟数据生成完成（写入到模拟数据库）');
     } catch (e) {
-      _logger.e('生成测试数据失败', error: e);
+      _logger.e('生成模拟数据失败', error: e);
     }
   }
 
@@ -117,7 +117,7 @@ class TestDataGenerator {
   /// - 查询现有的当前用户
   /// - 如果不存在，则创建一个新的MyUser对象
   /// - 设置用户信息包括固定的ID、名称"我"、认证令牌和基本联系信息
-  /// - 将用户保存至测试数据库并返回
+  /// - 将用户保存至模拟数据库并返回
   static Future<MyUser> createCurrentUser(Isar isar) async {
     // 查询现有的当前用户
     final existingUser = await isar.myUsers.where().findFirst();
@@ -144,11 +144,11 @@ class TestDataGenerator {
 
   /// 创建联系人
   ///
-  /// 这个函数会批量创建模拟联系人到测试数据库：
+  /// 这个函数会批量创建模拟联系人到模拟数据库：
   /// - 参数count指定需要创建的联系人数量
   /// - 使用预定义的中文姓氏和名字随机组合生成联系人名称
   /// - 为每个联系人设置手机号、邮箱和在线状态
-  /// - 将联系人保存至测试数据库
+  /// - 将联系人保存至模拟数据库
   /// - 返回创建的联系人列表
   static Future<List<User>> createContacts(Isar isar, int count) async {
     final contacts = <User>[];
@@ -187,12 +187,12 @@ class TestDataGenerator {
 
   /// 创建私聊会话
   ///
-  /// 这个函数会创建私聊会话到测试数据库：
+  /// 这个函数会创建私聊会话到模拟数据库：
   /// - 参数count指定要创建的私聊会话数量
   /// - 从contacts列表中选择尚未有私聊的联系人
   /// - 为每个选定的联系人创建一个私聊会话
   /// - 设置会话类型、名称(使用联系人名称)和创建时间
-  /// - 将会话保存至测试数据库
+  /// - 将会话保存至模拟数据库
   static Future<void> createPrivateConversations(Isar isar, MyUser currentUser, List<User> contacts, int count) async {
     // 仅使用尚未有私聊的联系人
     final usedContactIds = <String>{};
@@ -232,11 +232,11 @@ class TestDataGenerator {
 
   /// 创建群聊会话
   ///
-  /// 这个函数会创建群聊会话到测试数据库：
+  /// 这个函数会创建群聊会话到模拟数据库：
   /// - 参数count指定要创建的群聊会话数量
   /// - 使用预定义的群组类型("学习群"、"工作群"等)创建群名称
   /// - 设置会话类型为群聊和创建时间
-  /// - 将群聊会话保存至测试数据库
+  /// - 将群聊会话保存至模拟数据库
   static Future<void> createGroupConversations(Isar isar, MyUser currentUser, List<User> contacts, int count) async {
     // 创建新的群聊会话
     final newGroupConversations = <Conversation>[];
@@ -266,7 +266,7 @@ class TestDataGenerator {
 
   /// 为会话创建消息
   ///
-  /// 这个函数会为指定会话创建测试消息到测试数据库：
+  /// 这个函数会为指定会话创建模拟消息到模拟数据库：
   /// - 参数count指定要创建的消息数量
   /// - 从contacts中随机选择多个联系人作为消息发送者
   /// - 生成不同类型的消息（文本、图片、语音）
@@ -276,7 +276,7 @@ class TestDataGenerator {
   ///   - 文本消息：设置文本内容
   ///   - 图片消息：设置媒体URL
   ///   - 语音消息：设置持续时间
-  /// - 将所有消息保存至测试数据库
+  /// - 将所有消息保存至模拟数据库
   static Future<void> createMessages(Isar isar, Conversation conversation, MyUser currentUser, List<User> contacts, int count) async {
     final messages = <Message>[];
     final messageTypes = ['text', 'image', 'voice'];
@@ -308,7 +308,7 @@ class TestDataGenerator {
       // 根据消息类型设置内容
       switch (type) {
         case 'text':
-          message.text = isCurrentUserSender ? '这是我发送的第${i + 1}条测试消息' : '收到你的消息了，这是回复${i + 1}';
+          message.text = isCurrentUserSender ? '这是我发送的第${i + 1}条模拟消息' : '收到你的消息了，这是回复${i + 1}';
           break;
         case 'image':
           message.text = '[图片消息]';

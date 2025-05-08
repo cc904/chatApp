@@ -6,7 +6,7 @@ import 'package:cc/features/chat/presentation/pages/chat_test_page.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/constants/app_config.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -226,8 +226,8 @@ class ProfilePage extends StatelessWidget {
           const Divider(height: 1),
           _buildListTile(
             icon: Icons.data_array,
-            title: '重新生成测试数据',
-            subtitle: '使用测试数据库生成新的模拟数据',
+            title: '重新生成模拟数据',
+            subtitle: '清空并重新生成应用使用的模拟联系人和消息数据',
             onTap: () async {
               // 显示加载对话框
               showDialog(
@@ -236,19 +236,19 @@ class ProfilePage extends StatelessWidget {
                 builder: (context) => const AlertDialog(
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: [CircularProgressIndicator(), SizedBox(height: 16), Text('正在重新生成测试数据...')],
+                    children: [CircularProgressIndicator(), SizedBox(height: 16), Text('正在重新生成模拟数据...')],
                   ),
                 ),
               );
 
-              // 重新生成测试数据
-              await TestDataManager.regenerateTestData();
+              // 重新生成模拟数据
+              await MockDataManager.regenerateMockData();
 
               // 关闭加载对话框并显示确认消息
               if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('测试数据已重新生成')),
+                  const SnackBar(content: Text('模拟数据已重新生成')),
                 );
               }
             },

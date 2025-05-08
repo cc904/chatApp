@@ -4,7 +4,7 @@ import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
-import 'package:cc/core/database/test_data_generator.dart';
+import 'package:cc/core/database/mock_data_generator.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
@@ -77,10 +77,10 @@ class DatabaseInitializer {
       await _createIndexes();
       _logger.i('数据库初始化完成');
 
-      // 调试模式下生成测试数据
+      // 模拟模式下生成模拟数据
       if (AppConfig().isSimulationMode) {
-        _logger.i('开始生成测试数据');
-        await TestDataGenerator.generateMoreTestData();
+        _logger.i('开始生成模拟数据');
+        await MockDataGenerator.generateMoreMockData();
       }
     } catch (e) {
       _logger.e('数据库初始化失败', error: e);

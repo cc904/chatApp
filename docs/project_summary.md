@@ -274,7 +274,7 @@ lib/features/chat/
   - `emit()` - 发送事件到服务器
   - `on()` - 监听Socket事件
   - 事件辅助方法：`sendUserOnline()`, `sendUserOffline()`, `sendMessage()`, `sendMessageRead()`, `sendTyping()`, `sendStopTyping()`
-  - 模拟模式支持：`setSimulationMode()`, `_setupSimulationEventControllers()`
+  - 模拟模式支持：`setIsSimulationMode()`, `_setupSimulationEventControllers()`
   - 连接状态管理：`isConnected`, `isConnecting`
 
 **`auth_service.dart`**

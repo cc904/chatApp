@@ -4,7 +4,7 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -59,17 +59,27 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Future<List<User>> getAllContacts() async {
+    // 在模拟模式下直接使用模拟数据
+    if (AppConfig().isSimulationMode) {
+      return await MockDataManager.getAllMockContacts();
+    }
+
     try {
       return await _users.where().sortByName().findAll();
     } catch (e) {
       _logger.e('获取联系人失败', error: e);
-      // 使用TestDataManager获取模拟联系人数据
-      return await TestDataManager.getAllTestContacts();
+      // 直接返回空列表，不再使用模拟数据作为备选
+      return [];
     }
   }
 
   @override
   Future<List<User>> searchContacts(String keyword) async {
+    // 在模拟模式下直接使用模拟数据
+    if (AppConfig().isSimulationMode) {
+      return await MockDataManager.searchMockContacts(keyword);
+    }
+
     try {
       if (keyword.isEmpty) {
         return getAllContacts();
@@ -89,20 +99,25 @@ class ChatRepositoryImpl implements ChatRepository {
           .findAll();
     } catch (e) {
       _logger.e('搜索联系人失败', error: e);
-      // 使用TestDataManager搜索模拟联系人数据
-      return await TestDataManager.searchTestContacts(keyword);
+      // 直接返回空列表，不再使用模拟数据作为备选
+      return [];
     }
   }
 
   @override
   Future<User?> getContactById(String userId) async {
+    // 在模拟模式下直接使用模拟数据
+    if (AppConfig().isSimulationMode) {
+      return await MockDataManager.getMockContactById(userId);
+    }
+
     try {
       int id = int.tryParse(userId) ?? 0;
       return await _users.get(id);
     } catch (e) {
       _logger.e('获取联系人信息失败', error: e);
-      // 使用TestDataManager获取模拟联系人
-      return await TestDataManager.getTestContactById(userId);
+      // 直接返回null，不再使用模拟数据作为备选
+      return null;
     }
   }
 

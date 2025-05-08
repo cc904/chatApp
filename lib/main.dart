@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/test_data_manager.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
@@ -19,6 +18,7 @@ import 'features/contacts/domain/repositories/contacts_repository.dart';
 import 'features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'core/services/ui_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:cc/core/database/mock_data_manager.dart';
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -41,9 +41,9 @@ void main() async {
       logger.i('媒体目录已创建：${mediaDir.path}');
     }
 
-    // 初始化测试数据管理器
-    await TestDataManager.init();
-    logger.i('测试数据管理器初始化完成');
+    // 初始化模拟数据管理器
+    await MockDataManager.init();
+    logger.i('模拟数据管理器初始化完成');
 
     // 初始化timeago中文本地化
     timeago.setLocaleMessages('zh', timeago.ZhCnMessages());

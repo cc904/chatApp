@@ -7,7 +7,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 
@@ -105,10 +105,10 @@ class AuthCubit extends Cubit<AuthState> {
         throw '保存用户信息失败';
       }
 
-      // 确保测试数据库已初始化
-      if (!TestDataManager.isInitialized) {
-        await TestDataManager.init();
-        _logger.i('测试数据管理器初始化完成');
+      // 确保模拟数据库已初始化
+      if (!MockDataManager.isInitialized) {
+        await MockDataManager.init();
+        _logger.i('模拟数据管理器初始化完成');
       }
 
       // 初始化实时通信

@@ -66,9 +66,9 @@ Future<bool> init({
   required String serverUrl,
   required String authToken,
   DataEncoding encoding = DataEncoding.json,
-  bool simulationMode = false,
+  bool isSimulationMode = false,
 }) async {
-  // 根据simulationMode决定是否启用模拟模式
+  // 根据isSimulationMode决定是否启用模拟模式
   // 如果非模拟模式，则创建真实Socket连接
   // 设置必要的头信息，如认证令牌、内容类型和编码方式
 }
@@ -88,7 +88,7 @@ bool emit(String event, dynamic data) {
 
 **模拟模式**
 ```dart
-void setSimulationMode(bool enabled) {
+void setIsSimulationMode(bool enabled) {
   // 切换模拟模式状态
   // 若开启模拟模式，则建立模拟连接
 }
@@ -123,7 +123,7 @@ class ChatRepositoryImpl implements ChatRepository {
     String token,
     String serverUrl,
     DataEncoding encoding,
-    bool simulationMode,
+    bool isSimulationMode,
   ) async {
     // 初始化Socket连接
     // 设置事件监听器
@@ -193,11 +193,11 @@ await socketService.init(
 await socketService.init(
   serverUrl: 'http://localhost:3000',
   authToken: 'fake-token',
-  simulationMode: true
+  isSimulationMode: true
 );
 
 // 或动态切换
-socketService.setSimulationMode(true);
+socketService.setIsSimulationMode(true);
 ```
 
 ### 4.2 模拟行为
@@ -245,7 +245,7 @@ Future<void> _initRealTimeCommunication(String userId, String token) async {
       token,
       connectionInfo['serverUrl'],
       connectionInfo['dataEncoding'],
-      connectionInfo['simulationMode'],
+      connectionInfo['isSimulationMode'],
     );
     
     // 初始化聊天订阅
@@ -344,7 +344,7 @@ _logger.e('Socket连接错误', error: error);
 
 ```dart
 // 启用/禁用模拟模式
-socketService.setSimulationMode(!socketService.isSimulationMode);
+socketService.setIsSimulationMode(!socketService.isSimulationMode);
 ```
 
 ## 11. 未来拓展

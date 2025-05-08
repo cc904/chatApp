@@ -1,7 +1,7 @@
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
-import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/my_user_service.dart';
@@ -34,8 +34,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return users;
     } catch (e) {
       _logger.e('获取联系人列表失败', error: e);
-      // 使用TestDataManager获取测试联系人
-      return await TestDataManager.getAllTestContacts();
+      // 使用MockDataManager获取模拟联系人
+      return await MockDataManager.getAllMockContacts();
     }
   }
 
@@ -48,8 +48,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return users;
     } catch (e) {
       _logger.e('搜索联系人失败', error: e);
-      // 使用TestDataManager搜索测试联系人
-      return await TestDataManager.searchTestContacts(query);
+      // 使用MockDataManager搜索模拟联系人
+      return await MockDataManager.searchMockContacts(query);
     }
   }
 
@@ -63,8 +63,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return user;
     } catch (e) {
       _logger.e('获取联系人详情失败', error: e);
-      // 使用TestDataManager获取测试联系人
-      return await TestDataManager.getTestContactById(userId);
+      // 使用MockDataManager获取模拟联系人
+      return await MockDataManager.getMockContactById(userId);
     }
   }
 
@@ -137,8 +137,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       // 模拟网络延迟
       await Future.delayed(Duration(milliseconds: 500 + _random.nextInt(1000)));
 
-      // 使用TestDataManager获取测试联系人
-      final serverContacts = await TestDataManager.getAllTestContacts();
+      // 使用MockDataManager获取模拟联系人
+      final serverContacts = await MockDataManager.getAllMockContacts();
 
       // 保存到数据库
       await _isar.writeTxn(() async {
