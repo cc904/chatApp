@@ -7,12 +7,14 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/core/database/database_initializer.dart';
 
 /// 聊天Cubit
 /// 负责管理聊天相关的状态和业务逻辑
 class ChatCubit extends Cubit<ChatState> {
   final ChatRepository _repository;
+  final ContactsRepository? _contactsRepository;
   late final LogService _logger;
 
   // 订阅管理
@@ -43,8 +45,9 @@ class ChatCubit extends Cubit<ChatState> {
   // 标记是否已初始化
   bool _isInitialized = false;
 
-  ChatCubit({required ChatRepository repository})
+  ChatCubit({required ChatRepository repository, ContactsRepository? contactsRepository})
       : _repository = repository,
+        _contactsRepository = contactsRepository,
         super(ChatState.initial()) {
     _logger = LogService('chat_cubit.dart');
     // 不在构造函数中设置订阅，而是等待initializeSubscriptions调用
@@ -361,7 +364,24 @@ class ChatCubit extends Cubit<ChatState> {
     _logger.i('开始加载联系人列表');
     try {
       emit(state.copyWithLoading());
-      final contacts = await _repository.getAllContacts();
+
+      List<User> contacts = [];
+
+      // 优先使用ContactsRepository加载联系人
+      if (_contactsRepository != null) {
+        try {
+          contacts = await _contactsRepository.getAllContacts();
+        } catch (e) {
+          _logger.e('使用ContactsRepository加载联系人失败', error: e);
+        }
+      }
+
+      // 如果ContactsRepository不可用或加载失败，使用ChatRepository
+      if (contacts.isEmpty) {
+        _logger.w('联系人列表为空');
+        contacts = [];
+      }
+
       emit(state.copyWith(
         contacts: contacts,
         isLoading: false,
@@ -450,7 +470,15 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       emit(state.copyWithLoading());
 
-      final results = await _repository.searchContacts(keyword);
+      List<User> results = [];
+      // 优先使用ContactsRepository搜索联系人
+      if (_contactsRepository != null) {
+        try {
+          results = await _contactsRepository.searchContacts(keyword);
+        } catch (e) {
+          _logger.e('使用ContactsRepository搜索联系人失败', error: e);
+        }
+      }
 
       emit(state.copyWith(
         searchQuery: keyword,
@@ -754,13 +782,16 @@ class ChatCubit extends Cubit<ChatState> {
   /// 添加联系人
   Future<void> addContact(User user) async {
     try {
-      _isSourceOfChange = true;
-      await _repository.addContact(user);
-      _isSourceOfChange = false;
+      // 优先使用ContactsRepository添加联系人
+      if (_contactsRepository != null) {
+        await _contactsRepository.addContact(user);
+      } else {
+        _logger.e('无法添加联系人：ContactsRepository未注入');
+        throw '无法添加联系人：系统未初始化';
+      }
     } catch (e) {
       _logger.e('添加联系人失败', error: e);
       emit(state.copyWithError('添加联系人失败: $e'));
-      _isSourceOfChange = false;
     }
   }
 
@@ -897,11 +928,23 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       _logger.i('开始同步联系人列表');
 
-      // 使用repository发送同步请求
-      final success = await _repository.syncContacts();
+      bool success = false;
+
+      // 使用ContactsRepository进行同步
+      if (_contactsRepository != null) {
+        try {
+          final contacts = await _contactsRepository.syncContacts();
+          success = contacts.isNotEmpty;
+          _logger.i('联系人同步完成，获取到 ${contacts.length} 个联系人');
+        } catch (e) {
+          _logger.e('使用ContactsRepository同步联系人失败', error: e);
+        }
+      } else {
+        _logger.e('ContactsRepository未注入，无法同步联系人');
+      }
 
       if (success) {
-        _logger.i('联系人同步请求已发送');
+        _logger.i('联系人同步请求已发送并完成');
       } else {
         _logger.w('联系人同步请求失败');
       }

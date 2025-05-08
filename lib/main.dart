@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/services/real_time_communication_service.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
@@ -18,6 +19,9 @@ import 'features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'core/services/ui_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/database/mock_data_manager.dart';
+
+// 实时通信服务实例
+final realTimeCommunicationService = RealTimeCommunicationService();
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -122,6 +126,10 @@ class MyApp extends StatelessWidget {
 
     return MultiRepositoryProvider(
       providers: [
+        // 注册实时通信服务
+        RepositoryProvider<RealTimeCommunicationService>(
+          create: (context) => realTimeCommunicationService,
+        ),
         // 注册仓库
         RepositoryProvider<ChatRepository>(
           create: (context) => ChatRepositoryImpl(),
@@ -137,6 +145,7 @@ class MyApp extends StatelessWidget {
           BlocProvider<ChatCubit>(
             create: (context) => ChatCubit(
               repository: context.read<ChatRepository>(),
+              contactsRepository: context.read<ContactsRepository>(),
             ),
           ),
           // 创建AuthCubit，并传入ChatCubit
@@ -146,6 +155,7 @@ class MyApp extends StatelessWidget {
               chatRepository: context.read<ChatRepository>(),
               chatCubit: context.read<ChatCubit>(),
               isSimulationMode: appConfig.isSimulationMode, // 使用全局配置的模拟模式
+              realTimeCommunicationService: context.read<RealTimeCommunicationService>(), // 注入实时通信服务
             ),
           ),
           BlocProvider<HomeCubit>(create: (context) => HomeCubit()),

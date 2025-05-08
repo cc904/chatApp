@@ -4,32 +4,44 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/mock_data_manager.dart';
-import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
+import 'package:cc/core/services/real_time_communication_service.dart' hide SyncStatus;
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
 
 /// ChatRepository的实现类
+/// 负责聊天相关的数据处理、消息收发、实时通信等功能
+/// 主要功能包括：
+/// 1. 会话管理：创建、获取、删除会话
+/// 2. 消息管理：发送、接收、查询、删除消息
+/// 3. 实时通信：管理Socket连接、处理实时事件
+/// 4. 联系人操作：获取联系人信息、同步联系人
 class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService('chat_repository_impl.dart');
-  final SocketService _socketService = SocketService.getInstance();
-  final FileUploadService _fileUploadService = FileUploadService(); // 实例化文件上传服务
+  final RealTimeCommunicationService? _realTimeCommunicationService;
 
-  // 消息流控制器，用于通知UI消息更新
+  /// 文件上传服务，处理媒体文件上传
+  final FileUploadService _fileUploadService = FileUploadService();
+
+  /// 消息流控制器，用于向UI发送新消息通知
   final StreamController<Message> _messageStreamController = StreamController<Message>.broadcast();
 
-  // 实时通信相关的流控制器
+  /// 输入状态流控制器，传递用户输入状态事件
   final StreamController<Map<String, dynamic>> _typingStatusController = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// 在线状态流控制器，传递用户在线状态事件
   final StreamController<Map<String, dynamic>> _onlineStatusController = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// 消息状态流控制器，传递消息送达/已读状态事件
   final StreamController<Map<String, dynamic>> _messageStatusController = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// 同步状态流控制器，传递数据同步状态事件
   final StreamController<SyncStatus> _syncStatusController = StreamController<SyncStatus>.broadcast();
 
-  // Socket事件订阅
-  final List<StreamSubscription> _socketSubscriptions = [];
+  /// 实时通信服务事件订阅集合
+  final List<StreamSubscription> _rtcSubscriptions = [];
 
   // 获取消息流
   Stream<Message> get messageStream => _messageStreamController.stream;
@@ -38,105 +50,113 @@ class ChatRepositoryImpl implements ChatRepository {
   Isar get _isar => DatabaseInitializer.isar;
 
   // 获取用户集合
-  IsarCollection<User> get _users => _isar.collection<User>();
+  IsarCollection<User> get _users => _isar.users;
 
   // 获取会话集合
-  IsarCollection<Conversation> get _conversations => _isar.collection<Conversation>();
+  IsarCollection<Conversation> get _conversations => _isar.conversations;
 
   // 获取消息集合
-  IsarCollection<Message> get _messages => _isar.collection<Message>();
+  IsarCollection<Message> get _messages => _isar.messages;
 
-  // Socket.IO服务器URL
-  static const String socketServerUrl = 'http://localhost:3000';
-
-  // Socket连接状态
-  bool _isSocketInitialized = false;
-
-  // 构造函数
-  ChatRepositoryImpl() {
-    _syncStatusController.add(SyncStatus.idle);
+  // 构造函数，可选传入实时通信服务
+  ChatRepositoryImpl({RealTimeCommunicationService? realTimeCommunicationService}) : _realTimeCommunicationService = realTimeCommunicationService {
+    _initializeRtcSubscriptions();
   }
 
-  @override
-  Future<List<User>> getAllContacts() async {
-    // 在模拟模式下直接使用模拟数据
-    if (AppConfig().isSimulationMode) {
-      return await MockDataManager.getAllMockContacts();
-    }
+  /// 初始化实时通信服务订阅
+  /// 订阅各种事件流并设置对应的处理方法
+  void _initializeRtcSubscriptions() {
+    if (_realTimeCommunicationService == null) return;
 
-    try {
-      return await _users.where().sortByName().findAll();
-    } catch (e) {
-      _logger.e('获取联系人失败', error: e);
-      // 直接返回空列表，不再使用模拟数据作为备选
-      return [];
-    }
-  }
+    _logger.i('初始化实时通信服务订阅');
 
-  @override
-  Future<List<User>> searchContacts(String keyword) async {
-    // 在模拟模式下直接使用模拟数据
-    if (AppConfig().isSimulationMode) {
-      return await MockDataManager.searchMockContacts(keyword);
-    }
-
-    try {
-      if (keyword.isEmpty) {
-        return getAllContacts();
+    // 订阅消息事件
+    _rtcSubscriptions.add(_realTimeCommunicationService.messageStream.listen((event) {
+      switch (event.type) {
+        case 'new':
+          _handleNewMessage(event.data);
+          break;
+        case 'delivered':
+          _handleMessageStatus(event.data, 'delivered');
+          break;
+        case 'read':
+          _handleMessageStatus(event.data, 'read');
+          break;
       }
+    }));
 
-      return await _users
-          .filter()
-          .group((q) => q
-              .nameContains(keyword, caseSensitive: false)
-              .or()
-              .optional(keyword.isNotEmpty && keyword.length > 1, (q) => q.pinyinContains(keyword, caseSensitive: false))
-              .or()
-              .phoneContains(keyword)
-              .or()
-              .emailContains(keyword, caseSensitive: false))
-          .sortByName()
-          .findAll();
-    } catch (e) {
-      _logger.e('搜索联系人失败', error: e);
-      // 直接返回空列表，不再使用模拟数据作为备选
-      return [];
+    // 订阅用户状态事件
+    _rtcSubscriptions.add(_realTimeCommunicationService.userStatusStream.listen((event) {
+      _handleUserOnlineStatus({
+        'userId': event.userId,
+      }, event.isOnline);
+
+      // 向后兼容：通知旧的流控制器
+      _onlineStatusController.add({
+        'userId': event.userId,
+        'isOnline': event.isOnline,
+        'timestamp': event.timestamp,
+      });
+    }));
+
+    // 订阅输入状态事件
+    _rtcSubscriptions.add(_realTimeCommunicationService.typingStatusStream.listen((event) {
+      // 向后兼容：通知旧的流控制器
+      _typingStatusController.add({
+        'userId': event.userId,
+        'conversationId': event.conversationId,
+        'isTyping': event.isTyping,
+        'timestamp': event.timestamp,
+      });
+    }));
+
+    // 订阅同步状态事件
+    _rtcSubscriptions.add(_realTimeCommunicationService.syncStatusStream.listen((status) {
+      // 转换枚举状态
+      _syncStatusController.add(_convertSyncStatus(status));
+    }));
+  }
+
+  /// 转换同步状态枚举
+  /// 将实时通信服务中的SyncStatus转换为仓库接口中的SyncStatus
+  /// [status] - 实时通信服务的同步状态
+  /// 返回转换后的仓库接口同步状态
+  SyncStatus _convertSyncStatus(dynamic status) {
+    if (status == null) return SyncStatus.idle;
+
+    // 根据status的值映射到ChatRepository中的SyncStatus
+    String statusName = status.toString().split('.').last;
+
+    switch (statusName) {
+      case 'idle':
+        return SyncStatus.idle;
+      case 'synchronizing':
+        return SyncStatus.syncing;
+      case 'error':
+        return SyncStatus.error;
+      default:
+        return SyncStatus.idle;
     }
   }
 
+  /// 获取联系人信息
+  /// 根据ID获取单个联系人详情
+  /// [userId] - 联系人ID
+  /// 返回联系人信息，不存在则返回null
   @override
   Future<User?> getContactById(String userId) async {
-    // 在模拟模式下直接使用模拟数据
-    if (AppConfig().isSimulationMode) {
-      return await MockDataManager.getMockContactById(userId);
-    }
-
     try {
       int id = int.tryParse(userId) ?? 0;
       return await _users.get(id);
     } catch (e) {
       _logger.e('获取联系人信息失败', error: e);
-      // 直接返回null，不再使用模拟数据作为备选
       return null;
     }
   }
 
-  @override
-  Future<void> addContact(User user) async {
-    try {
-      await _isar.writeTxn(() async {
-        user.id = await _users.put(user);
-        // 同步ID字段
-        DatabaseInitializer.syncIds(user);
-        await _users.put(user);
-      });
-    } catch (e) {
-      _logger.e('添加联系人失败', error: e);
-      rethrow;
-    }
-  }
-
-  // 获取当前用户ID
+  /// 获取当前用户ID
+  /// 从用户服务获取当前登录用户的ID
+  /// 返回用户ID，如未找到则抛出异常
   Future<String> _getCurrentUserId() async {
     final currentUser = await MyUserService.getCurrentUser();
     if (currentUser == null) {
@@ -145,6 +165,9 @@ class ChatRepositoryImpl implements ChatRepository {
     return currentUser.userId;
   }
 
+  /// 获取所有会话
+  /// 从数据库获取所有会话并按最后消息时间排序
+  /// 返回会话列表
   @override
   Future<List<Conversation>> getAllConversations() async {
     try {
@@ -181,7 +204,9 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  // 返回模拟会话数据
+  /// 返回模拟会话数据
+  /// 当数据库查询失败时提供备用的模拟数据
+  /// 返回模拟的会话列表
   List<Conversation> _getMockConversations() {
     return List.generate(3, (index) {
       final isGroup = index == 2;
@@ -196,6 +221,10 @@ class ChatRepositoryImpl implements ChatRepository {
     });
   }
 
+  /// 获取会话信息
+  /// 根据ID获取单个会话详情
+  /// [conversationId] - 会话ID
+  /// 返回会话信息，不存在则返回null
   @override
   Future<Conversation?> getConversationById(String conversationId) async {
     try {
@@ -208,6 +237,10 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 获取或创建私聊会话
+  /// 根据联系人ID查找已有会话，不存在则创建新会话
+  /// [contactUserId] - 联系人ID
+  /// 返回会话对象
   @override
   Future<Conversation> getOrCreatePrivateConversation(String contactUserId) async {
     try {
@@ -247,6 +280,12 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 创建群聊会话
+  /// 创建新的群组会话并添加成员
+  /// [name] - 群聊名称
+  /// [memberIds] - 群成员ID列表
+  /// [avatar] - 可选的群头像
+  /// 返回创建的群聊会话
   @override
   Future<Conversation> createGroupConversation(String name, List<String> memberIds, {String? avatar}) async {
     try {
@@ -289,6 +328,12 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 获取会话消息
+  /// 获取指定会话的消息列表，支持分页
+  /// [conversationId] - 会话ID
+  /// [limit] - 获取消息的最大数量
+  /// [before] - 可选的时间点，获取此时间之前的消息
+  /// 返回消息列表
   @override
   Future<List<Message>> getConversationMessages(String conversationId, {int limit = 20, DateTime? before}) async {
     try {
@@ -302,6 +347,11 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 搜索消息
+  /// 根据关键词搜索消息
+  /// [keyword] - 搜索关键词
+  /// [conversationId] - 可选的会话ID，限定搜索范围
+  /// 返回匹配的消息列表
   @override
   Future<List<Message>> searchMessages(String keyword, {String? conversationId}) async {
     try {
@@ -323,6 +373,9 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 将消息标记为已读
+  /// 更新指定会话中所有未读消息的状态为已读
+  /// [conversationId] - 会话ID
   Future<void> markMessagesAsRead(String conversationId) async {
     try {
       await _isar.writeTxn(() async {
@@ -344,35 +397,55 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 标记会话为已读
+  /// 调用markMessagesAsRead方法实现
+  /// [conversationId] - 会话ID
   @override
   Future<void> markConversationAsRead(String conversationId) async {
     // 调用已实现的markMessagesAsRead方法
     await markMessagesAsRead(conversationId);
   }
 
+  /// 监听会话变化
+  /// 返回会话列表变化的流
   @override
   Stream<void> watchConversations() {
     return _conversations.watchLazy();
   }
 
+  /// 监听会话消息变化
+  /// 监听指定会话中消息的变化
+  /// [conversationId] - 会话ID
+  /// 返回消息变化的流
   @override
   Stream<void> watchConversationMessages(String conversationId) {
     return _messages.filter().conversationIdEqualTo(conversationId).watchLazy();
   }
 
+  /// 监听联系人变化
+  /// 返回联系人列表变化的流
   @override
   Stream<void> watchContacts() {
     return _users.watchLazy();
   }
 
-  /// 创建文本消息
+  /// 发送文本消息
+  /// 创建并发送文本类型的消息
+  /// [conversationId] - 会话ID
+  /// [text] - 消息文本内容
+  /// 返回创建的消息对象
   @override
   Future<Message> sendTextMessage(String conversationId, String text) async {
     final message = await _createMessage(conversationId, text, 'text');
     return await _sendMessage(message);
   }
 
-  /// 创建图片消息
+  /// 发送图片消息
+  /// 创建并发送图片类型的消息，可选上传图片
+  /// [conversationId] - 会话ID
+  /// [localPath] - 图片本地路径
+  /// [mediaUrl] - 可选的媒体URL，如已上传则直接使用
+  /// 返回创建的消息对象
   @override
   Future<Message> sendImageMessage(String conversationId, String localPath, {String? mediaUrl}) async {
     final message = await _createMessage(conversationId, '', 'image');
@@ -392,7 +465,13 @@ class ChatRepositoryImpl implements ChatRepository {
     return await _sendMessage(message);
   }
 
-  /// 创建语音消息
+  /// 发送语音消息
+  /// 创建并发送语音类型的消息，可选上传语音文件
+  /// [conversationId] - 会话ID
+  /// [localPath] - 语音文件本地路径
+  /// [duration] - 语音时长（秒）
+  /// [mediaUrl] - 可选的媒体URL，如已上传则直接使用
+  /// 返回创建的消息对象
   @override
   Future<Message> sendVoiceMessage(String conversationId, String localPath, int duration, {String? mediaUrl}) async {
     final message = await _createMessage(conversationId, '', 'voice');
@@ -420,7 +499,14 @@ class ChatRepositoryImpl implements ChatRepository {
     return await _sendMessage(message);
   }
 
-  /// 创建文件消息
+  /// 发送文件消息
+  /// 创建并发送文件类型的消息，可选上传文件
+  /// [conversationId] - 会话ID
+  /// [localPath] - 文件本地路径
+  /// [fileName] - 文件名
+  /// [fileSize] - 文件大小
+  /// [mediaUrl] - 可选的媒体URL，如已上传则直接使用
+  /// 返回创建的消息对象
   @override
   Future<Message> sendFileMessage(String conversationId, String localPath, String fileName, double fileSize, {String? mediaUrl}) async {
     final message = await _createMessage(conversationId, '', 'file');
@@ -442,6 +528,15 @@ class ChatRepositoryImpl implements ChatRepository {
     return await _sendMessage(message);
   }
 
+  /// 发送视频消息
+  /// 创建并发送视频类型的消息，可选上传视频文件
+  /// [conversationId] - 会话ID
+  /// [localPath] - 视频文件本地路径
+  /// [duration] - 视频时长（秒）
+  /// [thumbnailUrl] - 可选的缩略图URL
+  /// [mediaUrl] - 可选的媒体URL，如已上传则直接使用
+  /// [isServerProcessed] - 是否由服务器处理缩略图
+  /// 返回创建的消息对象
   @override
   Future<Message> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false}) async {
     try {
@@ -495,6 +590,8 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 模拟服务器异步处理缩略图
+  /// 用于模拟模式下服务器生成视频缩略图的过程
+  /// [message] - 视频消息对象
   void _simulateServerProcessing(Message message) {
     // 模拟服务器处理时间 (1-3秒)
     final processingTime = 1000 + (DateTime.now().millisecondsSinceEpoch % 2000);
@@ -537,6 +634,13 @@ class ChatRepositoryImpl implements ChatRepository {
     });
   }
 
+  /// 发送位置消息
+  /// 创建并发送位置类型的消息
+  /// [conversationId] - 会话ID
+  /// [latitude] - 纬度
+  /// [longitude] - 经度
+  /// [locationAddress] - 位置地址描述
+  /// 返回创建的消息对象
   Future<Message> sendLocationMessage(
     String conversationId,
     double latitude,
@@ -581,6 +685,9 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 删除消息
+  /// 删除指定的消息及其相关的媒体文件
+  /// [messageId] - 消息ID
   @override
   Future<void> deleteMessage(String messageId) async {
     try {
@@ -611,6 +718,9 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 删除会话
+  /// 删除指定的会话及其所有消息和相关媒体文件
+  /// [conversationId] - 会话ID
   @override
   Future<void> deleteConversation(String conversationId) async {
     try {
@@ -644,6 +754,9 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 清空会话消息
+  /// 删除指定会话中的所有消息和相关媒体文件，但保留会话本身
+  /// [conversationId] - 会话ID
   @override
   Future<void> clearConversationMessages(String conversationId) async {
     try {
@@ -679,7 +792,10 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 辅助方法：收集消息中的媒体文件路径
+  /// 收集消息中的媒体文件路径
+  /// 分析消息对象，收集需要删除的媒体文件路径
+  /// [message] - 消息对象
+  /// 返回文件路径列表
   List<String> _collectMediaFilePaths(Message message) {
     final filesToDelete = <String>[];
 
@@ -703,7 +819,9 @@ class ChatRepositoryImpl implements ChatRepository {
     return filesToDelete;
   }
 
-  /// 辅助方法：删除媒体文件
+  /// 删除媒体文件
+  /// 删除指定路径列表中的所有文件
+  /// [filePaths] - 文件路径列表
   Future<void> _deleteMediaFiles(List<String> filePaths) async {
     for (final filePath in filePaths) {
       try {
@@ -719,6 +837,13 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 按日期范围获取消息
+  /// 获取指定会话中特定日期范围内的消息
+  /// [conversationId] - 会话ID
+  /// [startDate] - 开始日期
+  /// [endDate] - 结束日期
+  /// [limit] - 消息数量限制
+  /// 返回符合条件的消息列表
   @override
   Future<List<Message>> getMessagesByDateRange(
     String conversationId,
@@ -763,6 +888,12 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 从指定日期获取会话消息
+  /// 获取从指定日期开始的会话消息
+  /// [conversationId] - 会话ID
+  /// [startDate] - 开始日期
+  /// [limit] - 消息数量限制
+  /// 返回符合条件的消息列表
   @override
   Future<List<Message>> getConversationMessagesFromDate(
     String conversationId,
@@ -792,230 +923,76 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  @override
-  Future<bool> initRealTimeConnection(
-    String userId,
-    String token,
-    String serverUrl,
-    bool isSimulationMode,
-  ) async {
+  /// 发送消息
+  /// 通过Socket发送消息到服务器
+  /// [message] - 要发送的消息对象
+  /// 返回是否发送成功
+  Future<bool> sendMessage(Message message) async {
     try {
-      _logger.i('初始化实时通信连接', extra: {'userId': userId, 'isSimulationMode': isSimulationMode});
+      // 转换为网络传输格式
+      final messageData = {
+        'messageId': message.messageId,
+        'conversationId': message.conversationId,
+        'senderId': message.senderId,
+        'content': message.text,
+        'type': message.type,
+        'createdAt': message.createdAt.millisecondsSinceEpoch,
+      };
 
-      if (_isSocketInitialized) {
-        _logger.w('Socket连接已初始化，断开旧连接');
-        await closeRealTimeConnection();
-      }
-
-      // 初始化Socket连接
-      final success = await _socketService.init(
-        serverUrl: serverUrl,
-        authToken: token,
-      );
-
-      if (success) {
-        _isSocketInitialized = true;
-        _setupSocketEventListeners();
-
-        // 发送用户上线状态
-        _socketService.sendUserOnline();
-
-        _logger.i('实时通信连接初始化成功');
-        return true;
+      // 使用实时通信服务
+      if (_realTimeCommunicationService != null) {
+        _realTimeCommunicationService.emitEvent('send_message', messageData);
       } else {
-        _logger.e('实时通信连接初始化失败');
-        return false;
-      }
-    } catch (e) {
-      _logger.e('初始化实时通信连接失败', error: e);
-      return false;
-    }
-  }
-
-  @override
-  Future<void> closeRealTimeConnection() async {
-    _logger.i('关闭实时通信连接');
-
-    // 取消所有事件订阅
-    for (final subscription in _socketSubscriptions) {
-      await subscription.cancel();
-    }
-    _socketSubscriptions.clear();
-
-    // 发送用户下线状态
-    if (_isSocketInitialized) {
-      _socketService.sendUserOffline();
-    }
-
-    // 断开Socket连接
-    _socketService.disconnect();
-    _isSocketInitialized = false;
-  }
-
-  @override
-  Future<bool> reconnectRealTime() async {
-    _logger.i('尝试重新连接实时通信');
-
-    // 获取当前用户信息和令牌
-    try {
-      final currentUser = await MyUserService.getCurrentUser();
-      if (currentUser == null) {
-        _logger.e('无法重连：未找到当前用户信息');
+        _logger.w('实时通信服务未初始化，无法发送消息');
+        await _updateMessageStatus(message, 'failed');
         return false;
       }
 
-      // 获取令牌
-      final token = currentUser.token;
-      // 初始化新连接
-      return initRealTimeConnection(currentUser.userId, token, socketServerUrl, AppConfig().isSimulationMode);
-    } catch (e) {
-      _logger.e('重连失败', error: e);
-      return false;
-    }
-  }
-
-  @override
-  Future<bool> syncContacts() async {
-    try {
-      _logger.i('开始同步联系人列表');
-
-      // 获取当前用户信息
-      final currentUser = await MyUserService.getCurrentUser();
-      if (currentUser == null) {
-        _logger.e('同步失败：未找到当前用户信息');
-        return false;
-      }
-
-      // 向服务器发送同步请求
-      if (_socketService.isConnected) {
-        _socketService.emit('sync_contacts', {
-          'userId': currentUser.userId,
-          'token': currentUser.token,
-        });
-        _logger.i('已发送联系人同步请求');
-      }
-
+      // 更新本地消息状态为"已发送"
+      await _updateMessageStatus(message, 'sent');
       return true;
     } catch (e) {
-      _logger.e('同步联系人失败', error: e);
+      _logger.e('发送消息失败', error: e);
+      // 更新本地消息状态为"发送失败"
+      await _updateMessageStatus(message, 'failed');
       return false;
     }
   }
 
+  /// 发送输入状态
+  /// 通知其他用户当前用户正在输入或停止输入
+  /// [conversationId] - 会话ID
+  /// [isTyping] - 是否正在输入
   @override
-  Future<String?> createOrGetConversation(String userId) async {
-    try {
-      _logger.i('创建或获取与用户的对话', extra: {'userId': userId});
-
-      // 获取当前用户ID
-
-      // 检查是否已存在会话
-      final existingConversation = await _isar.conversations.filter().contactUserIdEqualTo(userId).findFirst();
-
-      if (existingConversation != null) {
-        _logger.i('找到已存在的会话', extra: {'conversationId': existingConversation.id.toString()});
-        return existingConversation.id.toString();
-      }
-
-      // 获取联系人信息
-      final user = await _isar.users.filter().userIdEqualTo(userId).findFirst();
-
-      if (user == null) {
-        _logger.e('创建会话失败：未找到用户信息');
-        return null;
-      }
-
-      // 创建新会话
-      final conversation = Conversation()
-        ..conversationId = '' // 会在保存后设置
-        ..type = ConversationType.private
-        ..contactUserId = userId
-        ..name = user.name
-        ..avatar = user.avatar
-        ..lastMessagePreview = ''
-        ..lastMessageTime = DateTime.now()
-        ..unreadCount = 0
-        ..createdAt = DateTime.now();
-
-      await _isar.writeTxn(() async {
-        await _isar.conversations.put(conversation);
-        // 设置conversationId为id的字符串表示
-        conversation.conversationId = conversation.id.toString();
-        await _isar.conversations.put(conversation);
-      });
-
-      _logger.i('创建了新会话', extra: {'conversationId': conversation.id.toString()});
-      return conversation.id.toString();
-    } catch (e) {
-      _logger.e('创建或获取会话失败', error: e);
-      return null;
+  Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
+    if (_realTimeCommunicationService != null) {
+      _realTimeCommunicationService.emitEvent(isTyping ? 'typing' : 'stop_typing', {'conversationId': conversationId});
+      return;
     }
+
+    _logger.w('实时通信服务未初始化，无法发送输入状态');
   }
 
-  /// 设置Socket事件监听
-  void _setupSocketEventListeners() {
-    // 取消之前的所有订阅
-    for (final subscription in _socketSubscriptions) {
-      subscription.cancel();
+  /// 发送消息已读状态
+  /// 通知发送者消息已被读取
+  /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  void sendMessageRead(String messageId, String conversationId) {
+    if (_realTimeCommunicationService != null) {
+      _realTimeCommunicationService.emitEvent('message_read', {
+        'messageId': messageId,
+        'conversationId': conversationId,
+      });
+      return;
     }
-    _socketSubscriptions.clear();
 
-    // 连接相关事件
-    _socketSubscriptions.add(_socketService.on(SocketEvent.connect).listen((_) {
-      _logger.i('Socket连接成功');
-      _syncStatusController.add(SyncStatus.idle);
-    }));
-
-    _socketSubscriptions.add(_socketService.on(SocketEvent.disconnect).listen((reason) {
-      _logger.w('Socket断开连接', extra: {'reason': reason});
-      _syncStatusController.add(SyncStatus.error);
-    }));
-
-    _socketSubscriptions.add(_socketService.on(SocketEvent.connectError).listen((error) {
-      _logger.e('Socket连接错误', error: error);
-      _syncStatusController.add(SyncStatus.error);
-    }));
-
-    // 用户状态事件
-    _socketSubscriptions.add(_socketService.on(SocketEvent.userOnline).listen((data) {
-      _logger.i('用户上线', extra: {'data': data});
-      _handleUserOnlineStatus(data, true);
-    }));
-
-    _socketSubscriptions.add(_socketService.on(SocketEvent.userOffline).listen((data) {
-      _logger.i('用户下线', extra: {'data': data});
-      _handleUserOnlineStatus(data, false);
-    }));
-
-    // 消息相关事件
-    _socketSubscriptions.add(_socketService.on(SocketEvent.newMessage).listen((data) {
-      _logger.i('收到新消息', extra: {'data': data});
-      _handleNewMessage(data);
-    }));
-
-    _socketSubscriptions.add(_socketService.on(SocketEvent.messageDelivered).listen((data) {
-      _logger.i('消息已送达', extra: {'data': data});
-      _handleMessageStatus(data, 'delivered');
-    }));
-
-    _socketSubscriptions.add(_socketService.on(SocketEvent.messageRead).listen((data) {
-      _logger.i('消息已读', extra: {'data': data});
-      _handleMessageStatus(data, 'read');
-    }));
-
-    // 输入状态事件
-    _socketSubscriptions.add(_socketService.on(SocketEvent.typing).listen((data) {
-      _logger.i('对方正在输入', extra: {'data': data});
-      _handleTypingStatus(data, true);
-    }));
-
-    _socketSubscriptions.add(_socketService.on(SocketEvent.stopTyping).listen((data) {
-      _logger.i('对方停止输入', extra: {'data': data});
-      _handleTypingStatus(data, false);
-    }));
+    _logger.w('实时通信服务未初始化，无法发送已读状态');
   }
 
   /// 处理用户在线状态
+  /// 更新用户在线状态并通知UI
+  /// [data] - 状态数据
+  /// [isOnline] - 是否在线
   void _handleUserOnlineStatus(Map<String, dynamic> data, bool isOnline) {
     try {
       final userId = data['userId'] as String?;
@@ -1043,6 +1020,8 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理新消息
+  /// 处理从服务器接收到的新消息
+  /// [data] - 消息数据
   Future<void> _handleNewMessage(Map<String, dynamic> data) async {
     try {
       _syncStatusController.add(SyncStatus.syncing);
@@ -1068,7 +1047,7 @@ class ChatRepositoryImpl implements ChatRepository {
         // 更新消息状态为已送达
         await _updateMessageStatus(existingMessage, 'delivered');
         // 通知服务器消息已送达
-        _socketService.sendMessageRead(messageId, conversationId);
+        sendMessageRead(messageId, conversationId);
         _syncStatusController.add(SyncStatus.completed);
         return;
       }
@@ -1100,7 +1079,7 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 通知服务器消息已送达
-      _socketService.sendMessageRead(messageId, conversationId);
+      sendMessageRead(messageId, conversationId);
 
       // 通知UI新消息
       _messageStreamController.add(message);
@@ -1113,6 +1092,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理媒体消息
+  /// 处理图片、语音、视频等特殊类型消息的媒体属性
+  /// [message] - 消息对象
+  /// [data] - 消息数据
   void _handleMediaMessage(Message message, Map<String, dynamic> data) {
     // 解析媒体URL
     final mediaUrl = data['mediaUrl'] as String?;
@@ -1133,6 +1115,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 更新会话的最后一条消息
+  /// 更新会话的未读计数和最后消息预览
+  /// [conversationId] - 会话ID
+  /// [message] - 消息对象
   Future<void> _updateConversationLastMessage(String conversationId, Message message) async {
     final conversation = await _conversations.filter().conversationIdEqualTo(conversationId).findFirst();
     if (conversation != null) {
@@ -1154,6 +1139,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 生成消息预览
+  /// 根据消息类型生成适合显示的预览文本
+  /// [message] - 消息对象
+  /// 返回预览文本
   String _generateMessagePreview(Message message) {
     switch (message.type) {
       case 'text':
@@ -1176,6 +1164,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 更新消息状态
+  /// 更新消息的发送状态（发送中、已发送、发送失败等）
+  /// [message] - 消息对象
+  /// [status] - 新状态
   Future<void> _updateMessageStatus(Message message, String status) async {
     await _isar.writeTxn(() async {
       message.status = status;
@@ -1192,6 +1183,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理消息状态变更
+  /// 处理消息已送达、已读等状态变更
+  /// [data] - 状态数据
+  /// [status] - 状态类型
   Future<void> _handleMessageStatus(Map<String, dynamic> data, String status) async {
     try {
       final messageId = data['messageId'] as String?;
@@ -1208,82 +1202,40 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 处理输入状态
-  void _handleTypingStatus(Map<String, dynamic> data, bool isTyping) {
-    try {
-      final conversationId = data['conversationId'] as String?;
-      final userId = data['userId'] as String?;
-
-      if (conversationId == null || userId == null) return;
-
-      // 通知UI
-      _typingStatusController.add({
-        'conversationId': conversationId,
-        'userId': userId,
-        'isTyping': isTyping,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
-    } catch (e) {
-      _logger.e('处理输入状态失败', error: e);
-    }
-  }
-
-  @override
-  Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
-    if (!_isSocketInitialized) {
-      _logger.w('Socket未初始化，无法发送输入状态');
-      return;
-    }
-
-    try {
-      if (isTyping) {
-        _socketService.sendTyping(conversationId);
-      } else {
-        _socketService.sendStopTyping(conversationId);
-      }
-    } catch (e) {
-      _logger.e('发送输入状态失败', error: e);
-    }
-  }
-
+  /// 获取输入状态流
+  /// 返回用户输入状态变化的流
   @override
   Stream<Map<String, dynamic>> getTypingStatusStream() {
     return _typingStatusController.stream;
   }
 
+  /// 获取在线状态流
+  /// 返回用户在线状态变化的流
   @override
   Stream<Map<String, dynamic>> getOnlineStatusStream() {
     return _onlineStatusController.stream;
   }
 
+  /// 获取消息状态流
+  /// 返回消息状态变化的流
   @override
   Stream<Map<String, dynamic>> getMessageStatusStream() {
     return _messageStatusController.stream;
   }
 
+  /// 获取同步状态流
+  /// 返回数据同步状态变化的流
   @override
   Stream<SyncStatus> getSyncStatusStream() {
     return _syncStatusController.stream;
   }
 
-  /// 将消息对象转换为JSON
-  Map<String, dynamic> _messageToJson(Message message) {
-    return {
-      'messageId': message.messageId,
-      'conversationId': message.conversationId,
-      'senderId': message.senderId,
-      'content': message.text,
-      'type': message.type,
-      'timestamp': message.createdAt.millisecondsSinceEpoch,
-      'mediaUrl': message.mediaUrl,
-      'thumbnailUrl': message.thumbnailUrl,
-      'duration': message.duration,
-      'fileName': message.fileName,
-      'fileSize': message.fileSize,
-    };
-  }
-
   /// 创建消息通用方法
+  /// 创建基本的消息对象，设置共同属性
+  /// [conversationId] - 会话ID
+  /// [text] - 消息文本
+  /// [type] - 消息类型
+  /// 返回创建的消息对象
   Future<Message> _createMessage(String conversationId, String text, String type) async {
     try {
       final message = Message();
@@ -1306,6 +1258,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 发送消息通用方法
+  /// 保存消息到数据库并通过Socket发送
+  /// [message] - 要发送的消息对象
+  /// 返回发送的消息
   Future<Message> _sendMessage(Message message) async {
     try {
       await _isar.writeTxn(() async {
@@ -1356,10 +1311,10 @@ class ChatRepositoryImpl implements ChatRepository {
         }
       });
 
-      // 通过Socket发送消息
-      if (_isSocketInitialized) {
-        final messageJson = _messageToJson(message);
-        _socketService.sendMessage(messageJson);
+      // 通过实时通信发送消息
+      final success = await sendMessage(message);
+      if (!success) {
+        _logger.w('发送消息失败');
       }
 
       // 通知消息更新
@@ -1380,6 +1335,76 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       rethrow;
+    }
+  }
+
+  /// 释放资源
+  /// 取消所有订阅并关闭流控制器
+  void dispose() {
+    for (final subscription in _rtcSubscriptions) {
+      subscription.cancel();
+    }
+    _rtcSubscriptions.clear();
+
+    _messageStreamController.close();
+    _typingStatusController.close();
+    _onlineStatusController.close();
+    _messageStatusController.close();
+    _syncStatusController.close();
+  }
+
+  /// 创建或获取与用户的对话
+  /// 如果已存在与该用户的一对一会话，则返回该会话ID
+  /// 否则创建新会话并返回ID
+  /// [userId] - 目标用户ID
+  @override
+  Future<String?> createOrGetConversation(String userId) async {
+    try {
+      _logger.i('获取或创建与用户的会话', extra: {'userId': userId});
+
+      // 获取当前用户ID
+      final currentUserId = DatabaseInitializer.currentUserId;
+      if (currentUserId == null) {
+        _logger.e('当前用户未登录，无法创建会话');
+        return null;
+      }
+
+      // 检查是否已有与该用户的私聊会话
+      final existingConversation = await _conversations.filter().typeEqualTo(ConversationType.private).and().contactUserIdEqualTo(userId).findFirst();
+
+      if (existingConversation != null) {
+        _logger.i('找到已存在的会话', extra: {'conversationId': existingConversation.conversationId});
+        return existingConversation.conversationId;
+      }
+
+      // 获取目标用户信息
+      final contactUser = await _users.filter().userIdEqualTo(userId).findFirst();
+      if (contactUser == null) {
+        _logger.e('未找到目标用户信息', extra: {'userId': userId});
+        return null;
+      }
+
+      // 创建新会话
+      final conversation = Conversation()
+        ..type = ConversationType.private
+        ..name = contactUser.name
+        ..contactUserId = userId
+        ..avatar = contactUser.avatar
+        ..createdAt = DateTime.now();
+
+      // 保存会话
+      await _isar.writeTxn(() async {
+        await _conversations.put(conversation);
+        DatabaseInitializer.syncIds(conversation);
+        // 建立会话与用户的关联
+        await conversation.participants.save();
+      });
+
+      _logger.i('创建了新会话', extra: {'conversationId': conversation.conversationId});
+      return conversation.conversationId;
+    } catch (e) {
+      _logger.e('创建或获取会话失败', error: e);
+      return null;
     }
   }
 }

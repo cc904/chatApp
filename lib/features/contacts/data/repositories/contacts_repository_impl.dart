@@ -3,8 +3,9 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/network/index.dart';
+import 'package:cc/core/services/socket_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
+import 'package:cc/core/services/real_time_communication_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
@@ -12,9 +13,11 @@ import 'dart:math' as math;
 import 'dart:async';
 
 /// ContactsRepository的实现类
+/// 负责管理联系人数据、实现联系人相关的业务逻辑
 class ContactsRepositoryImpl implements ContactsRepository {
   final LogService _logger = LogService('contacts_repository_impl.dart');
   final SocketService _socketService = SocketService.getInstance();
+  final RealTimeCommunicationService? _realTimeCommunicationService;
 
   // 模拟延迟的随机数生成器
   final math.Random _random = math.Random();
@@ -28,6 +31,101 @@ class ContactsRepositoryImpl implements ContactsRepository {
   // 获取好友请求集合
   IsarCollection<FriendRequest> get _friendRequests => _isar.collection<FriendRequest>();
 
+  // 在线用户状态订阅
+  StreamSubscription? _onlineStatusSubscription;
+
+  // 通用事件订阅
+  StreamSubscription? _genericEventSubscription;
+
+  // 构造函数，可选传入实时通信服务
+  ContactsRepositoryImpl({RealTimeCommunicationService? realTimeCommunicationService})
+      : _realTimeCommunicationService = realTimeCommunicationService ?? RealTimeCommunicationService() {
+    _initializeSubscriptions();
+  }
+
+  /// 初始化订阅
+  /// 订阅RealTimeCommunicationService提供的事件流
+  void _initializeSubscriptions() {
+    if (_realTimeCommunicationService == null) return;
+
+    // 订阅用户在线状态事件
+    _onlineStatusSubscription = _realTimeCommunicationService.userStatusStream.listen((event) {
+      _updateUserOnlineStatus(event.userId, event.isOnline);
+    });
+
+    // 订阅通用事件
+    _genericEventSubscription = _realTimeCommunicationService.genericEventStream.listen(_handleGenericEvent);
+  }
+
+  /// 处理通用事件
+  void _handleGenericEvent(Map<String, dynamic> event) {
+    final eventName = event['event'] as String?;
+    final data = event['data'] as Map<String, dynamic>?;
+
+    if (eventName == null || data == null) return;
+
+    switch (eventName) {
+      case 'contactsSynced':
+        _handleContactsSyncedEvent(data);
+        break;
+      // 添加其他联系人相关事件处理
+    }
+  }
+
+  /// 处理联系人同步完成事件
+  void _handleContactsSyncedEvent(Map<String, dynamic> data) {
+    try {
+      _logger.i('收到联系人同步事件', extra: {'data': data});
+
+      // 解析联系人数据并保存到数据库
+      final List<dynamic> contactsData = data['contacts'] ?? [];
+      final List<User> contacts = contactsData.map((contact) {
+        return User()
+          ..userId = contact['userId']
+          ..name = contact['name']
+          ..avatar = contact['avatar']
+          ..phone = contact['phone']
+          ..email = contact['email']
+          ..pinyin = contact['pinyin'] ?? contact['name'];
+      }).toList();
+
+      // 保存到数据库
+      _isar.writeTxn(() async {
+        for (final contact in contacts) {
+          await _users.put(contact);
+        }
+      });
+
+      _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
+    } catch (e) {
+      _logger.e('处理联系人同步事件失败', error: e);
+    }
+  }
+
+  /// 更新用户在线状态
+  /// 将用户状态更新为在线或离线，并记录最后活跃时间
+  /// [userId] - 要更新状态的用户ID
+  /// [isOnline] - 是否在线
+  Future<void> _updateUserOnlineStatus(String userId, bool isOnline) async {
+    try {
+      final user = await _users.filter().userIdEqualTo(userId).findFirst();
+      if (user != null) {
+        await _isar.writeTxn(() async {
+          user.status = isOnline ? 'online' : 'offline';
+          user.lastActiveTime = DateTime.now();
+          await _users.put(user);
+        });
+
+        _logger.i('已更新用户在线状态', extra: {'userId': userId, 'isOnline': isOnline});
+      }
+    } catch (e) {
+      _logger.e('更新用户在线状态失败', error: e);
+    }
+  }
+
+  /// 获取所有联系人
+  /// 返回数据库中的所有联系人列表
+  /// 模拟模式下使用MockDataManager提供模拟数据
   @override
   Future<List<User>> getAllContacts() async {
     try {
@@ -44,6 +142,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 搜索联系人
+  /// 根据查询词搜索联系人，可匹配名称、拼音等字段
+  /// [query] - 搜索关键词
   @override
   Future<List<User>> searchContacts(String query) async {
     if (query.isEmpty) return [];
@@ -61,6 +162,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 获取单个联系人
+  /// 根据用户ID查询联系人详情
+  /// [userId] - 联系人的用户ID
   @override
   Future<User?> getContactById(String userId) async {
     try {
@@ -79,6 +183,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 添加联系人
+  /// 将联系人保存到数据库
+  /// [contact] - 要添加的联系人对象
   @override
   Future<bool> addContact(User contact) async {
     try {
@@ -92,6 +199,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 更新联系人
+  /// 更新已有联系人的信息
+  /// [contact] - 包含更新信息的联系人对象
   @override
   Future<bool> updateContact(User contact) async {
     try {
@@ -105,6 +215,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 删除联系人
+  /// 从数据库中删除指定联系人
+  /// [userId] - 要删除的联系人ID
   @override
   Future<bool> deleteContact(String userId) async {
     try {
@@ -121,11 +234,15 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 监听联系人变化
+  /// 返回联系人列表变化的流
   @override
   Stream<void> watchContacts() {
     return _users.where().watchLazy();
   }
 
+  /// 同步联系人
+  /// 从服务器同步最新的联系人数据
   @override
   Future<List<User>> syncContacts() async {
     try {
@@ -137,8 +254,15 @@ class ContactsRepositoryImpl implements ContactsRepository {
         throw '未找到当前用户信息';
       }
 
-      // 发送同步请求
-      if (_socketService.isConnected) {
+      // 优先使用RealTimeCommunicationService发送同步请求
+      if (_realTimeCommunicationService != null && _realTimeCommunicationService.isInitialized) {
+        _realTimeCommunicationService.emitEvent('sync_contacts', {
+          'userId': currentUser.userId,
+          'token': currentUser.token,
+        });
+      }
+      // 如果RealTimeCommunicationService不可用，则使用SocketService
+      else if (_socketService.isConnected) {
         _socketService.emit('sync_contacts', {
           'userId': currentUser.userId,
           'token': currentUser.token,
@@ -154,13 +278,21 @@ class ContactsRepositoryImpl implements ContactsRepository {
         await Future.delayed(Duration(milliseconds: 500 + _random.nextInt(1000)));
         // 使用MockDataManager获取模拟联系人
         serverContacts = await MockDataManager.getAllMockContacts();
+
+        // 保存到数据库
+        await _isar.writeTxn(() async {
+          for (final contact in serverContacts) {
+            await _users.put(contact);
+          }
+        });
+
+        _logger.i('联系人同步完成 - ${serverContacts.length} 个联系人');
       } else {
         _logger.i('使用真实网络同步联系人');
-        // 实际情况下，应该通过socket.io事件监听获取联系人数据
-        // 这里需要设置一个监听器来等待服务器返回的联系人数据
+        // 实际情况下，通过上面发送的事件触发服务器返回联系人数据
+        // 等待联系人同步结果通过genericEventStream返回
+        // 这里设置一个超时，避免永久等待
         final completer = Completer<List<User>>();
-
-        // 设置一个超时，避免永久等待
         final timeout = Timer(Duration(seconds: 10), () {
           if (!completer.isCompleted) {
             _logger.w('同步联系人超时');
@@ -168,24 +300,16 @@ class ContactsRepositoryImpl implements ContactsRepository {
           }
         });
 
-        // 监听联系人同步结果
-        _socketService.on(SocketEvent.contacts_synced).listen((data) {
-          if (!completer.isCompleted) {
-            timeout.cancel();
+        // 获取同步前的联系人数量
+        final beforeCount = await _users.count();
 
-            // 解析服务器返回的联系人数据
-            final List<dynamic> contactsData = data['contacts'] ?? [];
-            final List<User> contacts = contactsData.map((contact) {
-              return User()
-                ..userId = contact['userId']
-                ..name = contact['name']
-                ..avatar = contact['avatar']
-                ..phone = contact['phone']
-                ..email = contact['email']
-                ..pinyin = contact['pinyin'] ?? contact['name'];
-            }).toList();
-
+        // 等待一段时间后检查联系人是否有增加
+        Future.delayed(Duration(seconds: 5), () async {
+          final afterCount = await _users.count();
+          if (!completer.isCompleted && afterCount > beforeCount) {
+            final contacts = await getAllContacts();
             completer.complete(contacts);
+            timeout.cancel();
           }
         });
 
@@ -193,14 +317,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
         serverContacts = await completer.future;
       }
 
-      // 保存到数据库
-      await _isar.writeTxn(() async {
-        for (final contact in serverContacts) {
-          await _users.put(contact);
-        }
-      });
-
-      _logger.i('联系人同步完成 - ${serverContacts.length} 个联系人');
       return serverContacts;
     } catch (e) {
       _logger.e('同步联系人失败', error: e);
@@ -208,6 +324,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 获取好友请求列表
+  /// 获取当前用户收到的所有好友请求
   @override
   Future<List<FriendRequest>> getFriendRequests() async {
     try {
@@ -228,10 +346,14 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 发送好友请求
+  /// 向指定用户发送好友申请
+  /// [targetUserId] - 目标用户ID
+  /// [message] - 申请附带消息
   @override
-  Future<bool> sendFriendRequest(String userId, String message) async {
+  Future<bool> sendFriendRequest(String targetUserId, String message) async {
     try {
-      _logger.i('发送好友请求', extra: {'targetUserId': userId, 'message': message});
+      _logger.i('发送好友请求', extra: {'targetUserId': targetUserId, 'message': message});
 
       // 获取当前用户
       final currentUser = await MyUserService.getCurrentUser();
@@ -240,14 +362,14 @@ class ContactsRepositoryImpl implements ContactsRepository {
       }
 
       // 获取目标用户
-      final targetUser = await getContactById(userId);
+      final targetUser = await getContactById(targetUserId);
       if (targetUser == null) {
         throw '未找到目标用户';
       }
 
       // 检查是否已发送请求
       final existingRequest =
-          await _friendRequests.filter().senderIdEqualTo(currentUser.userId).and().receiverIdEqualTo(userId).and().statusEqualTo(FriendRequestStatus.pending).findFirst();
+          await _friendRequests.filter().senderIdEqualTo(currentUser.userId).and().receiverIdEqualTo(targetUserId).and().statusEqualTo(FriendRequestStatus.pending).findFirst();
 
       if (existingRequest != null) {
         throw '已向该用户发送过好友请求';
@@ -259,7 +381,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         ..senderId = currentUser.userId
         ..senderName = currentUser.name
         ..senderAvatar = currentUser.avatar
-        ..receiverId = userId
+        ..receiverId = targetUserId
         ..message = message
         ..status = FriendRequestStatus.pending
         ..createdAt = DateTime.now();
@@ -269,11 +391,20 @@ class ContactsRepositoryImpl implements ContactsRepository {
         await _friendRequests.put(request);
       });
 
-      // 模拟发送请求到服务器
-      if (_socketService.isConnected) {
+      // 发送请求到服务器
+      // 优先使用RealTimeCommunicationService
+      if (_realTimeCommunicationService != null && _realTimeCommunicationService.isInitialized) {
+        _realTimeCommunicationService.emitEvent('friend_request', {
+          'senderId': currentUser.userId,
+          'receiverId': targetUserId,
+          'message': message,
+        });
+      }
+      // 如果RealTimeCommunicationService不可用，则使用SocketService
+      else if (_socketService.isConnected) {
         _socketService.emit('friend_request', {
           'senderId': currentUser.userId,
-          'receiverId': userId,
+          'receiverId': targetUserId,
           'message': message,
         });
       }
@@ -292,6 +423,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 接受好友请求
+  /// 接受来自指定用户的好友申请
+  /// [requestId] - 好友请求ID
   @override
   Future<bool> acceptFriendRequest(String requestId) async {
     try {
@@ -332,7 +466,14 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 向服务器发送接受请求
-      if (_socketService.isConnected) {
+      // 优先使用RealTimeCommunicationService
+      if (_realTimeCommunicationService != null && _realTimeCommunicationService.isInitialized) {
+        _realTimeCommunicationService.emitEvent('accept_friend_request', {
+          'requestId': requestId,
+        });
+      }
+      // 如果RealTimeCommunicationService不可用，则使用SocketService
+      else if (_socketService.isConnected) {
         _socketService.emit('accept_friend_request', {
           'requestId': requestId,
         });
@@ -352,6 +493,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 拒绝好友请求
+  /// 拒绝来自指定用户的好友申请
+  /// [requestId] - 好友请求ID
   @override
   Future<bool> rejectFriendRequest(String requestId) async {
     try {
@@ -378,7 +522,14 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 向服务器发送拒绝请求
-      if (_socketService.isConnected) {
+      // 优先使用RealTimeCommunicationService
+      if (_realTimeCommunicationService != null && _realTimeCommunicationServiceisInitialized) {
+        _realTimeCommunicationService.emitEvent('reject_friend_request', {
+          'requestId': requestId,
+        });
+      }
+      // 如果RealTimeCommunicationService不可用，则使用SocketService
+      else if (_socketService.isConnected) {
         _socketService.emit('reject_friend_request', {
           'requestId': requestId,
         });
@@ -396,5 +547,33 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _logger.e('拒绝好友请求失败', error: e);
       return false;
     }
+  }
+
+  /// 获取所有好友请求
+  /// 返回发送和接收的所有好友请求
+  Future<List<FriendRequest>> getAllFriendRequests() async {
+    try {
+      // 获取当前用户
+      final currentUser = await MyUserService.getCurrentUser();
+      if (currentUser == null) {
+        throw '未找到当前用户信息';
+      }
+
+      // 查询好友请求
+      final requests = await _friendRequests.filter().receiverIdEqualTo(currentUser.userId).or().senderIdEqualTo(currentUser.userId).findAll();
+
+      _logger.i('获取所有好友请求成功 - ${requests.length} 个请求');
+      return requests;
+    } catch (e) {
+      _logger.e('获取所有好友请求失败', error: e);
+      return [];
+    }
+  }
+
+  /// 释放资源
+  /// 取消订阅，释放所占用的资源
+  void dispose() {
+    _onlineStatusSubscription?.cancel();
+    _genericEventSubscription?.cancel();
   }
 }

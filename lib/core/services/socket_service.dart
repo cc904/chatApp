@@ -15,7 +15,7 @@ enum SocketEvent {
   messageRead,
   typing,
   stopTyping,
-  contacts_synced,
+  contactsSynced,
 }
 
 /// Socket服务

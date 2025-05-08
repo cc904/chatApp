@@ -5,17 +5,9 @@ import 'package:cc/core/database/models/message.dart';
 /// 聊天仓库接口
 /// 定义了聊天功能所需的各种操作方法
 abstract class ChatRepository {
-  /// 获取所有联系人
-  Future<List<User>> getAllContacts();
-
-  /// 搜索联系人
-  Future<List<User>> searchContacts(String keyword);
-
   /// 获取单个联系人信息
+  /// 注：此方法仅用于支持聊天功能，不应用于联系人管理
   Future<User?> getContactById(String userId);
-
-  /// 添加联系人
-  Future<void> addContact(User user);
 
   /// 获取所有会话
   Future<List<Conversation>> getAllConversations();
@@ -85,27 +77,6 @@ abstract class ChatRepository {
     DateTime startDate, {
     int limit = 30,
   });
-
-  /// 初始化实时通信
-  /// [userId] - 用户ID
-  /// [token] - 认证令牌
-  /// [serverUrl] - 服务器URL
-  /// [isSimulationMode] - 是否使用模拟模式
-  Future<bool> initRealTimeConnection(
-    String userId,
-    String token,
-    String serverUrl,
-    bool isSimulationMode,
-  );
-
-  /// 关闭实时通信连接
-  Future<void> closeRealTimeConnection();
-
-  /// 重新连接实时通信
-  Future<bool> reconnectRealTime();
-
-  /// 同步联系人列表
-  Future<bool> syncContacts();
 
   /// 创建或获取与用户的对话
   Future<String?> createOrGetConversation(String userId);

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/network/index.dart';
+import 'package:cc/core/services/auth_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/proto/generated/auth.pb.dart';
@@ -10,6 +10,7 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/services/real_time_communication_service.dart';
 
 part 'auth_state.dart';
 
@@ -20,10 +21,11 @@ class AuthCubit extends Cubit<AuthState> {
   static const int countdownDuration = 60;
 
   // 添加ChatRepository依赖，用于初始化Socket连接
-  final ChatRepository? _chatRepository;
 
   // 添加ChatCubit依赖，用于在登录成功后初始化
-  final ChatCubit? _chatCubit;
+
+  // 实时通信服务
+  final RealTimeCommunicationService? _realTimeCommunicationService;
 
   // 认证服务
   final AuthService _authService = AuthService.getInstance();
@@ -35,9 +37,9 @@ class AuthCubit extends Cubit<AuthState> {
     required String serverUrl,
     ChatRepository? chatRepository,
     ChatCubit? chatCubit,
+    RealTimeCommunicationService? realTimeCommunicationService,
     bool isSimulationMode = false,
-  })  : _chatRepository = chatRepository,
-        _chatCubit = chatCubit,
+  })  : _realTimeCommunicationService = realTimeCommunicationService,
         super(AuthState.initial()) {
     // 使用全局配置
     _appConfig.serverUrl = serverUrl;
@@ -86,72 +88,60 @@ class AuthCubit extends Cubit<AuthState> {
   // 初始化数据库和模拟数据库
   Future<void> _initDatabases(String userId, String token) async {
     try {
-      // 初始化用户数据库
-      if (!DatabaseInitializer.isInitialized) {
-        await DatabaseInitializer.init(userId: userId);
-        _logger.i('用户数据库初始化完成', extra: {'userId': userId});
-      }
+      _logger.i('开始初始化数据库', extra: {'userId': userId, 'isSimulationMode': _appConfig.isSimulationMode});
 
-      // 创建当前用户信息
-      final myUser = await MyUserService.saveCurrentUser(
+      // 初始化Isar数据库
+      await DatabaseInitializer.init(userId: userId);
+
+      // 保存当前用户信息
+      await MyUserService.saveCurrentUser(
         userId: userId,
         token: token,
-        name: '我', // 默认名称
-        phone: state.phoneNumber,
-        tokenExpireTime: DateTime.now().add(const Duration(days: 7)),
+        name: '我', // 添加必需的name参数
       );
 
-      if (myUser == null) {
-        throw '保存用户信息失败';
-      }
-
-      // 确保模拟数据库已初始化
-      if (!MockDataManager.isInitialized) {
+      // 如果是模拟模式，加载模拟数据
+      if (_appConfig.isSimulationMode) {
+        // 先初始化模拟数据管理器
         await MockDataManager.init();
-        _logger.i('模拟数据管理器初始化完成');
+        // 检查是否需要生成模拟数据
+        _logger.i('加载模拟数据成功');
       }
 
       // 初始化实时通信
       await _initRealTimeCommunication(userId, token);
     } catch (e) {
-      _logger.e('数据库初始化失败', error: e);
-      emit(state.toErrorState('数据库初始化失败: $e'));
+      _logger.e('初始化数据库出错', error: e);
+      emit(state.toErrorState('初始化数据库出错: ${e.toString()}'));
     }
   }
 
   // 初始化实时通信
   Future<void> _initRealTimeCommunication(String userId, String token) async {
-    if (_chatRepository == null) {
-      _logger.w('聊天仓库未初始化，无法开启实时通信');
-      return;
-    }
-
     try {
-      _logger.i('初始化实时通信连接', extra: {'userId': userId, 'isSimulationMode': _appConfig.isSimulationMode});
+      _logger.i('初始化实时通信');
 
-      // 使用认证后的用户ID和令牌初始化实时通信
-      final success = await _chatRepository.initRealTimeConnection(
-        userId,
-        token,
-        _appConfig.serverUrl,
-        _appConfig.isSimulationMode,
-      );
+      // 使用实时通信服务
+      if (_realTimeCommunicationService != null) {
+        final success = await _realTimeCommunicationService.initConnection(
+          userId: userId,
+          token: token,
+          serverUrl: _appConfig.serverUrl,
+          isSimulationMode: _appConfig.isSimulationMode,
+        );
 
-      if (!success) {
-        _logger.e('初始化实时通信连接失败');
-      } else {
-        _logger.i('实时通信连接成功');
-
-        // 初始化聊天相关订阅
-        if (_chatCubit != null) {
-          await _chatCubit.initializeSubscriptions();
-
-          // 同步联系人列表
-          await _chatCubit.syncContacts();
+        if (!success) {
+          _logger.e('初始化实时通信失败');
+          // 不要因为实时通信失败而阻止用户登录
+          // 可以在UI上显示提示，并允许用户手动重试
         }
+      } else {
+        _logger.w('实时通信服务未注入，无法初始化实时通信');
+        // 与聊天相关的服务将在需要时手动初始化
       }
     } catch (e) {
       _logger.e('初始化实时通信错误', error: e);
+      // 处理错误但不中断认证流程
     }
   }
 
