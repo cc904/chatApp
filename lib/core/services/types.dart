@@ -1,5 +1,6 @@
-/// 数据编码方式枚举
-enum DataEncoding {
+/// 数据编码方式枚举（已废弃，请使用CommunicationService中的DataEncoding）
+@Deprecated('Use DataEncoding from CommunicationService instead')
+enum LegacyDataEncoding {
   /// JSON编码
   json,
 
@@ -38,4 +39,19 @@ enum AuthStatus {
 
   /// 认证失败
   failed,
+}
+
+/// Socket服务事件枚举
+enum SocketEvent {
+  connect,
+  disconnect,
+  connectError,
+  userOnline,
+  userOffline,
+  newMessage,
+  messageDelivered,
+  messageRead,
+  typing,
+  stopTyping,
+  contactsSynced,
 }

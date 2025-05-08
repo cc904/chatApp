@@ -3,9 +3,8 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/socket_service.dart';
+import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
-import 'package:cc/core/services/real_time_communication_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
@@ -16,8 +15,7 @@ import 'dart:async';
 /// 负责管理联系人数据、实现联系人相关的业务逻辑
 class ContactsRepositoryImpl implements ContactsRepository {
   final LogService _logger = LogService('contacts_repository_impl.dart');
-  final SocketService _socketService = SocketService.getInstance();
-  final RealTimeCommunicationService? _realTimeCommunicationService;
+  final CommunicationService _communicationService = CommunicationService();
 
   // 模拟延迟的随机数生成器
   final math.Random _random = math.Random();
@@ -31,45 +29,38 @@ class ContactsRepositoryImpl implements ContactsRepository {
   // 获取好友请求集合
   IsarCollection<FriendRequest> get _friendRequests => _isar.collection<FriendRequest>();
 
-  // 在线用户状态订阅
-  StreamSubscription? _onlineStatusSubscription;
+  // 事件订阅管理
+  final List<StreamSubscription> _subscriptions = [];
 
-  // 通用事件订阅
-  StreamSubscription? _genericEventSubscription;
-
-  // 构造函数，可选传入实时通信服务
-  ContactsRepositoryImpl({RealTimeCommunicationService? realTimeCommunicationService})
-      : _realTimeCommunicationService = realTimeCommunicationService ?? RealTimeCommunicationService() {
+  // 构造函数
+  ContactsRepositoryImpl() {
     _initializeSubscriptions();
   }
 
   /// 初始化订阅
-  /// 订阅RealTimeCommunicationService提供的事件流
+  /// 订阅通信服务提供的事件流
   void _initializeSubscriptions() {
-    if (_realTimeCommunicationService == null) return;
+    if (!_communicationService.isInitialized) return;
 
     // 订阅用户在线状态事件
-    _onlineStatusSubscription = _realTimeCommunicationService.userStatusStream.listen((event) {
-      _updateUserOnlineStatus(event.userId, event.isOnline);
-    });
+    _subscriptions.add(_communicationService.onEvent('user_online').listen((data) {
+      final userId = data['userId'] as String?;
+      if (userId != null) {
+        _updateUserOnlineStatus(userId, true);
+      }
+    }));
 
-    // 订阅通用事件
-    _genericEventSubscription = _realTimeCommunicationService.genericEventStream.listen(_handleGenericEvent);
-  }
+    _subscriptions.add(_communicationService.onEvent('user_offline').listen((data) {
+      final userId = data['userId'] as String?;
+      if (userId != null) {
+        _updateUserOnlineStatus(userId, false);
+      }
+    }));
 
-  /// 处理通用事件
-  void _handleGenericEvent(Map<String, dynamic> event) {
-    final eventName = event['event'] as String?;
-    final data = event['data'] as Map<String, dynamic>?;
+    // 订阅联系人同步事件
+    _subscriptions.add(_communicationService.onEvent('contacts_synced').listen(_handleContactsSyncedEvent));
 
-    if (eventName == null || data == null) return;
-
-    switch (eventName) {
-      case 'contactsSynced':
-        _handleContactsSyncedEvent(data);
-        break;
-      // 添加其他联系人相关事件处理
-    }
+    // 可以添加其他联系人相关事件的订阅
   }
 
   /// 处理联系人同步完成事件
@@ -254,19 +245,14 @@ class ContactsRepositoryImpl implements ContactsRepository {
         throw '未找到当前用户信息';
       }
 
-      // 优先使用RealTimeCommunicationService发送同步请求
-      if (_realTimeCommunicationService != null && _realTimeCommunicationService.isInitialized) {
-        _realTimeCommunicationService.emitEvent('sync_contacts', {
+      // 使用通信服务发送同步请求
+      if (_communicationService.isInitialized) {
+        _communicationService.emitEvent('sync_contacts', {
           'userId': currentUser.userId,
           'token': currentUser.token,
         });
-      }
-      // 如果RealTimeCommunicationService不可用，则使用SocketService
-      else if (_socketService.isConnected) {
-        _socketService.emit('sync_contacts', {
-          'userId': currentUser.userId,
-          'token': currentUser.token,
-        });
+      } else {
+        _logger.w('通信服务未初始化，无法同步联系人');
       }
 
       List<User> serverContacts = [];
@@ -290,7 +276,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       } else {
         _logger.i('使用真实网络同步联系人');
         // 实际情况下，通过上面发送的事件触发服务器返回联系人数据
-        // 等待联系人同步结果通过genericEventStream返回
+        // 等待联系人同步结果通过通信服务的事件返回
         // 这里设置一个超时，避免永久等待
         final completer = Completer<List<User>>();
         final timeout = Timer(Duration(seconds: 10), () {
@@ -392,17 +378,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 发送请求到服务器
-      // 优先使用RealTimeCommunicationService
-      if (_realTimeCommunicationService != null && _realTimeCommunicationService.isInitialized) {
-        _realTimeCommunicationService.emitEvent('friend_request', {
-          'senderId': currentUser.userId,
-          'receiverId': targetUserId,
-          'message': message,
-        });
-      }
-      // 如果RealTimeCommunicationService不可用，则使用SocketService
-      else if (_socketService.isConnected) {
-        _socketService.emit('friend_request', {
+      if (_communicationService.isInitialized) {
+        _communicationService.emitEvent('friend_request', {
           'senderId': currentUser.userId,
           'receiverId': targetUserId,
           'message': message,
@@ -466,15 +443,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 向服务器发送接受请求
-      // 优先使用RealTimeCommunicationService
-      if (_realTimeCommunicationService != null && _realTimeCommunicationService.isInitialized) {
-        _realTimeCommunicationService.emitEvent('accept_friend_request', {
-          'requestId': requestId,
-        });
-      }
-      // 如果RealTimeCommunicationService不可用，则使用SocketService
-      else if (_socketService.isConnected) {
-        _socketService.emit('accept_friend_request', {
+      if (_communicationService.isInitialized) {
+        _communicationService.emitEvent('accept_friend_request', {
           'requestId': requestId,
         });
       }
@@ -522,15 +492,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 向服务器发送拒绝请求
-      // 优先使用RealTimeCommunicationService
-      if (_realTimeCommunicationService != null && _realTimeCommunicationServiceisInitialized) {
-        _realTimeCommunicationService.emitEvent('reject_friend_request', {
-          'requestId': requestId,
-        });
-      }
-      // 如果RealTimeCommunicationService不可用，则使用SocketService
-      else if (_socketService.isConnected) {
-        _socketService.emit('reject_friend_request', {
+      if (_communicationService.isInitialized) {
+        _communicationService.emitEvent('reject_friend_request', {
           'requestId': requestId,
         });
       }
@@ -573,7 +536,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
   /// 释放资源
   /// 取消订阅，释放所占用的资源
   void dispose() {
-    _onlineStatusSubscription?.cancel();
-    _genericEventSubscription?.cancel();
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
+    _subscriptions.clear();
   }
 }

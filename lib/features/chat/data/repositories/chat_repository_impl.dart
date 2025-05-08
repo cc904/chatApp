@@ -7,7 +7,7 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
-import 'package:cc/core/services/real_time_communication_service.dart' hide SyncStatus;
+import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
 
@@ -20,7 +20,7 @@ import 'package:isar/isar.dart';
 /// 4. 联系人操作：获取联系人信息、同步联系人
 class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService('chat_repository_impl.dart');
-  final RealTimeCommunicationService? _realTimeCommunicationService;
+  final CommunicationService _communicationService = CommunicationService();
 
   /// 文件上传服务，处理媒体文件上传
   final FileUploadService _fileUploadService = FileUploadService();
@@ -40,8 +40,8 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 同步状态流控制器，传递数据同步状态事件
   final StreamController<SyncStatus> _syncStatusController = StreamController<SyncStatus>.broadcast();
 
-  /// 实时通信服务事件订阅集合
-  final List<StreamSubscription> _rtcSubscriptions = [];
+  /// 通信服务事件订阅集合
+  final List<StreamSubscription> _subscriptions = [];
 
   // 获取消息流
   Stream<Message> get messageStream => _messageStreamController.stream;
@@ -58,86 +58,84 @@ class ChatRepositoryImpl implements ChatRepository {
   // 获取消息集合
   IsarCollection<Message> get _messages => _isar.messages;
 
-  // 构造函数，可选传入实时通信服务
-  ChatRepositoryImpl({RealTimeCommunicationService? realTimeCommunicationService}) : _realTimeCommunicationService = realTimeCommunicationService {
-    _initializeRtcSubscriptions();
+  // 构造函数
+  ChatRepositoryImpl() {
+    _initializeSubscriptions();
   }
 
-  /// 初始化实时通信服务订阅
+  /// 初始化通信服务订阅
   /// 订阅各种事件流并设置对应的处理方法
-  void _initializeRtcSubscriptions() {
-    if (_realTimeCommunicationService == null) return;
-
-    _logger.i('初始化实时通信服务订阅');
+  void _initializeSubscriptions() {
+    _logger.i('初始化通信服务订阅');
 
     // 订阅消息事件
-    _rtcSubscriptions.add(_realTimeCommunicationService.messageStream.listen((event) {
-      switch (event.type) {
-        case 'new':
-          _handleNewMessage(event.data);
-          break;
-        case 'delivered':
-          _handleMessageStatus(event.data, 'delivered');
-          break;
-        case 'read':
-          _handleMessageStatus(event.data, 'read');
-          break;
-      }
+    _subscriptions.add(_communicationService.onEvent('message_delivered').listen((data) {
+      _handleMessageStatus(data, 'delivered');
+    }));
+
+    _subscriptions.add(_communicationService.onEvent('message_read').listen((data) {
+      _handleMessageStatus(data, 'read');
+    }));
+
+    _subscriptions.add(_communicationService.onEvent('new_message').listen((data) {
+      _handleNewMessage(data);
     }));
 
     // 订阅用户状态事件
-    _rtcSubscriptions.add(_realTimeCommunicationService.userStatusStream.listen((event) {
-      _handleUserOnlineStatus({
-        'userId': event.userId,
-      }, event.isOnline);
+    _subscriptions.add(_communicationService.onEvent('user_online').listen((data) {
+      _handleUserOnlineStatus(data, true);
 
       // 向后兼容：通知旧的流控制器
       _onlineStatusController.add({
-        'userId': event.userId,
-        'isOnline': event.isOnline,
-        'timestamp': event.timestamp,
+        'userId': data['userId'],
+        'isOnline': true,
+        'timestamp': data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+      });
+    }));
+
+    _subscriptions.add(_communicationService.onEvent('user_offline').listen((data) {
+      _handleUserOnlineStatus(data, false);
+
+      // 向后兼容：通知旧的流控制器
+      _onlineStatusController.add({
+        'userId': data['userId'],
+        'isOnline': false,
+        'timestamp': data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
       });
     }));
 
     // 订阅输入状态事件
-    _rtcSubscriptions.add(_realTimeCommunicationService.typingStatusStream.listen((event) {
+    _subscriptions.add(_communicationService.onEvent('typing').listen((data) {
       // 向后兼容：通知旧的流控制器
       _typingStatusController.add({
-        'userId': event.userId,
-        'conversationId': event.conversationId,
-        'isTyping': event.isTyping,
-        'timestamp': event.timestamp,
+        'userId': data['userId'],
+        'conversationId': data['conversationId'],
+        'isTyping': true,
+        'timestamp': data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
       });
     }));
 
-    // 订阅同步状态事件
-    _rtcSubscriptions.add(_realTimeCommunicationService.syncStatusStream.listen((status) {
-      // 转换枚举状态
-      _syncStatusController.add(_convertSyncStatus(status));
+    _subscriptions.add(_communicationService.onEvent('stop_typing').listen((data) {
+      // 向后兼容：通知旧的流控制器
+      _typingStatusController.add({
+        'userId': data['userId'],
+        'conversationId': data['conversationId'],
+        'isTyping': false,
+        'timestamp': data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+      });
+    }));
+
+    // 订阅连接状态事件
+    _subscriptions.add(_communicationService.connectionStateStream.listen((isConnected) {
+      _syncStatusController.add(isConnected ? SyncStatus.idle : SyncStatus.error);
+    }));
+
+    // 订阅联系人同步事件
+    _subscriptions.add(_communicationService.onEvent('contacts_synced').listen((data) {
+      _syncStatusController.add(SyncStatus.completed);
     }));
   }
 
-  /// 转换同步状态枚举
-  /// 将实时通信服务中的SyncStatus转换为仓库接口中的SyncStatus
-  /// [status] - 实时通信服务的同步状态
-  /// 返回转换后的仓库接口同步状态
-  SyncStatus _convertSyncStatus(dynamic status) {
-    if (status == null) return SyncStatus.idle;
-
-    // 根据status的值映射到ChatRepository中的SyncStatus
-    String statusName = status.toString().split('.').last;
-
-    switch (statusName) {
-      case 'idle':
-        return SyncStatus.idle;
-      case 'synchronizing':
-        return SyncStatus.syncing;
-      case 'error':
-        return SyncStatus.error;
-      default:
-        return SyncStatus.idle;
-    }
-  }
 
   /// 获取联系人信息
   /// 根据ID获取单个联系人详情
@@ -939,11 +937,11 @@ class ChatRepositoryImpl implements ChatRepository {
         'createdAt': message.createdAt.millisecondsSinceEpoch,
       };
 
-      // 使用实时通信服务
-      if (_realTimeCommunicationService != null) {
-        _realTimeCommunicationService.emitEvent('send_message', messageData);
+      // 使用通信服务发送消息
+      if (_communicationService.isInitialized) {
+        _communicationService.emitEvent('send_message', messageData);
       } else {
-        _logger.w('实时通信服务未初始化，无法发送消息');
+        _logger.w('通信服务未初始化，无法发送消息');
         await _updateMessageStatus(message, 'failed');
         return false;
       }
@@ -965,12 +963,12 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [isTyping] - 是否正在输入
   @override
   Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
-    if (_realTimeCommunicationService != null) {
-      _realTimeCommunicationService.emitEvent(isTyping ? 'typing' : 'stop_typing', {'conversationId': conversationId});
+    if (_communicationService.isInitialized) {
+      _communicationService.emitEvent(isTyping ? 'typing' : 'stop_typing', {'conversationId': conversationId});
       return;
     }
 
-    _logger.w('实时通信服务未初始化，无法发送输入状态');
+    _logger.w('通信服务未初始化，无法发送输入状态');
   }
 
   /// 发送消息已读状态
@@ -978,15 +976,15 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [messageId] - 消息ID
   /// [conversationId] - 会话ID
   void sendMessageRead(String messageId, String conversationId) {
-    if (_realTimeCommunicationService != null) {
-      _realTimeCommunicationService.emitEvent('message_read', {
+    if (_communicationService.isInitialized) {
+      _communicationService.emitEvent('message_read', {
         'messageId': messageId,
         'conversationId': conversationId,
       });
       return;
     }
 
-    _logger.w('实时通信服务未初始化，无法发送已读状态');
+    _logger.w('通信服务未初始化，无法发送已读状态');
   }
 
   /// 处理用户在线状态
@@ -1311,7 +1309,7 @@ class ChatRepositoryImpl implements ChatRepository {
         }
       });
 
-      // 通过实时通信发送消息
+      // 通过通信发送消息
       final success = await sendMessage(message);
       if (!success) {
         _logger.w('发送消息失败');
@@ -1341,10 +1339,10 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 释放资源
   /// 取消所有订阅并关闭流控制器
   void dispose() {
-    for (final subscription in _rtcSubscriptions) {
+    for (final subscription in _subscriptions) {
       subscription.cancel();
     }
-    _rtcSubscriptions.clear();
+    _subscriptions.clear();
 
     _messageStreamController.close();
     _typingStatusController.close();

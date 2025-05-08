@@ -24,7 +24,6 @@ lib/
 │   ├── database/                                  # 数据库相关
 │   │   ├── database_initializer.dart              # 数据库初始化器
 │   │   ├── mock_data_manager.dart                 # 模拟数据管理器
-│   │   ├── mock_data_generator.dart               # 模拟数据生成器
 │   │   └── models/                                # 数据模型
 │   │       ├── user.dart                          # 用户/联系人模型
 │   │       ├── my_user.dart                       # 当前用户模型
@@ -37,22 +36,16 @@ lib/
 │   │   ├── log_service.dart                       # 日志服务
 │   │   ├── my_user_service.dart                   # 当前用户服务
 │   │   ├── file_upload_service.dart               # 文件上传服务
-│   │   └── ui_notification_service.dart           # UI通知服务
+│   │   ├── ui_notification_service.dart           # UI通知服务
+│   │   ├── communication_service.dart             # 通信服务（Socket.IO）
+│   │   └── auth_service.dart                      # 认证服务
 │   │
-│   ├── network/                                   # 网络相关
-│   │   ├── socket_service.dart                    # Socket.IO服务
-│   │   ├── auth_service.dart                      # 认证服务
-│   │   ├── proto_converter.dart                   # Protobuf转换器
-│   │   ├── event_listener.dart                    # 事件监听器
-│   │   ├── types.dart                             # 网络类型定义
-│   │   └── index.dart                             # 统一导出
-│   │ 
-│   ├── proto/                                     # Protobuf相关
-│   │   └── generated/                             # 生成的protobuf代码
-│   │       └── auth.pb.dart                       # 认证相关protobuf
-│   │ 
-│   └── adapters/                                  # 数据适配器
-│       └── proto_model_adapter.dart               # Protobuf模型适配器
+│   ├── constants/                                 # 常量定义
+│   │   └── app_config.dart                        # 应用配置
+│   │
+│   └── proto/                                     # Protobuf相关
+│       └── generated/                             # 生成的protobuf代码
+│           └── auth.pb.dart                       # 认证相关protobuf
 │ 
 ├── features/                                      # 功能模块
 │   ├── auth/                                      # 认证功能
@@ -115,20 +108,18 @@ lib/
 3. **状态管理**：使用Cubit(Flutter Bloc简化版)管理状态
 4. **数据存储**：通过Isar数据库实现本地存储
 5. **通信**：使用Socket.IO与后端服务进行通信
+6. **职责分离**：通信层与业务逻辑分离，各组件职责单一
 
 ## 4. 核心服务
 
 | 服务名称 | 主要功能 |
 |---------|---------|
+| `CommunicationService` | 提供对Socket.IO连接的封装，专注于通信功能，不包含业务逻辑 |
 | `MediaService` | 处理图片、视频、语音等多媒体文件的加载和播放 |
 | `FileUploadService` | 管理文件的上传、下载和本地存储 |
-| `ConversationService` | 创建和管理会话，包括私聊和群聊 |
-| `MessageService` | 处理消息的发送、接收和存储 |
 | `UserService` | 用户信息的管理和存储 |
-| `SocketService` | 管理Socket.IO实时通信连接和事件处理，支持模拟模式 |
 | `AuthService` | 处理用户认证流程，与后端交互 |
 | `LogService` | 应用日志记录与管理 |
-| `ProtoConverter` | 处理Protobuf与JSON/二进制数据的互相转换 |
 
 ## 5. 数据模型
 
@@ -178,7 +169,7 @@ lib/features/auth/
   - `login()` - 登录逻辑(支持验证码和密码两种方式)
   - `register()` - 注册逻辑
   - `resetPassword()` - 重置密码逻辑
-  - `_initRealTimeCommunication()` - 认证成功后初始化Socket.IO实时通信连接
+  - `_initRealTimeCommunication()` - 认证成功后初始化通信连接
 
 **认证页面**
 - `auth_page.dart` - 登录页面，包含手机号输入、验证码/密码输入和登录按钮
@@ -216,19 +207,20 @@ lib/features/chat/
   - 会话管理：`getAllConversations()`, `getConversationById()`, `getOrCreatePrivateConversation()`
   - 消息操作：`getConversationMessages()`, `sendTextMessage()`, `sendImageMessage()`, `sendVoiceMessage()`
   - 数据监听：`watchConversations()`, `watchConversationMessages()`, `watchContacts()`
-  - 实时通信：`initRealTimeConnection()`, `closeRealTimeConnection()`, `reconnectRealTime()`, `sendTypingStatus()`
+  - 通信相关：`sendTypingStatus()`
   - 状态流：`getTypingStatusStream()`, `getOnlineStatusStream()`, `getMessageStatusStream()`, `getSyncStatusStream()`
 
 **`chat_repository_impl.dart`**
-- 实现`ChatRepository`接口，处理与数据库的交互：
+- 实现`ChatRepository`接口，处理与数据库的交互和业务逻辑：
   - 对联系人、会话和消息的CRUD操作
   - 使用Isar数据库进行本地存储
   - 消息的发送与接收处理
   - 文件上传与下载管理
   - 监听数据变化并通知UI
-  - 使用SocketService实现实时通信
+  - 使用CommunicationService实现实时通信
   - 处理用户在线状态、消息状态和打字状态等实时事件
-  - 设置Socket事件监听器处理各类事件
+  - 设置Socket事件监听并处理各类事件
+  - 包含模拟数据相关的业务逻辑
 
 **`chat_state.dart`**
 - 定义聊天相关的状态：
@@ -252,7 +244,7 @@ lib/features/chat/
   - `searchContacts()`, `searchConversations()`, `searchMessages()` - 搜索功能
   - `sendTypingStatus()` - 发送输入状态
   - `_handleTypingStatus()`, `_handleOnlineStatus()`, `_handleMessageStatus()` - 处理实时状态
-  - `_setupRealTimeSubscriptions()` - 设置实时通信订阅
+  - `_setupSubscriptions()` - 设置事件订阅
 
 **`search_cubit.dart`**
 - 专门管理搜索相关的功能：
@@ -261,38 +253,32 @@ lib/features/chat/
   - 会话搜索
   - 消息搜索
 
-### 6.3 网络通信模块
+### 6.3 通信模块
 
 #### 6.3.1 主要组件
 
-**`socket_service.dart`**
-- 实现Socket.IO客户端连接和事件处理：
-  - 单例模式设计：`getInstance()`确保全局单一实例
-  - `init()` - 初始化Socket连接，支持认证令牌和数据编码设置
-  - `initForAuth()` - 专为认证阶段初始化Socket连接
+**`communication_service.dart`**
+- 实现Socket.IO客户端连接和事件处理的核心服务：
+  - 单例模式设计：`CommunicationService()`工厂构造确保全局单一实例
+  - `connect()` - 初始化Socket连接，支持认证令牌和数据编码设置
   - `disconnect()` - 断开Socket连接
-  - `emit()` - 发送事件到服务器
-  - `on()` - 监听Socket事件
-  - 事件辅助方法：`sendUserOnline()`, `sendUserOffline()`, `sendMessage()`, `sendMessageRead()`, `sendTyping()`, `sendStopTyping()`
-  - 模拟模式支持：`setIsSimulationMode()`, `_setupSimulationEventControllers()`
-  - 连接状态管理：`isConnected`, `isConnecting`
+  - `reconnect()` - 重新连接
+  - `emitEvent()` - 发送事件到服务器
+  - `onEvent()` - 获取特定事件的流
+  - 事件处理：实现了与服务器的事件交互逻辑
+  - 连接状态管理：`isConnected`, `isInitialized`
+  - 纯通信功能：专注于通信功能，不包含业务逻辑
 
 **`auth_service.dart`**
 - 实现用户认证服务：
   - 单例模式设计
-  - `init()` - 初始化认证服务，配置服务器URL和编码方式
+  - `init()` - 初始化认证服务，配置服务器URL
   - `sendVerificationCode()` - 发送验证码
   - `loginWithCode()` - 验证码登录
   - `loginWithPassword()` - 密码登录
   - `register()` - 用户注册
   - `resetPassword()` - 密码重置
-  - `_handleAuthResponse()` - 处理认证响应
-  - `getConnectionInfo()` - 获取连接信息，供实时通信使用
-
-**`types.dart`**
-- 定义通用枚举和类型：
-  - `SocketEvent` - Socket事件枚举
-  - `DataEncoding` - 数据编码方式枚举（json, protobuf, base64）
+  - `getConnectionInfo()` - 获取连接信息，供通信服务使用
 
 ## 7. 功能清单
 
@@ -317,25 +303,10 @@ lib/features/chat/
 
 ## 8. 通信协议
 
-### 8.1 Socket.IO 通信概述
-
 本项目使用Socket.IO与后端服务进行实时通信，支持以下数据编码方式：
 
 1. **JSON格式（默认）** - 传统的JSON数据格式
 2. **Protobuf二进制** - 高效的二进制序列化格式
-3. **Base64编码的Protobuf** - 兼容性更好的Protobuf格式
-
-详细通信协议请参考 `docs/socket_protocol.md`。
-
-### 8.2 认证协议
-
-项目使用基于手机号的认证系统，支持以下认证方式：
-- 手机号+验证码登录
-- 手机号+密码登录
-- 手机号+验证码+密码+昵称注册
-- 手机号+验证码+新密码重置密码
-
-详细认证协议请参考 `docs/auth_protocol.md`。
 
 ## 9. 数据管理
 
@@ -362,22 +333,12 @@ lib/features/chat/
    - 提供模拟数据的初始化、查询和搜索功能
    - 确保模拟数据与用户数据隔离
 
-3. **模拟数据生成器** - 使用`MockDataGenerator`动态生成模拟数据：
-   - 生成联系人、会话和消息数据
-   - 支持不同类型和状态的模拟数据生成
+3. **模拟逻辑位置** - 所有模拟相关的逻辑都放在存储层中：
+   - 在仓库实现类中处理模拟数据
+   - 通信服务只专注于通信功能，不包含模拟逻辑
+   - 模拟模式配置在`AppConfig`中管理
 
-### 9.3 模拟模式功能
-
-实现了完整的模拟模式功能，方便开发和测试：
-
-1. **配置管理** - 在`AppConfig`中通过`isSimulationMode`字段控制模拟模式
-2. **UI集成** - 在`ProfilePage`中添加模拟模式开关，并提供清晰的状态指示
-3. **运行效果**:
-   - 模拟模式开启时，应用将使用本地模拟数据，不会尝试进行真实网络连接
-   - 模拟模式下，所有网络请求使用本地模拟数据响应
-   - 模拟模式下，Socket.IO连接被模拟，不会真正连接到服务器
-
-### 9.4 数据重置功能
+### 9.3 数据重置功能
 
 实现了完整的数据重置功能，方便开发和测试：
 
@@ -388,50 +349,63 @@ lib/features/chat/
    - 删除所有媒体文件（位于`/media`目录）
    - 重置后自动退出应用
 
-### 9.5 数据库初始化改进
-
-对数据库初始化进行了以下改进：
-
-1. **移除默认数据库** - 不再支持无用户ID的默认数据库
-2. **延迟初始化** - 数据库初始化推迟到用户登录后进行
-3. **切换用户支持** - 添加数据库切换功能，支持多用户场景
-4. **错误处理优化** - 完善了异常捕获和日志记录
-
 ## 10. 最近重要更新
 
-### 10.1 术语统一
+### 10.1 通信服务重构
 
-最近进行了术语统一，使项目更加一致：
+最近对通信服务进行了重要重构，清晰分离了职责：
 
-1. **模拟数据命名** - 将所有涉及"测试数据"的术语更改为"模拟数据"：
-   - `TestDataManager` → `MockDataManager`
-   - `TestDataGenerator` → `MockDataGenerator`
-   - `generateTestData()` → `generateMockData()`
-   - 所有测试数据相关的方法和描述都统一使用"模拟数据"
-   - 数据库文件名从`testData.isar`改为`mockdata.isar`
+1. **统一通信服务** - 移除了旧的`SocketService`和`RealTimeCommunicationService`，统一使用`CommunicationService`：
+   - 精简通信接口，专注于Socket通信
+   - 移除服务中的业务逻辑，使通信层专注于通信功能
+   - 优化事件订阅和处理方式
 
-2. **文件重命名** - 重命名了相关文件以保持一致性：
-   - `test_data_manager.dart` → `mock_data_manager.dart`
-   - `test_data_generator.dart` → `mock_data_generator.dart`
+2. **业务逻辑分离** - 将业务逻辑从通信服务移至仓库实现：
+   - `ChatRepositoryImpl`和`ContactsRepositoryImpl`现在包含所有业务逻辑
+   - 模拟数据相关的逻辑统一在存储层处理
+   - 明确区分通信与业务职责
 
-3. **模拟模式优化** - 完善了模拟模式的配置和使用：
-   - 在`AppConfig`中添加了详细的模拟模式描述
-   - 优化了模拟模式下的Socket.IO模拟实现
-   - 优化了模拟模式下的数据加载逻辑
+3. **架构优化** - 重构后的架构更加符合职责单一原则：
+   - 通信服务：专注于Socket连接和基本事件收发
+   - 仓库实现：负责业务逻辑和数据管理
+   - 模拟逻辑：集中在数据层处理
 
-### 10.2 文件结构变更
+### 10.2 代码清理
 
-最近的文件删除和更新记录表明项目正在持续优化：
+重构过程中删除了一系列文件，精简了代码库：
 
 1. 删除的文件：
-   - `lib/core/database/test_data_generator.dart` - 更名为mock_data_generator.dart
-   - `lib/core/database/test_data_manager.dart` - 更名为mock_data_manager.dart
+   - `lib/core/services/real_time_communication_service.dart` - 已合并到统一通信服务
+   - `lib/core/services/socket_service.dart` - 已合并到统一通信服务
+   - `lib/core/network/socket_service.dart` - 已迁移到新的通信服务
+   - `lib/core/network/data_encoding.dart` - 已整合到通信服务
+   - `lib/core/network/proto_converter.dart` - 功能已优化整合
+   - `lib/core/network/event_listener.dart` - 功能已整合到通信服务
 
 2. 更新的文件：
-   - `lib/main.dart` - 更新了模拟数据管理器的引用
-   - `lib/features/auth/presentation/cubit/auth_cubit.dart` - 更新了模拟模式的处理逻辑
-   - `lib/features/home/presentation/pages/profile_page.dart` - 更新了模拟数据重生成功能和UI
-   - `lib/core/database/database_initializer.dart` - 更新了与模拟模式的集成
+   - `lib/main.dart` - 更新了服务依赖注入
+   - `lib/features/auth/presentation/cubit/auth_cubit.dart` - 更新了通信服务的使用
+   - `lib/features/chat/data/repositories/chat_repository_impl.dart` - 更新了通信和业务逻辑
+   - `lib/features/contacts/data/repositories/contacts_repository_impl.dart` - 更新了通信和业务逻辑
+
+### 10.3 架构改进
+
+最新的重构带来了显著的架构改进：
+
+1. **清晰的层次分离**：
+   - 通信层 → 业务层 → 视图层 的清晰分层
+   - 单一职责原则的更好实现
+   - 依赖方向的优化
+
+2. **更好的可测试性**：
+   - 更容易模拟通信服务进行单元测试
+   - 业务逻辑更容易隔离测试
+   - 明确的接口定义
+
+3. **更灵活的架构**：
+   - 通信层可以独立更换实现
+   - 更好的模块化和可替换性
+   - 减少组件间的耦合
 
 ## 11. 待办事项
 - [ ] 实现消息加密

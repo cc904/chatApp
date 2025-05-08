@@ -1,7 +1,26 @@
 import 'dart:async';
 import 'package:cc/core/services/log_service.dart';
-import '../proto/generated/auth.pb.dart';
 import '../constants/app_config.dart';
+
+/// 认证响应模型
+class AuthResponse {
+  final bool success;
+  final String message;
+  final String? userId;
+  final String? token;
+  final String? nickname;
+
+  AuthResponse({
+    required this.success,
+    required this.message,
+    this.userId,
+    this.token,
+    this.nickname,
+  });
+
+  bool hasUserId() => userId != null && userId!.isNotEmpty;
+  bool hasToken() => token != null && token!.isNotEmpty;
+}
 
 /// 认证服务
 /// 负责处理用户认证和注册
@@ -47,72 +66,110 @@ class AuthService {
     }
   }
 
+  /// 发送验证码
+  /// [phoneNumber] - 手机号码
+  /// [purpose] - 用途（登录/注册/重置密码）
+  Future<bool> sendVerificationCode(String phoneNumber, String purpose) async {
+    _logger.i('发送验证码', extra: {'phoneNumber': phoneNumber, 'purpose': purpose});
+
+    // 模拟网络延迟
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 模拟成功响应
+    return true;
+  }
+
   /// 使用验证码登录
-  Future<bool> loginWithCode(String phone, String code) async {
-    _logger.i('使用验证码登录', extra: {'phone': phone});
+  /// [phoneNumber] - 手机号码
+  /// [verificationCode] - 验证码
+  Future<bool> loginWithCode(String phoneNumber, String verificationCode) async {
+    _logger.i('使用验证码登录', extra: {'phoneNumber': phoneNumber});
+
+    // 模拟网络延迟
+    await Future.delayed(const Duration(milliseconds: 800));
 
     // 模拟成功登录
-    final response = AuthResponse()
-      ..success = true
-      ..userId = 'user_${DateTime.now().millisecondsSinceEpoch}'
-      ..token = 'token_${DateTime.now().millisecondsSinceEpoch}'
-      ..message = '登录成功';
+    _authResponseController.add(AuthResponse(
+      success: true,
+      message: '登录成功',
+      userId: '1',
+      token: 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
+      nickname: '用户',
+    ));
 
-    _authResponseController.add(response);
     return true;
   }
 
   /// 使用密码登录
-  Future<bool> loginWithPassword(String phone, String password) async {
-    _logger.i('使用密码登录', extra: {'phone': phone});
+  /// [phoneNumber] - 手机号码
+  /// [password] - 密码
+  Future<bool> loginWithPassword(String phoneNumber, String password) async {
+    _logger.i('使用密码登录', extra: {'phoneNumber': phoneNumber});
+
+    // 模拟网络延迟
+    await Future.delayed(const Duration(milliseconds: 800));
 
     // 模拟成功登录
-    final response = AuthResponse()
-      ..success = true
-      ..userId = 'user_${DateTime.now().millisecondsSinceEpoch}'
-      ..token = 'token_${DateTime.now().millisecondsSinceEpoch}'
-      ..message = '登录成功';
+    _authResponseController.add(AuthResponse(
+      success: true,
+      message: '登录成功',
+      userId: '1',
+      token: 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
+      nickname: '用户',
+    ));
 
-    _authResponseController.add(response);
     return true;
   }
 
-  /// 注册新用户
-  Future<bool> register(String phone, String code, String password, String nickname) async {
-    _logger.i('注册新用户', extra: {'phone': phone, 'nickname': nickname});
+  /// 注册账号
+  /// [phoneNumber] - 手机号码
+  /// [verificationCode] - 验证码
+  /// [password] - 密码
+  /// [nickname] - 昵称
+  Future<bool> register(String phoneNumber, String verificationCode, String password, String nickname) async {
+    _logger.i('注册账号', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
+
+    // 模拟网络延迟
+    await Future.delayed(const Duration(milliseconds: 1000));
 
     // 模拟成功注册
-    final response = AuthResponse()
-      ..success = true
-      ..userId = 'user_${DateTime.now().millisecondsSinceEpoch}'
-      ..token = 'token_${DateTime.now().millisecondsSinceEpoch}'
-      ..message = '注册成功';
+    _authResponseController.add(AuthResponse(
+      success: true,
+      message: '注册成功',
+      userId: '${DateTime.now().millisecondsSinceEpoch % 1000}',
+      token: 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
+      nickname: nickname,
+    ));
 
-    _authResponseController.add(response);
     return true;
   }
 
   /// 重置密码
-  Future<bool> resetPassword(String phone, String code, String newPassword) async {
-    _logger.i('重置密码', extra: {'phone': phone});
+  /// [phoneNumber] - 手机号码
+  /// [verificationCode] - 验证码
+  /// [newPassword] - 新密码
+  Future<bool> resetPassword(String phoneNumber, String verificationCode, String newPassword) async {
+    _logger.i('重置密码', extra: {'phoneNumber': phoneNumber});
+
+    // 模拟网络延迟
+    await Future.delayed(const Duration(milliseconds: 800));
 
     // 模拟成功重置
-    final response = AuthResponse()
-      ..success = true
-      ..message = '密码重置成功';
+    _authResponseController.add(AuthResponse(
+      success: true,
+      message: '密码重置成功',
+    ));
 
-    _authResponseController.add(response);
-    return true;
-  }
-
-  /// 发送验证码
-  Future<bool> sendVerificationCode(String phone, String purpose) async {
-    _logger.i('发送验证码', extra: {'phone': phone, 'purpose': purpose});
     return true;
   }
 
   /// 获取连接信息
   Map<String, dynamic> getConnectionInfo() {
     return _connectionInfo;
+  }
+
+  /// 释放资源
+  void dispose() {
+    _authResponseController.close();
   }
 }

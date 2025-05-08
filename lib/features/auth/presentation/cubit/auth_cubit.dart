@@ -5,12 +5,11 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/auth_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/constants/app_config.dart';
-import 'package:cc/core/services/real_time_communication_service.dart';
+import 'package:cc/core/services/communication_service.dart';
 
 part 'auth_state.dart';
 
@@ -24,8 +23,8 @@ class AuthCubit extends Cubit<AuthState> {
 
   // 添加ChatCubit依赖，用于在登录成功后初始化
 
-  // 实时通信服务
-  final RealTimeCommunicationService? _realTimeCommunicationService;
+  // 通信服务
+  final CommunicationService _communicationService = CommunicationService();
 
   // 认证服务
   final AuthService _authService = AuthService.getInstance();
@@ -37,10 +36,8 @@ class AuthCubit extends Cubit<AuthState> {
     required String serverUrl,
     ChatRepository? chatRepository,
     ChatCubit? chatCubit,
-    RealTimeCommunicationService? realTimeCommunicationService,
     bool isSimulationMode = false,
-  })  : _realTimeCommunicationService = realTimeCommunicationService,
-        super(AuthState.initial()) {
+  }) : super(AuthState.initial()) {
     // 使用全局配置
     _appConfig.serverUrl = serverUrl;
     _appConfig.isSimulationMode = isSimulationMode;
@@ -78,10 +75,13 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     if (response.hasUserId() && response.hasToken()) {
-      emit(state.toAuthenticatedState(userId: response.userId, token: response.token));
+      emit(state.toAuthenticatedState(
+        userId: response.userId ?? '',
+        token: response.token ?? '',
+      ));
 
       // 初始化数据库和模拟数据
-      _initDatabases(response.userId, response.token);
+      _initDatabases(response.userId ?? '', response.token ?? '');
     }
   }
 
@@ -121,23 +121,17 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       _logger.i('初始化实时通信');
 
-      // 使用实时通信服务
-      if (_realTimeCommunicationService != null) {
-        final success = await _realTimeCommunicationService.initConnection(
-          userId: userId,
-          token: token,
-          serverUrl: _appConfig.serverUrl,
-          isSimulationMode: _appConfig.isSimulationMode,
-        );
+      // 使用通信服务
+      final success = await _communicationService.connect(
+        userId: userId,
+        token: token,
+        serverUrl: _appConfig.serverUrl,
+      );
 
-        if (!success) {
-          _logger.e('初始化实时通信失败');
-          // 不要因为实时通信失败而阻止用户登录
-          // 可以在UI上显示提示，并允许用户手动重试
-        }
-      } else {
-        _logger.w('实时通信服务未注入，无法初始化实时通信');
-        // 与聊天相关的服务将在需要时手动初始化
+      if (!success) {
+        _logger.e('初始化实时通信失败');
+        // 不要因为实时通信失败而阻止用户登录
+        // 可以在UI上显示提示，并允许用户手动重试
       }
     } catch (e) {
       _logger.e('初始化实时通信错误', error: e);
@@ -429,6 +423,7 @@ class AuthCubit extends Cubit<AuthState> {
   @override
   Future<void> close() {
     _countdownTimer?.cancel();
+    _communicationService.disconnect();
     return super.close();
   }
 }
