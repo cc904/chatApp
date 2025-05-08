@@ -10,7 +10,6 @@ import 'features/home/presentation/cubit/home_cubit.dart';
 import 'features/chat/data/repositories/chat_repository_impl.dart';
 import 'features/chat/domain/repositories/chat_repository.dart';
 import 'features/chat/presentation/cubit/chat_cubit.dart';
-import 'features/chat/presentation/pages/chat_test_page.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'features/contacts/data/repositories/contacts_repository_impl.dart';
@@ -213,7 +212,6 @@ class MyApp extends StatelessWidget {
           routes: {
             '/': (context) => const AuthPage(),
             '/home': (context) => const HomePage(),
-            '/chat_test': (context) => const ChatTestPage(),
           },
           initialRoute: '/',
         ),

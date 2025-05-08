@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import '../cubit/home_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/features/chat/presentation/pages/chat_test_page.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -202,19 +201,6 @@ class ProfilePage extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildListTile(
-            icon: Icons.bug_report,
-            title: '聊天测试工具',
-            subtitle: '用于测试聊天功能',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ChatTestPage(),
-                ),
-              );
-            },
-          ),
-          const Divider(height: 1),
           _buildListTile(
             icon: Icons.cleaning_services,
             title: '重置数据',

@@ -70,15 +70,13 @@ lib/
 │   │   ├── data/                                  # 数据层
 │   │   │   ├── repositories/                      # 仓库实现
 │   │   │   │   └── chat_repository_impl.dart      # 聊天仓库实现
-│   │   │   └── mock/                              # 模拟数据
 │   │   └── presentation/                          # 表现层
 │   │       ├── cubit/                             # 状态管理
 │   │       │   ├── chat_cubit.dart                # 聊天Cubit
 │   │       │   └── search_cubit.dart              # 搜索Cubit
 │   │       └── pages/                             # 页面
 │   │           ├── chat_page.dart                 # 聊天页面
-│   │           ├── chat_search_page.dart          # 聊天搜索页面
-│   │           └── chat_test_page.dart            # 聊天测试页面
+│   │           └── chat_search_page.dart          # 聊天搜索页面
 │   │ 
 │   ├── contacts/                                  # 联系人功能
 │   │   ├── domain/                                # 领域层
@@ -204,6 +202,8 @@ lib/features/chat/
     │   ├── chat_state.dart                     # 聊天状态定义
     │   └── search_cubit.dart                   # 搜索功能状态管理
     ├── pages/                                  # 聊天相关页面
+    │   ├── chat_page.dart                      # 聊天页面
+    │   └── chat_search_page.dart               # 聊天搜索页面
     ├── utils/                                  # 工具类
     └── widgets/                                # 聊天相关组件
 ```
