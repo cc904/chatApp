@@ -303,7 +303,7 @@ class TestDataGenerator {
         ..status = status
         ..createdAt = createdAt
         ..isRead = !isCurrentUserSender // 当前用户发送的消息默认未读，对方发送的默认已读
-        ..messageId = 'msg_${conversation.id}_${i}';
+        ..messageId = 'msg_${conversation.id}_$i';
 
       // 根据消息类型设置内容
       switch (type) {

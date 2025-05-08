@@ -6,7 +6,7 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 import 'package:cc/core/database/test_data_generator.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:flutter/foundation.dart';
+import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -78,7 +78,7 @@ class DatabaseInitializer {
       _logger.i('数据库初始化完成');
 
       // 调试模式下生成测试数据
-      if (simulationMode) {
+      if (AppConfig().isSimulationMode) {
         _logger.i('开始生成测试数据');
         await TestDataGenerator.generateMoreTestData();
       }

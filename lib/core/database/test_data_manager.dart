@@ -3,7 +3,6 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/my_user.dart';
-import 'package:cc/core/database/models/friend_request.dart';
 import 'package:cc/core/database/test_data_generator.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';

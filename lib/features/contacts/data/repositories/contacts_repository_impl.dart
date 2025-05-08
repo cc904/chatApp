@@ -335,31 +335,4 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return false;
     }
   }
-
-  // 生成模拟联系人数据
-  List<User> _generateMockContacts() {
-    final contacts = <User>[];
-    final names = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一', '王二', '陈三', '李想', '张明', '刘洋', '王芳', '李娜', '赵丽', '钱江', '孙红', '周伟', '吴刚', '郑强', '王勇', '陈磊'];
-
-    // 生成20-30个随机联系人
-    final count = 20 + _random.nextInt(11);
-
-    for (int i = 0; i < count; i++) {
-      final id = 1000 + i;
-      final name = names[_random.nextInt(names.length)];
-
-      final user = User()
-        ..id = id
-        ..userId = id.toString()
-        ..name = name
-        ..pinyin = name // 在实际应用中应该计算拼音
-        ..phone = '138${(10000000 + i).toString().padLeft(8, '0')}'
-        ..email = 'user$i@example.com'
-        ..status = _random.nextBool() ? 'online' : 'offline';
-
-      contacts.add(user);
-    }
-
-    return contacts;
-  }
 }

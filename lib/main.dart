@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/constants/app_config.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
@@ -27,12 +28,17 @@ void main() async {
   final logger = LogService('main.dart');
   logger.i('应用启动');
 
+  // 初始化全局配置
+  final appConfig = AppConfig();
+  logger.i('应用配置加载完成', extra: {'isSimulationMode': appConfig.isSimulationMode, 'serverUrl': appConfig.serverUrl});
+
   try {
     // 初始化媒体目录
     final appDocDir = await getApplicationDocumentsDirectory();
     final mediaDir = Directory('${appDocDir.path}/media');
     if (!await mediaDir.exists()) {
       await mediaDir.create(recursive: true);
+      logger.i('媒体目录已创建：${mediaDir.path}');
     }
 
     // 初始化测试数据管理器
@@ -112,7 +118,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final logger = LogService('main.dart');
-    logger.i('MyApp build');
+    final appConfig = AppConfig();
+    logger.i('MyApp build', extra: {'isSimulationMode': appConfig.isSimulationMode});
+
     return MultiRepositoryProvider(
       providers: [
         // 注册仓库
@@ -135,10 +143,10 @@ class MyApp extends StatelessWidget {
           // 创建AuthCubit，并传入ChatCubit
           BlocProvider<AuthCubit>(
             create: (context) => AuthCubit(
-              serverUrl: 'http://localhost:3000', // 设置服务器URL
+              serverUrl: appConfig.serverUrl, // 使用全局配置的服务器URL
               chatRepository: context.read<ChatRepository>(),
               chatCubit: context.read<ChatCubit>(),
-              simulationMode: true, // 默认使用模拟模式
+              isSimulationMode: appConfig.isSimulationMode, // 使用全局配置的模拟模式
             ),
           ),
           BlocProvider<HomeCubit>(create: (context) => HomeCubit()),
@@ -211,48 +219,5 @@ class MyApp extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// 初始化媒体目录
-Future<void> _initMediaDirectories() async {
-  final appDocDir = await getApplicationDocumentsDirectory();
-  final logger = LogService('main.dart');
-
-  // 创建所有需要的媒体目录
-  final directories = [
-    'media/images',
-    'media/videos',
-    'media/voice',
-    'media/files',
-    'media/thumbnails',
-    'temp',
-  ];
-
-  for (final dirPath in directories) {
-    final dir = Directory('${appDocDir.path}/$dirPath');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-      logger.d('创建目录: ${dir.path}');
-    }
-  }
-
-  // 清理临时目录中的文件
-  try {
-    final tempDir = Directory('${appDocDir.path}/temp');
-    if (await tempDir.exists()) {
-      await for (final entity in tempDir.list()) {
-        if (entity is File) {
-          try {
-            await entity.delete();
-            logger.d('删除临时文件: ${entity.path}');
-          } catch (e) {
-            logger.w('删除临时文件失败: ${entity.path}, 错误: $e');
-          }
-        }
-      }
-    }
-  } catch (e) {
-    logger.w('清理临时目录失败', extra: {'error': e});
   }
 }

@@ -9,6 +9,7 @@ import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/test_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
+import 'package:cc/core/constants/app_config.dart';
 
 part 'auth_state.dart';
 
@@ -26,21 +27,22 @@ class AuthCubit extends Cubit<AuthState> {
 
   // 认证服务
   final AuthService _authService = AuthService.getInstance();
-  // 服务器URL，在构造函数中赋值
-  final String _serverUrl;
-  // 模拟模式
-  final bool _simulationMode;
+
+  // 使用全局配置
+  final AppConfig _appConfig = AppConfig();
 
   AuthCubit({
     required String serverUrl,
     ChatRepository? chatRepository,
     ChatCubit? chatCubit,
-    bool simulationMode = false,
+    bool isSimulationMode = false,
   })  : _chatRepository = chatRepository,
         _chatCubit = chatCubit,
-        _serverUrl = serverUrl,
-        _simulationMode = simulationMode,
         super(AuthState.initial()) {
+    // 使用全局配置
+    _appConfig.serverUrl = serverUrl;
+    _appConfig.isSimulationMode = isSimulationMode;
+
     // 初始化认证服务
     _initAuthService();
     // 订阅认证响应事件
@@ -51,8 +53,7 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> _initAuthService() async {
     try {
       final success = await _authService.init(
-        serverUrl: _serverUrl,
-        simulationMode: _simulationMode,
+        serverUrl: _appConfig.serverUrl,
       );
 
       if (!success) {
@@ -118,24 +119,6 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  // 确保测试数据管理器已初始化
-  Future<void> _ensureTestDataManagerInitialized() async {
-    try {
-      _logger.i('确保测试数据管理器已初始化');
-
-      // 如果已经初始化，先关闭
-      if (TestDataManager.isInitialized) {
-        await TestDataManager.close();
-      }
-
-      // 重新初始化
-      await TestDataManager.init();
-      _logger.i('测试数据管理器初始化成功');
-    } catch (e) {
-      _logger.e('测试数据管理器初始化失败', error: e);
-    }
-  }
-
   // 初始化实时通信
   Future<void> _initRealTimeCommunication(String userId, String token) async {
     if (_chatRepository == null) {
@@ -144,14 +127,14 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     try {
-      _logger.i('初始化实时通信连接', extra: {'userId': userId});
+      _logger.i('初始化实时通信连接', extra: {'userId': userId, 'isSimulationMode': _appConfig.isSimulationMode});
 
       // 使用认证后的用户ID和令牌初始化实时通信
       final success = await _chatRepository.initRealTimeConnection(
         userId,
         token,
-        _serverUrl,
-        _simulationMode,
+        _appConfig.serverUrl,
+        _appConfig.isSimulationMode,
       );
 
       if (!success) {

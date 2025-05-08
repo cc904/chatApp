@@ -90,12 +90,12 @@ abstract class ChatRepository {
   /// [userId] - 用户ID
   /// [token] - 认证令牌
   /// [serverUrl] - 服务器URL
-  /// [simulationMode] - 是否使用模拟模式
+  /// [isSimulationMode] - 是否使用模拟模式
   Future<bool> initRealTimeConnection(
     String userId,
     String token,
     String serverUrl,
-    bool simulationMode,
+    bool isSimulationMode,
   );
 
   /// 关闭实时通信连接

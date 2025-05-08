@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:cc/core/services/log_service.dart';
-import 'types.dart';
 import '../proto/generated/auth.pb.dart';
+import '../constants/app_config.dart';
 
 /// 认证服务
 /// 负责处理用户认证和注册
@@ -20,14 +20,31 @@ class AuthService {
   /// 获取认证响应流
   Stream<AuthResponse> get onAuthResponse => _authResponseController.stream;
 
+  // 从AppConfig获取模拟模式
+  bool get _isSimulationMode => AppConfig().isSimulationMode;
+
+  // 连接信息
+  Map<String, dynamic> _connectionInfo = {};
+
   /// 初始化认证服务
   Future<bool> init({
     required String serverUrl,
-    DataEncoding encoding = DataEncoding.json,
-    bool simulationMode = false,
+    bool isSimulationMode = false,
   }) async {
-    _logger.i('初始化认证服务', extra: {'simulationMode': simulationMode});
-    return true;
+    try {
+      _logger.i('初始化认证服务', extra: {'serverUrl': serverUrl, 'isSimulationMode': _isSimulationMode});
+
+      // 更新连接信息
+      _connectionInfo = {
+        'serverUrl': serverUrl,
+        'isSimulationMode': _isSimulationMode,
+      };
+
+      return true;
+    } catch (e) {
+      _logger.e('初始化认证服务失败', error: e);
+      return false;
+    }
   }
 
   /// 使用验证码登录
@@ -96,10 +113,6 @@ class AuthService {
 
   /// 获取连接信息
   Map<String, dynamic> getConnectionInfo() {
-    return {
-      'serverUrl': 'http://localhost:3000',
-      'dataEncoding': DataEncoding.json,
-      'simulationMode': true,
-    };
+    return _connectionInfo;
   }
 }

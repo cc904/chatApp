@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cc/core/services/log_service.dart';
 import 'types.dart';
+import '../constants/app_config.dart';
 
 /// Socket服务事件
 enum SocketEvent {
@@ -27,7 +28,6 @@ class SocketService {
 
   final LogService _logger = LogService('socket_service.dart');
   bool _isConnected = false;
-  bool _isSimulationMode = false;
 
   // 事件流控制器
   final Map<SocketEvent, StreamController<dynamic>> _eventControllers = {};
@@ -36,20 +36,18 @@ class SocketService {
   bool get isConnected => _isConnected;
 
   /// 获取模拟模式
-  bool get isSimulationMode => _isSimulationMode;
+  bool get _isSimulationMode => AppConfig().isSimulationMode;
 
   /// 初始化Socket连接
   Future<bool> init({
     required String serverUrl,
     required String authToken,
     DataEncoding encoding = DataEncoding.json,
-    bool simulationMode = false,
   }) async {
     try {
-      _isSimulationMode = simulationMode;
-      _logger.i('初始化Socket连接', extra: {'serverUrl': serverUrl, 'simulationMode': simulationMode});
+      _logger.i('初始化Socket连接', extra: {'serverUrl': serverUrl, 'isSimulationMode': _isSimulationMode});
 
-      if (simulationMode) {
+      if (_isSimulationMode) {
         // 模拟模式
         _logger.i('使用模拟模式');
         _isConnected = true;

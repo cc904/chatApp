@@ -10,6 +10,7 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
 
 /// ChatRepository的实现类
@@ -781,10 +782,10 @@ class ChatRepositoryImpl implements ChatRepository {
     String userId,
     String token,
     String serverUrl,
-    bool simulationMode,
+    bool isSimulationMode,
   ) async {
     try {
-      _logger.i('初始化实时通信连接', extra: {'userId': userId, 'simulationMode': simulationMode});
+      _logger.i('初始化实时通信连接', extra: {'userId': userId, 'isSimulationMode': isSimulationMode});
 
       if (_isSocketInitialized) {
         _logger.w('Socket连接已初始化，断开旧连接');
@@ -795,7 +796,6 @@ class ChatRepositoryImpl implements ChatRepository {
       final success = await _socketService.init(
         serverUrl: serverUrl,
         authToken: token,
-        simulationMode: simulationMode,
       );
 
       if (success) {
@@ -852,7 +852,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 获取令牌
       final token = currentUser.token;
       // 初始化新连接
-      return initRealTimeConnection(currentUser.userId, token, socketServerUrl, false);
+      return initRealTimeConnection(currentUser.userId, token, socketServerUrl, AppConfig().isSimulationMode);
     } catch (e) {
       _logger.e('重连失败', error: e);
       return false;
