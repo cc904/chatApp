@@ -1,17 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cc/core/services/log_service.dart';
-
-/// 数据编码类型
-enum DataEncoding {
-  json, // JSON编码
-  protobuf, // Protocol Buffers编码
-}
+import 'package:cc/core/services/proto_converter.dart';
 
 /// 通信服务
 /// 负责与服务器的实时通信，提供统一的接口用于发送和接收事件
+/// 使用Protocol Buffers作为唯一的数据序列化格式
 class CommunicationService {
   final LogService _logger = LogService('communication_service.dart');
+  final ProtoConverter _protoConverter = ProtoConverter();
 
   // 标记是否已初始化
   bool _isInitialized = false;
@@ -38,12 +36,10 @@ class CommunicationService {
   /// [userId] - 用户ID
   /// [token] - 认证令牌
   /// [serverUrl] - 服务器URL
-  /// [encoding] - 数据编码类型
   Future<bool> connect({
     required String userId,
     required String token,
     required String serverUrl,
-    DataEncoding encoding = DataEncoding.json,
   }) async {
     if (_isInitialized) {
       _logger.w('通信服务已初始化，无需重复初始化');
@@ -122,7 +118,7 @@ class CommunicationService {
   }
 
   /// 发送事件
-  /// 向服务器发送自定义事件和数据
+  /// 向服务器发送自定义事件和数据，使用Protobuf序列化
   /// [eventName] - 事件名称
   /// [data] - 事件数据
   void emitEvent(String eventName, Map<String, dynamic> data) {
@@ -134,8 +130,11 @@ class CommunicationService {
     try {
       _logger.i('发送事件: $eventName', extra: {'data': data});
 
-      // 实际的发送逻辑（在实际项目中通过Socket.io发送）
-      _emitServerEvent(eventName, data);
+      // 使用Protobuf编码数据
+      final encodedData = _protoConverter.encodeData(data, eventName);
+
+      // 实际的发送逻辑
+      _emitServerEvent(eventName, data, encodedData);
     } catch (e) {
       _logger.e('发送事件失败', error: e);
     }
@@ -144,17 +143,40 @@ class CommunicationService {
   /// 向服务器发送事件
   /// 这是实际发送到服务器的方法，应在具体实现中覆盖
   /// [eventName] - 事件名称
-  /// [data] - 事件数据
-  void _emitServerEvent(String eventName, Map<String, dynamic> data) {
+  /// [data] - 原始事件数据 (用于日志)
+  /// [encodedData] - 编码后的二进制数据 (用于发送)
+  void _emitServerEvent(String eventName, Map<String, dynamic> data, [Uint8List? encodedData]) {
     // 实际项目中，这里应该实现真正的Socket.io事件发送
-    _logger.d('向服务器发送事件: $eventName', extra: {'data': data});
+    _logger.d('向服务器发送事件: $eventName', extra: {
+      'data': data,
+      'encoding': 'protobuf',
+    });
 
     // 开发阶段模拟实现，实际项目中应删除
-    // 模拟服务器响应以方便开发测试
     Future.delayed(Duration.zero, () {
       // 这里不应该有任何模拟响应的逻辑
       // 真实项目中，服务器会通过socket.io的事件机制返回响应
     });
+  }
+
+  /// 处理收到的事件数据
+  /// 用于将接收到的原始二进制数据转换为`Map<String, dynamic>`
+  Map<String, dynamic> _processReceivedData(String eventName, dynamic rawData) {
+    try {
+      if (rawData is Uint8List) {
+        // 处理Protobuf二进制数据
+        return _protoConverter.decodeData(rawData, eventName);
+      } else if (rawData is Map) {
+        // 已经是Map类型，直接返回（用于开发阶段或向后兼容）
+        return Map<String, dynamic>.from(rawData);
+      } else {
+        throw FormatException('不支持的数据格式: ${rawData.runtimeType}，应为Protobuf二进制数据');
+      }
+    } catch (e) {
+      _logger.e('处理接收数据失败', error: e);
+      // 返回带错误信息的数据
+      return {'error': '数据解析错误', 'details': e.toString()};
+    }
   }
 
   /// 监听事件
@@ -170,14 +192,17 @@ class CommunicationService {
   /// 获取所有事件名称
   Set<String> get registeredEvents => _eventControllers.keys.toSet();
 
-  /// 触发事件（开发阶段使用）
+  /// 触发事件（用于接收服务器事件或开发阶段测试）
   /// 在特定事件的流上发送数据
-  /// 注意：此方法仅用于开发阶段模拟服务器发送的事件
-  /// 实际项目中应通过socket收到事件后调用
-  void triggerEvent(String eventName, Map<String, dynamic> data) {
+  /// [eventName] - 事件名称
+  /// [rawData] - 原始数据(Protobuf二进制数据)
+  void triggerEvent(String eventName, dynamic rawData) {
     if (!_eventControllers.containsKey(eventName)) {
       _eventControllers[eventName] = StreamController<Map<String, dynamic>>.broadcast();
     }
+
+    // 处理接收到的数据
+    final data = _processReceivedData(eventName, rawData);
 
     _logger.d('触发事件: $eventName', extra: {'data': data});
     _eventControllers[eventName]!.add(data);

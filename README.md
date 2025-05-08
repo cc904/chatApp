@@ -8,7 +8,7 @@
 - **Cubit**: 状态管理
 - **Isar**: 本地数据库
 - **Socket.IO**: 实时通信
-- **Proto Buffers**: 数据序列化
+- **Protocol Buffers**: 数据序列化
 
 ## 主要功能
 
@@ -22,12 +22,13 @@
 
 ### 概述
 
-本项目使用Protocol Buffers (protobuf)作为Socket.IO实时通信的数据序列化格式，具有以下优势：
+本项目使用Protocol Buffers (protobuf)作为Socket.IO实时通信的唯一数据序列化格式，具有以下优势：
 
 - 更高效的二进制数据传输
 - 严格的类型定义
 - 更小的网络带宽消耗
 - 更快的解析速度
+- 简化的代码结构和通信逻辑
 
 ### 实现步骤
 
@@ -40,25 +41,41 @@
    - 执行`scripts/generate_protos.sh`脚本自动生成
 
 3. **实现数据转换**：
-   - `ProtoConverter`类：负责Protobuf与JSON/二进制数据的转换
-   - `ProtoModelAdapter`类：负责数据库模型与Protobuf模型的转换
+   - `ProtoConverter`类：负责Protobuf与应用数据模型的转换
+   - 统一使用二进制格式进行传输，不再支持JSON或Base64编码
 
 4. **Socket通信**：
-   - 支持三种数据编码方式：JSON、二进制Protobuf和Base64编码的Protobuf
-   - 根据平台选择合适的编码方式（Web平台使用Base64，原生平台使用二进制）
+   - 统一使用二进制Protobuf作为唯一的数据序列化格式
+   - `CommunicationService`封装了所有Socket.IO通信细节
 
 ### 使用方式
 
-在初始化Socket连接时指定数据编码方式：
+使用`CommunicationService`进行实时通信：
 
 ```dart
-final socketService = SocketService();
-await socketService.init(
+final communicationService = CommunicationService();
+await communicationService.connect(
+  userId: userId,
+  token: token,
   serverUrl: 'ws://example.com',
-  authToken: token,
-  encoding: DataEncoding.protobuf,
 );
+
+// 发送消息
+communicationService.emitEvent('new_message', {
+  'id': messageId,
+  'senderId': senderId,
+  'conversationId': conversationId,
+  'content': messageText,
+  'timestamp': DateTime.now().millisecondsSinceEpoch,
+});
+
+// 监听消息
+communicationService.onEvent('new_message').listen((data) {
+  // 处理接收到的消息
+});
 ```
+
+更多详细信息请参考 [Protobuf通信实现文档](docs/protobuf_communication.md)。
 
 ## 快速开始
 

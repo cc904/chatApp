@@ -11,10 +11,10 @@ enum ConversationType { private, group }
 class Conversation {
   // Isar ID
   Id id = Isar.autoIncrement;
-  
+
   // 兼容性字段，与id值保持一致
   String conversationId = '';
-  
+
   @Enumerated(EnumType.name)
   late ConversationType type;
 
@@ -23,10 +23,11 @@ class Conversation {
   DateTime createdAt = DateTime.now();
   DateTime? lastMessageTime;
   String? lastMessagePreview;
+  String? lastMessageId;
 
   // 未读消息数量
   int unreadCount = 0;
-  
+
   // 安全的未读消息数量（非负值）
   int safeUnreadCount = 0;
 

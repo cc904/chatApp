@@ -1,176 +1,189 @@
-import 'dart:convert';
 import 'dart:typed_data';
+import 'package:fixnum/fixnum.dart' as $fixnum;
 
 import '../proto/generated/message.pb.dart';
 import '../proto/generated/user.pb.dart';
 import '../proto/generated/conversation.pb.dart';
 import '../proto/generated/auth.pb.dart';
+import 'log_service.dart';
 
 /// Protobuf 转换工具类
-/// 负责在 Socket.IO 通信中进行 Protobuf 和 JSON 之间的转换
+/// 负责通信中的 Protobuf 数据序列化和反序列化
 class ProtoConverter {
+  final LogService _logger = LogService('proto_converter.dart');
+
   // 单例模式
   static final ProtoConverter _instance = ProtoConverter._internal();
-
-  factory ProtoConverter() {
-    return _instance;
-  }
-
+  factory ProtoConverter() => _instance;
   ProtoConverter._internal();
 
   // ==== Message 转换 ====
-
-  /// 将 MessageProto 转换为 Base64 字符串
-  String messageToBase64(MessageProto message) {
-    final bytes = message.writeToBuffer();
-    return base64Encode(bytes);
-  }
-
-  /// 将 Base64 字符串转换为 MessageProto
-  MessageProto base64ToMessage(String base64Str) {
-    final bytes = base64Decode(base64Str);
-    return MessageProto.fromBuffer(bytes);
-  }
-
-  /// 将 MessageProto 转换为 Map
-  Map<String, dynamic> messageToMap(MessageProto message) {
-    return jsonDecode(jsonEncode(message.toProto3Json())) as Map<String, dynamic>;
-  }
-
-  /// 将 Map 转换为 MessageProto
-  MessageProto mapToMessage(Map<String, dynamic> map) {
-    return MessageProto.create()..mergeFromProto3Json(map);
-  }
-
-  /// 将二进制数据转换为 MessageProto
-  MessageProto bytesToMessage(Uint8List bytes) {
-    return MessageProto.fromBuffer(bytes);
-  }
 
   /// 将 MessageProto 转换为二进制数据
   Uint8List messageToBytes(MessageProto message) {
     return message.writeToBuffer();
   }
 
+  /// 将二进制数据转换为 MessageProto
+  MessageProto bytesToMessage(Uint8List bytes) {
+    try {
+      return MessageProto.fromBuffer(bytes);
+    } catch (e) {
+      _logger.e('二进制转MessageProto失败', error: e);
+      throw FormatException('无效的消息格式: $e');
+    }
+  }
+
+  // ==== Generic 转换 ====
+
+  /// 将事件数据编码为二进制格式
+  /// [data] - 事件数据（Map格式）
+  /// [eventType] - 事件类型
+  /// 返回 - 编码后的二进制数据
+  Uint8List encodeData(Map<String, dynamic> data, String eventType) {
+    _logger.d('编码事件数据', extra: {'eventType': eventType});
+
+    // 根据事件类型选择适当的Protobuf消息
+    switch (eventType) {
+      case 'new_message':
+      case 'message_delivered':
+      case 'message_read':
+        final message = MessageProto(
+          messageId: data['id'] ?? '',
+          senderId: data['senderId'] ?? '',
+          conversationId: data['conversationId'] ?? '',
+          text: data['content'] ?? '',
+          createdAt: data['timestamp'] != null ? $fixnum.Int64(data['timestamp'] is int ? data['timestamp'] : int.parse(data['timestamp'].toString())) : $fixnum.Int64(0),
+          type: MessageType.text, // 默认文本消息类型
+        );
+        return messageToBytes(message);
+
+      case 'auth_request':
+        // AuthRequest不是真正的protobuf类，无法序列化
+        _logger.w('AuthRequest未实现为protobuf，无法序列化');
+        throw UnimplementedError('AuthRequest暂不支持二进制序列化');
+
+      case 'user_online':
+      case 'user_offline':
+        // UserStatus类未定义
+        _logger.w('UserStatus未定义，无法序列化');
+        throw UnimplementedError('UserStatus暂不支持二进制序列化');
+
+      case 'conversation_update':
+        final conversation = ConversationProto(
+          conversationId: data['id'] ?? '',
+          lastMessageId: data['lastMessageId'] ?? '',
+          lastMessageTime: data['lastMessageSent'] != null
+              ? $fixnum.Int64(data['lastMessageSent'] is int ? data['lastMessageSent'] : int.parse(data['lastMessageSent'].toString()))
+              : $fixnum.Int64(0),
+          unreadCount: data['unreadCount'] ?? 0,
+        );
+        if (data['participantIds'] != null) {
+          conversation.participantIds.addAll((data['participantIds'] as List<dynamic>).map((e) => e.toString()).toList());
+        }
+        return conversation.writeToBuffer();
+
+      default:
+        _logger.w('未知事件类型，无法编码为Protobuf', extra: {'eventType': eventType});
+        throw UnsupportedError('不支持的事件类型: $eventType');
+    }
+  }
+
+  /// 将二进制数据解码为Map
+  /// [data] - 二进制数据
+  /// [eventType] - 事件类型
+  /// 返回 - 解码后的`Map<String, dynamic>`
+  Map<String, dynamic> decodeData(Uint8List data, String eventType) {
+    try {
+      _logger.d('解码事件数据', extra: {'eventType': eventType});
+
+      // 根据事件类型选择适当的Protobuf解码方式
+      switch (eventType) {
+        case 'new_message':
+        case 'message_delivered':
+        case 'message_read':
+          final message = bytesToMessage(data);
+          return {
+            'id': message.messageId,
+            'senderId': message.senderId,
+            'conversationId': message.conversationId,
+            'content': message.text,
+            'timestamp': message.createdAt.toInt(),
+            'type': message.type.value,
+          };
+
+        case 'auth_response':
+          // AuthResponse不是真正的protobuf类，无法反序列化
+          _logger.w('AuthResponse未实现为protobuf，无法反序列化');
+          throw UnimplementedError('AuthResponse暂不支持二进制反序列化');
+
+        case 'user_online':
+        case 'user_offline':
+          // UserStatus类未定义
+          _logger.w('UserStatus未定义，无法反序列化');
+          throw UnimplementedError('UserStatus暂不支持二进制反序列化');
+
+        case 'conversation_update':
+          final conversation = ConversationProto.fromBuffer(data);
+          return {
+            'id': conversation.conversationId,
+            'participantIds': conversation.participantIds,
+            'lastMessageId': conversation.lastMessageId,
+            'lastMessageSent': conversation.lastMessageTime.toInt(),
+            'unreadCount': conversation.unreadCount,
+          };
+
+        default:
+          _logger.w('未知事件类型，无法解码', extra: {'eventType': eventType});
+          throw UnsupportedError('不支持的事件类型: $eventType');
+      }
+    } catch (e) {
+      _logger.e('解码数据失败', error: e, extra: {'eventType': eventType});
+      throw FormatException('解码失败: $e');
+    }
+  }
+
   // ==== User 转换 ====
 
-  /// 将 UserSession 转换为 Base64 字符串
-  String userSessionToBase64(UserSession user) {
-    final map = {
-      'userId': user.userId,
-      'token': user.token,
-      'phoneNumber': user.phoneNumber,
-      'expireTime': user.expireTime,
-    };
-    final jsonStr = json.encode(map);
-    final bytes = utf8.encode(jsonStr);
-    return base64Encode(bytes);
+  /// 将 UserSession 转换为二进制数据
+  /// 注意：这个方法实际未实现，因为UserSession不是真正的protobuf类
+  Uint8List userSessionToBytes(UserSession user) {
+    _logger.w('UserSession未实现为protobuf，无法序列化');
+    throw UnimplementedError('UserSession暂不支持二进制序列化');
   }
 
-  /// 将 Base64 字符串转换为 UserSession
-  UserSession base64ToUserSession(String base64Str) {
-    final bytes = base64Decode(base64Str);
-    final jsonStr = utf8.decode(bytes);
-    final map = json.decode(jsonStr) as Map<String, dynamic>;
-
-    final user = UserSession();
-    user.userId = map['userId'] as String? ?? '';
-    user.token = map['token'] as String? ?? '';
-    user.phoneNumber = map['phoneNumber'] as String? ?? '';
-    user.expireTime = map['expireTime'] as int? ?? 0;
-    return user;
-  }
-
-  /// 将 UserSession 转换为 Map
-  Map<String, dynamic> userSessionToMap(UserSession user) {
-    return {
-      'userId': user.userId,
-      'token': user.token,
-      'phoneNumber': user.phoneNumber,
-      'expireTime': user.expireTime,
-    };
-  }
-
-  /// 将 Map 转换为 UserSession
-  UserSession mapToUserSession(Map<String, dynamic> map) {
-    final user = UserSession();
-    user.userId = map['userId'] as String? ?? '';
-    user.token = map['token'] as String? ?? '';
-    user.phoneNumber = map['phoneNumber'] as String? ?? '';
-    user.expireTime = map['expireTime'] as int? ?? 0;
-    return user;
+  /// 将二进制数据转换为 UserSession
+  /// 注意：这个方法实际未实现，因为UserSession不是真正的protobuf类
+  UserSession bytesToUserSession(Uint8List bytes) {
+    _logger.w('UserSession未实现为protobuf，无法反序列化');
+    throw UnimplementedError('UserSession暂不支持二进制反序列化');
   }
 
   // ==== Conversation 转换 ====
 
-  /// 将 ConversationProto 转换为 Base64 字符串
-  String conversationToBase64(ConversationProto conversation) {
-    final bytes = conversation.writeToBuffer();
-    return base64Encode(bytes);
+  /// 将 ConversationProto 转换为二进制数据
+  Uint8List conversationToBytes(ConversationProto conversation) {
+    return conversation.writeToBuffer();
   }
 
-  /// 将 Base64 字符串转换为 ConversationProto
-  ConversationProto base64ToConversation(String base64Str) {
-    final bytes = base64Decode(base64Str);
+  /// 将二进制数据转换为 ConversationProto
+  ConversationProto bytesToConversation(Uint8List bytes) {
     return ConversationProto.fromBuffer(bytes);
-  }
-
-  /// 将 ConversationProto 转换为 Map
-  Map<String, dynamic> conversationToMap(ConversationProto conversation) {
-    return jsonDecode(jsonEncode(conversation.toProto3Json())) as Map<String, dynamic>;
-  }
-
-  /// 将 Map 转换为 ConversationProto
-  ConversationProto mapToConversation(Map<String, dynamic> map) {
-    return ConversationProto.create()..mergeFromProto3Json(map);
   }
 
   // ==== Auth 转换 ====
 
-  /// AuthRequest 转 Map (简化版)
-  Map<String, dynamic> authRequestToMap(AuthRequest request) {
-    return {
-      'operationType': request.operationType.index,
-      'phoneNumber': request.phoneNumber,
-      'password': request.password,
-      'verificationCode': request.verificationCode,
-      'nickname': request.nickname,
-      'purpose': request.purpose,
-      'isQuickLogin': request.isQuickLogin,
-    };
+  /// 将 AuthRequest 转换为二进制数据
+  /// 注意：这个方法实际未实现，因为AuthRequest不是真正的protobuf类
+  Uint8List authRequestToBytes(AuthRequest request) {
+    _logger.w('AuthRequest未实现为protobuf，无法序列化');
+    throw UnimplementedError('AuthRequest暂不支持二进制序列化');
   }
 
-  /// Map 转 AuthResponse (简化版)
-  AuthResponse mapToAuthResponse(Map<String, dynamic> map) {
-    final response = AuthResponse();
-    response.success = map['success'] as bool? ?? false;
-    response.message = map['message'] as String? ?? '';
-    response.userId = map['userId'] as String? ?? '';
-    response.token = map['token'] as String? ?? '';
-    response.timestamp = map['timestamp'] as int? ?? 0;
-    return response;
-  }
-
-  /// Base64 转 AuthResponse (简化版)
-  AuthResponse base64ToAuthResponse(String base64String) {
-    try {
-      final jsonStr = utf8.decode(base64Decode(base64String));
-      final map = json.decode(jsonStr) as Map<String, dynamic>;
-      return mapToAuthResponse(map);
-    } catch (e) {
-      // 出错时返回一个默认响应
-      final response = AuthResponse();
-      response.success = false;
-      response.message = '数据解析错误: $e';
-      return response;
-    }
-  }
-
-  /// AuthRequest 转 Base64 (简化版)
-  String base64FromAuthRequest(AuthRequest request) {
-    final map = authRequestToMap(request);
-    final jsonStr = json.encode(map);
-    final bytes = utf8.encode(jsonStr);
-    return base64Encode(bytes);
+  /// 将二进制数据转换为 AuthResponse
+  /// 注意：这个方法实际未实现，因为AuthResponse不是真正的protobuf类
+  AuthResponse bytesToAuthResponse(Uint8List bytes) {
+    _logger.w('AuthResponse未实现为protobuf，无法反序列化');
+    throw UnimplementedError('AuthResponse暂不支持二进制反序列化');
   }
 }

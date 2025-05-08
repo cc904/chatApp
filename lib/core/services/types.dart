@@ -1,16 +1,3 @@
-/// 数据编码方式枚举（已废弃，请使用CommunicationService中的DataEncoding）
-@Deprecated('Use DataEncoding from CommunicationService instead')
-enum LegacyDataEncoding {
-  /// JSON编码
-  json,
-
-  /// Protocol Buffers编码
-  protobuf,
-
-  /// Base64编码的Protocol Buffers
-  base64,
-}
-
 /// 连接状态枚举
 enum ConnectionStatus {
   /// 未连接

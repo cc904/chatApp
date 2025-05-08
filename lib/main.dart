@@ -19,9 +19,12 @@ import 'features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'core/services/ui_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/database/mock_data_manager.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
+
+
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -51,6 +54,7 @@ void main() async {
     // 初始化timeago中文本地化
     timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
     timeago.setDefaultLocale('zh');
+
 
     // 运行应用
     runApp(const MyApp());
@@ -132,7 +136,10 @@ class MyApp extends StatelessWidget {
         ),
         // 注册仓库
         RepositoryProvider<ChatRepository>(
-          create: (context) => ChatRepositoryImpl(),
+          create: (context) => ChatRepositoryImpl(
+            isar: DatabaseInitializer.isar,
+            currentUserId: appConfig.defaultUserId, // 可以从认证服务或其他地方获取
+          ),
         ),
         // 添加ContactsRepository
         RepositoryProvider<ContactsRepository>(

@@ -121,7 +121,46 @@ lib/
 | `AuthService` | 处理用户认证流程，与后端交互 |
 | `LogService` | 应用日志记录与管理 |
 
-## 5. 数据模型
+## 5. 通信模块
+
+项目使用WebSocket进行实时通信，通过Socket.io客户端连接到Node.js后端服务器。通信模块采用了以下设计原则：
+
+### 5.1 通信服务架构
+
+新的`CommunicationService`作为统一的通信服务，负责：
+- 处理Socket连接的建立、维护和断开
+- 提供统一的事件发送和接收接口
+- 支持不同编码方式的数据传输
+
+### 5.2 职责分离
+
+- **通信层**：`CommunicationService`专注于通信功能，不包含业务逻辑
+- **业务层**：各Repository负责处理具体的业务逻辑
+- **模型层**：提供数据模型的定义，支持序列化和反序列化
+
+### 5.3 数据序列化
+
+项目使用Protocol Buffers (protobuf)作为主要的数据序列化格式，优势包括：
+
+- **高效性**：比JSON更小的数据体积，更快的序列化/反序列化速度
+- **类型安全**：强类型定义，减少运行时错误
+- **向前兼容**：协议演化时保持向后兼容性
+- **跨平台**：支持多种语言，便于前后端集成
+
+通信服务支持三种数据编码模式：
+- `DataEncoding.json` - 标准JSON格式
+- `DataEncoding.protobuf` - 二进制Protobuf格式（默认）
+- `DataEncoding.base64` - Base64编码的Protobuf（兼容性更好）
+
+协议定义文件位于`protos/`目录，生成的Dart代码位于`lib/core/proto/generated/`目录。
+
+### 5.4 主要组件
+
+1. **CommunicationService**: 负责Socket连接和事件传递
+2. **ProtoConverter**: 处理Protobuf与JSON的转换
+3. **Repository层**: 负责业务逻辑处理和数据持久化
+
+## 6. 数据模型
 
 | 模型名称 | 描述 | 主要字段 |
 |---------|------|---------|
@@ -130,11 +169,11 @@ lib/
 | `Conversation` | 会话 | id, conversationId, type, name, lastMessage, participants |
 | `Message` | 消息 | id, messageId, conversationId, senderId, content, type, status, timestamp |
 
-## 6. 功能模块详解
+## 7. 功能模块详解
 
-### 6.1 认证模块 (auth)
+### 7.1 认证模块 (auth)
 
-#### 6.1.1 目录结构
+#### 7.1.1 目录结构
 ```
 lib/features/auth/
 ├── presentation/
@@ -147,7 +186,7 @@ lib/features/auth/
         └── forgot_password_page.dart   # 找回密码页面
 ```
 
-#### 6.1.2 主要组件
+#### 7.1.2 主要组件
 
 **`auth_state.dart`**
 - 定义统一认证状态类，使用字段组合和辅助方法判断当前状态：
@@ -176,9 +215,9 @@ lib/features/auth/
 - `register_page.dart` - 注册页面，收集用户的手机号、验证码、密码和昵称
 - `forgot_password_page.dart` - 忘记密码页面，支持通过验证码重置密码
 
-### 6.2 聊天模块 (chat)
+### 7.2 聊天模块 (chat)
 
-#### 6.2.1 目录结构
+#### 7.2.1 目录结构
 ```
 lib/features/chat/
 ├── data/
@@ -199,7 +238,7 @@ lib/features/chat/
     └── widgets/                                # 聊天相关组件
 ```
 
-#### 6.2.2 主要组件
+#### 7.2.2 主要组件
 
 **`chat_repository.dart`**
 - 定义聊天功能所需的接口：
@@ -253,9 +292,9 @@ lib/features/chat/
   - 会话搜索
   - 消息搜索
 
-### 6.3 通信模块
+### 7.3 通信模块
 
-#### 6.3.1 主要组件
+#### 7.3.1 主要组件
 
 **`communication_service.dart`**
 - 实现Socket.IO客户端连接和事件处理的核心服务：
@@ -280,9 +319,9 @@ lib/features/chat/
   - `resetPassword()` - 密码重置
   - `getConnectionInfo()` - 获取连接信息，供通信服务使用
 
-## 7. 功能清单
+## 8. 功能清单
 
-### 7.1 已实现功能
+### 8.1 已实现功能
 - ✅ 用户认证（登录、注册、密码重置）
 - ✅ 会话管理（创建私聊、群聊）
 - ✅ 消息收发（文本、图片、语音、文件）
@@ -295,22 +334,22 @@ lib/features/chat/
   - ✅ 输入状态提示
   - ✅ 消息已读回执
 
-### 7.2 待开发功能
+### 8.2 待开发功能
 - ⏳ 端到端加密
 - ⏳ 消息撤回和删除
 - ⏳ 群组高级功能
 - ⏳ 语音和视频通话
 
-## 8. 通信协议
+## 9. 通信协议
 
 本项目使用Socket.IO与后端服务进行实时通信，支持以下数据编码方式：
 
 1. **JSON格式（默认）** - 传统的JSON数据格式
 2. **Protobuf二进制** - 高效的二进制序列化格式
 
-## 9. 数据管理
+## 10. 数据管理
 
-### 9.1 数据库设计
+### 10.1 数据库设计
 
 项目使用Isar作为本地NoSQL数据库，以支持高性能的离线数据存储和查询。数据库设计的主要特点：
 
@@ -319,7 +358,7 @@ lib/features/chat/
 3. **索引优化** - 对常用查询字段（如名称、拼音等）创建索引以提高查询性能
 4. **关系映射** - 使用Isar的关系功能表示实体之间的关联
 
-### 9.2 模拟数据管理
+### 10.2 模拟数据管理
 
 项目实现了完善的模拟数据系统，用于开发和测试阶段：
 
@@ -338,7 +377,7 @@ lib/features/chat/
    - 通信服务只专注于通信功能，不包含模拟逻辑
    - 模拟模式配置在`AppConfig`中管理
 
-### 9.3 数据重置功能
+### 10.3 数据重置功能
 
 实现了完整的数据重置功能，方便开发和测试：
 
@@ -349,9 +388,9 @@ lib/features/chat/
    - 删除所有媒体文件（位于`/media`目录）
    - 重置后自动退出应用
 
-## 10. 最近重要更新
+## 11. 最近重要更新
 
-### 10.1 通信服务重构
+### 11.1 通信服务重构
 
 最近对通信服务进行了重要重构，清晰分离了职责：
 
@@ -370,7 +409,7 @@ lib/features/chat/
    - 仓库实现：负责业务逻辑和数据管理
    - 模拟逻辑：集中在数据层处理
 
-### 10.2 代码清理
+### 11.2 代码清理
 
 重构过程中删除了一系列文件，精简了代码库：
 
@@ -388,7 +427,7 @@ lib/features/chat/
    - `lib/features/chat/data/repositories/chat_repository_impl.dart` - 更新了通信和业务逻辑
    - `lib/features/contacts/data/repositories/contacts_repository_impl.dart` - 更新了通信和业务逻辑
 
-### 10.3 架构改进
+### 11.3 架构改进
 
 最新的重构带来了显著的架构改进：
 
@@ -407,7 +446,7 @@ lib/features/chat/
    - 更好的模块化和可替换性
    - 减少组件间的耦合
 
-## 11. 待办事项
+## 12. 待办事项
 - [ ] 实现消息加密
 - [ ] 添加语音/视频通话
 - [ ] 优化消息同步机制

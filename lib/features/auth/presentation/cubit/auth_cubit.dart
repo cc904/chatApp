@@ -8,7 +8,6 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
-import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/communication_service.dart';
 
 part 'auth_state.dart';
@@ -29,19 +28,21 @@ class AuthCubit extends Cubit<AuthState> {
   // 认证服务
   final AuthService _authService = AuthService.getInstance();
 
-  // 使用全局配置
-  final AppConfig _appConfig = AppConfig();
+  // 服务器URL
+  final String _serverUrl;
+  
+  // 模拟模式
+  final bool _isSimulationMode;
 
   AuthCubit({
     required String serverUrl,
     ChatRepository? chatRepository,
     ChatCubit? chatCubit,
     bool isSimulationMode = false,
-  }) : super(AuthState.initial()) {
-    // 使用全局配置
-    _appConfig.serverUrl = serverUrl;
-    _appConfig.isSimulationMode = isSimulationMode;
-
+  }) : 
+    _serverUrl = serverUrl,
+    _isSimulationMode = isSimulationMode,
+    super(AuthState.initial()) {
     // 初始化认证服务
     _initAuthService();
     // 订阅认证响应事件
@@ -52,7 +53,7 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> _initAuthService() async {
     try {
       final success = await _authService.init(
-        serverUrl: _appConfig.serverUrl,
+        serverUrl: _serverUrl,
       );
 
       if (!success) {
@@ -88,7 +89,7 @@ class AuthCubit extends Cubit<AuthState> {
   // 初始化数据库和模拟数据库
   Future<void> _initDatabases(String userId, String token) async {
     try {
-      _logger.i('开始初始化数据库', extra: {'userId': userId, 'isSimulationMode': _appConfig.isSimulationMode});
+      _logger.i('开始初始化数据库', extra: {'userId': userId, 'isSimulationMode': _isSimulationMode});
 
       // 初始化Isar数据库
       await DatabaseInitializer.init(userId: userId);
@@ -101,7 +102,7 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       // 如果是模拟模式，加载模拟数据
-      if (_appConfig.isSimulationMode) {
+      if (_isSimulationMode) {
         // 先初始化模拟数据管理器
         await MockDataManager.init();
         // 检查是否需要生成模拟数据
@@ -125,7 +126,7 @@ class AuthCubit extends Cubit<AuthState> {
       final success = await _communicationService.connect(
         userId: userId,
         token: token,
-        serverUrl: _appConfig.serverUrl,
+        serverUrl: _serverUrl,
       );
 
       if (!success) {
