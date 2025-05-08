@@ -25,7 +25,7 @@ class MockDataGenerator {
     try {
       // 确保模拟数据管理器已初始化
       await MockDataManager.init();
-      final isar = MockDataManager.testIsar;
+      final isar = MockDataManager.mockIsar;
 
       // 创建当前用户
       final myUser = await createCurrentUser(isar);
@@ -62,7 +62,7 @@ class MockDataGenerator {
     try {
       // 确保模拟数据管理器已初始化
       await MockDataManager.init();
-      final isar = MockDataManager.testIsar;
+      final isar = MockDataManager.mockIsar;
 
       // 确保有当前用户
       final existingUser = await isar.myUsers.where().findFirst();

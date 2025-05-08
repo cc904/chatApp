@@ -15,15 +15,15 @@ import 'package:path_provider/path_provider.dart';
 /// 提供模拟数据的初始化、查询和搜索功能。
 class MockDataManager {
   static final _logger = LogService('MockDataManager');
-  static late Isar _testIsar;
+  static late Isar _mockIsar;
   static bool _isInitialized = false;
 
   /// 模拟数据库的Isar实例
-  static Isar get testIsar {
+  static Isar get mockIsar {
     if (!_isInitialized) {
       throw 'MockDataManager未初始化，请先调用init()方法';
     }
-    return _testIsar;
+    return _mockIsar;
   }
 
   /// 是否已初始化
@@ -45,7 +45,7 @@ class MockDataManager {
       _logger.i('正在初始化模拟数据库...');
       final dir = await getApplicationDocumentsDirectory();
 
-      _testIsar = await Isar.open(
+      _mockIsar = await Isar.open(
         [
           MyUserSchema,
           UserSchema,
@@ -63,7 +63,7 @@ class MockDataManager {
       // 检查是否需要生成模拟数据
       final appConfig = AppConfig();
       if (appConfig.isSimulationMode) {
-        final contactCount = await _testIsar.users.count();
+        final contactCount = await _mockIsar.users.count();
         if (contactCount == 0) {
           _logger.i('模拟数据库为空，开始生成模拟数据...');
           await MockDataGenerator.generateMockData();
@@ -82,7 +82,7 @@ class MockDataManager {
     }
 
     try {
-      await _testIsar.close();
+      await _mockIsar.close();
       _isInitialized = false;
       _logger.i('模拟数据库连接已关闭');
     } catch (e) {
@@ -97,11 +97,11 @@ class MockDataManager {
     }
 
     try {
-      await _testIsar.writeTxn(() async {
-        await _testIsar.messages.clear();
-        await _testIsar.conversations.clear();
-        await _testIsar.users.clear();
-        await _testIsar.myUsers.clear();
+      await _mockIsar.writeTxn(() async {
+        await _mockIsar.messages.clear();
+        await _mockIsar.conversations.clear();
+        await _mockIsar.users.clear();
+        await _mockIsar.myUsers.clear();
       });
       _logger.i('已清空模拟数据库');
     } catch (e) {
@@ -135,7 +135,7 @@ class MockDataManager {
     }
 
     try {
-      return await _testIsar.users.where().sortByName().findAll();
+      return await _mockIsar.users.where().sortByName().findAll();
     } catch (e) {
       _logger.e('获取模拟联系人失败', error: e);
       return [];
@@ -149,7 +149,7 @@ class MockDataManager {
     }
 
     try {
-      return await _testIsar.users.where().filter().userIdEqualTo(userId).findFirst();
+      return await _mockIsar.users.where().filter().userIdEqualTo(userId).findFirst();
     } catch (e) {
       _logger.e('根据ID获取模拟联系人失败', error: e);
       return null;
@@ -167,7 +167,7 @@ class MockDataManager {
         return await getAllMockContacts();
       }
 
-      return await _testIsar.users
+      return await _mockIsar.users
           .where()
           .filter()
           .nameContains(keyword, caseSensitive: false)
@@ -189,7 +189,7 @@ class MockDataManager {
     }
 
     try {
-      return await _testIsar.conversations.where().sortByCreatedAtDesc().findAll();
+      return await _mockIsar.conversations.where().sortByCreatedAtDesc().findAll();
     } catch (e) {
       _logger.e('获取模拟会话失败', error: e);
       return [];
@@ -203,7 +203,7 @@ class MockDataManager {
     }
 
     try {
-      return await _testIsar.messages.where().filter().conversationIdEqualTo(conversationId).sortByCreatedAtDesc().limit(limit).findAll();
+      return await _mockIsar.messages.where().filter().conversationIdEqualTo(conversationId).sortByCreatedAtDesc().limit(limit).findAll();
     } catch (e) {
       _logger.e('获取模拟会话消息失败', error: e);
       return [];

@@ -42,9 +42,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       floatingActionButton: FloatingActionButton(
-        onPressed: _isLoading ? null : _performTestLogin,
+        onPressed: _isLoading ? null : _performMockLogin,
         backgroundColor: Colors.green,
-        tooltip: '测试登录',
+        tooltip: '模拟登录',
         child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.login, color: Colors.white),
       ),
       body: Center(
@@ -309,7 +309,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         ));
   }
 
-  Future<void> _performTestLogin() async {
+  Future<void> _performMockLogin() async {
     if (!mounted) return;
 
     // 获取需要的对象，避免在异步操作后使用context
@@ -355,7 +355,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       // 显示错误信息
       if (mounted) {
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('测试登录失败: $e')),
+          SnackBar(content: Text('模拟登录失败: $e')),
         );
       }
     } finally {

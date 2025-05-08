@@ -204,7 +204,7 @@ class ProfilePage extends StatelessWidget {
           _buildListTile(
             icon: Icons.cleaning_services,
             title: '重置数据',
-            subtitle: '清除所有数据，重新开始测试',
+            subtitle: '清除所有数据，重新开始模拟',
             onTap: () {
               _showResetDataDialog(context);
             },
