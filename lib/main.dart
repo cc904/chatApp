@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/database/test_data_manager.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
@@ -19,29 +20,44 @@ import 'core/services/ui_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 void main() async {
-  // 确保Flutter初始化完成
+  // 确保Flutter绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
 
   // 创建日志记录器
   final logger = LogService('main.dart');
+  logger.i('应用启动');
 
-  // 初始化媒体目录
   try {
-    logger.i('开始初始化媒体目录');
-    await _initMediaDirectories();
-    logger.i('媒体目录初始化成功');
+    // 初始化媒体目录
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final mediaDir = Directory('${appDocDir.path}/media');
+    if (!await mediaDir.exists()) {
+      await mediaDir.create(recursive: true);
+    }
+
+    // 初始化测试数据管理器
+    await TestDataManager.init();
+    logger.i('测试数据管理器初始化完成');
+
+    // 初始化timeago中文本地化
+    timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
+    timeago.setDefaultLocale('zh');
+
+    // 运行应用
+    runApp(const MyApp());
   } catch (e) {
-    logger.e('媒体目录初始化失败', error: e);
+    logger.e('应用初始化失败', error: e);
+    // 处理初始化错误
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('应用初始化失败: $e', style: const TextStyle(color: Colors.red)),
+          ),
+        ),
+      ),
+    );
   }
-
-  // 初始化timeago中文本地化
-  timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
-  timeago.setDefaultLocale('zh');
-
-  // 不再在应用启动时初始化数据库
-  // 而是等待用户登录后再初始化
-
-  runApp(const MyApp());
 }
 
 /// 数据库错误应用程序

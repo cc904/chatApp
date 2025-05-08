@@ -16,7 +16,6 @@ class DatabaseInitializer {
   static final _logger = LogService('database_initializer.dart');
   static Isar? _isar;
   static String? _currentUserId;
-  static const String _defaultDbName = 'default.isar';
 
   /// 数据库是否已初始化
   static bool get isInitialized => _isar != null;
@@ -34,8 +33,8 @@ class DatabaseInitializer {
 
   /// 初始化数据库
   ///
-  /// 不指定userId时使用默认数据库
-  static Future<void> init({String? userId}) async {
+  /// 必须指定userId，不再支持默认数据库
+  static Future<void> init({required String userId}) async {
     try {
       // 如果数据库已经初始化，且用户ID相同，则直接返回
       if (_isar != null && _currentUserId == userId) {
@@ -49,11 +48,15 @@ class DatabaseInitializer {
         await close();
       }
 
-      _logger.i('开始初始化数据库，用户ID: ${userId ?? "默认"}');
+      _logger.i('开始初始化数据库，用户ID: $userId');
 
-      final dir = await getApplicationDocumentsDirectory();
-      String dbName = userId != null ? 'user_$userId.isar' : _defaultDbName;
+      final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/isar');
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      String dbName = '$userId.isar';
 
+      _logger.i('使用数据库文件目录: $dir');
       _logger.i('使用数据库文件: $dbName');
 
       _isar = await Isar.open(
@@ -74,8 +77,8 @@ class DatabaseInitializer {
       await _createIndexes();
       _logger.i('数据库初始化完成');
 
-      // 调试模式下生成测试数据(仅对默认数据库)
-      if (kDebugMode && userId == null) {
+      // 调试模式下生成测试数据
+      if (simulationMode) {
         _logger.i('开始生成测试数据');
         await TestDataGenerator.generateMoreTestData();
       }

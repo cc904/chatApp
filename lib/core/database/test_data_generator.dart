@@ -1,23 +1,31 @@
 import 'dart:math';
-import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/test_data_manager.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/my_user_service.dart';
 import 'package:isar/isar.dart';
 
 /// 测试数据生成器
-/// 用于生成测试用的数据
+/// 用于生成测试用的数据，只写入测试数据库
 class TestDataGenerator {
   static final _logger = LogService('test_data_generator.dart');
   static final _random = Random();
 
   /// 生成测试数据
+  ///
+  /// 这个函数会生成基础测试数据到测试数据库中，包括：
+  /// - 创建当前用户
+  /// - 创建联系人
+  /// - 创建私聊会话
+  /// - 创建群聊会话
+  /// - 为每个会话创建消息
   static Future<void> generateTestData() async {
     try {
-      final isar = DatabaseInitializer.isar;
+      // 确保测试数据管理器已初始化
+      await TestDataManager.init();
+      final isar = TestDataManager.testIsar;
 
       // 创建当前用户
       final myUser = await createCurrentUser(isar);
@@ -37,19 +45,28 @@ class TestDataGenerator {
         await createMessages(isar, conversation, myUser, contacts, 20);
       }
 
-      _logger.i('测试数据生成完成');
+      _logger.i('测试数据生成完成（写入到测试数据库）');
     } catch (e) {
       _logger.e('生成测试数据失败', error: e);
     }
   }
 
   /// 生成更多测试数据
+  ///
+  /// 这个函数会生成更全面的测试数据到测试数据库中，适合更复杂的测试场景：
+  /// - 确保已有当前用户，如无则创建
+  /// - 确保有足够的联系人（至少50个）
+  /// - 创建充足的私聊会话（约20个）和群聊会话（约10个）
+  /// - 为每个会话生成约30条消息
   static Future<void> generateMoreTestData() async {
     try {
-      final isar = DatabaseInitializer.isar;
+      // 确保测试数据管理器已初始化
+      await TestDataManager.init();
+      final isar = TestDataManager.testIsar;
 
       // 确保有当前用户
-      final myUser = await MyUserService.getCurrentUser() ?? await createCurrentUser(isar);
+      final existingUser = await isar.myUsers.where().findFirst();
+      final myUser = existingUser ?? await createCurrentUser(isar);
 
       // 确保有足够的联系人
       final existingContacts = await isar.users.where().findAll();
@@ -88,13 +105,19 @@ class TestDataGenerator {
         }
       }
 
-      _logger.i('测试数据生成完成');
+      _logger.i('测试数据生成完成（写入到测试数据库）');
     } catch (e) {
       _logger.e('生成测试数据失败', error: e);
     }
   }
 
   /// 确保存在当前用户，如不存在则创建
+  ///
+  /// 这个函数会：
+  /// - 查询现有的当前用户
+  /// - 如果不存在，则创建一个新的MyUser对象
+  /// - 设置用户信息包括固定的ID、名称"我"、认证令牌和基本联系信息
+  /// - 将用户保存至测试数据库并返回
   static Future<MyUser> createCurrentUser(Isar isar) async {
     // 查询现有的当前用户
     final existingUser = await isar.myUsers.where().findFirst();
@@ -120,6 +143,13 @@ class TestDataGenerator {
   }
 
   /// 创建联系人
+  ///
+  /// 这个函数会批量创建模拟联系人到测试数据库：
+  /// - 参数count指定需要创建的联系人数量
+  /// - 使用预定义的中文姓氏和名字随机组合生成联系人名称
+  /// - 为每个联系人设置手机号、邮箱和在线状态
+  /// - 将联系人保存至测试数据库
+  /// - 返回创建的联系人列表
   static Future<List<User>> createContacts(Isar isar, int count) async {
     final contacts = <User>[];
 
@@ -135,9 +165,11 @@ class TestDataGenerator {
 
       final user = User()
         ..name = name
+        ..userId = 'user_${1000 + i}'
         ..phone = '138${(10000000 + i).toString().padLeft(8, '0')}'
         ..email = 'user$i@example.com'
-        ..status = i % 3 == 0 ? 'online' : 'offline';
+        ..status = i % 3 == 0 ? 'online' : 'offline'
+        ..pinyin = name; // 简单处理，实际应转换为拼音
 
       contacts.add(user);
     }
@@ -146,7 +178,6 @@ class TestDataGenerator {
     await isar.writeTxn(() async {
       for (final user in contacts) {
         user.id = await isar.users.put(user);
-        DatabaseInitializer.syncIds(user);
         await isar.users.put(user);
       }
     });
@@ -155,6 +186,13 @@ class TestDataGenerator {
   }
 
   /// 创建私聊会话
+  ///
+  /// 这个函数会创建私聊会话到测试数据库：
+  /// - 参数count指定要创建的私聊会话数量
+  /// - 从contacts列表中选择尚未有私聊的联系人
+  /// - 为每个选定的联系人创建一个私聊会话
+  /// - 设置会话类型、名称(使用联系人名称)和创建时间
+  /// - 将会话保存至测试数据库
   static Future<void> createPrivateConversations(Isar isar, MyUser currentUser, List<User> contacts, int count) async {
     // 仅使用尚未有私聊的联系人
     final usedContactIds = <String>{};
@@ -177,7 +215,8 @@ class TestDataGenerator {
         ..name = contact.name
         ..contactUserId = contact.userId
         ..createdAt = DateTime.now().subtract(Duration(days: i % 30))
-        ..avatar = contact.avatar;
+        ..avatar = contact.avatar
+        ..conversationId = 'conv_p_${1000 + i}';
 
       newPrivateConversations.add(conversation);
     }
@@ -186,13 +225,18 @@ class TestDataGenerator {
     await isar.writeTxn(() async {
       for (final conversation in newPrivateConversations) {
         conversation.id = await isar.conversations.put(conversation);
-        DatabaseInitializer.syncIds(conversation);
         await isar.conversations.put(conversation);
       }
     });
   }
 
   /// 创建群聊会话
+  ///
+  /// 这个函数会创建群聊会话到测试数据库：
+  /// - 参数count指定要创建的群聊会话数量
+  /// - 使用预定义的群组类型("学习群"、"工作群"等)创建群名称
+  /// - 设置会话类型为群聊和创建时间
+  /// - 将群聊会话保存至测试数据库
   static Future<void> createGroupConversations(Isar isar, MyUser currentUser, List<User> contacts, int count) async {
     // 创建新的群聊会话
     final newGroupConversations = <Conversation>[];
@@ -205,7 +249,8 @@ class TestDataGenerator {
       final conversation = Conversation()
         ..type = ConversationType.group
         ..name = '$groupType $groupIndex'
-        ..createdAt = DateTime.now().subtract(Duration(days: i % 20));
+        ..createdAt = DateTime.now().subtract(Duration(days: i % 20))
+        ..conversationId = 'conv_g_${2000 + i}';
 
       newGroupConversations.add(conversation);
     }
@@ -214,13 +259,24 @@ class TestDataGenerator {
     await isar.writeTxn(() async {
       for (final conversation in newGroupConversations) {
         conversation.id = await isar.conversations.put(conversation);
-        DatabaseInitializer.syncIds(conversation);
         await isar.conversations.put(conversation);
       }
     });
   }
 
   /// 为会话创建消息
+  ///
+  /// 这个函数会为指定会话创建测试消息到测试数据库：
+  /// - 参数count指定要创建的消息数量
+  /// - 从contacts中随机选择多个联系人作为消息发送者
+  /// - 生成不同类型的消息（文本、图片、语音）
+  /// - 交替设置消息发送者（当前用户和其他联系人）
+  /// - 设置消息创建时间、已读状态等属性
+  /// - 为不同类型的消息设置特定内容：
+  ///   - 文本消息：设置文本内容
+  ///   - 图片消息：设置媒体URL
+  ///   - 语音消息：设置持续时间
+  /// - 将所有消息保存至测试数据库
   static Future<void> createMessages(Isar isar, Conversation conversation, MyUser currentUser, List<User> contacts, int count) async {
     final messages = <Message>[];
     final messageTypes = ['text', 'image', 'voice'];
@@ -246,7 +302,8 @@ class TestDataGenerator {
         ..type = type
         ..status = status
         ..createdAt = createdAt
-        ..isRead = !isCurrentUserSender; // 当前用户发送的消息默认未读，对方发送的默认已读
+        ..isRead = !isCurrentUserSender // 当前用户发送的消息默认未读，对方发送的默认已读
+        ..messageId = 'msg_${conversation.id}_${i}';
 
       // 根据消息类型设置内容
       switch (type) {
@@ -270,7 +327,6 @@ class TestDataGenerator {
     await isar.writeTxn(() async {
       for (final message in messages) {
         message.id = await isar.messages.put(message);
-        DatabaseInitializer.syncIds(message);
         await isar.messages.put(message);
       }
     });

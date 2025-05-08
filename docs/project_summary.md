@@ -18,20 +18,105 @@
 
 ```
 lib/
-├── main.dart                 # 应用入口
-├── core/                     # 核心服务和工具
-│   ├── database/             # Isar数据库相关实现
-│   ├── services/             # 各种服务实现
-│   ├── network/              # 网络相关（Socket.IO, Auth服务等）
-│   ├── proto/                # Protobuf生成代码
-│   ├── adapters/             # 数据模型适配器
-│   └── utils/                # 工具类
-└── features/                 # 按功能模块划分
-    ├── auth/                 # 认证相关
-    ├── chat/                 # 聊天功能
-    ├── contacts/             # 联系人管理
-    └── home/                 # 主页面
+├── main.dart                                      # 应用入口点
+│ 
+├── core/                                          # 核心服务和工具
+│   ├── database/                                  # 数据库相关
+│   │   ├── database_initializer.dart              # 数据库初始化器
+│   │   ├── test_data_manager.dart                 # 测试数据管理器
+│   │   ├── test_data_generator.dart               # 测试数据生成器
+│   │   └── models/                                # 数据模型
+│   │       ├── user.dart                          # 用户/联系人模型
+│   │       ├── my_user.dart                       # 当前用户模型
+│   │       ├── conversation.dart                  # 会话模型
+│   │       ├── message.dart                       # 消息模型
+│   │       ├── friend_request.dart                # 好友请求模型
+│   │       └── *.g.dart                           # Isar生成的文件
+│   │ 
+│   ├── services/                                  # 服务实现
+│   │   ├── log_service.dart                       # 日志服务
+│   │   ├── my_user_service.dart                   # 当前用户服务
+│   │   ├── file_upload_service.dart               # 文件上传服务
+│   │   └── ui_notification_service.dart           # UI通知服务
+│   │
+│   ├── network/                                   # 网络相关
+│   │   ├── socket_service.dart                    # Socket.IO服务
+│   │   ├── auth_service.dart                      # 认证服务
+│   │   ├── proto_converter.dart                   # Protobuf转换器
+│   │   ├── event_listener.dart                    # 事件监听器
+│   │   ├── types.dart                             # 网络类型定义
+│   │   └── index.dart                             # 统一导出
+│   │ 
+│   ├── proto/                                     # Protobuf相关
+│   │   └── generated/                             # 生成的protobuf代码
+│   │       └── auth.pb.dart                       # 认证相关protobuf
+│   │ 
+│   └── adapters/                                  # 数据适配器
+│       └── proto_model_adapter.dart               # Protobuf模型适配器
+│ 
+├── features/                                      # 功能模块
+│   ├── auth/                                      # 认证功能
+│   │   └── presentation/                          # 表现层
+│   │       ├── cubit/                             # 状态管理
+│   │       │   ├── auth_cubit.dart                # 认证Cubit
+│   │       │   └── auth_state.dart                # 认证状态
+│   │       └── pages/                             # 页面
+│   │           └── auth_page.dart                 # 认证页面
+│   │ 
+│   ├── chat/                                      # 聊天功能
+│   │   ├── domain/                                # 领域层
+│   │   │   └── repositories/                      # 仓库接口
+│   │   │       └── chat_repository.dart           # 聊天仓库接口
+│   │   ├── data/                                  # 数据层
+│   │   │   ├── repositories/                      # 仓库实现
+│   │   │   │   └── chat_repository_impl.dart      # 聊天仓库实现
+│   │   │   └── mock/                              # 模拟数据
+│   │   └── presentation/                          # 表现层
+│   │       ├── cubit/                             # 状态管理
+│   │       │   ├── chat_cubit.dart                # 聊天Cubit
+│   │       │   └── search_cubit.dart              # 搜索Cubit
+│   │       └── pages/                             # 页面
+│   │           ├── chat_page.dart                 # 聊天页面
+│   │           ├── chat_search_page.dart          # 聊天搜索页面
+│   │           └── chat_test_page.dart            # 聊天测试页面
+│   │ 
+│   ├── contacts/                                  # 联系人功能
+│   │   ├── domain/                                # 领域层
+│   │   │   └── repositories/                      # 仓库接口
+│   │   │       └── contacts_repository.dart       # 联系人仓库接口
+│   │   │
+│   │   ├── data/                                  # 数据层
+│   │   │   └── repositories/                      # 仓库实现
+│   │   │       └── contacts_repository_impl.dart  # 联系人仓库实现
+│   │   │
+│   │   └── presentation/                          # 表现层
+│   │       ├── cubit/                             # 状态管理
+│   │       │   ├── contacts_cubit.dart            # 联系人Cubit
+│   │       │   └── contacts_state.dart            # 联系人状态
+│   │       └── pages/                             # 页面
+│   │           ├── contacts_page.dart             # 联系人页面
+│   │           └── friend_requests_page.dart      # 好友请求页面
+│   │
+│   └── home/                                      # 主页功能
+│       └── presentation/                          # 表现层
+│           ├── cubit/                             # 状态管理
+│           │   └── home_cubit.dart                # 主页Cubit
+│           └── pages/                             # 页面
+│               ├── home_page.dart                 # 主页
+│               ├── chats_page.dart                # 聊天列表页面
+│               ├── status_page.dart               # 状态页面
+│               ├── calls_page.dart                # 通话页面
+│               ├── profile_page.dart              # 个人资料页面
+│               └── search_page.dart               # 搜索页面
 ```
+
+项目采用了清晰的分层架构，遵循了领域驱动设计(DDD)的原则：
+
+1. **特性模块化**：每个主要功能(auth, chat, contacts, home)都在独立的目录中
+2. **分层架构**：每个功能模块遵循presentation(表现层) → domain(领域层) → data(数据层)的分层方式
+3. **状态管理**：使用Cubit(Flutter Bloc简化版)管理状态
+4. **数据存储**：通过Isar数据库实现本地存储
+5. **通信**：使用Socket.IO与后端服务进行通信
 
 ## 4. 核心服务
 
@@ -65,12 +150,12 @@ lib/
 lib/features/auth/
 ├── presentation/
     ├── cubit/
-    │   ├── auth_cubit.dart     # 认证状态管理
-    │   └── auth_state.dart     # 认证状态定义
+    │   ├── auth_cubit.dart             # 认证状态管理
+    │   └── auth_state.dart             # 认证状态定义
     └── pages/
-        ├── auth_page.dart      # 登录页面
-        ├── register_page.dart  # 注册页面
-        └── forgot_password_page.dart  # 找回密码页面
+        ├── auth_page.dart              # 登录页面
+        ├── register_page.dart          # 注册页面
+        └── forgot_password_page.dart   # 找回密码页面
 ```
 
 #### 6.1.2 主要组件
@@ -109,18 +194,18 @@ lib/features/auth/
 lib/features/chat/
 ├── data/
 │   └── repositories/
-│       └── chat_repository_impl.dart   # 聊天仓库实现
+│       └── chat_repository_impl.dart           # 聊天仓库实现
 ├── domain/
 │   └── repositories/
-│       └── chat_repository.dart        # 聊天仓库接口
+│       └── chat_repository.dart                # 聊天仓库接口
 └── presentation/
     ├── cubit/
-    │   ├── chat_cubit.dart             # 聊天状态管理
-    │   ├── chat_state.dart             # 聊天状态定义
-    │   └── search_cubit.dart           # 搜索功能状态管理
-    ├── pages/                          # 聊天相关页面
-    ├── utils/                          # 工具类
-    └── widgets/                        # 聊天相关组件
+    │   ├── chat_cubit.dart                     # 聊天状态管理
+    │   ├── chat_state.dart                     # 聊天状态定义
+    │   └── search_cubit.dart                   # 搜索功能状态管理
+    ├── pages/                                  # 聊天相关页面
+    ├── utils/                                  # 工具类
+    └── widgets/                                # 聊天相关组件
 ```
 
 #### 6.2.2 主要组件
@@ -252,73 +337,68 @@ lib/features/chat/
 
 详细认证协议请参考 `docs/auth_protocol.md`。
 
-## 9. 最近更新
+## 9. 数据管理
 
-### 2024-04-15
-1. **数据库模型优化**
-   - 新增`MyUser`模型用于存储当前登录用户的信息，包含userId、token等认证信息
-   - 修改`User`模型，仅用于存储联系人信息，移除了`isFriend`字段
-   - 添加`MyUserService`服务类处理当前用户信息的存储和查询
-   - 优化`Message`模型，将`MessageType`从枚举改为字符串类型，提高灵活性
+### 9.1 数据库设计
 
-2. **认证流程改进**
-   - 改进了`AuthService`中用户信息的保存方式，使用`MyUserService`统一管理
-   - 优化了测试数据生成器，支持新的数据模型结构
-   - 确保认证成功后正确保存当前用户信息，包括token和过期时间
+项目使用Isar作为本地NoSQL数据库，以支持高性能的离线数据存储和查询。数据库设计的主要特点：
 
-### 2024-04-10
-1. **统一认证状态管理**
-   - 重构了`AuthState`，从多状态继承模式改为单状态包含模式
-   - 简化了状态管理，防止状态切换时数据丢失
-   - 增加了辅助方法判断当前状态：`isInitial`、`hasError`、`isAuthenticated`
-   - 添加了状态转换方法：`toLoadingState()`、`toErrorState()`、`toAuthenticatedState()`
+1. **用户独立数据库** - 每个用户使用独立的数据库文件（`{userId}.isar`）
+2. **测试数据分离** - 使用单独的`testData.isar`数据库存储测试数据
+3. **索引优化** - 对常用查询字段（如名称、拼音等）创建索引以提高查询性能
+4. **关系映射** - 使用Isar的关系功能表示实体之间的关联
 
-2. **完善Socket.IO通信实现**
-   - 增强了`SocketService`，添加了`initForAuth()`方法专门处理认证阶段的连接
-   - 完善了`DataEncoding`枚举，支持JSON、Protobuf和Base64编码的Protobuf
-   - 改进了模拟模式实现，添加更多模拟事件
+### 9.2 模拟数据管理
 
-3. **优化认证与实时通信集成**
-   - 完善了`AuthCubit`中的`_initRealTimeCommunication()`方法
-   - 确保认证成功后自动建立Socket连接并初始化聊天状态
-   - 优化了认证错误处理，确保表单状态不丢失
+项目实现了完善的模拟数据系统，用于开发和测试阶段：
 
-4. **界面优化**
-   - 改进了注册页面UI，增加了密码确认和更好的错误提示
-   - 添加了更好的输入验证，确保用户输入有效数据
+1. **预定义模拟数据** - 使用`mockContacts`保存固定的联系人列表，包括：
+   - 中文名联系人（50个）
+   - 英文名联系人（30个）
+   - 数字ID联系人（20个）
 
-5. **文档完善**
-   - 创建了详细的`socket_protocol.md`记录所有通信协议
-   - 创建了`auth_protocol.md`记录认证流程
-   - 更新了项目整体文档
+2. **测试数据管理器** - 通过`TestDataManager`类管理测试数据：
+   - 管理独立的`testData.isar`数据库
+   - 提供模拟数据的初始化、查询和搜索功能
+   - 确保测试数据与用户数据隔离
 
-### 2024-04-20
-1. **命名冲突与类型问题修复**
-   - 解决了`DataEncoding`命名冲突问题，创建统一的`types.dart`文件导出通用类型
-   - 修复了`ContactsState`命名冲突，将`contacts_cubit.dart`中的状态类重命名为`ContactsCubitState`
-   - 更新`ContactsStateAdapter`适配器以适应新的类名
-   - 修改了所有使用`ContactsCubit`的页面，使用新的类型名称
+3. **测试数据生成器** - 使用`TestDataGenerator`动态生成测试数据：
+   - 生成联系人、会话和消息数据
+   - 支持不同类型和状态的模拟数据生成
 
-2. **Proto文件与数据转换优化**
-   - 添加临时占位Proto文件，解决缺失的`.pb.dart`文件问题
-   - 在`ProtoConverter`类中使用`UserSession`替代`UserProto`
-   - 修复了数据模型转换中的类型不匹配问题
+### 9.3 数据重置功能
 
-3. **数据库初始化错误修复**
-   - 为`FriendRequest`模型添加了正确的`collection`注解
-   - 修复了`Enumerated`注解的使用方式
-   - 解决了集合名称不一致导致的数据库初始化错误
+实现了完整的数据重置功能，方便开发和测试：
 
-4. **模拟数据功能增强**
-   - 创建了`mock_data.dart`文件，提供100个模拟联系人数据，支持中文、英文和数字ID用户
-   - 使用颜色代码替代网络头像，解决网络连接问题
-   - 修改UI组件以正确显示颜色头像
-   - 更新状态页面，使用随机颜色生成头像显示
+1. **功能入口** - 在`ProfilePage`中添加了"重置数据"按钮
+2. **重置流程**:
+   - 关闭数据库连接
+   - 删除所有数据库文件（位于`/isar`目录）
+   - 删除所有媒体文件（位于`/media`目录）
+   - 重置后自动退出应用
 
-5. **枚举格式标准化**
-   - 修复了`AuthOperationType`枚举名称格式，使用lowerCamelCase规范
-   - 将`reset_password`改为`resetPassword`
-   - 将`send_code`改为`sendCode`
+### 9.4 数据库初始化改进
+
+对数据库初始化进行了以下改进：
+
+1. **移除默认数据库** - 不再支持无用户ID的默认数据库
+2. **延迟初始化** - 数据库初始化推迟到用户登录后进行
+3. **切换用户支持** - 添加数据库切换功能，支持多用户场景
+4. **错误处理优化** - 完善了异常捕获和日志记录
+
+## 10. 文件结构变更
+
+最近的文件删除记录表明项目正在进行架构调整：
+
+1. 删除的文件：
+   - `lib/core/services/socket_service.dart` - 调整Socket通信服务
+   - `lib/core/services/proto_converter.dart` - 修改Protobuf转换逻辑
+   - `docs/socket_protocol.md` - 更新通信协议文档
+   - `lib/core/services/auth_service.dart` - 重构认证服务
+   - `protos/my_user.proto` - 更新用户Protobuf定义
+   - `lib/core/network/data_encoding.dart` - 调整数据编码方式
+
+这些变更表明项目正在进行网络通信层和数据序列化方面的重构，可能是为了提高性能或改进协议设计。
 
 ## 10. 待办事项
 - [ ] 实现消息加密

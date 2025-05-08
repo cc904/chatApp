@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/database/test_data_manager.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 // Home状态类
 abstract class HomeState extends Equatable {
@@ -38,8 +40,17 @@ class HomeCubit extends Cubit<HomeState> {
     emit(HomeLoading());
 
     try {
-      // 在这里实现实际的登出逻辑
-      // 例如清除本地存储的登录信息, token等
+      // 关闭数据库连接
+      if (DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.close();
+        _logger.d('已关闭用户数据库');
+      }
+
+      // 关闭测试数据库连接
+      if (TestDataManager.isInitialized) {
+        await TestDataManager.close();
+        _logger.d('已关闭测试数据库');
+      }
 
       // 模拟网络请求延迟
       await Future.delayed(const Duration(seconds: 1));

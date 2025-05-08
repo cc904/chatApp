@@ -1,6 +1,7 @@
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
+import 'package:cc/core/database/test_data_manager.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/my_user_service.dart';
@@ -33,7 +34,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return users;
     } catch (e) {
       _logger.e('获取联系人列表失败', error: e);
-      return [];
+      // 使用TestDataManager获取测试联系人
+      return await TestDataManager.getAllTestContacts();
     }
   }
 
@@ -43,11 +45,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
     try {
       final users = await _users.filter().nameContains(query, caseSensitive: false).or().pinyinContains(query, caseSensitive: false).findAll();
-
       return users;
     } catch (e) {
       _logger.e('搜索联系人失败', error: e);
-      return [];
+      // 使用TestDataManager搜索测试联系人
+      return await TestDataManager.searchTestContacts(query);
     }
   }
 
@@ -61,7 +63,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       return user;
     } catch (e) {
       _logger.e('获取联系人详情失败', error: e);
-      return null;
+      // 使用TestDataManager获取测试联系人
+      return await TestDataManager.getTestContactById(userId);
     }
   }
 
@@ -134,8 +137,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       // 模拟网络延迟
       await Future.delayed(Duration(milliseconds: 500 + _random.nextInt(1000)));
 
-      // 模拟从服务器获取的联系人数据
-      final serverContacts = _generateMockContacts();
+      // 使用TestDataManager获取测试联系人
+      final serverContacts = await TestDataManager.getAllTestContacts();
 
       // 保存到数据库
       await _isar.writeTxn(() async {
@@ -258,10 +261,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 如果发送者不在联系人列表中，则创建
       sender ??= User()
-          ..userId = request.senderId
-          ..name = request.senderName
-          ..avatar = request.senderAvatar
-          ..pinyin = request.senderName;
+        ..userId = request.senderId
+        ..name = request.senderName
+        ..avatar = request.senderAvatar
+        ..pinyin = request.senderName;
 
       // 保存更改
       await _isar.writeTxn(() async {

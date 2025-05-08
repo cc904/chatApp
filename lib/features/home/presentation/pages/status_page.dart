@@ -41,8 +41,8 @@ class StatusPage extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     backgroundColor: getRandomColor(0),
-                    child: const Text('我', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20)),
                     radius: 30,
+                    child: const Text('我', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20)),
                   ),
                   Positioned(
                     bottom: 0,
@@ -154,11 +154,11 @@ class StatusPage extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           child: CircleAvatar(
             backgroundColor: getRandomColor(avatarSeed),
+            radius: 24,
             child: Text(
               name.substring(0, 1),
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
-            radius: 24,
           ),
         ),
       ),

@@ -7,6 +7,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/database/test_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
 
 part 'auth_state.dart';
@@ -76,8 +77,62 @@ class AuthCubit extends Cubit<AuthState> {
     if (response.hasUserId() && response.hasToken()) {
       emit(state.toAuthenticatedState(userId: response.userId, token: response.token));
 
-      // 认证成功后，准备实时通信
-      _initRealTimeCommunication(response.userId, response.token);
+      // 初始化数据库和测试数据
+      _initDatabases(response.userId, response.token);
+    }
+  }
+
+  // 初始化数据库和测试数据库
+  Future<void> _initDatabases(String userId, String token) async {
+    try {
+      // 初始化用户数据库
+      if (!DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.init(userId: userId);
+        _logger.i('用户数据库初始化完成', extra: {'userId': userId});
+      }
+
+      // 创建当前用户信息
+      final myUser = await MyUserService.saveCurrentUser(
+        userId: userId,
+        token: token,
+        name: '我', // 默认名称
+        phone: state.phoneNumber,
+        tokenExpireTime: DateTime.now().add(const Duration(days: 7)),
+      );
+
+      if (myUser == null) {
+        throw '保存用户信息失败';
+      }
+
+      // 确保测试数据库已初始化
+      if (!TestDataManager.isInitialized) {
+        await TestDataManager.init();
+        _logger.i('测试数据管理器初始化完成');
+      }
+
+      // 初始化实时通信
+      await _initRealTimeCommunication(userId, token);
+    } catch (e) {
+      _logger.e('数据库初始化失败', error: e);
+      emit(state.toErrorState('数据库初始化失败: $e'));
+    }
+  }
+
+  // 确保测试数据管理器已初始化
+  Future<void> _ensureTestDataManagerInitialized() async {
+    try {
+      _logger.i('确保测试数据管理器已初始化');
+
+      // 如果已经初始化，先关闭
+      if (TestDataManager.isInitialized) {
+        await TestDataManager.close();
+      }
+
+      // 重新初始化
+      await TestDataManager.init();
+      _logger.i('测试数据管理器初始化成功');
+    } catch (e) {
+      _logger.e('测试数据管理器初始化失败', error: e);
     }
   }
 
@@ -91,15 +146,12 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       _logger.i('初始化实时通信连接', extra: {'userId': userId});
 
-      // 获取来自认证服务的连接信息
-      final connectionInfo = _authService.getConnectionInfo();
-
       // 使用认证后的用户ID和令牌初始化实时通信
       final success = await _chatRepository.initRealTimeConnection(
         userId,
         token,
-        connectionInfo['serverUrl'] as String,
-        connectionInfo['simulationMode'] as bool,
+        _serverUrl,
+        _simulationMode,
       );
 
       if (!success) {

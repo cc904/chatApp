@@ -4,11 +4,11 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/test_data_manager.dart';
 import 'package:cc/core/network/index.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/my_user_service.dart';
-import 'package:cc/features/chat/data/mock/mock_data.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
 
@@ -62,24 +62,9 @@ class ChatRepositoryImpl implements ChatRepository {
       return await _users.where().sortByName().findAll();
     } catch (e) {
       _logger.e('获取联系人失败', error: e);
-      // 禁用旧的模拟数据生成方法
-      // return _getMockContacts();
-      // 改用新的模拟数据生成器
-      return MockDataGenerator.generateMockContacts();
+      // 使用TestDataManager获取模拟联系人数据
+      return await TestDataManager.getAllTestContacts();
     }
-  }
-
-  // 返回模拟联系人数据 - 已废弃，使用MockDataGenerator代替
-  // 保留此方法仅供参考
-  List<User> _getMockContacts() {
-    // 此方法已废弃，不应再被调用
-    _logger.w('_getMockContacts方法已废弃，请使用MockDataGenerator');
-    return List.generate(5, (index) {
-      final user = User();
-      user.name = '联系人$index';
-      user.status = index % 2 == 0 ? 'online' : 'offline';
-      return user;
-    });
   }
 
   @override
@@ -103,7 +88,8 @@ class ChatRepositoryImpl implements ChatRepository {
           .findAll();
     } catch (e) {
       _logger.e('搜索联系人失败', error: e);
-      return [];
+      // 使用TestDataManager搜索模拟联系人数据
+      return await TestDataManager.searchTestContacts(keyword);
     }
   }
 
@@ -114,7 +100,8 @@ class ChatRepositoryImpl implements ChatRepository {
       return await _users.get(id);
     } catch (e) {
       _logger.e('获取联系人信息失败', error: e);
-      return null;
+      // 使用TestDataManager获取模拟联系人
+      return await TestDataManager.getTestContactById(userId);
     }
   }
 
@@ -893,32 +880,11 @@ class ChatRepositoryImpl implements ChatRepository {
         _logger.i('已发送联系人同步请求');
       }
 
-      // 添加模拟数据用于开发环境
-      if (_socketService.isSimulationMode) {
-        _logger.i('运行在模拟模式，生成模拟联系人数据');
-        await _generateMockContacts();
-      }
-
       return true;
     } catch (e) {
       _logger.e('同步联系人失败', error: e);
       return false;
     }
-  }
-
-  /// 生成模拟联系人数据用于开发测试
-  Future<void> _generateMockContacts() async {
-    final isar = DatabaseInitializer.isar;
-
-    // 使用模拟数据生成器获取100个联系人
-    final mockContacts = MockDataGenerator.generateMockContacts();
-
-    // 保存到数据库
-    await isar.writeTxn(() async {
-      await isar.users.putAll(mockContacts);
-    });
-
-    _logger.i('已生成${mockContacts.length}个模拟联系人');
   }
 
   @override
