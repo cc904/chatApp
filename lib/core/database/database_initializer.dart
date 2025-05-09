@@ -4,9 +4,7 @@ import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
-import 'package:cc/core/database/mock_data_generator.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/constants/app_config.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -50,10 +48,11 @@ class DatabaseInitializer {
 
       _logger.i('开始初始化数据库，用户ID: $userId');
 
-      final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/isar');
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
+      // final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/isar');
+      // if (!await dir.exists()) {
+      //   await dir.create(recursive: true);
+      // }
+      final dir = await getApplicationDocumentsDirectory();
       String dbName = '$userId.isar';
 
       _logger.i('使用数据库文件目录: $dir');
@@ -77,21 +76,15 @@ class DatabaseInitializer {
       await _createIndexes();
       _logger.i('数据库初始化完成');
 
-      // 模拟模式下生成模拟数据
-      if (AppConfig().isSimulationMode) {
-        _logger.i('开始生成模拟数据');
-        await MockDataGenerator.generateMockData();
-      }
+      // // 模拟模式下生成模拟数据
+      // if (AppConfig().isSimulationMode) {
+      //   _logger.i('开始生成模拟数据');
+      //   await MockDataGenerator.generateMockData();
+      // }
     } catch (e) {
       _logger.e('数据库初始化失败', error: e);
       rethrow;
     }
-  }
-
-  /// 切换用户数据库
-  static Future<void> switchUserDatabase(String userId) async {
-    _logger.i('切换到用户数据库: $userId');
-    await init(userId: userId);
   }
 
   /// 创建数据库索引

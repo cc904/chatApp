@@ -6,25 +6,15 @@ import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
-import 'features/home/presentation/pages/home_page.dart';
 import 'features/home/presentation/cubit/home_cubit.dart';
-import 'features/chat/data/repositories/chat_repository_impl.dart';
-import 'features/chat/domain/repositories/chat_repository.dart';
-import 'features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'features/contacts/data/repositories/contacts_repository_impl.dart';
-import 'features/contacts/domain/repositories/contacts_repository.dart';
-import 'features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'core/services/ui_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/database/mock_data_manager.dart';
-import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/features/home/presentation/pages/home_provider.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
-
-
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -39,22 +29,19 @@ void main() async {
   logger.i('应用配置加载完成', extra: {'isSimulationMode': appConfig.isSimulationMode, 'serverUrl': appConfig.serverUrl});
 
   try {
-    // 初始化媒体目录
-    final appDocDir = await getApplicationDocumentsDirectory();
-    final mediaDir = Directory('${appDocDir.path}/media');
-    if (!await mediaDir.exists()) {
-      await mediaDir.create(recursive: true);
-      logger.i('媒体目录已创建：${mediaDir.path}');
+    if (appConfig.isSimulationMode) {
+      // 初始化模拟数据管理器
+      await MockDataManager.init();
+      logger.i('模拟数据管理器初始化完成');
+    } else {
+      // 初始化匿名通信连接（不需要token和userId）
+      await communicationService.connectAnonymous(serverUrl: appConfig.serverUrl);
+      logger.i('匿名通信服务初始化完成');
     }
-
-    // 初始化模拟数据管理器
-    await MockDataManager.init();
-    logger.i('模拟数据管理器初始化完成');
 
     // 初始化timeago中文本地化
     timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
     timeago.setDefaultLocale('zh');
-
 
     // 运行应用
     runApp(const MyApp());
@@ -134,43 +121,17 @@ class MyApp extends StatelessWidget {
         RepositoryProvider<CommunicationService>(
           create: (context) => communicationService,
         ),
-        // 注册仓库
-        RepositoryProvider<ChatRepository>(
-          create: (context) => ChatRepositoryImpl(
-            isar: DatabaseInitializer.isar,
-            currentUserId: appConfig.defaultUserId, // 可以从认证服务或其他地方获取
-          ),
-        ),
-        // 添加ContactsRepository
-        RepositoryProvider<ContactsRepository>(
-          create: (context) => ContactsRepositoryImpl(),
-        ),
       ],
       child: MultiBlocProvider(
         providers: [
-          // 先创建ChatCubit，以便可以将其传递给AuthCubit
-          BlocProvider<ChatCubit>(
-            create: (context) => ChatCubit(
-              repository: context.read<ChatRepository>(),
-              contactsRepository: context.read<ContactsRepository>(),
-            ),
-          ),
-          // 创建AuthCubit，并传入ChatCubit
+          // 只创建AuthCubit，移除对ChatCubit和ContactsCubit的初始化
           BlocProvider<AuthCubit>(
             create: (context) => AuthCubit(
               serverUrl: appConfig.serverUrl, // 使用全局配置的服务器URL
-              chatRepository: context.read<ChatRepository>(),
-              chatCubit: context.read<ChatCubit>(),
               isSimulationMode: appConfig.isSimulationMode, // 使用全局配置的模拟模式
             ),
           ),
           BlocProvider<HomeCubit>(create: (context) => HomeCubit()),
-          // 添加ContactsCubit
-          BlocProvider<ContactsCubit>(
-            create: (context) => ContactsCubit(
-              repository: context.read<ContactsRepository>(),
-            ),
-          ),
         ],
         child: MaterialApp(
           title: 'WhatsApp Clone',
@@ -227,7 +188,7 @@ class MyApp extends StatelessWidget {
           // 定义路由
           routes: {
             '/': (context) => const AuthPage(),
-            '/home': (context) => const HomePage(),
+            '/home': (context) => const HomeProvider(),
           },
           initialRoute: '/',
         ),

@@ -3,10 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/auth_service.dart';
-import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 
@@ -18,10 +15,6 @@ class AuthCubit extends Cubit<AuthState> {
   Timer? _countdownTimer;
   static const int countdownDuration = 60;
 
-  // 添加ChatRepository依赖，用于初始化Socket连接
-
-  // 添加ChatCubit依赖，用于在登录成功后初始化
-
   // 通信服务
   final CommunicationService _communicationService = CommunicationService();
 
@@ -30,19 +23,16 @@ class AuthCubit extends Cubit<AuthState> {
 
   // 服务器URL
   final String _serverUrl;
-  
+
   // 模拟模式
   final bool _isSimulationMode;
 
   AuthCubit({
     required String serverUrl,
-    ChatRepository? chatRepository,
-    ChatCubit? chatCubit,
     bool isSimulationMode = false,
-  }) : 
-    _serverUrl = serverUrl,
-    _isSimulationMode = isSimulationMode,
-    super(AuthState.initial()) {
+  })  : _serverUrl = serverUrl,
+        _isSimulationMode = isSimulationMode,
+        super(AuthState.initial()) {
     // 初始化认证服务
     _initAuthService();
     // 订阅认证响应事件
@@ -101,14 +91,6 @@ class AuthCubit extends Cubit<AuthState> {
         name: '我', // 添加必需的name参数
       );
 
-      // 如果是模拟模式，加载模拟数据
-      if (_isSimulationMode) {
-        // 先初始化模拟数据管理器
-        await MockDataManager.init();
-        // 检查是否需要生成模拟数据
-        _logger.i('加载模拟数据成功');
-      }
-
       // 初始化实时通信
       await _initRealTimeCommunication(userId, token);
     } catch (e) {
@@ -122,11 +104,10 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       _logger.i('初始化实时通信');
 
-      // 使用通信服务
-      final success = await _communicationService.connect(
+      // 使用通信服务升级连接
+      final success = await _communicationService.upgradeConnection(
         userId: userId,
         token: token,
-        serverUrl: _serverUrl,
       );
 
       if (!success) {

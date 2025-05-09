@@ -377,11 +377,12 @@ class ProfilePage extends StatelessWidget {
       final appDocDir = await getApplicationDocumentsDirectory();
 
       // 删除数据库文件
-      final dbDir = Directory('${appDocDir.path}/isar');
-      _logger.i('数据库文件目录: $dbDir');
-      if (await dbDir.exists()) {
-        await dbDir.delete(recursive: true);
-        _logger.i('数据库文件已删除');
+      _logger.i('数据库文件目录: $appDocDir');
+      final isarFiles = await appDocDir.list().where((entity) => entity.path.endsWith('.isar') || entity.path.endsWith('.isar.lock')).toList();
+
+      for (final file in isarFiles) {
+        await file.delete();
+        _logger.i('删除数据库文件: ${file.path}');
       }
 
       // 删除媒体文件

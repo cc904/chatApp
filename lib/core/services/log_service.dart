@@ -36,7 +36,8 @@ class LogService {
         if (!member.contains('LogService')) {
           // 提取函数名
           final parts = member.split('.');
-          return parts.length > 1 ? parts.last : member;
+          // 添加行号信息
+          return ':${frame.line} -> ${parts.length > 1 ? parts.last : member}';
         }
       }
     } catch (e) {
@@ -48,7 +49,7 @@ class LogService {
   /// 格式化日志消息
   String _formatMessage(String message, {Map<String, dynamic>? extra, Object? error}) {
     final funcName = _getFunctionName();
-    var formattedMessage = '[ $_shortFileName -> $funcName ] $message';
+    var formattedMessage = '[ $_shortFileName$funcName ] $message';
     if (extra != null && extra.isNotEmpty) {
       formattedMessage += ' : $extra';
     }

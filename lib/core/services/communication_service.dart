@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/proto_converter.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 /// 通信服务
 /// 负责与服务器的实时通信，提供统一的接口用于发送和接收事件
@@ -10,6 +11,9 @@ import 'package:cc/core/services/proto_converter.dart';
 class CommunicationService {
   final LogService _logger = LogService('communication_service.dart');
   final ProtoConverter _protoConverter = ProtoConverter();
+
+  // Socket.io实例
+  io.Socket? _socket;
 
   // 标记是否已初始化
   bool _isInitialized = false;
@@ -41,7 +45,7 @@ class CommunicationService {
     required String token,
     required String serverUrl,
   }) async {
-    if (_isInitialized) {
+    if (_isInitialized && _socket != null) {
       _logger.w('通信服务已初始化，无需重复初始化');
       return true;
     }
@@ -52,9 +56,30 @@ class CommunicationService {
         'serverUrl': serverUrl,
       });
 
-      // 实际连接逻辑（在实际项目中实现真实的Socket.io连接）
-      // 这里简化为模拟实现
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 创建和配置Socket.io客户端
+      _socket = io.io(serverUrl, <String, dynamic>{
+        'transports': ['websocket'],
+        'autoConnect': true,
+        'auth': {
+          'userId': userId,
+          'token': token,
+        },
+        'forceNew': true,
+        'reconnection': true,
+        'reconnectionAttempts': 5,
+        'reconnectionDelay': 1000,
+        'reconnectionDelayMax': 5000,
+        'timeout': 20000,
+      });
+
+      _setupSocketListeners();
+
+      // 等待连接建立
+      final connected = await _waitForConnection();
+      if (!connected) {
+        throw Exception('Socket.io连接超时');
+      }
+
       _isInitialized = true;
       _isConnected = true;
       _connectionStateController.add(true);
@@ -71,9 +96,238 @@ class CommunicationService {
     }
   }
 
+  /// 初始化匿名连接
+  /// 用于登录阶段，不需要用户ID和token
+  /// [serverUrl] - 服务器URL
+  Future<bool> connectAnonymous({
+    required String serverUrl,
+  }) async {
+    if (_isInitialized && _socket != null) {
+      _logger.w('通信服务已初始化，无需重复初始化');
+      return true;
+    }
+
+    try {
+      _logger.i('初始化匿名通信连接', extra: {
+        'serverUrl': serverUrl,
+      });
+
+      // 创建和配置Socket.io客户端（匿名模式）
+      _socket = io.io(serverUrl, <String, dynamic>{
+        'transports': ['websocket'],
+        'autoConnect': true,
+        'forceNew': true,
+        'reconnection': true,
+        'reconnectionAttempts': 5,
+        'reconnectionDelay': 1000,
+        'reconnectionDelayMax': 5000,
+        'timeout': 20000,
+      });
+
+      _setupSocketListeners();
+
+      // 等待连接建立
+      final connected = await _waitForConnection();
+      if (!connected) {
+        throw Exception('Socket.io匿名连接超时');
+      }
+
+      _isInitialized = true;
+      _isConnected = true;
+      _connectionStateController.add(true);
+
+      _logger.i('匿名通信服务初始化成功');
+      return true;
+    } catch (e) {
+      _logger.e('初始化匿名通信服务失败', error: e);
+      _connectionStateController.add(false);
+      return false;
+    }
+  }
+
+  /// 设置Socket.io事件监听器
+  void _setupSocketListeners() {
+    final socket = _socket;
+    if (socket == null) return;
+
+    // 连接成功
+    socket.on('connect', (_) {
+      _logger.i('Socket.io连接成功：${socket.id}');
+      _isConnected = true;
+      _connectionStateController.add(true);
+    });
+
+    // 连接错误
+    socket.on('connect_error', (error) {
+      _logger.e('Socket.io连接错误', error: error);
+      _isConnected = false;
+      _connectionStateController.add(false);
+    });
+
+    // 断开连接
+    socket.on('disconnect', (reason) {
+      _logger.w('Socket.io断开连接', extra: {'reason': reason});
+      _isConnected = false;
+      _connectionStateController.add(false);
+    });
+
+    // 重连尝试
+    socket.on('reconnect_attempt', (attemptNumber) {
+      _logger.i('Socket.io重连尝试', extra: {'attempt': attemptNumber});
+    });
+
+    // 重连失败
+    socket.on('reconnect_failed', (_) {
+      _logger.e('Socket.io重连失败');
+      _isConnected = false;
+      _connectionStateController.add(false);
+    });
+
+    // 重连成功
+    socket.on('reconnect', (attemptNumber) {
+      _logger.i('Socket.io重连成功', extra: {'attempt': attemptNumber});
+      _isConnected = true;
+      _connectionStateController.add(true);
+    });
+
+    // 错误事件
+    socket.on('error', (error) {
+      _logger.e('Socket.io错误', error: error);
+    });
+
+    // 自定义系统事件
+    socket.on('system_message', (data) {
+      _logger.i('收到系统消息', extra: {'data': data});
+      triggerEvent('system_message', data);
+    });
+  }
+
+  /// 等待Socket.io连接建立
+  Future<bool> _waitForConnection() async {
+    final socket = _socket;
+    if (socket == null) return false;
+
+    // 如果已连接，直接返回成功
+    if (socket.connected) {
+      _logger.i('Socket.io已连接');
+      return true;
+    }
+
+    // 等待连接建立或超时
+    final completer = Completer<bool>();
+
+    // 监听连接事件
+    void onConnect(_) {
+      if (!completer.isCompleted) {
+        _logger.i('Socket.io连接已建立');
+        completer.complete(true);
+      }
+    }
+
+    // 监听错误事件
+    void onError(error) {
+      if (!completer.isCompleted) {
+        _logger.e('Socket.io连接错误', error: error);
+        completer.complete(false);
+      }
+    }
+
+    socket.on('connect', onConnect);
+    socket.on('connect_error', onError);
+
+    // 设置连接超时
+    Timer timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        _logger.e('Socket.io连接超时');
+        completer.complete(false);
+      }
+    });
+
+    // 等待连接结果
+    bool result = await completer.future;
+
+    // 清理监听器和计时器
+    socket.off('connect', onConnect);
+    socket.off('connect_error', onError);
+    timer.cancel();
+
+    return result;
+  }
+
+  /// 升级连接
+  /// 将匿名连接升级为认证连接，用于登录成功后
+  /// [userId] - 用户ID
+  /// [token] - 认证令牌
+  Future<bool> upgradeConnection({
+    required String userId,
+    required String token,
+  }) async {
+    if (!_isInitialized || !_isConnected || _socket == null) {
+      _logger.e('通信服务未初始化或连接已断开，无法升级连接');
+      return false;
+    }
+
+    try {
+      _logger.i('升级通信连接', extra: {
+        'userId': userId,
+      });
+
+      // 发送认证事件，包含用户ID和令牌
+      _socket!.emit('authenticate', {
+        'userId': userId,
+        'token': token,
+      });
+
+      // 监听认证结果
+      final completer = Completer<bool>();
+
+      void onAuthSuccess(data) {
+        if (!completer.isCompleted) {
+          _logger.i('Socket.io认证成功', extra: {'data': data});
+          completer.complete(true);
+        }
+      }
+
+      void onAuthError(error) {
+        if (!completer.isCompleted) {
+          _logger.e('Socket.io认证失败', error: error);
+          completer.complete(false);
+        }
+      }
+
+      _socket!.once('auth_success', onAuthSuccess);
+      _socket!.once('auth_error', onAuthError);
+
+      // 设置认证超时
+      Timer timer = Timer(const Duration(seconds: 5), () {
+        if (!completer.isCompleted) {
+          _logger.e('Socket.io认证超时');
+          completer.complete(false);
+        }
+      });
+
+      // 等待认证结果
+      bool result = await completer.future;
+
+      // 清理计时器
+      timer.cancel();
+
+      if (result) {
+        // 认证成功后，发送用户上线状态
+        _emitServerEvent('user_online', {'userId': userId});
+        _logger.i('通信连接升级成功');
+      }
+
+      return result;
+    } catch (e) {
+      _logger.e('升级通信连接失败', error: e);
+      return false;
+    }
+  }
+
   /// 断开连接
   Future<void> disconnect() async {
-    if (!_isInitialized) return;
+    if (!_isInitialized || _socket == null) return;
 
     _logger.i('断开通信连接');
 
@@ -82,7 +336,7 @@ class CommunicationService {
       // 获取当前用户ID（在实际项目中应从会话中获取）
       String? userId;
       try {
-        userId = null; // 应当从某处获取当前用户ID
+        userId = _socket?.auth?['userId'];
       } catch (e) {
         _logger.e('获取当前用户ID失败', error: e);
       }
@@ -92,7 +346,16 @@ class CommunicationService {
       }
     }
 
-    // 断开连接
+    // 断开Socket.io连接
+    try {
+      _socket?.disconnect();
+      _socket?.close();
+      _socket = null;
+    } catch (e) {
+      _logger.e('断开Socket.io连接失败', error: e);
+    }
+
+    // 更新状态
     _isConnected = false;
     _connectionStateController.add(false);
     _isInitialized = false;
@@ -122,7 +385,7 @@ class CommunicationService {
   /// [eventName] - 事件名称
   /// [data] - 事件数据
   void emitEvent(String eventName, Map<String, dynamic> data) {
-    if (!_isInitialized || !_isConnected) {
+    if (!_isInitialized || !_isConnected || _socket == null) {
       _logger.w('通信服务未初始化或未连接，无法发送事件');
       return;
     }
@@ -133,7 +396,7 @@ class CommunicationService {
       // 使用Protobuf编码数据
       final encodedData = _protoConverter.encodeData(data, eventName);
 
-      // 实际的发送逻辑
+      // 发送事件到服务器
       _emitServerEvent(eventName, data, encodedData);
     } catch (e) {
       _logger.e('发送事件失败', error: e);
@@ -141,22 +404,25 @@ class CommunicationService {
   }
 
   /// 向服务器发送事件
-  /// 这是实际发送到服务器的方法，应在具体实现中覆盖
+  /// 这是实际发送到服务器的方法
   /// [eventName] - 事件名称
   /// [data] - 原始事件数据 (用于日志)
   /// [encodedData] - 编码后的二进制数据 (用于发送)
   void _emitServerEvent(String eventName, Map<String, dynamic> data, [Uint8List? encodedData]) {
-    // 实际项目中，这里应该实现真正的Socket.io事件发送
+    if (_socket == null) return;
+
     _logger.d('向服务器发送事件: $eventName', extra: {
       'data': data,
       'encoding': 'protobuf',
     });
 
-    // 开发阶段模拟实现，实际项目中应删除
-    Future.delayed(Duration.zero, () {
-      // 这里不应该有任何模拟响应的逻辑
-      // 真实项目中，服务器会通过socket.io的事件机制返回响应
-    });
+    if (encodedData != null) {
+      // 发送Protobuf编码的二进制数据
+      _socket!.emit(eventName, encodedData);
+    } else {
+      // 直接发送JSON数据（用于特殊事件）
+      _socket!.emit(eventName, data);
+    }
   }
 
   /// 处理收到的事件数据
@@ -167,7 +433,7 @@ class CommunicationService {
         // 处理Protobuf二进制数据
         return _protoConverter.decodeData(rawData, eventName);
       } else if (rawData is Map) {
-        // 已经是Map类型，直接返回（用于开发阶段或向后兼容）
+        // 已经是Map类型，直接返回（用于特殊事件）
         return Map<String, dynamic>.from(rawData);
       } else {
         throw FormatException('不支持的数据格式: ${rawData.runtimeType}，应为Protobuf二进制数据');
@@ -185,6 +451,15 @@ class CommunicationService {
   Stream<Map<String, dynamic>> onEvent(String eventName) {
     if (!_eventControllers.containsKey(eventName)) {
       _eventControllers[eventName] = StreamController<Map<String, dynamic>>.broadcast();
+
+      // 如果Socket已连接，设置Socket.io事件监听
+      if (_socket != null) {
+        _socket!.on(eventName, (data) {
+          final processedData = _processReceivedData(eventName, data);
+          _logger.d('收到服务器事件: $eventName', extra: {'data': processedData});
+          _eventControllers[eventName]?.add(processedData);
+        });
+      }
     }
     return _eventControllers[eventName]!.stream;
   }
@@ -206,6 +481,27 @@ class CommunicationService {
 
     _logger.d('触发事件: $eventName', extra: {'data': data});
     _eventControllers[eventName]!.add(data);
+  }
+
+  /// 注册所有需要监听的服务器事件
+  void registerServerEvents(List<String> eventNames) {
+    if (_socket == null) return;
+
+    for (final eventName in eventNames) {
+      // 创建事件流控制器
+      if (!_eventControllers.containsKey(eventName)) {
+        _eventControllers[eventName] = StreamController<Map<String, dynamic>>.broadcast();
+      }
+
+      // 设置Socket.io事件监听
+      _socket!.on(eventName, (data) {
+        final processedData = _processReceivedData(eventName, data);
+        _logger.d('收到服务器事件: $eventName', extra: {'data': processedData});
+        _eventControllers[eventName]?.add(processedData);
+      });
+
+      _logger.d('注册服务器事件监听: $eventName');
+    }
   }
 
   /// 释放资源
