@@ -210,34 +210,6 @@ class ProfilePage extends StatelessWidget {
           ),
           const Divider(height: 1),
           _buildListTile(
-            icon: Icons.data_array,
-            title: '重新生成模拟数据',
-            subtitle: '清空并重新生成应用使用的模拟联系人和消息数据',
-            onTap: () async {
-              // 显示加载对话框
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const AlertDialog(
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [CircularProgressIndicator(), SizedBox(height: 16), Text('正在重新生成模拟数据...')],
-                  ),
-                ),
-              );
-
-
-              // 关闭加载对话框并显示确认消息
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('模拟数据已重新生成')),
-                );
-              }
-            },
-          ),
-          const Divider(height: 1),
-          _buildListTile(
             icon: Icons.payment,
             title: '支付',
             subtitle: '查看您的支付记录',
