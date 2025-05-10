@@ -120,21 +120,21 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(width: 8),
                       BlocBuilder<AuthCubit, AuthState>(
                         builder: (context, state) {
-                            return ElevatedButton(
-                            onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              child: Text(
+                          return ElevatedButton(
+                            onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(purpose: 'register'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: Text(
                               state.isCodeSent && state.countdown != null
                                   ? '${state.countdown}s'
                                   : state.isLoading
                                       ? '发送中...'
                                       : '获取验证码',
-                              ),
+                            ),
                           );
                         },
                       ),

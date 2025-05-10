@@ -79,6 +79,10 @@ class AuthApiClient {
         sendTimeout: const Duration(seconds: 30),
         contentType: 'application/json',
         responseType: ResponseType.json,
+        // 添加状态码验证
+        validateStatus: (status) {
+          return status != null && status < 500; // 接受所有非500错误的状态码
+        },
       ));
 
       // 添加拦截器进行日志记录
@@ -143,30 +147,16 @@ class AuthApiClient {
         'purpose': purpose,
       });
 
-      // 检查响应状态
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data['success'] == true) {
-          return true;
-        } else {
-          // 服务器返回了错误消息，通过_authResponseController发送
-          _authResponseController.add(AuthResponse(
-            success: false,
-            message: data['message'] ?? '发送验证码失败',
-          ));
-          return false;
-        }
-      } else {
-        // 服务器响应错误，通过_authResponseController发送
-        _authResponseController.add(AuthResponse(
-          success: false,
-          message: '服务器响应错误: ${response.statusCode}',
-        ));
-        return false;
-      }
+      final data = response.data;
+      // 直接使用服务器返回的响应
+      _authResponseController.add(AuthResponse(
+        success: data['success'] ?? false,
+        message: data['message'] ?? '发送验证码失败',
+      ));
+
+      return data['success'] ?? false;
     } catch (e) {
       _logger.e('发送验证码失败', error: e);
-      // 网络错误等异常，通过_authResponseController发送
       _authResponseController.add(AuthResponse(
         success: false,
         message: e.toString(),

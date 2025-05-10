@@ -248,7 +248,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             BlocBuilder<AuthCubit, AuthState>(
               builder: (context, state) {
                 return ElevatedButton(
-                  onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(),
+                  onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(purpose: 'reset'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),

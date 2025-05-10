@@ -284,7 +284,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         BlocBuilder<AuthCubit, AuthState>(
           builder: (context, state) {
             return ElevatedButton(
-              onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(),
+              onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(purpose: 'login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),

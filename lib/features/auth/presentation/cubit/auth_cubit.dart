@@ -166,8 +166,8 @@ class AuthCubit extends Cubit<AuthState> {
     emit(state.copyWith(nickname: nickname));
   }
 
-  Future<void> sendVerificationCode() async {
-    _logger.i('发送验证码');
+  Future<void> sendVerificationCode({required String purpose}) async {
+    _logger.i('发送验证码', extra: {'purpose': purpose});
 
     if (state.phoneNumber?.length != 11) {
       _logger.e('手机号错误: ${state.phoneNumber}');
@@ -182,7 +182,7 @@ class AuthCubit extends Cubit<AuthState> {
       // 使用认证API客户端发送验证码
       final success = await _authApiClient.sendVerificationCode(
         state.phoneNumber!,
-        'login', // 用途：login/register/reset
+        purpose,
       );
 
       if (!success) {
