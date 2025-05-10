@@ -112,27 +112,43 @@ class AuthCubit extends Cubit<AuthState> {
 
   // 初始化实时通信
   Future<void> _initRealTimeCommunication(String userId, String token) async {
-    try {
-      _logger.i('初始化实时通信');
+    int retryCount = 0;
+    const maxRetries = 3;
 
-      // 直接尝试连接
-      final success = await _communicationService.connect(
-        serverUrl: _serverUrl,
-        userId: userId,
-        token: token,
-      );
+    while (retryCount < maxRetries) {
+      try {
+        _logger.i('初始化实时通信，尝试次数: ${retryCount + 1}');
 
-      if (success) {
-        _logger.i('实时通信初始化成功');
-      } else {
-        _logger.e('初始化实时通信失败');
-        // 不要因为实时通信失败而阻止用户登录
-        // 可以在UI上显示提示,并允许用户手动重试
+        // 直接尝试连接
+        final success = await _communicationService.connect(
+          serverUrl: _serverUrl,
+          userId: userId,
+          token: token,
+        );
+
+        if (success) {
+          _logger.i('实时通信初始化成功');
+          return;
+        } else {
+          _logger.e('初始化实时通信失败');
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await Future.delayed(Duration(seconds: retryCount * 2)); // 递增延迟
+            continue;
+          }
+        }
+      } catch (e) {
+        _logger.e('初始化实时通信错误', error: e);
+        retryCount++;
+        if (retryCount < maxRetries) {
+          await Future.delayed(Duration(seconds: retryCount * 2));
+          continue;
+        }
       }
-    } catch (e) {
-      _logger.e('初始化实时通信错误', error: e);
-      // 处理错误但不中断认证流程
     }
+
+    // 所有重试都失败后，记录错误但不中断认证流程
+    _logger.e('实时通信初始化失败，已达到最大重试次数');
   }
 
   void updatePhoneNumber(String phoneNumber) {

@@ -25,14 +25,21 @@ class _ChatsPageState extends State<ChatsPage> {
   @override
   void initState() {
     super.initState();
-    // 加载会话数据
-    _loadConversations();
+    // 使用WidgetsBinding.instance.addPostFrameCallback确保ChatCubit准备好后再加载会话
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadConversations();
+    });
   }
 
   void _loadConversations() async {
-    // 提前获取ChatCubit实例,避免异步操作后使用BuildContext
-    final chatCubit = context.read<ChatCubit>();
-    await chatCubit.loadConversations();
+    try {
+      // 提前获取ChatCubit实例,避免异步操作后使用BuildContext
+      final chatCubit = context.read<ChatCubit>();
+      await chatCubit.loadConversations();
+    } catch (e) {
+      _logger.e('无法加载会话列表', error: e);
+      // 这里不使用context避免异步操作后使用BuildContext
+    }
   }
 
   @override

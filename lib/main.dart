@@ -8,8 +8,11 @@ import 'dart:io';
 import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'package:cc/features/home/presentation/pages/home_page.dart';
+import 'package:cc/features/home/presentation/pages/home_provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/services/file_upload_service.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
@@ -133,7 +136,12 @@ class MyApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
             useMaterial3: true,
           ),
-          home: const AuthPage(),
+          scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
+          initialRoute: '/auth',
+          routes: {
+            '/home': (context) => const HomeProvider(),
+            '/auth': (context) => const AuthPage(),
+          },
         ),
       ),
     );

@@ -73,14 +73,14 @@ class CommunicationService {
 
       // 创建Socket.io配置
       final Map<String, dynamic> options = <String, dynamic>{
-        'transports': ['websocket'],
+        'transports': ['websocket', 'polling'],
         'autoConnect': true,
         'forceNew': true,
         'reconnection': true,
-        'reconnectionAttempts': 5,
+        'reconnectionAttempts': 10,
         'reconnectionDelay': 1000,
-        'reconnectionDelayMax': 5000,
-        'timeout': 20000,
+        'reconnectionDelayMax': 10000,
+        'timeout': 30000,
         'auth': {
           'userId': userId,
           'token': token,

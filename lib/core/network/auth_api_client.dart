@@ -97,6 +97,25 @@ class AuthApiClient {
     }
   }
 
+  /// 根据异常类型生成友好的错误消息
+  String _getFriendlyErrorMessage(Object e, String defaultMessage) {
+    if (e is DioException) {
+      if (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.sendTimeout) {
+        return '连接超时，请检查网络后重试';
+      } else if (e.type == DioExceptionType.connectionError) {
+        return '网络连接错误，请检查网络设置';
+      } else if (e.response != null) {
+        if (e.response?.data is Map && e.response?.data['message'] != null) {
+          // 如果服务器返回了错误消息，优先使用服务器的错误消息
+          return e.response?.data['message'];
+        }
+        // 否则返回状态码
+        return '服务器错误 (${e.response?.statusCode})';
+      }
+    }
+    return defaultMessage;
+  }
+
   /// 发送验证码
   /// [phoneNumber] - 手机号码
   /// [purpose] - 验证码用途(login/register/reset)
@@ -119,9 +138,13 @@ class AuthApiClient {
       return data['success'] ?? false;
     } catch (e) {
       _logger.e('发送验证码失败', error: e);
+
+      // 使用通用错误处理方法
+      final errorMsg = _getFriendlyErrorMessage(e, '发送验证码失败');
+
       _authResponseController.add(AuthResponse(
         success: false,
-        message: e.toString(),
+        message: errorMsg,
       ));
       return false;
     }
@@ -147,10 +170,13 @@ class AuthApiClient {
     } catch (e) {
       _logger.e('验证码登录失败', error: e);
 
+      // 使用通用错误处理方法
+      final errorMsg = _getFriendlyErrorMessage(e, '登录失败');
+
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
         success: false,
-        message: '登录失败: ${e.toString()}',
+        message: errorMsg,
       ));
 
       return false;
@@ -177,10 +203,13 @@ class AuthApiClient {
     } catch (e) {
       _logger.e('密码登录失败', error: e);
 
+      // 使用通用错误处理方法
+      final errorMsg = _getFriendlyErrorMessage(e, '登录失败');
+
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
         success: false,
-        message: '登录失败: ${e.toString()}',
+        message: errorMsg,
       ));
 
       return false;
@@ -210,10 +239,13 @@ class AuthApiClient {
     } catch (e) {
       _logger.e('注册失败', error: e);
 
+      // 使用通用错误处理方法
+      final errorMsg = _getFriendlyErrorMessage(e, '注册失败');
+
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
         success: false,
-        message: '注册失败: ${e.toString()}',
+        message: errorMsg,
       ));
 
       return false;
@@ -241,10 +273,13 @@ class AuthApiClient {
     } catch (e) {
       _logger.e('重置密码失败', error: e);
 
+      // 使用通用错误处理方法
+      final errorMsg = _getFriendlyErrorMessage(e, '重置密码失败');
+
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
         success: false,
-        message: '重置密码失败: ${e.toString()}',
+        message: errorMsg,
       ));
 
       return false;
