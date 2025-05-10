@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
@@ -5,6 +6,7 @@ import 'register_page.dart';
 import 'forgot_password_page.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -163,20 +165,32 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       BlocConsumer<AuthCubit, AuthState>(
                         listener: (context, state) {
                           if (state.isAuthenticated) {
-                            UINotificationHelper.showSuccess('登录成功');
-                            // 这里可以添加保存token的逻辑，例如存入共享偏好或安全存储
-                            // 例如: SharedPreferences.getInstance().then((prefs) => prefs.setString('auth_token', state.token));
-                            // 在实际项目中应使用更安全的方式存储token
+                            // 确保数据库初始化完成后再导航
+                            _logger.i('验证数据库初始化状态: ${DatabaseInitializer.isInitialized}');
 
-                            // 显示正在同步联系人的提示
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('正在同步联系人...'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
+                            if (DatabaseInitializer.isInitialized) {
+                              _logger.i('数据库已初始化,直接导航到Home页面');
+                              Navigator.of(context).pushReplacementNamed('/home');
+                            } else {
+                              _logger.w('数据库尚未初始化,等待初始化完成后再导航');
+                              // 轮询等待数据库初始化完成
+                              const checkInterval = Duration(milliseconds: 100);
+                              var checkCount = 0;
 
-                            Navigator.of(context).pushReplacementNamed('/home');
+                              Timer.periodic(checkInterval, (timer) {
+                                checkCount++;
+                                if (DatabaseInitializer.isInitialized) {
+                                  timer.cancel();
+                                  _logger.i('数据库初始化完成,现在导航到Home页面 (检查次数: $checkCount)');
+                                  Navigator.of(context).pushReplacementNamed('/home');
+                                } else if (checkCount >= 50) {
+                                  // 5秒超时
+                                  timer.cancel();
+                                  _logger.e('等待数据库初始化超时');
+                                  UINotificationHelper.showError('初始化超时,请重试');
+                                }
+                              });
+                            }
                           } else if (state.hasError) {
                             UINotificationHelper.showError(state.errorMessage!);
                           }
@@ -312,49 +326,33 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   Future<void> _performMockLogin() async {
     if (!mounted) return;
 
-    // 获取需要的对象，避免在异步操作后使用context
-    Navigator.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final authCubit = context.read<AuthCubit>();
-
-    // 模拟发送数据登录
     setState(() {
       // 显示加载状态
       _isLoading = true;
     });
 
     try {
-      // 模拟网络请求延迟
-      await Future.delayed(const Duration(seconds: 1));
+      _logger.i('执行模拟登录');
 
-      // 模拟获取登录数据
-      final mockUserId = "user_123";
-      final mockToken = "mock_token_${DateTime.now().millisecondsSinceEpoch}";
+      // 获取需要的对象
+      final authCubit = context.read<AuthCubit>();
 
-      // 初始化用户数据和数据库
-      await authCubit.loginWithMockAccount(
-        userId: mockUserId,
-        token: mockToken,
-        username: "模拟用户",
-      );
+      // 设置模拟的手机号和验证码
+      _logger.d('设置模拟账号信息: 13800138000 / 123456');
+      authCubit.updatePhoneNumber('13800138000');
+      authCubit.updateVerificationCode('123456');
 
-      if (mounted) {
-        // 登录成功，跳转到主页
+      // 使用标准的验证码登录流程
+      _logger.d('开始模拟登录流程');
+      await authCubit.login(true); // true表示使用验证码登录
 
-        // 显示正在同步联系人的提示
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('正在同步联系人...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
+      // 登录后的流程由BlocListener处理,不需要在这里导航
+      _logger.i('模拟登录过程完成,等待回调处理');
     } catch (e) {
       // 显示错误信息
+      _logger.e('模拟登录失败', error: e);
       if (mounted) {
-        scaffoldMessenger.showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('模拟登录失败: $e')),
         );
       }

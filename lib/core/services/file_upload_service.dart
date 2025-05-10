@@ -47,8 +47,8 @@ class FileUploadService {
   }
 
   /// 上传图片
-  /// 在实际应用中，这里应该连接到真实的API进行上传
-  /// 目前我们先模拟上传，只保存到本地目录
+  /// 在实际应用中,这里应该连接到真实的API进行上传
+  /// 目前我们先模拟上传,只保存到本地目录
   Future<UploadResult?> uploadImage(File imageFile) async {
     return _uploadFile(imageFile, 'images');
   }
@@ -76,7 +76,7 @@ class FileUploadService {
     try {
       _logServerProcess('接收到视频上传请求: ${videoFile.path}');
 
-      // 首先上传视频文件（在真实实现中，这将是发送到服务器的过程）
+      // 首先上传视频文件（在真实实现中,这将是发送到服务器的过程）
       _logClientProcess('开始上传视频文件');
       final videoResult = await _uploadFile(videoFile, 'videos');
       if (videoResult == null) {
@@ -85,7 +85,7 @@ class FileUploadService {
       }
 
       _logClientProcess('视频文件上传成功');
-      _logServerProcess('服务器收到视频文件，准备处理');
+      _logServerProcess('服务器收到视频文件,准备处理');
 
       // 模拟服务器处理延迟
       await Future.delayed(const Duration(milliseconds: 800));
@@ -98,7 +98,7 @@ class FileUploadService {
         _logServerProcess('缩略图生成成功');
       } catch (e) {
         _logServerProcess('生成缩略图失败: $e');
-        _logger.w('服务器生成缩略图失败，将返回没有缩略图的视频', extra: {'error': e});
+        _logger.w('服务器生成缩略图失败,将返回没有缩略图的视频', extra: {'error': e});
       }
 
       if (thumbnailFile != null) {
@@ -107,7 +107,7 @@ class FileUploadService {
         final thumbnailResult = await _uploadFile(thumbnailFile, 'thumbnails');
 
         if (thumbnailResult != null) {
-          _logServerProcess('缩略图存储成功，准备返回结果');
+          _logServerProcess('缩略图存储成功,准备返回结果');
           // 模拟服务器返回包含视频和缩略图URL的响应
           return UploadResult(
             localPath: videoResult.localPath,
@@ -120,10 +120,10 @@ class FileUploadService {
           _logServerProcess('缩略图存储失败');
         }
       } else {
-        _logServerProcess('无法生成缩略图，将返回不含缩略图的视频结果');
+        _logServerProcess('无法生成缩略图,将返回不含缩略图的视频结果');
       }
 
-      // 如果服务器缩略图处理失败，仍然返回视频上传结果
+      // 如果服务器缩略图处理失败,仍然返回视频上传结果
       return UploadResult(
         localPath: videoResult.localPath,
         remoteUrl: videoResult.remoteUrl,
@@ -137,7 +137,7 @@ class FileUploadService {
   }
 
   /// 模拟服务器生成视频缩略图
-  /// 在真正的服务器实现中，这个过程将在服务器上执行
+  /// 在真正的服务器实现中,这个过程将在服务器上执行
   Future<File?> _simulateServerThumbnailGeneration(String videoPath) async {
     try {
       _logServerProcess('分析视频文件');
@@ -148,8 +148,8 @@ class FileUploadService {
 
       // 模拟服务器成功率 (90%)
       if (random.nextDouble() > 0.1) {
-        // 在这里，我们仍然使用本地方法生成缩略图
-        // 但在概念上，我们将其视为服务器端处理
+        // 在这里,我们仍然使用本地方法生成缩略图
+        // 但在概念上,我们将其视为服务器端处理
         _logServerProcess('使用服务器算法生成缩略图');
         return await _generateFallbackThumbnail(videoPath);
       } else {
@@ -158,7 +158,7 @@ class FileUploadService {
       }
     } catch (e) {
       _logServerProcess('生成缩略图失败: $e');
-      rethrow; // 重新抛出异常，让调用者处理
+      rethrow; // 重新抛出异常,让调用者处理
     }
   }
 
@@ -166,7 +166,7 @@ class FileUploadService {
   /// 返回缩略图文件
   Future<File?> generateVideoThumbnail(String videoPath) async {
     try {
-      // 直接使用备用方法生成缩略图，因为video_thumbnail插件在当前平台有问题
+      // 直接使用备用方法生成缩略图,因为video_thumbnail插件在当前平台有问题
       _logClientProcess('使用备用方法生成视频缩略图');
       return await _generateFallbackThumbnail(videoPath);
     } catch (e) {
@@ -175,10 +175,10 @@ class FileUploadService {
     }
   }
 
-  /// 备用的缩略图生成方法，当video_thumbnail包失败时使用
+  /// 备用的缩略图生成方法,当video_thumbnail包失败时使用
   Future<File?> _generateFallbackThumbnail(String videoPath) async {
     try {
-      _logClientProcess('开始生成备用缩略图，视频路径: $videoPath');
+      _logClientProcess('开始生成备用缩略图,视频路径: $videoPath');
 
       // 创建临时目录用于存储缩略图
       final tempDir = await getTemporaryDirectory();
@@ -230,8 +230,8 @@ class FileUploadService {
         }
         await videoController.dispose();
       } catch (e) {
-        _logClientProcess('无法获取视频信息: $e，使用默认值');
-        // 出错时使用默认值即可，不需要抛出异常
+        _logClientProcess('无法获取视频信息: $e,使用默认值');
+        // 出错时使用默认值即可,不需要抛出异常
       }
 
       // 创建一个生动的缩略图
@@ -373,7 +373,7 @@ class FileUploadService {
     }
   }
 
-  /// 创建默认缩略图，当所有其他方法都失败时使用
+  /// 创建默认缩略图,当所有其他方法都失败时使用
   Future<File?> _createDefaultThumbnail(String thumbnailPath, String videoPath) async {
     try {
       _logClientProcess('创建默认视频缩略图');

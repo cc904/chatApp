@@ -4,14 +4,16 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/communication_service.dart';
-import 'features/auth/presentation/cubit/auth_cubit.dart';
-import 'features/auth/presentation/pages/auth_page.dart';
-import 'features/home/presentation/cubit/home_cubit.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:cc/features/auth/presentation/pages/auth_page.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'core/services/ui_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/features/home/presentation/pages/home_provider.dart';
+import 'package:cc/core/services/file_upload_service.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
@@ -29,19 +31,27 @@ void main() async {
   logger.i('应用配置加载完成', extra: {'isSimulationMode': appConfig.isSimulationMode, 'serverUrl': appConfig.serverUrl});
 
   try {
+    // 如果是模拟模式,初始化模拟数据
     if (appConfig.isSimulationMode) {
       // 初始化模拟数据管理器
       await MockDataManager.init();
       logger.i('模拟数据管理器初始化完成');
-    } else {
-      // 初始化匿名通信连接（不需要token和userId）
-      await communicationService.connectAnonymous(serverUrl: appConfig.serverUrl);
-      logger.i('匿名通信服务初始化完成');
     }
 
     // 初始化timeago中文本地化
     timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
     timeago.setDefaultLocale('zh');
+
+    // 初始化必要的文件目录
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final mediaDir = Directory('${appDocDir.path}/media');
+    if (!await mediaDir.exists()) {
+      await mediaDir.create(recursive: true);
+      logger.i('媒体目录已创建：${mediaDir.path}');
+    }
+
+    // 初始化文件上传服务
+    FileUploadService();
 
     // 运行应用
     runApp(const MyApp());
@@ -86,7 +96,7 @@ class DatabaseErrorApp extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                '请尝试重新启动应用程序。如果问题仍然存在，请清除应用数据或联系开发人员。',
+                '请尝试重新启动应用程序。如果问题仍然存在,请清除应用数据或联系开发人员。',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),
@@ -124,7 +134,7 @@ class MyApp extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
-          // 只创建AuthCubit，移除对ChatCubit和ContactsCubit的初始化
+          // 只创建AuthCubit,移除对ChatCubit和ContactsCubit的初始化
           BlocProvider<AuthCubit>(
             create: (context) => AuthCubit(
               serverUrl: appConfig.serverUrl, // 使用全局配置的服务器URL

@@ -35,7 +35,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   final FocusNode _focusNode = FocusNode();
   bool _isLoadingMore = false;
   bool _dataInitialized = false;
-  String? _targetMessageId; // 目标消息ID，用于滚动定位
+  String? _targetMessageId; // 目标消息ID,用于滚动定位
   List<Message> _messages = []; // 缓存的消息列表
   bool _isJumpingToDate = false; // 控制日期跳转加载指示器
 
@@ -67,7 +67,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     // 加载会话消息
     _loadConversation();
 
-    // 监听滚动事件，用于加载历史消息
+    // 监听滚动事件,用于加载历史消息
     _scrollController.addListener(_scrollListener);
 
     // 初始化波形动画控制器
@@ -100,7 +100,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     // 清理录音计时器
     _recordingTimer?.cancel();
 
-    // 在微任务中安排媒体服务清理，避免在Navigator处于locked状态时执行
+    // 在微任务中安排媒体服务清理,避免在Navigator处于locked状态时执行
     Future.microtask(() {
       try {
         // 尝试停止所有音频播放
@@ -130,7 +130,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   // 加载会话和消息
   void _loadConversation() {
     try {
-      final chatCubit = context.read<ChatCubit>();
+      // 使用BlocProvider.of而不是context.read
+      final chatCubit = BlocProvider.of<ChatCubit>(context);
       chatCubit.setCurrentConversation(widget.conversationId);
     } catch (e) {
       _logger.e('加载会话失败: $e');
@@ -141,7 +142,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   // 滚动到底部
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      // 使用更激进的滚动策略，确保到达底部
+      // 使用更激进的滚动策略,确保到达底部
       _scrollController.jumpTo(0);
       // 然后使用动画滚动确保UI平滑
       _scrollController.animateTo(
@@ -152,13 +153,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     }
   }
 
-  // 滚动监听器，用于加载更多历史消息
+  // 滚动监听器,用于加载更多历史消息
   void _scrollListener() {
     // 检测是否到达底部
     if (_scrollController.hasClients) {
-// 因为reverse=true，所以0是底部位置
+// 因为reverse=true,所以0是底部位置
 
-      // 检测是否到达顶部（旧消息方向），用于加载更多历史消息
+      // 检测是否到达顶部（旧消息方向）,用于加载更多历史消息
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9 && !_isLoadingMore) {
         _loadMoreMessages();
       }
@@ -203,7 +204,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   void _sendMessage() {
     final message = _messageController.text.trim();
 
-    // 如果有选择的附件，发送附件
+    // 如果有选择的附件,发送附件
     if (_selectedAttachment != null && _attachmentType != null) {
       _sendAttachment();
       return;
@@ -215,7 +216,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     context.read<ChatCubit>().sendTextMessage(widget.conversationId, message);
     _messageController.clear();
 
-    // 强制设置为底部标志，确保新消息出现时滚动到底部
+    // 强制设置为底部标志,确保新消息出现时滚动到底部
     setState(() {});
 
     // 滚动到底部
@@ -229,7 +230,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     if (_selectedAttachment == null || _attachmentType == null) return;
 
     try {
-      // 强制设置为底部标志，确保新消息出现时滚动到底部
+      // 强制设置为底部标志,确保新消息出现时滚动到底部
       setState(() {});
 
       // 提前获取ChatCubit实例
@@ -293,7 +294,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
             videoDuration = controller.value.duration.inMilliseconds;
             await controller.dispose();
           } catch (e) {
-            _logger.e('获取视频时长失败，使用默认值: $e');
+            _logger.e('获取视频时长失败,使用默认值: $e');
           }
 
           // 发送视频消息
@@ -336,7 +337,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           }
         });
 
-        // 再添加一次延迟滚动，以处理可能的数据库延迟
+        // 再添加一次延迟滚动,以处理可能的数据库延迟
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
             _scrollToBottom();
@@ -473,9 +474,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
             actions: [
-              // 移除搜索按钮，只保留更多选项按钮
+              // 移除搜索按钮,只保留更多选项按钮
               IconButton(
-                icon: const Icon(Icons.more_horiz), // 使用水平省略号图标，更像微信
+                icon: const Icon(Icons.more_horiz), // 使用水平省略号图标,更像微信
                 tooltip: '更多选项',
                 onPressed: () {
                   Navigator.push(
@@ -486,7 +487,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                       ),
                     ),
                   );
-                  // 不再使用.then()回调，而是通过BlocConsumer监听状态变化
+                  // 不再使用.then()回调,而是通过BlocConsumer监听状态变化
                 },
               ),
             ],
@@ -516,7 +517,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                     child: _messages.isEmpty
                         ? _buildEmptyChat()
                         : NotificationListener<ScrollNotification>(
-                            // 添加滚动通知监听，更精确地捕获滚动事件
+                            // 添加滚动通知监听,更精确地捕获滚动事件
                             onNotification: (scrollInfo) {
                               if (scrollInfo is ScrollEndNotification) {
                                 setState(() {});
@@ -524,7 +525,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                               return false;
                             },
                             child: ScrollConfiguration(
-                              // 自定义滚动行为，隐藏滚动条
+                              // 自定义滚动行为,隐藏滚动条
                               behavior: ScrollConfiguration.of(context).copyWith(
                                 scrollbars: false,
                               ),
@@ -612,7 +613,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     // 检查是否是目标消息
     final bool isTargetMessage = _targetMessageId != null && message.messageId == _targetMessageId;
 
-    // 在构建消息前，如果是目标消息，打印日志
+    // 在构建消息前,如果是目标消息,打印日志
     if (isTargetMessage) {
       _logger.i('正在构建目标消息: ID=${message.messageId}, 时间=${message.createdAt}');
     }
@@ -691,7 +692,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // 自己发送的消息状态（只在气泡左侧显示，删除右侧的）
+                      // 自己发送的消息状态（只在气泡左侧显示,删除右侧的）
                       if (isFromMe)
                         Padding(
                           padding: const EdgeInsets.only(right: 4, bottom: 4),
@@ -804,7 +805,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       // 获取前一条消息
       final previousMessage = messages[index + 1];
 
-      // 如果与前一条消息时间相差超过5分钟，显示时间
+      // 如果与前一条消息时间相差超过5分钟,显示时间
       final timeDifference = message.createdAt.difference(previousMessage.createdAt).inMinutes.abs();
       return timeDifference >= 5;
     } catch (e) {

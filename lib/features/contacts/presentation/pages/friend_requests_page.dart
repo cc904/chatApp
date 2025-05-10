@@ -194,7 +194,7 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
         if (success) {
           UINotificationHelper.showSuccess('已添加为好友');
         } else {
-          UINotificationHelper.showError('添加好友失败，请重试');
+          UINotificationHelper.showError('添加好友失败,请重试');
         }
       }
     } catch (e) {
@@ -226,7 +226,7 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
         if (success) {
           UINotificationHelper.showSuccess('已拒绝好友请求');
         } else {
-          UINotificationHelper.showError('拒绝请求失败，请重试');
+          UINotificationHelper.showError('拒绝请求失败,请重试');
         }
       }
     } catch (e) {

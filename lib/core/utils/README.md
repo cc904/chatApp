@@ -2,12 +2,12 @@
 
 ## 介绍
 
-这个通知系统可以避免在Flutter应用中常见的"`Don't use 'BuildContext's across async gaps`"警告，并提供一种统一的方式来显示各种类型的通知，如错误、成功、警告等。
+这个通知系统可以避免在Flutter应用中常见的"`Don't use 'BuildContext's across async gaps`"警告,并提供一种统一的方式来显示各种类型的通知,如错误、成功、警告等。
 
 ## 核心组件
 
-1. `UINotificationService` - 核心服务，管理全局ScaffoldMessenger
-2. `UINotificationHelper` - 辅助工具类，提供便捷方法和异步操作封装
+1. `UINotificationService` - 核心服务,管理全局ScaffoldMessenger
+2. `UINotificationHelper` - 辅助工具类,提供便捷方法和异步操作封装
 
 ## 基本用法
 
@@ -152,4 +152,4 @@ await UINotificationHelper.wrapWithNotification(
 
 ## 结论
 
-使用全局UI通知系统可以使代码更加清晰，避免常见的Flutter异步上下文问题，同时提供统一的用户体验。推荐在所有异步操作中使用`UINotificationHelper`来处理消息通知。 
+使用全局UI通知系统可以使代码更加清晰,避免常见的Flutter异步上下文问题,同时提供统一的用户体验。推荐在所有异步操作中使用`UINotificationHelper`来处理消息通知。 

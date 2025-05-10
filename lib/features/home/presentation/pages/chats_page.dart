@@ -30,7 +30,7 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   void _loadConversations() async {
-    // 提前获取ChatCubit实例，避免异步操作后使用BuildContext
+    // 提前获取ChatCubit实例,避免异步操作后使用BuildContext
     final chatCubit = context.read<ChatCubit>();
     await chatCubit.loadConversations();
   }
@@ -45,7 +45,7 @@ class _ChatsPageState extends State<ChatsPage> {
   Widget build(BuildContext context) {
     _logger.d('ChatsPage build');
     return Scaffold(
-      // AppBar: 自定义导航栏，包含标题、编辑按钮和新建聊天按钮
+      // AppBar: 自定义导航栏,包含标题、编辑按钮和新建聊天按钮
       // 顶部导航区配置了底部搜索栏作为扩展部分
       appBar: AppBar(
         // 中间标题
@@ -94,7 +94,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 } else if (value == 'group') {
                   // 发起群聊
                   _logger.d('发起群聊');
-                  // 打开搜索页面，默认选择找群标签
+                  // 打开搜索页面,默认选择找群标签
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const SearchPage(),
@@ -103,7 +103,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 } else if (value == 'friend') {
                   // 添加朋友
                   _logger.d('添加朋友');
-                  // 打开搜索页面，默认选择找人标签
+                  // 打开搜索页面,默认选择找人标签
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const SearchPage(),
@@ -140,7 +140,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
-                // 因为删除了外层Container，需要添加圆角和背景颜色
+                // 因为删除了外层Container,需要添加圆角和背景颜色
                 filled: true,
                 fillColor: Colors.white,
                 enabledBorder: OutlineInputBorder(
@@ -235,7 +235,7 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  // 构建聊天列表，添加空状态处理
+  // 构建聊天列表,添加空状态处理
   Widget _buildChatList() {
     return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
@@ -250,7 +250,7 @@ class _ChatsPageState extends State<ChatsPage> {
         // 获取要显示的会话列表 - 搜索结果或所有会话
         final List<Conversation> conversations = _isSearching && state.searchQuery != null ? (state.searchResults.whereType<Conversation>().toList()) : state.conversations;
 
-        // 如果会话列表为空，显示空状态视图
+        // 如果会话列表为空,显示空状态视图
         if (conversations.isEmpty) {
           return _buildEmptyState();
         }
@@ -412,7 +412,7 @@ class _ChatsPageState extends State<ChatsPage> {
           ),
           child: GestureDetector(
             onHorizontalDragStart: (details) {
-              // 开始拖动时，如果有其他项目已打开，先关闭它
+              // 开始拖动时,如果有其他项目已打开,先关闭它
               if (_openedItemId != null && _openedItemId != id) {
                 setState(() {
                   _openedItemId = null;
@@ -420,7 +420,7 @@ class _ChatsPageState extends State<ChatsPage> {
               }
             },
             onHorizontalDragUpdate: (details) {
-              // 跟踪水平拖动，仅允许向左拖动（负增量）
+              // 跟踪水平拖动,仅允许向左拖动（负增量）
               if (details.delta.dx < 0) {
                 setState(() {
                   _openedItemId = id; // 向左拖动时打开当前项
@@ -433,15 +433,15 @@ class _ChatsPageState extends State<ChatsPage> {
               }
             },
             onHorizontalDragEnd: (details) {
-              // 拖动结束时，根据速度决定是否打开或关闭
+              // 拖动结束时,根据速度决定是否打开或关闭
               if (details.primaryVelocity != null) {
                 if (details.primaryVelocity! < -500) {
-                  // 快速向左滑动，打开菜单
+                  // 快速向左滑动,打开菜单
                   setState(() {
                     _openedItemId = id;
                   });
                 } else if (details.primaryVelocity! > 500) {
-                  // 快速向右滑动，关闭菜单
+                  // 快速向右滑动,关闭菜单
                   setState(() {
                     _openedItemId = null;
                   });
@@ -519,7 +519,7 @@ class _ChatsPageState extends State<ChatsPage> {
                   ],
                 ),
                 onTap: () {
-                  // 如果菜单是打开的，则先关闭菜单
+                  // 如果菜单是打开的,则先关闭菜单
                   if (_openedItemId == id) {
                     setState(() {
                       _openedItemId = null;
@@ -529,10 +529,13 @@ class _ChatsPageState extends State<ChatsPage> {
                     _logger.d('打开聊天: $name (ID: $id)');
                     context.read<ChatCubit>().setCurrentConversation(id);
 
-                    // 导航到聊天详情页
+                    // 导航到聊天详情页，使用BlocProvider.value保持ChatCubit可用
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => ChatDetailPage(conversationId: id),
+                        builder: (context) => BlocProvider.value(
+                          value: context.read<ChatCubit>(),
+                          child: ChatDetailPage(conversationId: id),
+                        ),
                       ),
                     );
                   }

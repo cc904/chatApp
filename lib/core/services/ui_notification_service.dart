@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// UI通知服务
-/// 用于在应用程序中显示各种通知，不依赖于BuildContext
+/// 用于在应用程序中显示各种通知,不依赖于BuildContext
 /// 这种设计模式将异步操作与UI更新完全分离
 class UINotificationService {
   // 单例实现

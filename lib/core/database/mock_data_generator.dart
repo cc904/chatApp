@@ -8,14 +8,14 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';
 
 /// 模拟数据生成器
-/// 用于生成模拟用的数据，只写入模拟数据库
+/// 用于生成模拟用的数据,只写入模拟数据库
 class MockDataGenerator {
   static final _logger = LogService('mock_data_generator.dart');
   static final _random = Random();
 
   /// 生成模拟数据
   ///
-  /// 这个函数会生成基础模拟数据到模拟数据库中，包括：
+  /// 这个函数会生成基础模拟数据到模拟数据库中,包括：
   /// - 创建当前用户
   /// - 创建联系人
   /// - 创建私聊会话
@@ -51,11 +51,11 @@ class MockDataGenerator {
     }
   }
 
-  /// 确保存在当前用户，如不存在则创建
+  /// 确保存在当前用户,如不存在则创建
   ///
   /// 这个函数会：
   /// - 查询现有的当前用户
-  /// - 如果不存在，则创建一个新的MyUser对象
+  /// - 如果不存在,则创建一个新的MyUser对象
   /// - 设置用户信息包括固定的ID、名称"我"、认证令牌和基本联系信息
   /// - 将用户保存至模拟数据库并返回
   static Future<MyUser> createCurrentUser(Isar isar) async {
@@ -109,7 +109,7 @@ class MockDataGenerator {
         ..phone = '138${(10000000 + i).toString().padLeft(8, '0')}'
         ..email = 'user$i@example.com'
         ..status = i % 3 == 0 ? 'online' : 'offline'
-        ..pinyin = name; // 简单处理，实际应转换为拼音
+        ..pinyin = name; // 简单处理,实际应转换为拼音
 
       contacts.add(user);
     }
@@ -242,13 +242,13 @@ class MockDataGenerator {
         ..type = type
         ..status = status
         ..createdAt = createdAt
-        ..isRead = !isCurrentUserSender // 当前用户发送的消息默认未读，对方发送的默认已读
+        ..isRead = !isCurrentUserSender // 当前用户发送的消息默认未读,对方发送的默认已读
         ..messageId = 'msg_${conversation.id}_$i';
 
       // 根据消息类型设置内容
       switch (type) {
         case 'text':
-          message.text = isCurrentUserSender ? '这是我发送的第${i + 1}条模拟消息' : '收到你的消息了，这是回复${i + 1}';
+          message.text = isCurrentUserSender ? '这是我发送的第${i + 1}条模拟消息' : '收到你的消息了,这是回复${i + 1}';
           break;
         case 'image':
           message.text = '[图片消息]';

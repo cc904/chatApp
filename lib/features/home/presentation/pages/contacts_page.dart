@@ -69,7 +69,7 @@ class _ContactsPageState extends State<ContactsPage> {
                 _isSearching = !_isSearching;
                 if (!_isSearching) {
                   _searchController.clear();
-                  // 清除搜索，显示全部联系人
+                  // 清除搜索,显示全部联系人
                   context.read<ContactsCubit>().loadContacts();
                 }
               });
@@ -118,7 +118,7 @@ class _ContactsPageState extends State<ContactsPage> {
             );
           }
 
-          // 如果没有联系人数据，显示空状态
+          // 如果没有联系人数据,显示空状态
           if (state.contacts.isEmpty) {
             return const Center(
               child: Column(
@@ -165,7 +165,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
     // 遍历所有字母分组
     for (var letter in state.sectionLetters) {
-      // 如果当前索引就是我们要找的索引，返回字母标题
+      // 如果当前索引就是我们要找的索引,返回字母标题
       if (currentIndex == index) {
         return _buildSectionHeader(letter);
       }
@@ -266,7 +266,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   void _performSearch(String value) async {
     final contactsCubit = context.read<ContactsCubit>();
-    // 如果搜索为空，显示所有联系人
+    // 如果搜索为空,显示所有联系人
     if (value.isEmpty) {
       ContactsStateAdapter.clearSearch();
       contactsCubit.loadContacts();

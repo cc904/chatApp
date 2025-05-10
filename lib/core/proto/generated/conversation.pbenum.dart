@@ -13,12 +13,12 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-/// 会话类型枚举，匹配数据库模型
+/// 会话类型枚举,匹配数据库模型
 class ConversationType extends $pb.ProtobufEnum {
   static const ConversationType private = ConversationType._(0, _omitEnumNames ? '' : 'private');
   static const ConversationType group = ConversationType._(1, _omitEnumNames ? '' : 'group');
 
-  static const $core.List<ConversationType> values = <ConversationType> [
+  static const $core.List<ConversationType> values = <ConversationType>[
     private,
     group,
   ];
@@ -28,6 +28,5 @@ class ConversationType extends $pb.ProtobufEnum {
 
   const ConversationType._($core.int v, $core.String n) : super(v, n);
 }
-
 
 const _omitEnumNames = $core.bool.fromEnvironment('protobuf.omit_enum_names');

@@ -55,8 +55,8 @@ class HomeCubit extends Cubit<HomeState> {
       // 模拟网络请求延迟
       await Future.delayed(const Duration(seconds: 1));
 
-      // 登出成功后，应用程序会回到登录页面
-      // 通过路由处理，这里不需要特殊的状态
+      // 登出成功后,应用程序会回到登录页面
+      // 通过路由处理,这里不需要特殊的状态
     } catch (e) {
       _logger.e('登出错误', error: e);
       emit(HomeError('登出失败: $e'));
@@ -71,7 +71,7 @@ class HomeCubit extends Cubit<HomeState> {
       // 实现消息刷新逻辑
       await Future.delayed(const Duration(seconds: 1));
 
-      // 刷新成功，保持当前状态或者更新为特定状态
+      // 刷新成功,保持当前状态或者更新为特定状态
       emit(HomeInitial());
     } catch (e) {
       _logger.e('刷新错误', error: e);

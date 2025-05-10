@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/auth_service.dart';
+import 'package:cc/core/network/auth_api_client.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/services/communication_service.dart';
@@ -18,8 +18,8 @@ class AuthCubit extends Cubit<AuthState> {
   // 通信服务
   final CommunicationService _communicationService = CommunicationService();
 
-  // 认证服务
-  final AuthService _authService = AuthService.getInstance();
+  // 认证API客户端
+  final AuthApiClient _authApiClient = AuthApiClient.getInstance();
 
   // 服务器URL
   final String _serverUrl;
@@ -33,25 +33,25 @@ class AuthCubit extends Cubit<AuthState> {
   })  : _serverUrl = serverUrl,
         _isSimulationMode = isSimulationMode,
         super(AuthState.initial()) {
-    // 初始化认证服务
-    _initAuthService();
+    _initAuthApiClient();
     // 订阅认证响应事件
-    _authService.onAuthResponse.listen(_handleAuthResponse);
+    _authApiClient.onAuthResponse.listen(_handleAuthResponse);
   }
 
-  // 初始化认证服务
-  Future<void> _initAuthService() async {
+  /// 初始化认证API客户端
+  Future<void> _initAuthApiClient() async {
     try {
-      final success = await _authService.init(
+      final success = await _authApiClient.init(
         serverUrl: _serverUrl,
+        isSimulationMode: _isSimulationMode,
       );
 
       if (!success) {
-        _logger.e('初始化认证服务失败');
-        emit(state.toErrorState('初始化认证服务失败，请重试'));
+        _logger.e('初始化认证API客户端失败');
+        emit(state.toErrorState('初始化认证服务失败,请重试'));
       }
     } catch (e) {
-      _logger.e('初始化认证服务出错', error: e);
+      _logger.e('初始化认证API客户端出错', error: e);
       emit(state.toErrorState(e.toString()));
     }
   }
@@ -66,17 +66,26 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     if (response.hasUserId() && response.hasToken()) {
-      emit(state.toAuthenticatedState(
-        userId: response.userId ?? '',
-        token: response.token ?? '',
-      ));
+      // 先不要发出认证成功的状态，等数据库初始化完成后再发出
+      final userId = response.userId ?? '';
+      final token = response.token ?? '';
 
-      // 初始化数据库和模拟数据
-      _initDatabases(response.userId ?? '', response.token ?? '');
+      // 初始化数据库，然后再发出认证成功的状态
+      _initDatabases(userId, token).then((_) {
+        // 数据库初始化成功后，再发出认证成功的状态
+        _logger.i('数据库和服务初始化完成，发出认证成功状态');
+        emit(state.toAuthenticatedState(
+          userId: userId,
+          token: token,
+        ));
+      }).catchError((e) {
+        _logger.e('初始化失败，无法完成认证', error: e);
+        emit(state.toErrorState('初始化失败: ${e.toString()}'));
+      });
     }
   }
 
-  // 初始化数据库和模拟数据库
+  // 初始化数据库
   Future<void> _initDatabases(String userId, String token) async {
     try {
       _logger.i('开始初始化数据库', extra: {'userId': userId, 'isSimulationMode': _isSimulationMode});
@@ -84,36 +93,52 @@ class AuthCubit extends Cubit<AuthState> {
       // 初始化Isar数据库
       await DatabaseInitializer.init(userId: userId);
 
+      // 验证数据库是否成功初始化
+      if (!DatabaseInitializer.isInitialized) {
+        throw Exception('数据库初始化失败，但未抛出异常');
+      }
+
+      _logger.i('数据库初始化成功，开始保存用户信息');
+
       // 保存当前用户信息
       await MyUserService.saveCurrentUser(
         userId: userId,
         token: token,
-        name: '我', // 添加必需的name参数
+        name: _isSimulationMode ? '模拟用户' : '我', // 根据模式设置名称
       );
+
+      if (_isSimulationMode) {
+        _logger.i('模拟模式下不初始化实时通信');
+        return;
+      }
 
       // 初始化实时通信
       await _initRealTimeCommunication(userId, token);
     } catch (e) {
       _logger.e('初始化数据库出错', error: e);
-      emit(state.toErrorState('初始化数据库出错: ${e.toString()}'));
+      // 不再在这里修改状态，而是向上抛出异常
+      throw Exception('初始化数据库出错: ${e.toString()}');
     }
   }
 
   // 初始化实时通信
   Future<void> _initRealTimeCommunication(String userId, String token) async {
     try {
-      _logger.i('初始化实时通信');
+      _logger.i('初始化实时通信', extra: {'isSimulationMode': _isSimulationMode, 'userId': userId});
 
-      // 使用通信服务升级连接
-      final success = await _communicationService.upgradeConnection(
+      // 直接尝试连接
+      final success = await _communicationService.connect(
+        serverUrl: _serverUrl,
         userId: userId,
         token: token,
       );
 
-      if (!success) {
+      if (success) {
+        _logger.i('实时通信初始化成功');
+      } else {
         _logger.e('初始化实时通信失败');
         // 不要因为实时通信失败而阻止用户登录
-        // 可以在UI上显示提示，并允许用户手动重试
+        // 可以在UI上显示提示,并允许用户手动重试
       }
     } catch (e) {
       _logger.e('初始化实时通信错误', error: e);
@@ -154,21 +179,21 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('发送验证码中...');
       emit(state.toLoadingState());
 
-      // 使用认证服务发送验证码
-      final success = await _authService.sendVerificationCode(
+      // 使用认证API客户端发送验证码
+      final success = await _authApiClient.sendVerificationCode(
         state.phoneNumber!,
         'login', // 用途：login/register/reset
       );
 
       if (!success) {
-        throw '发送验证码失败，请稍后再试';
+        throw '发送验证码失败,请稍后再试';
       }
 
       emit(state.updateCodeSentStatus(
         isCodeSent: true,
         countdown: countdownDuration,
       ));
-      _logger.i('验证码已发送，倒计时: $countdownDuration');
+      _logger.i('验证码已发送,倒计时: $countdownDuration');
 
       _startCountdown();
     } catch (e) {
@@ -217,7 +242,7 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         _logger.i('使用验证码登录: ${state.verificationCode}');
-        success = await _authService.loginWithCode(
+        success = await _authApiClient.loginWithCode(
           state.phoneNumber!,
           state.verificationCode!,
         );
@@ -229,17 +254,17 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         _logger.i('使用密码登录: ${state.password}');
-        success = await _authService.loginWithPassword(
+        success = await _authApiClient.loginWithPassword(
           state.phoneNumber!,
           state.password!,
         );
       }
 
       if (!success) {
-        throw '登录失败，请检查网络连接';
+        throw '登录失败,请检查网络连接';
       }
 
-      // 注意：登录结果将通过AuthService的onAuthResponse回调处理
+      // 注意：登录结果将通过AuthApiClient的onAuthResponse回调处理
     } catch (e) {
       _logger.e('登录错误: $e');
       emit(state.toErrorState(e.toString()));
@@ -292,13 +317,13 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.toLoadingState());
       _logger.i('注册中...');
 
-      final success = await _authService.register(phoneNumber, verificationCode, password, nickname);
+      final success = await _authApiClient.register(phoneNumber, verificationCode, password, nickname);
 
       if (!success) {
-        throw '注册失败，请检查网络连接';
+        throw '注册失败,请检查网络连接';
       }
 
-      // 注意：注册结果将通过AuthService的onAuthResponse回调处理
+      // 注意：注册结果将通过AuthApiClient的onAuthResponse回调处理
     } catch (e) {
       _logger.e('注册错误: $e');
       emit(state.toErrorState(e.toString()));
@@ -344,61 +369,18 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.toLoadingState());
       _logger.i('重置密码中...');
 
-      final success = await _authService.resetPassword(phoneNumber, verificationCode, newPassword);
+      final success = await _authApiClient.resetPassword(phoneNumber, verificationCode, newPassword);
 
       if (!success) {
-        throw '重置密码失败，请检查网络连接';
+        throw '重置密码失败,请检查网络连接';
       }
 
-      // 注意：重置密码结果将通过AuthService的onAuthResponse回调处理
+      // 注意：重置密码结果将通过AuthApiClient的onAuthResponse回调处理
     } catch (e) {
       _logger.e('重置密码错误: $e');
       emit(state.toErrorState(e.toString()));
-      // 重新抛出异常，以便上层代码捕获
+      // 重新抛出异常,以便上层代码捕获
       rethrow;
-    }
-  }
-
-  // 使用模拟账户登录（仅用于模拟环境）
-  Future<void> loginWithMockAccount({
-    required String userId,
-    required String token,
-    required String username,
-  }) async {
-    _logger.i('使用模拟账户登录', extra: {'userId': userId, 'username': username});
-
-    try {
-      emit(state.toLoadingState());
-
-      // 初始化数据库（如果尚未初始化）
-      if (!DatabaseInitializer.isInitialized) {
-        await DatabaseInitializer.init(userId: userId);
-      }
-
-      // 保存模拟用户信息
-      final myUser = await MyUserService.saveCurrentUser(
-        userId: userId,
-        token: token,
-        name: username,
-        avatar: null,
-        phone: '13800138000', // 模拟手机号
-        tokenExpireTime: DateTime.now().add(const Duration(days: 7)), // 模拟令牌7天有效期
-      );
-
-      if (myUser == null) {
-        throw '创建模拟用户失败';
-      }
-
-      // 更新认证状态
-      emit(state.toAuthenticatedState(userId: userId, token: token));
-
-      // 初始化实时通信
-      await _initRealTimeCommunication(userId, token);
-
-      _logger.i('模拟账户登录成功');
-    } catch (e) {
-      _logger.e('模拟账户登录失败', error: e);
-      emit(state.toErrorState(e.toString()));
     }
   }
 

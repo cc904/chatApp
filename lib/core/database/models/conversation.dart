@@ -12,7 +12,7 @@ class Conversation {
   // Isar ID
   Id id = Isar.autoIncrement;
 
-  // 兼容性字段，与id值保持一致
+  // 兼容性字段,与id值保持一致
   String conversationId = '';
 
   @Enumerated(EnumType.name)

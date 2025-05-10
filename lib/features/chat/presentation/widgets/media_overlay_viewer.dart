@@ -9,7 +9,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/message_types.dart';
 
 /// 全屏媒体浮窗查看器组件
-/// 直接覆盖在当前页面上，无需导航到新页面
+/// 直接覆盖在当前页面上,无需导航到新页面
 class MediaOverlayViewer extends StatefulWidget {
   final String? localPath; // 本地路径
   final String? mediaUrl; // 媒体URL
@@ -158,7 +158,7 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
       if (widget.mediaType == MessageType.video) {
         await _initVideoPlayer();
       } else {
-        // 图片不需要特殊初始化，只需验证路径
+        // 图片不需要特殊初始化,只需验证路径
         _validateImagePath();
       }
     } catch (e) {

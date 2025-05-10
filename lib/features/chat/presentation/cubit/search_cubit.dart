@@ -67,7 +67,7 @@ class SearchCubit extends Cubit<SearchState> {
       return;
     }
 
-    // 开始搜索，更新状态
+    // 开始搜索,更新状态
     emit(state.copyWith(
       isSearching: true,
       searchQuery: query,

@@ -112,7 +112,7 @@ class ChatState extends Equatable {
     );
   }
 
-  /// 复制状态，更新指定字段
+  /// 复制状态,更新指定字段
   ChatState copyWith({
     List<Conversation>? conversations,
     List<User>? contacts,
@@ -143,7 +143,7 @@ class ChatState extends Equatable {
     );
   }
 
-  /// 复制状态，但仅更新某个会话的消息
+  /// 复制状态,但仅更新某个会话的消息
   ChatState copyWithMessagesForConversation(String conversationId, List<Message> messages) {
     final newMessagesByConversation = Map<String, List<Message>>.from(messagesByConversation);
     newMessagesByConversation[conversationId] = messages;
@@ -164,7 +164,7 @@ class ChatState extends Equatable {
     );
   }
 
-  /// 复制状态，并将新的消息添加到指定会话的现有消息列表中
+  /// 复制状态,并将新的消息添加到指定会话的现有消息列表中
   ChatState copyWithAdditionalMessagesForConversation(String conversationId, List<Message> additionalMessages) {
     final newMessagesByConversation = Map<String, List<Message>>.from(messagesByConversation);
 
@@ -183,7 +183,7 @@ class ChatState extends Equatable {
       }
     }
 
-    // 添加新消息，确保不重复
+    // 添加新消息,确保不重复
     for (final message in additionalMessages) {
       if (!allMessageIds.contains(message.id.toString())) {
         allMessageIds.add(message.id.toString());

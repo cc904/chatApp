@@ -252,13 +252,13 @@ class _ContactsPageState extends State<ContactsPage> {
               // 实际发送好友请求
               final message = messageController.text.trim();
 
-              // 这里需要先根据手机号查找用户，然后发送请求
-              // 由于这是模拟，我们直接使用一个模拟ID
+              // 这里需要先根据手机号查找用户,然后发送请求
+              // 由于这是模拟,我们直接使用一个模拟ID
               final mockUserId = 'user_${DateTime.now().millisecondsSinceEpoch}';
 
               context.read<ContactsCubit>().sendFriendRequest(
                     mockUserId,
-                    message.isEmpty ? '我是你的好友，请求添加' : message,
+                    message.isEmpty ? '我是你的好友,请求添加' : message,
                   );
 
               Navigator.pop(context);
@@ -281,7 +281,7 @@ class _ContactsPageState extends State<ContactsPage> {
       String firstLetter = '#';
 
       if (contact.name.isNotEmpty) {
-        // 获取拼音首字母，如果有的话
+        // 获取拼音首字母,如果有的话
         if (contact.pinyin != null && contact.pinyin!.isNotEmpty) {
           firstLetter = contact.pinyin![0].toUpperCase();
         } else {

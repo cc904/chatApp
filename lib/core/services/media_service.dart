@@ -18,7 +18,7 @@ class MediaService {
   final Record _audioRecorder = Record();
   final Uuid _uuid = const Uuid();
 
-  // 音频播放器实例，使用懒加载模式
+  // 音频播放器实例,使用懒加载模式
   AudioPlayer? _audioPlayer;
   bool _isPlayerInitialized = false;
 
@@ -119,7 +119,7 @@ class MediaService {
       String effectiveFilePath = filePath;
       if (filePath.startsWith('file://')) {
         effectiveFilePath = filePath.substring(7);
-        _logger.i('移除file://前缀，实际路径: $effectiveFilePath');
+        _logger.i('移除file://前缀,实际路径: $effectiveFilePath');
       }
 
       // 验证文件是否存在
@@ -145,7 +145,7 @@ class MediaService {
         await player.setFilePath(effectiveFilePath);
       } catch (e) {
         _logger.e('设置音频文件路径失败', error: e);
-        // 对于macOS，尝试使用完整的file://路径
+        // 对于macOS,尝试使用完整的file://路径
         if (Platform.isMacOS) {
           _logger.i('在macOS上尝试使用file://URL格式');
           final macOSPath = 'file://$effectiveFilePath';
@@ -227,7 +227,7 @@ class MediaService {
       // 根据URL类型设置音频源
       if (url.startsWith('file://')) {
         final localPath = url.substring(7);
-        _logger.i('检测到本地URL，转换为本地路径: $localPath');
+        _logger.i('检测到本地URL,转换为本地路径: $localPath');
 
         // 验证文件是否存在
         final file = File(localPath);
@@ -241,7 +241,7 @@ class MediaService {
           await player.setFilePath(localPath);
         } catch (e) {
           _logger.e('设置本地文件路径失败', error: e);
-          // 对于macOS，直接使用URL格式
+          // 对于macOS,直接使用URL格式
           if (Platform.isMacOS) {
             _logger.i('在macOS上尝试使用原始file://URL');
             await player.setUrl(url);
@@ -321,7 +321,7 @@ class MediaService {
   /// 停止音频播放
   Future<void> stopAudio() async {
     if (_audioPlayer == null || !_isPlayerInitialized) {
-      _logger.i('没有活动的音频播放器，无需停止');
+      _logger.i('没有活动的音频播放器,无需停止');
       return;
     }
 
@@ -369,7 +369,7 @@ class MediaService {
       _onCompleteCallback = null;
       _onProgressCallback = null;
 
-      // 如果有活动播放器，释放资源
+      // 如果有活动播放器,释放资源
       if (_audioPlayer != null && _isPlayerInitialized) {
         try {
           await _audioPlayer!.stop();
@@ -469,7 +469,7 @@ class MediaService {
         final String fileName = '${_uuid.v4()}.aac';
         final String filePath = '${tempDir.path}/$fileName';
 
-        // 保存原始路径，用于后续的文件操作
+        // 保存原始路径,用于后续的文件操作
         _currentRecordingPath = filePath;
         _logger.i('录音文件路径: $filePath');
 
@@ -479,7 +479,7 @@ class MediaService {
           _isRecording = false;
         }
 
-        // 在macOS上，我们需要使用file://前缀
+        // 在macOS上,我们需要使用file://前缀
         String recordPath;
         if (Platform.isMacOS) {
           // 使用file://前缀的完整URL
@@ -519,7 +519,7 @@ class MediaService {
     }
 
     try {
-      // 停止录音前，确保设置了正确的状态标志
+      // 停止录音前,确保设置了正确的状态标志
       _isRecording = false;
 
       // 停止录音
@@ -538,9 +538,9 @@ class MediaService {
 
       // 确认文件存在
       if (!await file.exists()) {
-        _logger.e('录音文件不存在，尝试使用返回的路径');
+        _logger.e('录音文件不存在,尝试使用返回的路径');
 
-        // 如果返回的路径是file://开头，尝试转换并检查
+        // 如果返回的路径是file://开头,尝试转换并检查
         String altPath = path;
         if (path.startsWith('file://')) {
           altPath = path.substring(7);
@@ -550,7 +550,7 @@ class MediaService {
         if (await altFile.exists()) {
           _logger.i('使用替代路径找到文件: $altPath');
 
-          // 如果文件大小为0，可能录音失败
+          // 如果文件大小为0,可能录音失败
           final fileSize = await altFile.length();
           if (fileSize <= 0) {
             _logger.e('录音文件大小为0');
@@ -586,7 +586,7 @@ class MediaService {
       _logger.e('停止录音失败', error: e);
       return null;
     } finally {
-      // 无论成功与否，确保状态被重置
+      // 无论成功与否,确保状态被重置
       _isRecording = false;
     }
   }
@@ -624,7 +624,7 @@ class MediaService {
       final dir = Directory(tempDir.path);
 
       if (await dir.exists()) {
-        // 删除临时目录中的所有文件，但保留目录
+        // 删除临时目录中的所有文件,但保留目录
         await for (final entity in dir.list()) {
           if (entity is File) {
             await entity.delete();

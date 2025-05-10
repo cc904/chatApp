@@ -2,7 +2,7 @@ import 'dart:developer' as dev;
 import 'package:stack_trace/stack_trace.dart';
 
 /// 日志服务
-/// 提供统一的日志记录功能，自动添加文件名和函数名信息
+/// 提供统一的日志记录功能,自动添加文件名和函数名信息
 class LogService {
   static final Map<String, LogService> _instances = {};
 
@@ -41,7 +41,7 @@ class LogService {
         }
       }
     } catch (e) {
-      // 无法获取函数名时，返回unknown
+      // 无法获取函数名时,返回unknown
     }
     return 'unknown';
   }

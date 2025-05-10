@@ -94,7 +94,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   }
 
   /// 更新用户在线状态
-  /// 将用户状态更新为在线或离线，并记录最后活跃时间
+  /// 将用户状态更新为在线或离线,并记录最后活跃时间
   /// [userId] - 要更新状态的用户ID
   /// [isOnline] - 是否在线
   Future<void> _updateUserOnlineStatus(String userId, bool isOnline) async {
@@ -134,7 +134,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   }
 
   /// 搜索联系人
-  /// 根据查询词搜索联系人，可匹配名称、拼音等字段
+  /// 根据查询词搜索联系人,可匹配名称、拼音等字段
   /// [query] - 搜索关键词
   @override
   Future<List<User>> searchContacts(String query) async {
@@ -252,7 +252,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           'token': currentUser.token,
         });
       } else {
-        _logger.w('通信服务未初始化，无法同步联系人');
+        _logger.w('通信服务未初始化,无法同步联系人');
       }
 
       List<User> serverContacts = [];
@@ -275,9 +275,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
         _logger.i('联系人同步完成 - ${serverContacts.length} 个联系人');
       } else {
         _logger.i('使用真实网络同步联系人');
-        // 实际情况下，通过上面发送的事件触发服务器返回联系人数据
+        // 实际情况下,通过上面发送的事件触发服务器返回联系人数据
         // 等待联系人同步结果通过通信服务的事件返回
-        // 这里设置一个超时，避免永久等待
+        // 这里设置一个超时,避免永久等待
         final completer = Completer<List<User>>();
         final timeout = Timer(Duration(seconds: 10), () {
           if (!completer.isCompleted) {
@@ -426,7 +426,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       // 查询发送者信息
       User? sender = await _users.filter().userIdEqualTo(request.senderId).findFirst();
 
-      // 如果发送者不在联系人列表中，则创建
+      // 如果发送者不在联系人列表中,则创建
       sender ??= User()
         ..userId = request.senderId
         ..name = request.senderName
@@ -534,7 +534,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   }
 
   /// 释放资源
-  /// 取消订阅，释放所占用的资源
+  /// 取消订阅,释放所占用的资源
   void dispose() {
     for (final subscription in _subscriptions) {
       subscription.cancel();

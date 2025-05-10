@@ -1,5 +1,5 @@
-/// 消息类型常量，用于替代先前的MessageType枚举
-/// 使用字符串类型，以便与数据库字段类型保持一致
+/// 消息类型常量,用于替代先前的MessageType枚举
+/// 使用字符串类型,以便与数据库字段类型保持一致
 class MessageType {
   static const String text = 'text'; // 文本消息
   static const String image = 'image'; // 图片消息

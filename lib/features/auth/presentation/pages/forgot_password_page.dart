@@ -156,7 +156,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               _currentStep += 1;
                             });
                           } else {
-                            // 最后一步，提交重置密码
+                            // 最后一步,提交重置密码
                             _resetPassword();
                           }
                         }
@@ -218,7 +218,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 12),
         Text(
-          '我们将向您的手机发送验证码，请确保输入正确的手机号。',
+          '我们将向您的手机发送验证码,请确保输入正确的手机号。',
           style: TextStyle(color: Colors.grey[600], fontSize: 13),
         ),
       ],
@@ -269,7 +269,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 12),
         Text(
-          '请输入您收到的验证码，验证码有效期为5分钟。',
+          '请输入您收到的验证码,验证码有效期为5分钟。',
           style: TextStyle(color: Colors.grey[600], fontSize: 13),
         ),
       ],
@@ -305,7 +305,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 12),
         Text(
-          '请设置一个安全的新密码，并牢记您的密码。',
+          '请设置一个安全的新密码,并牢记您的密码。',
           style: TextStyle(color: Colors.grey[600], fontSize: 13),
         ),
       ],
@@ -359,8 +359,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   /// 执行重置密码的操作
   ///
-  /// 向AuthCubit发送重置密码请求，并处理成功和失败的情况
-  /// 成功时显示成功对话框，失败时显示错误消息
+  /// 向AuthCubit发送重置密码请求,并处理成功和失败的情况
+  /// 成功时显示成功对话框,失败时显示错误消息
   void _resetPassword() {
     _logger.d('重置密码', extra: {'phoneNumber': _phoneController.text});
 
@@ -395,7 +395,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('密码重置成功'),
-          content: const Text('您的密码已成功重置，请使用新密码登录。'),
+          content: const Text('您的密码已成功重置,请使用新密码登录。'),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -421,7 +421,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       // 显示错误消息
       _showErrorMessage(error.toString());
 
-      // 出错时不返回登录页，留在当前页面
+      // 出错时不返回登录页,留在当前页面
     });
   }
 

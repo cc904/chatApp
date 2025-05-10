@@ -21,7 +21,7 @@ class ChatInfoPage extends StatefulWidget {
 
 class _ChatInfoPageState extends State<ChatInfoPage> {
   final _logger = LogService('chat_info_page.dart');
-  // 模拟属性值，实际应该保存在数据库中
+  // 模拟属性值,实际应该保存在数据库中
   bool _isMuted = false;
   bool _isPinned = false;
 
@@ -380,7 +380,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
     final isGroup = conversation.type == ConversationType.group;
     final title = isGroup ? '删除并退出' : '删除聊天';
-    final content = isGroup ? '退出后，将不再接收此群聊信息' : '删除后，将不再接收此联系人的消息';
+    final content = isGroup ? '退出后,将不再接收此群聊信息' : '删除后,将不再接收此联系人的消息';
 
     showDialog(
       context: context,

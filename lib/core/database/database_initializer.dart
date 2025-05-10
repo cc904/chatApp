@@ -24,41 +24,32 @@ class DatabaseInitializer {
   /// 获取数据库实例
   static Isar get isar {
     if (_isar == null) {
-      throw Exception('数据库未初始化，请先调用 init() 方法');
+      throw Exception('数据库未初始化,请先调用 init() 方法');
     }
     return _isar!;
   }
 
   /// 初始化数据库
   ///
-  /// 必须指定userId，不再支持默认数据库
+  /// 必须指定userId,不再支持默认数据库
   static Future<void> init({required String userId}) async {
     try {
-      // 如果数据库已经初始化，且用户ID相同，则直接返回
+      // 如果数据库已经初始化,且用户ID相同,则直接返回
       if (_isar != null && _currentUserId == userId) {
-        _logger.i('数据库已经初始化，当前用户ID: $_currentUserId');
+        _logger.i('数据库已经初始化,当前用户ID: $_currentUserId');
         return;
       }
 
-      // 如果数据库已经初始化，但用户ID不同，则先关闭当前数据库
-      if (_isar != null) {
-        _logger.i('切换用户，关闭当前数据库');
-        await close();
-      }
+      _logger.i('开始初始化数据库,用户ID: $userId');
 
-      _logger.i('开始初始化数据库，用户ID: $userId');
-
-      // final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/isar');
-      // if (!await dir.exists()) {
-      //   await dir.create(recursive: true);
-      // }
       final dir = await getApplicationDocumentsDirectory();
       String dbName = '$userId.isar';
 
       _logger.i('使用数据库文件目录: $dir');
       _logger.i('使用数据库文件: $dbName');
 
-      _isar = await Isar.open(
+      // 保存临时实例，避免初始化失败时影响全局变量
+      final isarInstance = await Isar.open(
         [
           UserSchema,
           MyUserSchema,
@@ -70,18 +61,17 @@ class DatabaseInitializer {
         name: dbName,
       );
 
+      // 实例创建成功后才设置全局变量
+      _isar = isarInstance;
       _currentUserId = userId;
 
       // 创建索引
       await _createIndexes();
-      _logger.i('数据库初始化完成');
-
-      // // 模拟模式下生成模拟数据
-      // if (AppConfig().isSimulationMode) {
-      //   _logger.i('开始生成模拟数据');
-      //   await MockDataGenerator.generateMockData();
-      // }
+      _logger.i('数据库初始化完成，isInitialized: $isInitialized');
     } catch (e) {
+      // 确保在初始化失败时重置状态
+      _isar = null;
+      _currentUserId = null;
       _logger.e('数据库初始化失败', error: e);
       rethrow;
     }
@@ -161,7 +151,7 @@ class DatabaseInitializer {
   /// 删除用户数据库
   static Future<bool> deleteUserDatabase(String userId) async {
     try {
-      // 如果当前打开的是要删除的数据库，先关闭它
+      // 如果当前打开的是要删除的数据库,先关闭它
       if (_currentUserId == userId && _isar != null) {
         await close();
       }

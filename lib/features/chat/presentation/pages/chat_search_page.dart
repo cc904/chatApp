@@ -89,7 +89,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       _logger.i('打开日期选择器');
       final selectedDate = await _datePicker.selectDate(context);
 
-      // 如果选中了日期，则跳转到对应日期的聊天记录
+      // 如果选中了日期,则跳转到对应日期的聊天记录
       if (selectedDate != null) {
         // 更新SearchCubit中的日期和过滤器
         _searchCubit.setSelectedDate(selectedDate);
@@ -127,7 +127,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
             UINotificationHelper.showError('跳转到聊天界面失败: $e');
           }
         } else {
-          _logger.w('组件已卸载，无法执行导航');
+          _logger.w('组件已卸载,无法执行导航');
         }
       });
     } catch (e) {
@@ -485,7 +485,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
         // 使用标准格式Map返回消息ID
         final result = {'targetMessageId': message.messageId};
-        _logger.i('准备返回消息ID，使用Map格式', extra: {'result': result, 'type': result.runtimeType});
+        _logger.i('准备返回消息ID,使用Map格式', extra: {'result': result, 'type': result.runtimeType});
 
         Navigator.pop(context, result);
         _logger.i('已调用Navigator.pop传递消息ID参数');
@@ -666,7 +666,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     final lowerContent = content.toLowerCase();
     int start = 0;
 
-    // 查找所有匹配项，并构建TextSpan列表
+    // 查找所有匹配项,并构建TextSpan列表
     while (true) {
       final index = lowerContent.indexOf(searchQuery, start);
       if (index == -1) {

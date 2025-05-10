@@ -88,7 +88,7 @@ class CallsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '分享一个链接，邀请任何人加入WhatsApp通话，即使他们没有WhatsApp',
+                    '分享一个链接,邀请任何人加入WhatsApp通话,即使他们没有WhatsApp',
                     style: TextStyle(
                       color: Colors.grey,
                       fontSize: 14,

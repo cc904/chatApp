@@ -29,7 +29,7 @@ lib/core/proto/
 
 ## 生成Dart代码
 
-项目提供了生成脚本，执行：
+项目提供了生成脚本,执行：
 
 ```bash
 ./scripts/generate_protos.sh
@@ -41,7 +41,7 @@ lib/core/proto/
 
 ## 在代码中使用
 
-项目提供了`ProtoConverter`工具类，用于在Socket.IO通信中处理protobuf数据：
+项目提供了`ProtoConverter`工具类,用于在Socket.IO通信中处理protobuf数据：
 
 ```dart
 import 'package:cc/core/services/proto_converter.dart';
@@ -90,4 +90,4 @@ await socketService.init(
 
 - 服务器端也需要支持protobuf格式
 - socket.io传输二进制数据需要正确配置
-- 非Web平台(如Android和iOS)对二进制更友好，而Web平台使用Base64可能更合适 
+- 非Web平台(如Android和iOS)对二进制更友好,而Web平台使用Base64可能更合适 

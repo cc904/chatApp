@@ -73,7 +73,7 @@ class UINotificationHelper {
       // 执行操作
       final result = await action();
 
-      // 操作成功，清除当前消息并显示成功消息
+      // 操作成功,清除当前消息并显示成功消息
       UINotificationService.instance.hideCurrentMessage();
       if (shouldShowSuccess) {
         showSuccess(successMessage);
@@ -81,7 +81,7 @@ class UINotificationHelper {
 
       return result;
     } catch (e) {
-      // 发生错误，清除当前消息并显示错误消息
+      // 发生错误,清除当前消息并显示错误消息
       if (shouldForceCleanupOnError) {
         UINotificationService.instance.clearAllMessages();
       } else {

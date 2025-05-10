@@ -59,14 +59,14 @@ class ProtoConverter {
         return messageToBytes(message);
 
       case 'auth_request':
-        // AuthRequest不是真正的protobuf类，无法序列化
-        _logger.w('AuthRequest未实现为protobuf，无法序列化');
+        // AuthRequest不是真正的protobuf类,无法序列化
+        _logger.w('AuthRequest未实现为protobuf,无法序列化');
         throw UnimplementedError('AuthRequest暂不支持二进制序列化');
 
       case 'user_online':
       case 'user_offline':
         // UserStatus类未定义
-        _logger.w('UserStatus未定义，无法序列化');
+        _logger.w('UserStatus未定义,无法序列化');
         throw UnimplementedError('UserStatus暂不支持二进制序列化');
 
       case 'conversation_update':
@@ -84,7 +84,7 @@ class ProtoConverter {
         return conversation.writeToBuffer();
 
       default:
-        _logger.w('未知事件类型，无法编码为Protobuf', extra: {'eventType': eventType});
+        _logger.w('未知事件类型,无法编码为Protobuf', extra: {'eventType': eventType});
         throw UnsupportedError('不支持的事件类型: $eventType');
     }
   }
@@ -113,14 +113,14 @@ class ProtoConverter {
           };
 
         case 'auth_response':
-          // AuthResponse不是真正的protobuf类，无法反序列化
-          _logger.w('AuthResponse未实现为protobuf，无法反序列化');
+          // AuthResponse不是真正的protobuf类,无法反序列化
+          _logger.w('AuthResponse未实现为protobuf,无法反序列化');
           throw UnimplementedError('AuthResponse暂不支持二进制反序列化');
 
         case 'user_online':
         case 'user_offline':
           // UserStatus类未定义
-          _logger.w('UserStatus未定义，无法反序列化');
+          _logger.w('UserStatus未定义,无法反序列化');
           throw UnimplementedError('UserStatus暂不支持二进制反序列化');
 
         case 'conversation_update':
@@ -134,7 +134,7 @@ class ProtoConverter {
           };
 
         default:
-          _logger.w('未知事件类型，无法解码', extra: {'eventType': eventType});
+          _logger.w('未知事件类型,无法解码', extra: {'eventType': eventType});
           throw UnsupportedError('不支持的事件类型: $eventType');
       }
     } catch (e) {
@@ -146,16 +146,16 @@ class ProtoConverter {
   // ==== User 转换 ====
 
   /// 将 UserSession 转换为二进制数据
-  /// 注意：这个方法实际未实现，因为UserSession不是真正的protobuf类
+  /// 注意：这个方法实际未实现,因为UserSession不是真正的protobuf类
   Uint8List userSessionToBytes(UserSession user) {
-    _logger.w('UserSession未实现为protobuf，无法序列化');
+    _logger.w('UserSession未实现为protobuf,无法序列化');
     throw UnimplementedError('UserSession暂不支持二进制序列化');
   }
 
   /// 将二进制数据转换为 UserSession
-  /// 注意：这个方法实际未实现，因为UserSession不是真正的protobuf类
+  /// 注意：这个方法实际未实现,因为UserSession不是真正的protobuf类
   UserSession bytesToUserSession(Uint8List bytes) {
-    _logger.w('UserSession未实现为protobuf，无法反序列化');
+    _logger.w('UserSession未实现为protobuf,无法反序列化');
     throw UnimplementedError('UserSession暂不支持二进制反序列化');
   }
 
@@ -174,16 +174,16 @@ class ProtoConverter {
   // ==== Auth 转换 ====
 
   /// 将 AuthRequest 转换为二进制数据
-  /// 注意：这个方法实际未实现，因为AuthRequest不是真正的protobuf类
+  /// 注意：这个方法实际未实现,因为AuthRequest不是真正的protobuf类
   Uint8List authRequestToBytes(AuthRequest request) {
-    _logger.w('AuthRequest未实现为protobuf，无法序列化');
+    _logger.w('AuthRequest未实现为protobuf,无法序列化');
     throw UnimplementedError('AuthRequest暂不支持二进制序列化');
   }
 
   /// 将二进制数据转换为 AuthResponse
-  /// 注意：这个方法实际未实现，因为AuthResponse不是真正的protobuf类
+  /// 注意：这个方法实际未实现,因为AuthResponse不是真正的protobuf类
   AuthResponse bytesToAuthResponse(Uint8List bytes) {
-    _logger.w('AuthResponse未实现为protobuf，无法反序列化');
+    _logger.w('AuthResponse未实现为protobuf,无法反序列化');
     throw UnimplementedError('AuthResponse暂不支持二进制反序列化');
   }
 }

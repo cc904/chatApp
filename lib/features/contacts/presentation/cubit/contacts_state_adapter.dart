@@ -38,7 +38,7 @@ class ContactsStateAdapter {
     );
   }
 
-  /// 设置搜索结果，供适配器使用
+  /// 设置搜索结果,供适配器使用
   static void setSearchResults(String query, List<User> results) {
     _lastSearchQuery = query;
     _lastSearchResults = results;
@@ -50,7 +50,7 @@ class ContactsStateAdapter {
     _lastSearchResults = [];
   }
 
-  /// 获取名称的首字母，如果不是字母则返回#
+  /// 获取名称的首字母,如果不是字母则返回#
   static String _getFirstLetter(String name) {
     if (name.isEmpty) return '#';
 

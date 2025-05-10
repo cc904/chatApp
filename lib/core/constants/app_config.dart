@@ -1,13 +1,13 @@
 /// 应用全局配置
 ///
-/// 这个类负责管理应用的全局配置选项，如模拟模式、服务器URL等。
+/// 这个类负责管理应用的全局配置选项,如模拟模式、服务器URL等。
 /// 使用单例模式确保全应用范围内配置一致。
 class AppConfig {
   // 服务端配置
-  String serverUrl = 'https://socketio-chat-server.vercel.app';
+  String serverUrl = 'http://[::1]:3000';
 
   // 模拟模式配置
-  bool isSimulationMode = true;
+  bool isSimulationMode = false;
 
   // 默认用户ID
   final String defaultUserId = 'user_123456';

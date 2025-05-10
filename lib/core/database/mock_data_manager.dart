@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 /// 模拟数据管理器
 ///
-/// 负责管理独立的模拟数据库，与用户数据完全隔离。
+/// 负责管理独立的模拟数据库,与用户数据完全隔离。
 /// 提供模拟数据的初始化、查询和搜索功能。
 class MockDataManager {
   static final _logger = LogService('MockDataManager');
@@ -21,7 +21,7 @@ class MockDataManager {
   /// 模拟数据库的Isar实例
   static Isar get mockIsar {
     if (!_isInitialized) {
-      throw 'MockDataManager未初始化，请先调用init()方法';
+      throw 'MockDataManager未初始化,请先调用init()方法';
     }
     return _mockIsar;
   }
@@ -37,7 +37,7 @@ class MockDataManager {
   /// 3. 根据isSimulationMode决定是否生成模拟数据
   static Future<void> init() async {
     if (_isInitialized) {
-      _logger.i('模拟数据管理器已经初始化，无需重复操作');
+      _logger.i('模拟数据管理器已经初始化,无需重复操作');
       return;
     }
 
@@ -65,7 +65,7 @@ class MockDataManager {
       if (appConfig.isSimulationMode) {
         final contactCount = await _mockIsar.users.count();
         if (contactCount == 0) {
-          _logger.i('模拟数据库为空，开始生成模拟数据...');
+          _logger.i('模拟数据库为空,开始生成模拟数据...');
           await MockDataGenerator.generateMockData();
         }
       }

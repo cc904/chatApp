@@ -4,7 +4,7 @@ import 'conversation.dart';
 part 'user.g.dart';
 
 /// 联系人/用户信息模型
-/// 此模型仅用于存储联系人信息，不存储当前登录用户的信息
+/// 此模型仅用于存储联系人信息,不存储当前登录用户的信息
 @collection
 class User {
   // Isar ID
@@ -26,7 +26,7 @@ class User {
   // 联系人电子邮箱
   String? email;
 
-  // 拼音索引，用于搜索和排序
+  // 拼音索引,用于搜索和排序
   @Index(type: IndexType.value)
   String? pinyin;
 

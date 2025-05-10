@@ -13,7 +13,7 @@ import 'package:cc/features/home/presentation/pages/home_page.dart';
 
 /// 为HomePage提供必要的仓库和状态管理器
 ///
-/// 这个包装器在用户登录成功后创建，负责初始化用户数据相关的仓库和状态管理器
+/// 这个包装器在用户登录成功后创建,负责初始化用户数据相关的仓库和状态管理器
 /// 优点是避免在登录前访问未初始化的数据库
 class HomeProvider extends StatelessWidget {
   const HomeProvider({super.key});
@@ -25,10 +25,10 @@ class HomeProvider extends StatelessWidget {
 
     // 确保DatabaseInitializer已经初始化
     if (!DatabaseInitializer.isInitialized) {
-      logger.e('数据库未初始化，无法加载Home页面');
+      logger.e('数据库未初始化,无法加载Home页面');
       return const Scaffold(
         body: Center(
-          child: Text('数据库未初始化，请重新登录'),
+          child: Text('数据库未初始化,请重新登录'),
         ),
       );
     }
@@ -36,10 +36,10 @@ class HomeProvider extends StatelessWidget {
     // 获取当前用户ID
     final userId = authState.userId;
     if (userId == null || userId.isEmpty) {
-      logger.e('用户ID为空，无法加载Home页面');
+      logger.e('用户ID为空,无法加载Home页面');
       return const Scaffold(
         body: Center(
-          child: Text('用户信息缺失，请重新登录'),
+          child: Text('用户信息缺失,请重新登录'),
         ),
       );
     }

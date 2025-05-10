@@ -5,7 +5,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 登录前使用的模拟联系人仓库
-/// 不依赖数据库，只提供基本实现以满足UI需求
+/// 不依赖数据库,只提供基本实现以满足UI需求
 class MockContactsRepository implements ContactsRepository {
   final _logger = LogService('mock_contacts_repository.dart');
 

@@ -78,7 +78,7 @@ class AuthState extends Equatable {
     );
   }
 
-  // 复制方法，创建新的状态实例
+  // 复制方法,创建新的状态实例
   AuthState copyWith({
     String? phoneNumber,
     String? verificationCode,
@@ -99,7 +99,7 @@ class AuthState extends Equatable {
       isCodeSent: isCodeSent ?? this.isCodeSent,
       countdown: countdown ?? this.countdown,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage, // 特意不使用??，允许设置为null
+      errorMessage: errorMessage, // 特意不使用??,允许设置为null
       userId: userId ?? this.userId,
       token: token ?? this.token,
     );

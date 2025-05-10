@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:isar/isar.dart';
@@ -33,7 +32,7 @@ class DatePickerUtility {
     final today = DateTime.now();
     final todayDateOnly = DateTime(today.year, today.month, today.day);
 
-    // 如果今天有消息，则返回今天
+    // 如果今天有消息,则返回今天
     if (_messageDates.contains(todayDateOnly)) {
       return today;
     }
@@ -47,16 +46,16 @@ class DatePickerUtility {
   // 加载消息日期 - 只加载指定月份的消息日期
   Future<void> loadMessageDates({DateTime? targetMonth}) async {
     try {
-      // 如果没有指定月份，则使用当前月份
+      // 如果没有指定月份,则使用当前月份
       final now = DateTime.now();
       final month = targetMonth ?? DateTime(now.year, now.month);
 
-      // 构建月份的唯一标识，用于检查是否已加载
+      // 构建月份的唯一标识,用于检查是否已加载
       final monthKey = '${month.year}-${month.month}';
 
-      // 检查该月份是否已加载过，避免重复加载
+      // 检查该月份是否已加载过,避免重复加载
       if (_loadedMonths.contains(monthKey)) {
-        _logger.d('月份已加载过，跳过', extra: {'monthKey': monthKey});
+        _logger.d('月份已加载过,跳过', extra: {'monthKey': monthKey});
         return;
       }
 
@@ -88,7 +87,7 @@ class DatePickerUtility {
       // 显示找到的日期数量
       _logger.i('找到唯一日期', extra: {'count': dates.length});
 
-      // 添加到现有日期集合，保留之前加载的其他月份日期
+      // 添加到现有日期集合,保留之前加载的其他月份日期
       _messageDates.addAll(dates);
       // 记录该月份已加载
       _loadedMonths.add(monthKey);
@@ -106,7 +105,7 @@ class DatePickerUtility {
       // 加载当前月份
       await loadMessageDates(targetMonth: DateTime(now.year, now.month));
 
-      // 计算前两个月，处理年份变化
+      // 计算前两个月,处理年份变化
       DateTime prevMonth1;
       DateTime prevMonth2;
 
@@ -158,7 +157,7 @@ class DatePickerUtility {
       final now = DateTime.now();
       await loadMessageDates(targetMonth: DateTime(now.year, now.month));
 
-      // 如果没有找到任何日期，显示提示
+      // 如果没有找到任何日期,显示提示
       if (_messageDates.isEmpty) {
         // 关闭加载指示器
         if (context.mounted) {
@@ -177,7 +176,7 @@ class DatePickerUtility {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      // 发生错误，关闭加载指示器并显示错误
+      // 发生错误,关闭加载指示器并显示错误
       _logger.e('加载消息日期失败', error: e);
       if (context.mounted) {
         try {
@@ -193,7 +192,7 @@ class DatePickerUtility {
       return completer.future;
     }
 
-    // 使用自定义日期选择器，点击日期后直接返回选中的日期
+    // 使用自定义日期选择器,点击日期后直接返回选中的日期
     if (!context.mounted) {
       completer.complete(null);
       return completer.future;
@@ -262,13 +261,13 @@ class DatePickerUtility {
                             completer.complete(date);
                           },
                           onDisplayedMonthChanged: (DateTime month) {
-                            // 当显示的月份改变时，加载该月的消息日期
+                            // 当显示的月份改变时,加载该月的消息日期
                             _logger.i('显示月份已更改至', extra: {'year': month.year, 'month': month.month});
 
                             // 加载当前显示的月份数据
                             loadMessageDates(targetMonth: month);
 
-                            // 预加载附近月份数据，处理年份边界问题
+                            // 预加载附近月份数据,处理年份边界问题
                             DateTime nextMonth;
                             DateTime prevMonth;
 

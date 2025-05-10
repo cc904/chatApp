@@ -87,7 +87,7 @@ class _ScanCodePageState extends State<ScanCodePage> {
               child: Column(
                 children: [
                   Text(
-                    '将二维码/条码放入框内，即可自动扫描',
+                    '将二维码/条码放入框内,即可自动扫描',
                     style: TextStyle(
                       color: Colors.white.withAlpha(204),
                       fontSize: 14,

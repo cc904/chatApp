@@ -44,7 +44,7 @@ class ContactsState extends Equatable {
   }
 
   /// 获取要显示的联系人列表
-  /// 如果有搜索查询，则返回搜索结果，否则返回全部联系人
+  /// 如果有搜索查询,则返回搜索结果,否则返回全部联系人
   List<User> get displayContacts => searchQuery != null && searchQuery!.isNotEmpty ? searchResults : contacts;
 
   /// 获取分组字母列表（按顺序）

@@ -204,7 +204,7 @@ class ProfilePage extends StatelessWidget {
           _buildListTile(
             icon: Icons.cleaning_services,
             title: '重置数据',
-            subtitle: '清除所有数据，重新开始模拟',
+            subtitle: '清除所有数据,重新开始模拟',
             onTap: () {
               _showResetDataDialog(context);
             },
@@ -336,7 +336,7 @@ class ProfilePage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('重置数据'),
-        content: const Text('这将清除所有数据，包括联系人、会话和消息。\n\n此操作不可撤销，确定要继续吗？'),
+        content: const Text('这将清除所有数据,包括联系人、会话和消息。\n\n此操作不可撤销,确定要继续吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -396,13 +396,13 @@ class ProfilePage extends StatelessWidget {
       if (context.mounted) {
         Navigator.pop(context);
 
-        // 显示确认对话框告知用户数据已重置，并提供退出应用选项
+        // 显示确认对话框告知用户数据已重置,并提供退出应用选项
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
             title: const Text('数据已重置'),
-            content: const Text('所有数据已清除。为确保重置生效，应用需要重启。'),
+            content: const Text('所有数据已清除。为确保重置生效,应用需要重启。'),
             actions: [
               TextButton(
                 onPressed: () {
@@ -465,7 +465,7 @@ class ProfilePage extends StatelessWidget {
             builder: (context, setState) {
               return SwitchListTile(
                 title: const Text('模拟模式'),
-                subtitle: Text(appConfig.isSimulationMode ? '当前使用本地模拟数据，无需服务器' : '当前连接真实服务器，需要网络连接'),
+                subtitle: Text(appConfig.isSimulationMode ? '当前使用本地模拟数据,无需服务器' : '当前连接真实服务器,需要网络连接'),
                 value: appConfig.isSimulationMode,
                 activeColor: Colors.green,
                 onChanged: (bool value) {
@@ -477,7 +477,7 @@ class ProfilePage extends StatelessWidget {
                   // 显示提示
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(value ? '已启用模拟模式，应用将使用本地数据，重启应用后生效' : '已禁用模拟模式，应用将连接真实服务器，重启应用后生效'),
+                      content: Text(value ? '已启用模拟模式,应用将使用本地数据,重启应用后生效' : '已禁用模拟模式,应用将连接真实服务器,重启应用后生效'),
                       duration: const Duration(seconds: 5),
                       action: SnackBarAction(
                         label: '立即重启',
@@ -527,7 +527,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              '提示：本地服务器通常使用localhost:3000，真实服务器请输入完整URL',
+              '提示：本地服务器通常使用localhost:3000,真实服务器请输入完整URL',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
@@ -549,7 +549,7 @@ class ProfilePage extends StatelessWidget {
                 // 显示提示
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('服务器URL已更新，重启应用后生效'),
+                    content: const Text('服务器URL已更新,重启应用后生效'),
                     duration: const Duration(seconds: 5),
                     action: SnackBarAction(
                       label: '立即重启',

@@ -34,7 +34,7 @@ class ChatCubit extends Cubit<ChatState> {
   bool _isUserTyping = false;
   String? _lastTypingConversationId;
 
-  // 标记是否正在加载，避免重复加载
+  // 标记是否正在加载,避免重复加载
   bool _isLoadingConversations = false;
   // ignore: prefer_final_fields
   Map<String, bool> _isLoadingMessages = {};
@@ -50,7 +50,7 @@ class ChatCubit extends Cubit<ChatState> {
         _contactsRepository = contactsRepository,
         super(ChatState.initial()) {
     _logger = LogService('chat_cubit.dart');
-    // 不在构造函数中设置订阅，而是等待initializeSubscriptions调用
+    // 不在构造函数中设置订阅,而是等待initializeSubscriptions调用
 
     // 设置实时通信相关的订阅
     _setupRealTimeSubscriptions();
@@ -65,7 +65,7 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       // 检查数据库是否已初始化
       if (!DatabaseInitializer.isInitialized) {
-        _logger.w('数据库尚未初始化，无法设置订阅');
+        _logger.w('数据库尚未初始化,无法设置订阅');
         return;
       }
 
@@ -204,7 +204,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
     }
 
-    // 如果有状态变更，更新UI
+    // 如果有状态变更,更新UI
     if (needsUpdate) {
       final updatedTypingUsers = <String, List<String>>{};
 
@@ -255,7 +255,7 @@ class ChatCubit extends Cubit<ChatState> {
       final updatedMessages = List<Message>.from(messages);
       final message = updatedMessages[messageIndex];
 
-      // 目前在数据模型中使用字符串表示状态，这里需要转换
+      // 目前在数据模型中使用字符串表示状态,这里需要转换
       String newStatus;
       switch (status) {
         case 0:
@@ -333,7 +333,11 @@ class ChatCubit extends Cubit<ChatState> {
       }
     } catch (e) {
       _logger.e('加载会话列表失败', error: e);
-      emit(state.copyWithError('加载会话列表失败: $e'));
+      // 确保在错误情况下仍然提供空列表，而不是保持加载状态
+      emit(state.copyWith(
+          conversations: [], // 提供空列表
+          isLoading: false,
+          error: '加载会话列表失败，请稍后重试'));
     } finally {
       _isLoadingConversations = false;
     }
@@ -349,7 +353,7 @@ class ChatCubit extends Cubit<ChatState> {
       _isLoadingMessages.remove(id); // 清理加载状态标记
     });
 
-    // 只为当前会话添加监听，减少不必要的刷新
+    // 只为当前会话添加监听,减少不必要的刷新
     if (state.currentConversationId != null && !_messagesSubscriptions.containsKey(state.currentConversationId)) {
       _messagesSubscriptions[state.currentConversationId!] = _repository.watchConversationMessages(state.currentConversationId!).listen((_) {
         if (!(_isLoadingMessages[state.currentConversationId!] ?? false) && !_isSourceOfChange) {
@@ -376,7 +380,7 @@ class ChatCubit extends Cubit<ChatState> {
         }
       }
 
-      // 如果ContactsRepository不可用或加载失败，使用ChatRepository
+      // 如果ContactsRepository不可用或加载失败,使用ChatRepository
       if (contacts.isEmpty) {
         _logger.w('联系人列表为空');
         contacts = [];
@@ -409,20 +413,20 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 更新状态 - 处理新加载的消息
       if (before != null) {
-        // 加载更多历史消息，合并到现有消息列表
+        // 加载更多历史消息,合并到现有消息列表
         emit(state.copyWithAdditionalMessagesForConversation(conversationId, messages));
       } else {
-        // 初始加载消息，替换现有消息列表
+        // 初始加载消息,替换现有消息列表
         emit(state.copyWithMessagesForConversation(conversationId, messages));
       }
 
-      // 如果是当前会话，标记为已读
+      // 如果是当前会话,标记为已读
       if (state.currentConversationId == conversationId) {
         markConversationAsRead(conversationId);
       }
     } catch (e) {
       _logger.e('加载会话消息失败', error: e);
-      // 不影响主UI，仅记录错误
+      // 不影响主UI,仅记录错误
     } finally {
       _isLoadingMessages[conversationId] = false;
     }
@@ -541,7 +545,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 发送消息并获取返回的消息对象
       final message = await _repository.sendTextMessage(conversationId, text);
 
-      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      // 立即更新当前状态中的消息列表,而不是等待数据库通知
       final currentMessages = state.messagesByConversation[conversationId] ?? [];
       final newMessages = [message, ...currentMessages];
 
@@ -567,7 +571,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 发送消息并获取返回的消息对象
       final message = await _repository.sendImageMessage(conversationId, localPath, mediaUrl: mediaUrl);
 
-      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      // 立即更新当前状态中的消息列表,而不是等待数据库通知
       final currentMessages = state.messagesByConversation[conversationId] ?? [];
       final newMessages = [message, ...currentMessages];
 
@@ -593,7 +597,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 发送消息并获取返回的消息对象
       final message = await _repository.sendVoiceMessage(conversationId, localPath, duration, mediaUrl: mediaUrl);
 
-      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      // 立即更新当前状态中的消息列表,而不是等待数据库通知
       final currentMessages = state.messagesByConversation[conversationId] ?? [];
       final newMessages = [message, ...currentMessages];
 
@@ -619,7 +623,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 发送消息并获取返回的消息对象
       final message = await _repository.sendFileMessage(conversationId, localPath, fileName, fileSize, mediaUrl: mediaUrl);
 
-      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      // 立即更新当前状态中的消息列表,而不是等待数据库通知
       final currentMessages = state.messagesByConversation[conversationId] ?? [];
       final newMessages = [message, ...currentMessages];
 
@@ -645,7 +649,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 发送消息并获取返回的消息对象
       final message = await _repository.sendVideoMessage(conversationId, localPath, duration, thumbnailUrl: thumbnailUrl, mediaUrl: mediaUrl, isServerProcessed: isServerProcessed);
 
-      // 立即更新当前状态中的消息列表，而不是等待数据库通知
+      // 立即更新当前状态中的消息列表,而不是等待数据库通知
       final currentMessages = state.messagesByConversation[conversationId] ?? [];
       final newMessages = [message, ...currentMessages];
 
@@ -697,7 +701,7 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       _isSourceOfChange = true;
 
-      // 首先获取要删除的消息，以确定它属于哪个会话
+      // 首先获取要删除的消息,以确定它属于哪个会话
       Message? messageToDelete;
       String? conversationId;
 
@@ -719,7 +723,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 调用repository删除消息
       await _repository.deleteMessage(messageId);
 
-      // 如果找到了消息和对应的会话，立即更新UI状态
+      // 如果找到了消息和对应的会话,立即更新UI状态
       if (messageToDelete != null && conversationId != null) {
         // 从消息列表中移除该消息
         final currentMessages = state.messagesByConversation[conversationId] ?? [];
@@ -728,7 +732,7 @@ class ChatCubit extends Cubit<ChatState> {
         // 更新状态
         emit(state.copyWithMessagesForConversation(conversationId, newMessages));
 
-        // 再次加载会话列表，因为最后一条消息可能已更改
+        // 再次加载会话列表,因为最后一条消息可能已更改
         await loadConversations();
       }
 
@@ -747,7 +751,7 @@ class ChatCubit extends Cubit<ChatState> {
       await _repository.deleteConversation(conversationId);
       _isSourceOfChange = false;
 
-      // 如果删除的是当前会话，清空当前会话ID
+      // 如果删除的是当前会话,清空当前会话ID
       if (state.currentConversationId == conversationId) {
         emit(state.copyWith(currentConversationId: null));
       }
@@ -768,7 +772,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 清空当前状态中的会话消息
       emit(state.copyWithMessagesForConversation(conversationId, []));
 
-      // 重新加载会话列表，因为最后一条消息已被清空
+      // 重新加载会话列表,因为最后一条消息已被清空
       await loadConversations();
 
       _isSourceOfChange = false;
@@ -798,7 +802,7 @@ class ChatCubit extends Cubit<ChatState> {
   // 添加通过ID获取消息的方法
   Future<Message?> getMessageById(String messageId) async {
     try {
-      // 遍历所有会话的消息，查找匹配ID的消息
+      // 遍历所有会话的消息,查找匹配ID的消息
       for (final entry in state.messagesByConversation.entries) {
         final messages = entry.value;
         for (final message in messages) {
@@ -808,7 +812,7 @@ class ChatCubit extends Cubit<ChatState> {
         }
       }
 
-      // 如果未找到，返回null
+      // 如果未找到,返回null
       return null;
     } catch (e) {
       _logger.e('通过ID获取消息失败', error: e);
@@ -826,10 +830,10 @@ class ChatCubit extends Cubit<ChatState> {
       final endRange = startOfDay.add(const Duration(days: 10));
 
       // 从数据库加载该日期范围的消息
-      final messages = await _repository.getMessagesByDateRange(conversationId, startOfDay, endRange, limit: 50 // 设置合理的限制，避免加载过多消息
+      final messages = await _repository.getMessagesByDateRange(conversationId, startOfDay, endRange, limit: 50 // 设置合理的限制,避免加载过多消息
           );
 
-      // 如果找不到当天消息，尝试加载一个更大的范围
+      // 如果找不到当天消息,尝试加载一个更大的范围
       if (!messages.any((m) => m.createdAt.year == targetDate.year && m.createdAt.month == targetDate.month && m.createdAt.day == targetDate.day)) {
         // 也加载目标日期前10天的消息
         final extendedStartRange = startOfDay.subtract(const Duration(days: 10));
@@ -842,7 +846,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 更新状态
       final currentMessages = state.messagesByConversation[conversationId] ?? [];
 
-      // 合并新旧消息，避免重复
+      // 合并新旧消息,避免重复
       final Map<String, Message> uniqueMessages = {};
       for (var msg in [...currentMessages, ...messages]) {
         uniqueMessages[msg.messageId] = msg;
@@ -864,13 +868,13 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 根据日期加载会话消息，从指定日期开始获取消息
+  /// 根据日期加载会话消息,从指定日期开始获取消息
   Future<void> loadMessagesForConversationByDate(String conversationId, {required DateTime targetDate, int limit = 30}) async {
     try {
       emit(state.copyWith(isLoading: true));
 
       // 从指定日期开始获取消息（包括该日期的消息）
-      // 注意：这里不使用日期范围查询，而是从该日期开始获取消息
+      // 注意：这里不使用日期范围查询,而是从该日期开始获取消息
       final messages = await _repository.getConversationMessagesFromDate(conversationId, targetDate, limit: limit);
 
       if (messages.isEmpty) {
@@ -879,7 +883,7 @@ class ChatCubit extends Cubit<ChatState> {
         _logger.i('已加载消息', extra: {'count': messages.length, 'targetDate': targetDate});
       }
 
-      // 替换现有的消息列表，确保当天消息显示在顶部
+      // 替换现有的消息列表,确保当天消息显示在顶部
       final updatedMessagesByConversation = Map<String, List<Message>>.from(state.messagesByConversation);
       updatedMessagesByConversation[conversationId] = messages;
 
@@ -890,7 +894,7 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 设置页面间交互数据，用于在不同页面之间传递信息
+  /// 设置页面间交互数据,用于在不同页面之间传递信息
   void setNavigationData(Map<String, dynamic> data) {
     emit(state.copyWith(navigationData: data));
   }
@@ -909,8 +913,8 @@ class ChatCubit extends Cubit<ChatState> {
       // 从数据库加载该日期为起点的消息
       // await loadMessagesForConversationByDate(conversationId, targetDate: startOfDay, limit: 30);
 
-      // 更新导航数据，包含跳转信息
-      _logger.i('更新导航数据，包含跳转信息', extra: {'jumpToDate': targetDate});
+      // 更新导航数据,包含跳转信息
+      _logger.i('更新导航数据,包含跳转信息', extra: {'jumpToDate': targetDate});
       setNavigationData({'jumpToDate': targetDate});
     } catch (e) {
       _logger.e('跳转到指定日期失败', error: e);
@@ -935,12 +939,12 @@ class ChatCubit extends Cubit<ChatState> {
         try {
           final contacts = await _contactsRepository.syncContacts();
           success = contacts.isNotEmpty;
-          _logger.i('联系人同步完成，获取到 ${contacts.length} 个联系人');
+          _logger.i('联系人同步完成,获取到 ${contacts.length} 个联系人');
         } catch (e) {
           _logger.e('使用ContactsRepository同步联系人失败', error: e);
         }
       } else {
-        _logger.e('ContactsRepository未注入，无法同步联系人');
+        _logger.e('ContactsRepository未注入,无法同步联系人');
       }
 
       if (success) {

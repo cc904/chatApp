@@ -202,8 +202,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       });
 
       // 这里实现保存到相册的逻辑
-      // 在实际应用中，你可能需要使用image_gallery_saver或其他插件
-      // 这里简化处理，仅弹出提示
+      // 在实际应用中,你可能需要使用image_gallery_saver或其他插件
+      // 这里简化处理,仅弹出提示
 
       await Future.delayed(const Duration(milliseconds: 500));
 

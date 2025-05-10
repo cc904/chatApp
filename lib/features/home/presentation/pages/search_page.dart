@@ -739,7 +739,7 @@ class UserDetailPage extends StatelessWidget {
                       const Icon(Icons.check_circle, color: Colors.white),
                       const SizedBox(width: 12),
                       const Expanded(
-                        child: Text('请求已发送，等待对方确认'),
+                        child: Text('请求已发送,等待对方确认'),
                       ),
                     ],
                   ),
@@ -1053,7 +1053,7 @@ class GroupDetailPage extends StatelessWidget {
                       const Icon(Icons.check_circle, color: Colors.white),
                       const SizedBox(width: 12),
                       const Expanded(
-                        child: Text('请求已发送，等待管理员确认'),
+                        child: Text('请求已发送,等待管理员确认'),
                       ),
                     ],
                   ),
