@@ -24,14 +24,9 @@ class AuthCubit extends Cubit<AuthState> {
   // 服务器URL
   final String _serverUrl;
 
-  // 模拟模式
-  final bool _isSimulationMode;
-
   AuthCubit({
     required String serverUrl,
-    bool isSimulationMode = false,
   })  : _serverUrl = serverUrl,
-        _isSimulationMode = isSimulationMode,
         super(AuthState.initial()) {
     _initAuthApiClient();
     // 订阅认证响应事件
@@ -43,7 +38,6 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final success = await _authApiClient.init(
         serverUrl: _serverUrl,
-        isSimulationMode: _isSimulationMode,
       );
 
       if (!success) {
@@ -88,7 +82,7 @@ class AuthCubit extends Cubit<AuthState> {
   // 初始化数据库
   Future<void> _initDatabases(String userId, String token) async {
     try {
-      _logger.i('开始初始化数据库', extra: {'userId': userId, 'isSimulationMode': _isSimulationMode});
+      _logger.i('开始初始化数据库', extra: {'userId': userId});
 
       // 初始化Isar数据库
       await DatabaseInitializer.init(userId: userId);
@@ -104,13 +98,8 @@ class AuthCubit extends Cubit<AuthState> {
       await MyUserService.saveCurrentUser(
         userId: userId,
         token: token,
-        name: _isSimulationMode ? '模拟用户' : '我', // 根据模式设置名称
+        name: '我',
       );
-
-      if (_isSimulationMode) {
-        _logger.i('模拟模式下不初始化实时通信');
-        return;
-      }
 
       // 初始化实时通信
       await _initRealTimeCommunication(userId, token);
@@ -124,7 +113,7 @@ class AuthCubit extends Cubit<AuthState> {
   // 初始化实时通信
   Future<void> _initRealTimeCommunication(String userId, String token) async {
     try {
-      _logger.i('初始化实时通信', extra: {'isSimulationMode': _isSimulationMode, 'userId': userId});
+      _logger.i('初始化实时通信');
 
       // 直接尝试连接
       final success = await _communicationService.connect(

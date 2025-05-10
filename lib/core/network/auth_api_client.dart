@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/constants/app_config.dart';
 
 /// 认证响应模型
 class AuthResponse {
@@ -52,9 +51,6 @@ class AuthApiClient {
   late final Dio _dio;
   final LogService _logger = LogService('auth_api_client.dart');
 
-  // 从AppConfig获取模拟模式
-  bool get _isSimulationMode => AppConfig().isSimulationMode;
-
   // 认证响应流控制器
   final StreamController<AuthResponse> _authResponseController = StreamController<AuthResponse>.broadcast();
 
@@ -66,10 +62,9 @@ class AuthApiClient {
   /// 初始化认证API客户端
   Future<bool> init({
     required String serverUrl,
-    bool isSimulationMode = false,
   }) async {
     try {
-      _logger.i('初始化认证API客户端', extra: {'serverUrl': serverUrl, 'isSimulationMode': _isSimulationMode});
+      _logger.i('初始化认证API客户端', extra: {'serverUrl': serverUrl});
 
       // 创建和配置Dio客户端
       _dio = Dio(BaseOptions(
@@ -88,37 +83,11 @@ class AuthApiClient {
       // 添加拦截器进行日志记录
       _dio.interceptors.add(LogInterceptor(
         request: true,
-        requestHeader: false,
+        requestHeader: true,
         requestBody: true,
-        responseHeader: false,
-        responseBody: false,
+        responseHeader: true,
+        responseBody: true,
         error: true,
-        logPrint: (object) {
-          if (object is String && object.contains('-->')) {
-            // 只打印请求URI和参数
-            final lines = object.split('\n');
-            for (final line in lines) {
-              if (line.contains('-->') || line.contains('data:')) {
-                _logger.d(line.trim());
-              }
-            }
-          }
-        },
-      ));
-
-      // 添加错误处理
-      _dio.interceptors.add(InterceptorsWrapper(
-        onError: (DioException e, ErrorInterceptorHandler handler) {
-          _logger.e('请求错误', error: e, extra: {
-            'url': e.requestOptions.uri.toString(),
-            'method': e.requestOptions.method,
-            'data': e.requestOptions.data,
-            'headers': e.requestOptions.headers,
-            'response': e.response?.data,
-            'statusCode': e.response?.statusCode,
-          });
-          return handler.next(e);
-        },
       ));
 
       return true;
@@ -130,17 +99,10 @@ class AuthApiClient {
 
   /// 发送验证码
   /// [phoneNumber] - 手机号码
-  /// [purpose] - 用途（login/register/reset）
+  /// [purpose] - 验证码用途(login/register/reset)
   Future<bool> sendVerificationCode(String phoneNumber, String purpose) async {
     try {
       _logger.i('发送验证码', extra: {'phoneNumber': phoneNumber, 'purpose': purpose});
-
-      if (_isSimulationMode) {
-        // 模拟网络延迟
-        await Future.delayed(const Duration(milliseconds: 500));
-        // 模拟成功响应
-        return true;
-      }
 
       final response = await _dio.post('/api/auth/send-code', data: {
         'phoneNumber': phoneNumber,
@@ -172,33 +134,6 @@ class AuthApiClient {
     try {
       _logger.i('使用验证码登录', extra: {'phoneNumber': phoneNumber});
 
-      if (_isSimulationMode) {
-        // 模拟网络延迟
-        await Future.delayed(const Duration(milliseconds: 800));
-
-        // 判断是否是模拟账号
-        bool isMockAccount = phoneNumber == '13800138000' && verificationCode == '123456';
-
-        if (isMockAccount) {
-          // 模拟标准的成功登录响应
-          _authResponseController.add(AuthResponse(
-            success: true,
-            message: '登录成功',
-            userId: 'user_${DateTime.now().millisecondsSinceEpoch % 1000}',
-            token: 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
-            nickname: '模拟用户',
-          ));
-          return true;
-        } else {
-          // 模拟失败响应
-          _authResponseController.add(AuthResponse(
-            success: false,
-            message: '验证码错误',
-          ));
-          return false;
-        }
-      }
-
       final response = await _dio.post('/api/auth/login', data: {
         'phoneNumber': phoneNumber,
         'verificationCode': verificationCode,
@@ -228,20 +163,6 @@ class AuthApiClient {
   Future<bool> loginWithPassword(String phoneNumber, String password) async {
     try {
       _logger.i('使用密码登录', extra: {'phoneNumber': phoneNumber});
-
-      if (_isSimulationMode) {
-        // 模拟网络延迟
-        await Future.delayed(const Duration(milliseconds: 800));
-        // 模拟成功登录
-        _authResponseController.add(AuthResponse(
-          success: true,
-          message: '登录成功',
-          userId: '1',
-          token: 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
-          nickname: '用户',
-        ));
-        return true;
-      }
 
       final response = await _dio.post('/api/auth/login', data: {
         'phoneNumber': phoneNumber,
@@ -275,20 +196,6 @@ class AuthApiClient {
     try {
       _logger.i('注册账号', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
 
-      if (_isSimulationMode) {
-        // 模拟网络延迟
-        await Future.delayed(const Duration(milliseconds: 1000));
-        // 模拟成功注册
-        _authResponseController.add(AuthResponse(
-          success: true,
-          message: '注册成功',
-          userId: '${DateTime.now().millisecondsSinceEpoch % 1000}',
-          token: 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
-          nickname: nickname,
-        ));
-        return true;
-      }
-
       final response = await _dio.post('/api/auth/register', data: {
         'phoneNumber': phoneNumber,
         'verificationCode': verificationCode,
@@ -320,17 +227,6 @@ class AuthApiClient {
   Future<bool> resetPassword(String phoneNumber, String verificationCode, String newPassword) async {
     try {
       _logger.i('重置密码', extra: {'phoneNumber': phoneNumber});
-
-      if (_isSimulationMode) {
-        // 模拟网络延迟
-        await Future.delayed(const Duration(milliseconds: 800));
-        // 模拟成功重置
-        _authResponseController.add(AuthResponse(
-          success: true,
-          message: '密码重置成功',
-        ));
-        return true;
-      }
 
       final response = await _dio.post('/api/auth/reset-password', data: {
         'phoneNumber': phoneNumber,

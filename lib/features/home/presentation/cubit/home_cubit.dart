@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/database/database_initializer.dart';
 
 // Home状态类
@@ -46,11 +45,6 @@ class HomeCubit extends Cubit<HomeState> {
         _logger.d('已关闭用户数据库');
       }
 
-      // 关闭模拟数据库连接
-      if (MockDataManager.isInitialized) {
-        await MockDataManager.close();
-        _logger.d('已关闭模拟数据库');
-      }
 
       // 模拟网络请求延迟
       await Future.delayed(const Duration(seconds: 1));

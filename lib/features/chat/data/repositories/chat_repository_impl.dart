@@ -10,7 +10,6 @@ import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
-import 'package:cc/core/constants/app_config.dart';
 
 /// 消息异常
 class MessageException implements Exception {
@@ -146,19 +145,6 @@ class ChatRepositoryImpl implements ChatRepository {
       // 标记同步开始
       _syncStatusController.add(SyncStatus.syncing);
 
-      // 检查是否为模拟模式
-      final isSimulationMode = await _isSimulationMode();
-      if (isSimulationMode) {
-        _logger.i('运行在模拟模式，使用模拟数据');
-        // 生成模拟会话数据
-        final mockConversations = _generateMockConversations();
-        // 保存到数据库
-        await _saveConversationsToDatabase(mockConversations);
-        // 标记同步完成
-        _syncStatusController.add(SyncStatus.completed);
-        return mockConversations;
-      }
-
       // 先获取本地已保存的会话列表
       final localConversations = await _conversations.where().findAll();
       final localConversationIds = localConversations.map((c) => c.conversationId).toSet();
@@ -184,16 +170,6 @@ class ChatRepositoryImpl implements ChatRepository {
         return b.lastMessageTime!.compareTo(a.lastMessageTime!);
       });
 
-      // 如果同步失败且数据库没有会话数据，生成默认的模拟会话
-      if (!syncResponse.success && conversations.isEmpty) {
-        _logger.i('未找到会话数据，生成默认模拟会话');
-        final mockConversations = _generateMockConversations(count: 3);
-        await _saveConversationsToDatabase(mockConversations);
-        // 标记同步完成
-        _syncStatusController.add(SyncStatus.completed);
-        return mockConversations;
-      }
-
       // 标记同步完成
       _syncStatusController.add(SyncStatus.completed);
       return conversations;
@@ -207,13 +183,6 @@ class ChatRepositoryImpl implements ChatRepository {
       try {
         final localConversations = await _conversations.where().findAll();
 
-        // 如果本地没有数据，生成模拟数据
-        if (localConversations.isEmpty) {
-          _logger.i('未找到本地会话数据，生成模拟会话');
-          final mockConversations = _generateMockConversations(count: 3);
-          await _saveConversationsToDatabase(mockConversations);
-          return mockConversations;
-        }
 
         localConversations.sort((a, b) {
           if (a.lastMessageTime == null) return 1;
@@ -224,74 +193,11 @@ class ChatRepositoryImpl implements ChatRepository {
         return localConversations;
       } catch (localError) {
         _logger.e('获取本地会话列表也失败', error: localError);
-        // 返回内存中生成的模拟数据（不保存到数据库）
-        return _generateMockConversations(count: 3);
+        return [];
       }
     }
   }
 
-  /// 检查是否为模拟模式
-  Future<bool> _isSimulationMode() async {
-    try {
-      // 使用AppConfig获取模拟模式配置
-      return AppConfig().isSimulationMode;
-    } catch (e) {
-      _logger.e('检查模拟模式失败', extra: {'error': e.toString()});
-      return false;
-    }
-  }
-
-  /// 生成模拟会话数据
-  /// [count] - 要生成的会话数量
-  /// 返回模拟会话列表
-  List<Conversation> _generateMockConversations({int count = 5}) {
-    final now = DateTime.now();
-    final conversations = <Conversation>[];
-
-    for (int i = 0; i < count; i++) {
-      final isGroup = i % 3 == 2; // 每3个会话中的第3个是群组
-      final conversation = Conversation()
-        ..conversationId = 'mock_${now.millisecondsSinceEpoch}_$i'
-        ..type = isGroup ? ConversationType.group : ConversationType.private
-        ..name = isGroup ? '模拟群聊 ${i + 1}' : '模拟联系人 ${i + 1}'
-        ..lastMessagePreview = _getRandomMessagePreview()
-        ..lastMessageTime = now.subtract(Duration(hours: i * 2))
-        ..unreadCount = i % 4 // 0-3的循环未读数
-        ..contactUserId = isGroup ? null : 'user_${i + 100}'
-        ..createdAt = now.subtract(Duration(days: i + 1))
-        ..avatar = 'https://picsum.photos/200?random=${i + 1}';
-
-      conversations.add(conversation);
-    }
-
-    return conversations;
-  }
-
-  /// 获取随机消息预览文本
-  String _getRandomMessagePreview() {
-    final messages = ['你好，最近怎么样？', '我们下周一开会讨论这个项目', '好的，没问题', '请查收我发送的文件', '晚上有空吗？一起吃饭', '[图片]', '[语音消息]', '[视频]', '谢谢你的帮助！', '我稍后回复你'];
-
-    // 简单随机选择一条消息
-    final index = DateTime.now().millisecondsSinceEpoch % messages.length;
-    return messages[index];
-  }
-
-  /// 保存会话列表到数据库
-  Future<void> _saveConversationsToDatabase(List<Conversation> conversations) async {
-    try {
-      await _isar.writeTxn(() async {
-        for (final conversation in conversations) {
-          await _conversations.put(conversation);
-          // 同步ID字段
-          DatabaseInitializer.syncIds(conversation);
-          await _conversations.put(conversation);
-        }
-      });
-      _logger.d('保存模拟会话到数据库成功', extra: {'count': conversations.length});
-    } catch (e) {
-      _logger.e('保存模拟会话到数据库失败', extra: {'error': e.toString()});
-    }
-  }
 
   /// 从服务器同步会话列表
   /// 只同步有未读消息的会话以及本地已有的会话
@@ -301,18 +207,6 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       if (!_communicationService.isInitialized) {
         return _SyncResponse(false, [], '通信服务未初始化');
-      }
-
-      // 如果是模拟模式，生成模拟响应
-      if (await _isSimulationMode()) {
-        _logger.i('模拟模式：生成模拟会话同步响应');
-
-        // 模拟网络延迟
-        await Future.delayed(Duration(milliseconds: 500 + (DateTime.now().millisecondsSinceEpoch % 1000).toInt()));
-
-        // 生成一些模拟会话作为"服务器"响应
-        final mockConversations = _generateMockConversations(count: 3);
-        return _SyncResponse(true, mockConversations, null);
       }
 
       // 向服务器请求同步会话列表
@@ -393,8 +287,8 @@ class ChatRepositoryImpl implements ChatRepository {
             if (conversation.lastMessageTime != null && (existing.lastMessageTime == null || conversation.lastMessageTime!.isAfter(existing.lastMessageTime!))) {
               await _conversations.put(conversation);
               _logger.d('更新已有会话', extra: {'conversationId': conversation.conversationId});
-            }
-          } else {
+          }
+        } else {
             // 添加新会话
             await _conversations.put(conversation);
             // 同步ID字段
@@ -691,7 +585,7 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Message> sendTextMessage(String conversationId, String text) async {
     final message = await _createMessage(conversationId, text, 'text');
     await sendMessage(message);
-    return message;
+      return message;
   }
 
   /// 发送图片消息
@@ -717,7 +611,7 @@ class ChatRepositoryImpl implements ChatRepository {
     message.localPath = localPath;
 
     await sendMessage(message);
-    return message;
+      return message;
   }
 
   /// 发送语音消息
@@ -752,7 +646,7 @@ class ChatRepositoryImpl implements ChatRepository {
     message.localPath = localPath;
 
     await sendMessage(message);
-    return message;
+      return message;
   }
 
   /// 发送文件消息
@@ -778,11 +672,11 @@ class ChatRepositoryImpl implements ChatRepository {
       }
     }
     message.localPath = localPath;
-    message.fileName = fileName;
-    message.fileSize = fileSize;
+      message.fileName = fileName;
+      message.fileSize = fileSize;
 
     await sendMessage(message);
-    return message;
+      return message;
   }
 
   /// 发送视频消息

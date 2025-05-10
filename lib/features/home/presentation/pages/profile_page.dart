@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:cc/core/database/mock_data_manager.dart';
 import 'package:cc/core/constants/app_config.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -227,8 +226,6 @@ class ProfilePage extends StatelessWidget {
                 ),
               );
 
-              // 重新生成模拟数据
-              await MockDataManager.regenerateMockData();
 
               // 关闭加载对话框并显示确认消息
               if (context.mounted) {
@@ -460,47 +457,16 @@ class ProfilePage extends StatelessWidget {
             child: Text('开发者选项', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
           ),
 
-          // 模拟模式开关
-          StatefulBuilder(
-            builder: (context, setState) {
-              return SwitchListTile(
-                title: const Text('模拟模式'),
-                subtitle: Text(appConfig.isSimulationMode ? '当前使用本地模拟数据,无需服务器' : '当前连接真实服务器,需要网络连接'),
-                value: appConfig.isSimulationMode,
-                activeColor: Colors.green,
-                onChanged: (bool value) {
-                  setState(() {
-                    appConfig.isSimulationMode = value;
-                    _logger.i('模拟模式已切换', extra: {'isSimulationMode': value});
-                  });
-
-                  // 显示提示
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(value ? '已启用模拟模式,应用将使用本地数据,重启应用后生效' : '已禁用模拟模式,应用将连接真实服务器,重启应用后生效'),
-                      duration: const Duration(seconds: 5),
-                      action: SnackBarAction(
-                        label: '立即重启',
-                        onPressed: () {
-                          exit(0); // 退出应用
-                        },
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-
           // 服务器URL设置
           ListTile(
-            title: const Text('服务器URL'),
+            title: const Text('服务器地址'),
             subtitle: Text(appConfig.serverUrl),
-            leading: const Icon(Icons.cloud, color: Colors.green),
-            trailing: const Icon(Icons.edit, size: 20),
-            onTap: () {
-              _showServerUrlDialog(context, appConfig);
-            },
+            trailing: IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                _showServerUrlDialog(context);
+              },
+            ),
           ),
         ],
       ),
@@ -508,8 +474,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   // 显示服务器URL设置对话框
-  void _showServerUrlDialog(BuildContext context, AppConfig appConfig) {
-    final controller = TextEditingController(text: appConfig.serverUrl);
+  void _showServerUrlDialog(BuildContext context) {
+    final controller = TextEditingController(text: AppConfig().serverUrl);
 
     showDialog(
       context: context,
@@ -541,7 +507,7 @@ class ProfilePage extends StatelessWidget {
             onPressed: () {
               final newUrl = controller.text.trim();
               if (newUrl.isNotEmpty) {
-                appConfig.serverUrl = newUrl;
+                AppConfig().serverUrl = newUrl;
                 _logger.i('服务器URL已更新', extra: {'serverUrl': newUrl});
 
                 Navigator.pop(context);

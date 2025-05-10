@@ -21,7 +21,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
   final _logger = LogService('auth_page.dart');
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -43,12 +42,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isLoading ? null : _performMockLogin,
-        backgroundColor: Colors.green,
-        tooltip: '模拟登录',
-        child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.login, color: Colors.white),
-      ),
       body: Center(
         child: SingleChildScrollView(
           child: Container(
@@ -321,47 +314,5 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
           ),
         ));
-  }
-
-  Future<void> _performMockLogin() async {
-    if (!mounted) return;
-
-    setState(() {
-      // 显示加载状态
-      _isLoading = true;
-    });
-
-    try {
-      _logger.i('执行模拟登录');
-
-      // 获取需要的对象
-      final authCubit = context.read<AuthCubit>();
-
-      // 设置模拟的手机号和验证码
-      _logger.d('设置模拟账号信息: 13800138000 / 123456');
-      authCubit.updatePhoneNumber('13800138000');
-      authCubit.updateVerificationCode('123456');
-
-      // 使用标准的验证码登录流程
-      _logger.d('开始模拟登录流程');
-      await authCubit.login(true); // true表示使用验证码登录
-
-      // 登录后的流程由BlocListener处理,不需要在这里导航
-      _logger.i('模拟登录过程完成,等待回调处理');
-    } catch (e) {
-      // 显示错误信息
-      _logger.e('模拟登录失败', error: e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('模拟登录失败: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 }
