@@ -223,7 +223,7 @@ class _ContactsPageState extends State<ContactsPage> {
       try {
         final hexCode = avatar.replaceFirst('#', '');
         avatarColor = Color(int.parse('FF$hexCode', radix: 16));
-      } catch (e) {
+      } catch (error) {
         avatarColor = Colors.green[100];
       }
     }

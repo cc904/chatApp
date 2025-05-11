@@ -47,8 +47,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         _effectivePath = widget.imagePath;
       }
       _logger.d('图片查看器路径', extra: {'path': _effectivePath});
-    } catch (e) {
-      _logger.e('初始化图片路径失败', error: e);
+    } catch (error) {
+      _logger.e('初始化图片路径失败', error: error, stackTrace: StackTrace.current);
       _effectivePath = widget.imagePath; // 使用原始路径作为回退
       _hasError = true;
     }
@@ -88,7 +88,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
           PhotoView(
             imageProvider: _getImageProvider(),
             errorBuilder: (context, error, stackTrace) {
-              _logger.e('图片查看器加载失败', error: error);
+              _logger.e('图片查看器加载失败', error: error, stackTrace: StackTrace.current);
               if (!_hasError) {
                 setState(() {
                   _hasError = true;
@@ -160,8 +160,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         _logger.e('图片文件不存在', extra: {'path': _effectivePath});
         throw Exception('图片文件不存在');
       }
-    } catch (e) {
-      _logger.e('获取图片失败', error: e);
+    } catch (error) {
+      _logger.e('获取图片失败', error: error, stackTrace: StackTrace.current);
       setState(() {
         _hasError = true;
       });
@@ -180,10 +180,10 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         [XFile(_effectivePath)],
         text: '分享图片',
       );
-    } catch (e) {
-      _logger.e('分享图片失败', error: e);
+    } catch (error) {
+      _logger.e('分享图片失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
-        UINotificationService().showError('分享失败: $e');
+        UINotificationService().showError('分享失败: $error');
       }
     } finally {
       if (mounted) {
@@ -210,10 +210,10 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       if (mounted) {
         UINotificationService().showSuccess('图片已保存');
       }
-    } catch (e) {
-      _logger.e('保存图片失败', error: e);
+    } catch (error) {
+      _logger.e('保存图片失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
-        UINotificationService().showError('保存失败: $e');
+        UINotificationService().showError('保存失败: $error');
       }
     } finally {
       if (mounted) {
@@ -303,8 +303,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         _effectivePath = widget.videoPath;
       }
       _logger.d('视频查看器路径', extra: {'path': _effectivePath});
-    } catch (e) {
-      _logger.e('初始化视频路径失败', error: e);
+    } catch (error) {
+      _logger.e('初始化视频路径失败', error: error, stackTrace: StackTrace.current);
       _effectivePath = widget.videoPath; // 使用原始路径作为回退
       _hasError = true;
     }
@@ -365,8 +365,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      _logger.e('视频播放器初始化失败', error: e);
+    } catch (error) {
+      _logger.e('视频播放器初始化失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -455,10 +455,10 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         [XFile(_effectivePath)],
         text: '分享视频',
       );
-    } catch (e) {
-      _logger.e('分享视频失败', error: e);
+    } catch (error) {
+      _logger.e('分享视频失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
-        UINotificationService().showError('分享失败: $e');
+        UINotificationService().showError('分享失败: $error');
       }
     } finally {
       if (mounted) {
@@ -482,10 +482,10 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
       if (mounted) {
         UINotificationService().showSuccess('视频已保存');
       }
-    } catch (e) {
-      _logger.e('保存视频失败', error: e);
+    } catch (error) {
+      _logger.e('保存视频失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
-        UINotificationService().showError('保存失败: $e');
+        UINotificationService().showError('保存失败: $error');
       }
     } finally {
       if (mounted) {

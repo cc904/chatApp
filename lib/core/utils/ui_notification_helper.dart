@@ -40,9 +40,9 @@ class UINotificationHelper {
 
       // 操作成功
       showSuccess('操作成功！');
-    } catch (e) {
+    } catch (error) {
       // 处理错误
-      showError('操作失败: $e');
+      showError('操作失败: $error');
     }
   }
 
@@ -80,7 +80,7 @@ class UINotificationHelper {
       }
 
       return result;
-    } catch (e) {
+    } catch (error) {
       // 发生错误,清除当前消息并显示错误消息
       if (shouldForceCleanupOnError) {
         UINotificationService.instance.clearAllMessages();
@@ -88,7 +88,7 @@ class UINotificationHelper {
         UINotificationService.instance.hideCurrentMessage();
       }
 
-      showError('$errorMessage: $e');
+      showError('$errorMessage: $error');
       return null;
     }
   }

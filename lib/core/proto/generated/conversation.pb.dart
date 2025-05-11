@@ -15,7 +15,7 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'conversation.pbenum.dart';
-import 'message.pb.dart' as $0;
+import 'message.pb.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -39,7 +39,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     $core.bool? muted,
     $core.bool? pinned,
     $core.String? createdBy,
-    $0.MessageProto? lastMessage,
+    $1.MessageProto? lastMessage,
   }) {
     final $result = create();
     if (conversationId != null) {
@@ -112,7 +112,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     ..aOB(13, _omitFieldNames ? '' : 'muted')
     ..aOB(14, _omitFieldNames ? '' : 'pinned')
     ..aOS(15, _omitFieldNames ? '' : 'createdBy')
-    ..aOM<$0.MessageProto>(16, _omitFieldNames ? '' : 'lastMessage', subBuilder: $0.MessageProto.create)
+    ..aOM<$1.MessageProto>(16, _omitFieldNames ? '' : 'lastMessage', subBuilder: $1.MessageProto.create)
     ..hasRequiredFields = false
   ;
 
@@ -270,15 +270,15 @@ class ConversationProto extends $pb.GeneratedMessage {
   void clearCreatedBy() => $_clearField(15);
 
   @$pb.TagNumber(16)
-  $0.MessageProto get lastMessage => $_getN(15);
+  $1.MessageProto get lastMessage => $_getN(15);
   @$pb.TagNumber(16)
-  set lastMessage($0.MessageProto v) { $_setField(16, v); }
+  set lastMessage($1.MessageProto v) { $_setField(16, v); }
   @$pb.TagNumber(16)
   $core.bool hasLastMessage() => $_has(15);
   @$pb.TagNumber(16)
   void clearLastMessage() => $_clearField(16);
   @$pb.TagNumber(16)
-  $0.MessageProto ensureLastMessage() => $_ensure(15);
+  $1.MessageProto ensureLastMessage() => $_ensure(15);
 }
 
 /// 会话更新
@@ -534,6 +534,65 @@ class ConversationCollection extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<ConversationProto> get conversations => $_getList(0);
+}
+
+/// 同步会话请求
+class SyncConversationsRequest extends $pb.GeneratedMessage {
+  factory SyncConversationsRequest({
+    $core.Iterable<$core.String>? localConversationIds,
+    $core.String? userId,
+  }) {
+    final $result = create();
+    if (localConversationIds != null) {
+      $result.localConversationIds.addAll(localConversationIds);
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    return $result;
+  }
+  SyncConversationsRequest._() : super();
+  factory SyncConversationsRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SyncConversationsRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncConversationsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'localConversationIds')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SyncConversationsRequest clone() => SyncConversationsRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SyncConversationsRequest copyWith(void Function(SyncConversationsRequest) updates) => super.copyWith((message) => updates(message as SyncConversationsRequest)) as SyncConversationsRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SyncConversationsRequest create() => SyncConversationsRequest._();
+  SyncConversationsRequest createEmptyInstance() => create();
+  static $pb.PbList<SyncConversationsRequest> createRepeated() => $pb.PbList<SyncConversationsRequest>();
+  @$core.pragma('dart2js:noInline')
+  static SyncConversationsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SyncConversationsRequest>(create);
+  static SyncConversationsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get localConversationIds => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
 }
 
 

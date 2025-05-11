@@ -78,8 +78,8 @@ class ChatCubit extends Cubit<ChatState> {
       // 初始化后立即加载数据
       await loadConversations();
       await loadContacts();
-    } catch (e) {
-      _logger.e('初始化订阅失败', error: e);
+    } catch (error) {
+      _logger.e('初始化订阅失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -305,8 +305,8 @@ class ChatCubit extends Cubit<ChatState> {
 
     try {
       await _repository.sendTypingStatus(conversationId, isTyping);
-    } catch (e) {
-      _logger.e('发送输入状态失败', error: e);
+    } catch (error) {
+      _logger.e('发送输入状态失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -331,8 +331,8 @@ class ChatCubit extends Cubit<ChatState> {
       if (state.currentConversationId != null) {
         loadMessagesForConversation(state.currentConversationId!);
       }
-    } catch (e) {
-      _logger.e('加载会话列表失败', error: e);
+    } catch (error) {
+      _logger.e('加载会话列表失败', error: error, stackTrace: StackTrace.current);
       // 确保在错误情况下仍然提供空列表，而不是保持加载状态
       emit(state.copyWith(
           conversations: [], // 提供空列表
@@ -375,8 +375,8 @@ class ChatCubit extends Cubit<ChatState> {
       if (_contactsRepository != null) {
         try {
           contacts = await _contactsRepository.getAllContacts();
-        } catch (e) {
-          _logger.e('使用ContactsRepository加载联系人失败', error: e);
+        } catch (error) {
+          _logger.e('使用ContactsRepository加载联系人失败', error: error, stackTrace: StackTrace.current);
         }
       }
 
@@ -390,9 +390,9 @@ class ChatCubit extends Cubit<ChatState> {
         contacts: contacts,
         isLoading: false,
       ));
-    } catch (e) {
-      _logger.e('加载联系人列表失败', error: e);
-      emit(state.copyWithError('加载联系人列表失败: $e'));
+    } catch (error) {
+      _logger.e('加载联系人列表失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('加载联系人列表失败: $error'));
     }
   }
 
@@ -424,8 +424,8 @@ class ChatCubit extends Cubit<ChatState> {
       if (state.currentConversationId == conversationId) {
         markConversationAsRead(conversationId);
       }
-    } catch (e) {
-      _logger.e('加载会话消息失败', error: e);
+    } catch (error) {
+      _logger.e('加载会话消息失败', error: error, stackTrace: StackTrace.current);
       // 不影响主UI,仅记录错误
     } finally {
       _isLoadingMessages[conversationId] = false;
@@ -451,9 +451,9 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 标记为已读
       await markConversationAsRead(conversationId);
-    } catch (e) {
-      _logger.e('切换会话失败', error: e);
-      emit(state.copyWithError('切换会话失败: $e'));
+    } catch (error) {
+      _logger.e('切换会话失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('切换会话失败: $error'));
     }
   }
 
@@ -463,8 +463,8 @@ class ChatCubit extends Cubit<ChatState> {
       _isSourceOfChange = true;
       await _repository.markConversationAsRead(conversationId);
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('标记会话已读失败', error: e);
+    } catch (error) {
+      _logger.e('标记会话已读失败', error: error, stackTrace: StackTrace.current);
       _isSourceOfChange = false;
     }
   }
@@ -479,8 +479,8 @@ class ChatCubit extends Cubit<ChatState> {
       if (_contactsRepository != null) {
         try {
           results = await _contactsRepository.searchContacts(keyword);
-        } catch (e) {
-          _logger.e('使用ContactsRepository搜索联系人失败', error: e);
+        } catch (error) {
+          _logger.e('使用ContactsRepository搜索联系人失败', error: error, stackTrace: StackTrace.current);
         }
       }
 
@@ -489,9 +489,9 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: results,
         isLoading: false,
       ));
-    } catch (e) {
-      _logger.e('搜索联系人失败', error: e);
-      emit(state.copyWithError('搜索联系人失败: $e'));
+    } catch (error) {
+      _logger.e('搜索联系人失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('搜索联系人失败: $error'));
     }
   }
 
@@ -511,9 +511,9 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: filteredResults,
         isLoading: false,
       ));
-    } catch (e) {
-      _logger.e('搜索会话失败', error: e);
-      emit(state.copyWithError('搜索会话失败: $e'));
+    } catch (error) {
+      _logger.e('搜索会话失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('搜索会话失败: $error'));
     }
   }
 
@@ -529,9 +529,9 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: results,
         isLoading: false,
       ));
-    } catch (e) {
-      _logger.e('搜索消息失败', error: e);
-      emit(state.copyWithError('搜索消息失败: $e'));
+    } catch (error) {
+      _logger.e('搜索消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('搜索消息失败: $error'));
     }
   }
 
@@ -556,9 +556,9 @@ class ChatCubit extends Cubit<ChatState> {
       await loadMessagesForConversation(conversationId);
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('发送文本消息失败', error: e);
-      emit(state.copyWithError('发送消息失败: $e'));
+    } catch (error) {
+      _logger.e('发送文本消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('发送消息失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -582,9 +582,9 @@ class ChatCubit extends Cubit<ChatState> {
       await loadMessagesForConversation(conversationId);
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('发送图片消息失败', error: e);
-      emit(state.copyWithError('发送图片失败: $e'));
+    } catch (error) {
+      _logger.e('发送图片消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('发送图片失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -608,9 +608,9 @@ class ChatCubit extends Cubit<ChatState> {
       await loadMessagesForConversation(conversationId);
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('发送语音消息失败', error: e);
-      emit(state.copyWithError('发送语音失败: $e'));
+    } catch (error) {
+      _logger.e('发送语音消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('发送语音失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -634,9 +634,9 @@ class ChatCubit extends Cubit<ChatState> {
       await loadMessagesForConversation(conversationId);
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('发送文件消息失败', error: e);
-      emit(state.copyWithError('发送文件失败: $e'));
+    } catch (error) {
+      _logger.e('发送文件消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('发送文件失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -660,9 +660,9 @@ class ChatCubit extends Cubit<ChatState> {
       await loadMessagesForConversation(conversationId);
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('发送视频消息失败', error: e);
-      emit(state.copyWithError('发送视频失败: $e'));
+    } catch (error) {
+      _logger.e('发送视频消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('发送视频失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -674,8 +674,8 @@ class ChatCubit extends Cubit<ChatState> {
       final result = await _repository.getOrCreatePrivateConversation(contactUserId);
       _isSourceOfChange = false;
       return result;
-    } catch (e) {
-      _logger.e('获取或创建私聊会话失败', error: e);
+    } catch (error) {
+      _logger.e('获取或创建私聊会话失败', error: error, stackTrace: StackTrace.current);
       _isSourceOfChange = false;
       rethrow;
     }
@@ -688,8 +688,8 @@ class ChatCubit extends Cubit<ChatState> {
       final result = await _repository.createGroupConversation(name, memberIds, avatar: avatar);
       _isSourceOfChange = false;
       return result;
-    } catch (e) {
-      _logger.e('创建群聊失败', error: e);
+    } catch (error) {
+      _logger.e('创建群聊失败', error: error, stackTrace: StackTrace.current);
       _isSourceOfChange = false;
       rethrow;
     }
@@ -737,9 +737,9 @@ class ChatCubit extends Cubit<ChatState> {
       }
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('删除消息失败', error: e);
-      emit(state.copyWithError('删除消息失败: $e'));
+    } catch (error) {
+      _logger.e('删除消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('删除消息失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -755,9 +755,9 @@ class ChatCubit extends Cubit<ChatState> {
       if (state.currentConversationId == conversationId) {
         emit(state.copyWith(currentConversationId: null));
       }
-    } catch (e) {
-      _logger.e('删除会话失败', error: e);
-      emit(state.copyWithError('删除会话失败: $e'));
+    } catch (error) {
+      _logger.e('删除会话失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('删除会话失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -776,9 +776,9 @@ class ChatCubit extends Cubit<ChatState> {
       await loadConversations();
 
       _isSourceOfChange = false;
-    } catch (e) {
-      _logger.e('清空会话消息失败', error: e);
-      emit(state.copyWithError('清空会话消息失败: $e'));
+    } catch (error) {
+      _logger.e('清空会话消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('清空会话消息失败: $error'));
       _isSourceOfChange = false;
     }
   }
@@ -793,9 +793,9 @@ class ChatCubit extends Cubit<ChatState> {
         _logger.e('无法添加联系人：ContactsRepository未注入');
         throw '无法添加联系人：系统未初始化';
       }
-    } catch (e) {
-      _logger.e('添加联系人失败', error: e);
-      emit(state.copyWithError('添加联系人失败: $e'));
+    } catch (error) {
+      _logger.e('添加联系人失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('添加联系人失败: $error'));
     }
   }
 
@@ -814,8 +814,8 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 如果未找到,返回null
       return null;
-    } catch (e) {
-      _logger.e('通过ID获取消息失败', error: e);
+    } catch (error) {
+      _logger.e('通过ID获取消息失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -862,9 +862,9 @@ class ChatCubit extends Cubit<ChatState> {
       updatedMessagesByConversation[conversationId] = updatedMessages;
 
       emit(state.copyWith(isLoading: false, messagesByConversation: updatedMessagesByConversation));
-    } catch (e) {
-      _logger.e('加载日期附近消息失败', error: e);
-      emit(state.copyWith(isLoading: false, error: '加载消息失败: $e'));
+    } catch (error) {
+      _logger.e('加载日期附近消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isLoading: false, error: '加载消息失败: $error'));
     }
   }
 
@@ -888,9 +888,9 @@ class ChatCubit extends Cubit<ChatState> {
       updatedMessagesByConversation[conversationId] = messages;
 
       emit(state.copyWith(isLoading: false, messagesByConversation: updatedMessagesByConversation));
-    } catch (e) {
-      _logger.e('从指定日期加载消息失败', error: e);
-      emit(state.copyWith(isLoading: false, error: '加载消息失败: $e'));
+    } catch (error) {
+      _logger.e('从指定日期加载消息失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isLoading: false, error: '加载消息失败: $error'));
     }
   }
 
@@ -916,9 +916,9 @@ class ChatCubit extends Cubit<ChatState> {
       // 更新导航数据,包含跳转信息
       _logger.i('更新导航数据,包含跳转信息', extra: {'jumpToDate': targetDate});
       setNavigationData({'jumpToDate': targetDate});
-    } catch (e) {
-      _logger.e('跳转到指定日期失败', error: e);
-      emit(state.copyWithError('跳转到指定日期失败: $e'));
+    } catch (error) {
+      _logger.e('跳转到指定日期失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWithError('跳转到指定日期失败: $error'));
     }
   }
 
@@ -940,8 +940,8 @@ class ChatCubit extends Cubit<ChatState> {
           final contacts = await _contactsRepository.syncContacts();
           success = contacts.isNotEmpty;
           _logger.i('联系人同步完成,获取到 ${contacts.length} 个联系人');
-        } catch (e) {
-          _logger.e('使用ContactsRepository同步联系人失败', error: e);
+        } catch (error) {
+          _logger.e('使用ContactsRepository同步联系人失败', error: error, stackTrace: StackTrace.current);
         }
       } else {
         _logger.e('ContactsRepository未注入,无法同步联系人');
@@ -952,8 +952,8 @@ class ChatCubit extends Cubit<ChatState> {
       } else {
         _logger.w('联系人同步请求失败');
       }
-    } catch (e) {
-      _logger.e('同步联系人失败', error: e);
+    } catch (error) {
+      _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -982,8 +982,8 @@ class ChatCubit extends Cubit<ChatState> {
       } else {
         _logger.e('创建会话失败');
       }
-    } catch (e) {
-      _logger.e('开始对话失败', error: e);
+    } catch (error) {
+      _logger.e('开始对话失败', error: error, stackTrace: StackTrace.current);
     }
   }
 

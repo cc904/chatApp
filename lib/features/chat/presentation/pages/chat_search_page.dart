@@ -96,13 +96,13 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
         _jumpToChatAtDate(selectedDate);
       }
-    } catch (e) {
+    } catch (error) {
       // 通知Cubit日期选择失败
-      _searchCubit.dateSelectionFailed(e.toString());
-      _logger.e('日期选择失败', error: e);
+      _searchCubit.dateSelectionFailed(error.toString());
+      _logger.e('日期选择失败', error: error, stackTrace: StackTrace.current);
 
       // 使用全局UINotificationService代替直接使用ScaffoldMessenger
-      UINotificationHelper.showError('日期选择失败: $e');
+      UINotificationHelper.showError('日期选择失败: $error');
     }
   }
 
@@ -120,21 +120,21 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
             Navigator.of(context).pop();
             Navigator.of(context).pop();
             _logger.i('跳转到聊天界面', extra: {'set navigationData': date});
-          } catch (e) {
-            _logger.e('跳转到聊天界面失败', error: e);
+          } catch (error) {
+            _logger.e('跳转到聊天界面失败', error: error, stackTrace: StackTrace.current);
 
             // 使用UINotificationHelper
-            UINotificationHelper.showError('跳转到聊天界面失败: $e');
+            UINotificationHelper.showError('跳转到聊天界面失败: $error');
           }
         } else {
           _logger.w('组件已卸载,无法执行导航');
         }
       });
-    } catch (e) {
-      _logger.e('跳转到日期消息失败', error: e);
+    } catch (error) {
+      _logger.e('跳转到日期消息失败', error: error, stackTrace: StackTrace.current);
 
       // 使用UINotificationHelper
-      UINotificationHelper.showError('日期选择失败: $e');
+      UINotificationHelper.showError('日期选择失败: $error');
     }
   }
 

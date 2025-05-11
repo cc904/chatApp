@@ -27,9 +27,9 @@ class ProtoConverter {
   MessageProto bytesToMessage(Uint8List bytes) {
     try {
       return MessageProto.fromBuffer(bytes);
-    } catch (e) {
-      _logger.e('二进制转MessageProto失败', error: e);
-      throw FormatException('无效的消息格式: $e');
+    } catch (error) {
+      _logger.e('二进制转MessageProto失败', error: error, stackTrace: StackTrace.current);
+      throw FormatException('无效的消息格式: $error');
     }
   }
 
@@ -78,7 +78,7 @@ class ProtoConverter {
           unreadCount: data['unreadCount'] ?? 0,
         );
         if (data['participantIds'] != null) {
-          conversation.participantIds.addAll((data['participantIds'] as List<dynamic>).map((e) => e.toString()).toList());
+          conversation.participantIds.addAll((data['participantIds'] as List<dynamic>).map((error) => error.toString()).toList());
         }
         return conversation.writeToBuffer();
 
@@ -136,9 +136,9 @@ class ProtoConverter {
           _logger.w('未知事件类型,无法解码', extra: {'eventType': eventType});
           throw UnsupportedError('不支持的事件类型: $eventType');
       }
-    } catch (e) {
-      _logger.e('解码数据失败', error: e, extra: {'eventType': eventType});
-      throw FormatException('解码失败: $e');
+    } catch (error) {
+      _logger.e('解码数据失败', error: error, extra: {'eventType': eventType});
+      throw FormatException('解码失败: $error');
     }
   }
 

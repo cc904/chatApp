@@ -85,7 +85,7 @@ class AuthApiClient {
       _dio.interceptors.add(PrettyDioLogger(
         requestHeader: true,
         requestBody: true,
-        responseHeader: true,
+        responseHeader: false,
         responseBody: true,
         error: true,
         compact: false,
@@ -93,26 +93,26 @@ class AuthApiClient {
       ));
 
       return true;
-    } catch (e) {
-      _logger.e('初始化认证API客户端失败', error: e);
+    } catch (error) {
+      _logger.e('初始化认证API客户端失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
 
   /// 根据异常类型生成友好的错误消息
-  String _getFriendlyErrorMessage(Object e, String defaultMessage) {
-    if (e is DioException) {
-      if (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.sendTimeout) {
+  String _getFriendlyErrorMessage(Object error, String defaultMessage) {
+    if (error is DioException) {
+      if (error.type == DioExceptionType.receiveTimeout || error.type == DioExceptionType.connectionTimeout || error.type == DioExceptionType.sendTimeout) {
         return '连接超时，请检查网络后重试';
-      } else if (e.type == DioExceptionType.connectionError) {
+      } else if (error.type == DioExceptionType.connectionError) {
         return '网络连接错误，请检查网络设置';
-      } else if (e.response != null) {
-        if (e.response?.data is Map && e.response?.data['message'] != null) {
+      } else if (error.response != null) {
+        if (error.response?.data is Map && error.response?.data['message'] != null) {
           // 如果服务器返回了错误消息，优先使用服务器的错误消息
-          return e.response?.data['message'];
+          return error.response?.data['message'];
         }
         // 否则返回状态码
-        return '服务器错误 (${e.response?.statusCode})';
+        return '服务器错误 (${error.response?.statusCode})';
       }
     }
     return defaultMessage;
@@ -138,11 +138,11 @@ class AuthApiClient {
       ));
 
       return data['success'] ?? false;
-    } catch (e) {
-      _logger.e('发送验证码失败', error: e);
+    } catch (error) {
+      _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
-      final errorMsg = _getFriendlyErrorMessage(e, '发送验证码失败');
+      final errorMsg = _getFriendlyErrorMessage(error, '发送验证码失败');
 
       _authResponseController.add(AuthResponse(
         success: false,
@@ -169,11 +169,11 @@ class AuthApiClient {
       _authResponseController.add(authResponse);
 
       return authResponse.success;
-    } catch (e) {
-      _logger.e('验证码登录失败', error: e);
+    } catch (error) {
+      _logger.e('验证码登录失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
-      final errorMsg = _getFriendlyErrorMessage(e, '登录失败');
+      final errorMsg = _getFriendlyErrorMessage(error, '登录失败');
 
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
@@ -202,11 +202,11 @@ class AuthApiClient {
       _authResponseController.add(authResponse);
 
       return authResponse.success;
-    } catch (e) {
-      _logger.e('密码登录失败', error: e);
+    } catch (error) {
+      _logger.e('密码登录失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
-      final errorMsg = _getFriendlyErrorMessage(e, '登录失败');
+      final errorMsg = _getFriendlyErrorMessage(error, '登录失败');
 
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
@@ -238,11 +238,11 @@ class AuthApiClient {
       _authResponseController.add(authResponse);
 
       return authResponse.success;
-    } catch (e) {
-      _logger.e('注册失败', error: e);
+    } catch (error) {
+      _logger.e('注册失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
-      final errorMsg = _getFriendlyErrorMessage(e, '注册失败');
+      final errorMsg = _getFriendlyErrorMessage(error, '注册失败');
 
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(
@@ -272,11 +272,11 @@ class AuthApiClient {
       _authResponseController.add(authResponse);
 
       return authResponse.success;
-    } catch (e) {
-      _logger.e('重置密码失败', error: e);
+    } catch (error) {
+      _logger.e('重置密码失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
-      final errorMsg = _getFriendlyErrorMessage(e, '重置密码失败');
+      final errorMsg = _getFriendlyErrorMessage(error, '重置密码失败');
 
       // 向流中添加错误响应
       _authResponseController.add(AuthResponse(

@@ -75,8 +75,8 @@ class MessageService {
 
       _logger.i('消息发送成功', extra: {'messageId': message.messageId});
       return message;
-    } catch (e) {
-      _logger.e('发送消息失败', error: e);
+    } catch (error) {
+      _logger.e('发送消息失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -116,8 +116,8 @@ class MessageService {
 
       _logger.i('获取消息成功', extra: {'count': messages.length});
       return messages;
-    } catch (e) {
-      _logger.e('获取消息失败', error: e);
+    } catch (error) {
+      _logger.e('获取消息失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -149,8 +149,8 @@ class MessageService {
       });
 
       _logger.i('消息已标记为已读');
-    } catch (e) {
-      _logger.e('标记消息为已读失败', error: e);
+    } catch (error) {
+      _logger.e('标记消息为已读失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -172,8 +172,8 @@ class MessageService {
 
       _logger.i('消息删除成功');
       return success;
-    } catch (e) {
-      _logger.e('删除消息失败', error: e);
+    } catch (error) {
+      _logger.e('删除消息失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }

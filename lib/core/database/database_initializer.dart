@@ -68,11 +68,11 @@ class DatabaseInitializer {
       // 创建索引
       await _createIndexes();
       _logger.i('数据库初始化完成，isInitialized: $isInitialized');
-    } catch (e) {
+    } catch (error) {
       // 确保在初始化失败时重置状态
       _isar = null;
       _currentUserId = null;
-      _logger.e('数据库初始化失败', error: e);
+      _logger.e('数据库初始化失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -98,8 +98,8 @@ class DatabaseInitializer {
         isar.messages.where().filter().senderIdEqualTo('').build();
       });
       _logger.i('数据库索引创建完成');
-    } catch (e) {
-      _logger.e('创建数据库索引失败', error: e);
+    } catch (error) {
+      _logger.e('创建数据库索引失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -130,8 +130,8 @@ class DatabaseInitializer {
         _currentUserId = null;
         _logger.i('数据库关闭完成');
       }
-    } catch (e) {
-      _logger.e('关闭数据库失败', error: e);
+    } catch (error) {
+      _logger.e('关闭数据库失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -142,8 +142,8 @@ class DatabaseInitializer {
       final dir = await getApplicationDocumentsDirectory();
       final dbFile = File('${dir.path}/user_$userId.isar');
       return await dbFile.exists();
-    } catch (e) {
-      _logger.e('检查用户数据库失败', error: e);
+    } catch (error) {
+      _logger.e('检查用户数据库失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -171,8 +171,8 @@ class DatabaseInitializer {
       }
 
       return true;
-    } catch (e) {
-      _logger.e('删除用户数据库失败', error: e);
+    } catch (error) {
+      _logger.e('删除用户数据库失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }

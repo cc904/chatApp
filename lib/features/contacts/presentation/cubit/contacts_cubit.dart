@@ -57,9 +57,9 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
       emit(state.copyWith(isLoading: true, errorMessage: null));
       final contacts = await _repository.getAllContacts();
       emit(state.copyWith(contacts: contacts, isLoading: false));
-    } catch (e) {
-      _logger.e('加载联系人失败', error: e);
-      emit(state.copyWith(isLoading: false, errorMessage: '加载联系人失败: $e'));
+    } catch (error) {
+      _logger.e('加载联系人失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isLoading: false, errorMessage: '加载联系人失败: $error'));
     }
   }
 
@@ -73,9 +73,9 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
 
       // 加载好友请求
       await loadFriendRequests();
-    } catch (e) {
-      _logger.e('同步联系人失败', error: e);
-      emit(state.copyWith(isSyncing: false, errorMessage: '同步联系人失败: $e'));
+    } catch (error) {
+      _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isSyncing: false, errorMessage: '同步联系人失败: $error'));
     }
   }
 
@@ -85,8 +85,8 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
     try {
       final requests = await _repository.getFriendRequests();
       emit(state.copyWith(friendRequests: requests));
-    } catch (e) {
-      _logger.e('加载好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('加载好友请求失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -98,9 +98,9 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
       final result = await _repository.sendFriendRequest(userId, message);
       emit(state.copyWith(isLoading: false));
       return result;
-    } catch (e) {
-      _logger.e('发送好友请求失败', error: e);
-      emit(state.copyWith(isLoading: false, errorMessage: '发送好友请求失败: $e'));
+    } catch (error) {
+      _logger.e('发送好友请求失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isLoading: false, errorMessage: '发送好友请求失败: $error'));
       return false;
     }
   }
@@ -121,9 +121,9 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
 
       emit(state.copyWith(isLoading: false));
       return result;
-    } catch (e) {
-      _logger.e('接受好友请求失败', error: e);
-      emit(state.copyWith(isLoading: false, errorMessage: '接受好友请求失败: $e'));
+    } catch (error) {
+      _logger.e('接受好友请求失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isLoading: false, errorMessage: '接受好友请求失败: $error'));
       return false;
     }
   }
@@ -142,9 +142,9 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
 
       emit(state.copyWith(isLoading: false));
       return result;
-    } catch (e) {
-      _logger.e('拒绝好友请求失败', error: e);
-      emit(state.copyWith(isLoading: false, errorMessage: '拒绝好友请求失败: $e'));
+    } catch (error) {
+      _logger.e('拒绝好友请求失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isLoading: false, errorMessage: '拒绝好友请求失败: $error'));
       return false;
     }
   }
@@ -157,8 +157,8 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
         return state.contacts;
       }
       return await _repository.searchContacts(query);
-    } catch (e) {
-      _logger.e('搜索联系人失败', error: e);
+    } catch (error) {
+      _logger.e('搜索联系人失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -169,10 +169,10 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
       emit(state.copyWith(isLoading: true, errorMessage: null));
       await _repository.addContact(contact);
       await loadContacts(); // 重新加载联系人列表
-    } catch (e) {
-      _logger.e('添加联系人失败', error: e);
+    } catch (error) {
+      _logger.e('添加联系人失败', error: error, stackTrace: StackTrace.current);
       emit(state.copyWith(
-        errorMessage: '添加联系人失败: $e',
+        errorMessage: '添加联系人失败: $error',
         isLoading: false,
       ));
     }
@@ -184,10 +184,10 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
       emit(state.copyWith(isLoading: true, errorMessage: null));
       await _repository.deleteContact(userId);
       await loadContacts(); // 重新加载联系人列表
-    } catch (e) {
-      _logger.e('删除联系人失败', error: e);
+    } catch (error) {
+      _logger.e('删除联系人失败', error: error, stackTrace: StackTrace.current);
       emit(state.copyWith(
-        errorMessage: '删除联系人失败: $e',
+        errorMessage: '删除联系人失败: $error',
         isLoading: false,
       ));
     }
@@ -199,10 +199,10 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
       emit(state.copyWith(isLoading: true, errorMessage: null));
       await _repository.updateContact(contact);
       await loadContacts(); // 重新加载联系人列表
-    } catch (e) {
-      _logger.e('更新联系人失败', error: e);
+    } catch (error) {
+      _logger.e('更新联系人失败', error: error, stackTrace: StackTrace.current);
       emit(state.copyWith(
-        errorMessage: '更新联系人失败: $e',
+        errorMessage: '更新联系人失败: $error',
         isLoading: false,
       ));
     }

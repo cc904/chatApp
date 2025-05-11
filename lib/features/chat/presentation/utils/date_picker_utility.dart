@@ -91,9 +91,9 @@ class DatePickerUtility {
       _messageDates.addAll(dates);
       // 记录该月份已加载
       _loadedMonths.add(monthKey);
-    } catch (e) {
-      _logger.e('从数据库加载消息日期失败', error: e);
-      throw Exception('加载消息日期失败: $e');
+    } catch (error) {
+      _logger.e('从数据库加载消息日期失败', error: error, stackTrace: StackTrace.current);
+      throw Exception('加载消息日期失败: $error');
     }
   }
 
@@ -127,9 +127,9 @@ class DatePickerUtility {
 
       _logger.i('预加载了最近3个月的消息日期',
           extra: {'current': '${now.year}年${now.month}月', 'prev1': '${prevMonth1.year}年${prevMonth1.month}月', 'prev2': '${prevMonth2.year}年${prevMonth2.month}月'});
-    } catch (e) {
-      _logger.e('预加载最近消息日期失败', error: e);
-      throw Exception('预加载最近消息日期失败: $e');
+    } catch (error) {
+      _logger.e('预加载最近消息日期失败', error: error, stackTrace: StackTrace.current);
+      throw Exception('预加载最近消息日期失败: $error');
     }
   }
 
@@ -175,9 +175,9 @@ class DatePickerUtility {
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-    } catch (e) {
+    } catch (error) {
       // 发生错误,关闭加载指示器并显示错误
-      _logger.e('加载消息日期失败', error: e);
+      _logger.e('加载消息日期失败', error: error, stackTrace: StackTrace.current);
       if (context.mounted) {
         try {
           Navigator.of(context).pop();
@@ -186,7 +186,7 @@ class DatePickerUtility {
         }
 
         // 使用UINotificationHelper显示错误
-        UINotificationHelper.showError('加载消息日期失败: $e', duration: const Duration(seconds: 4));
+        UINotificationHelper.showError('加载消息日期失败: $error', duration: const Duration(seconds: 4));
       }
       completer.complete(null);
       return completer.future;

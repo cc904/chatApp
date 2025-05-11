@@ -37,8 +37,8 @@ class UserService {
 
       _logger.i('联系人创建成功', extra: {'userId': user.userId});
       return user;
-    } catch (e) {
-      _logger.e('创建联系人失败', error: e);
+    } catch (error) {
+      _logger.e('创建联系人失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -55,8 +55,8 @@ class UserService {
 
       _logger.i('获取联系人列表成功', extra: {'count': contacts.length});
       return contacts;
-    } catch (e) {
-      _logger.e('获取联系人列表失败', error: e);
+    } catch (error) {
+      _logger.e('获取联系人列表失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -77,8 +77,8 @@ class UserService {
 
       _logger.i('获取联系人详情成功');
       return user;
-    } catch (e) {
-      _logger.e('获取联系人详情失败', error: e);
+    } catch (error) {
+      _logger.e('获取联系人详情失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -121,8 +121,8 @@ class UserService {
 
       _logger.i('更新联系人信息成功');
       return success;
-    } catch (e) {
-      _logger.e('更新联系人信息失败', error: e);
+    } catch (error) {
+      _logger.e('更新联系人信息失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -145,8 +145,8 @@ class UserService {
 
       _logger.i('删除联系人成功');
       return success;
-    } catch (e) {
-      _logger.e('删除联系人失败', error: e);
+    } catch (error) {
+      _logger.e('删除联系人失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }

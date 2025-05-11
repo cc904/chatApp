@@ -2,6 +2,7 @@ import 'package:protobuf/protobuf.dart';
 import '../proto/generated/message.pb.dart';
 import '../proto/generated/conversation.pb.dart';
 import '../proto/generated/user.pb.dart';
+import '../proto/generated/contacts.pb.dart' as proto;
 
 /// 事件到Protobuf消息类型的映射
 /// 定义了服务器和客户端之间通信的事件和对应的Protobuf消息类型
@@ -17,13 +18,19 @@ class ProtoEvents {
     'conversation_update': () => ConversationProto(),
     'conversation_created': () => ConversationProto(),
     'conversation_deleted': () => ConversationProto(),
-    'sync_conversations': () => ConversationCollection(),
+    'sync_conversations': () => SyncConversationsRequest(),
+    'sync_conversations_response': () => ConversationCollection(),
 
     // 用户相关事件
     'user_online': () => UserStatusUpdate(),
     'user_offline': () => UserStatusUpdate(),
     'user_typing': () => UserTypingUpdate(),
     'user_updated': () => UserProto(),
+    'contacts_synced': () => UserCollection(),
+
+    // 联系人相关事件
+    'sync_contacts': () => proto.SyncContactsRequest(),
+    'sync_contacts_response': () => proto.SyncContactsResponse(),
 
     // 系统相关事件
     'system_message': () => SystemMessage(),

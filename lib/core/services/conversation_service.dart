@@ -7,6 +7,7 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/database/models/user.dart';
 import 'package:isar/isar.dart';
+import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
 
 /// 会话服务
 /// 处理会话相关操作，如同步会话、获取会话列表等
@@ -142,18 +143,15 @@ class ConversationService {
     _logger.i('请求同步会话');
 
     try {
-      // 创建同步请求对象
-      final Map<String, dynamic> syncRequest = {
-        'userId': 'current_user_id', // 在实际应用中应该使用真实的用户ID
-        'lastSyncTime': 0, // 首次同步为0，后续应该使用上次同步时间
-        'limit': 50
-      };
+      final syncRequest = proto.SyncConversationsRequest()
+        ..userId = 'current_user_id'
+        ..localConversationIds.addAll([]); // 添加本地会话ID列表
 
       // 发送同步请求
-      _communicationService.emitEvent('sync_conversations', syncRequest);
+      _communicationService.emitProto('sync_conversations', syncRequest);
       _logger.i('会话同步请求已发送');
-    } catch (e) {
-      _logger.e('同步会话失败', error: e);
+    } catch (error) {
+      _logger.e('同步会话失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -195,8 +193,8 @@ class ConversationService {
       // 发送创建会话请求
       await _communicationService.emitProto('create_conversation', conversation);
       _logger.i('创建会话请求已发送');
-    } catch (e) {
-      _logger.e('创建会话失败', error: e);
+    } catch (error) {
+      _logger.e('创建会话失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -253,8 +251,8 @@ class ConversationService {
 
       logger.i('私聊会话创建成功', extra: {'conversationId': conversation.conversationId});
       return conversation;
-    } catch (e) {
-      logger.e('创建私聊会话失败', error: e);
+    } catch (error) {
+      logger.e('创建私聊会话失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -295,8 +293,8 @@ class ConversationService {
 
       logger.i('群聊会话创建成功', extra: {'conversationId': conversation.conversationId});
       return conversation;
-    } catch (e) {
-      logger.e('创建群聊会话失败', error: e);
+    } catch (error) {
+      logger.e('创建群聊会话失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -314,8 +312,8 @@ class ConversationService {
 
       logger.i('获取会话列表成功', extra: {'count': conversations.length});
       return conversations;
-    } catch (e) {
-      logger.e('获取会话列表失败', error: e);
+    } catch (error) {
+      logger.e('获取会话列表失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -349,8 +347,8 @@ class ConversationService {
 
       logger.i('更新会话信息成功');
       return success;
-    } catch (e) {
-      logger.e('更新会话信息失败', error: e);
+    } catch (error) {
+      logger.e('更新会话信息失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -377,8 +375,8 @@ class ConversationService {
 
       logger.i('删除会话成功');
       return success;
-    } catch (e) {
-      logger.e('删除会话失败', error: e);
+    } catch (error) {
+      logger.e('删除会话失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }

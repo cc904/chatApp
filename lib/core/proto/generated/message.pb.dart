@@ -893,6 +893,336 @@ class MessageResponse extends $pb.GeneratedMessage {
   void clearTimestamp() => $_clearField(4);
 }
 
+/// 新消息
+class NewMessageProto extends $pb.GeneratedMessage {
+  factory NewMessageProto({
+    $core.String? id,
+    $core.String? senderId,
+    $core.String? conversationId,
+    $core.String? content,
+    $fixnum.Int64? timestamp,
+    $core.String? type,
+  }) {
+    final $result = create();
+    if (id != null) {
+      $result.id = id;
+    }
+    if (senderId != null) {
+      $result.senderId = senderId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (content != null) {
+      $result.content = content;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    if (type != null) {
+      $result.type = type;
+    }
+    return $result;
+  }
+  NewMessageProto._() : super();
+  factory NewMessageProto.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory NewMessageProto.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'NewMessageProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'senderId')
+    ..aOS(3, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(4, _omitFieldNames ? '' : 'content')
+    ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
+    ..aOS(6, _omitFieldNames ? '' : 'type')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  NewMessageProto clone() => NewMessageProto()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  NewMessageProto copyWith(void Function(NewMessageProto) updates) => super.copyWith((message) => updates(message as NewMessageProto)) as NewMessageProto;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NewMessageProto create() => NewMessageProto._();
+  NewMessageProto createEmptyInstance() => create();
+  static $pb.PbList<NewMessageProto> createRepeated() => $pb.PbList<NewMessageProto>();
+  @$core.pragma('dart2js:noInline')
+  static NewMessageProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NewMessageProto>(create);
+  static NewMessageProto? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get senderId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set senderId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasSenderId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSenderId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get conversationId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set conversationId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversationId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversationId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get content => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set content($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasContent() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearContent() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get timestamp => $_getI64(4);
+  @$pb.TagNumber(5)
+  set timestamp($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTimestamp() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTimestamp() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get type => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set type($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasType() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearType() => $_clearField(6);
+}
+
+/// 输入状态
+class TypingProto extends $pb.GeneratedMessage {
+  factory TypingProto({
+    $core.String? conversationId,
+    $core.bool? isTyping,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (isTyping != null) {
+      $result.isTyping = isTyping;
+    }
+    return $result;
+  }
+  TypingProto._() : super();
+  factory TypingProto.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory TypingProto.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TypingProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOB(2, _omitFieldNames ? '' : 'isTyping')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  TypingProto clone() => TypingProto()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  TypingProto copyWith(void Function(TypingProto) updates) => super.copyWith((message) => updates(message as TypingProto)) as TypingProto;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TypingProto create() => TypingProto._();
+  TypingProto createEmptyInstance() => create();
+  static $pb.PbList<TypingProto> createRepeated() => $pb.PbList<TypingProto>();
+  @$core.pragma('dart2js:noInline')
+  static TypingProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TypingProto>(create);
+  static TypingProto? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get isTyping => $_getBF(1);
+  @$pb.TagNumber(2)
+  set isTyping($core.bool v) { $_setBool(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasIsTyping() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearIsTyping() => $_clearField(2);
+}
+
+/// 消息已读
+class MessageReadProto extends $pb.GeneratedMessage {
+  factory MessageReadProto({
+    $core.String? messageId,
+    $core.String? conversationId,
+  }) {
+    final $result = create();
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    return $result;
+  }
+  MessageReadProto._() : super();
+  factory MessageReadProto.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageReadProto.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageReadProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aOS(2, _omitFieldNames ? '' : 'conversationId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageReadProto clone() => MessageReadProto()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageReadProto copyWith(void Function(MessageReadProto) updates) => super.copyWith((message) => updates(message as MessageReadProto)) as MessageReadProto;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageReadProto create() => MessageReadProto._();
+  MessageReadProto createEmptyInstance() => create();
+  static $pb.PbList<MessageReadProto> createRepeated() => $pb.PbList<MessageReadProto>();
+  @$core.pragma('dart2js:noInline')
+  static MessageReadProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageReadProto>(create);
+  static MessageReadProto? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get conversationId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set conversationId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasConversationId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversationId() => $_clearField(2);
+}
+
+/// 消息已送达
+class MessageDeliveredProto extends $pb.GeneratedMessage {
+  factory MessageDeliveredProto({
+    $core.String? messageId,
+    $core.String? conversationId,
+    $core.String? recipientId,
+  }) {
+    final $result = create();
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (recipientId != null) {
+      $result.recipientId = recipientId;
+    }
+    return $result;
+  }
+  MessageDeliveredProto._() : super();
+  factory MessageDeliveredProto.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageDeliveredProto.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageDeliveredProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aOS(2, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(3, _omitFieldNames ? '' : 'recipientId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageDeliveredProto clone() => MessageDeliveredProto()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageDeliveredProto copyWith(void Function(MessageDeliveredProto) updates) => super.copyWith((message) => updates(message as MessageDeliveredProto)) as MessageDeliveredProto;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageDeliveredProto create() => MessageDeliveredProto._();
+  MessageDeliveredProto createEmptyInstance() => create();
+  static $pb.PbList<MessageDeliveredProto> createRepeated() => $pb.PbList<MessageDeliveredProto>();
+  @$core.pragma('dart2js:noInline')
+  static MessageDeliveredProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageDeliveredProto>(create);
+  static MessageDeliveredProto? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get conversationId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set conversationId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasConversationId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversationId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get recipientId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set recipientId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasRecipientId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRecipientId() => $_clearField(3);
+}
+
 
 const _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
 const _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');

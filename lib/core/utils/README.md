@@ -59,8 +59,8 @@ Future<void> someAsyncOperation() async {
     UINotificationHelper.showProcessing('处理中...');
     await Future.delayed(Duration(seconds: 2)); // 模拟异步操作
     UINotificationHelper.showSuccess('操作成功');
-  } catch (e) {
-    UINotificationHelper.showError('操作失败: $e');
+  } catch (error) {
+    UINotificationHelper.showError('操作失败: $error');
   }
 }
 ```
@@ -91,7 +91,7 @@ Future<void> loadData() async {
      try {
        await someAsyncOperation();
        ScaffoldMessenger.of(context).showSnackBar(...); // 错误!
-     } catch (e) {
+     } catch (error) {
        // ...
      }
    }
@@ -101,8 +101,8 @@ Future<void> loadData() async {
      try {
        await someAsyncOperation();
        UINotificationHelper.showSuccess('成功');
-     } catch (e) {
-       UINotificationHelper.showError('失败: $e');
+     } catch (error) {
+       UINotificationHelper.showError('失败: $error');
      }
    }
    ```
@@ -116,7 +116,7 @@ Future<void> loadData() async {
        if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(...);
        }
-     } catch (e) {
+     } catch (error) {
        // ...
      }
    }
@@ -126,8 +126,8 @@ Future<void> loadData() async {
      try {
        await someAsyncOperation();
        UINotificationHelper.showSuccess('成功');
-     } catch (e) {
-       UINotificationHelper.showError('失败: $e');
+     } catch (error) {
+       UINotificationHelper.showError('失败: $error');
      }
    }
    ```

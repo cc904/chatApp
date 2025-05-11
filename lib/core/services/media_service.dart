@@ -62,11 +62,11 @@ class MediaService {
             }
           }
         }, onError: (error) {
-          _logger.e('音频状态监听错误', error: error);
+          _logger.e('音频状态监听错误', error: error, stackTrace: StackTrace.current);
         });
-      } catch (e) {
-        _logger.e('创建AudioPlayer实例失败', error: e);
-        throw Exception('无法初始化音频播放器: $e');
+      } catch (error) {
+        _logger.e('创建AudioPlayer实例失败', error: error, stackTrace: StackTrace.current);
+        throw Exception('无法初始化音频播放器: $error');
       }
     }
     return _audioPlayer!;
@@ -77,8 +77,8 @@ class MediaService {
     if (_positionSubscription != null) {
       try {
         await _positionSubscription!.cancel();
-      } catch (e) {
-        _logger.e('取消位置监听器失败', error: e);
+      } catch (error) {
+        _logger.e('取消位置监听器失败', error: error, stackTrace: StackTrace.current);
       } finally {
         _positionSubscription = null;
       }
@@ -105,8 +105,8 @@ class MediaService {
       AudioPlayer player;
       try {
         player = await _getAudioPlayer();
-      } catch (e) {
-        _logger.e('获取AudioPlayer实例失败', error: e);
+      } catch (error) {
+        _logger.e('获取AudioPlayer实例失败', error: error, stackTrace: StackTrace.current);
         // 尝试重新初始化播放器
         _audioPlayer = null;
         _isPlayerInitialized = false;
@@ -143,8 +143,8 @@ class MediaService {
       _logger.i('加载音频文件...');
       try {
         await player.setFilePath(effectiveFilePath);
-      } catch (e) {
-        _logger.e('设置音频文件路径失败', error: e);
+      } catch (error) {
+        _logger.e('设置音频文件路径失败', error: error, stackTrace: StackTrace.current);
         // 对于macOS,尝试使用完整的file://路径
         if (Platform.isMacOS) {
           _logger.i('在macOS上尝试使用file://URL格式');
@@ -172,16 +172,16 @@ class MediaService {
             _onCompleteCallback!();
           }
         }
-      }, onError: (e) {
-        _logger.e('播放进度监听错误', error: e);
+      }, onError: (error) {
+        _logger.e('播放进度监听错误', error: error, stackTrace: StackTrace.current);
       });
 
       // 开始播放
       _logger.i('开始播放音频');
       await player.play();
       _isPlaying = true;
-    } catch (e) {
-      _logger.e('播放音频失败', error: e);
+    } catch (error) {
+      _logger.e('播放音频失败', error: error, stackTrace: StackTrace.current);
       // 清理状态
       _isPlaying = false;
       _onCompleteCallback = null;
@@ -211,8 +211,8 @@ class MediaService {
       AudioPlayer player;
       try {
         player = await _getAudioPlayer();
-      } catch (e) {
-        _logger.e('获取AudioPlayer实例失败', error: e);
+      } catch (error) {
+        _logger.e('获取AudioPlayer实例失败', error: error, stackTrace: StackTrace.current);
         // 尝试重新初始化播放器
         _audioPlayer = null;
         _isPlayerInitialized = false;
@@ -239,8 +239,8 @@ class MediaService {
         try {
           // 设置本地文件
           await player.setFilePath(localPath);
-        } catch (e) {
-          _logger.e('设置本地文件路径失败', error: e);
+        } catch (error) {
+          _logger.e('设置本地文件路径失败', error: error, stackTrace: StackTrace.current);
           // 对于macOS,直接使用URL格式
           if (Platform.isMacOS) {
             _logger.i('在macOS上尝试使用原始file://URL');
@@ -271,16 +271,16 @@ class MediaService {
             _onCompleteCallback!();
           }
         }
-      }, onError: (e) {
-        _logger.e('播放进度监听错误', error: e);
+      }, onError: (error) {
+        _logger.e('播放进度监听错误', error: error, stackTrace: StackTrace.current);
       });
 
       // 开始播放
       _logger.i('开始播放音频URL');
       await player.play();
       _isPlaying = true;
-    } catch (e) {
-      _logger.e('播放URL音频失败', error: e);
+    } catch (error) {
+      _logger.e('播放URL音频失败', error: error, stackTrace: StackTrace.current);
       // 清理状态
       _isPlaying = false;
       _onCompleteCallback = null;
@@ -299,8 +299,8 @@ class MediaService {
       await _audioPlayer!.pause();
       _isPlaying = false;
       _logger.i('音频播放已暂停');
-    } catch (e) {
-      _logger.e('暂停音频播放失败', error: e);
+    } catch (error) {
+      _logger.e('暂停音频播放失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -313,8 +313,8 @@ class MediaService {
       await _audioPlayer!.play();
       _isPlaying = true;
       _logger.i('音频播放已恢复');
-    } catch (e) {
-      _logger.e('恢复音频播放失败', error: e);
+    } catch (error) {
+      _logger.e('恢复音频播放失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -340,8 +340,8 @@ class MediaService {
       _isPlaying = false;
 
       _logger.i('音频播放已停止');
-    } catch (e) {
-      _logger.e('停止音频播放失败', error: e);
+    } catch (error) {
+      _logger.e('停止音频播放失败', error: error, stackTrace: StackTrace.current);
       _isPlaying = false;
     }
   }
@@ -358,8 +358,8 @@ class MediaService {
       if (_processingStateSubscription != null) {
         try {
           await _processingStateSubscription!.cancel();
-        } catch (e) {
-          _logger.e('取消处理状态监听器失败', error: e);
+        } catch (error) {
+          _logger.e('取消处理状态监听器失败', error: error, stackTrace: StackTrace.current);
         } finally {
           _processingStateSubscription = null;
         }
@@ -374,8 +374,8 @@ class MediaService {
         try {
           await _audioPlayer!.stop();
           await _audioPlayer!.dispose();
-        } catch (e) {
-          _logger.e('释放音频播放器资源失败', error: e);
+        } catch (error) {
+          _logger.e('释放音频播放器资源失败', error: error, stackTrace: StackTrace.current);
         } finally {
           _audioPlayer = null;
           _isPlayerInitialized = false;
@@ -384,8 +384,8 @@ class MediaService {
 
       _isPlaying = false;
       _logger.i('所有音频资源已清理');
-    } catch (e) {
-      _logger.e('清理音频资源失败', error: e);
+    } catch (error) {
+      _logger.e('清理音频资源失败', error: error, stackTrace: StackTrace.current);
       // 确保实例被重置
       _audioPlayer = null;
       _isPlayerInitialized = false;
@@ -407,8 +407,8 @@ class MediaService {
 
       // 将XFile转换为File并返回
       return File(pickedFile.path);
-    } catch (e) {
-      _logger.e('选择图片失败', error: e);
+    } catch (error) {
+      _logger.e('选择图片失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -426,8 +426,8 @@ class MediaService {
 
       // 将XFile转换为File并返回
       return File(pickedFile.path);
-    } catch (e) {
-      _logger.e('选择视频失败', error: e);
+    } catch (error) {
+      _logger.e('选择视频失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -448,8 +448,8 @@ class MediaService {
       }
 
       return File(filePath);
-    } catch (e) {
-      _logger.e('选择文件失败', error: e);
+    } catch (error) {
+      _logger.e('选择文件失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -504,8 +504,8 @@ class MediaService {
         _logger.w('没有录音权限');
         return false;
       }
-    } catch (e) {
-      _logger.e('开始录音失败', error: e);
+    } catch (error) {
+      _logger.e('开始录音失败', error: error, stackTrace: StackTrace.current);
       _isRecording = false; // 确保状态重置
       return false;
     }
@@ -582,8 +582,8 @@ class MediaService {
         file: file,
         duration: durationInMillis,
       );
-    } catch (e) {
-      _logger.e('停止录音失败', error: e);
+    } catch (error) {
+      _logger.e('停止录音失败', error: error, stackTrace: StackTrace.current);
       return null;
     } finally {
       // 无论成功与否,确保状态被重置
@@ -611,8 +611,8 @@ class MediaService {
       await file.copy(targetPath);
 
       return targetPath;
-    } catch (e) {
-      _logger.e('保存文件失败', error: e);
+    } catch (error) {
+      _logger.e('保存文件失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -631,8 +631,8 @@ class MediaService {
           }
         }
       }
-    } catch (e) {
-      _logger.e('清理临时文件失败', error: e);
+    } catch (error) {
+      _logger.e('清理临时文件失败', error: error, stackTrace: StackTrace.current);
     }
   }
 

@@ -44,7 +44,7 @@ class ChatState extends Equatable {
       return conversations.firstWhere(
         (conversation) => conversation.id.toString() == currentConversationId,
       );
-    } catch (e) {
+    } catch (error) {
       return null;
     }
   }

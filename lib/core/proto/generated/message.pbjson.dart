@@ -197,3 +197,67 @@ final $typed_data.Uint8List messageResponseDescriptor = $convert.base64Decode(
     'IgASgJUgdtZXNzYWdlEh0KCm1lc3NhZ2VfaWQYAyABKAlSCW1lc3NhZ2VJZBIcCgl0aW1lc3Rh'
     'bXAYBCABKANSCXRpbWVzdGFtcA==');
 
+@$core.Deprecated('Use newMessageProtoDescriptor instead')
+const NewMessageProto$json = {
+  '1': 'NewMessageProto',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'sender_id', '3': 2, '4': 1, '5': 9, '10': 'senderId'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'content', '3': 4, '4': 1, '5': 9, '10': 'content'},
+    {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
+    {'1': 'type', '3': 6, '4': 1, '5': 9, '10': 'type'},
+  ],
+};
+
+/// Descriptor for `NewMessageProto`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List newMessageProtoDescriptor = $convert.base64Decode(
+    'Cg9OZXdNZXNzYWdlUHJvdG8SDgoCaWQYASABKAlSAmlkEhsKCXNlbmRlcl9pZBgCIAEoCVIIc2'
+    'VuZGVySWQSJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5jb252ZXJzYXRpb25JZBIYCgdjb250'
+    'ZW50GAQgASgJUgdjb250ZW50EhwKCXRpbWVzdGFtcBgFIAEoA1IJdGltZXN0YW1wEhIKBHR5cG'
+    'UYBiABKAlSBHR5cGU=');
+
+@$core.Deprecated('Use typingProtoDescriptor instead')
+const TypingProto$json = {
+  '1': 'TypingProto',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'is_typing', '3': 2, '4': 1, '5': 8, '10': 'isTyping'},
+  ],
+};
+
+/// Descriptor for `TypingProto`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List typingProtoDescriptor = $convert.base64Decode(
+    'CgtUeXBpbmdQcm90bxInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcnNhdGlvbklkEh'
+    'sKCWlzX3R5cGluZxgCIAEoCFIIaXNUeXBpbmc=');
+
+@$core.Deprecated('Use messageReadProtoDescriptor instead')
+const MessageReadProto$json = {
+  '1': 'MessageReadProto',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+  ],
+};
+
+/// Descriptor for `MessageReadProto`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageReadProtoDescriptor = $convert.base64Decode(
+    'ChBNZXNzYWdlUmVhZFByb3RvEh0KCm1lc3NhZ2VfaWQYASABKAlSCW1lc3NhZ2VJZBInCg9jb2'
+    '52ZXJzYXRpb25faWQYAiABKAlSDmNvbnZlcnNhdGlvbklk');
+
+@$core.Deprecated('Use messageDeliveredProtoDescriptor instead')
+const MessageDeliveredProto$json = {
+  '1': 'MessageDeliveredProto',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'recipient_id', '3': 3, '4': 1, '5': 9, '10': 'recipientId'},
+  ],
+};
+
+/// Descriptor for `MessageDeliveredProto`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageDeliveredProtoDescriptor = $convert.base64Decode(
+    'ChVNZXNzYWdlRGVsaXZlcmVkUHJvdG8SHQoKbWVzc2FnZV9pZBgBIAEoCVIJbWVzc2FnZUlkEi'
+    'cKD2NvbnZlcnNhdGlvbl9pZBgCIAEoCVIOY29udmVyc2F0aW9uSWQSIQoMcmVjaXBpZW50X2lk'
+    'GAMgASgJUgtyZWNpcGllbnRJZA==');
+

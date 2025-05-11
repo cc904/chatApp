@@ -45,15 +45,14 @@ class HomeCubit extends Cubit<HomeState> {
         _logger.d('已关闭用户数据库');
       }
 
-
       // 模拟网络请求延迟
       await Future.delayed(const Duration(seconds: 1));
 
       // 登出成功后,应用程序会回到登录页面
       // 通过路由处理,这里不需要特殊的状态
-    } catch (e) {
-      _logger.e('登出错误', error: e);
-      emit(HomeError('登出失败: $e'));
+    } catch (error) {
+      _logger.e('登出错误', error: error, stackTrace: StackTrace.current);
+      emit(HomeError('登出失败: $error'));
     }
   }
 
@@ -67,9 +66,9 @@ class HomeCubit extends Cubit<HomeState> {
 
       // 刷新成功,保持当前状态或者更新为特定状态
       emit(HomeInitial());
-    } catch (e) {
-      _logger.e('刷新错误', error: e);
-      emit(HomeError('刷新失败: $e'));
+    } catch (error) {
+      _logger.e('刷新错误', error: error, stackTrace: StackTrace.current);
+      emit(HomeError('刷新失败: $error'));
     }
   }
 
@@ -83,9 +82,9 @@ class HomeCubit extends Cubit<HomeState> {
 
       // 权限处理完成
       emit(HomeInitial());
-    } catch (e) {
-      _logger.e('权限处理错误', error: e);
-      emit(HomeError('权限处理失败: $e'));
+    } catch (error) {
+      _logger.e('权限处理错误', error: error, stackTrace: StackTrace.current);
+      emit(HomeError('权限处理失败: $error'));
     }
   }
 }

@@ -197,13 +197,13 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
           UINotificationHelper.showError('添加好友失败,请重试');
         }
       }
-    } catch (e) {
-      _logger.e('接受好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('接受好友请求失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
         setState(() {
           _isProcessing = false;
         });
-        UINotificationHelper.showError('添加好友失败: $e');
+        UINotificationHelper.showError('添加好友失败: $error');
       }
     }
   }
@@ -229,13 +229,13 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
           UINotificationHelper.showError('拒绝请求失败,请重试');
         }
       }
-    } catch (e) {
-      _logger.e('拒绝好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('拒绝好友请求失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
         setState(() {
           _isProcessing = false;
         });
-        UINotificationHelper.showError('拒绝请求失败: $e');
+        UINotificationHelper.showError('拒绝请求失败: $error');
       }
     }
   }

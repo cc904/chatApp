@@ -13,14 +13,14 @@ class CommunicationService {
 
   // 连接状态
   bool get isConnected => _socketService.isConnected;
-  bool get isInitialized => _socketService.isInitialized; // 为兼容旧版API添加
+  bool get isInitialized => _socketService.isInitialized;
   Stream<bool> get connectionStateStream => _socketService.connectionStateStream;
+
+  // 获取重连状态流
+  Stream<bool> get reconnectingStateStream => _socketService.reconnectingStateStream;
 
   // 事件流控制器映射
   final Map<String, StreamController<GeneratedMessage>> _eventControllers = {};
-
-  // 为兼容旧版API添加
-  final Map<String, StreamController<Map<String, dynamic>>> _legacyEventControllers = {};
 
   // 单例模式
   static final CommunicationService _instance = CommunicationService._internal();
@@ -82,34 +82,13 @@ class CommunicationService {
       _eventControllers[eventName] = StreamController<GeneratedMessage>.broadcast();
     }
 
-    // 创建旧版事件流控制器
-    if (!_legacyEventControllers.containsKey(eventName)) {
-      _legacyEventControllers[eventName] = StreamController<Map<String, dynamic>>.broadcast();
-    }
-
     // 注册Protobuf事件监听
     _socketService.onProto(eventName, creator, (message) {
       _logger.d('收到事件: $eventName', extra: {'messageType': message.runtimeType});
       _eventControllers[eventName]?.add(message);
-
-      // 同时转换为Map格式发送到旧版API中
-      final map = _convertProtoToMap(message);
-      _legacyEventControllers[eventName]?.add(map);
     });
 
-    _logger.d('注册事件监听器: $eventName');
-  }
-
-  /// 将Protobuf消息转换为Map（用于兼容旧版API）
-  Map<String, dynamic> _convertProtoToMap(GeneratedMessage message) {
-    // 简单实现，实际项目中应该使用更完善的转换方法
-    try {
-      // 这里应该实现完整的转换逻辑
-      return {'message': message.toString()};
-    } catch (e) {
-      _logger.e('转换Protobuf到Map失败', error: e);
-      return {'error': 'Failed to convert protobuf message'};
-    }
+    // _logger.d('注册事件监听器: $eventName');
   }
 
   /// 发送Protobuf消息
@@ -154,41 +133,6 @@ class CommunicationService {
     _registerEventListener(eventName);
   }
 
-  // 以下是为了兼容旧版API添加的方法
-
-  /// 发送事件（兼容旧版API）
-  /// [eventName] - 事件名称
-  /// [data] - 事件数据
-  void emitEvent(String eventName, Map<String, dynamic> data) {
-    _logger.i('发送旧版事件: $eventName', extra: {'data': data});
-
-    // 转换为Protobuf消息并发送
-    try {
-      final creator = ProtoEvents.getEventCreator(eventName);
-      if (creator != null) {
-        final message = creator();
-        // 这里应该将data中的数据设置到message中
-        emitProto(eventName, message);
-      } else {
-        _logger.w('未找到事件对应的Protobuf类型，使用原始方式发送', extra: {'eventName': eventName});
-        // 这里可以调用原始的Socket.io发送方法
-      }
-    } catch (e) {
-      _logger.e('发送旧版事件失败', error: e);
-    }
-  }
-
-  /// 监听事件（兼容旧版API）
-  /// [eventName] - 事件名称
-  Stream<Map<String, dynamic>> onEvent(String eventName) {
-    if (!_legacyEventControllers.containsKey(eventName)) {
-      _legacyEventControllers[eventName] = StreamController<Map<String, dynamic>>.broadcast();
-      _registerEventListener(eventName);
-    }
-
-    return _legacyEventControllers[eventName]!.stream;
-  }
-
   /// 释放资源
   void dispose() {
     _logger.i('释放通信服务资源');
@@ -198,12 +142,6 @@ class CommunicationService {
       controller.close();
     }
     _eventControllers.clear();
-
-    // 关闭所有旧版事件流控制器
-    for (final controller in _legacyEventControllers.values) {
-      controller.close();
-    }
-    _legacyEventControllers.clear();
 
     // 断开连接
     _socketService.dispose();

@@ -6,13 +6,24 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-
 /// Protobuf Socket通信服务
 class ProtoSocketService {
   final LogService _logger = LogService.instance;
 
   // Socket.io实例
   io.Socket? _socket;
+
+  // 连接信息
+  String? _serverUrl;
+  String? _userId;
+  String? _token;
+
+  // 重连相关配置
+  static const int _maxReconnectAttempts = 5;
+  static const Duration _reconnectInterval = Duration(seconds: 3);
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
+  bool _isReconnecting = false;
 
   // 标记是否已初始化
   bool _isInitialized = false;
@@ -21,6 +32,10 @@ class ProtoSocketService {
   // 标记是否已连接
   bool _isConnected = false;
   bool get isConnected => _isConnected;
+
+  // 重连状态流控制器
+  final StreamController<bool> _reconnectingStateController = StreamController<bool>.broadcast();
+  Stream<bool> get reconnectingStateStream => _reconnectingStateController.stream;
 
   // 连接状态流控制器
   final StreamController<bool> _connectionStateController = StreamController<bool>.broadcast();
@@ -40,325 +55,155 @@ class ProtoSocketService {
     required String userId,
     required String token,
   }) async {
+    _logger.i('开始连接服务器', extra: {'serverUrl': serverUrl, 'userId': userId});
+
     try {
-      // 如果已经初始化并且连接有效,检查用户ID是否匹配
-      if (_isInitialized && _socket != null) {
-        String? currentUserId;
-        try {
-          currentUserId = _socket?.auth?['userId'];
-        } catch (e) {
-          _logger.e('获取当前用户ID失败', error: e);
-        }
+      _reconnectTimer?.cancel();
 
-        // 如果是同一用户且已连接,直接返回成功
-        if (currentUserId == userId && _isConnected) {
-          _logger.i('已连接到服务器,无需重连', extra: {'userId': userId});
-          return true;
-        }
-
-        // 如果是不同用户或连接已断开,先断开现有连接
-        _logger.i('断开旧连接并准备重连', extra: {'oldUserId': currentUserId, 'newUserId': userId});
-        await disconnect();
-      }
-
-      _logger.i('初始化通信连接', extra: {
-        'serverUrl': serverUrl,
-        'userId': userId,
-      });
-
-      // 创建Socket.io配置
-      final Map<String, dynamic> options = <String, dynamic>{
-        'transports': ['websocket', 'polling'],
+      _socket = io.io(serverUrl, <String, dynamic>{
+        'transports': ['websocket'],
         'autoConnect': true,
-        'forceNew': true,
-        'reconnection': true,
-        'reconnectionAttempts': 10,
-        'reconnectionDelay': 1000,
-        'reconnectionDelayMax': 10000,
-        'timeout': 30000,
         'auth': {
           'userId': userId,
           'token': token,
-        }
-      };
+        },
+      });
 
-      _logger.i('添加认证信息', extra: {'userId': userId});
-
-      // 创建和配置Socket.io客户端
-      _socket = io.io(serverUrl, options);
+      _logger.d('Socket实例已创建', extra: {'socket': _socket?.id});
 
       _setupSocketListeners();
-
-      // 等待连接建立
-      final connected = await _waitForConnection();
-      if (!connected) {
-        throw Exception('Socket.io连接超时');
-      }
-
       _isInitialized = true;
       _isConnected = true;
       _connectionStateController.add(true);
-
-      // 发送上线状态通知
-      final userStatus = UserStatus()
-        ..userId = userId
-        ..status = 'online'
-        ..timestamp = DateTime.now().millisecondsSinceEpoch;
-
-      // 直接使用protobuf对象发送
-      emitProto('user_online', userStatus);
-
-      _logger.i('通信服务初始化成功');
+      _logger.i('连接成功', extra: {'socketId': _socket?.id});
       return true;
-    } catch (e) {
-      _logger.e('初始化通信服务失败', error: e);
-      _connectionStateController.add(false);
+    } catch (error) {
+      _logger.e('连接失败', error: error);
       return false;
     }
   }
 
-  /// 设置Socket.io事件监听器
-  void _setupSocketListeners() {
-    final socket = _socket;
-    if (socket == null) return;
-
-    // 连接成功
-    socket.on('connect', (_) {
-      _logger.i('Socket.io连接成功：${socket.id}');
-      _isConnected = true;
-      _connectionStateController.add(true);
-    });
-
-    // 连接错误
-    socket.on('connect_error', (error) {
-      _logger.e('Socket.io连接错误', error: error);
-      _isConnected = false;
-      _connectionStateController.add(false);
-    });
-
-    // 断开连接
-    socket.on('disconnect', (reason) {
-      _logger.w('Socket.io断开连接', extra: {'reason': reason});
-      _isConnected = false;
-      _connectionStateController.add(false);
-    });
-
-    // 重连尝试
-    socket.on('reconnect_attempt', (attemptNumber) {
-      _logger.i('Socket.io重连尝试', extra: {'attempt': attemptNumber});
-    });
-
-    // 重连失败
-    socket.on('reconnect_failed', (_) {
-      _logger.e('Socket.io重连失败');
-      _isConnected = false;
-      _connectionStateController.add(false);
-    });
-
-    // 重连成功
-    socket.on('reconnect', (attemptNumber) {
-      _logger.i('Socket.io重连成功', extra: {'attempt': attemptNumber});
-      _isConnected = true;
-      _connectionStateController.add(true);
-    });
-
-    // 错误事件
-    socket.on('error', (error) {
-      _logger.e('Socket.io错误', error: error);
-    });
-
-    // 自定义系统事件
-    socket.on('system_message', (data) {
-      _logger.i('收到系统消息', extra: {'data': data});
-      // 这里需要特殊处理系统消息
-    });
-  }
-
-  /// 等待Socket.io连接建立
-  Future<bool> _waitForConnection() async {
-    final socket = _socket;
-    if (socket == null) return false;
-
-    // 如果已连接,直接返回成功
-    if (socket.connected) {
-      _logger.i('Socket.io已连接');
-      return true;
-    }
-
-    // 等待连接建立或超时
-    final completer = Completer<bool>();
-
-    // 监听连接事件
-    void onConnect(_) {
-      if (!completer.isCompleted) {
-        _logger.i('Socket.io连接已建立');
-        completer.complete(true);
-      }
-    }
-
-    // 监听错误事件
-    void onError(error) {
-      if (!completer.isCompleted) {
-        _logger.e('Socket.io连接错误', error: error);
-        completer.complete(false);
-      }
-    }
-
-    socket.on('connect', onConnect);
-    socket.on('connect_error', onError);
-
-    // 设置连接超时
-    Timer timer = Timer(const Duration(seconds: 10), () {
-      if (!completer.isCompleted) {
-        _logger.e('Socket.io连接超时');
-        completer.complete(false);
-      }
-    });
-
-    // 等待连接结果
-    bool result = await completer.future;
-
-    // 清理监听器和计时器
-    socket.off('connect', onConnect);
-    socket.off('connect_error', onError);
-    timer.cancel();
-
-    return result;
-  }
-
   /// 断开连接
   Future<void> disconnect() async {
-    if (!_isInitialized || _socket == null) return;
-
-    _logger.i('断开通信连接');
-
-    // 发送用户下线状态
-    if (_isConnected) {
-      // 获取当前用户ID
-      String? userId;
-      try {
-        userId = _socket?.auth?['userId'];
-      } catch (e) {
-        _logger.e('获取当前用户ID失败', error: e);
-      }
-
-      if (userId != null) {
-        final userStatus = UserStatus()
-          ..userId = userId
-          ..status = 'offline'
-          ..timestamp = DateTime.now().millisecondsSinceEpoch;
-
-        // 直接使用protobuf对象发送
-        emitProto('user_offline', userStatus);
-      }
-    }
-
-    // 断开Socket.io连接
-    try {
-      _socket?.disconnect();
-      _socket?.close();
-      _socket = null;
-    } catch (e) {
-      _logger.e('断开Socket.io连接失败', error: e);
-    }
-
-    // 更新状态
+    _logger.i('断开服务器连接');
+    _reconnectTimer?.cancel();
+    _isReconnecting = false;
+    _reconnectAttempts = 0;
+    _socket?.disconnect();
     _isConnected = false;
     _connectionStateController.add(false);
-    _isInitialized = false;
   }
 
-  /// 重新连接
-  Future<bool> reconnect({
-    required String userId,
-    required String token,
-    required String serverUrl,
-  }) async {
-    _logger.i('尝试重新连接');
-
-    // 断开现有连接
-    await disconnect();
-
-    // 重新连接
-    return connect(
-      serverUrl: serverUrl,
-      userId: userId,
-      token: token,
-    );
-  }
-
-  /// 使用Protobuf对象发送事件
-  /// [eventName] - 事件名称
-  /// [message] - Protobuf生成的消息对象
-  Future<void> emitProto<T extends GeneratedMessage>(String eventName, T message) async {
-    if (!_isInitialized || !_isConnected || _socket == null) {
-      _logger.w('通信服务未初始化或未连接,无法发送事件');
+  /// 尝试重新连接
+  Future<void> _attemptReconnect() async {
+    if (_isReconnecting || _reconnectAttempts >= _maxReconnectAttempts) {
+      _logger.w('已达到最大重连次数或正在重连中', extra: {'attempts': _reconnectAttempts, 'maxAttempts': _maxReconnectAttempts, 'isReconnecting': _isReconnecting});
       return;
     }
+
+    _isReconnecting = true;
+    _reconnectingStateController.add(true);
+    _reconnectAttempts++;
+
+    _logger.i('尝试重新连接', extra: {'attempt': _reconnectAttempts, 'maxAttempts': _maxReconnectAttempts});
 
     try {
-      _logger.i('发送Protobuf事件: $eventName [${message.runtimeType}]');
+      final result = await connect(
+        serverUrl: _serverUrl!,
+        userId: _userId!,
+        token: _token!,
+      );
 
-      // 直接序列化Protobuf对象为二进制数据
-      final Uint8List data = message.writeToBuffer();
-
-      // 发送到服务器
-      _socket!.emit(eventName, data);
-    } catch (e) {
-      _logger.e('发送Protobuf事件失败', error: e);
+      if (result) {
+        _logger.i('重连成功');
+        _isReconnecting = false;
+        _reconnectingStateController.add(false);
+        _reconnectAttempts = 0;
+      } else {
+        _scheduleReconnect();
+      }
+    } catch (error) {
+      _logger.e('重连失败', error: error);
+      _scheduleReconnect();
     }
   }
 
-  /// 注册Protobuf事件监听
-  /// [eventName] - 事件名称
-  /// [createDefault] - 创建默认Protobuf消息实例的方法
-  /// [handler] - 处理收到消息的回调函数
-  void onProto<T extends GeneratedMessage>(String eventName, T Function() createDefault, void Function(T) handler) {
-    if (_socket == null) {
-      _logger.w('Socket未初始化,无法注册事件: $eventName');
+  /// 安排下一次重连
+  void _scheduleReconnect() {
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      _logger.w('已达到最大重连次数，停止重连');
+      _isReconnecting = false;
+      _reconnectingStateController.add(false);
       return;
     }
 
-    _logger.d('注册Protobuf事件监听: $eventName -> ${T.toString()}');
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(_reconnectInterval, _attemptReconnect);
+  }
 
-    _socket!.on(eventName, (data) {
-      try {
-        // 确保数据是二进制格式
-        if (data is! List<int>) {
-          _logger.w('收到非二进制数据,尝试兼容处理', extra: {'dataType': data.runtimeType});
+  /// 设置Socket监听器
+  void _setupSocketListeners() {
+    _socket?.onConnect((_) {
+      _logger.i('Socket.io已连接', extra: {'socketId': _socket?.id});
+      _isConnected = true;
+      _connectionStateController.add(true);
+      _isReconnecting = false;
+      _reconnectingStateController.add(false);
+      _reconnectAttempts = 0;
+    });
 
-          // 如果服务器发送的是JSON,尝试处理兼容
-          if (data is Map) {
-            _logger.w('收到Map数据而非二进制,无法处理为Protobuf');
-            return;
-          }
+    _socket?.onDisconnect((reason) {
+      _logger.w('Socket.io断开连接', extra: {'reason': reason, 'socketId': _socket?.id});
+      _isConnected = false;
+      _connectionStateController.add(false);
+      _attemptReconnect();
+    });
 
-          _logger.e('不支持的数据格式', extra: {'dataType': data.runtimeType});
-          return;
-        }
+    _socket?.onError((error) {
+      _logger.e('Socket.io连接错误', error: error, extra: {'socketId': _socket?.id});
+      _isConnected = false;
+      _connectionStateController.add(false);
+      _attemptReconnect();
+    });
 
-        // 创建默认实例并从二进制数据反序列化
-        final message = createDefault()..mergeFromBuffer(data);
-
-        _logger.d('成功反序列化Protobuf消息: $eventName [${T.toString()}]');
-
-        // 调用处理函数
-        handler(message);
-      } catch (e) {
-        _logger.e('处理Protobuf消息失败', error: e, extra: {'eventName': eventName});
-      }
+    _socket?.onConnectError((error) {
+      _logger.e('Socket.io连接错误', error: error, extra: {'socketId': _socket?.id});
     });
   }
 
   /// 释放资源
   void dispose() {
-    _logger.i('释放通信服务资源');
-
-    // 关闭连接状态流控制器
+    _reconnectTimer?.cancel();
+    _reconnectingStateController.close();
     _connectionStateController.close();
+    _socket?.disconnect();
+    _socket?.dispose();
+  }
 
-    // 断开连接
-    disconnect();
+  /// 监听Protobuf事件
+  void onProto<T extends GeneratedMessage>(
+    String eventName,
+    T Function() creator,
+    void Function(T) handler,
+  ) {
+    _socket?.on(eventName, (data) {
+      try {
+        final message = creator()..mergeFromBuffer(data);
+        handler(message);
+      } catch (e) {
+        _logger.e('解析Protobuf消息失败', error: e);
+      }
+    });
+  }
+
+  /// 发送Protobuf消息
+  Future<void> emitProto(String eventName, GeneratedMessage message) async {
+    if (!_isConnected) {
+      _logger.e('Socket未连接，无法发送消息', extra: {'eventName': eventName});
+      return;
+    }
+    _logger.d('发送Socket消息', extra: {'eventName': eventName, 'isConnected': _isConnected});
+    _socket?.emit(eventName, message.writeToBuffer());
   }
 }
 
@@ -401,7 +246,7 @@ class UserStatus implements GeneratedMessage {
       userId = data['userId'] ?? '';
       status = data['status'] ?? '';
       timestamp = data['timestamp'] ?? 0;
-    } catch (e) {
+    } catch (error) {
       // 忽略解析错误
     }
   }

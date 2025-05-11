@@ -41,12 +41,12 @@ class AuthCubit extends Cubit<AuthState> {
       );
 
       if (!success) {
-        _logger.e('初始化认证API客户端失败');
+        _logger.e('初始化认证API客户端失败', stackTrace: StackTrace.current);
         emit(state.toErrorState('初始化认证服务失败,请重试'));
       }
-    } catch (e) {
-      _logger.e('初始化认证API客户端出错', error: e);
-      emit(state.toErrorState(e.toString()));
+    } catch (error) {
+      _logger.e('初始化认证API客户端出错', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState(error.toString()));
     }
   }
 
@@ -72,9 +72,9 @@ class AuthCubit extends Cubit<AuthState> {
           userId: userId,
           token: token,
         ));
-      }).catchError((e) {
-        _logger.e('初始化失败，无法完成认证', error: e);
-        emit(state.toErrorState('初始化失败: ${e.toString()}'));
+      }).catchError((error) {
+        _logger.e('初始化失败，无法完成认证', error: error, stackTrace: StackTrace.current);
+        emit(state.toErrorState('初始化失败: ${error.toString()}'));
       });
     }
   }
@@ -103,10 +103,10 @@ class AuthCubit extends Cubit<AuthState> {
 
       // 初始化实时通信
       await _initRealTimeCommunication(userId, token);
-    } catch (e) {
-      _logger.e('初始化数据库出错', error: e);
+    } catch (error) {
+      _logger.e('初始化数据库出错', error: error, stackTrace: StackTrace.current);
       // 不再在这里修改状态，而是向上抛出异常
-      throw Exception('初始化数据库出错: ${e.toString()}');
+      throw Exception('初始化数据库出错: ${error.toString()}');
     }
   }
 
@@ -130,15 +130,15 @@ class AuthCubit extends Cubit<AuthState> {
           _logger.i('实时通信初始化成功');
           return;
         } else {
-          _logger.e('初始化实时通信失败');
+          _logger.e('初始化实时通信失败', stackTrace: StackTrace.current);
           retryCount++;
           if (retryCount < maxRetries) {
             await Future.delayed(Duration(seconds: retryCount * 2)); // 递增延迟
             continue;
           }
         }
-      } catch (e) {
-        _logger.e('初始化实时通信错误', error: e);
+      } catch (error) {
+        _logger.e('初始化实时通信错误', error: error, stackTrace: StackTrace.current);
         retryCount++;
         if (retryCount < maxRetries) {
           await Future.delayed(Duration(seconds: retryCount * 2));
@@ -148,7 +148,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     // 所有重试都失败后，记录错误但不中断认证流程
-    _logger.e('实时通信初始化失败，已达到最大重试次数');
+    _logger.e('实时通信初始化失败，已达到最大重试次数', stackTrace: StackTrace.current);
   }
 
   void updatePhoneNumber(String phoneNumber) {
@@ -175,7 +175,7 @@ class AuthCubit extends Cubit<AuthState> {
     _logger.i('发送验证码', extra: {'purpose': purpose});
 
     if (state.phoneNumber?.length != 11) {
-      _logger.e('手机号错误: ${state.phoneNumber}');
+      _logger.e('手机号错误: ${state.phoneNumber}', stackTrace: StackTrace.current);
       emit(state.toErrorState('请输入正确的手机号码'));
       return;
     }
@@ -201,9 +201,9 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('验证码已发送,倒计时: $countdownDuration');
 
       _startCountdown();
-    } catch (e) {
-      _logger.e('发送验证码错误: $e');
-      emit(state.toErrorState(e.toString()));
+    } catch (error) {
+      _logger.e('发送验证码错误: $error', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState(error.toString()));
     }
   }
 
@@ -230,7 +230,7 @@ class AuthCubit extends Cubit<AuthState> {
         throw '请输入手机号码';
       }
       if (state.phoneNumber!.length != 11) {
-        _logger.e('手机号错误: ${state.phoneNumber}');
+        _logger.e('手机号错误: ${state.phoneNumber}', stackTrace: StackTrace.current);
         throw '请输入正确的手机号码';
       }
 
@@ -270,9 +270,9 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       // 注意：登录结果将通过AuthApiClient的onAuthResponse回调处理
-    } catch (e) {
-      _logger.e('登录错误: $e');
-      emit(state.toErrorState(e.toString()));
+    } catch (error) {
+      _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState(error.toString()));
     }
   }
 
@@ -285,7 +285,7 @@ class AuthCubit extends Cubit<AuthState> {
         throw '请输入手机号码';
       }
       if (phoneNumber.length != 11) {
-        _logger.e('手机号错误: $phoneNumber');
+        _logger.e('手机号错误: $phoneNumber', stackTrace: StackTrace.current);
         throw '请输入正确的手机号码';
       }
 
@@ -329,9 +329,9 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       // 注意：注册结果将通过AuthApiClient的onAuthResponse回调处理
-    } catch (e) {
-      _logger.e('注册错误: $e');
-      emit(state.toErrorState(e.toString()));
+    } catch (error) {
+      _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState(error.toString()));
     }
   }
 
@@ -344,7 +344,7 @@ class AuthCubit extends Cubit<AuthState> {
         throw '请输入手机号码';
       }
       if (phoneNumber.length != 11) {
-        _logger.e('手机号错误: $phoneNumber');
+        _logger.e('手机号错误: $phoneNumber', stackTrace: StackTrace.current);
         throw '请输入正确的手机号码';
       }
 
@@ -381,9 +381,9 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       // 注意：重置密码结果将通过AuthApiClient的onAuthResponse回调处理
-    } catch (e) {
-      _logger.e('重置密码错误: $e');
-      emit(state.toErrorState(e.toString()));
+    } catch (error) {
+      _logger.e('重置密码错误: $error', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState(error.toString()));
       // 重新抛出异常,以便上层代码捕获
       rethrow;
     }

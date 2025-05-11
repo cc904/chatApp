@@ -12,7 +12,7 @@ class VSCodeLogPrinter extends LogPrinter {
   };
 
   // 添加灰黑色文本
-  static String _lightBlue(String text) => '\x1B[38;2;50;50;50m$text\x1B[0m';
+  static String _lightX(String text) => '\x1B[38;2;30;30;30m$text\x1B[0m';
 
   // 项目根目录
   static const String projectRoot = '/Users/ad/Dev/Flutter/cc';
@@ -31,7 +31,6 @@ class VSCodeLogPrinter extends LogPrinter {
   List<String> log(LogEvent event) {
     final emoji = _levelEmojis[event.level]!;
     final message = event.message;
-    final error = event.error;
     final stackTrace = event.stackTrace;
 
     final buffer = StringBuffer();
@@ -42,6 +41,7 @@ class VSCodeLogPrinter extends LogPrinter {
 
     // 获取调用堆栈信息
     String? atText;
+    String? className;
     final trace = Trace.current();
     final frames = trace.frames;
     for (var i = 1; i < frames.length; i++) {
@@ -52,35 +52,51 @@ class VSCodeLogPrinter extends LogPrinter {
         final fileUri = _convertToFileUri(uri);
         final location = '$fileUri:${frame.line}:${frame.column}';
         atText = 'at $member ($location)';
+        // 从成员名中提取类名
+        final memberParts = member.split('.');
+        if (memberParts.length > 1) {
+          className = memberParts[0];
+        }
         break;
       }
     }
 
     // 构建框框样式
-    buffer.write('$levelColor[${levelName.padRight(5)}] $emoji $message\x1B[0m');
-
-    // 如果有 at 信息，在新的一行显示
-    if (atText != null) {
-      buffer.write('\n                 ${_lightBlue(atText)}');
+    if (className != null) {
+      buffer.write('$levelColor[${levelName.padRight(5)}] $emoji [ $className ] -> $message\x1B[0m');
+    } else {
+      buffer.write('$levelColor[${levelName.padRight(5)}] $emoji $message\x1B[0m');
     }
 
-    if (error != null) {
-      buffer.write('\n$levelColor  ├─ 错误: $error\x1B[0m');
-    }
-
-    // 如果有错误堆栈，也显示它
+    // 如果有错误堆栈，显示它
     if (stackTrace != null) {
-      final errorFrames = Trace.from(stackTrace).frames;
-      for (var i = 1; i < errorFrames.length; i++) {
-        final frame = errorFrames[i];
-        final member = frame.member ?? '';
-        final uri = frame.uri.toString();
-        if (!uri.contains('logger')) {
-          final fileUri = _convertToFileUri(uri);
-          final location = '$fileUri:${frame.line}:${frame.column}';
-          final atText = 'at $member ($location)';
-          buffer.write('\n$levelColor  ├─ ${_lightBlue(atText)}\x1B[0m');
+      // 直接使用传入的 stackTrace 字符串
+      final lines = stackTrace.toString().split('\n');
+      // 过滤出 package:cc 开头的行，并替换路径，同时过滤掉 at 开头的行
+      final filteredLines = lines
+          .where((line) => line.contains('package:cc') && !line.trim().startsWith('at'))
+          .map((line) => line.replaceAll('package:cc', 'file:///Users/ad/Dev/Flutter/cc/lib'))
+          .toList();
+      // 显示堆栈帧，最多显示6行
+      final maxLines = filteredLines.length > 6 ? 6 : filteredLines.length;
+
+      for (var i = 0; i < maxLines; i++) {
+        final line = filteredLines[i].trim();
+        if (line.isNotEmpty) {
+          // 使用不同的缩进符号来区分堆栈层级
+          final indent = i == 0 ? '├─' : '│  ';
+          buffer.write('\n$levelColor  $indent\x1B[30;2;50;50;50m $line');
         }
+      }
+
+      // 如果还有更多堆栈帧，显示省略号
+      if (filteredLines.length > 6) {
+        buffer.write('\n$levelColor  └─ ... 还有 ${filteredLines.length - 6} 个堆栈帧 ...\x1B[31;2;30;30;30m');
+      }
+    } else {
+      // 如果没有堆栈信息，但有 at 信息，在新的一行显示
+      if (atText != null) {
+        buffer.write('\n                 ${_lightX(atText)}');
       }
     }
 
@@ -96,7 +112,7 @@ class VSCodeLogPrinter extends LogPrinter {
       case Level.info:
         return '\x1B[32m'; // 绿色
       case Level.warning:
-        return '\x1B[33m'; // 黄色
+        return '\x1B[38;2;180;180;0m'; // 暗黄色
       case Level.error:
         return '\x1B[31m'; // 红色
       case Level.fatal:
@@ -140,8 +156,8 @@ class LogService {
   }
 
   /// 记录警告
-  void w(String message, {Map<String, dynamic>? extra}) {
-    _logger.w(_formatMessage(message, extra: extra));
+  void w(String message, {Map<String, dynamic>? extra, StackTrace? stackTrace}) {
+    _logger.w(_formatMessage(message, extra: extra), stackTrace: stackTrace);
   }
 
   /// 记录错误

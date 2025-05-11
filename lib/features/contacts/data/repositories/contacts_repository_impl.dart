@@ -7,13 +7,15 @@ import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:isar/isar.dart';
 import 'dart:async';
+import 'package:cc/core/proto/generated/contacts.pb.dart' as proto;
+import 'package:cc/core/proto/generated/contacts.pbenum.dart' as proto_enum;
+import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
 
 /// ContactsRepository的实现类
 /// 负责管理联系人数据、实现联系人相关的业务逻辑
 class ContactsRepositoryImpl implements ContactsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
-
 
   // 获取数据库实例
   Isar get _isar => DatabaseInitializer.isar;
@@ -38,41 +40,38 @@ class ContactsRepositoryImpl implements ContactsRepository {
     if (!_communicationService.isInitialized) return;
 
     // 订阅用户在线状态事件
-    _subscriptions.add(_communicationService.onEvent('user_online').listen((data) {
-      final userId = data['userId'] as String?;
-      if (userId != null) {
-        _updateUserOnlineStatus(userId, true);
+    _subscriptions.add(_communicationService.onProto<user_proto.UserStatusUpdate>('user_online').listen((data) {
+      if (data.hasUserId()) {
+        _updateUserOnlineStatus(data.userId, true);
       }
     }));
 
-    _subscriptions.add(_communicationService.onEvent('user_offline').listen((data) {
-      final userId = data['userId'] as String?;
-      if (userId != null) {
-        _updateUserOnlineStatus(userId, false);
+    _subscriptions.add(_communicationService.onProto<user_proto.UserStatusUpdate>('user_offline').listen((data) {
+      if (data.hasUserId()) {
+        _updateUserOnlineStatus(data.userId, false);
       }
     }));
 
     // 订阅联系人同步事件
-    _subscriptions.add(_communicationService.onEvent('contacts_synced').listen(_handleContactsSyncedEvent));
+    _subscriptions.add(_communicationService.onProto<user_proto.UserCollection>('contacts_synced').listen(_handleContactsSyncedEvent));
 
     // 可以添加其他联系人相关事件的订阅
   }
 
   /// 处理联系人同步完成事件
-  void _handleContactsSyncedEvent(Map<String, dynamic> data) {
+  void _handleContactsSyncedEvent(user_proto.UserCollection data) {
     try {
-      _logger.i('收到联系人同步事件', extra: {'data': data});
+      _logger.i('收到联系人同步事件', extra: {'count': data.users.length});
 
       // 解析联系人数据并保存到数据库
-      final List<dynamic> contactsData = data['contacts'] ?? [];
-      final List<User> contacts = contactsData.map((contact) {
+      final List<User> contacts = data.users.map((contact) {
         return User()
-          ..userId = contact['userId']
-          ..name = contact['name']
-          ..avatar = contact['avatar']
-          ..phone = contact['phone']
-          ..email = contact['email']
-          ..pinyin = contact['pinyin'] ?? contact['name'];
+          ..userId = contact.userId
+          ..name = contact.name
+          ..avatar = contact.avatar
+          ..phone = contact.phone
+          ..email = contact.email
+          ..pinyin = contact.pinyin;
       }).toList();
 
       // 保存到数据库
@@ -83,8 +82,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
-    } catch (e) {
-      _logger.e('处理联系人同步事件失败', error: e);
+    } catch (error) {
+      _logger.e('处理联系人同步事件失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -104,8 +103,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
         _logger.i('已更新用户在线状态', extra: {'userId': userId, 'isOnline': isOnline});
       }
-    } catch (e) {
-      _logger.e('更新用户在线状态失败', error: e);
+    } catch (error) {
+      _logger.e('更新用户在线状态失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -114,11 +113,21 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<List<User>> getAllContacts() async {
     try {
+      // 先从服务器获取最新数据
+      final currentUser = await MyUserService.getCurrentUser();
+      if (currentUser != null && _communicationService.isInitialized) {
+        final syncRequest = proto.SyncContactsRequest()
+          ..userId = currentUser.userId
+          ..token = currentUser.token;
+        await _communicationService.emitProto('sync_contacts', syncRequest);
+      }
+
+      // 返回本地数据库中的联系人列表
       final users = await _users.where().findAll();
       _logger.i('获取联系人列表成功 - ${users.length} 个联系人');
       return users;
-    } catch (e) {
-      _logger.e('获取联系人列表失败', error: e);
+    } catch (error) {
+      _logger.e('获取联系人列表失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -133,8 +142,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
     try {
       final users = await _users.filter().nameContains(query, caseSensitive: false).or().pinyinContains(query, caseSensitive: false).findAll();
       return users;
-    } catch (e) {
-      _logger.e('搜索联系人失败', error: e);
+    } catch (error) {
+      _logger.e('搜索联系人失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -150,8 +159,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       final user = await _users.get(id);
       return user;
-    } catch (e) {
-      _logger.e('获取联系人详情失败', error: e);
+    } catch (error) {
+      _logger.e('获取联系人详情失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -166,8 +175,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
         await _users.put(contact);
       });
       return true;
-    } catch (e) {
-      _logger.e('添加联系人失败', error: e);
+    } catch (error) {
+      _logger.e('添加联系人失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -182,8 +191,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
         await _users.put(contact);
       });
       return true;
-    } catch (e) {
-      _logger.e('更新联系人失败', error: e);
+    } catch (error) {
+      _logger.e('更新联系人失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -201,8 +210,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
         await _users.delete(id);
       });
       return true;
-    } catch (e) {
-      _logger.e('删除联系人失败', error: e);
+    } catch (error) {
+      _logger.e('删除联系人失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -229,49 +238,48 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 使用通信服务发送同步请求
       if (_communicationService.isInitialized) {
-        _communicationService.emitEvent('sync_contacts', {
-          'userId': currentUser.userId,
-          'token': currentUser.token,
-        });
+        final request = proto.SyncContactsRequest()
+          ..userId = currentUser.userId
+          ..token = currentUser.token;
+
+        _communicationService.emitProto('sync_contacts', request);
       } else {
         _logger.w('通信服务未初始化,无法同步联系人');
       }
 
       List<User> serverContacts = [];
 
- 
-        _logger.i('使用真实网络同步联系人');
-        // 实际情况下,通过上面发送的事件触发服务器返回联系人数据
-        // 等待联系人同步结果通过通信服务的事件返回
-        // 这里设置一个超时,避免永久等待
-        final completer = Completer<List<User>>();
-        final timeout = Timer(Duration(seconds: 10), () {
-          if (!completer.isCompleted) {
-            _logger.w('同步联系人超时');
-            completer.complete([]);
-          }
-        });
+      _logger.i('使用真实网络同步联系人');
+      // 实际情况下,通过上面发送的事件触发服务器返回联系人数据
+      // 等待联系人同步结果通过通信服务的事件返回
+      // 这里设置一个超时,避免永久等待
+      final completer = Completer<List<User>>();
+      final timeout = Timer(Duration(seconds: 10), () {
+        if (!completer.isCompleted) {
+          _logger.w('同步联系人超时');
+          completer.complete([]);
+        }
+      });
 
-        // 获取同步前的联系人数量
-        final beforeCount = await _users.count();
+      // 获取同步前的联系人数量
+      final beforeCount = await _users.count();
 
-        // 等待一段时间后检查联系人是否有增加
-        Future.delayed(Duration(seconds: 5), () async {
-          final afterCount = await _users.count();
-          if (!completer.isCompleted && afterCount > beforeCount) {
-            final contacts = await getAllContacts();
-            completer.complete(contacts);
-            timeout.cancel();
-          }
-        });
+      // 等待一段时间后检查联系人是否有增加
+      Future.delayed(Duration(seconds: 5), () async {
+        final afterCount = await _users.count();
+        if (!completer.isCompleted && afterCount > beforeCount) {
+          final contacts = await getAllContacts();
+          completer.complete(contacts);
+          timeout.cancel();
+        }
+      });
 
-        // 等待服务器返回的联系人数据
-        serverContacts = await completer.future;
-      
+      // 等待服务器返回的联系人数据
+      serverContacts = await completer.future;
 
       return serverContacts;
-    } catch (e) {
-      _logger.e('同步联系人失败', error: e);
+    } catch (error) {
+      _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -292,8 +300,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       _logger.i('获取好友请求列表成功 - ${requests.length} 个请求');
       return requests;
-    } catch (e) {
-      _logger.e('获取好友请求列表失败', error: e);
+    } catch (error) {
+      _logger.e('获取好友请求列表失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -345,17 +353,18 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 发送请求到服务器
       if (_communicationService.isInitialized) {
-        _communicationService.emitEvent('friend_request', {
-          'senderId': currentUser.userId,
-          'receiverId': targetUserId,
-          'message': message,
-        });
+        final protoRequest = proto.SendFriendRequestProto()
+          ..senderId = currentUser.userId
+          ..receiverId = targetUserId
+          ..message = message;
+
+        _communicationService.emitProto('friend_request', protoRequest);
       }
 
       _logger.i('发送好友请求成功');
       return true;
-    } catch (e) {
-      _logger.e('发送好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('发送好友请求失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -404,15 +413,17 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 向服务器发送接受请求
       if (_communicationService.isInitialized) {
-        _communicationService.emitEvent('accept_friend_request', {
-          'requestId': requestId,
-        });
+        final protoRequest = proto.ProcessFriendRequestProto()
+          ..requestId = requestId
+          ..status = proto_enum.FriendRequestStatus.accepted;
+
+        _communicationService.emitProto('accept_friend_request', protoRequest);
       }
 
       _logger.i('接受好友请求成功');
       return true;
-    } catch (e) {
-      _logger.e('接受好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('接受好友请求失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -447,15 +458,17 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 向服务器发送拒绝请求
       if (_communicationService.isInitialized) {
-        _communicationService.emitEvent('reject_friend_request', {
-          'requestId': requestId,
-        });
+        final protoRequest = proto.ProcessFriendRequestProto()
+          ..requestId = requestId
+          ..status = proto_enum.FriendRequestStatus.rejected;
+
+        _communicationService.emitProto('reject_friend_request', protoRequest);
       }
 
       _logger.i('拒绝好友请求成功');
       return true;
-    } catch (e) {
-      _logger.e('拒绝好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('拒绝好友请求失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -475,8 +488,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       _logger.i('获取所有好友请求成功 - ${requests.length} 个请求');
       return requests;
-    } catch (e) {
-      _logger.e('获取所有好友请求失败', error: e);
+    } catch (error) {
+      _logger.e('获取所有好友请求失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }

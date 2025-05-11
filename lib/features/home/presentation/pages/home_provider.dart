@@ -10,6 +10,7 @@ import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/cubit/contacts_cubit.dart';
 import 'package:cc/features/home/presentation/pages/home_page.dart';
+import 'package:cc/core/widgets/reconnecting_overlay.dart';
 
 /// 为HomePage提供必要的仓库和状态管理器
 ///
@@ -75,7 +76,17 @@ class HomeProvider extends StatelessWidget {
             ),
           ),
         ],
-        child: const HomePage(),
+        child: Scaffold(
+          body: Stack(
+            children: [
+              // 原有的页面内容
+              const HomePage(),
+              
+              // 添加重连状态覆盖层
+              ReconnectingOverlay(),
+            ],
+          ),
+        ),
       ),
     );
   }

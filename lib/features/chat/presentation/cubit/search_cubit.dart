@@ -98,8 +98,8 @@ class SearchCubit extends Cubit<SearchState> {
         searchResults: filteredMessages,
         isSearching: false,
       ));
-    } catch (e) {
-      _logger.e('搜索失败', error: e);
+    } catch (error) {
+      _logger.e('搜索失败', error: error, stackTrace: StackTrace.current);
       emit(state.copyWith(
         isSearching: false,
       ));

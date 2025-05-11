@@ -14,7 +14,7 @@ import 'dart:math' as math;
 /// 文件上传服务
 /// 负责处理文件的上传和本地存储
 class FileUploadService {
-    final _logger = LogService.instance;
+  final _logger = LogService.instance;
   final Uuid _uuid = const Uuid();
 
   // 单例模式
@@ -41,8 +41,8 @@ class FileUploadService {
           _logger.i('创建目录: ${mediaDir.path}');
         }
       }
-    } catch (e) {
-      _logger.e('创建媒体目录失败', error: e);
+    } catch (error) {
+      _logger.e('创建媒体目录失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -96,9 +96,9 @@ class FileUploadService {
         _logServerProcess('开始生成视频缩略图');
         thumbnailFile = await _simulateServerThumbnailGeneration(videoFile.path);
         _logServerProcess('缩略图生成成功');
-      } catch (e) {
-        _logServerProcess('生成缩略图失败: $e');
-        _logger.w('服务器生成缩略图失败,将返回没有缩略图的视频', extra: {'error': e});
+      } catch (error) {
+        _logServerProcess('生成缩略图失败: $error');
+        _logger.w('服务器生成缩略图失败,将返回没有缩略图的视频', extra: {'error': error});
       }
 
       if (thumbnailFile != null) {
@@ -129,9 +129,9 @@ class FileUploadService {
         remoteUrl: videoResult.remoteUrl,
         serverProcessed: true,
       );
-    } catch (e) {
-      _logger.e('视频上传或处理失败', error: e);
-      _logClientProcess('视频上传过程中出现错误: $e');
+    } catch (error) {
+      _logger.e('视频上传或处理失败', error: error, stackTrace: StackTrace.current);
+      _logClientProcess('视频上传过程中出现错误: $error');
       return null;
     }
   }
@@ -156,8 +156,8 @@ class FileUploadService {
         // 模拟服务器偶尔失败的情况
         throw Exception('服务器缩略图处理失败');
       }
-    } catch (e) {
-      _logServerProcess('生成缩略图失败: $e');
+    } catch (error) {
+      _logServerProcess('生成缩略图失败: $error');
       rethrow; // 重新抛出异常,让调用者处理
     }
   }
@@ -169,8 +169,8 @@ class FileUploadService {
       // 直接使用备用方法生成缩略图,因为video_thumbnail插件在当前平台有问题
       _logClientProcess('使用备用方法生成视频缩略图');
       return await _generateFallbackThumbnail(videoPath);
-    } catch (e) {
-      _logger.e('生成视频缩略图失败', error: e);
+    } catch (error) {
+      _logger.e('生成视频缩略图失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -229,8 +229,8 @@ class FileUploadService {
           aspectRatio = 16 / 9;
         }
         await videoController.dispose();
-      } catch (e) {
-        _logClientProcess('无法获取视频信息: $e,使用默认值');
+      } catch (error) {
+        _logClientProcess('无法获取视频信息: $error,使用默认值');
         // 出错时使用默认值即可,不需要抛出异常
       }
 
@@ -366,9 +366,9 @@ class FileUploadService {
 
       _logClientProcess('备用视频缩略图生成成功: $thumbnailPath');
       return thumbnailFile;
-    } catch (e) {
-      _logger.e('备用缩略图生成失败', error: e);
-      _logClientProcess('备用缩略图生成过程中发生错误: $e');
+    } catch (error) {
+      _logger.e('备用缩略图生成失败', error: error, stackTrace: StackTrace.current);
+      _logClientProcess('备用缩略图生成过程中发生错误: $error');
       return await _createDefaultThumbnail('${(await getTemporaryDirectory()).path}/${_uuid.v4()}_default.jpg', videoPath);
     }
   }
@@ -511,8 +511,8 @@ class FileUploadService {
 
       _logClientProcess('默认视频缩略图创建成功: $thumbnailPath');
       return thumbnailFile;
-    } catch (e) {
-      _logClientProcess('创建默认缩略图失败: $e');
+    } catch (error) {
+      _logClientProcess('创建默认缩略图失败: $error');
       return null;
     }
   }
@@ -556,8 +556,8 @@ class FileUploadService {
         localPath: localPath,
         remoteUrl: remoteUrl,
       );
-    } catch (e) {
-      _logger.e('上传文件失败', error: e);
+    } catch (error) {
+      _logger.e('上传文件失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }

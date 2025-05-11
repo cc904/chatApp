@@ -46,8 +46,8 @@ class MyUserService {
 
       _logger.i('当前用户信息保存成功', extra: {'id': myUser.id});
       return myUser;
-    } catch (e) {
-      _logger.e('保存当前用户信息失败', error: e);
+    } catch (error) {
+      _logger.e('保存当前用户信息失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -62,8 +62,8 @@ class MyUserService {
         phone: session.phoneNumber,
         tokenExpireTime: session.expireTime.toInt() > 0 ? DateTime.fromMillisecondsSinceEpoch(session.expireTime.toInt()) : null,
       );
-    } catch (e) {
-      _logger.e('从UserSession创建MyUser失败', error: e);
+    } catch (error) {
+      _logger.e('从UserSession创建MyUser失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -73,8 +73,8 @@ class MyUserService {
     try {
       final isar = DatabaseInitializer.isar;
       return await isar.myUsers.where().findFirst();
-    } catch (e) {
-      _logger.e('获取当前用户信息失败', error: e);
+    } catch (error) {
+      _logger.e('获取当前用户信息失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -115,8 +115,8 @@ class MyUserService {
       });
 
       return true;
-    } catch (e) {
-      _logger.e('更新用户状态失败', error: e);
+    } catch (error) {
+      _logger.e('更新用户状态失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -139,8 +139,8 @@ class MyUserService {
       });
 
       return true;
-    } catch (e) {
-      _logger.e('更新令牌失败', error: e);
+    } catch (error) {
+      _logger.e('更新令牌失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -154,8 +154,8 @@ class MyUserService {
 
       _logger.i('当前用户信息已清除');
       return true;
-    } catch (e) {
-      _logger.e('清除当前用户信息失败', error: e);
+    } catch (error) {
+      _logger.e('清除当前用户信息失败', error: error, stackTrace: StackTrace.current);
       return false;
     }
   }

@@ -46,14 +46,14 @@ void main() async {
 
     // 运行应用
     runApp(const MyApp());
-  } catch (e) {
-    logger.e('应用初始化失败', error: e);
+  } catch (error) {
+    logger.e('应用初始化失败', error: error, stackTrace: StackTrace.current);
     // 处理初始化错误
     runApp(
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: Text('应用初始化失败: $e', style: const TextStyle(color: Colors.red)),
+            child: Text('应用初始化失败: $error', style: const TextStyle(color: Colors.red)),
           ),
         ),
       ),

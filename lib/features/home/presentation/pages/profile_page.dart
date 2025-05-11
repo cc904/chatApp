@@ -386,8 +386,8 @@ class ProfilePage extends StatelessWidget {
       }
 
       _logger.i('数据重置完成');
-    } catch (e) {
-      _logger.e('重置数据时出错', error: e);
+    } catch (error) {
+      _logger.e('重置数据时出错', error: error, stackTrace: StackTrace.current);
 
       // 关闭加载指示器
       if (context.mounted) {
@@ -396,7 +396,7 @@ class ProfilePage extends StatelessWidget {
         // 显示错误消息
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('重置数据失败: $e'),
+            content: Text('重置数据失败: $error'),
             backgroundColor: Colors.red,
           ),
         );

@@ -27,9 +27,9 @@ class DatabaseManager {
         message.id = await _isar.messages.put(message);
       });
       return message.messageId;
-    } catch (e) {
-      _logger.e('保存消息失败', extra: {'error': e.toString()});
-      throw Exception('保存消息失败: ${e.toString()}');
+    } catch (error) {
+      _logger.e('保存消息失败', extra: {'error': error.toString()});
+      throw Exception('保存消息失败: ${error.toString()}');
     }
   }
 
@@ -49,8 +49,8 @@ class DatabaseManager {
           await _isar.conversations.put(conversation);
         });
       }
-    } catch (e) {
-      _logger.e('更新会话最后消息失败', extra: {'error': e.toString()});
+    } catch (error) {
+      _logger.e('更新会话最后消息失败', extra: {'error': error.toString()});
     }
   }
 

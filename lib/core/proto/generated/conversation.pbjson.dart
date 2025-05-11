@@ -114,3 +114,17 @@ final $typed_data.Uint8List conversationCollectionDescriptor = $convert.base64De
     'ChZDb252ZXJzYXRpb25Db2xsZWN0aW9uEjsKDWNvbnZlcnNhdGlvbnMYASADKAsyFS5jYy5Db2'
     '52ZXJzYXRpb25Qcm90b1INY29udmVyc2F0aW9ucw==');
 
+@$core.Deprecated('Use syncConversationsRequestDescriptor instead')
+const SyncConversationsRequest$json = {
+  '1': 'SyncConversationsRequest',
+  '2': [
+    {'1': 'local_conversation_ids', '3': 1, '4': 3, '5': 9, '10': 'localConversationIds'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+  ],
+};
+
+/// Descriptor for `SyncConversationsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List syncConversationsRequestDescriptor = $convert.base64Decode(
+    'ChhTeW5jQ29udmVyc2F0aW9uc1JlcXVlc3QSNAoWbG9jYWxfY29udmVyc2F0aW9uX2lkcxgBIA'
+    'MoCVIUbG9jYWxDb252ZXJzYXRpb25JZHMSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
+

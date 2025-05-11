@@ -7,7 +7,7 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 ///
 /// 本示例展示如何正确处理会话同步事件
 class ConversationSyncExample {
-    final _logger = LogService.instance;
+  final _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
 
   /// 初始化并注册正确的会话同步事件处理
@@ -60,8 +60,8 @@ class ConversationSyncExample {
       // 发送同步请求
       await _communicationService.emitProto('sync_conversations', request);
       _logger.i('会话同步请求已发送');
-    } catch (e) {
-      _logger.e('发送会话同步请求失败', error: e);
+    } catch (error) {
+      _logger.e('发送会话同步请求失败', error: error, stackTrace: StackTrace.current);
     }
   }
 

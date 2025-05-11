@@ -36,8 +36,8 @@ class _ChatsPageState extends State<ChatsPage> {
       // 提前获取ChatCubit实例,避免异步操作后使用BuildContext
       final chatCubit = context.read<ChatCubit>();
       await chatCubit.loadConversations();
-    } catch (e) {
-      _logger.e('无法加载会话列表', error: e);
+    } catch (error) {
+      _logger.e('无法加载会话列表', error: error, stackTrace: StackTrace.current);
       // 这里不使用context避免异步操作后使用BuildContext
     }
   }

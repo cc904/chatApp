@@ -106,8 +106,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         // 尝试停止所有音频播放
         _mediaService.stopAudio();
         _mediaService.disposeAudio();
-      } catch (e) {
-        _logger.e('清理媒体服务时出错: $e');
+      } catch (error) {
+        _logger.e('清理媒体服务时出错: $error');
       }
     });
 
@@ -133,9 +133,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       // 使用BlocProvider.of而不是context.read
       final chatCubit = BlocProvider.of<ChatCubit>(context);
       chatCubit.setCurrentConversation(widget.conversationId);
-    } catch (e) {
-      _logger.e('加载会话失败: $e');
-      UINotificationService().showError('加载会话失败: $e');
+    } catch (error) {
+      _logger.e('加载会话失败: $error');
+      UINotificationService().showError('加载会话失败: $error');
     }
   }
 
@@ -189,8 +189,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         before: earliestMessage.createdAt,
         limit: 20,
       );
-    } catch (e) {
-      _logger.e('加载更多消息失败: $e');
+    } catch (error) {
+      _logger.e('加载更多消息失败: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -293,8 +293,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
             await controller.initialize();
             videoDuration = controller.value.duration.inMilliseconds;
             await controller.dispose();
-          } catch (e) {
-            _logger.e('获取视频时长失败,使用默认值: $e');
+          } catch (error) {
+            _logger.e('获取视频时长失败,使用默认值: $error');
           }
 
           // 发送视频消息
@@ -344,9 +344,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           }
         });
       }
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
-        UINotificationService().showError('发送附件失败: $e');
+        UINotificationService().showError('发送附件失败: $error');
       }
     }
   }
@@ -423,15 +423,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                   } else {
                     UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
                   }
-                } catch (e) {
-                  _logger.e('处理跳转日期失败: $e');
+                } catch (error) {
+                  _logger.e('处理跳转日期失败: $error');
                   if (mounted) {
                     setState(() {
                       // 在这里可以重置状态变量
                       _isJumpingToDate = false;
                     });
 
-                    UINotificationHelper.showError('跳转失败: $e');
+                    UINotificationHelper.showError('跳转失败: $error');
                   }
                 }
               });
@@ -808,9 +808,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       // 如果与前一条消息时间相差超过5分钟,显示时间
       final timeDifference = message.createdAt.difference(previousMessage.createdAt).inMinutes.abs();
       return timeDifference >= 5;
-    } catch (e) {
+    } catch (error) {
       // 发生异常时默认显示时间气泡
-      _logger.e('计算时间气泡显示时发生错误: $e');
+      _logger.e('计算时间气泡显示时发生错误: $error');
       return true;
     }
   }

@@ -161,13 +161,13 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
         // 图片不需要特殊初始化,只需验证路径
         _validateImagePath();
       }
-    } catch (e) {
+    } catch (error) {
       setState(() {
         _hasError = true;
-        _errorMessage = '媒体加载失败: $e';
+        _errorMessage = '媒体加载失败: $error';
         _isLoading = false;
       });
-      _logger.e('媒体加载失败', error: e);
+      _logger.e('媒体加载失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -191,10 +191,10 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
           _errorMessage = '没有可用的图片源';
         });
       }
-    } catch (e) {
+    } catch (error) {
       setState(() {
         _hasError = true;
-        _errorMessage = '验证图片路径失败: $e';
+        _errorMessage = '验证图片路径失败: $error';
       });
     }
   }
@@ -266,15 +266,15 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
         setState(() {
           _hasError = true;
-          _errorMessage = '视频初始化失败: $e';
+          _errorMessage = '视频初始化失败: $error';
           _isLoading = false;
         });
       }
-      _logger.e('浮窗视频初始化失败', error: e);
+      _logger.e('浮窗视频初始化失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -303,8 +303,8 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
       } else {
         UINotificationService().showError('无法分享：找不到有效的文件');
       }
-    } catch (e) {
-      UINotificationService().showError('分享失败: $e');
+    } catch (error) {
+      UINotificationService().showError('分享失败: $error');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -486,14 +486,14 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
           );
         },
       );
-    } catch (e) {
-      _logger.e('构建图片查看器失败', error: e);
+    } catch (error) {
+      _logger.e('构建图片查看器失败', error: error, stackTrace: StackTrace.current);
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.broken_image, size: 64, color: Colors.white),
           const SizedBox(height: 16),
-          Text('图片加载失败: $e', style: const TextStyle(color: Colors.white)),
+          Text('图片加载失败: $error', style: const TextStyle(color: Colors.white)),
         ],
       );
     }

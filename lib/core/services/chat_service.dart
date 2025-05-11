@@ -78,8 +78,8 @@ class ChatService {
       // 使用类型安全的方式发送消息
       await _communicationService.emitProto('new_message', message);
       _logger.i('消息发送成功', extra: {'messageId': message.messageId});
-    } catch (e) {
-      _logger.e('消息发送失败', error: e);
+    } catch (error) {
+      _logger.e('消息发送失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -101,8 +101,8 @@ class ChatService {
       // 发送消息已读事件
       await _communicationService.emitProto('message_read', message);
       _logger.i('消息已读状态已发送');
-    } catch (e) {
-      _logger.e('标记消息已读失败', error: e);
+    } catch (error) {
+      _logger.e('标记消息已读失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -138,8 +138,8 @@ class ChatService {
       await _communicationService.emitProto('fetch_messages', request);
       _logger.i('获取消息请求已发送');
       // 响应将通过messageStream流获取
-    } catch (e) {
-      _logger.e('获取消息失败', error: e);
+    } catch (error) {
+      _logger.e('获取消息失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
