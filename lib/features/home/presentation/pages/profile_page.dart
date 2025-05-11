@@ -11,7 +11,7 @@ class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   // 创建静态logger实例
-  static final _logger = LogService('profile_page.dart');
+  static final _logger = LogService.instance;
 
   @override
   Widget build(BuildContext context) {

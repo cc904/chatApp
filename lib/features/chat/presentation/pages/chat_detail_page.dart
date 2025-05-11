@@ -29,7 +29,7 @@ class ChatDetailPage extends StatefulWidget {
 }
 
 class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStateMixin {
-  final _logger = LogService('chat_detail_page.dart');
+  final _logger = LogService.instance;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();

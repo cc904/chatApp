@@ -8,7 +8,6 @@ import 'dart:io';
 import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:cc/features/home/presentation/pages/home_provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/services/file_upload_service.dart';
@@ -22,7 +21,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 创建日志记录器
-  final logger = LogService('main.dart');
+  final logger = LogService.instance;
   logger.i('应用启动');
 
   // 初始化全局配置
@@ -109,7 +108,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logger = LogService('main.dart');
+    final logger = LogService.instance;
     final appConfig = AppConfig();
     logger.i('MyApp build');
 

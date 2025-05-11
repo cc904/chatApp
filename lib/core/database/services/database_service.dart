@@ -11,7 +11,7 @@ import '../models/message.dart';
 /// 提供对Isar数据库的操作封装
 class ChatDatabase {
   static late Isar _isar;
-  static final _logger = LogService('database_service.dart');
+  static final _logger = LogService.instance;
 
   // 获取数据库实例
   static Isar get isar => _isar;

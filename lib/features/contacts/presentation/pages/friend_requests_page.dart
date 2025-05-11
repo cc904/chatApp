@@ -14,7 +14,7 @@ class FriendRequestsPage extends StatefulWidget {
 }
 
 class _FriendRequestsPageState extends State<FriendRequestsPage> {
-  final LogService _logger = LogService('friend_requests_page.dart');
+  final LogService _logger = LogService.instance;
   bool _isProcessing = false;
 
   @override

@@ -30,7 +30,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   late String _effectivePath;
   bool _isLoading = false;
   bool _hasError = false;
-  final _logger = LogService('image_viewer_page.dart');
+  final _logger = LogService.instance;
 
   @override
   void initState() {
@@ -274,7 +274,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
   late String _effectivePath;
   bool _isLoading = true;
   bool _hasError = false;
-  final _logger = LogService('video_viewer_page.dart');
+  final _logger = LogService.instance;
 
   // 视频播放控制器
   VideoPlayerController? _videoPlayerController;

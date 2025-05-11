@@ -15,7 +15,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   bool _isSearching = false;
   bool _hasSearched = false;
   String _selectedFilter = '全部'; // 当前选中的筛选选项
-  final _logger = LogService('search_page.dart');
+  final _logger = LogService.instance;
 
   // 筛选选项
   final List<String> _personFilters = ['全部', '国内', '国外', '最近活跃'];
@@ -395,7 +395,7 @@ class UserDetailPage extends StatelessWidget {
   final String description;
   final bool isOnline;
   final bool isContact;
-  static final _logger = LogService('user_detail_page.dart');
+  static final _logger = LogService.instance;
 
   const UserDetailPage({
     super.key,
@@ -769,7 +769,7 @@ class GroupDetailPage extends StatelessWidget {
   final String description;
   final int memberCount;
   final bool isJoined;
-  static final _logger = LogService('group_detail_page.dart');
+  static final _logger = LogService.instance;
 
   const GroupDetailPage({
     super.key,

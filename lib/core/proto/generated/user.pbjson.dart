@@ -2,7 +2,7 @@
 //  Generated code. Do not modify.
 //  source: user.proto
 //
-// @dart = 2.12
+// @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
 // ignore_for_file: constant_identifier_names, library_prefixes
@@ -38,8 +38,7 @@ const UserProto$json = {
     {'1': 'email', '3': 5, '4': 1, '5': 9, '10': 'email'},
     {'1': 'pinyin', '3': 6, '4': 1, '5': 9, '10': 'pinyin'},
     {'1': 'last_active_time', '3': 7, '4': 1, '5': 3, '10': 'lastActiveTime'},
-    {'1': 'is_friend', '3': 8, '4': 1, '5': 8, '10': 'isFriend'},
-    {'1': 'status', '3': 9, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'status', '3': 8, '4': 1, '5': 9, '10': 'status'},
     {'1': 'username', '3': 10, '4': 1, '5': 9, '10': 'username'},
     {'1': 'display_name', '3': 11, '4': 1, '5': 9, '10': 'displayName'},
     {'1': 'is_typing', '3': 12, '4': 1, '5': 8, '10': 'isTyping'},
@@ -52,11 +51,34 @@ final $typed_data.Uint8List userProtoDescriptor = $convert.base64Decode(
     'CglVc2VyUHJvdG8SFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEhIKBG5hbWUYAiABKAlSBG5hbW'
     'USFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISFAoFcGhvbmUYBCABKAlSBXBob25lEhQKBWVtYWls'
     'GAUgASgJUgVlbWFpbBIWCgZwaW55aW4YBiABKAlSBnBpbnlpbhIoChBsYXN0X2FjdGl2ZV90aW'
-    '1lGAcgASgDUg5sYXN0QWN0aXZlVGltZRIbCglpc19mcmllbmQYCCABKAhSCGlzRnJpZW5kEhYK'
-    'BnN0YXR1cxgJIAEoCVIGc3RhdHVzEhoKCHVzZXJuYW1lGAogASgJUgh1c2VybmFtZRIhCgxkaX'
-    'NwbGF5X25hbWUYCyABKAlSC2Rpc3BsYXlOYW1lEhsKCWlzX3R5cGluZxgMIAEoCFIIaXNUeXBp'
-    'bmcSNAoWdHlwaW5nX2luX2NvbnZlcnNhdGlvbhgNIAEoCVIUdHlwaW5nSW5Db252ZXJzYXRpb2'
-    '4=');
+    '1lGAcgASgDUg5sYXN0QWN0aXZlVGltZRIWCgZzdGF0dXMYCCABKAlSBnN0YXR1cxIaCgh1c2Vy'
+    'bmFtZRgKIAEoCVIIdXNlcm5hbWUSIQoMZGlzcGxheV9uYW1lGAsgASgJUgtkaXNwbGF5TmFtZR'
+    'IbCglpc190eXBpbmcYDCABKAhSCGlzVHlwaW5nEjQKFnR5cGluZ19pbl9jb252ZXJzYXRpb24Y'
+    'DSABKAlSFHR5cGluZ0luQ29udmVyc2F0aW9u');
+
+@$core.Deprecated('Use myUserProtoDescriptor instead')
+const MyUserProto$json = {
+  '1': 'MyUserProto',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'token', '3': 2, '4': 1, '5': 9, '10': 'token'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 4, '4': 1, '5': 9, '10': 'avatar'},
+    {'1': 'phone', '3': 5, '4': 1, '5': 9, '10': 'phone'},
+    {'1': 'email', '3': 6, '4': 1, '5': 9, '10': 'email'},
+    {'1': 'token_expire_time', '3': 7, '4': 1, '5': 3, '10': 'tokenExpireTime'},
+    {'1': 'last_login_time', '3': 8, '4': 1, '5': 3, '10': 'lastLoginTime'},
+    {'1': 'status', '3': 9, '4': 1, '5': 9, '10': 'status'},
+  ],
+};
+
+/// Descriptor for `MyUserProto`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List myUserProtoDescriptor = $convert.base64Decode(
+    'CgtNeVVzZXJQcm90bxIXCgd1c2VyX2lkGAEgASgJUgZ1c2VySWQSFAoFdG9rZW4YAiABKAlSBX'
+    'Rva2VuEhIKBG5hbWUYAyABKAlSBG5hbWUSFgoGYXZhdGFyGAQgASgJUgZhdmF0YXISFAoFcGhv'
+    'bmUYBSABKAlSBXBob25lEhQKBWVtYWlsGAYgASgJUgVlbWFpbBIqChF0b2tlbl9leHBpcmVfdG'
+    'ltZRgHIAEoA1IPdG9rZW5FeHBpcmVUaW1lEiYKD2xhc3RfbG9naW5fdGltZRgIIAEoA1INbGFz'
+    'dExvZ2luVGltZRIWCgZzdGF0dXMYCSABKAlSBnN0YXR1cw==');
 
 @$core.Deprecated('Use userStatusUpdateDescriptor instead')
 const UserStatusUpdate$json = {

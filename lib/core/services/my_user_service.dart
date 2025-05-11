@@ -1,13 +1,13 @@
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/my_user.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:isar/isar.dart';
 
 /// 当前用户服务
 /// 负责处理当前登录用户信息的存储和查询
 class MyUserService {
-  static final _logger = LogService('my_user_service.dart');
+  static final _logger = LogService.instance;
 
   /// 保存当前用户信息
   static Future<MyUser?> saveCurrentUser({

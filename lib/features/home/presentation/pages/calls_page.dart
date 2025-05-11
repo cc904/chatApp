@@ -7,7 +7,7 @@ class CallsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logger = LogService('calls_page.dart');
+    final logger = LogService.instance;
     logger.d('CallsPage build');
     return Scaffold(
       appBar: AppBar(
@@ -179,7 +179,7 @@ class CallsPage extends StatelessWidget {
     required bool isMissed,
     required int callCount,
   }) {
-    final logger = LogService('calls_page.dart');
+    final logger = LogService.instance;
     return ListTile(
       leading: CircleAvatar(
         backgroundImage: NetworkImage(avatarUrl),

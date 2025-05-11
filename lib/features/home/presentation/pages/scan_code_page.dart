@@ -11,7 +11,7 @@ class ScanCodePage extends StatefulWidget {
 class _ScanCodePageState extends State<ScanCodePage> {
   bool _flashOn = false;
   bool _isGalleryMode = false;
-  final _logger = LogService('scan_code_page.dart');
+  final _logger = LogService.instance;
 
   @override
   Widget build(BuildContext context) {

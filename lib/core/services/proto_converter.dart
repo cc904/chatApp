@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
 import '../proto/generated/message.pb.dart';
-import '../proto/generated/user.pb.dart';
 import '../proto/generated/conversation.pb.dart';
 import '../proto/generated/auth.pb.dart';
 import 'log_service.dart';
@@ -10,7 +9,7 @@ import 'log_service.dart';
 /// Protobuf 转换工具类
 /// 负责通信中的 Protobuf 数据序列化和反序列化
 class ProtoConverter {
-  final LogService _logger = LogService('proto_converter.dart');
+  final LogService _logger = LogService.instance;
 
   // 单例模式
   static final ProtoConverter _instance = ProtoConverter._internal();

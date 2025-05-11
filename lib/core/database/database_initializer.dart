@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 /// 数据库初始化器
 /// 负责初始化 Isar 数据库并创建必要的索引
 class DatabaseInitializer {
-  static final _logger = LogService('database_initializer.dart');
+  static final _logger = LogService.instance;
   static Isar? _isar;
   static String? _currentUserId;
 

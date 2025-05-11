@@ -13,7 +13,7 @@ import 'package:just_audio/just_audio.dart';
 /// 媒体服务类
 /// 负责处理图片、视频、语音和文件选择和存储
 class MediaService {
-  final _logger = LogService('media_service.dart');
+  final _logger = LogService.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final Record _audioRecorder = Record();
   final Uuid _uuid = const Uuid();

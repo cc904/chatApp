@@ -5,7 +5,7 @@ import 'dart:math' as math;
 class StatusPage extends StatelessWidget {
   const StatusPage({super.key});
 
-  static final _logger = LogService('status_page.dart');
+  static final _logger = LogService.instance;
 
   // 获取随机颜色
   static Color getRandomColor(int seed) {

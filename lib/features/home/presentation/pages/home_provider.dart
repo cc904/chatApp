@@ -20,7 +20,7 @@ class HomeProvider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logger = LogService('home_provider.dart');
+    final logger = LogService.instance;
     final authState = context.read<AuthCubit>().state;
 
     // 确保DatabaseInitializer已经初始化

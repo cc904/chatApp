@@ -29,7 +29,7 @@ class HomeError extends HomeState {
 
 // HomeCubit
 class HomeCubit extends Cubit<HomeState> {
-  final _logger = LogService('home_cubit.dart');
+  final _logger = LogService.instance;
 
   HomeCubit() : super(HomeInitial());
 

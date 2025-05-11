@@ -7,7 +7,7 @@ import 'dart:async';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 
 class DatePickerUtility {
-  final LogService _logger = LogService('date_picker_utility.dart');
+  final LogService _logger = LogService.instance;
   final String conversationId;
   final Set<DateTime> _messageDates = {};
   final Set<String> _loadedMonths = {};

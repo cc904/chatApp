@@ -20,7 +20,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
-  final _logger = LogService('auth_page.dart');
+  final _logger = LogService.instance;
 
   @override
   void initState() {

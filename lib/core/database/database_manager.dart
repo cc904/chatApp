@@ -6,7 +6,7 @@ import 'package:isar/isar.dart';
 /// 数据库管理器
 /// 提供统一的接口用于操作数据库中的消息、会话等数据
 class DatabaseManager {
-  final LogService _logger = LogService('database_manager.dart');
+  final LogService _logger = LogService.instance;
   late final Isar _isar;
 
   // 单例模式

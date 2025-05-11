@@ -49,7 +49,7 @@ class ChatCubit extends Cubit<ChatState> {
       : _repository = repository,
         _contactsRepository = contactsRepository,
         super(ChatState.initial()) {
-    _logger = LogService('chat_cubit.dart');
+    _logger = LogService.instance;
     // 不在构造函数中设置订阅,而是等待initializeSubscriptions调用
 
     // 设置实时通信相关的订阅

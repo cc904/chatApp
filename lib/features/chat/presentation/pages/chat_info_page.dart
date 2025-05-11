@@ -20,7 +20,7 @@ class ChatInfoPage extends StatefulWidget {
 }
 
 class _ChatInfoPageState extends State<ChatInfoPage> {
-  final _logger = LogService('chat_info_page.dart');
+  final _logger = LogService.instance;
   // 模拟属性值,实际应该保存在数据库中
   bool _isMuted = false;
   bool _isPinned = false;

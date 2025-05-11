@@ -8,7 +8,7 @@ import 'package:isar/isar.dart';
 /// 消息服务
 /// 负责处理消息的发送、接收和存储
 class MessageService {
-  static final _logger = LogService('message_service.dart');
+  static final _logger = LogService.instance;
   static final _isar = DatabaseInitializer.isar;
 
   /// 发送消息

@@ -2,7 +2,7 @@
 //  Generated code. Do not modify.
 //  source: auth.proto
 //
-// @dart = 2.12
+// @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
 // ignore_for_file: constant_identifier_names, library_prefixes
@@ -30,7 +30,7 @@ class AuthOperationType extends $pb.ProtobufEnum {
   static final $core.Map<$core.int, AuthOperationType> _byValue = $pb.ProtobufEnum.initByValue(values);
   static AuthOperationType? valueOf($core.int value) => _byValue[value];
 
-  const AuthOperationType._($core.int v, $core.String n) : super(v, n);
+  const AuthOperationType._(super.v, super.n);
 }
 
 

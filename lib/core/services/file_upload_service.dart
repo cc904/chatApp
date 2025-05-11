@@ -14,7 +14,7 @@ import 'dart:math' as math;
 /// 文件上传服务
 /// 负责处理文件的上传和本地存储
 class FileUploadService {
-  final _logger = LogService('file_upload_service.dart');
+    final _logger = LogService.instance;
   final Uuid _uuid = const Uuid();
 
   // 单例模式

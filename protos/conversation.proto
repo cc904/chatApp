@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package cc;
 
+// 使用完整路径导入
 import "message.proto";
 
 // 会话类型枚举，匹配数据库模型

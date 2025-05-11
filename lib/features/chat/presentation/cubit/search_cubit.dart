@@ -52,7 +52,7 @@ enum FilterType {
 }
 
 class SearchCubit extends Cubit<SearchState> {
-  final LogService _logger = LogService('search_cubit.dart');
+  final LogService _logger = LogService.instance;
 
   SearchCubit() : super(const SearchState(currentFilter: FilterType.all));
 

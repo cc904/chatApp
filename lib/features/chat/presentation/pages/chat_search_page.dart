@@ -25,7 +25,7 @@ class ChatSearchPage extends StatefulWidget {
 }
 
 class _ChatSearchPageState extends State<ChatSearchPage> {
-  final _logger = LogService('chat_search_page.dart');
+  final _logger = LogService.instance;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   List<Message> _allMessages = []; // 所有消息的缓存

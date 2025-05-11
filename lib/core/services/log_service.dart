@@ -1,6 +1,5 @@
 import 'package:logger/logger.dart';
 import 'package:stack_trace/stack_trace.dart';
-import 'dart:io';
 
 class VSCodeLogPrinter extends LogPrinter {
   static final Map<Level, String> _levelEmojis = {
@@ -13,7 +12,7 @@ class VSCodeLogPrinter extends LogPrinter {
   };
 
   // 添加灰黑色文本
-  static String _lightBlue(String text) => '\x1B[38;2;100;100;100m$text\x1B[0m';
+  static String _lightBlue(String text) => '\x1B[38;2;50;50;50m$text\x1B[0m';
 
   // 项目根目录
   static const String projectRoot = '/Users/ad/Dev/Flutter/cc';
@@ -62,7 +61,7 @@ class VSCodeLogPrinter extends LogPrinter {
 
     // 如果有 at 信息，在新的一行显示
     if (atText != null) {
-      buffer.write('\n                                                      ${_lightBlue(atText)}');
+      buffer.write('\n                 ${_lightBlue(atText)}');
     }
 
     if (error != null) {

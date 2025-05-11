@@ -17,7 +17,7 @@ class ChatsPage extends StatefulWidget {
 
 class _ChatsPageState extends State<ChatsPage> {
   final TextEditingController _searchController = TextEditingController();
-  final _logger = LogService('chats_page.dart');
+  final _logger = LogService.instance;
   bool _isSearching = false;
   // 跟踪当前打开的滑动项的ID
   String? _openedItemId;

@@ -2,7 +2,7 @@
 //  Generated code. Do not modify.
 //  source: message.proto
 //
-// @dart = 2.12
+// @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
 // ignore_for_file: constant_identifier_names, library_prefixes
@@ -36,7 +36,7 @@ class MessageType extends $pb.ProtobufEnum {
   static final $core.Map<$core.int, MessageType> _byValue = $pb.ProtobufEnum.initByValue(values);
   static MessageType? valueOf($core.int value) => _byValue[value];
 
-  const MessageType._($core.int v, $core.String n) : super(v, n);
+  const MessageType._(super.v, super.n);
 }
 
 /// 消息状态枚举
@@ -58,7 +58,7 @@ class MessageStatus extends $pb.ProtobufEnum {
   static final $core.Map<$core.int, MessageStatus> _byValue = $pb.ProtobufEnum.initByValue(values);
   static MessageStatus? valueOf($core.int value) => _byValue[value];
 
-  const MessageStatus._($core.int v, $core.String n) : super(v, n);
+  const MessageStatus._(super.v, super.n);
 }
 
 

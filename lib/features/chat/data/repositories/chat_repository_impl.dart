@@ -38,7 +38,7 @@ class _SyncResponse {
 }
 
 class ChatRepositoryImpl implements ChatRepository {
-  final LogService _logger = LogService('chat_repository_impl.dart');
+  final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
 
   /// 文件上传服务,处理媒体文件上传

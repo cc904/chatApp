@@ -1,10 +1,10 @@
+import 'package:cc/core/proto/generated/auth.pb.dart';
+import 'package:cc/core/proto/generated/conversation.pb.dart';
 import 'package:fixnum/fixnum.dart';
 import '../database/models/message.dart' as db;
 import '../database/models/user.dart' as db;
 import '../database/models/conversation.dart' as db;
 import '../proto/generated/message.pb.dart';
-import '../proto/generated/user.pb.dart';
-import '../proto/generated/conversation.pb.dart';
 
 /// 数据模型适配器
 /// 负责在数据库模型与Protobuf模型之间进行转换

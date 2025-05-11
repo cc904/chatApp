@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:cc/core/services/log_service.dart';
 
 /// 认证响应模型
@@ -49,7 +50,7 @@ class AuthApiClient {
   static AuthApiClient getInstance() => _instance;
 
   late final Dio _dio;
-  final LogService _logger = LogService('auth_api_client.dart');
+  final LogService _logger = LogService.instance;
 
   // 认证响应流控制器
   final StreamController<AuthResponse> _authResponseController = StreamController<AuthResponse>.broadcast();
@@ -80,14 +81,15 @@ class AuthApiClient {
         },
       ));
 
-      // 添加拦截器进行日志记录
-      _dio.interceptors.add(LogInterceptor(
-        request: true,
+      // 添加漂亮的日志拦截器
+      _dio.interceptors.add(PrettyDioLogger(
         requestHeader: true,
         requestBody: true,
         responseHeader: true,
         responseBody: true,
         error: true,
+        compact: false,
+        maxWidth: 120,
       ));
 
       return true;

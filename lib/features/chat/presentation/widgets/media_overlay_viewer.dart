@@ -116,7 +116,7 @@ class _MediaOverlayViewerState extends State<MediaOverlayViewer> with SingleTick
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
 
-  final _logger = LogService('media_overlay_viewer.dart');
+  final _logger = LogService.instance;
 
   @override
   void initState() {

@@ -44,7 +44,7 @@ class ContactsCubitState extends Equatable {
 
 class ContactsCubit extends Cubit<ContactsCubitState> {
   final ContactsRepository _repository;
-  final LogService _logger = LogService('contacts_cubit.dart');
+  final LogService _logger = LogService.instance;
 
   ContactsCubit({required ContactsRepository repository})
       : _repository = repository,

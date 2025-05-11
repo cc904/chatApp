@@ -16,7 +16,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _verificationCodeController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _logger = LogService('forgot_password_page.dart');
+  final _logger = LogService.instance;
 
   // 重置密码的步骤
   int _currentStep = 0;

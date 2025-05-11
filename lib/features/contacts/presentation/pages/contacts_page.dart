@@ -13,7 +13,7 @@ class ContactsPage extends StatefulWidget {
 }
 
 class _ContactsPageState extends State<ContactsPage> {
-  final LogService _logger = LogService('contacts_page.dart');
+  final LogService _logger = LogService.instance;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 

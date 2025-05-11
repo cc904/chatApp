@@ -18,7 +18,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _logger = LogService('home_page.dart');
+  final _logger = LogService.instance;
 
   @override
   void initState() {

@@ -9,7 +9,7 @@ import 'package:cc/core/services/communication_service.dart';
 
 part 'auth_state.dart';
 
-final _logger = LogService('auth_cubit.dart');
+final _logger = LogService.instance;
 
 class AuthCubit extends Cubit<AuthState> {
   Timer? _countdownTimer;

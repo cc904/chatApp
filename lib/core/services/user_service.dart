@@ -6,7 +6,7 @@ import 'package:isar/isar.dart';
 /// 用户服务
 /// 负责处理联系人信息的存储和查询
 class UserService {
-  static final _logger = LogService('user_service.dart');
+  static final _logger = LogService.instance;
   static final _isar = DatabaseInitializer.isar;
 
   /// 创建联系人

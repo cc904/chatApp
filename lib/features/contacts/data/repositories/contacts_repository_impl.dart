@@ -11,7 +11,7 @@ import 'dart:async';
 /// ContactsRepository的实现类
 /// 负责管理联系人数据、实现联系人相关的业务逻辑
 class ContactsRepositoryImpl implements ContactsRepository {
-  final LogService _logger = LogService('contacts_repository_impl.dart');
+  final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
 
 

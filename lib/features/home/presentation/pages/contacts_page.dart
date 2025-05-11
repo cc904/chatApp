@@ -15,7 +15,7 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   final TextEditingController _searchController = TextEditingController();
-  final _logger = LogService('contacts_page.dart');
+  final _logger = LogService.instance;
   bool _isSearching = false;
 
   @override
