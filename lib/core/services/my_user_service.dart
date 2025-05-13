@@ -44,7 +44,7 @@ class MyUserService {
         await isar.myUsers.put(myUser);
       });
 
-      _logger.i('当前用户信息保存成功', extra: {'id': myUser.id});
+      _logger.i('当前用户信息保存成功', extra: {'userId': myUser.userId});
       return myUser;
     } catch (error) {
       _logger.e('保存当前用户信息失败', error: error, stackTrace: StackTrace.current);

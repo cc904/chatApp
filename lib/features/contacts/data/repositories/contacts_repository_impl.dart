@@ -415,7 +415,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       if (_communicationService.isInitialized) {
         final protoRequest = proto.ProcessFriendRequestProto()
           ..requestId = requestId
-          ..status = proto_enum.FriendRequestStatus.accepted;
+          ..status = proto_enum.FriendRequestStatus.ACCEPTED;
 
         _communicationService.emitProto('accept_friend_request', protoRequest);
       }
@@ -460,7 +460,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       if (_communicationService.isInitialized) {
         final protoRequest = proto.ProcessFriendRequestProto()
           ..requestId = requestId
-          ..status = proto_enum.FriendRequestStatus.rejected;
+          ..status = proto_enum.FriendRequestStatus.REJECTED;
 
         _communicationService.emitProto('reject_friend_request', protoRequest);
       }

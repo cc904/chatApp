@@ -14,7 +14,10 @@ class CommunicationService {
   // 连接状态
   bool get isConnected => _socketService.isConnected;
   bool get isInitialized => _socketService.isInitialized;
-  Stream<bool> get connectionStateStream => _socketService.connectionStateStream;
+  Stream<SocketConnectionStatus> get connectionStateStream => _socketService.connectionStateStream;
+
+  // 获取简化的布尔状态（是否已连接）
+  Stream<bool> get isConnectedStream => _socketService.connectionStateStream.map((status) => status == SocketConnectionStatus.connected);
 
   // 获取重连状态流
   Stream<bool> get reconnectingStateStream => _socketService.reconnectingStateStream;
@@ -40,7 +43,6 @@ class CommunicationService {
 
     final result = await _socketService.connect(
       serverUrl: serverUrl,
-      userId: userId,
       token: token,
     );
 
