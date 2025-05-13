@@ -262,32 +262,23 @@ class AuthResponse extends $pb.GeneratedMessage {
   void clearTimestamp() => $_clearField(5);
 }
 
-enum LoginRequest_AuthMethod {
-  password, 
-  verificationCode, 
-  notSet
-}
-
-/// 登录请求
+/// 登录请求消息
+/// 客户端发送登录请求时使用
 class LoginRequest extends $pb.GeneratedMessage {
   factory LoginRequest({
-    $core.String? phoneNumber,
+    $core.String? identifier,
     $core.String? password,
-    $core.String? verificationCode,
-    $core.bool? isQuickLogin,
+    DeviceInfo? device,
   }) {
     final $result = create();
-    if (phoneNumber != null) {
-      $result.phoneNumber = phoneNumber;
+    if (identifier != null) {
+      $result.identifier = identifier;
     }
     if (password != null) {
       $result.password = password;
     }
-    if (verificationCode != null) {
-      $result.verificationCode = verificationCode;
-    }
-    if (isQuickLogin != null) {
-      $result.isQuickLogin = isQuickLogin;
+    if (device != null) {
+      $result.device = device;
     }
     return $result;
   }
@@ -295,17 +286,10 @@ class LoginRequest extends $pb.GeneratedMessage {
   factory LoginRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
   factory LoginRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static const $core.Map<$core.int, LoginRequest_AuthMethod> _LoginRequest_AuthMethodByTag = {
-    2 : LoginRequest_AuthMethod.password,
-    3 : LoginRequest_AuthMethod.verificationCode,
-    0 : LoginRequest_AuthMethod.notSet
-  };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'LoginRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..oo(0, [2, 3])
-    ..aOS(1, _omitFieldNames ? '' : 'phoneNumber')
+    ..aOS(1, _omitFieldNames ? '' : 'identifier')
     ..aOS(2, _omitFieldNames ? '' : 'password')
-    ..aOS(3, _omitFieldNames ? '' : 'verificationCode')
-    ..aOB(4, _omitFieldNames ? '' : 'isQuickLogin')
+    ..aOM<DeviceInfo>(3, _omitFieldNames ? '' : 'device', subBuilder: DeviceInfo.create)
     ..hasRequiredFields = false
   ;
 
@@ -330,18 +314,19 @@ class LoginRequest extends $pb.GeneratedMessage {
   static LoginRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<LoginRequest>(create);
   static LoginRequest? _defaultInstance;
 
-  LoginRequest_AuthMethod whichAuthMethod() => _LoginRequest_AuthMethodByTag[$_whichOneof(0)]!;
-  void clearAuthMethod() => $_clearField($_whichOneof(0));
+  /// 用户登录方式
+  /// 可以是手机号、邮箱或用户名
+  @$pb.TagNumber(1)
+  $core.String get identifier => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set identifier($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasIdentifier() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearIdentifier() => $_clearField(1);
 
-  @$pb.TagNumber(1)
-  $core.String get phoneNumber => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set phoneNumber($core.String v) { $_setString(0, v); }
-  @$pb.TagNumber(1)
-  $core.bool hasPhoneNumber() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearPhoneNumber() => $_clearField(1);
-
+  /// 用户密码
+  /// 密码应该在前端进行加密后再传输
   @$pb.TagNumber(2)
   $core.String get password => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -351,45 +336,163 @@ class LoginRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPassword() => $_clearField(2);
 
+  /// 设备信息
+  /// 用于记录登录设备，支持多设备登录
   @$pb.TagNumber(3)
-  $core.String get verificationCode => $_getSZ(2);
+  DeviceInfo get device => $_getN(2);
   @$pb.TagNumber(3)
-  set verificationCode($core.String v) { $_setString(2, v); }
+  set device(DeviceInfo v) { $_setField(3, v); }
   @$pb.TagNumber(3)
-  $core.bool hasVerificationCode() => $_has(2);
+  $core.bool hasDevice() => $_has(2);
   @$pb.TagNumber(3)
-  void clearVerificationCode() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.bool get isQuickLogin => $_getBF(3);
-  @$pb.TagNumber(4)
-  set isQuickLogin($core.bool v) { $_setBool(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasIsQuickLogin() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearIsQuickLogin() => $_clearField(4);
+  void clearDevice() => $_clearField(3);
+  @$pb.TagNumber(3)
+  DeviceInfo ensureDevice() => $_ensure(2);
 }
 
-/// 注册请求
-class RegisterRequest extends $pb.GeneratedMessage {
-  factory RegisterRequest({
-    $core.String? phoneNumber,
-    $core.String? verificationCode,
-    $core.String? password,
-    $core.String? nickname,
+/// 登录响应消息
+/// 服务器返回登录结果
+class LoginResponse extends $pb.GeneratedMessage {
+  factory LoginResponse({
+    $core.bool? success,
+    $core.String? errorMessage,
+    UserInfo? user,
+    $core.String? token,
+    $fixnum.Int64? tokenExpiresAt,
   }) {
     final $result = create();
-    if (phoneNumber != null) {
-      $result.phoneNumber = phoneNumber;
+    if (success != null) {
+      $result.success = success;
     }
-    if (verificationCode != null) {
-      $result.verificationCode = verificationCode;
+    if (errorMessage != null) {
+      $result.errorMessage = errorMessage;
+    }
+    if (user != null) {
+      $result.user = user;
+    }
+    if (token != null) {
+      $result.token = token;
+    }
+    if (tokenExpiresAt != null) {
+      $result.tokenExpiresAt = tokenExpiresAt;
+    }
+    return $result;
+  }
+  LoginResponse._() : super();
+  factory LoginResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory LoginResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'LoginResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
+    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
+    ..aOS(4, _omitFieldNames ? '' : 'token')
+    ..aInt64(5, _omitFieldNames ? '' : 'tokenExpiresAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  LoginResponse clone() => LoginResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  LoginResponse copyWith(void Function(LoginResponse) updates) => super.copyWith((message) => updates(message as LoginResponse)) as LoginResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LoginResponse create() => LoginResponse._();
+  LoginResponse createEmptyInstance() => create();
+  static $pb.PbList<LoginResponse> createRepeated() => $pb.PbList<LoginResponse>();
+  @$core.pragma('dart2js:noInline')
+  static LoginResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<LoginResponse>(create);
+  static LoginResponse? _defaultInstance;
+
+  /// 登录是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息
+  /// 当success为false时，说明具体的错误原因
+  @$pb.TagNumber(2)
+  $core.String get errorMessage => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set errorMessage($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasErrorMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearErrorMessage() => $_clearField(2);
+
+  /// 用户信息
+  /// 登录成功时返回用户的基本信息
+  @$pb.TagNumber(3)
+  UserInfo get user => $_getN(2);
+  @$pb.TagNumber(3)
+  set user(UserInfo v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+  @$pb.TagNumber(3)
+  UserInfo ensureUser() => $_ensure(2);
+
+  /// 认证令牌
+  /// 用于后续请求的身份验证
+  @$pb.TagNumber(4)
+  $core.String get token => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set token($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasToken() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearToken() => $_clearField(4);
+
+  /// 令牌过期时间（毫秒时间戳）
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get tokenExpiresAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set tokenExpiresAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTokenExpiresAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTokenExpiresAt() => $_clearField(5);
+}
+
+/// 注册请求消息
+/// 客户端发送注册请求时使用
+class RegisterRequest extends $pb.GeneratedMessage {
+  factory RegisterRequest({
+    $core.String? username,
+    $core.String? password,
+    $core.String? phone,
+    $core.String? email,
+    DeviceInfo? device,
+  }) {
+    final $result = create();
+    if (username != null) {
+      $result.username = username;
     }
     if (password != null) {
       $result.password = password;
     }
-    if (nickname != null) {
-      $result.nickname = nickname;
+    if (phone != null) {
+      $result.phone = phone;
+    }
+    if (email != null) {
+      $result.email = email;
+    }
+    if (device != null) {
+      $result.device = device;
     }
     return $result;
   }
@@ -398,10 +501,11 @@ class RegisterRequest extends $pb.GeneratedMessage {
   factory RegisterRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RegisterRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'phoneNumber')
-    ..aOS(2, _omitFieldNames ? '' : 'verificationCode')
-    ..aOS(3, _omitFieldNames ? '' : 'password')
-    ..aOS(4, _omitFieldNames ? '' : 'nickname')
+    ..aOS(1, _omitFieldNames ? '' : 'username')
+    ..aOS(2, _omitFieldNames ? '' : 'password')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'email')
+    ..aOM<DeviceInfo>(5, _omitFieldNames ? '' : 'device', subBuilder: DeviceInfo.create)
     ..hasRequiredFields = false
   ;
 
@@ -426,41 +530,180 @@ class RegisterRequest extends $pb.GeneratedMessage {
   static RegisterRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RegisterRequest>(create);
   static RegisterRequest? _defaultInstance;
 
+  /// 用户名
+  /// 用于登录和显示
   @$pb.TagNumber(1)
-  $core.String get phoneNumber => $_getSZ(0);
+  $core.String get username => $_getSZ(0);
   @$pb.TagNumber(1)
-  set phoneNumber($core.String v) { $_setString(0, v); }
+  set username($core.String v) { $_setString(0, v); }
   @$pb.TagNumber(1)
-  $core.bool hasPhoneNumber() => $_has(0);
+  $core.bool hasUsername() => $_has(0);
   @$pb.TagNumber(1)
-  void clearPhoneNumber() => $_clearField(1);
+  void clearUsername() => $_clearField(1);
 
+  /// 密码
+  /// 密码应该在前端进行加密后再传输
   @$pb.TagNumber(2)
-  $core.String get verificationCode => $_getSZ(1);
+  $core.String get password => $_getSZ(1);
   @$pb.TagNumber(2)
-  set verificationCode($core.String v) { $_setString(1, v); }
+  set password($core.String v) { $_setString(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasVerificationCode() => $_has(1);
+  $core.bool hasPassword() => $_has(1);
   @$pb.TagNumber(2)
-  void clearVerificationCode() => $_clearField(2);
+  void clearPassword() => $_clearField(2);
 
+  /// 手机号
+  /// 用于验证和找回密码
   @$pb.TagNumber(3)
-  $core.String get password => $_getSZ(2);
+  $core.String get phone => $_getSZ(2);
   @$pb.TagNumber(3)
-  set password($core.String v) { $_setString(2, v); }
+  set phone($core.String v) { $_setString(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasPassword() => $_has(2);
+  $core.bool hasPhone() => $_has(2);
   @$pb.TagNumber(3)
-  void clearPassword() => $_clearField(3);
+  void clearPhone() => $_clearField(3);
 
+  /// 邮箱
+  /// 用于验证和找回密码
   @$pb.TagNumber(4)
-  $core.String get nickname => $_getSZ(3);
+  $core.String get email => $_getSZ(3);
   @$pb.TagNumber(4)
-  set nickname($core.String v) { $_setString(3, v); }
+  set email($core.String v) { $_setString(3, v); }
   @$pb.TagNumber(4)
-  $core.bool hasNickname() => $_has(3);
+  $core.bool hasEmail() => $_has(3);
   @$pb.TagNumber(4)
-  void clearNickname() => $_clearField(4);
+  void clearEmail() => $_clearField(4);
+
+  /// 设备信息
+  /// 用于记录注册设备
+  @$pb.TagNumber(5)
+  DeviceInfo get device => $_getN(4);
+  @$pb.TagNumber(5)
+  set device(DeviceInfo v) { $_setField(5, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasDevice() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDevice() => $_clearField(5);
+  @$pb.TagNumber(5)
+  DeviceInfo ensureDevice() => $_ensure(4);
+}
+
+/// 注册响应消息
+/// 服务器返回注册结果
+class RegisterResponse extends $pb.GeneratedMessage {
+  factory RegisterResponse({
+    $core.bool? success,
+    $core.String? errorMessage,
+    UserInfo? user,
+    $core.String? token,
+    $fixnum.Int64? tokenExpiresAt,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (errorMessage != null) {
+      $result.errorMessage = errorMessage;
+    }
+    if (user != null) {
+      $result.user = user;
+    }
+    if (token != null) {
+      $result.token = token;
+    }
+    if (tokenExpiresAt != null) {
+      $result.tokenExpiresAt = tokenExpiresAt;
+    }
+    return $result;
+  }
+  RegisterResponse._() : super();
+  factory RegisterResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory RegisterResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RegisterResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
+    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
+    ..aOS(4, _omitFieldNames ? '' : 'token')
+    ..aInt64(5, _omitFieldNames ? '' : 'tokenExpiresAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  RegisterResponse clone() => RegisterResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  RegisterResponse copyWith(void Function(RegisterResponse) updates) => super.copyWith((message) => updates(message as RegisterResponse)) as RegisterResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RegisterResponse create() => RegisterResponse._();
+  RegisterResponse createEmptyInstance() => create();
+  static $pb.PbList<RegisterResponse> createRepeated() => $pb.PbList<RegisterResponse>();
+  @$core.pragma('dart2js:noInline')
+  static RegisterResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RegisterResponse>(create);
+  static RegisterResponse? _defaultInstance;
+
+  /// 注册是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息
+  /// 当success为false时，说明具体的错误原因
+  @$pb.TagNumber(2)
+  $core.String get errorMessage => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set errorMessage($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasErrorMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearErrorMessage() => $_clearField(2);
+
+  /// 用户信息
+  /// 注册成功时返回用户的基本信息
+  @$pb.TagNumber(3)
+  UserInfo get user => $_getN(2);
+  @$pb.TagNumber(3)
+  set user(UserInfo v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+  @$pb.TagNumber(3)
+  UserInfo ensureUser() => $_ensure(2);
+
+  /// 认证令牌
+  /// 用于后续请求的身份验证
+  @$pb.TagNumber(4)
+  $core.String get token => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set token($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasToken() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearToken() => $_clearField(4);
+
+  /// 令牌过期时间（毫秒时间戳）
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get tokenExpiresAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set tokenExpiresAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTokenExpiresAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTokenExpiresAt() => $_clearField(5);
 }
 
 /// 密码重置请求
@@ -698,6 +941,443 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   $core.bool hasCooldown() => $_has(3);
   @$pb.TagNumber(4)
   void clearCooldown() => $_clearField(4);
+}
+
+/// 验证令牌请求消息
+/// 客户端发送验证令牌请求时使用
+class VerifyTokenRequest extends $pb.GeneratedMessage {
+  factory VerifyTokenRequest({
+    $core.String? token,
+  }) {
+    final $result = create();
+    if (token != null) {
+      $result.token = token;
+    }
+    return $result;
+  }
+  VerifyTokenRequest._() : super();
+  factory VerifyTokenRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory VerifyTokenRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VerifyTokenRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'token')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  VerifyTokenRequest clone() => VerifyTokenRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  VerifyTokenRequest copyWith(void Function(VerifyTokenRequest) updates) => super.copyWith((message) => updates(message as VerifyTokenRequest)) as VerifyTokenRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static VerifyTokenRequest create() => VerifyTokenRequest._();
+  VerifyTokenRequest createEmptyInstance() => create();
+  static $pb.PbList<VerifyTokenRequest> createRepeated() => $pb.PbList<VerifyTokenRequest>();
+  @$core.pragma('dart2js:noInline')
+  static VerifyTokenRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VerifyTokenRequest>(create);
+  static VerifyTokenRequest? _defaultInstance;
+
+  /// 要验证的令牌
+  @$pb.TagNumber(1)
+  $core.String get token => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set token($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToken() => $_clearField(1);
+}
+
+/// 验证令牌响应消息
+/// 服务器返回令牌验证结果
+class VerifyTokenResponse extends $pb.GeneratedMessage {
+  factory VerifyTokenResponse({
+    $core.bool? valid,
+    $core.String? errorMessage,
+    UserInfo? user,
+    $core.String? newToken,
+    $fixnum.Int64? newTokenExpiresAt,
+  }) {
+    final $result = create();
+    if (valid != null) {
+      $result.valid = valid;
+    }
+    if (errorMessage != null) {
+      $result.errorMessage = errorMessage;
+    }
+    if (user != null) {
+      $result.user = user;
+    }
+    if (newToken != null) {
+      $result.newToken = newToken;
+    }
+    if (newTokenExpiresAt != null) {
+      $result.newTokenExpiresAt = newTokenExpiresAt;
+    }
+    return $result;
+  }
+  VerifyTokenResponse._() : super();
+  factory VerifyTokenResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory VerifyTokenResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VerifyTokenResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'valid')
+    ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
+    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
+    ..aOS(4, _omitFieldNames ? '' : 'newToken')
+    ..aInt64(5, _omitFieldNames ? '' : 'newTokenExpiresAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  VerifyTokenResponse clone() => VerifyTokenResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  VerifyTokenResponse copyWith(void Function(VerifyTokenResponse) updates) => super.copyWith((message) => updates(message as VerifyTokenResponse)) as VerifyTokenResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static VerifyTokenResponse create() => VerifyTokenResponse._();
+  VerifyTokenResponse createEmptyInstance() => create();
+  static $pb.PbList<VerifyTokenResponse> createRepeated() => $pb.PbList<VerifyTokenResponse>();
+  @$core.pragma('dart2js:noInline')
+  static VerifyTokenResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VerifyTokenResponse>(create);
+  static VerifyTokenResponse? _defaultInstance;
+
+  /// 验证是否成功
+  @$pb.TagNumber(1)
+  $core.bool get valid => $_getBF(0);
+  @$pb.TagNumber(1)
+  set valid($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasValid() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValid() => $_clearField(1);
+
+  /// 错误信息
+  /// 当valid为false时，说明具体的错误原因
+  @$pb.TagNumber(2)
+  $core.String get errorMessage => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set errorMessage($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasErrorMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearErrorMessage() => $_clearField(2);
+
+  /// 用户信息
+  /// 验证成功时返回用户的基本信息
+  @$pb.TagNumber(3)
+  UserInfo get user => $_getN(2);
+  @$pb.TagNumber(3)
+  set user(UserInfo v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+  @$pb.TagNumber(3)
+  UserInfo ensureUser() => $_ensure(2);
+
+  /// 新的认证令牌
+  /// 如果原令牌即将过期，返回新的令牌
+  @$pb.TagNumber(4)
+  $core.String get newToken => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set newToken($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasNewToken() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearNewToken() => $_clearField(4);
+
+  /// 新令牌过期时间（毫秒时间戳）
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get newTokenExpiresAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set newTokenExpiresAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasNewTokenExpiresAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearNewTokenExpiresAt() => $_clearField(5);
+}
+
+/// 设备信息消息
+/// 用于记录用户登录或注册时的设备信息
+class DeviceInfo extends $pb.GeneratedMessage {
+  factory DeviceInfo({
+    $core.String? deviceId,
+    $core.String? deviceType,
+    $core.String? deviceModel,
+    $core.String? osVersion,
+    $core.String? appVersion,
+  }) {
+    final $result = create();
+    if (deviceId != null) {
+      $result.deviceId = deviceId;
+    }
+    if (deviceType != null) {
+      $result.deviceType = deviceType;
+    }
+    if (deviceModel != null) {
+      $result.deviceModel = deviceModel;
+    }
+    if (osVersion != null) {
+      $result.osVersion = osVersion;
+    }
+    if (appVersion != null) {
+      $result.appVersion = appVersion;
+    }
+    return $result;
+  }
+  DeviceInfo._() : super();
+  factory DeviceInfo.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory DeviceInfo.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'DeviceInfo', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'deviceId')
+    ..aOS(2, _omitFieldNames ? '' : 'deviceType')
+    ..aOS(3, _omitFieldNames ? '' : 'deviceModel')
+    ..aOS(4, _omitFieldNames ? '' : 'osVersion')
+    ..aOS(5, _omitFieldNames ? '' : 'appVersion')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  DeviceInfo clone() => DeviceInfo()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  DeviceInfo copyWith(void Function(DeviceInfo) updates) => super.copyWith((message) => updates(message as DeviceInfo)) as DeviceInfo;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeviceInfo create() => DeviceInfo._();
+  DeviceInfo createEmptyInstance() => create();
+  static $pb.PbList<DeviceInfo> createRepeated() => $pb.PbList<DeviceInfo>();
+  @$core.pragma('dart2js:noInline')
+  static DeviceInfo getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<DeviceInfo>(create);
+  static DeviceInfo? _defaultInstance;
+
+  /// 设备ID
+  /// 用于唯一标识一个设备
+  @$pb.TagNumber(1)
+  $core.String get deviceId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set deviceId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasDeviceId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDeviceId() => $_clearField(1);
+
+  /// 设备类型
+  /// 如：ios, android, web等
+  @$pb.TagNumber(2)
+  $core.String get deviceType => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set deviceType($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasDeviceType() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDeviceType() => $_clearField(2);
+
+  /// 设备型号
+  /// 如：iPhone 12, Samsung Galaxy S21等
+  @$pb.TagNumber(3)
+  $core.String get deviceModel => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set deviceModel($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasDeviceModel() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDeviceModel() => $_clearField(3);
+
+  /// 操作系统版本
+  /// 如：iOS 15.0, Android 12等
+  @$pb.TagNumber(4)
+  $core.String get osVersion => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set osVersion($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasOsVersion() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearOsVersion() => $_clearField(4);
+
+  /// 应用版本
+  /// 当前应用的版本号
+  @$pb.TagNumber(5)
+  $core.String get appVersion => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set appVersion($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasAppVersion() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAppVersion() => $_clearField(5);
+}
+
+/// 用户信息消息
+/// 包含用户的基本信息
+class UserInfo extends $pb.GeneratedMessage {
+  factory UserInfo({
+    $core.String? userId,
+    $core.String? username,
+    $core.String? phone,
+    $core.String? email,
+    $core.String? avatar,
+    $fixnum.Int64? createdAt,
+    $fixnum.Int64? lastLoginAt,
+  }) {
+    final $result = create();
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (username != null) {
+      $result.username = username;
+    }
+    if (phone != null) {
+      $result.phone = phone;
+    }
+    if (email != null) {
+      $result.email = email;
+    }
+    if (avatar != null) {
+      $result.avatar = avatar;
+    }
+    if (createdAt != null) {
+      $result.createdAt = createdAt;
+    }
+    if (lastLoginAt != null) {
+      $result.lastLoginAt = lastLoginAt;
+    }
+    return $result;
+  }
+  UserInfo._() : super();
+  factory UserInfo.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UserInfo.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserInfo', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'userId')
+    ..aOS(2, _omitFieldNames ? '' : 'username')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'email')
+    ..aOS(5, _omitFieldNames ? '' : 'avatar')
+    ..aInt64(6, _omitFieldNames ? '' : 'createdAt')
+    ..aInt64(7, _omitFieldNames ? '' : 'lastLoginAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UserInfo clone() => UserInfo()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UserInfo copyWith(void Function(UserInfo) updates) => super.copyWith((message) => updates(message as UserInfo)) as UserInfo;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UserInfo create() => UserInfo._();
+  UserInfo createEmptyInstance() => create();
+  static $pb.PbList<UserInfo> createRepeated() => $pb.PbList<UserInfo>();
+  @$core.pragma('dart2js:noInline')
+  static UserInfo getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserInfo>(create);
+  static UserInfo? _defaultInstance;
+
+  /// 用户ID
+  /// 系统分配的唯一标识
+  @$pb.TagNumber(1)
+  $core.String get userId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set userId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasUserId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUserId() => $_clearField(1);
+
+  /// 用户名
+  /// 用于登录和显示
+  @$pb.TagNumber(2)
+  $core.String get username => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set username($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUsername() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUsername() => $_clearField(2);
+
+  /// 手机号
+  /// 用于验证和找回密码
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+
+  /// 邮箱
+  /// 用于验证和找回密码
+  @$pb.TagNumber(4)
+  $core.String get email => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set email($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasEmail() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEmail() => $_clearField(4);
+
+  /// 头像URL
+  /// 用户头像的访问地址
+  @$pb.TagNumber(5)
+  $core.String get avatar => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set avatar($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasAvatar() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAvatar() => $_clearField(5);
+
+  /// 注册时间（毫秒时间戳）
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get createdAt => $_getI64(5);
+  @$pb.TagNumber(6)
+  set createdAt($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasCreatedAt() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCreatedAt() => $_clearField(6);
+
+  /// 最后登录时间（毫秒时间戳）
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get lastLoginAt => $_getI64(6);
+  @$pb.TagNumber(7)
+  set lastLoginAt($fixnum.Int64 v) { $_setInt64(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasLastLoginAt() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearLastLoginAt() => $_clearField(7);
 }
 
 /// 用户会话信息

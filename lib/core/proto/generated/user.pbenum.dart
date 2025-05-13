@@ -14,21 +14,21 @@ import 'dart:core' as $core;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 /// 用户在线状态枚举
-class UserStatus extends $pb.ProtobufEnum {
-  static const UserStatus offline = UserStatus._(0, _omitEnumNames ? '' : 'offline');
-  static const UserStatus online = UserStatus._(1, _omitEnumNames ? '' : 'online');
-  static const UserStatus away = UserStatus._(2, _omitEnumNames ? '' : 'away');
+class UserStatusEnum extends $pb.ProtobufEnum {
+  static const UserStatusEnum offline = UserStatusEnum._(0, _omitEnumNames ? '' : 'offline');
+  static const UserStatusEnum online = UserStatusEnum._(1, _omitEnumNames ? '' : 'online');
+  static const UserStatusEnum away = UserStatusEnum._(2, _omitEnumNames ? '' : 'away');
 
-  static const $core.List<UserStatus> values = <UserStatus> [
+  static const $core.List<UserStatusEnum> values = <UserStatusEnum> [
     offline,
     online,
     away,
   ];
 
-  static final $core.Map<$core.int, UserStatus> _byValue = $pb.ProtobufEnum.initByValue(values);
-  static UserStatus? valueOf($core.int value) => _byValue[value];
+  static final $core.Map<$core.int, UserStatusEnum> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static UserStatusEnum? valueOf($core.int value) => _byValue[value];
 
-  const UserStatus._(super.v, super.n);
+  const UserStatusEnum._(super.v, super.n);
 }
 
 

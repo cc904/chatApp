@@ -17,16 +17,16 @@ import 'dart:typed_data' as $typed_data;
 const FriendRequestStatus$json = {
   '1': 'FriendRequestStatus',
   '2': [
-    {'1': 'pending', '2': 0},
-    {'1': 'accepted', '2': 1},
-    {'1': 'rejected', '2': 2},
+    {'1': 'PENDING', '2': 0},
+    {'1': 'ACCEPTED', '2': 1},
+    {'1': 'REJECTED', '2': 2},
   ],
 };
 
 /// Descriptor for `FriendRequestStatus`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List friendRequestStatusDescriptor = $convert.base64Decode(
-    'ChNGcmllbmRSZXF1ZXN0U3RhdHVzEgsKB3BlbmRpbmcQABIMCghhY2NlcHRlZBABEgwKCHJlam'
-    'VjdGVkEAI=');
+    'ChNGcmllbmRSZXF1ZXN0U3RhdHVzEgsKB1BFTkRJTkcQABIMCghBQ0NFUFRFRBABEgwKCFJFSk'
+    'VDVEVEEAI=');
 
 @$core.Deprecated('Use friendRequestProtoDescriptor instead')
 const FriendRequestProto$json = {
@@ -34,37 +34,21 @@ const FriendRequestProto$json = {
   '2': [
     {'1': 'request_id', '3': 1, '4': 1, '5': 9, '10': 'requestId'},
     {'1': 'sender_id', '3': 2, '4': 1, '5': 9, '10': 'senderId'},
-    {'1': 'sender_name', '3': 3, '4': 1, '5': 9, '10': 'senderName'},
-    {'1': 'sender_avatar', '3': 4, '4': 1, '5': 9, '10': 'senderAvatar'},
-    {'1': 'receiver_id', '3': 5, '4': 1, '5': 9, '10': 'receiverId'},
-    {'1': 'message', '3': 6, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'status', '3': 7, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '10': 'status'},
-    {'1': 'created_at', '3': 8, '4': 1, '5': 3, '10': 'createdAt'},
-    {'1': 'processed_at', '3': 9, '4': 1, '5': 3, '10': 'processedAt'},
+    {'1': 'receiver_id', '3': 3, '4': 1, '5': 9, '10': 'receiverId'},
+    {'1': 'status', '3': 4, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '10': 'status'},
+    {'1': 'message', '3': 5, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'sent_at', '3': 6, '4': 1, '5': 3, '10': 'sentAt'},
+    {'1': 'processed_at', '3': 7, '4': 1, '5': 3, '10': 'processedAt'},
   ],
 };
 
 /// Descriptor for `FriendRequestProto`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List friendRequestProtoDescriptor = $convert.base64Decode(
     'ChJGcmllbmRSZXF1ZXN0UHJvdG8SHQoKcmVxdWVzdF9pZBgBIAEoCVIJcmVxdWVzdElkEhsKCX'
-    'NlbmRlcl9pZBgCIAEoCVIIc2VuZGVySWQSHwoLc2VuZGVyX25hbWUYAyABKAlSCnNlbmRlck5h'
-    'bWUSIwoNc2VuZGVyX2F2YXRhchgEIAEoCVIMc2VuZGVyQXZhdGFyEh8KC3JlY2VpdmVyX2lkGA'
-    'UgASgJUgpyZWNlaXZlcklkEhgKB21lc3NhZ2UYBiABKAlSB21lc3NhZ2USLwoGc3RhdHVzGAcg'
-    'ASgOMhcuY2MuRnJpZW5kUmVxdWVzdFN0YXR1c1IGc3RhdHVzEh0KCmNyZWF0ZWRfYXQYCCABKA'
-    'NSCWNyZWF0ZWRBdBIhCgxwcm9jZXNzZWRfYXQYCSABKANSC3Byb2Nlc3NlZEF0');
-
-@$core.Deprecated('Use friendRequestCollectionDescriptor instead')
-const FriendRequestCollection$json = {
-  '1': 'FriendRequestCollection',
-  '2': [
-    {'1': 'requests', '3': 1, '4': 3, '5': 11, '6': '.cc.FriendRequestProto', '10': 'requests'},
-  ],
-};
-
-/// Descriptor for `FriendRequestCollection`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List friendRequestCollectionDescriptor = $convert.base64Decode(
-    'ChdGcmllbmRSZXF1ZXN0Q29sbGVjdGlvbhIyCghyZXF1ZXN0cxgBIAMoCzIWLmNjLkZyaWVuZF'
-    'JlcXVlc3RQcm90b1IIcmVxdWVzdHM=');
+    'NlbmRlcl9pZBgCIAEoCVIIc2VuZGVySWQSHwoLcmVjZWl2ZXJfaWQYAyABKAlSCnJlY2VpdmVy'
+    'SWQSLwoGc3RhdHVzGAQgASgOMhcuY2MuRnJpZW5kUmVxdWVzdFN0YXR1c1IGc3RhdHVzEhgKB2'
+    '1lc3NhZ2UYBSABKAlSB21lc3NhZ2USFwoHc2VudF9hdBgGIAEoA1IGc2VudEF0EiEKDHByb2Nl'
+    'c3NlZF9hdBgHIAEoA1ILcHJvY2Vzc2VkQXQ=');
 
 @$core.Deprecated('Use syncContactsRequestDescriptor instead')
 const SyncContactsRequest$json = {
@@ -72,26 +56,28 @@ const SyncContactsRequest$json = {
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
     {'1': 'token', '3': 2, '4': 1, '5': 9, '10': 'token'},
+    {'1': 'last_sync_time', '3': 3, '4': 1, '5': 3, '10': 'lastSyncTime'},
   ],
 };
 
 /// Descriptor for `SyncContactsRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List syncContactsRequestDescriptor = $convert.base64Decode(
     'ChNTeW5jQ29udGFjdHNSZXF1ZXN0EhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIUCgV0b2tlbh'
-    'gCIAEoCVIFdG9rZW4=');
+    'gCIAEoCVIFdG9rZW4SJAoObGFzdF9zeW5jX3RpbWUYAyABKANSDGxhc3RTeW5jVGltZQ==');
 
 @$core.Deprecated('Use syncContactsResponseDescriptor instead')
 const SyncContactsResponse$json = {
   '1': 'SyncContactsResponse',
   '2': [
     {'1': 'contacts', '3': 1, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'contacts'},
+    {'1': 'sync_time', '3': 2, '4': 1, '5': 3, '10': 'syncTime'},
   ],
 };
 
 /// Descriptor for `SyncContactsResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List syncContactsResponseDescriptor = $convert.base64Decode(
     'ChRTeW5jQ29udGFjdHNSZXNwb25zZRIpCghjb250YWN0cxgBIAMoCzINLmNjLlVzZXJQcm90b1'
-    'IIY29udGFjdHM=');
+    'IIY29udGFjdHMSGwoJc3luY190aW1lGAIgASgDUghzeW5jVGltZQ==');
 
 @$core.Deprecated('Use sendFriendRequestProtoDescriptor instead')
 const SendFriendRequestProto$json = {
@@ -115,11 +101,99 @@ const ProcessFriendRequestProto$json = {
   '2': [
     {'1': 'request_id', '3': 1, '4': 1, '5': 9, '10': 'requestId'},
     {'1': 'status', '3': 2, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '10': 'status'},
+    {'1': 'reject_reason', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'rejectReason', '17': true},
+  ],
+  '8': [
+    {'1': '_reject_reason'},
   ],
 };
 
 /// Descriptor for `ProcessFriendRequestProto`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List processFriendRequestProtoDescriptor = $convert.base64Decode(
     'ChlQcm9jZXNzRnJpZW5kUmVxdWVzdFByb3RvEh0KCnJlcXVlc3RfaWQYASABKAlSCXJlcXVlc3'
-    'RJZBIvCgZzdGF0dXMYAiABKA4yFy5jYy5GcmllbmRSZXF1ZXN0U3RhdHVzUgZzdGF0dXM=');
+    'RJZBIvCgZzdGF0dXMYAiABKA4yFy5jYy5GcmllbmRSZXF1ZXN0U3RhdHVzUgZzdGF0dXMSKAoN'
+    'cmVqZWN0X3JlYXNvbhgDIAEoCUgAUgxyZWplY3RSZWFzb26IAQFCEAoOX3JlamVjdF9yZWFzb2'
+    '4=');
+
+@$core.Deprecated('Use getFriendsRequestDescriptor instead')
+const GetFriendsRequest$json = {
+  '1': 'GetFriendsRequest',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+  ],
+};
+
+/// Descriptor for `GetFriendsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getFriendsRequestDescriptor = $convert.base64Decode(
+    'ChFHZXRGcmllbmRzUmVxdWVzdBIXCgd1c2VyX2lkGAEgASgJUgZ1c2VySWQ=');
+
+@$core.Deprecated('Use getFriendsResponseDescriptor instead')
+const GetFriendsResponse$json = {
+  '1': 'GetFriendsResponse',
+  '2': [
+    {'1': 'friends', '3': 1, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'friends'},
+  ],
+};
+
+/// Descriptor for `GetFriendsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getFriendsResponseDescriptor = $convert.base64Decode(
+    'ChJHZXRGcmllbmRzUmVzcG9uc2USJwoHZnJpZW5kcxgBIAMoCzINLmNjLlVzZXJQcm90b1IHZn'
+    'JpZW5kcw==');
+
+@$core.Deprecated('Use getFriendRequestsRequestDescriptor instead')
+const GetFriendRequestsRequest$json = {
+  '1': 'GetFriendRequestsRequest',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'status', '3': 2, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '9': 0, '10': 'status', '17': true},
+  ],
+  '8': [
+    {'1': '_status'},
+  ],
+};
+
+/// Descriptor for `GetFriendRequestsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getFriendRequestsRequestDescriptor = $convert.base64Decode(
+    'ChhHZXRGcmllbmRSZXF1ZXN0c1JlcXVlc3QSFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEjQKBn'
+    'N0YXR1cxgCIAEoDjIXLmNjLkZyaWVuZFJlcXVlc3RTdGF0dXNIAFIGc3RhdHVziAEBQgkKB19z'
+    'dGF0dXM=');
+
+@$core.Deprecated('Use getFriendRequestsResponseDescriptor instead')
+const GetFriendRequestsResponse$json = {
+  '1': 'GetFriendRequestsResponse',
+  '2': [
+    {'1': 'requests', '3': 1, '4': 3, '5': 11, '6': '.cc.FriendRequestProto', '10': 'requests'},
+  ],
+};
+
+/// Descriptor for `GetFriendRequestsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getFriendRequestsResponseDescriptor = $convert.base64Decode(
+    'ChlHZXRGcmllbmRSZXF1ZXN0c1Jlc3BvbnNlEjIKCHJlcXVlc3RzGAEgAygLMhYuY2MuRnJpZW'
+    '5kUmVxdWVzdFByb3RvUghyZXF1ZXN0cw==');
+
+@$core.Deprecated('Use deleteFriendRequestDescriptor instead')
+const DeleteFriendRequest$json = {
+  '1': 'DeleteFriendRequest',
+  '2': [
+    {'1': 'friend_id', '3': 1, '4': 1, '5': 9, '10': 'friendId'},
+  ],
+};
+
+/// Descriptor for `DeleteFriendRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteFriendRequestDescriptor = $convert.base64Decode(
+    'ChNEZWxldGVGcmllbmRSZXF1ZXN0EhsKCWZyaWVuZF9pZBgBIAEoCVIIZnJpZW5kSWQ=');
+
+@$core.Deprecated('Use deleteFriendResponseDescriptor instead')
+const DeleteFriendResponse$json = {
+  '1': 'DeleteFriendResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'error_message', '3': 2, '4': 1, '5': 9, '10': 'errorMessage'},
+  ],
+};
+
+/// Descriptor for `DeleteFriendResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteFriendResponseDescriptor = $convert.base64Decode(
+    'ChREZWxldGVGcmllbmRSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEiMKDWVycm'
+    '9yX21lc3NhZ2UYAiABKAlSDGVycm9yTWVzc2FnZQ==');
 

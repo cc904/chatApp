@@ -21,17 +21,16 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'contacts.pbenum.dart';
 
-/// 好友请求
+/// 好友请求消息
+/// 包含好友请求的详细信息
 class FriendRequestProto extends $pb.GeneratedMessage {
   factory FriendRequestProto({
     $core.String? requestId,
     $core.String? senderId,
-    $core.String? senderName,
-    $core.String? senderAvatar,
     $core.String? receiverId,
-    $core.String? message,
     FriendRequestStatus? status,
-    $fixnum.Int64? createdAt,
+    $core.String? message,
+    $fixnum.Int64? sentAt,
     $fixnum.Int64? processedAt,
   }) {
     final $result = create();
@@ -41,23 +40,17 @@ class FriendRequestProto extends $pb.GeneratedMessage {
     if (senderId != null) {
       $result.senderId = senderId;
     }
-    if (senderName != null) {
-      $result.senderName = senderName;
-    }
-    if (senderAvatar != null) {
-      $result.senderAvatar = senderAvatar;
-    }
     if (receiverId != null) {
       $result.receiverId = receiverId;
-    }
-    if (message != null) {
-      $result.message = message;
     }
     if (status != null) {
       $result.status = status;
     }
-    if (createdAt != null) {
-      $result.createdAt = createdAt;
+    if (message != null) {
+      $result.message = message;
+    }
+    if (sentAt != null) {
+      $result.sentAt = sentAt;
     }
     if (processedAt != null) {
       $result.processedAt = processedAt;
@@ -71,13 +64,11 @@ class FriendRequestProto extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'FriendRequestProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'requestId')
     ..aOS(2, _omitFieldNames ? '' : 'senderId')
-    ..aOS(3, _omitFieldNames ? '' : 'senderName')
-    ..aOS(4, _omitFieldNames ? '' : 'senderAvatar')
-    ..aOS(5, _omitFieldNames ? '' : 'receiverId')
-    ..aOS(6, _omitFieldNames ? '' : 'message')
-    ..e<FriendRequestStatus>(7, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: FriendRequestStatus.pending, valueOf: FriendRequestStatus.valueOf, enumValues: FriendRequestStatus.values)
-    ..aInt64(8, _omitFieldNames ? '' : 'createdAt')
-    ..aInt64(9, _omitFieldNames ? '' : 'processedAt')
+    ..aOS(3, _omitFieldNames ? '' : 'receiverId')
+    ..e<FriendRequestStatus>(4, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: FriendRequestStatus.PENDING, valueOf: FriendRequestStatus.valueOf, enumValues: FriendRequestStatus.values)
+    ..aOS(5, _omitFieldNames ? '' : 'message')
+    ..aInt64(6, _omitFieldNames ? '' : 'sentAt')
+    ..aInt64(7, _omitFieldNames ? '' : 'processedAt')
     ..hasRequiredFields = false
   ;
 
@@ -102,6 +93,8 @@ class FriendRequestProto extends $pb.GeneratedMessage {
   static FriendRequestProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FriendRequestProto>(create);
   static FriendRequestProto? _defaultInstance;
 
+  /// 请求ID
+  /// 系统分配的唯一标识
   @$pb.TagNumber(1)
   $core.String get requestId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -111,6 +104,8 @@ class FriendRequestProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearRequestId() => $_clearField(1);
 
+  /// 发送者ID
+  /// 发起好友请求的用户
   @$pb.TagNumber(2)
   $core.String get senderId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -120,120 +115,66 @@ class FriendRequestProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearSenderId() => $_clearField(2);
 
+  /// 接收者ID
+  /// 接收好友请求的用户
   @$pb.TagNumber(3)
-  $core.String get senderName => $_getSZ(2);
+  $core.String get receiverId => $_getSZ(2);
   @$pb.TagNumber(3)
-  set senderName($core.String v) { $_setString(2, v); }
+  set receiverId($core.String v) { $_setString(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasSenderName() => $_has(2);
+  $core.bool hasReceiverId() => $_has(2);
   @$pb.TagNumber(3)
-  void clearSenderName() => $_clearField(3);
+  void clearReceiverId() => $_clearField(3);
 
+  /// 请求状态
   @$pb.TagNumber(4)
-  $core.String get senderAvatar => $_getSZ(3);
+  FriendRequestStatus get status => $_getN(3);
   @$pb.TagNumber(4)
-  set senderAvatar($core.String v) { $_setString(3, v); }
+  set status(FriendRequestStatus v) { $_setField(4, v); }
   @$pb.TagNumber(4)
-  $core.bool hasSenderAvatar() => $_has(3);
+  $core.bool hasStatus() => $_has(3);
   @$pb.TagNumber(4)
-  void clearSenderAvatar() => $_clearField(4);
+  void clearStatus() => $_clearField(4);
 
+  /// 请求消息
+  /// 好友请求的附加信息
   @$pb.TagNumber(5)
-  $core.String get receiverId => $_getSZ(4);
+  $core.String get message => $_getSZ(4);
   @$pb.TagNumber(5)
-  set receiverId($core.String v) { $_setString(4, v); }
+  set message($core.String v) { $_setString(4, v); }
   @$pb.TagNumber(5)
-  $core.bool hasReceiverId() => $_has(4);
+  $core.bool hasMessage() => $_has(4);
   @$pb.TagNumber(5)
-  void clearReceiverId() => $_clearField(5);
+  void clearMessage() => $_clearField(5);
 
+  /// 发送时间（毫秒时间戳）
   @$pb.TagNumber(6)
-  $core.String get message => $_getSZ(5);
+  $fixnum.Int64 get sentAt => $_getI64(5);
   @$pb.TagNumber(6)
-  set message($core.String v) { $_setString(5, v); }
+  set sentAt($fixnum.Int64 v) { $_setInt64(5, v); }
   @$pb.TagNumber(6)
-  $core.bool hasMessage() => $_has(5);
+  $core.bool hasSentAt() => $_has(5);
   @$pb.TagNumber(6)
-  void clearMessage() => $_clearField(6);
+  void clearSentAt() => $_clearField(6);
 
+  /// 处理时间（毫秒时间戳）
   @$pb.TagNumber(7)
-  FriendRequestStatus get status => $_getN(6);
+  $fixnum.Int64 get processedAt => $_getI64(6);
   @$pb.TagNumber(7)
-  set status(FriendRequestStatus v) { $_setField(7, v); }
+  set processedAt($fixnum.Int64 v) { $_setInt64(6, v); }
   @$pb.TagNumber(7)
-  $core.bool hasStatus() => $_has(6);
+  $core.bool hasProcessedAt() => $_has(6);
   @$pb.TagNumber(7)
-  void clearStatus() => $_clearField(7);
-
-  @$pb.TagNumber(8)
-  $fixnum.Int64 get createdAt => $_getI64(7);
-  @$pb.TagNumber(8)
-  set createdAt($fixnum.Int64 v) { $_setInt64(7, v); }
-  @$pb.TagNumber(8)
-  $core.bool hasCreatedAt() => $_has(7);
-  @$pb.TagNumber(8)
-  void clearCreatedAt() => $_clearField(8);
-
-  @$pb.TagNumber(9)
-  $fixnum.Int64 get processedAt => $_getI64(8);
-  @$pb.TagNumber(9)
-  set processedAt($fixnum.Int64 v) { $_setInt64(8, v); }
-  @$pb.TagNumber(9)
-  $core.bool hasProcessedAt() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearProcessedAt() => $_clearField(9);
+  void clearProcessedAt() => $_clearField(7);
 }
 
-/// 好友请求列表
-class FriendRequestCollection extends $pb.GeneratedMessage {
-  factory FriendRequestCollection({
-    $core.Iterable<FriendRequestProto>? requests,
-  }) {
-    final $result = create();
-    if (requests != null) {
-      $result.requests.addAll(requests);
-    }
-    return $result;
-  }
-  FriendRequestCollection._() : super();
-  factory FriendRequestCollection.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory FriendRequestCollection.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'FriendRequestCollection', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..pc<FriendRequestProto>(1, _omitFieldNames ? '' : 'requests', $pb.PbFieldType.PM, subBuilder: FriendRequestProto.create)
-    ..hasRequiredFields = false
-  ;
-
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  FriendRequestCollection clone() => FriendRequestCollection()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  FriendRequestCollection copyWith(void Function(FriendRequestCollection) updates) => super.copyWith((message) => updates(message as FriendRequestCollection)) as FriendRequestCollection;
-
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static FriendRequestCollection create() => FriendRequestCollection._();
-  FriendRequestCollection createEmptyInstance() => create();
-  static $pb.PbList<FriendRequestCollection> createRepeated() => $pb.PbList<FriendRequestCollection>();
-  @$core.pragma('dart2js:noInline')
-  static FriendRequestCollection getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FriendRequestCollection>(create);
-  static FriendRequestCollection? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $pb.PbList<FriendRequestProto> get requests => $_getList(0);
-}
-
-/// 同步联系人请求
+/// 同步联系人请求消息
+/// 客户端请求同步联系人列表时使用
 class SyncContactsRequest extends $pb.GeneratedMessage {
   factory SyncContactsRequest({
     $core.String? userId,
     $core.String? token,
+    $fixnum.Int64? lastSyncTime,
   }) {
     final $result = create();
     if (userId != null) {
@@ -241,6 +182,9 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
     }
     if (token != null) {
       $result.token = token;
+    }
+    if (lastSyncTime != null) {
+      $result.lastSyncTime = lastSyncTime;
     }
     return $result;
   }
@@ -251,6 +195,7 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncContactsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
     ..aOS(2, _omitFieldNames ? '' : 'token')
+    ..aInt64(3, _omitFieldNames ? '' : 'lastSyncTime')
     ..hasRequiredFields = false
   ;
 
@@ -275,6 +220,7 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   static SyncContactsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SyncContactsRequest>(create);
   static SyncContactsRequest? _defaultInstance;
 
+  /// 用户ID
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -284,6 +230,7 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
+  /// 用户令牌
   @$pb.TagNumber(2)
   $core.String get token => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -292,16 +239,32 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   $core.bool hasToken() => $_has(1);
   @$pb.TagNumber(2)
   void clearToken() => $_clearField(2);
+
+  /// 最后同步时间（毫秒时间戳）
+  /// 用于增量同步，第一次同步时为0
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get lastSyncTime => $_getI64(2);
+  @$pb.TagNumber(3)
+  set lastSyncTime($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasLastSyncTime() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLastSyncTime() => $_clearField(3);
 }
 
-/// 同步联系人响应
+/// 同步联系人响应消息
+/// 服务器返回同步结果
 class SyncContactsResponse extends $pb.GeneratedMessage {
   factory SyncContactsResponse({
     $core.Iterable<$0.UserProto>? contacts,
+    $fixnum.Int64? syncTime,
   }) {
     final $result = create();
     if (contacts != null) {
       $result.contacts.addAll(contacts);
+    }
+    if (syncTime != null) {
+      $result.syncTime = syncTime;
     }
     return $result;
   }
@@ -311,6 +274,7 @@ class SyncContactsResponse extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncContactsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..pc<$0.UserProto>(1, _omitFieldNames ? '' : 'contacts', $pb.PbFieldType.PM, subBuilder: $0.UserProto.create)
+    ..aInt64(2, _omitFieldNames ? '' : 'syncTime')
     ..hasRequiredFields = false
   ;
 
@@ -335,11 +299,24 @@ class SyncContactsResponse extends $pb.GeneratedMessage {
   static SyncContactsResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SyncContactsResponse>(create);
   static SyncContactsResponse? _defaultInstance;
 
+  /// 联系人列表
+  /// 包含所有好友的基本信息
   @$pb.TagNumber(1)
   $pb.PbList<$0.UserProto> get contacts => $_getList(0);
+
+  /// 同步时间（毫秒时间戳）
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get syncTime => $_getI64(1);
+  @$pb.TagNumber(2)
+  set syncTime($fixnum.Int64 v) { $_setInt64(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasSyncTime() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSyncTime() => $_clearField(2);
 }
 
-/// 发送好友请求
+/// 发送好友请求消息
+/// 客户端发送好友请求时使用
 class SendFriendRequestProto extends $pb.GeneratedMessage {
   factory SendFriendRequestProto({
     $core.String? senderId,
@@ -390,6 +367,7 @@ class SendFriendRequestProto extends $pb.GeneratedMessage {
   static SendFriendRequestProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendFriendRequestProto>(create);
   static SendFriendRequestProto? _defaultInstance;
 
+  /// 发送者ID
   @$pb.TagNumber(1)
   $core.String get senderId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -399,6 +377,7 @@ class SendFriendRequestProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSenderId() => $_clearField(1);
 
+  /// 接收者ID
   @$pb.TagNumber(2)
   $core.String get receiverId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -408,6 +387,7 @@ class SendFriendRequestProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearReceiverId() => $_clearField(2);
 
+  /// 请求消息
   @$pb.TagNumber(3)
   $core.String get message => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -418,11 +398,13 @@ class SendFriendRequestProto extends $pb.GeneratedMessage {
   void clearMessage() => $_clearField(3);
 }
 
-/// 处理好友请求
+/// 处理好友请求消息
+/// 客户端处理好友请求时使用
 class ProcessFriendRequestProto extends $pb.GeneratedMessage {
   factory ProcessFriendRequestProto({
     $core.String? requestId,
     FriendRequestStatus? status,
+    $core.String? rejectReason,
   }) {
     final $result = create();
     if (requestId != null) {
@@ -430,6 +412,9 @@ class ProcessFriendRequestProto extends $pb.GeneratedMessage {
     }
     if (status != null) {
       $result.status = status;
+    }
+    if (rejectReason != null) {
+      $result.rejectReason = rejectReason;
     }
     return $result;
   }
@@ -439,7 +424,8 @@ class ProcessFriendRequestProto extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ProcessFriendRequestProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'requestId')
-    ..e<FriendRequestStatus>(2, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: FriendRequestStatus.pending, valueOf: FriendRequestStatus.valueOf, enumValues: FriendRequestStatus.values)
+    ..e<FriendRequestStatus>(2, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: FriendRequestStatus.PENDING, valueOf: FriendRequestStatus.valueOf, enumValues: FriendRequestStatus.values)
+    ..aOS(3, _omitFieldNames ? '' : 'rejectReason')
     ..hasRequiredFields = false
   ;
 
@@ -464,6 +450,7 @@ class ProcessFriendRequestProto extends $pb.GeneratedMessage {
   static ProcessFriendRequestProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ProcessFriendRequestProto>(create);
   static ProcessFriendRequestProto? _defaultInstance;
 
+  /// 请求ID
   @$pb.TagNumber(1)
   $core.String get requestId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -473,6 +460,7 @@ class ProcessFriendRequestProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearRequestId() => $_clearField(1);
 
+  /// 请求状态
   @$pb.TagNumber(2)
   FriendRequestStatus get status => $_getN(1);
   @$pb.TagNumber(2)
@@ -481,6 +469,355 @@ class ProcessFriendRequestProto extends $pb.GeneratedMessage {
   $core.bool hasStatus() => $_has(1);
   @$pb.TagNumber(2)
   void clearStatus() => $_clearField(2);
+
+  /// 拒绝原因
+  /// 当status为REJECTED时，说明拒绝原因
+  @$pb.TagNumber(3)
+  $core.String get rejectReason => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set rejectReason($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasRejectReason() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRejectReason() => $_clearField(3);
+}
+
+/// 获取好友列表请求消息
+/// 客户端请求获取好友列表时使用
+class GetFriendsRequest extends $pb.GeneratedMessage {
+  factory GetFriendsRequest({
+    $core.String? userId,
+  }) {
+    final $result = create();
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    return $result;
+  }
+  GetFriendsRequest._() : super();
+  factory GetFriendsRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetFriendsRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetFriendsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'userId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetFriendsRequest clone() => GetFriendsRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetFriendsRequest copyWith(void Function(GetFriendsRequest) updates) => super.copyWith((message) => updates(message as GetFriendsRequest)) as GetFriendsRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetFriendsRequest create() => GetFriendsRequest._();
+  GetFriendsRequest createEmptyInstance() => create();
+  static $pb.PbList<GetFriendsRequest> createRepeated() => $pb.PbList<GetFriendsRequest>();
+  @$core.pragma('dart2js:noInline')
+  static GetFriendsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetFriendsRequest>(create);
+  static GetFriendsRequest? _defaultInstance;
+
+  /// 用户ID
+  @$pb.TagNumber(1)
+  $core.String get userId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set userId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasUserId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUserId() => $_clearField(1);
+}
+
+/// 获取好友列表响应消息
+/// 服务器返回好友列表
+class GetFriendsResponse extends $pb.GeneratedMessage {
+  factory GetFriendsResponse({
+    $core.Iterable<$0.UserProto>? friends,
+  }) {
+    final $result = create();
+    if (friends != null) {
+      $result.friends.addAll(friends);
+    }
+    return $result;
+  }
+  GetFriendsResponse._() : super();
+  factory GetFriendsResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetFriendsResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetFriendsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..pc<$0.UserProto>(1, _omitFieldNames ? '' : 'friends', $pb.PbFieldType.PM, subBuilder: $0.UserProto.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetFriendsResponse clone() => GetFriendsResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetFriendsResponse copyWith(void Function(GetFriendsResponse) updates) => super.copyWith((message) => updates(message as GetFriendsResponse)) as GetFriendsResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetFriendsResponse create() => GetFriendsResponse._();
+  GetFriendsResponse createEmptyInstance() => create();
+  static $pb.PbList<GetFriendsResponse> createRepeated() => $pb.PbList<GetFriendsResponse>();
+  @$core.pragma('dart2js:noInline')
+  static GetFriendsResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetFriendsResponse>(create);
+  static GetFriendsResponse? _defaultInstance;
+
+  /// 好友列表
+  @$pb.TagNumber(1)
+  $pb.PbList<$0.UserProto> get friends => $_getList(0);
+}
+
+/// 获取好友请求列表请求消息
+/// 客户端请求获取好友请求列表时使用
+class GetFriendRequestsRequest extends $pb.GeneratedMessage {
+  factory GetFriendRequestsRequest({
+    $core.String? userId,
+    FriendRequestStatus? status,
+  }) {
+    final $result = create();
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (status != null) {
+      $result.status = status;
+    }
+    return $result;
+  }
+  GetFriendRequestsRequest._() : super();
+  factory GetFriendRequestsRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetFriendRequestsRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetFriendRequestsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'userId')
+    ..e<FriendRequestStatus>(2, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: FriendRequestStatus.PENDING, valueOf: FriendRequestStatus.valueOf, enumValues: FriendRequestStatus.values)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetFriendRequestsRequest clone() => GetFriendRequestsRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetFriendRequestsRequest copyWith(void Function(GetFriendRequestsRequest) updates) => super.copyWith((message) => updates(message as GetFriendRequestsRequest)) as GetFriendRequestsRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetFriendRequestsRequest create() => GetFriendRequestsRequest._();
+  GetFriendRequestsRequest createEmptyInstance() => create();
+  static $pb.PbList<GetFriendRequestsRequest> createRepeated() => $pb.PbList<GetFriendRequestsRequest>();
+  @$core.pragma('dart2js:noInline')
+  static GetFriendRequestsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetFriendRequestsRequest>(create);
+  static GetFriendRequestsRequest? _defaultInstance;
+
+  /// 用户ID
+  @$pb.TagNumber(1)
+  $core.String get userId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set userId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasUserId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUserId() => $_clearField(1);
+
+  /// 请求状态
+  /// 可选，不传则获取所有状态
+  @$pb.TagNumber(2)
+  FriendRequestStatus get status => $_getN(1);
+  @$pb.TagNumber(2)
+  set status(FriendRequestStatus v) { $_setField(2, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasStatus() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStatus() => $_clearField(2);
+}
+
+/// 获取好友请求列表响应消息
+/// 服务器返回好友请求列表
+class GetFriendRequestsResponse extends $pb.GeneratedMessage {
+  factory GetFriendRequestsResponse({
+    $core.Iterable<FriendRequestProto>? requests,
+  }) {
+    final $result = create();
+    if (requests != null) {
+      $result.requests.addAll(requests);
+    }
+    return $result;
+  }
+  GetFriendRequestsResponse._() : super();
+  factory GetFriendRequestsResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetFriendRequestsResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetFriendRequestsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..pc<FriendRequestProto>(1, _omitFieldNames ? '' : 'requests', $pb.PbFieldType.PM, subBuilder: FriendRequestProto.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetFriendRequestsResponse clone() => GetFriendRequestsResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetFriendRequestsResponse copyWith(void Function(GetFriendRequestsResponse) updates) => super.copyWith((message) => updates(message as GetFriendRequestsResponse)) as GetFriendRequestsResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetFriendRequestsResponse create() => GetFriendRequestsResponse._();
+  GetFriendRequestsResponse createEmptyInstance() => create();
+  static $pb.PbList<GetFriendRequestsResponse> createRepeated() => $pb.PbList<GetFriendRequestsResponse>();
+  @$core.pragma('dart2js:noInline')
+  static GetFriendRequestsResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetFriendRequestsResponse>(create);
+  static GetFriendRequestsResponse? _defaultInstance;
+
+  /// 好友请求列表
+  @$pb.TagNumber(1)
+  $pb.PbList<FriendRequestProto> get requests => $_getList(0);
+}
+
+/// 删除好友请求消息
+/// 客户端请求删除好友时使用
+class DeleteFriendRequest extends $pb.GeneratedMessage {
+  factory DeleteFriendRequest({
+    $core.String? friendId,
+  }) {
+    final $result = create();
+    if (friendId != null) {
+      $result.friendId = friendId;
+    }
+    return $result;
+  }
+  DeleteFriendRequest._() : super();
+  factory DeleteFriendRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory DeleteFriendRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'DeleteFriendRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'friendId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  DeleteFriendRequest clone() => DeleteFriendRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  DeleteFriendRequest copyWith(void Function(DeleteFriendRequest) updates) => super.copyWith((message) => updates(message as DeleteFriendRequest)) as DeleteFriendRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteFriendRequest create() => DeleteFriendRequest._();
+  DeleteFriendRequest createEmptyInstance() => create();
+  static $pb.PbList<DeleteFriendRequest> createRepeated() => $pb.PbList<DeleteFriendRequest>();
+  @$core.pragma('dart2js:noInline')
+  static DeleteFriendRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<DeleteFriendRequest>(create);
+  static DeleteFriendRequest? _defaultInstance;
+
+  /// 好友ID
+  @$pb.TagNumber(1)
+  $core.String get friendId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set friendId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasFriendId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFriendId() => $_clearField(1);
+}
+
+/// 删除好友响应消息
+/// 服务器返回删除结果
+class DeleteFriendResponse extends $pb.GeneratedMessage {
+  factory DeleteFriendResponse({
+    $core.bool? success,
+    $core.String? errorMessage,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (errorMessage != null) {
+      $result.errorMessage = errorMessage;
+    }
+    return $result;
+  }
+  DeleteFriendResponse._() : super();
+  factory DeleteFriendResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory DeleteFriendResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'DeleteFriendResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  DeleteFriendResponse clone() => DeleteFriendResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  DeleteFriendResponse copyWith(void Function(DeleteFriendResponse) updates) => super.copyWith((message) => updates(message as DeleteFriendResponse)) as DeleteFriendResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteFriendResponse create() => DeleteFriendResponse._();
+  DeleteFriendResponse createEmptyInstance() => create();
+  static $pb.PbList<DeleteFriendResponse> createRepeated() => $pb.PbList<DeleteFriendResponse>();
+  @$core.pragma('dart2js:noInline')
+  static DeleteFriendResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<DeleteFriendResponse>(create);
+  static DeleteFriendResponse? _defaultInstance;
+
+  /// 删除是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息
+  /// 当success为false时，说明具体的错误原因
+  @$pb.TagNumber(2)
+  $core.String get errorMessage => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set errorMessage($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasErrorMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearErrorMessage() => $_clearField(2);
 }
 
 

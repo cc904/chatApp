@@ -26,9 +26,9 @@ fi
 # 生成dart文件
 echo "开始生成dart文件..."
 
-# 直接指定工作目录为protos
-cd protos
-protoc --dart_out=../lib/core/proto/generated *.proto
-cd ..
+# 使用新的 submodule 路径
+cd lib/core/proto/source
+protoc --dart_out=../generated *.proto
+cd ../../../..
 
 echo "完成！生成的文件位于 lib/core/proto/generated/ 目录" 

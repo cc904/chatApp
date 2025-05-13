@@ -13,9 +13,9 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
-@$core.Deprecated('Use userStatusDescriptor instead')
-const UserStatus$json = {
-  '1': 'UserStatus',
+@$core.Deprecated('Use userStatusEnumDescriptor instead')
+const UserStatusEnum$json = {
+  '1': 'UserStatusEnum',
   '2': [
     {'1': 'offline', '2': 0},
     {'1': 'online', '2': 1},
@@ -23,9 +23,9 @@ const UserStatus$json = {
   ],
 };
 
-/// Descriptor for `UserStatus`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List userStatusDescriptor = $convert.base64Decode(
-    'CgpVc2VyU3RhdHVzEgsKB29mZmxpbmUQABIKCgZvbmxpbmUQARIICgRhd2F5EAI=');
+/// Descriptor for `UserStatusEnum`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List userStatusEnumDescriptor = $convert.base64Decode(
+    'Cg5Vc2VyU3RhdHVzRW51bRILCgdvZmZsaW5lEAASCgoGb25saW5lEAESCAoEYXdheRAC');
 
 @$core.Deprecated('Use userProtoDescriptor instead')
 const UserProto$json = {
@@ -138,4 +138,98 @@ const UserCollection$json = {
 /// Descriptor for `UserCollection`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List userCollectionDescriptor = $convert.base64Decode(
     'Cg5Vc2VyQ29sbGVjdGlvbhIjCgV1c2VycxgBIAMoCzINLmNjLlVzZXJQcm90b1IFdXNlcnM=');
+
+@$core.Deprecated('Use userStatusMessageDescriptor instead')
+const UserStatusMessage$json = {
+  '1': 'UserStatusMessage',
+  '2': [
+    {'1': 'is_online', '3': 1, '4': 1, '5': 8, '10': 'isOnline'},
+    {'1': 'last_active_at', '3': 2, '4': 1, '5': 3, '10': 'lastActiveAt'},
+    {'1': 'device_type', '3': 3, '4': 1, '5': 9, '10': 'deviceType'},
+  ],
+};
+
+/// Descriptor for `UserStatusMessage`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List userStatusMessageDescriptor = $convert.base64Decode(
+    'ChFVc2VyU3RhdHVzTWVzc2FnZRIbCglpc19vbmxpbmUYASABKAhSCGlzT25saW5lEiQKDmxhc3'
+    'RfYWN0aXZlX2F0GAIgASgDUgxsYXN0QWN0aXZlQXQSHwoLZGV2aWNlX3R5cGUYAyABKAlSCmRl'
+    'dmljZVR5cGU=');
+
+@$core.Deprecated('Use userSettingsDescriptor instead')
+const UserSettings$json = {
+  '1': 'UserSettings',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'notifications', '3': 2, '4': 1, '5': 11, '6': '.cc.NotificationSettings', '10': 'notifications'},
+    {'1': 'privacy', '3': 3, '4': 1, '5': 11, '6': '.cc.PrivacySettings', '10': 'privacy'},
+    {'1': 'theme', '3': 4, '4': 1, '5': 11, '6': '.cc.ThemeSettings', '10': 'theme'},
+    {'1': 'language', '3': 5, '4': 1, '5': 9, '10': 'language'},
+    {'1': 'timezone', '3': 6, '4': 1, '5': 9, '10': 'timezone'},
+  ],
+};
+
+/// Descriptor for `UserSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List userSettingsDescriptor = $convert.base64Decode(
+    'CgxVc2VyU2V0dGluZ3MSFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEj4KDW5vdGlmaWNhdGlvbn'
+    'MYAiABKAsyGC5jYy5Ob3RpZmljYXRpb25TZXR0aW5nc1INbm90aWZpY2F0aW9ucxItCgdwcml2'
+    'YWN5GAMgASgLMhMuY2MuUHJpdmFjeVNldHRpbmdzUgdwcml2YWN5EicKBXRoZW1lGAQgASgLMh'
+    'EuY2MuVGhlbWVTZXR0aW5nc1IFdGhlbWUSGgoIbGFuZ3VhZ2UYBSABKAlSCGxhbmd1YWdlEhoK'
+    'CHRpbWV6b25lGAYgASgJUgh0aW1lem9uZQ==');
+
+@$core.Deprecated('Use notificationSettingsDescriptor instead')
+const NotificationSettings$json = {
+  '1': 'NotificationSettings',
+  '2': [
+    {'1': 'message_notifications', '3': 1, '4': 1, '5': 8, '10': 'messageNotifications'},
+    {'1': 'friend_request_notifications', '3': 2, '4': 1, '5': 8, '10': 'friendRequestNotifications'},
+    {'1': 'group_notifications', '3': 3, '4': 1, '5': 8, '10': 'groupNotifications'},
+    {'1': 'do_not_disturb', '3': 4, '4': 1, '5': 8, '10': 'doNotDisturb'},
+    {'1': 'do_not_disturb_start', '3': 5, '4': 1, '5': 9, '10': 'doNotDisturbStart'},
+    {'1': 'do_not_disturb_end', '3': 6, '4': 1, '5': 9, '10': 'doNotDisturbEnd'},
+  ],
+};
+
+/// Descriptor for `NotificationSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List notificationSettingsDescriptor = $convert.base64Decode(
+    'ChROb3RpZmljYXRpb25TZXR0aW5ncxIzChVtZXNzYWdlX25vdGlmaWNhdGlvbnMYASABKAhSFG'
+    '1lc3NhZ2VOb3RpZmljYXRpb25zEkAKHGZyaWVuZF9yZXF1ZXN0X25vdGlmaWNhdGlvbnMYAiAB'
+    'KAhSGmZyaWVuZFJlcXVlc3ROb3RpZmljYXRpb25zEi8KE2dyb3VwX25vdGlmaWNhdGlvbnMYAy'
+    'ABKAhSEmdyb3VwTm90aWZpY2F0aW9ucxIkCg5kb19ub3RfZGlzdHVyYhgEIAEoCFIMZG9Ob3RE'
+    'aXN0dXJiEi8KFGRvX25vdF9kaXN0dXJiX3N0YXJ0GAUgASgJUhFkb05vdERpc3R1cmJTdGFydB'
+    'IrChJkb19ub3RfZGlzdHVyYl9lbmQYBiABKAlSD2RvTm90RGlzdHVyYkVuZA==');
+
+@$core.Deprecated('Use privacySettingsDescriptor instead')
+const PrivacySettings$json = {
+  '1': 'PrivacySettings',
+  '2': [
+    {'1': 'allow_profile_view', '3': 1, '4': 1, '5': 8, '10': 'allowProfileView'},
+    {'1': 'allow_friend_requests', '3': 2, '4': 1, '5': 8, '10': 'allowFriendRequests'},
+    {'1': 'show_online_status', '3': 3, '4': 1, '5': 8, '10': 'showOnlineStatus'},
+    {'1': 'show_last_active', '3': 4, '4': 1, '5': 8, '10': 'showLastActive'},
+    {'1': 'show_read_status', '3': 5, '4': 1, '5': 8, '10': 'showReadStatus'},
+  ],
+};
+
+/// Descriptor for `PrivacySettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List privacySettingsDescriptor = $convert.base64Decode(
+    'Cg9Qcml2YWN5U2V0dGluZ3MSLAoSYWxsb3dfcHJvZmlsZV92aWV3GAEgASgIUhBhbGxvd1Byb2'
+    'ZpbGVWaWV3EjIKFWFsbG93X2ZyaWVuZF9yZXF1ZXN0cxgCIAEoCFITYWxsb3dGcmllbmRSZXF1'
+    'ZXN0cxIsChJzaG93X29ubGluZV9zdGF0dXMYAyABKAhSEHNob3dPbmxpbmVTdGF0dXMSKAoQc2'
+    'hvd19sYXN0X2FjdGl2ZRgEIAEoCFIOc2hvd0xhc3RBY3RpdmUSKAoQc2hvd19yZWFkX3N0YXR1'
+    'cxgFIAEoCFIOc2hvd1JlYWRTdGF0dXM=');
+
+@$core.Deprecated('Use themeSettingsDescriptor instead')
+const ThemeSettings$json = {
+  '1': 'ThemeSettings',
+  '2': [
+    {'1': 'theme_mode', '3': 1, '4': 1, '5': 9, '10': 'themeMode'},
+    {'1': 'theme_color', '3': 2, '4': 1, '5': 9, '10': 'themeColor'},
+    {'1': 'font_size', '3': 3, '4': 1, '5': 9, '10': 'fontSize'},
+  ],
+};
+
+/// Descriptor for `ThemeSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List themeSettingsDescriptor = $convert.base64Decode(
+    'Cg1UaGVtZVNldHRpbmdzEh0KCnRoZW1lX21vZGUYASABKAlSCXRoZW1lTW9kZRIfCgt0aGVtZV'
+    '9jb2xvchgCIAEoCVIKdGhlbWVDb2xvchIbCglmb250X3NpemUYAyABKAlSCGZvbnRTaXpl');
 
