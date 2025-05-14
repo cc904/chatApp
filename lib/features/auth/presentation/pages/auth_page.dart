@@ -265,8 +265,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       floatingActionButton: FloatingActionButton(
         onPressed: _showDiagnosticsDialog,
         backgroundColor: Colors.green[700],
-        child: const Icon(Icons.bug_report),
         tooltip: '网络诊断',
+        child: const Icon(Icons.bug_report),
       ),
     );
   }
@@ -330,7 +330,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
 
   // 显示诊断对话框
   void _showDiagnosticsDialog() {
-    final serverUrlController = TextEditingController(text: 'http://api.whatsapp.example.com');
+    final serverUrlController = TextEditingController(text: 'http://d2.orb.local:3000');
     final tokenController = TextEditingController();
 
     showDialog(
@@ -616,7 +616,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       'reconnectionAttempts': 10,
       'reconnectionDelay': 3000,
       'path': '/socket.io/',
-      'serverUrl': socketInfo['serverUrl'] ?? 'http://api.whatsapp.example.com',
+      'serverUrl': socketInfo['serverUrl'] ?? 'http://d2.orb.local:3000',
       'connected': socketInfo['connected'] ?? false,
       'status': socketInfo['status'] ?? 'disconnected',
     };
@@ -832,7 +832,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       setState(() => _isRunningDiagnosis = false);
 
       // 显示结果对话框
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       showDialog(
         context: context,
