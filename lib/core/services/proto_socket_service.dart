@@ -73,7 +73,6 @@ class ProtoSocketService {
     required String token,
   }) async {
     _logger.i('🔌 开始连接Socket.io: $serverUrl');
-    _logger.i('开始连接服务器', extra: {'serverUrl': serverUrl, 'token': token});
 
     // 更新状态为连接中
     _updateStatus(SocketConnectionStatus.connecting);
@@ -127,7 +126,6 @@ class ProtoSocketService {
       _socket?.onConnect((_) {
         _logger.i('✅ Socket.IO连接成功! SocketId: ${_socket?.id}');
         if (!completer.isCompleted) {
-          _logger.i('Socket.io连接成功', extra: {'socketId': _socket?.id, 'url': serverUrl});
           _updateStatus(SocketConnectionStatus.connected);
           _isInitialized = true;
           completer.complete(true);
@@ -137,7 +135,6 @@ class ProtoSocketService {
       _socket?.onConnectError((error) {
         _logger.i('❌ Socket.IO连接错误: $error');
         if (!completer.isCompleted) {
-          _logger.e('Socket.io连接失败', error: error, extra: {'详细错误': error.toString(), 'url': serverUrl, 'token': token});
           _updateStatus(SocketConnectionStatus.error);
           completer.complete(false);
         }
@@ -146,7 +143,6 @@ class ProtoSocketService {
       _socket?.onError((error) {
         _logger.i('⚠️ Socket.IO错误: $error');
         if (!completer.isCompleted) {
-          _logger.e('Socket.io连接错误', error: error, extra: {'详细错误': error.toString(), 'url': serverUrl});
           _updateStatus(SocketConnectionStatus.error);
           completer.complete(false);
         }
@@ -164,14 +160,12 @@ class ProtoSocketService {
 
       if (!success) {
         _logger.i('❌ 连接失败');
-        _logger.e('连接失败，请检查：\n1. 服务器地址是否正确\n2. 认证信息是否有效\n3. 网络连接是否正常\n4. 服务器是否运行正常');
         return false;
       }
 
       return true;
     } catch (error) {
       _logger.i('💥 连接异常: $error');
-      _logger.e('连接异常', error: error, stackTrace: StackTrace.current);
       _updateStatus(SocketConnectionStatus.error);
       return false;
     }
@@ -180,7 +174,6 @@ class ProtoSocketService {
   /// 断开连接
   Future<void> disconnect() async {
     _logger.i('🔌 断开Socket.IO连接');
-    _logger.i('断开服务器连接');
     _reconnectTimer?.cancel();
     _isReconnecting = false;
     _reconnectAttempts = 0;
@@ -201,7 +194,6 @@ class ProtoSocketService {
     _reconnectAttempts++;
 
     _logger.i('🔄 尝试重新连接 #$_reconnectAttempts');
-    _logger.i('尝试重新连接', extra: {'attempt': _reconnectAttempts, 'maxAttempts': _maxReconnectAttempts, 'url': _serverUrl});
 
     try {
       final result = await connect(
@@ -211,7 +203,6 @@ class ProtoSocketService {
 
       if (result) {
         _logger.i('✅ 重连成功');
-        _logger.i('重连成功');
         _isReconnecting = false;
         _reconnectingStateController.add(false);
         _reconnectAttempts = 0;
@@ -220,7 +211,6 @@ class ProtoSocketService {
       }
     } catch (error) {
       _logger.i('❌ 重连失败: $error');
-      _logger.e('重连失败', error: error);
       _scheduleReconnect();
     }
   }
@@ -229,7 +219,6 @@ class ProtoSocketService {
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       _logger.i('⚠️ 已达到最大重连次数，停止重连');
-      _logger.w('已达到最大重连次数，停止重连');
       _isReconnecting = false;
       _reconnectingStateController.add(false);
       _updateStatus(SocketConnectionStatus.error);
@@ -245,21 +234,18 @@ class ProtoSocketService {
   void _setupSocketListeners() {
     _socket?.onDisconnect((reason) {
       _logger.i('🔌 Socket.io断开连接: $reason');
-      _logger.w('Socket.io断开连接', extra: {'reason': reason, 'socketId': _socket?.id});
       _updateStatus(SocketConnectionStatus.disconnected);
       _attemptReconnect();
     });
 
     _socket?.onError((error) {
       _logger.i('⚠️ Socket.io连接错误: $error');
-      _logger.e('Socket.io连接错误', error: error, extra: {'socketId': _socket?.id, '详细信息': error.toString()});
       _updateStatus(SocketConnectionStatus.error);
       _attemptReconnect();
     });
 
     _socket?.onReconnect((_) {
       _logger.i('🔄 Socket.io重连成功');
-      _logger.i('Socket.io重连成功', extra: {'socketId': _socket?.id});
       _updateStatus(SocketConnectionStatus.connected);
       _isReconnecting = false;
       _reconnectingStateController.add(false);
@@ -268,7 +254,6 @@ class ProtoSocketService {
 
     _socket?.onReconnectAttempt((attempt) {
       _logger.i('🔄 Socket.io重连尝试 #$attempt');
-      _logger.i('Socket.io重连尝试', extra: {'attempt': attempt});
       _updateStatus(SocketConnectionStatus.reconnecting);
 
       // 更新认证令牌
@@ -280,17 +265,15 @@ class ProtoSocketService {
     // 添加ping/pong事件监听，用于调试
     _socket?.on('ping', (_) {
       _logger.i('📡 Socket.io ping');
-      _logger.d('Socket.io ping');
     });
 
     _socket?.on('pong', (_) {
       _logger.i('📡 Socket.io pong');
-      _logger.d('Socket.io pong');
     });
 
     // 监听所有事件
     _socket?.onAny((event, data) {
-      _logger.i('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
+      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}', extra: {'event': event, 'data': data});
     });
   }
 
@@ -300,7 +283,6 @@ class ProtoSocketService {
     if (_socket != null) {
       _socket!.auth = {'token': token};
       _logger.i('🔑 更新Socket.io认证令牌');
-      _logger.i('更新Socket.io认证令牌');
     }
   }
 
@@ -312,7 +294,6 @@ class ProtoSocketService {
     _socket?.disconnect();
     _socket?.dispose();
     _logger.i('🧹 Socket.io服务已释放资源');
-    _logger.i('Socket.io服务已释放资源');
   }
 
   /// 手动检查连接状态
@@ -340,8 +321,7 @@ class ProtoSocketService {
         _logger.i('📩 接收到Protobuf事件: $eventName');
         handler(message);
       } catch (e) {
-        _logger.i('❌ 解析Protobuf消息失败: $e');
-        _logger.e('解析Protobuf消息失败', error: e, extra: {'eventName': eventName});
+        _logger.e('❌ 解析Protobuf消息失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
       }
     });
   }
@@ -357,8 +337,7 @@ class ProtoSocketService {
         _logger.i('📩 接收到Protobuf事件流: $eventName');
         controller.add(message);
       } catch (e) {
-        _logger.i('❌ 解析Protobuf消息失败 (流): $e');
-        _logger.e('解析Protobuf消息失败', error: e, extra: {'eventName': eventName});
+        _logger.e('❌ 解析Protobuf消息失败 (流): $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
       }
     });
 
@@ -369,18 +348,15 @@ class ProtoSocketService {
   Future<bool> emitProto(String eventName, GeneratedMessage message) async {
     if (!_isConnected) {
       _logger.i('❌ Socket未连接，无法发送消息: $eventName');
-      _logger.e('Socket未连接，无法发送消息', extra: {'eventName': eventName});
       return false;
     }
 
     try {
       _logger.i('📤 发送Socket消息: $eventName, 类型: ${message.runtimeType}');
-      _logger.d('发送Socket消息', extra: {'eventName': eventName, 'isConnected': _isConnected});
       _socket?.emit(eventName, message.writeToBuffer());
       return true;
     } catch (e) {
       _logger.i('❌ 发送Socket消息失败: $e');
-      _logger.e('发送Socket消息失败', error: e, extra: {'eventName': eventName});
       return false;
     }
   }
@@ -398,6 +374,40 @@ class ProtoSocketService {
     };
     _logger.i('📊 连接信息: $info');
     return info;
+  }
+
+  /// 监听原始事件
+  void on(String eventName, Function(dynamic) handler) {
+    _logger.i('👂 注册原始事件监听: $eventName');
+    _socket?.on(eventName, (data) {
+      try {
+        _logger.i('📩 接收到原始事件: $eventName');
+        handler(data);
+      } catch (e) {
+        _logger.e('❌ 处理原始事件失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
+      }
+    });
+  }
+
+  /// 移除原始事件监听
+  void off(String eventName, Function(dynamic) handler) {
+    _logger.i('🔕 移除原始事件监听: $eventName');
+    _socket?.off(eventName, handler);
+  }
+
+  /// 发送原始事件
+  void emit(String eventName, dynamic data) {
+    if (!_isConnected) {
+      _logger.i('❌ Socket未连接，无法发送原始事件: $eventName');
+      return;
+    }
+
+    try {
+      _logger.i('📤 发送原始事件: $eventName');
+      _socket?.emit(eventName, data);
+    } catch (e) {
+      _logger.e('❌ 发送原始事件失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
+    }
   }
 }
 

@@ -58,7 +58,7 @@ class ConversationSyncExample {
 
     try {
       // 发送同步请求
-      await _communicationService.emitProto('sync_conversations', request);
+      await _communicationService.emitProto('conversation:sync', request);
       _logger.i('会话同步请求已发送');
     } catch (error) {
       _logger.e('发送会话同步请求失败', error: error, stackTrace: StackTrace.current);

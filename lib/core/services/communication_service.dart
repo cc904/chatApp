@@ -25,10 +25,32 @@ class CommunicationService {
   // 事件流控制器映射
   final Map<String, StreamController<GeneratedMessage>> _eventControllers = {};
 
+  // 原始事件处理器映射
+  final Map<String, dynamic Function(dynamic)> _rawEventHandlers = {};
+
   // 单例模式
   static final CommunicationService _instance = CommunicationService._internal();
   factory CommunicationService() => _instance;
   CommunicationService._internal();
+
+  /// 监听原始Socket.io事件
+  /// [eventName] - 事件名称
+  /// [handler] - 事件处理函数
+  void onRawEvent(String eventName, Function(dynamic) handler) {
+    _logger.d('注册原始事件处理器: $eventName');
+    _rawEventHandlers[eventName] = handler;
+    _socketService.on(eventName, handler);
+  }
+
+  /// 移除原始事件监听
+  /// [eventName] - 事件名称
+  void offRawEvent(String eventName) {
+    _logger.d('移除原始事件处理器: $eventName');
+    final handler = _rawEventHandlers.remove(eventName);
+    if (handler != null) {
+      _socketService.off(eventName, handler);
+    }
+  }
 
   /// 连接到服务器
   /// [serverUrl] - 服务器URL
@@ -138,6 +160,12 @@ class CommunicationService {
   /// 释放资源
   void dispose() {
     _logger.i('释放通信服务资源');
+
+    // 移除所有原始事件处理器
+    for (final entry in _rawEventHandlers.entries) {
+      _socketService.off(entry.key, entry.value);
+    }
+    _rawEventHandlers.clear();
 
     // 关闭所有事件流控制器
     for (final controller in _eventControllers.values) {

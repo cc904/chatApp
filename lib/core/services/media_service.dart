@@ -443,6 +443,7 @@ class MediaService {
 
       // 获取文件路径并返回File对象
       String? filePath = result.files.single.path;
+
       if (filePath == null) {
         return null;
       }

@@ -125,7 +125,7 @@ class AuthApiClient {
     try {
       _logger.i('发送验证码', extra: {'phoneNumber': phoneNumber, 'purpose': purpose});
 
-      final response = await _dio.post('/api/auth/send-code', data: {
+      final response = await _dio.post('/api/v1/auth/sendCode', data: {
         'phoneNumber': phoneNumber,
         'purpose': purpose,
       });
@@ -159,7 +159,7 @@ class AuthApiClient {
     try {
       _logger.i('使用验证码登录', extra: {'phoneNumber': phoneNumber});
 
-      final response = await _dio.post('/api/auth/login', data: {
+      final response = await _dio.post('/api/v1/auth/login', data: {
         'phoneNumber': phoneNumber,
         'verificationCode': verificationCode,
         'loginType': 'code',
@@ -192,7 +192,7 @@ class AuthApiClient {
     try {
       _logger.i('使用密码登录', extra: {'phoneNumber': phoneNumber});
 
-      final response = await _dio.post('/api/auth/login', data: {
+      final response = await _dio.post('/api/v1/auth/login', data: {
         'phoneNumber': phoneNumber,
         'password': password,
         'loginType': 'password',
@@ -227,7 +227,7 @@ class AuthApiClient {
     try {
       _logger.i('注册账号', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
 
-      final response = await _dio.post('/api/auth/register', data: {
+      final response = await _dio.post('/api/v1/auth/register', data: {
         'phoneNumber': phoneNumber,
         'verificationCode': verificationCode,
         'password': password,
@@ -262,7 +262,7 @@ class AuthApiClient {
     try {
       _logger.i('重置密码', extra: {'phoneNumber': phoneNumber});
 
-      final response = await _dio.post('/api/auth/reset-password', data: {
+      final response = await _dio.post('/api/v1/auth/resetPassword', data: {
         'phoneNumber': phoneNumber,
         'verificationCode': verificationCode,
         'newPassword': newPassword,

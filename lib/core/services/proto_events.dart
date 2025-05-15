@@ -1,8 +1,8 @@
 import 'package:protobuf/protobuf.dart';
-import '../proto/generated/message.pb.dart';
-import '../proto/generated/conversation.pb.dart';
-import '../proto/generated/user.pb.dart';
-import '../proto/generated/contacts.pb.dart' as proto;
+import '../proto/generated/message.pb.dart' as message;
+import '../proto/generated/conversation.pb.dart' as conversation;
+import '../proto/generated/user.pb.dart' as user;
+import '../proto/generated/contacts.pb.dart' as contacts;
 
 /// 事件到Protobuf消息类型的映射
 /// 定义了服务器和客户端之间通信的事件和对应的Protobuf消息类型
@@ -10,30 +10,30 @@ class ProtoEvents {
   /// 消息事件映射表
   static final Map<String, GeneratedMessage Function()> _eventTypeMap = {
     // 消息相关事件
-    'new_message': () => MessageProto(),
-    'message_delivered': () => MessageProto(),
-    'message_read': () => MessageProto(),
+    'message:new': () => message.MessageProto(),
+    'message:delivered': () => message.MessageProto(),
+    'message:read': () => message.MessageProto(),
 
     // 会话相关事件
-    'conversation_update': () => ConversationProto(),
-    'conversation_created': () => ConversationProto(),
-    'conversation_deleted': () => ConversationProto(),
-    'sync_conversations': () => SyncConversationsRequest(),
-    'sync_conversations_response': () => ConversationCollection(),
+    'conversation:update': () => conversation.ConversationProto(),
+    'conversation:created': () => conversation.ConversationProto(),
+    'conversation:deleted': () => conversation.ConversationProto(),
+    'conversation:sync': () => conversation.SyncConversationsRequest(),
+    'conversation:sync:result': () => conversation.ConversationCollection(),
 
     // 用户相关事件
-    'user_online': () => UserStatusUpdate(),
-    'user_offline': () => UserStatusUpdate(),
-    'user_typing': () => UserTypingUpdate(),
-    'user_updated': () => UserProto(),
-    'contacts_synced': () => UserCollection(),
+    'user:online': () => user.UserStatusUpdate(),
+    'user:offline': () => user.UserStatusUpdate(),
+    'user:typing': () => user.UserTypingUpdate(),
+    'user:updated': () => user.UserProto(),
+    'contact:synced': () => user.UserCollection(),
 
     // 联系人相关事件
-    'sync_contacts': () => proto.SyncContactsRequest(),
-    'sync_contacts_response': () => proto.SyncContactsResponse(),
+    'contact:sync:request': () => contacts.SyncContactsRequest(),
+    'contact:sync:response': () => contacts.SyncContactsResponse(),
 
     // 系统相关事件
-    'system_message': () => SystemMessage(),
+    'system:message': () => message.SystemMessage(),
   };
 
   /// 获取事件的Protobuf消息创建函数

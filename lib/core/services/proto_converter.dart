@@ -44,9 +44,9 @@ class ProtoConverter {
 
     // 根据事件类型选择适当的Protobuf消息
     switch (eventType) {
-      case 'new_message':
-      case 'message_delivered':
-      case 'message_read':
+      case 'message:new':
+      case 'message:delivered':
+      case 'message:read':
         final message = MessageProto(
           messageId: data['id'] ?? '',
           senderId: data['senderId'] ?? '',
@@ -62,13 +62,13 @@ class ProtoConverter {
         _logger.w('AuthRequest未实现为protobuf,无法序列化');
         throw UnimplementedError('AuthRequest暂不支持二进制序列化');
 
-      case 'user_online':
-      case 'user_offline':
+      case 'user:online':
+      case 'user:offline':
         // UserStatus类未定义
         _logger.w('UserStatus未定义,无法序列化');
         throw UnimplementedError('UserStatus暂不支持二进制序列化');
 
-      case 'conversation_update':
+      case 'conversation:update':
         final conversation = ConversationProto(
           conversationId: data['id'] ?? '',
           lastMessageId: data['lastMessageId'] ?? '',
@@ -98,9 +98,9 @@ class ProtoConverter {
 
       // 根据事件类型选择适当的Protobuf解码方式
       switch (eventType) {
-        case 'new_message':
-        case 'message_delivered':
-        case 'message_read':
+        case 'message:new':
+        case 'message:delivered':
+        case 'message:read':
           final message = bytesToMessage(data);
           return {
             'id': message.messageId,
@@ -116,13 +116,13 @@ class ProtoConverter {
           _logger.w('AuthResponse未实现为protobuf,无法反序列化');
           throw UnimplementedError('AuthResponse暂不支持二进制反序列化');
 
-        case 'user_online':
-        case 'user_offline':
+        case 'user:online':
+        case 'user:offline':
           // UserStatus类未定义
           _logger.w('UserStatus未定义,无法反序列化');
           throw UnimplementedError('UserStatus暂不支持二进制反序列化');
 
-        case 'conversation_update':
+        case 'conversation:update':
           final conversation = ConversationProto.fromBuffer(data);
           return {
             'id': conversation.conversationId,

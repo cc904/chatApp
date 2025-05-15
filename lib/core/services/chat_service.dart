@@ -29,25 +29,25 @@ class ChatService {
     _logger.i('初始化聊天服务');
 
     // 监听新消息
-    _communicationService.onProto<MessageProto>('new_message').listen((message) {
+    _communicationService.onProto<MessageProto>('message:new').listen((message) {
       _logger.i('收到新消息', extra: {'messageId': message.messageId, 'senderId': message.senderId});
       _messageController.add(message);
     });
 
     // 监听消息已送达
-    _communicationService.onProto<MessageProto>('message_delivered').listen((message) {
+    _communicationService.onProto<MessageProto>('message:delivered').listen((message) {
       _logger.i('消息已送达', extra: {'messageId': message.messageId});
       // 更新消息状态为已送达
     });
 
     // 监听消息已读
-    _communicationService.onProto<MessageProto>('message_read').listen((message) {
+    _communicationService.onProto<MessageProto>('message:read').listen((message) {
       _logger.i('消息已读', extra: {'messageId': message.messageId});
       // 更新消息状态为已读
     });
 
     // 监听会话更新
-    _communicationService.onProto<ConversationProto>('conversation_update').listen((conversation) {
+    _communicationService.onProto<ConversationProto>('conversation:update').listen((conversation) {
       _logger.i('会话更新', extra: {'conversationId': conversation.conversationId});
       _conversationController.add(conversation);
     });
@@ -76,7 +76,7 @@ class ChatService {
 
     try {
       // 使用类型安全的方式发送消息
-      await _communicationService.emitProto('new_message', message);
+      await _communicationService.emitProto('message:new', message);
       _logger.i('消息发送成功', extra: {'messageId': message.messageId});
     } catch (error) {
       _logger.e('消息发送失败', error: error, stackTrace: StackTrace.current);
@@ -99,7 +99,7 @@ class ChatService {
 
     try {
       // 发送消息已读事件
-      await _communicationService.emitProto('message_read', message);
+      await _communicationService.emitProto('message:read', message);
       _logger.i('消息已读状态已发送');
     } catch (error) {
       _logger.e('标记消息已读失败', error: error, stackTrace: StackTrace.current);
@@ -135,7 +135,7 @@ class ChatService {
 
     try {
       // 发送获取消息请求
-      await _communicationService.emitProto('fetch_messages', request);
+      await _communicationService.emitProto('messages:fetch', request);
       _logger.i('获取消息请求已发送');
       // 响应将通过messageStream流获取
     } catch (error) {

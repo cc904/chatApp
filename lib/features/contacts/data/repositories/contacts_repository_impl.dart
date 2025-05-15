@@ -40,20 +40,20 @@ class ContactsRepositoryImpl implements ContactsRepository {
     if (!_communicationService.isInitialized) return;
 
     // 订阅用户在线状态事件
-    _subscriptions.add(_communicationService.onProto<user_proto.UserStatusUpdate>('user_online').listen((data) {
+    _subscriptions.add(_communicationService.onProto<user_proto.UserStatusUpdate>('user:online').listen((data) {
       if (data.hasUserId()) {
         _updateUserOnlineStatus(data.userId, true);
       }
     }));
 
-    _subscriptions.add(_communicationService.onProto<user_proto.UserStatusUpdate>('user_offline').listen((data) {
+    _subscriptions.add(_communicationService.onProto<user_proto.UserStatusUpdate>('user:offline').listen((data) {
       if (data.hasUserId()) {
         _updateUserOnlineStatus(data.userId, false);
       }
     }));
 
     // 订阅联系人同步事件
-    _subscriptions.add(_communicationService.onProto<user_proto.UserCollection>('contacts_synced').listen(_handleContactsSyncedEvent));
+    _subscriptions.add(_communicationService.onProto<user_proto.UserCollection>('contact:synced').listen(_handleContactsSyncedEvent));
 
     // 可以添加其他联系人相关事件的订阅
   }
@@ -119,7 +119,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         final syncRequest = proto.SyncContactsRequest()
           ..userId = currentUser.userId
           ..token = currentUser.token;
-        await _communicationService.emitProto('sync_contacts', syncRequest);
+        await _communicationService.emitProto('contact:sync', syncRequest);
       }
 
       // 返回本地数据库中的联系人列表
@@ -242,7 +242,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..userId = currentUser.userId
           ..token = currentUser.token;
 
-        _communicationService.emitProto('sync_contacts', request);
+        _communicationService.emitProto('contact:sync', request);
       } else {
         _logger.w('通信服务未初始化,无法同步联系人');
       }
@@ -358,7 +358,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..receiverId = targetUserId
           ..message = message;
 
-        _communicationService.emitProto('friend_request', protoRequest);
+        await _communicationService.emitProto('friend:request', protoRequest);
       }
 
       _logger.i('发送好友请求成功');
@@ -417,7 +417,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..requestId = requestId
           ..status = proto_enum.FriendRequestStatus.ACCEPTED;
 
-        _communicationService.emitProto('accept_friend_request', protoRequest);
+        await _communicationService.emitProto('friend:request:accept', protoRequest);
       }
 
       _logger.i('接受好友请求成功');
@@ -462,7 +462,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..requestId = requestId
           ..status = proto_enum.FriendRequestStatus.REJECTED;
 
-        _communicationService.emitProto('reject_friend_request', protoRequest);
+        _communicationService.emitProto('friend:request:reject', protoRequest);
       }
 
       _logger.i('拒绝好友请求成功');

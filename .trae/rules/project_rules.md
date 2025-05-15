@@ -1,3 +1,0 @@
-这是一个模仿whatapp的flutter项目
-使用Cubit作为状态管理
-使用integration_test作为测试框架

@@ -11,7 +11,6 @@ import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
-import 'package:cc/core/proto/generated/conversation.pbenum.dart' as proto_enum;
 import 'package:cc/core/proto/generated/message.pb.dart' as msg_proto;
 import 'package:fixnum/fixnum.dart';
 
@@ -83,6 +82,8 @@ class ChatRepositoryImpl implements ChatRepository {
 
   final String _currentUserId;
 
+  final _conversationStateController = StreamController<List<db.Conversation>>.broadcast();
+
   // 构造函数
   ChatRepositoryImpl({required Isar isar, required String currentUserId})
       : _isar = isar,
@@ -94,11 +95,11 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 注册事件监听
   void _registerEventHandlers() {
     // 监听新消息事件
-    _communicationService.onProto<msg_proto.NewMessageProto>('new_message').listen(_handleNewMessage);
+    _communicationService.onProto<msg_proto.NewMessageProto>('message:new').listen(_handleNewMessage);
 
     // 监听消息状态更新
-    _communicationService.onProto<msg_proto.MessageDeliveredProto>('message_delivered').listen(_handleMessageDelivered);
-    _communicationService.onProto<msg_proto.MessageReadProto>('message_read').listen(_handleMessageRead);
+    _communicationService.onProto<msg_proto.MessageDeliveredProto>('message:delivered').listen(_handleMessageDelivered);
+    _communicationService.onProto<msg_proto.MessageReadProto>('message:read').listen(_handleMessageRead);
   }
 
   /// 处理新消息
@@ -259,64 +260,60 @@ class ChatRepositoryImpl implements ChatRepository {
         ..userId = _currentUserId;
 
       // 设置等待响应的Completer
-      final completer = Completer<proto.ConversationCollection>();
+      final completer = Completer<List<proto.ConversationProto>>();
 
-      // 设置超时
-      final timeoutTimer = Timer(const Duration(seconds: 10), () {
-        if (!completer.isCompleted) {
-          completer.complete(proto.ConversationCollection());
-        }
-      });
+      // // 注册一次性事件监听来等待响应
+      // _communicationService.onRawEvent('conversation:sync:result', (data) {
+      //   _logger.i('收到会话同步响应', extra: {'response': data});
 
-      // 注册一次性事件监听来等待响应
-      final subscription = _communicationService.onProto<proto.ConversationCollection>('sync_conversations_response').listen((response) {
-        timeoutTimer.cancel();
-        if (!completer.isCompleted) {
-          completer.complete(response);
-        }
-      });
+      //   try {
+      //     if (data is Map && data['data'] is Map && data['data']['conversations'] is List) {
+      //       final conversationsData = data['data']['conversations'] as List;
+      //       final conversations = conversationsData.map((conv) {
+      //         return proto.ConversationProto()..mergeFromJson(conv.toString());
+      //       }).toList();
+
+      //       _logger.i('解析到 ${conversations.length} 个会话');
+      //       if (conversations.isEmpty) {
+      //         _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
+      //       }
+
+      //       if (!completer.isCompleted) {
+      //         completer.complete(conversations);
+      //       }
+
+      //       // 处理同步数据
+      //       _handleSyncedConversations(conversations);
+      //     } else {
+      //       _logger.w('同步响应数据格式不正确', extra: {'response': data});
+      //       if (!completer.isCompleted) {
+      //         completer.complete([]);
+      //       }
+      //     }
+      //   } catch (e) {
+      //     _logger.e('处理同步响应数据失败', error: e);
+      //     if (!completer.isCompleted) {
+      //       completer.complete([]);
+      //     }
+      //   }
+      // });
 
       // 发送同步请求
-      await _communicationService.emitProto('sync_conversations', request);
+      await _communicationService.emitProto('conversation:sync', request);
 
       // 等待响应
-      final response = await completer.future;
-
-      // 清理一次性监听器
-      await subscription.cancel();
+      final conversations = await completer.future;
 
       // 处理响应
-      if (response.conversations.isNotEmpty) {
-        // 将服务器返回的会话数据转换为会话对象
-        final conversations = response.conversations.map((data) => _convertProtoConversationToModel(data)).whereType<db.Conversation>().toList();
-
-        return _SyncResponse(true, conversations, null);
+      if (conversations.isNotEmpty) {
+        final dbConversations = conversations.map((data) => _convertProtoToDbConversation(data)).whereType<db.Conversation>().toList();
+        return _SyncResponse(true, dbConversations, null);
       }
 
       return _SyncResponse(false, [], '同步失败：未收到会话数据');
     } catch (error) {
       _logger.e('从服务器同步会话列表失败', error: error, stackTrace: StackTrace.current);
       return _SyncResponse(false, [], error.toString());
-    }
-  }
-
-  /// 将 Protobuf 会话对象转换为数据库模型
-  db.Conversation? _convertProtoConversationToModel(proto.ConversationProto proto) {
-    try {
-      return db.Conversation()
-        ..conversationId = proto.conversationId
-        ..name = proto.name
-        ..avatar = proto.avatar
-        ..type = proto.type == proto_enum.ConversationType.group ? db.ConversationType.group : db.ConversationType.private
-        ..createdAt = DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
-        ..lastMessageTime = proto.hasLastMessageTime() ? DateTime.fromMillisecondsSinceEpoch(proto.lastMessageTime.toInt()) : null
-        ..lastMessagePreview = proto.lastMessagePreview
-        ..unreadCount = proto.unreadCount
-        ..contactUserId = proto.contactUserId
-        ..lastMessageId = proto.lastMessageId;
-    } catch (error) {
-      _logger.e('转换Protobuf会话对象失败', error: error, stackTrace: StackTrace.current);
-      return null;
     }
   }
 
@@ -1081,7 +1078,7 @@ class ChatRepositoryImpl implements ChatRepository {
         ..type = message.type;
 
       // 通过通信服务发送消息
-      _communicationService.emitProto('new_message', protoMsg);
+      _communicationService.emitProto('message:new', protoMsg);
 
       return message.messageId;
     } catch (error) {
@@ -1100,7 +1097,7 @@ class ChatRepositoryImpl implements ChatRepository {
       final typingProto = msg_proto.TypingProto()
         ..conversationId = conversationId
         ..isTyping = isTyping;
-      _communicationService.emitProto(isTyping ? 'typing' : 'stop_typing', typingProto);
+      _communicationService.emitProto(isTyping ? 'typing' : 'typing:stop', typingProto);
       return;
     }
 
@@ -1116,7 +1113,7 @@ class ChatRepositoryImpl implements ChatRepository {
       final readProto = msg_proto.MessageReadProto()
         ..messageId = messageId
         ..conversationId = conversationId;
-      _communicationService.emitProto('message_read', readProto);
+      _communicationService.emitProto('message:read', readProto);
       return;
     }
 
@@ -1247,4 +1244,37 @@ class ChatRepositoryImpl implements ChatRepository {
       return null;
     }
   }
+
+  void _handleSyncedConversations(List<proto.ConversationProto> conversations) {
+    try {
+      final List<db.Conversation> dbConversations = conversations.map((conv) => _convertProtoToDbConversation(conv)).toList();
+
+      // 更新本地数据库
+      _updateLocalConversations(dbConversations);
+
+      // 通知UI层更新
+      if (dbConversations.isNotEmpty) {
+        _conversationStateController.add(dbConversations);
+      }
+    } catch (e, stackTrace) {
+      _logger.e('处理同步会话数据时出错: $e\n$stackTrace');
+    }
+  }
+
+  db.Conversation _convertProtoToDbConversation(proto.ConversationProto conv) {
+    final conversation = db.Conversation()
+      ..conversationId = conv.conversationId
+      ..type = conv.type == proto.ConversationType.private ? db.ConversationType.private : db.ConversationType.group
+      ..name = conv.name
+      ..avatar = conv.avatar
+      ..lastMessagePreview = conv.lastMessagePreview
+      ..lastMessageTime = DateTime.fromMillisecondsSinceEpoch(conv.lastMessageTime.toInt())
+      ..createdAt = DateTime.fromMillisecondsSinceEpoch(conv.createdAt.toInt())
+      ..unreadCount = conv.unreadCount
+      ..contactUserId = conv.contactUserId
+      ..lastMessageId = conv.lastMessageId;
+
+    return conversation;
+  }
+
 }

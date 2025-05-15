@@ -61,7 +61,7 @@ await communicationService.connect(
 );
 
 // 发送消息
-communicationService.emitEvent('new_message', {
+communicationService.emitEvent('message:new', {
   'id': messageId,
   'senderId': senderId,
   'conversationId': conversationId,
@@ -70,7 +70,7 @@ communicationService.emitEvent('new_message', {
 });
 
 // 监听消息
-communicationService.onEvent('new_message').listen((data) {
+communicationService.onEvent('message:new').listen((data) {
   // 处理接收到的消息
 });
 ```

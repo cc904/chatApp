@@ -35,22 +35,22 @@ class ConversationService {
     _logger.i('初始化会话服务');
 
     // 监听会话更新
-    _communicationService.onProto<ConversationProto>('conversation_update').listen((conversation) {
+    _communicationService.onProto<ConversationProto>('conversation:update').listen((conversation) {
       _updateConversation(conversation);
     });
 
     // 监听会话创建
-    _communicationService.onProto<ConversationProto>('conversation_created').listen((conversation) {
+    _communicationService.onProto<ConversationProto>('conversation:created').listen((conversation) {
       _addConversation(conversation);
     });
 
     // 监听会话删除
-    _communicationService.onProto<ConversationProto>('conversation_deleted').listen((conversation) {
+    _communicationService.onProto<ConversationProto>('conversation:deleted').listen((conversation) {
       _removeConversation(conversation.conversationId);
     });
 
     // 监听会话同步响应
-    _communicationService.onProto<ConversationCollection>('sync_conversations_response').listen((response) {
+    _communicationService.onProto<ConversationCollection>('conversation:sync:result').listen((response) {
       _logger.i('收到会话同步响应');
       _handleSyncConversationsResponse(response);
     });
@@ -148,7 +148,7 @@ class ConversationService {
         ..localConversationIds.addAll([]); // 添加本地会话ID列表
 
       // 发送同步请求
-      _communicationService.emitProto('sync_conversations', syncRequest);
+      _communicationService.emitProto('conversation:sync', syncRequest);
       _logger.i('会话同步请求已发送');
     } catch (error) {
       _logger.e('同步会话失败', error: error, stackTrace: StackTrace.current);
@@ -191,7 +191,7 @@ class ConversationService {
 
     try {
       // 发送创建会话请求
-      await _communicationService.emitProto('create_conversation', conversation);
+      await _communicationService.emitProto('conversation:create', conversation);
       _logger.i('创建会话请求已发送');
     } catch (error) {
       _logger.e('创建会话失败', error: error, stackTrace: StackTrace.current);
