@@ -109,7 +109,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   // 查找所选日期的消息并跳转到聊天界面
   void _jumpToChatAtDate(DateTime date) {
     try {
-      _logger.i('开始跳转到日期', extra: {'date': date.toString(), 'type': date.runtimeType});
+      _logger.i('开始跳转到日期', extra: {'date': date.toString(), 'dataType': date.runtimeType});
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -485,7 +485,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
         // 使用标准格式Map返回消息ID
         final result = {'targetMessageId': message.messageId};
-        _logger.i('准备返回消息ID,使用Map格式', extra: {'result': result, 'type': result.runtimeType});
+        _logger.i('准备返回消息ID,使用Map格式', extra: {'result': result, 'dataType': result.runtimeType});
 
         Navigator.pop(context, result);
         _logger.i('已调用Navigator.pop传递消息ID参数');

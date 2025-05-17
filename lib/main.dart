@@ -12,9 +12,13 @@ import 'package:cc/features/home/presentation/pages/home_provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/user_status_service.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
+
+// 获取单例实例
+final userStatusService = UserStatusService();
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -43,6 +47,16 @@ void main() async {
 
     // 初始化文件上传服务
     FileUploadService();
+
+    // 监听状态变化
+    userStatusService.statusStream.listen((userStatus) {
+      logger.i('用户状态变化: $userStatus');
+
+      // 可以在这里更新UI，例如联系人列表中的在线状态指示器
+    });
+
+    // // 设置自己的状态为在线
+    // userStatusService.setMyStatus(UserOnlineStatus.online);
 
     // 运行应用
     runApp(const MyApp());
@@ -112,6 +126,12 @@ class MyApp extends StatelessWidget {
     final appConfig = AppConfig();
     logger.i('MyApp build');
 
+    // 确保在应用运行时服务仍然存在，应用退出时释放资源
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 添加应用生命周期监听
+      WidgetsBinding.instance.addObserver(AppLifecycleObserver());
+    });
+
     return MultiRepositoryProvider(
       providers: [
         // 注册通信服务
@@ -144,5 +164,24 @@ class MyApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 应用生命周期观察器
+class AppLifecycleObserver extends WidgetsBindingObserver {
+  final _logger = LogService.instance;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _logger.i('应用生命周期状态变化: $state');
+
+    if (state == AppLifecycleState.detached) {
+      // 应用退出前清理资源
+      userStatusService.dispose();
+      _logger.i('应用退出，资源已释放');
+    } else if (state == AppLifecycleState.resumed) {
+      // 应用恢复时，可以重新设置在线状态
+      userStatusService.setMyStatus(UserOnlineStatus.online);
+    }
   }
 }

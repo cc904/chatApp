@@ -108,7 +108,7 @@ class CommunicationService {
 
     // 注册Protobuf事件监听
     _socketService.onProto(eventName, creator, (message) {
-      _logger.d('收到事件: $eventName', extra: {'messageType': message.runtimeType});
+      // _logger.d('收到事件: $eventName', extra: {'messageType': message.runtimeType});
       _eventControllers[eventName]?.add(message);
     });
 

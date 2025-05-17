@@ -29,8 +29,8 @@ class ProtoEvents {
     'contact:synced': () => user.UserCollection(),
 
     // 联系人相关事件
-    'contact:sync:request': () => contacts.SyncContactsRequest(),
-    'contact:sync:response': () => contacts.SyncContactsResponse(),
+    'contact:sync': () => contacts.SyncContactsRequest(),
+    'contact:sync:result': () => contacts.SyncContactsResponse(),
 
     // 系统相关事件
     'system:message': () => message.SystemMessage(),

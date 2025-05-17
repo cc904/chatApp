@@ -162,6 +162,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
 
                       // 登录按钮
                       BlocConsumer<AuthCubit, AuthState>(
+                        listenWhen: (previous, current) =>
+                            !previous.isAuthenticated && current.isAuthenticated || current.hasError && current.errorMessage != previous.errorMessage,
                         listener: (context, state) {
                           if (state.isAuthenticated) {
                             // 确保数据库初始化完成后再导航

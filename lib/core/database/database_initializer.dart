@@ -104,21 +104,21 @@ class DatabaseInitializer {
     }
   }
 
-  /// 同步ID字段
-  /// 用于确保实体的ID和字符串ID保持一致
-  static void syncIds(dynamic entity) {
-    if (entity == null) return;
+  // /// 同步ID字段
+  // /// 用于确保实体的ID和字符串ID保持一致
+  // static void syncIds(dynamic entity) {
+  //   if (entity == null) return;
 
-    if (entity is User) {
-      entity.userId = entity.id.toString();
-    } else if (entity is MyUser) {
-      entity.userId = entity.id.toString();
-    } else if (entity is Conversation) {
-      entity.conversationId = entity.id.toString();
-    } else if (entity is Message) {
-      entity.messageId = entity.id.toString();
-    }
-  }
+  //   if (entity is User) {
+  //     entity.userId = entity.id.toString();
+  //   } else if (entity is MyUser) {
+  //     entity.userId = entity.id.toString();
+  //   } else if (entity is Conversation) {
+  //     entity.conversationId = entity.id.toString();
+  //   } else if (entity is Message) {
+  //     entity.messageId = entity.id.toString();
+  //   }
+  // }
 
   /// 关闭数据库
   static Future<void> close() async {

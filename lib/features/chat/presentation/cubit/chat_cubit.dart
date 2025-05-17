@@ -290,6 +290,11 @@ class ChatCubit extends Cubit<ChatState> {
   void _handleSyncStatus(SyncStatus status) {
     _logger.i('处理同步状态', extra: {'status': status.toString()});
 
+    // 同步状态变更会通知所有订阅了ChatCubit的Widget
+    // 主要在ChatDetailPage和ConversationListPage中使用
+    // 用于显示同步进度指示器和错误提示
+    emit(state.copyWith(syncStatus: status));
+    // 用于在UI上显示同步进度指示器和错误提示
     emit(state.copyWith(syncStatus: status));
   }
 

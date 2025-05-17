@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/database/models/message.dart';
@@ -262,41 +263,40 @@ class ChatRepositoryImpl implements ChatRepository {
       // 设置等待响应的Completer
       final completer = Completer<List<proto.ConversationProto>>();
 
-      // // 注册一次性事件监听来等待响应
-      // _communicationService.onRawEvent('conversation:sync:result', (data) {
-      //   _logger.i('收到会话同步响应', extra: {'response': data});
+      // 注册一次性事件监听来等待响应
+      _communicationService.onRawEvent('conversation:sync:result', (data) {
+        _logger.i('收到会话同步响应', extra: {'dataType': data.runtimeType});
 
-      //   try {
-      //     if (data is Map && data['data'] is Map && data['data']['conversations'] is List) {
-      //       final conversationsData = data['data']['conversations'] as List;
-      //       final conversations = conversationsData.map((conv) {
-      //         return proto.ConversationProto()..mergeFromJson(conv.toString());
-      //       }).toList();
+        try {
+          // 处理二进制数据
+          if (data is Uint8List || data is ByteData || (data != null && data.runtimeType.toString().contains('Uint8'))) {
+            // 直接解析二进制数据
+            final response = proto.ConversationCollection()..mergeFromBuffer(data);
 
-      //       _logger.i('解析到 ${conversations.length} 个会话');
-      //       if (conversations.isEmpty) {
-      //         _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
-      //       }
+            _logger.i('解析到 ${response.conversations.length} 个会话');
+            if (response.conversations.isEmpty) {
+              _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
+            }
 
-      //       if (!completer.isCompleted) {
-      //         completer.complete(conversations);
-      //       }
+            if (!completer.isCompleted) {
+              completer.complete(response.conversations);
+            }
 
-      //       // 处理同步数据
-      //       _handleSyncedConversations(conversations);
-      //     } else {
-      //       _logger.w('同步响应数据格式不正确', extra: {'response': data});
-      //       if (!completer.isCompleted) {
-      //         completer.complete([]);
-      //       }
-      //     }
-      //   } catch (e) {
-      //     _logger.e('处理同步响应数据失败', error: e);
-      //     if (!completer.isCompleted) {
-      //       completer.complete([]);
-      //     }
-      //   }
-      // });
+            // 处理同步数据
+            _handleSyncedConversations(response.conversations);
+          } else {
+            _logger.w('同步响应数据格式不支持', extra: {'dataType': data.runtimeType, 'data': data});
+            if (!completer.isCompleted) {
+              completer.complete([]);
+            }
+          }
+        } catch (e, stack) {
+          _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
+          if (!completer.isCompleted) {
+            completer.complete([]);
+          }
+        }
+      });
 
       // 发送同步请求
       await _communicationService.emitProto('conversation:sync', request);
@@ -325,12 +325,14 @@ class ChatRepositoryImpl implements ChatRepository {
       await _isar.writeTxn(() async {
         for (final conversation in serverConversations) {
           // 检查会话是否已存在
+          // 根据会话ID查询本地数据库中是否已存在该会话记录
+          // _conversations是Isar数据库的会话表访问器
+          // filter()创建查询过滤器
+          // conversationIdEqualTo()匹配指定的会话ID
+          // findFirst()返回第一条匹配的记录,不存在则返回null
           final existing = await _conversations.filter().conversationIdEqualTo(conversation.conversationId).findFirst();
 
           if (existing != null) {
-            // 更新已有会话
-            conversation.id = existing.id;
-
             // 只有当服务器的最后消息时间更新时才更新本地数据
             if (conversation.lastMessageTime != null && (existing.lastMessageTime == null || conversation.lastMessageTime!.isAfter(existing.lastMessageTime!))) {
               await _conversations.put(conversation);
@@ -338,9 +340,6 @@ class ChatRepositoryImpl implements ChatRepository {
             }
           } else {
             // 添加新会话
-            await _conversations.put(conversation);
-            // 同步ID字段
-            DatabaseInitializer.syncIds(conversation);
             await _conversations.put(conversation);
             _logger.d('添加新会话', extra: {'conversationId': conversation.conversationId});
           }
@@ -395,8 +394,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
       await _isar.writeTxn(() async {
         conversation.id = await _conversations.put(conversation);
-        // 同步ID字段
-        DatabaseInitializer.syncIds(conversation);
         await _conversations.put(conversation);
 
         // 添加会话参与者
@@ -430,8 +427,6 @@ class ChatRepositoryImpl implements ChatRepository {
       await _isar.writeTxn(() async {
         // 保存会话
         conversation.id = await _conversations.put(conversation);
-        // 同步ID字段
-        DatabaseInitializer.syncIds(conversation);
         await _conversations.put(conversation);
 
         // 添加当前用户
@@ -697,8 +692,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
       await _isar.writeTxn(() async {
         message.id = await _messages.put(message);
-        // 同步ID字段
-        DatabaseInitializer.syncIds(message);
         await _messages.put(message);
 
         // 更新会话最后消息预览
@@ -706,8 +699,6 @@ class ChatRepositoryImpl implements ChatRepository {
         if (conversation != null) {
           conversation.lastMessageTime = message.createdAt;
           conversation.lastMessagePreview = '[视频]';
-          // 同步会话ID字段
-          DatabaseInitializer.syncIds(conversation);
           await _conversations.put(conversation);
         }
       });
@@ -799,8 +790,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
       await _isar.writeTxn(() async {
         message.id = await _messages.put(message);
-        // 同步ID字段
-        DatabaseInitializer.syncIds(message);
         await _messages.put(message);
 
         // 更新会话最后消息预览
@@ -808,8 +797,6 @@ class ChatRepositoryImpl implements ChatRepository {
         if (conversation != null) {
           conversation.lastMessageTime = message.createdAt;
           conversation.lastMessagePreview = '[位置] $locationAddress';
-          // 同步会话ID字段
-          DatabaseInitializer.syncIds(conversation);
           await _conversations.put(conversation);
         }
       });
@@ -1232,7 +1219,6 @@ class ChatRepositoryImpl implements ChatRepository {
       // 保存会话
       await _isar.writeTxn(() async {
         await _conversations.put(conversation);
-        DatabaseInitializer.syncIds(conversation);
         // 建立会话与用户的关联
         await conversation.participants.save();
       });
@@ -1276,5 +1262,4 @@ class ChatRepositoryImpl implements ChatRepository {
 
     return conversation;
   }
-
 }

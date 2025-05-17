@@ -273,7 +273,7 @@ class ProtoSocketService {
 
     // 监听所有事件
     _socket?.onAny((event, data) {
-      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}', extra: {'event': event, 'data': data});
+      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}', stackTrace: StackTrace.current);
     });
   }
 
@@ -318,30 +318,14 @@ class ProtoSocketService {
     _socket?.on(eventName, (data) {
       try {
         final message = creator()..mergeFromBuffer(data);
-        _logger.i('📩 接收到Protobuf事件: $eventName');
+        _logger.i(
+          '📩 接收到Protobuf事件: $eventName 数据类型: ${data.runtimeType}',
+        );
         handler(message);
       } catch (e) {
-        _logger.e('❌ 解析Protobuf消息失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
+        _logger.e('❌ 解析Protobuf消息失败: $e', extra: {'eventName': eventName, 'data': data}, stackTrace: StackTrace.current);
       }
     });
-  }
-
-  /// 简化版监听Protobuf事件 (直接传入处理函数)
-  Stream<T> listenProto<T extends GeneratedMessage>(String eventName, T Function() creator) {
-    _logger.i('👂 创建Protobuf事件流: $eventName');
-    final controller = StreamController<T>.broadcast();
-
-    _socket?.on(eventName, (data) {
-      try {
-        final message = creator()..mergeFromBuffer(data);
-        _logger.i('📩 接收到Protobuf事件流: $eventName');
-        controller.add(message);
-      } catch (e) {
-        _logger.e('❌ 解析Protobuf消息失败 (流): $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
-      }
-    });
-
-    return controller.stream;
   }
 
   /// 发送Protobuf消息
@@ -381,7 +365,7 @@ class ProtoSocketService {
     _logger.i('👂 注册原始事件监听: $eventName');
     _socket?.on(eventName, (data) {
       try {
-        _logger.i('📩 接收到原始事件: $eventName');
+        _logger.i('📩 接收到原始事件: $eventName,dataType: ${data.runtimeType}');
         handler(data);
       } catch (e) {
         _logger.e('❌ 处理原始事件失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
