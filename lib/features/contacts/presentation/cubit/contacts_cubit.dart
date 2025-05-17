@@ -46,9 +46,12 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
   final ContactsRepository _repository;
   final LogService _logger = LogService.instance;
 
-  ContactsCubit({required ContactsRepository repository})
-      : _repository = repository,
-        super(const ContactsCubitState());
+  ContactsCubit(this._repository) : super(const ContactsCubitState()) {
+    // 设置联系人同步回调
+    _repository.onContactsSynced = _handleContactsSyncedEvent;
+    // 初始化事件监听
+    _initializeEventListeners();
+  }
 
   /// 加载所有联系人
   Future<void> loadContacts() async {
@@ -68,15 +71,41 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
     _logger.i('同步联系人');
     try {
       emit(state.copyWith(isSyncing: true, errorMessage: null));
-      final contacts = await _repository.syncContacts();
-      emit(state.copyWith(contacts: contacts, isSyncing: false));
 
-      // 加载好友请求
-      await loadFriendRequests();
+      // 只发送同步请求，不等待返回数据
+      // await _repository.syncContacts();
+
+      _logger.i('-----> await _repository.syncContacts();');
+
+      // 注意：这里不立即更新状态，等待事件通知后再更新
+      // 状态更新将在_handleContactsSyncedEvent中处理
     } catch (error) {
       _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
       emit(state.copyWith(isSyncing: false, errorMessage: '同步联系人失败: $error'));
     }
+  }
+
+  /// 处理联系人同步完成事件
+  void _handleContactsSyncedEvent(List<User> contacts) {
+    _logger.i('收到联系人同步事件', extra: {'count': contacts.length});
+    try {
+      emit(state.copyWith(contacts: contacts, isSyncing: false, errorMessage: null));
+
+      // 加载好友请求
+      loadFriendRequests();
+    } catch (error) {
+      _logger.e('处理联系人同步事件失败', error: error, stackTrace: StackTrace.current);
+      emit(state.copyWith(isSyncing: false, errorMessage: '处理联系人同步事件失败: $error'));
+    }
+  }
+
+  /// 初始化数据库事件监听
+  void _initializeEventListeners() {
+    // 订阅联系人同步事件
+    _repository.watchContacts().listen((_) {
+      // 当本地数据库发生变化时，重新加载联系人列表
+      loadContacts();
+    });
   }
 
   /// 加载好友请求
@@ -113,10 +142,8 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
       final result = await _repository.acceptFriendRequest(requestId);
 
       if (result) {
-        // 更新好友请求列表
-        await loadFriendRequests();
-        // 刷新联系人列表
-        await loadContacts();
+        await loadFriendRequests(); // 更新好友请求列表
+        await loadContacts(); // 重新加载联系人列表
       }
 
       emit(state.copyWith(isLoading: false));

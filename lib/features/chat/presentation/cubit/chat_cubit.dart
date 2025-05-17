@@ -932,36 +932,6 @@ class ChatCubit extends Cubit<ChatState> {
     setNavigationData({'targetMessageId': messageId});
   }
 
-  /// 同步联系人列表
-  Future<void> syncContacts() async {
-    try {
-      _logger.i('开始同步联系人列表');
-
-      bool success = false;
-
-      // 使用ContactsRepository进行同步
-      if (_contactsRepository != null) {
-        try {
-          final contacts = await _contactsRepository.syncContacts();
-          success = contacts.isNotEmpty;
-          _logger.i('联系人同步完成,获取到 ${contacts.length} 个联系人');
-        } catch (error) {
-          _logger.e('使用ContactsRepository同步联系人失败', error: error, stackTrace: StackTrace.current);
-        }
-      } else {
-        _logger.e('ContactsRepository未注入,无法同步联系人');
-      }
-
-      if (success) {
-        _logger.i('联系人同步请求已发送并完成');
-      } else {
-        _logger.w('联系人同步请求失败');
-      }
-    } catch (error) {
-      _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
-    }
-  }
-
   /// 开始与用户的对话
   Future<void> startConversationWithUser({
     required String userId,

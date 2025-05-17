@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
@@ -29,6 +31,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
   // 事件订阅管理
   final List<StreamSubscription> _subscriptions = [];
 
+  // 添加回调函数
+  Function(List<User>)? onContactsSynced;
+
   // 构造函数
   ContactsRepositoryImpl() {
     _initializeSubscriptions();
@@ -54,6 +59,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
     // 订阅联系人同步事件
     _subscriptions.add(_communicationService.onProto<user_proto.UserCollection>('contact:synced').listen(_handleContactsSyncedEvent));
+
+    // 添加对contact:sync:result的处理
+    // 使用原始事件处理，因为可能返回的是二进制数据
+    _communicationService.onRawEvent('contact:sync:result', _handleContactSyncResult);
 
     // 可以添加其他联系人相关事件的订阅
   }
@@ -81,9 +90,58 @@ class ContactsRepositoryImpl implements ContactsRepository {
         }
       });
 
+      // 通知Cubit数据已更新
+      onContactsSynced?.call(contacts);
+
       _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
     } catch (error) {
       _logger.e('处理联系人同步事件失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理联系人同步结果事件
+  void _handleContactSyncResult(dynamic data) {
+    try {
+      _logger.i('收到联系人同步结果事件', extra: {'dataType': data.runtimeType});
+
+      // 处理二进制数据
+      if (data is Uint8List || data is ByteData || (data != null && data.runtimeType.toString().contains('Uint8'))) {
+        // 解析二进制数据
+        final response = proto.SyncContactsResponse()..mergeFromBuffer(data);
+
+        _logger.i('解析到 ${response.contacts.length} 个联系人');
+        if (response.contacts.isEmpty) {
+          _logger.i('联系人列表为空，这可能是新用户或同步过程中的正常状态');
+          return;
+        }
+
+        // 解析联系人数据并保存到数据库
+        final List<User> contacts = response.contacts.map((contact) {
+          return User()
+            ..userId = contact.userId
+            ..name = contact.name
+            ..avatar = contact.avatar
+            ..phone = contact.phone
+            ..email = contact.email
+            ..pinyin = contact.pinyin;
+        }).toList();
+
+        // 保存到数据库
+        _isar.writeTxn(() async {
+          for (final contact in contacts) {
+            await _users.put(contact);
+          }
+        });
+
+        // 通知Cubit数据已更新
+        onContactsSynced?.call(contacts);
+
+        _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
+      } else {
+        _logger.w('联系人同步响应数据格式不支持', extra: {'dataType': data.runtimeType, 'data': data});
+      }
+    } catch (e, stack) {
+      _logger.e('处理联系人同步结果事件失败', error: e, stackTrace: stack);
     }
   }
 
@@ -113,15 +171,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<List<User>> getAllContacts() async {
     try {
-      // 先从服务器获取最新数据
-      final currentUser = await MyUserService.getCurrentUser();
-      if (currentUser != null && _communicationService.isInitialized) {
-        final syncRequest = proto.SyncContactsRequest()
-          ..userId = currentUser.userId
-          ..token = currentUser.token;
-        await _communicationService.emitProto('contact:sync', syncRequest);
-      }
-
       // 返回本地数据库中的联系人列表
       final users = await _users.where().findAll();
       _logger.i('获取联系人列表成功 - ${users.length} 个联系人');
@@ -225,62 +274,21 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
   /// 同步联系人
   /// 从服务器同步最新的联系人数据
+  /// 该方法只发送同步请求，不返回联系人列表
+  /// 联系人数据将通过事件通知并由状态管理系统更新UI
   @override
-  Future<List<User>> syncContacts() async {
+  Future<void> syncContacts() async {
     try {
-      _logger.i('开始同步联系人列表');
-
-      // 获取当前用户
+      // 从服务器获取最新数据
       final currentUser = await MyUserService.getCurrentUser();
-      if (currentUser == null) {
-        throw '未找到当前用户信息';
-      }
-
-      // 使用通信服务发送同步请求
-      if (_communicationService.isInitialized) {
-        final request = proto.SyncContactsRequest()
+      if (currentUser != null && _communicationService.isInitialized) {
+        final syncRequest = proto.SyncContactsRequest()
           ..userId = currentUser.userId
           ..token = currentUser.token;
-
-        _communicationService.emitProto('contact:sync', request);
-      } else {
-        _logger.w('通信服务未初始化,无法同步联系人');
+        await _communicationService.emitProto('contact:sync', syncRequest);
       }
-
-      List<User> serverContacts = [];
-
-      _logger.i('使用真实网络同步联系人');
-      // 实际情况下,通过上面发送的事件触发服务器返回联系人数据
-      // 等待联系人同步结果通过通信服务的事件返回
-      // 这里设置一个超时,避免永久等待
-      final completer = Completer<List<User>>();
-      final timeout = Timer(Duration(seconds: 10), () {
-        if (!completer.isCompleted) {
-          _logger.w('同步联系人超时');
-          completer.complete([]);
-        }
-      });
-
-      // 获取同步前的联系人数量
-      final beforeCount = await _users.count();
-
-      // 等待一段时间后检查联系人是否有增加
-      Future.delayed(Duration(seconds: 5), () async {
-        final afterCount = await _users.count();
-        if (!completer.isCompleted && afterCount > beforeCount) {
-          final contacts = await getAllContacts();
-          completer.complete(contacts);
-          timeout.cancel();
-        }
-      });
-
-      // 等待服务器返回的联系人数据
-      serverContacts = await completer.future;
-
-      return serverContacts;
     } catch (error) {
-      _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      _logger.e('获取联系人列表失败', error: error, stackTrace: StackTrace.current);
     }
   }
 

@@ -71,9 +71,7 @@ class HomeProvider extends StatelessWidget {
           ),
           // 添加ContactsCubit
           BlocProvider<ContactsCubit>(
-            create: (context) => ContactsCubit(
-              repository: context.read<ContactsRepository>(),
-            ),
+            create: (context) => ContactsCubit(context.read<ContactsRepository>()),
           ),
         ],
         child: Scaffold(
@@ -81,7 +79,7 @@ class HomeProvider extends StatelessWidget {
             children: [
               // 原有的页面内容
               const HomePage(),
-              
+
               // 添加重连状态覆盖层
               ReconnectingOverlay(),
             ],
