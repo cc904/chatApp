@@ -117,6 +117,40 @@ class DatabaseErrorApp extends StatelessWidget {
   }
 }
 
+/// 应用生命周期观察器
+class AppLifecycleObserver extends WidgetsBindingObserver {
+  static final AppLifecycleObserver _instance = AppLifecycleObserver._internal();
+  static bool _isInitialized = false;
+  final _logger = LogService.instance;
+
+  factory AppLifecycleObserver() {
+    return _instance;
+  }
+
+  AppLifecycleObserver._internal();
+
+  static void initialize() {
+    if (!_isInitialized) {
+      WidgetsBinding.instance.addObserver(_instance);
+      _isInitialized = true;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _logger.i('应用生命周期状态变化: $state');
+
+    if (state == AppLifecycleState.detached) {
+      // 应用退出前清理资源
+      userStatusService.dispose();
+      _logger.i('应用退出，资源已释放');
+    } else if (state == AppLifecycleState.resumed) {
+      // 应用恢复时，可以重新设置在线状态
+      userStatusService.setMyStatus(UserOnlineStatus.online);
+    }
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -128,8 +162,8 @@ class MyApp extends StatelessWidget {
 
     // 确保在应用运行时服务仍然存在，应用退出时释放资源
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 添加应用生命周期监听
-      WidgetsBinding.instance.addObserver(AppLifecycleObserver());
+      // 初始化生命周期观察者（只添加一次）
+      AppLifecycleObserver.initialize();
     });
 
     return MultiRepositoryProvider(
@@ -164,24 +198,5 @@ class MyApp extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// 应用生命周期观察器
-class AppLifecycleObserver extends WidgetsBindingObserver {
-  final _logger = LogService.instance;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _logger.i('应用生命周期状态变化: $state');
-
-    if (state == AppLifecycleState.detached) {
-      // 应用退出前清理资源
-      userStatusService.dispose();
-      _logger.i('应用退出，资源已释放');
-    } else if (state == AppLifecycleState.resumed) {
-      // 应用恢复时，可以重新设置在线状态
-      userStatusService.setMyStatus(UserOnlineStatus.online);
-    }
   }
 }

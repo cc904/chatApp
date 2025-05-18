@@ -129,7 +129,21 @@ class ContactsRepositoryImpl implements ContactsRepository {
         // 保存到数据库
         _isar.writeTxn(() async {
           for (final contact in contacts) {
-            await _users.put(contact);
+            // 检查是否已存在相同userId的联系人
+            final existingUser = await _users.filter().userIdEqualTo(contact.userId).findFirst();
+            if (existingUser != null) {
+              // 更新现有联系人信息
+              existingUser
+                ..name = contact.name
+                ..avatar = contact.avatar
+                ..phone = contact.phone
+                ..email = contact.email
+                ..pinyin = contact.pinyin;
+              await _users.put(existingUser);
+            } else {
+              // 添加新联系人
+              await _users.put(contact);
+            }
           }
         });
 

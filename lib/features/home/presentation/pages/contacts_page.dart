@@ -22,7 +22,9 @@ class _ContactsPageState extends State<ContactsPage> {
   void initState() {
     super.initState();
     // 加载联系人数据
-    _loadContacts();
+    // _loadContacts();
+    _logger.d('-------> initState');
+    _syncContacts();
   }
 
   @override
@@ -31,6 +33,13 @@ class _ContactsPageState extends State<ContactsPage> {
     super.dispose();
   }
 
+  void _syncContacts() {
+    _logger.d('-------> _syncContacts');
+    final contactsCubit = context.read<ContactsCubit>();
+    contactsCubit.syncContacts();
+  }
+
+  // 加载本地联系人数据
   void _loadContacts() {
     final contactsCubit = context.read<ContactsCubit>();
     contactsCubit.loadContacts();
@@ -197,9 +206,10 @@ class _ContactsPageState extends State<ContactsPage> {
       color: Colors.grey[100],
       child: Text(
         title,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.green,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: Colors.grey[700],
         ),
       ),
     );

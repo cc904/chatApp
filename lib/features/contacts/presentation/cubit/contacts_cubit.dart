@@ -53,7 +53,7 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
     _initializeEventListeners();
   }
 
-  /// 加载所有联系人
+  /// 从数据库加载所有联系人
   Future<void> loadContacts() async {
     _logger.i('加载联系人');
     try {
@@ -71,14 +71,10 @@ class ContactsCubit extends Cubit<ContactsCubitState> {
     _logger.i('同步联系人');
     try {
       emit(state.copyWith(isSyncing: true, errorMessage: null));
+      // 调用仓库同步联系人
+      await _repository.syncContacts();
+      // 同步完成后会触发 _handleContactsSyncedEvent 回调
 
-      // 只发送同步请求，不等待返回数据
-      // await _repository.syncContacts();
-
-      _logger.i('-----> await _repository.syncContacts();');
-
-      // 注意：这里不立即更新状态，等待事件通知后再更新
-      // 状态更新将在_handleContactsSyncedEvent中处理
     } catch (error) {
       _logger.e('同步联系人失败', error: error, stackTrace: StackTrace.current);
       emit(state.copyWith(isSyncing: false, errorMessage: '同步联系人失败: $error'));

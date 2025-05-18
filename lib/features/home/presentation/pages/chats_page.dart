@@ -271,12 +271,10 @@ class _ChatsPageState extends State<ChatsPage> {
           ),
           itemBuilder: (context, index) {
             final conversation = conversations[index];
-            final itemId = conversation.id.toString();
 
             return _buildSwipeableItem(
-              id: itemId,
               conversation: conversation,
-              isOpen: _openedItemId == itemId,
+              isOpen: _openedItemId == conversation.conversationId,
             );
           },
         );
@@ -319,7 +317,6 @@ class _ChatsPageState extends State<ChatsPage> {
 
   // 构建可滑动的聊天项
   Widget _buildSwipeableItem({
-    required String id,
     required Conversation conversation,
     required bool isOpen,
   }) {
@@ -329,6 +326,7 @@ class _ChatsPageState extends State<ChatsPage> {
     final String time = _formatMessageTime(conversation.lastMessageTime);
     final int unreadCount = conversation.unreadCount;
     final String avatarUrl = conversation.avatar ?? 'https://picsum.photos/200?random=${conversation.id}';
+    final String conversationId = conversation.conversationId;
 
     // 菜单宽度
     const double menuWidth = 180; // 三个按钮的总宽度
@@ -350,7 +348,7 @@ class _ChatsPageState extends State<ChatsPage> {
                   onTap: () {
                     _logger.d(unreadCount > 0 ? '将$name标为已读' : '将$name标为未读');
                     if (unreadCount > 0) {
-                      context.read<ChatCubit>().markConversationAsRead(id);
+                      context.read<ChatCubit>().markConversationAsRead(conversationId);
                     }
                     setState(() {
                       _openedItemId = null; // 操作后关闭菜单
@@ -388,7 +386,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 GestureDetector(
                   onTap: () {
                     _logger.d('删除聊天: $name');
-                    context.read<ChatCubit>().deleteConversation(id);
+                    context.read<ChatCubit>().deleteConversation(conversationId);
                     setState(() {
                       _openedItemId = null; // 操作后关闭菜单
                     });
@@ -420,7 +418,7 @@ class _ChatsPageState extends State<ChatsPage> {
           child: GestureDetector(
             onHorizontalDragStart: (details) {
               // 开始拖动时,如果有其他项目已打开,先关闭它
-              if (_openedItemId != null && _openedItemId != id) {
+              if (_openedItemId != null && _openedItemId != conversationId) {
                 setState(() {
                   _openedItemId = null;
                 });
@@ -430,9 +428,9 @@ class _ChatsPageState extends State<ChatsPage> {
               // 跟踪水平拖动,仅允许向左拖动（负增量）
               if (details.delta.dx < 0) {
                 setState(() {
-                  _openedItemId = id; // 向左拖动时打开当前项
+                  _openedItemId = conversationId; // 向左拖动时打开当前项
                 });
-              } else if (details.delta.dx > 0 && _openedItemId == id) {
+              } else if (details.delta.dx > 0 && _openedItemId == conversationId) {
                 // 向右拖动时关闭当前项
                 setState(() {
                   _openedItemId = null;
@@ -445,7 +443,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 if (details.primaryVelocity! < -500) {
                   // 快速向左滑动,打开菜单
                   setState(() {
-                    _openedItemId = id;
+                    _openedItemId = conversationId;
                   });
                 } else if (details.primaryVelocity! > 500) {
                   // 快速向右滑动,关闭菜单
@@ -527,21 +525,24 @@ class _ChatsPageState extends State<ChatsPage> {
                 ),
                 onTap: () {
                   // 如果菜单是打开的,则先关闭菜单
-                  if (_openedItemId == id) {
+                  if (_openedItemId == conversationId) {
                     setState(() {
                       _openedItemId = null;
                     });
                   } else {
                     // 打开聊天详情页
-                    _logger.d('打开聊天: $name (ID: $id)');
-                    context.read<ChatCubit>().setCurrentConversation(id);
+                    _logger.d('打开聊天: $name (ID: $conversationId)');
+
+                    // 获取ChatCubit并设置当前会话
+                    final chatCubit = context.read<ChatCubit>();
+                    chatCubit.setCurrentConversation(conversationId);
 
                     // 导航到聊天详情页，使用BlocProvider.value保持ChatCubit可用
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => BlocProvider.value(
-                          value: context.read<ChatCubit>(),
-                          child: ChatDetailPage(conversationId: id),
+                          value: chatCubit,
+                          child: ChatDetailPage(conversationId: conversationId),
                         ),
                       ),
                     );
