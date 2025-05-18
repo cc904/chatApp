@@ -31,7 +31,6 @@ class MessageException implements Exception {
 /// 2. 消息管理：发送、接收、查询、删除消息
 /// 3. 实时通信：管理Socket连接、处理实时事件
 /// 4. 联系人操作：获取联系人信息、同步联系人
-
 /// 同步响应类，用于内部处理服务器同步结果
 class _SyncResponse {
   final bool success;
