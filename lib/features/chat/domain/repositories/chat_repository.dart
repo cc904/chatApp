@@ -95,6 +95,14 @@ abstract class ChatRepository {
 
   /// 获取消息同步状态流
   Stream<SyncStatus> getSyncStatusStream();
+
+  /// 从服务器获取消息
+  /// 获取指定会话的消息列表,支持分页
+  /// [conversationId] - 会话ID
+  /// [limit] - 获取消息的最大数量
+  /// [before] - 可选的时间点,获取此时间之前的消息
+  /// 返回消息列表
+  Future<List<Message>> fetchMessagesFromServer(String conversationId, {int limit = 20, DateTime? before});
 }
 
 /// 同步状态枚举

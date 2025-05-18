@@ -13,7 +13,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
 import 'package:cc/core/proto/generated/message.pb.dart' as msg_proto;
-import 'package:fixnum/fixnum.dart';
+import 'package:fixnum/fixnum.dart' as $fixnum;
 
 /// 消息异常
 class MessageException implements Exception {
@@ -1066,7 +1066,7 @@ class ChatRepositoryImpl implements ChatRepository {
         ..senderId = message.senderId
         ..conversationId = message.conversationId
         ..content = message.text ?? ''
-        ..timestamp = Int64(message.createdAt.millisecondsSinceEpoch)
+        ..timestamp = $fixnum.Int64(message.createdAt.millisecondsSinceEpoch)
         ..type = message.type;
 
       // 通过通信服务发送消息
@@ -1266,5 +1266,59 @@ class ChatRepositoryImpl implements ChatRepository {
       ..lastMessageId = conv.lastMessageId;
 
     return conversation;
+  }
+
+  /// 从服务器获取消息
+  /// 获取指定会话的消息列表,支持分页
+  /// [conversationId] - 会话ID
+  /// [limit] - 获取消息的最大数量
+  /// [before] - 可选的时间点,获取此时间之前的消息
+  /// 返回消息列表
+  @override
+  Future<List<Message>> fetchMessagesFromServer(String conversationId, {int limit = 20, DateTime? before}) async {
+    try {
+      _logger.i('从服务器获取消息', extra: {'conversationId': conversationId, 'limit': limit});
+
+      // 创建请求参数
+      final request = msg_proto.MessageProto()
+        ..conversationId = conversationId
+        ..text = 'fetch'; // 用作临时标记
+
+      if (before != null) {
+        request.createdAt = $fixnum.Int64(before.millisecondsSinceEpoch);
+      }
+
+      // 发送请求到服务器
+      await _communicationService.emitProto('messages:fetch', request);
+
+      // 等待响应
+      final response = await _communicationService.onProto<msg_proto.MessageCollection>('messages:fetch:result').first;
+
+      // 转换服务器响应为消息列表
+      final messages = response.messages.map((msg) {
+        final message = Message()
+          ..messageId = msg.messageId
+          ..conversationId = msg.conversationId
+          ..senderId = msg.senderId
+          ..createdAt = DateTime.fromMillisecondsSinceEpoch(msg.createdAt.toInt())
+          ..text = msg.text
+          ..type = msg.type.toString()
+          ..isRead = false
+          ..status = 'received';
+
+        // 保存消息到本地数据库
+        _isar.writeTxn(() async {
+          message.id = await _messages.put(message);
+        });
+
+        return message;
+      }).toList();
+
+      _logger.i('从服务器获取消息成功', extra: {'count': messages.length});
+      return messages;
+    } catch (error) {
+      _logger.e('从服务器获取消息失败', error: error, stackTrace: StackTrace.current);
+      return [];
+    }
   }
 }

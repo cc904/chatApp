@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
 import 'package:cc/core/database/models/user.dart';
@@ -294,7 +295,19 @@ class _ChatsPageState extends State<ChatsPage> {
                 ],
               ),
               onTap: () {
-                // TODO: 导航到聊天详情页面
+                final chatCubit = context.read<ChatCubit>();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BlocProvider.value(
+                      value: chatCubit,
+                      child: ChatDetailPage(
+                        conversationId: conversation.conversationId,
+                        contact: contact,
+                      ),
+                    ),
+                  ),
+                );
               },
             );
           },
@@ -302,8 +315,6 @@ class _ChatsPageState extends State<ChatsPage> {
       },
     );
   }
-
-  // 获取头像图片
 
   // 格式化消息时间
   String _formatTime(DateTime? time) {

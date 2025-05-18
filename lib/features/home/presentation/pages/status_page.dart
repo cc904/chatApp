@@ -94,7 +94,7 @@ class StatusPage extends StatelessWidget {
                   leading: CircleAvatar(
                     backgroundImage: NetworkImage(contact.avatar ?? ''),
                   ),
-                  title: Text(contact.name ?? '未知用户'),
+                  title: Text(contact.name),
                   subtitle: const Text('今天 12:30'),
                   onTap: () {
                     // 查看状态

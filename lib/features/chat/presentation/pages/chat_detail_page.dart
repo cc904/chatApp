@@ -15,13 +15,16 @@ import 'package:cc/features/chat/presentation/pages/chat_info_page.dart'; // 导
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 import 'package:cc/core/constants/message_types.dart';
+import 'package:cc/core/database/models/user.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
+  final User contact;
 
   const ChatDetailPage({
     super.key,
     required this.conversationId,
+    required this.contact,
   });
 
   @override
@@ -608,6 +611,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   // 构建消息项
   Widget _buildMessageItem(Message message, bool isFromMe) {
+    _logger.i('-----> 构建消息项', extra: {'message': message, 'isFromMe': isFromMe});
     // 检查是否需要显示时间气泡
     final bool showTimeBubble = _shouldShowTimeBubble(message);
     // 检查是否是目标消息

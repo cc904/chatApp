@@ -294,8 +294,6 @@ class ChatCubit extends Cubit<ChatState> {
     // 主要在ChatDetailPage和ConversationListPage中使用
     // 用于显示同步进度指示器和错误提示
     emit(state.copyWith(syncStatus: status));
-    // 用于在UI上显示同步进度指示器和错误提示
-    emit(state.copyWith(syncStatus: status));
   }
 
   /// 发送正在输入状态
@@ -410,22 +408,45 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       _isLoadingMessages[conversationId] = true;
 
-      final messages = await _repository.getConversationMessages(
+      // 1. 先从本地数据库加载消息
+      final localMessages = await _repository.getConversationMessages(
         conversationId,
         limit: limit,
         before: before,
       );
 
-      // 更新状态 - 处理新加载的消息
-      if (before != null) {
-        // 加载更多历史消息,合并到现有消息列表
-        emit(state.copyWithAdditionalMessagesForConversation(conversationId, messages));
-      } else {
-        // 初始加载消息,替换现有消息列表
-        emit(state.copyWithMessagesForConversation(conversationId, messages));
+      // 2. 向服务器请求消息
+      try {
+        final serverMessages = await _repository.fetchMessagesFromServer(
+          conversationId,
+          limit: limit,
+          before: before,
+        );
+
+        // 3. 合并本地和服务器消息
+        final allMessages = [...localMessages, ...serverMessages];
+        // 去重并按时间排序
+        final uniqueMessages = allMessages.toSet().toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        // 4. 更新状态
+        if (before != null) {
+          // 加载更多历史消息,合并到现有消息列表
+          emit(state.copyWithAdditionalMessagesForConversation(conversationId, uniqueMessages));
+        } else {
+          // 初始加载消息,替换现有消息列表
+          emit(state.copyWithMessagesForConversation(conversationId, uniqueMessages));
+        }
+      } catch (serverError) {
+        _logger.e('从服务器获取消息失败', error: serverError, stackTrace: StackTrace.current);
+        // 如果服务器请求失败，至少显示本地消息
+        if (before != null) {
+          emit(state.copyWithAdditionalMessagesForConversation(conversationId, localMessages));
+        } else {
+          emit(state.copyWithMessagesForConversation(conversationId, localMessages));
+        }
       }
 
-      // 如果是当前会话,标记为已读
+      // 5. 如果是当前会话,标记为已读
       if (state.currentConversationId == conversationId) {
         markConversationAsRead(conversationId);
       }
