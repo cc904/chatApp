@@ -25,6 +25,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
 
+    _logger.d('HomePage initState');
+
     // 添加监听器以响应标签切换
     _tabController.addListener(() {
       setState(() {});

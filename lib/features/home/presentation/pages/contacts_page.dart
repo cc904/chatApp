@@ -13,10 +13,13 @@ class ContactsPage extends StatefulWidget {
   State<ContactsPage> createState() => _ContactsPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> {
+class _ContactsPageState extends State<ContactsPage> with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
   bool _isSearching = false;
+
+  @override
+  bool get wantKeepAlive => false; // 不保持页面状态
 
   @override
   void initState() {
@@ -33,6 +36,17 @@ class _ContactsPageState extends State<ContactsPage> {
     super.dispose();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 页面重新获得焦点时重置状态
+    if (!_isSearching) {
+      final contactsCubit = context.read<ContactsCubit>();
+      ContactsStateAdapter.clearSearch();
+      contactsCubit.loadContacts();
+    }
+  }
+
   void _syncContacts() {
     _logger.d('-------> _syncContacts');
     final contactsCubit = context.read<ContactsCubit>();
@@ -47,6 +61,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     _logger.d('ContactsPage build');
     return Scaffold(
       appBar: AppBar(
@@ -61,8 +76,19 @@ class _ContactsPageState extends State<ContactsPage> {
                 style: const TextStyle(color: Colors.white),
                 autofocus: true,
                 onChanged: (value) {
-                  // 搜索联系人
-                  _performSearch(value);
+                  setState(() {
+                    _isSearching = value.isNotEmpty;
+                  });
+                  // 搜索内容变化时实时搜索
+                  if (value.isEmpty) {
+                    // 清空搜索时重置状态
+                    final contactsCubit = context.read<ContactsCubit>();
+                    ContactsStateAdapter.clearSearch();
+                    contactsCubit.loadContacts();
+                  } else {
+                    // 执行搜索
+                    _performSearch(value);
+                  }
                 },
               )
             : const Text('通讯录', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -79,7 +105,9 @@ class _ContactsPageState extends State<ContactsPage> {
                 if (!_isSearching) {
                   _searchController.clear();
                   // 清除搜索,显示全部联系人
-                  context.read<ContactsCubit>().loadContacts();
+                  final contactsCubit = context.read<ContactsCubit>();
+                  ContactsStateAdapter.clearSearch();
+                  contactsCubit.loadContacts();
                 }
               });
             },
