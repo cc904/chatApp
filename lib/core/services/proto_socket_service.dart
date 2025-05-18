@@ -363,6 +363,10 @@ class ProtoSocketService {
   /// 监听原始事件
   void on(String eventName, Function(dynamic) handler) {
     _logger.i('👂 注册原始事件监听: $eventName');
+
+    // 先移除已存在的监听器
+    _socket?.off(eventName);
+
     _socket?.on(eventName, (data) {
       try {
         _logger.i('📩 接收到原始事件: $eventName,dataType: ${data.runtimeType}');
@@ -374,9 +378,13 @@ class ProtoSocketService {
   }
 
   /// 移除原始事件监听
-  void off(String eventName, Function(dynamic) handler) {
+  void off(String eventName, [Function(dynamic)? handler]) {
     _logger.i('🔕 移除原始事件监听: $eventName');
-    _socket?.off(eventName, handler);
+    if (handler != null) {
+      _socket?.off(eventName, handler);
+    } else {
+      _socket?.off(eventName);
+    }
   }
 
   /// 发送原始事件

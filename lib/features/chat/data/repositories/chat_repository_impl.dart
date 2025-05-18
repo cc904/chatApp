@@ -262,8 +262,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 设置等待响应的Completer
       final completer = Completer<List<proto.ConversationProto>>();
 
-      // 注册一次性事件监听来等待响应
-      _communicationService.onRawEvent('conversation:sync:result', (data) {
+      // 定义事件处理函数
+      void handleSyncResult(dynamic data) {
         _logger.i('收到会话同步响应', extra: {'dataType': data.runtimeType});
 
         try {
@@ -295,13 +295,19 @@ class ChatRepositoryImpl implements ChatRepository {
             completer.complete([]);
           }
         }
-      });
+      }
+
+      // 注册事件监听
+      _communicationService.onRawEvent('conversation:sync:result', handleSyncResult);
 
       // 发送同步请求
       await _communicationService.emitProto('conversation:sync', request);
 
       // 等待响应
       final conversations = await completer.future;
+
+      // 取消事件监听
+      _communicationService.offRawEvent('conversation:sync:result');
 
       // 处理响应
       if (conversations.isNotEmpty) {
