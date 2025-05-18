@@ -303,7 +303,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         children: [
           // 清空聊天记录
           ListTile(
-            title: Center(
+            title: const Center(
               child: Text(
                 '清空聊天记录',
                 style: TextStyle(
@@ -323,7 +323,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
             title: Center(
               child: Text(
                 isGroup ? '删除并退出' : '删除聊天',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   color: Colors.red,
                 ),

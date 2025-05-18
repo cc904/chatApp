@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'dart:math' as math;
+import 'package:cc/core/database/models/user.dart';
 
 class StatusPage extends StatelessWidget {
-  const StatusPage({super.key});
+  final List<User> contacts;
+
+  const StatusPage({
+    super.key,
+    required this.contacts,
+  });
 
   static final _logger = LogService.instance;
 
@@ -40,24 +46,22 @@ class StatusPage extends StatelessWidget {
               leading: Stack(
                 children: [
                   CircleAvatar(
-                    backgroundColor: getRandomColor(0),
                     radius: 30,
-                    child: const Text('我', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20)),
+                    backgroundImage: NetworkImage(contacts.firstOrNull?.avatar ?? ''),
                   ),
                   Positioned(
                     bottom: 0,
                     right: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: Colors.green,
+                        color: Theme.of(context).primaryColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: const Icon(
                         Icons.add,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),
@@ -86,19 +90,17 @@ class StatusPage extends StatelessWidget {
             ),
 
             // 最近更新列表
-            ListView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return _buildStatusItem(
-                  name: '好友 ${index + 1}',
-                  time: '${index + 1}小时前',
-                  avatarSeed: index + 10,
-                  hasUnviewedStatus: index < 2,
-                );
-              },
-            ),
+            ...contacts.map((contact) => ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: NetworkImage(contact.avatar ?? ''),
+                  ),
+                  title: Text(contact.name ?? '未知用户'),
+                  subtitle: const Text('今天 12:30'),
+                  onTap: () {
+                    // 查看状态
+                    _logger.d('查看状态', extra: {'name': contact.name});
+                  },
+                )),
 
             const SizedBox(height: 16),
 

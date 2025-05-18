@@ -446,19 +446,19 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Socket.IO配置检查',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         if (currentSettings['connected'] == true)
-          Text(
+          const Text(
             '当前状态: 已连接',
             style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
           )
         else
           Text(
             '当前状态: ${currentSettings['status']}',
-            style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
           ),
         Text(
           '服务器地址: ${currentSettings['serverUrl']}',
@@ -542,16 +542,16 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 8),
-        Text(
+        const Text(
           '故障排除提示:',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        Text('• 如果连接失败，尝试同时启用websocket和polling传输方式', style: TextStyle(fontSize: 13)),
-        Text('• 移动网络环境下可能需要更长的超时时间', style: TextStyle(fontSize: 13)),
-        Text('• 确保路径前缀与服务器配置一致', style: TextStyle(fontSize: 13)),
-        Text('• 检查服务器是否支持跨域请求(CORS)', style: TextStyle(fontSize: 13)),
-        Text('• 确认服务器Socket.IO版本与客户端兼容', style: TextStyle(fontSize: 13)),
+        const Text('• 如果连接失败，尝试同时启用websocket和polling传输方式', style: TextStyle(fontSize: 13)),
+        const Text('• 移动网络环境下可能需要更长的超时时间', style: TextStyle(fontSize: 13)),
+        const Text('• 确保路径前缀与服务器配置一致', style: TextStyle(fontSize: 13)),
+        const Text('• 检查服务器是否支持跨域请求(CORS)', style: TextStyle(fontSize: 13)),
+        const Text('• 确认服务器Socket.IO版本与客户端兼容', style: TextStyle(fontSize: 13)),
       ],
     );
   }

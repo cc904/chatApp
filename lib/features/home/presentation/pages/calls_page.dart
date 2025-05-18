@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'dart:math' as math;
+import 'package:cc/core/database/models/user.dart';
 
 class CallsPage extends StatelessWidget {
-  const CallsPage({super.key});
+  final List<User> contacts;
+
+  const CallsPage({
+    super.key,
+    required this.contacts,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -140,101 +145,35 @@ class CallsPage extends StatelessWidget {
           // 通话历史记录列表
           Expanded(
             child: ListView.separated(
-              itemCount: 10,
+              itemCount: contacts.length,
               separatorBuilder: (context, index) => const Divider(
                 height: 1,
                 indent: 72,
               ),
               itemBuilder: (context, index) {
-                // 随机生成通话类型和方向
-                final bool isVideo = math.Random().nextBool();
-                final bool isOutgoing = math.Random().nextBool();
-                final bool isMissed = !isOutgoing && math.Random().nextBool();
+                final contact = contacts[index];
+                final isVideo = index % 2 == 0;
+                final isOutgoing = index % 3 == 0;
 
-                return _buildCallItem(
-                  context,
-                  name: '联系人 ${index + 1}',
-                  time: '${isOutgoing ? '拨出' : '拨入'} · 今天 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
-                  avatarUrl: 'https://picsum.photos/200?random=${index + 30}',
-                  isVideo: isVideo,
-                  isOutgoing: isOutgoing,
-                  isMissed: isMissed,
-                  callCount: math.Random().nextInt(3) + 1,
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
+                    child: contact.avatar == null ? Text(contact.name[0]) : null,
+                  ),
+                  title: Text(contact.name),
+                  subtitle: Text(
+                    '${isOutgoing ? '拨出' : '拨入'} · 今天 ${(index % 12) + 1}:${index % 60 < 10 ? '0' : ''}${index % 60}',
+                  ),
+                  trailing: Icon(
+                    isVideo ? Icons.videocam : Icons.call,
+                    color: isOutgoing ? Colors.green : Colors.red,
+                  ),
                 );
               },
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCallItem(
-    BuildContext context, {
-    required String name,
-    required String time,
-    required String avatarUrl,
-    required bool isVideo,
-    required bool isOutgoing,
-    required bool isMissed,
-    required int callCount,
-  }) {
-    final logger = LogService.instance;
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: NetworkImage(avatarUrl),
-        radius: 24,
-      ),
-      title: Text(
-        name,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-      ),
-      subtitle: Row(
-        children: [
-          Icon(
-            isOutgoing ? Icons.call_made : Icons.call_received,
-            size: 16,
-            color: isMissed ? Colors.red : Colors.green,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              time,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-          ),
-          if (callCount > 1)
-            Text(
-              '($callCount)',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: Icon(
-          isVideo ? Icons.videocam : Icons.call,
-          color: Colors.green,
-        ),
-        onPressed: () {
-          // 发起通话
-          logger.d('发起通话', extra: {'类型': isVideo ? '视频' : '语音', '联系人': name});
-        },
-      ),
-      onTap: () {
-        // 查看通话详情
-        logger.d('查看通话详情', extra: {'联系人': name});
-      },
     );
   }
 }

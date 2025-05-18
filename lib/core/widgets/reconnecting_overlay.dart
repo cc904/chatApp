@@ -26,9 +26,9 @@ class ReconnectingOverlay extends StatelessWidget {
             child: SafeArea(
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: Row(
+                child: const Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
@@ -36,8 +36,8 @@ class ReconnectingOverlay extends StatelessWidget {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
+                    SizedBox(width: 12),
+                    Text(
                       '正在重新连接...',
                       style: TextStyle(
                         color: Colors.white,

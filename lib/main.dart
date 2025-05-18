@@ -13,6 +13,9 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/user_status_service.dart';
+import 'package:cc/core/services/contact_service.dart';
+import 'package:cc/core/services/socket_service.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
@@ -181,7 +184,13 @@ class MyApp extends StatelessWidget {
               serverUrl: appConfig.serverUrl, // 使用全局配置的服务器URL
             ),
           ),
-          BlocProvider<HomeCubit>(create: (context) => HomeCubit()),
+          BlocProvider<HomeCubit>(
+            create: (context) => HomeCubit(
+              contactService: ContactService(DatabaseInitializer.isar),
+              socketService: SocketService(),
+              notificationService: UINotificationService.instance,
+            ),
+          ),
         ],
         child: MaterialApp(
           title: 'WhatsApp',

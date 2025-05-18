@@ -171,7 +171,7 @@ class ChatCubit extends Cubit<ChatState> {
   /// 获取当前正在输入的用户ID列表
   List<String> _getTypingUserIds(String conversationId) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final typingTimeout = 10000; // 10秒超时
+    const typingTimeout = 10000; // 10秒超时
 
     return _typingUsers[conversationId]
             ?.entries
@@ -184,7 +184,7 @@ class ChatCubit extends Cubit<ChatState> {
   /// 清理过期的打字状态
   void _cleanupTypingStatus() {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final typingTimeout = 10000; // 10秒超时
+    const typingTimeout = 10000; // 10秒超时
     bool needsUpdate = false;
 
     // 检查所有会话
@@ -379,7 +379,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 优先使用ContactsRepository加载联系人
       if (_contactsRepository != null) {
         try {
-          contacts = await _contactsRepository.getAllContacts();
+          contacts = await _contactsRepository?.getAllContacts() ?? [];
         } catch (error) {
           _logger.e('使用ContactsRepository加载联系人失败', error: error, stackTrace: StackTrace.current);
         }
@@ -483,7 +483,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 优先使用ContactsRepository搜索联系人
       if (_contactsRepository != null) {
         try {
-          results = await _contactsRepository.searchContacts(keyword);
+          results = await _contactsRepository?.searchContacts(keyword) ?? [];
         } catch (error) {
           _logger.e('使用ContactsRepository搜索联系人失败', error: error, stackTrace: StackTrace.current);
         }
@@ -793,7 +793,7 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       // 优先使用ContactsRepository添加联系人
       if (_contactsRepository != null) {
-        await _contactsRepository.addContact(user);
+        await _contactsRepository?.addContact(user);
       } else {
         _logger.e('无法添加联系人：ContactsRepository未注入');
         throw '无法添加联系人：系统未初始化';

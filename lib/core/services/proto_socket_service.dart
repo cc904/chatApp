@@ -149,7 +149,7 @@ class ProtoSocketService {
       });
 
       // 打印连接状态
-      Timer(Duration(milliseconds: 500), () {
+      Timer(const Duration(milliseconds: 500), () {
         _logger.i('📊 连接状态检查: connected=${_socket?.connected}, id=${_socket?.id}');
       });
 

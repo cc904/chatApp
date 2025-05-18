@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
+import 'package:cc/core/database/models/user.dart';
 
 class ChatsPage extends StatefulWidget {
-  const ChatsPage({super.key});
+  final List<User> contacts;
+
+  const ChatsPage({
+    super.key,
+    required this.contacts,
+  });
 
   @override
   State<ChatsPage> createState() => _ChatsPageState();
@@ -25,21 +29,12 @@ class _ChatsPageState extends State<ChatsPage> {
   @override
   void initState() {
     super.initState();
-    // 使用WidgetsBinding.instance.addPostFrameCallback确保ChatCubit准备好后再加载会话
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadConversations();
-    });
+    _loadConversations();
   }
 
-  void _loadConversations() async {
-    try {
-      // 提前获取ChatCubit实例,避免异步操作后使用BuildContext
-      final chatCubit = context.read<ChatCubit>();
-      await chatCubit.loadConversations();
-    } catch (error) {
-      _logger.e('无法加载会话列表', error: error, stackTrace: StackTrace.current);
-      // 这里不使用context避免异步操作后使用BuildContext
-    }
+  Future<void> _loadConversations() async {
+    if (!mounted) return;
+    await context.read<ChatCubit>().loadConversations();
   }
 
   @override
@@ -254,27 +249,53 @@ class _ChatsPageState extends State<ChatsPage> {
           return Center(child: Text('错误: ${state.error}'));
         }
 
-        // 获取要显示的会话列表 - 搜索结果或所有会话
-        final List<Conversation> conversations = _isSearching && state.searchQuery != null ? (state.searchResults.whereType<Conversation>().toList()) : state.conversations;
-
-        // 如果会话列表为空,显示空状态视图
-        if (conversations.isEmpty) {
-          return _buildEmptyState();
+        if (state.conversations.isEmpty) {
+          return const Center(child: Text('没有会话'));
         }
 
-        // 显示会话列表
-        return ListView.separated(
-          itemCount: conversations.length,
-          separatorBuilder: (context, index) => const Divider(
-            height: 1,
-            indent: 72,
-          ),
+        return ListView.builder(
+          itemCount: state.conversations.length,
           itemBuilder: (context, index) {
-            final conversation = conversations[index];
+            final conversation = state.conversations[index];
+            final contact = widget.contacts.firstWhere(
+              (c) => c.userId == conversation.contactUserId,
+              orElse: () => User()..name = '未知用户',
+            );
 
-            return _buildSwipeableItem(
-              conversation: conversation,
-              isOpen: _openedItemId == conversation.conversationId,
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
+                child: contact.avatar == null ? Text(contact.name[0]) : null,
+              ),
+              title: Text(contact.name),
+              subtitle: Text(conversation.lastMessagePreview ?? ''),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _formatTime(conversation.lastMessageTime),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  if (conversation.unreadCount > 0)
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        conversation.unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onTap: () {
+                // TODO: 导航到聊天详情页面
+              },
             );
           },
         );
@@ -282,313 +303,23 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  // 构建空状态视图
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '暂无聊天消息',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '点击右上角按钮开始新的聊天',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 构建可滑动的聊天项
-  Widget _buildSwipeableItem({
-    required Conversation conversation,
-    required bool isOpen,
-  }) {
-    // 获取会话信息
-    final String name = conversation.name ?? '未命名会话';
-    final String message = conversation.lastMessagePreview ?? '暂无消息';
-    final String time = _formatMessageTime(conversation.lastMessageTime);
-    final int unreadCount = conversation.unreadCount;
-    final String avatarUrl = conversation.avatar ?? 'https://picsum.photos/200?random=${conversation.id}';
-    final String conversationId = conversation.conversationId;
-
-    // 菜单宽度
-    const double menuWidth = 180; // 三个按钮的总宽度
-
-    return Stack(
-      children: [
-        // 1. 操作菜单背景
-        Positioned(
-          top: 0,
-          bottom: 0,
-          right: 0,
-          child: Container(
-            width: menuWidth,
-            color: Colors.grey[100],
-            child: Row(
-              children: [
-                // 已读/未读按钮
-                GestureDetector(
-                  onTap: () {
-                    _logger.d(unreadCount > 0 ? '将$name标为已读' : '将$name标为未读');
-                    if (unreadCount > 0) {
-                      context.read<ChatCubit>().markConversationAsRead(conversationId);
-                    }
-                    setState(() {
-                      _openedItemId = null; // 操作后关闭菜单
-                    });
-                  },
-                  child: Container(
-                    width: 60,
-                    color: Colors.blue,
-                    alignment: Alignment.center,
-                    child: Text(
-                      unreadCount > 0 ? '已读' : '未读',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-                // 不显示按钮
-                GestureDetector(
-                  onTap: () {
-                    _logger.d('不显示聊天: $name');
-                    setState(() {
-                      _openedItemId = null; // 操作后关闭菜单
-                    });
-                  },
-                  child: Container(
-                    width: 60,
-                    color: Colors.orange,
-                    alignment: Alignment.center,
-                    child: const Text(
-                      '不显示',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-                // 删除按钮
-                GestureDetector(
-                  onTap: () {
-                    _logger.d('删除聊天: $name');
-                    context.read<ChatCubit>().deleteConversation(conversationId);
-                    setState(() {
-                      _openedItemId = null; // 操作后关闭菜单
-                    });
-                  },
-                  child: Container(
-                    width: 60,
-                    color: Colors.red,
-                    alignment: Alignment.center,
-                    child: const Text(
-                      '删除',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // 2. 可滑动的前景内容
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 250), // 添加动画效果
-          curve: Curves.easeOut,
-          transform: Matrix4.translationValues(
-            isOpen ? -menuWidth : 0, // 如果打开则向左移动菜单宽度
-            0,
-            0,
-          ),
-          child: GestureDetector(
-            onHorizontalDragStart: (details) {
-              // 开始拖动时,如果有其他项目已打开,先关闭它
-              if (_openedItemId != null && _openedItemId != conversationId) {
-                setState(() {
-                  _openedItemId = null;
-                });
-              }
-            },
-            onHorizontalDragUpdate: (details) {
-              // 跟踪水平拖动,仅允许向左拖动（负增量）
-              if (details.delta.dx < 0) {
-                setState(() {
-                  _openedItemId = conversationId; // 向左拖动时打开当前项
-                });
-              } else if (details.delta.dx > 0 && _openedItemId == conversationId) {
-                // 向右拖动时关闭当前项
-                setState(() {
-                  _openedItemId = null;
-                });
-              }
-            },
-            onHorizontalDragEnd: (details) {
-              // 拖动结束时,根据速度决定是否打开或关闭
-              if (details.primaryVelocity != null) {
-                if (details.primaryVelocity! < -500) {
-                  // 快速向左滑动,打开菜单
-                  setState(() {
-                    _openedItemId = conversationId;
-                  });
-                } else if (details.primaryVelocity! > 500) {
-                  // 快速向右滑动,关闭菜单
-                  setState(() {
-                    _openedItemId = null;
-                  });
-                }
-              }
-            },
-            child: Container(
-              color: Colors.white,
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: _getAvatarImage(avatarUrl),
-                  backgroundColor: Colors.green[100],
-                  radius: 24,
-                  child: avatarUrl.isEmpty || avatarUrl.startsWith('https://picsum.photos')
-                      ? Text(
-                          conversation.avatarText,
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
-                ),
-                title: Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                subtitle: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        message,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      time,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: unreadCount > 0 ? Colors.green : Colors.grey,
-                      ),
-                    ),
-                    if (unreadCount > 0)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      )
-                    else
-                      const SizedBox(height: 16),
-                  ],
-                ),
-                onTap: () {
-                  // 如果菜单是打开的,则先关闭菜单
-                  if (_openedItemId == conversationId) {
-                    setState(() {
-                      _openedItemId = null;
-                    });
-                  } else {
-                    // 打开聊天详情页
-                    _logger.d('打开聊天: $name (ID: $conversationId)');
-
-                    // 获取ChatCubit并设置当前会话
-                    final chatCubit = context.read<ChatCubit>();
-                    chatCubit.setCurrentConversation(conversationId);
-
-                    // 导航到聊天详情页，使用BlocProvider.value保持ChatCubit可用
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => BlocProvider.value(
-                          value: chatCubit,
-                          child: ChatDetailPage(conversationId: conversationId),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // 获取头像图片
-  ImageProvider _getAvatarImage(String? avatarUrl) {
-    if (avatarUrl == null || avatarUrl.isEmpty) {
-      return const AssetImage('assets/images/default_avatar.png');
-    }
-
-    return NetworkImage(avatarUrl);
-  }
 
   // 格式化消息时间
-  String _formatMessageTime(DateTime? dateTime) {
-    if (dateTime == null) {
-      return '';
-    }
+  String _formatTime(DateTime? time) {
+    if (time == null) return '';
 
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = now.difference(time);
 
-    if (messageDate == today) {
-      // 今天的消息显示时间
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else if (messageDate == yesterday) {
-      // 昨天的消息
+    if (difference.inDays == 0) {
+      return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
       return '昨天';
-    } else if (now.difference(dateTime).inDays < 7) {
-      // 本周内的消息显示星期
-      const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-      return weekdays[dateTime.weekday - 1];
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}天前';
     } else {
-      // 超过一周的消息显示日期
-      return '${dateTime.month}-${dateTime.day}';
+      return '${time.month}/${time.day}';
     }
   }
 

@@ -156,14 +156,14 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               title: TextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: '搜索',
                   hintStyle: TextStyle(color: Colors.grey),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.black87,
                 ),
@@ -177,7 +177,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                 onSubmitted: _performSearch,
               ),
               leading: IconButton(
-                icon: Icon(Icons.arrow_back, color: Colors.black87),
+                icon: const Icon(Icons.arrow_back, color: Colors.black87),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               actions: [
@@ -509,7 +509,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               children: [
                 Text(
                   senderName,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -656,7 +656,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     if (searchQuery.isEmpty || content.isEmpty) {
       return Text(
         content,
-        style: TextStyle(fontSize: 14),
+        style: const TextStyle(fontSize: 14),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       );
@@ -674,7 +674,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         if (start < content.length) {
           spans.add(TextSpan(
             text: content.substring(start),
-            style: TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 14),
           ));
         }
         break;
@@ -684,7 +684,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       if (index > start) {
         spans.add(TextSpan(
           text: content.substring(start, index),
-          style: TextStyle(fontSize: 14),
+          style: const TextStyle(fontSize: 14),
         ));
       }
 
@@ -714,7 +714,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(Duration(days: 1));
+    final yesterday = today.subtract(const Duration(days: 1));
     final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
 
     // 格式化时间部分

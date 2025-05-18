@@ -6,7 +6,7 @@ class UINotificationHelper {
   /// 在异步操作中安全地显示消息
   /// 不需要检查context.mounted或在异步操作后使用context
   static void showMessage(String message, {Duration? duration}) {
-    UINotificationService.instance.showNotification(message, duration: duration ?? const Duration(seconds: 2));
+    UINotificationService.instance.showNotification('提示', message, duration: duration ?? const Duration(seconds: 2));
   }
 
   /// 在异步操作中安全地显示错误消息

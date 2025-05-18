@@ -46,7 +46,7 @@ class SocketTest {
       _logger.i('创建Socket.IO连接', extra: {'url': serverUrl});
       
       // 设置超时
-      final timeout = Timer(Duration(seconds: 15), () {
+      final timeout = Timer(const Duration(seconds: 15), () {
         if (!completer.isCompleted) {
           _logger.e('Socket.IO连接超时');
           completer.complete({
@@ -73,7 +73,7 @@ class SocketTest {
         results['id'] = socket.id;
         
         // 1秒后断开连接
-        Timer(Duration(seconds: 1), () {
+        Timer(const Duration(seconds: 1), () {
           socket.disconnect();
           if (!completer.isCompleted) {
             timeout.cancel();

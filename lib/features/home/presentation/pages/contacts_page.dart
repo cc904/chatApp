@@ -7,7 +7,12 @@ import 'package:cc/features/contacts/presentation/cubit/contacts_state.dart' as 
 import 'package:cc/features/contacts/presentation/cubit/contacts_state_adapter.dart';
 
 class ContactsPage extends StatefulWidget {
-  const ContactsPage({super.key});
+  final List<User> contacts;
+
+  const ContactsPage({
+    super.key,
+    required this.contacts,
+  });
 
   @override
   State<ContactsPage> createState() => _ContactsPageState();

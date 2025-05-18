@@ -734,11 +734,11 @@ class UserDetailPage extends StatelessWidget {
               // 显示结果提示
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Row(
+                  content: const Row(
                     children: [
-                      const Icon(Icons.check_circle, color: Colors.white),
-                      const SizedBox(width: 12),
-                      const Expanded(
+                      Icon(Icons.check_circle, color: Colors.white),
+                      SizedBox(width: 12),
+                      Expanded(
                         child: Text('请求已发送,等待对方确认'),
                       ),
                     ],
@@ -1048,11 +1048,11 @@ class GroupDetailPage extends StatelessWidget {
               // 显示结果提示
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Row(
+                  content: const Row(
                     children: [
-                      const Icon(Icons.check_circle, color: Colors.white),
-                      const SizedBox(width: 12),
-                      const Expanded(
+                      Icon(Icons.check_circle, color: Colors.white),
+                      SizedBox(width: 12),
+                      Expanded(
                         child: Text('请求已发送,等待管理员确认'),
                       ),
                     ],

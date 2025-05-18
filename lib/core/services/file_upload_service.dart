@@ -272,7 +272,7 @@ class FileUploadService {
 
       // 绘制播放三角形
       final Path trianglePath = Path();
-      final double triangleOffset = width * 0.03;
+      const double triangleOffset = width * 0.03;
       trianglePath.moveTo(width / 2 - iconSize / 4 + triangleOffset, height / 2 - iconSize / 4);
       trianglePath.lineTo(width / 2 + iconSize / 4 + triangleOffset, height / 2);
       trianglePath.lineTo(width / 2 - iconSize / 4 + triangleOffset, height / 2 + iconSize / 4);
@@ -387,7 +387,7 @@ class FileUploadService {
       const double height = 200.0;
 
       // 使用渐变背景
-      final Rect rect = Rect.fromLTWH(0, 0, width, height);
+      const Rect rect = Rect.fromLTWH(0, 0, width, height);
       final LinearGradient gradient = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -409,7 +409,7 @@ class FileUploadService {
           ..style = PaintingStyle.fill;
 
         final double size = 80 + i * 40.0;
-        canvas.drawCircle(Offset(width * 0.2, height * 0.8), size, decorPaint);
+        canvas.drawCircle(const Offset(width * 0.2, height * 0.8), size, decorPaint);
       }
 
       // 添加视频图标
@@ -417,7 +417,7 @@ class FileUploadService {
         ..color = Colors.white.withAlpha(230) // 0.9 * 255 = 229.5 ≈ 230
         ..style = PaintingStyle.fill;
 
-      canvas.drawCircle(Offset(width / 2, height / 2), 40, iconCirclePaint);
+      canvas.drawCircle(const Offset(width / 2, height / 2), 40, iconCirclePaint);
 
       final Paint iconTrianglePaint = Paint()
         ..color = Colors.deepPurple.shade700

@@ -20,7 +20,7 @@ class NetworkDiagnostics {
       _logger.i('尝试TCP连接', extra: {'host': host, 'port': port});
 
       // 尝试TCP连接
-      final socket = await Socket.connect(host, port, timeout: Duration(seconds: 5));
+      final socket = await Socket.connect(host, port, timeout: const Duration(seconds: 5));
       socket.destroy();
 
       _logger.i('TCP连接成功', extra: {'host': host, 'port': port});
@@ -45,7 +45,7 @@ class NetworkDiagnostics {
       _logger.i('发送Socket.IO握手请求', extra: {'url': handshakeUrl});
 
       // 发送HTTP请求测试握手
-      final response = await http.get(Uri.parse(handshakeUrl)).timeout(Duration(seconds: 10));
+      final response = await http.get(Uri.parse(handshakeUrl)).timeout(const Duration(seconds: 10));
 
       _logger.i('收到Socket.IO握手响应', extra: {
         'statusCode': response.statusCode,
@@ -117,7 +117,7 @@ class NetworkDiagnostics {
     // 3. 测试HTTP请求
     try {
       final uri = Uri.parse(serverUrl);
-      final response = await http.get(uri).timeout(Duration(seconds: 5));
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       results['http'] = {
         'success': response.statusCode < 400,
