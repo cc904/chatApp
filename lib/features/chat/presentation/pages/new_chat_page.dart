@@ -2,19 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
-import 'package:cc/features/chat/presentation/pages/new_chat_page.dart';
 
-class ContactsPage extends StatefulWidget {
-  const ContactsPage({super.key});
+class NewChatPage extends StatefulWidget {
+  const NewChatPage({super.key});
 
   @override
-  State<ContactsPage> createState() => _ContactsPageState();
+  State<NewChatPage> createState() => _NewChatPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> {
+class _NewChatPageState extends State<NewChatPage> {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
-  bool _isSearching = false;
   bool _isLoading = false;
   String? _error;
   List<User> _contacts = [];
@@ -75,32 +73,17 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    _logger.d('ContactsPage build');
+    _logger.d('NewChatPage build');
     return Scaffold(
       appBar: AppBar(
-        title: const Text('联系人', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('新建聊天', style: TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.filter_list),
-          onPressed: _showFilterDialog,
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () {
-              _logger.d('打开添加联系人页面');
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const NewChatPage(),
-                ),
-              );
-            },
-          ),
-        ],
-        centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Container(
@@ -110,7 +93,7 @@ class _ContactsPageState extends State<ContactsPage> {
               controller: _searchController,
               textAlign: TextAlign.center,
               decoration: InputDecoration(
-                hintText: '搜索',
+                hintText: '搜索联系人',
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: null,
                 border: InputBorder.none,
@@ -126,64 +109,20 @@ class _ContactsPageState extends State<ContactsPage> {
                   borderSide: BorderSide.none,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                suffixIcon: _isSearching
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () {
-                              setState(() {
-                                _searchController.clear();
-                                _isSearching = false;
-                              });
-                              _loadData();
-                            },
-                          ),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            color: Colors.grey[300],
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: InkWell(
-                              onTap: () {
-                                final query = _searchController.text;
-                                if (query.isNotEmpty) {
-                                  _searchContacts(query);
-                                }
-                                FocusScope.of(context).unfocus();
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Text(
-                                  '搜索',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                          });
+                          _loadData();
+                        },
                       )
                     : null,
               ),
               style: const TextStyle(fontSize: 14),
               onChanged: (value) {
-                setState(() {
-                  _isSearching = value.isNotEmpty;
-                });
                 if (value.isNotEmpty) {
                   _searchContacts(value);
                 }
@@ -265,7 +204,7 @@ class _ContactsPageState extends State<ContactsPage> {
                       MaterialPageRoute(
                         builder: (context) => ChatDetailPage(
                           contact: contact,
-                          conversationId: '', // TODO: 从数据库获取或创建会话ID
+                          conversationId: '', // TODO: 创建新会话
                         ),
                       ),
                     );
@@ -274,53 +213,6 @@ class _ContactsPageState extends State<ContactsPage> {
           ],
         );
       },
-    );
-  }
-
-  void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '筛选联系人',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.star, color: Colors.green),
-              title: const Text('星标联系人'),
-              onTap: () {
-                Navigator.pop(context);
-                _logger.d('筛选星标联系人');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.group, color: Colors.green),
-              title: const Text('群组'),
-              onTap: () {
-                Navigator.pop(context);
-                _logger.d('筛选群组');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.block, color: Colors.green),
-              title: const Text('已屏蔽'),
-              onTap: () {
-                Navigator.pop(context);
-                _logger.d('筛选已屏蔽联系人');
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

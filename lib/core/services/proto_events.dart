@@ -1,8 +1,8 @@
 import 'package:protobuf/protobuf.dart';
-import '../proto/generated/message.pb.dart' as message;
-import '../proto/generated/conversation.pb.dart' as conversation;
 import '../proto/generated/user.pb.dart' as user;
+import '../proto/generated/message.pb.dart' as message;
 import '../proto/generated/contacts.pb.dart' as contacts;
+import '../proto/generated/conversation.pb.dart' as conversation;
 
 /// 事件到Protobuf消息类型的映射
 /// 定义了服务器和客户端之间通信的事件和对应的Protobuf消息类型

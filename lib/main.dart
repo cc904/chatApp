@@ -1,27 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-import 'package:cc/features/home/presentation/pages/home_provider.dart';
+import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:cc/core/services/file_upload_service.dart';
-import 'package:cc/core/services/ui_notification_service.dart';
-import 'package:cc/core/services/user_status_service.dart';
-import 'package:cc/core/services/contact_service.dart';
-import 'package:cc/core/services/socket_service.dart';
-import 'package:cc/core/database/database_initializer.dart';
 
 // 通信服务实例
 final communicationService = CommunicationService();
-
-// 获取单例实例
-final userStatusService = UserStatusService();
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -50,16 +42,6 @@ void main() async {
 
     // 初始化文件上传服务
     FileUploadService();
-
-    // 监听状态变化
-    userStatusService.statusStream.listen((userStatus) {
-      logger.i('用户状态变化: $userStatus');
-
-      // 可以在这里更新UI，例如联系人列表中的在线状态指示器
-    });
-
-    // // 设置自己的状态为在线
-    // userStatusService.setMyStatus(UserOnlineStatus.online);
 
     // 运行应用
     runApp(const MyApp());
@@ -124,7 +106,6 @@ class DatabaseErrorApp extends StatelessWidget {
 class AppLifecycleObserver extends WidgetsBindingObserver {
   static final AppLifecycleObserver _instance = AppLifecycleObserver._internal();
   static bool _isInitialized = false;
-  final _logger = LogService.instance;
 
   factory AppLifecycleObserver() {
     return _instance;
@@ -136,20 +117,6 @@ class AppLifecycleObserver extends WidgetsBindingObserver {
     if (!_isInitialized) {
       WidgetsBinding.instance.addObserver(_instance);
       _isInitialized = true;
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _logger.i('应用生命周期状态变化: $state');
-
-    if (state == AppLifecycleState.detached) {
-      // 应用退出前清理资源
-      userStatusService.dispose();
-      _logger.i('应用退出，资源已释放');
-    } else if (state == AppLifecycleState.resumed) {
-      // 应用恢复时，可以重新设置在线状态
-      userStatusService.setMyStatus(UserOnlineStatus.online);
     }
   }
 }
@@ -178,17 +145,10 @@ class MyApp extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
-          // 只创建AuthCubit,移除对ChatCubit和ContactsCubit的初始化
+          // 只创建AuthCubit
           BlocProvider<AuthCubit>(
             create: (context) => AuthCubit(
               serverUrl: appConfig.serverUrl, // 使用全局配置的服务器URL
-            ),
-          ),
-          BlocProvider<HomeCubit>(
-            create: (context) => HomeCubit(
-              contactService: ContactService(DatabaseInitializer.isar),
-              socketService: SocketService(),
-              notificationService: UINotificationService.instance,
             ),
           ),
         ],
@@ -201,7 +161,7 @@ class MyApp extends StatelessWidget {
           scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
           initialRoute: '/auth',
           routes: {
-            '/home': (context) => const HomeProvider(),
+            '/home': (context) => const HomePage(),
             '/auth': (context) => const AuthPage(),
           },
         ),

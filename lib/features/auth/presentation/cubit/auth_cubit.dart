@@ -4,7 +4,6 @@ import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/network/auth_api_client.dart';
 import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 
 part 'auth_state.dart';
@@ -394,5 +393,27 @@ class AuthCubit extends Cubit<AuthState> {
     _countdownTimer?.cancel();
     _communicationService.disconnect();
     return super.close();
+  }
+
+  /// 退出登录
+  Future<void> logout() async {
+    _logger.i('退出登录');
+    try {
+      // 断开通信连接
+      await _communicationService.disconnect();
+
+      // 关闭数据库
+      if (DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.close();
+      }
+
+      // 重置状态
+      emit(AuthState.initial());
+
+      _logger.i('退出登录成功');
+    } catch (error) {
+      _logger.e('退出登录失败', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState('退出登录失败: ${error.toString()}'));
+    }
   }
 }

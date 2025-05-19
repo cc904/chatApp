@@ -1,20 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/conversation.dart';
 
 class ChatsPage extends StatefulWidget {
-  final List<User> contacts;
-
-  const ChatsPage({
-    super.key,
-    required this.contacts,
-  });
+  const ChatsPage({super.key});
 
   @override
   State<ChatsPage> createState() => _ChatsPageState();
@@ -24,18 +17,58 @@ class _ChatsPageState extends State<ChatsPage> {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
   bool _isSearching = false;
-  // 跟踪当前打开的滑动项的ID
+  bool _isLoading = false;
+  String? _error;
+  List<Conversation> _conversations = [];
+  List<User> _contacts = [];
   String? _openedItemId;
 
   @override
   void initState() {
     super.initState();
-    _loadConversations();
+    _loadData();
   }
 
-  Future<void> _loadConversations() async {
-    if (!mounted) return;
-    await context.read<ChatCubit>().loadConversations();
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // TODO: 从数据库加载会话和联系人数据
+      await Future.delayed(const Duration(seconds: 1)); // 模拟加载
+      setState(() {
+        _conversations = []; // 替换为实际数据
+        _contacts = []; // 替换为实际数据
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _searchConversations(String query) async {
+    if (query.isEmpty) {
+      await _loadData();
+      return;
+    }
+
+    try {
+      // TODO: 实现搜索逻辑
+      setState(() {
+        _conversations = []; // 替换为搜索结果
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    }
   }
 
   @override
@@ -61,10 +94,7 @@ class _ChatsPageState extends State<ChatsPage> {
         // 左侧筛选按钮
         leading: IconButton(
           icon: const Icon(Icons.filter_list),
-          onPressed: () {
-            // 显示筛选选项
-            _showFilterDialog();
-          },
+          onPressed: _showFilterDialog,
         ),
 
         // 右侧操作按钮区域 - 添加新聊天按钮
@@ -168,6 +198,7 @@ class _ChatsPageState extends State<ChatsPage> {
                                 _searchController.clear();
                                 _isSearching = false;
                               });
+                              _loadData();
                             },
                           ),
                           Container(
@@ -183,7 +214,7 @@ class _ChatsPageState extends State<ChatsPage> {
                                 // 执行搜索
                                 final query = _searchController.text;
                                 if (query.isNotEmpty) {
-                                  context.read<ChatCubit>().searchConversations(query);
+                                  _searchConversations(query);
                                 }
                                 // 隐藏键盘
                                 FocusScope.of(context).unfocus();
@@ -216,7 +247,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 });
                 // 搜索内容变化时实时搜索
                 if (value.isNotEmpty) {
-                  context.read<ChatCubit>().searchConversations(value);
+                  _searchConversations(value);
                 }
               },
             ),
@@ -240,75 +271,67 @@ class _ChatsPageState extends State<ChatsPage> {
 
   // 构建聊天列表,添加空状态处理
   Widget _buildChatList() {
-    return BlocBuilder<ChatCubit, ChatState>(
-      builder: (context, state) {
-        if (state.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (state.error != null) {
-          return Center(child: Text('错误: ${state.error}'));
-        }
+    if (_error != null) {
+      return Center(child: Text('错误: $_error'));
+    }
 
-        if (state.conversations.isEmpty) {
-          return const Center(child: Text('没有会话'));
-        }
+    if (_conversations.isEmpty) {
+      return const Center(child: Text('没有会话'));
+    }
 
-        return ListView.builder(
-          itemCount: state.conversations.length,
-          itemBuilder: (context, index) {
-            final conversation = state.conversations[index];
-            final contact = widget.contacts.firstWhere(
-              (c) => c.userId == conversation.contactUserId,
-              orElse: () => User()..name = '未知用户',
-            );
+    return ListView.builder(
+      itemCount: _conversations.length,
+      itemBuilder: (context, index) {
+        final conversation = _conversations[index];
+        final contact = _contacts.firstWhere(
+          (c) => c.userId == conversation.contactUserId,
+          orElse: () => User()..name = '未知用户',
+        );
 
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
-                child: contact.avatar == null ? Text(contact.name[0]) : null,
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
+            child: contact.avatar == null ? Text(contact.name[0]) : null,
+          ),
+          title: Text(contact.name),
+          subtitle: Text(conversation.lastMessagePreview ?? ''),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _formatTime(conversation.lastMessageTime),
+                style: const TextStyle(fontSize: 12),
               ),
-              title: Text(contact.name),
-              subtitle: Text(conversation.lastMessagePreview ?? ''),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _formatTime(conversation.lastMessageTime),
-                    style: const TextStyle(fontSize: 12),
+              if (conversation.unreadCount > 0)
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
                   ),
-                  if (conversation.unreadCount > 0)
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        conversation.unreadCount.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              onTap: () {
-                final chatCubit = context.read<ChatCubit>();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BlocProvider.value(
-                      value: chatCubit,
-                      child: ChatDetailPage(
-                        conversationId: conversation.conversationId,
-                        contact: contact,
-                      ),
+                  child: Text(
+                    conversation.unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
                     ),
                   ),
-                );
-              },
+                ),
+            ],
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatDetailPage(
+                  conversationId: conversation.conversationId,
+                  contact: contact,
+                ),
+              ),
             );
           },
         );

@@ -7,12 +7,11 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:isar/isar.dart';
-import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
-import 'package:cc/core/proto/generated/message.pb.dart' as msg_proto;
+import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
+import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
 /// 消息异常
@@ -95,15 +94,15 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 注册事件监听
   void _registerEventHandlers() {
     // 监听新消息事件
-    _communicationService.onProto<msg_proto.NewMessageProto>('message:new').listen(_handleNewMessage);
+    _communicationService.onProto<message_proto.NewMessageProto>('message:new').listen(_handleNewMessage);
 
     // 监听消息状态更新
-    _communicationService.onProto<msg_proto.MessageDeliveredProto>('message:delivered').listen(_handleMessageDelivered);
-    _communicationService.onProto<msg_proto.MessageReadProto>('message:read').listen(_handleMessageRead);
+    _communicationService.onProto<message_proto.MessageDeliveredProto>('message:delivered').listen(_handleMessageDelivered);
+    _communicationService.onProto<message_proto.MessageReadProto>('message:read').listen(_handleMessageRead);
   }
 
   /// 处理新消息
-  void _handleNewMessage(msg_proto.NewMessageProto data) {
+  void _handleNewMessage(message_proto.NewMessageProto data) {
     try {
       // 创建消息对象
       final message = Message()
@@ -129,7 +128,7 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理消息已送达事件
-  void _handleMessageDelivered(msg_proto.MessageDeliveredProto data) {
+  void _handleMessageDelivered(message_proto.MessageDeliveredProto data) {
     try {
       _messageStatusController.add({
         'messageId': data.messageId,
@@ -142,7 +141,7 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理消息已读事件
-  void _handleMessageRead(msg_proto.MessageReadProto data) {
+  void _handleMessageRead(message_proto.MessageReadProto data) {
     try {
       _messageStatusController.add({
         'messageId': data.messageId,
@@ -255,12 +254,12 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       // 创建同步请求数据
-      final request = proto.SyncConversationsRequest()
+      final request = conversation_proto.SyncConversationsRequest()
         ..localConversationIds.addAll(localConversationIds)
         ..userId = _currentUserId;
 
       // 设置等待响应的Completer
-      final completer = Completer<List<proto.ConversationProto>>();
+      final completer = Completer<List<conversation_proto.ConversationProto>>();
 
       // 定义事件处理函数
       void handleSyncResult(dynamic data) {
@@ -270,7 +269,7 @@ class ChatRepositoryImpl implements ChatRepository {
           // 处理二进制数据
           if (data is Uint8List || data is ByteData || (data != null && data.runtimeType.toString().contains('Uint8'))) {
             // 直接解析二进制数据
-            final response = proto.ConversationCollection()..mergeFromBuffer(data);
+            final response = conversation_proto.ConversationCollection()..mergeFromBuffer(data);
 
             _logger.i('解析到 ${response.conversations.length} 个会话');
             if (response.conversations.isEmpty) {
@@ -1061,7 +1060,7 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 创建Map用于发送
-      final protoMsg = msg_proto.NewMessageProto()
+      final protoMsg = message_proto.NewMessageProto()
         ..id = message.messageId
         ..senderId = message.senderId
         ..conversationId = message.conversationId
@@ -1086,7 +1085,7 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
     if (_communicationService.isInitialized) {
-      final typingProto = msg_proto.TypingProto()
+      final typingProto = message_proto.TypingProto()
         ..conversationId = conversationId
         ..isTyping = isTyping;
       _communicationService.emitProto(isTyping ? 'typing' : 'typing:stop', typingProto);
@@ -1102,7 +1101,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [conversationId] - 会话ID
   void sendMessageRead(String messageId, String conversationId) {
     if (_communicationService.isInitialized) {
-      final readProto = msg_proto.MessageReadProto()
+      final readProto = message_proto.MessageReadProto()
         ..messageId = messageId
         ..conversationId = conversationId;
       _communicationService.emitProto('message:read', readProto);
@@ -1236,7 +1235,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  void _handleSyncedConversations(List<proto.ConversationProto> conversations) {
+  void _handleSyncedConversations(List<conversation_proto.ConversationProto> conversations) {
     try {
       final List<db.Conversation> dbConversations = conversations.map((conv) => _convertProtoToDbConversation(conv)).toList();
 
@@ -1252,10 +1251,10 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  db.Conversation _convertProtoToDbConversation(proto.ConversationProto conv) {
+  db.Conversation _convertProtoToDbConversation(conversation_proto.ConversationProto conv) {
     final conversation = db.Conversation()
       ..conversationId = conv.conversationId
-      ..type = conv.type == proto.ConversationType.private ? db.ConversationType.private : db.ConversationType.group
+      ..type = conv.type == conversation_proto.ConversationType.private ? db.ConversationType.private : db.ConversationType.group
       ..name = conv.name
       ..avatar = conv.avatar
       ..lastMessagePreview = conv.lastMessagePreview
@@ -1280,7 +1279,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.i('从服务器获取消息', extra: {'conversationId': conversationId, 'limit': limit});
 
       // 创建请求参数
-      final request = msg_proto.MessageProto()
+      final request = message_proto.MessageProto()
         ..conversationId = conversationId
         ..text = 'fetch'; // 用作临时标记
 
@@ -1292,7 +1291,7 @@ class ChatRepositoryImpl implements ChatRepository {
       await _communicationService.emitProto('messages:fetch', request);
 
       // 等待响应
-      final response = await _communicationService.onProto<msg_proto.MessageCollection>('messages:fetch:result').first;
+      final response = await _communicationService.onProto<message_proto.MessageCollection>('messages:fetch:result').first;
 
       // 转换服务器响应为消息列表
       final messages = response.messages.map((msg) {

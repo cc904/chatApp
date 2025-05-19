@@ -5,7 +5,6 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
-import 'package:cc/core/services/my_user_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:isar/isar.dart';
 import 'dart:async';

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:cc/core/services/log_service.dart';
-import '../cubit/home_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/database_initializer.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -88,9 +88,12 @@ class ProfilePage extends StatelessWidget {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context); // 关闭对话框
-              context.read<HomeCubit>().logout();
+              await context.read<AuthCubit>().logout();
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
+              }
             },
             child: const Text('确定', style: TextStyle(color: Colors.red)),
           ),
