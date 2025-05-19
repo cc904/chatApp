@@ -7,6 +7,9 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
+import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 消息页面
 ///
@@ -44,6 +47,9 @@ class _ChatsPageState extends State<ChatsPage> {
   /// 当前打开的滑动菜单项ID
   String? _openedItemId;
 
+  /// 过滤后的会话列表数据
+  List<Conversation> _filteredConversations = [];
+
   @override
   void initState() {
     super.initState();
@@ -52,8 +58,8 @@ class _ChatsPageState extends State<ChatsPage> {
 
   /// 加载会话和联系人数据
   ///
-  /// 从数据库获取会话列表和相关联系人信息
-  /// 设置加载状态并处理可能的错误
+  /// 从数据库加载会话列表和联系人信息
+  /// 并更新状态以显示在界面上
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
@@ -61,70 +67,89 @@ class _ChatsPageState extends State<ChatsPage> {
     });
 
     try {
-      // 使用repository加载数据
+      // 检查数据库是否已初始化
       if (!DatabaseInitializer.isInitialized) {
-        throw Exception('数据库未初始化');
+        throw Exception('数据库未初始化，请先登录');
       }
-      
-      final currentUserId = DatabaseInitializer.currentUserId ?? '';
-      final isar = DatabaseInitializer.isar;
-      
+
+      // 获取当前用户ID
+      final currentUserId = DatabaseInitializer.currentUserId;
+      if (currentUserId == null || currentUserId.isEmpty) {
+        throw Exception('当前用户ID无效，请重新登录');
+      }
+
       // 创建仓库实例
-      final chatRepository = ChatRepositoryImpl(
-        isar: isar, 
+      final ChatRepository chatRepository = ChatRepositoryImpl(
+        isar: DatabaseInitializer.isar,
         currentUserId: currentUserId
       );
       
-      // 获取所有会话
-      final conversations = await chatRepository.getAllConversations();
-      
-      // 获取联系人信息
-      final List<User> contacts = [];
-      for (final conversation in conversations) {
-        if (conversation.contactUserId != null) {
-          final contact = await chatRepository.getContactById(conversation.contactUserId!);
-          if (contact != null && !contacts.contains(contact)) {
-            contacts.add(contact);
-          }
-        }
-      }
-      
+      final ContactsRepository contactsRepository = ContactsRepositoryImpl();
+
+      // 加载会话和联系人数据
+      List<Conversation> conversations = await chatRepository.getAllConversations();
+      List<User> contacts = await contactsRepository.getAllContacts();
+
+      // 更新状态
       setState(() {
         _conversations = conversations;
+        _filteredConversations = conversations;
         _contacts = contacts;
+        _isLoading = false;
       });
+      
+      _logger.i('已加载 ${conversations.length} 个会话和 ${contacts.length} 个联系人');
     } catch (e) {
       setState(() {
         _error = e.toString();
-      });
-    } finally {
-      setState(() {
         _isLoading = false;
       });
+      _logger.e('加载数据失败', error: e);
     }
   }
 
   /// 搜索会话
   ///
   /// 根据输入的查询文本搜索匹配的会话
-  /// 如果查询为空，则重新加载所有会话
+  /// 如果查询为空，则显示所有会话
   ///
   /// 参数:
   ///   - query: 搜索关键词
-  Future<void> _searchConversations(String query) async {
+  void _searchConversations(String query) {
     if (query.isEmpty) {
-      await _loadData();
+      setState(() {
+        _filteredConversations = _conversations;
+      });
       return;
     }
 
     try {
-      // TODO: 实现搜索逻辑
+      // 搜索会话和联系人数据
+      final lowercaseQuery = query.toLowerCase();
+      
+      // 根据联系人名称或会话内容搜索
+      final filteredList = _conversations.where((conversation) {
+        // 查找会话对应的联系人
+        final contact = _contacts.firstWhere(
+          (c) => c.userId == conversation.contactUserId,
+          orElse: () => User()..name = '',
+        );
+        
+        // 检查联系人名称、拼音和会话最后消息是否包含搜索关键词
+        return contact.name.toLowerCase().contains(lowercaseQuery) ||
+               (contact.pinyin?.toLowerCase().contains(lowercaseQuery) ?? false) ||
+               (conversation.lastMessagePreview?.toLowerCase().contains(lowercaseQuery) ?? false);
+      }).toList();
+      
       setState(() {
-        _conversations = []; // 替换为搜索结果
+        _filteredConversations = filteredList;
       });
+      
+      _logger.i('搜索结果: ${filteredList.length} 个会话');
     } catch (e) {
+      _logger.e('搜索会话出错', error: e);
       setState(() {
-        _error = e.toString();
+        _filteredConversations = _conversations;
       });
     }
   }
@@ -346,14 +371,17 @@ class _ChatsPageState extends State<ChatsPage> {
       return Center(child: Text('错误: $_error'));
     }
 
-    if (_conversations.isEmpty) {
+    if (_filteredConversations.isEmpty) {
+      if (_isSearching && _conversations.isNotEmpty) {
+        return const Center(child: Text('没有找到匹配的会话'));
+      }
       return const Center(child: Text('没有会话'));
     }
 
     return ListView.builder(
-      itemCount: _conversations.length,
+      itemCount: _filteredConversations.length,
       itemBuilder: (context, index) {
-        final conversation = _conversations[index];
+        final conversation = _filteredConversations[index];
         final contact = _contacts.firstWhere(
           (c) => c.userId == conversation.contactUserId,
           orElse: () => User()..name = '未知用户',

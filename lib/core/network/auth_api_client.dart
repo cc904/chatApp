@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+// import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:cc/core/services/log_service.dart';
 
 /// 认证响应模型
@@ -53,10 +53,14 @@ class AuthApiClient {
   final LogService _logger = LogService.instance;
 
   // 认证响应流控制器
-  final StreamController<AuthResponse> _authResponseController = StreamController<AuthResponse>.broadcast();
+  final StreamController<AuthResponse> _authResponseController =
+      StreamController<AuthResponse>.broadcast();
 
   /// 获取认证响应流
   Stream<AuthResponse> get onAuthResponse => _authResponseController.stream;
+
+  // 判断是否已初始化的标志
+  bool _isInitialized = false;
 
   AuthApiClient._internal();
 
@@ -65,6 +69,12 @@ class AuthApiClient {
     required String serverUrl,
   }) async {
     try {
+      // 如果已经初始化，直接返回true
+      if (_isInitialized) {
+        _logger.i('认证API客户端已经初始化过，跳过重复初始化');
+        return true;
+      }
+
       _logger.i('初始化认证API客户端', extra: {'serverUrl': serverUrl});
 
       // 创建和配置Dio客户端
@@ -82,16 +92,17 @@ class AuthApiClient {
       ));
 
       // 添加漂亮的日志拦截器
-      _dio.interceptors.add(PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-        compact: false,
-        maxWidth: 120,
-      ));
+      // _dio.interceptors.add(PrettyDioLogger(
+      //   requestHeader: false,
+      //   requestBody: false,
+      //   responseHeader: false,
+      //   responseBody: true,
+      //   error: true,
+      //   compact: false,
+      //   maxWidth: 120,
+      // ));
 
+      _isInitialized = true;
       return true;
     } catch (error) {
       _logger.e('初始化认证API客户端失败', error: error, stackTrace: StackTrace.current);
@@ -102,12 +113,15 @@ class AuthApiClient {
   /// 根据异常类型生成友好的错误消息
   String _getFriendlyErrorMessage(Object error, String defaultMessage) {
     if (error is DioException) {
-      if (error.type == DioExceptionType.receiveTimeout || error.type == DioExceptionType.connectionTimeout || error.type == DioExceptionType.sendTimeout) {
+      if (error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
         return '连接超时，请检查网络后重试';
       } else if (error.type == DioExceptionType.connectionError) {
         return '网络连接错误，请检查网络设置';
       } else if (error.response != null) {
-        if (error.response?.data is Map && error.response?.data['message'] != null) {
+        if (error.response?.data is Map &&
+            error.response?.data['message'] != null) {
           // 如果服务器返回了错误消息，优先使用服务器的错误消息
           return error.response?.data['message'];
         }
@@ -121,9 +135,11 @@ class AuthApiClient {
   /// 发送验证码
   /// [phoneNumber] - 手机号码
   /// [purpose] - 验证码用途(login/register/reset)
-  Future<bool> sendVerificationCode(String phoneNumber, String purpose) async {
+  Future<AuthResponse> sendVerificationCode(
+      String phoneNumber, String purpose) async {
     try {
-      _logger.i('发送验证码', extra: {'phoneNumber': phoneNumber, 'purpose': purpose});
+      _logger
+          .i('发送验证码', extra: {'phoneNumber': phoneNumber, 'purpose': purpose});
 
       final response = await _dio.post('/api/v1/auth/sendCode', data: {
         'phoneNumber': phoneNumber,
@@ -131,31 +147,40 @@ class AuthApiClient {
       });
 
       final data = response.data;
-      // 直接使用服务器返回的响应
-      _authResponseController.add(AuthResponse(
+      // 创建响应对象
+      final authResponse = AuthResponse(
         success: data['success'] ?? false,
         message: data['message'] ?? '发送验证码失败',
-      ));
+      );
 
-      return data['success'] ?? false;
+      // 发送到流
+      _authResponseController.add(authResponse);
+
+      return authResponse;
     } catch (error) {
       _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
       final errorMsg = _getFriendlyErrorMessage(error, '发送验证码失败');
 
-      _authResponseController.add(AuthResponse(
+      // 创建错误响应
+      final errorResponse = AuthResponse(
         success: false,
         message: errorMsg,
-      ));
-      return false;
+      );
+
+      // 向流中添加错误响应
+      _authResponseController.add(errorResponse);
+
+      return errorResponse;
     }
   }
 
   /// 使用验证码登录
   /// [phoneNumber] - 手机号码
   /// [verificationCode] - 验证码
-  Future<bool> loginWithCode(String phoneNumber, String verificationCode) async {
+  Future<AuthResponse> loginWithCode(
+      String phoneNumber, String verificationCode) async {
     try {
       _logger.i('使用验证码登录', extra: {'phoneNumber': phoneNumber});
 
@@ -168,27 +193,31 @@ class AuthApiClient {
       final authResponse = AuthResponse.fromJson(response.data);
       _authResponseController.add(authResponse);
 
-      return authResponse.success;
+      return authResponse;
     } catch (error) {
       _logger.e('验证码登录失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
       final errorMsg = _getFriendlyErrorMessage(error, '登录失败');
 
-      // 向流中添加错误响应
-      _authResponseController.add(AuthResponse(
+      // 创建错误响应
+      final errorResponse = AuthResponse(
         success: false,
         message: errorMsg,
-      ));
+      );
 
-      return false;
+      // 向流中添加错误响应
+      _authResponseController.add(errorResponse);
+
+      return errorResponse;
     }
   }
 
   /// 使用密码登录
   /// [phoneNumber] - 手机号码
   /// [password] - 密码
-  Future<bool> loginWithPassword(String phoneNumber, String password) async {
+  Future<AuthResponse> loginWithPassword(
+      String phoneNumber, String password) async {
     try {
       _logger.i('使用密码登录', extra: {'phoneNumber': phoneNumber});
 
@@ -201,20 +230,23 @@ class AuthApiClient {
       final authResponse = AuthResponse.fromJson(response.data);
       _authResponseController.add(authResponse);
 
-      return authResponse.success;
+      return authResponse;
     } catch (error) {
       _logger.e('密码登录失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
       final errorMsg = _getFriendlyErrorMessage(error, '登录失败');
 
-      // 向流中添加错误响应
-      _authResponseController.add(AuthResponse(
+      // 创建错误响应
+      final errorResponse = AuthResponse(
         success: false,
         message: errorMsg,
-      ));
+      );
 
-      return false;
+      // 向流中添加错误响应
+      _authResponseController.add(errorResponse);
+
+      return errorResponse;
     }
   }
 
@@ -223,9 +255,11 @@ class AuthApiClient {
   /// [verificationCode] - 验证码
   /// [password] - 密码
   /// [nickname] - 昵称
-  Future<bool> register(String phoneNumber, String verificationCode, String password, String nickname) async {
+  Future<AuthResponse> register(String phoneNumber, String verificationCode,
+      String password, String nickname) async {
     try {
-      _logger.i('注册账号', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
+      _logger
+          .i('注册账号', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
 
       final response = await _dio.post('/api/v1/auth/register', data: {
         'phoneNumber': phoneNumber,
@@ -237,20 +271,23 @@ class AuthApiClient {
       final authResponse = AuthResponse.fromJson(response.data);
       _authResponseController.add(authResponse);
 
-      return authResponse.success;
+      return authResponse;
     } catch (error) {
       _logger.e('注册失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
       final errorMsg = _getFriendlyErrorMessage(error, '注册失败');
 
-      // 向流中添加错误响应
-      _authResponseController.add(AuthResponse(
+      // 创建错误响应
+      final errorResponse = AuthResponse(
         success: false,
         message: errorMsg,
-      ));
+      );
 
-      return false;
+      // 向流中添加错误响应
+      _authResponseController.add(errorResponse);
+
+      return errorResponse;
     }
   }
 
@@ -258,7 +295,8 @@ class AuthApiClient {
   /// [phoneNumber] - 手机号码
   /// [verificationCode] - 验证码
   /// [newPassword] - 新密码
-  Future<bool> resetPassword(String phoneNumber, String verificationCode, String newPassword) async {
+  Future<AuthResponse> resetPassword(
+      String phoneNumber, String verificationCode, String newPassword) async {
     try {
       _logger.i('重置密码', extra: {'phoneNumber': phoneNumber});
 
@@ -271,20 +309,23 @@ class AuthApiClient {
       final authResponse = AuthResponse.fromJson(response.data);
       _authResponseController.add(authResponse);
 
-      return authResponse.success;
+      return authResponse;
     } catch (error) {
       _logger.e('重置密码失败', error: error, stackTrace: StackTrace.current);
 
       // 使用通用错误处理方法
       final errorMsg = _getFriendlyErrorMessage(error, '重置密码失败');
 
-      // 向流中添加错误响应
-      _authResponseController.add(AuthResponse(
+      // 创建错误响应
+      final errorResponse = AuthResponse(
         success: false,
         message: errorMsg,
-      ));
+      );
 
-      return false;
+      // 向流中添加错误响应
+      _authResponseController.add(errorResponse);
+
+      return errorResponse;
     }
   }
 

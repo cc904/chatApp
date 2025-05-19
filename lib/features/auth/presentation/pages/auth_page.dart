@@ -18,7 +18,8 @@ class AuthPage extends StatefulWidget {
   State<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin {
+class _AuthPageState extends State<AuthPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -139,10 +140,12 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                         decoration: const InputDecoration(
                           labelText: '请输入您的手机号码',
                           prefixIcon: Icon(Icons.phone),
-                          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          contentPadding: EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 16),
                         ),
                         keyboardType: TextInputType.phone,
-                        onChanged: (value) => context.read<AuthCubit>().updatePhoneNumber(value),
+                        onChanged: (value) =>
+                            context.read<AuthCubit>().updatePhoneNumber(value),
                       ),
                       const SizedBox(height: 24),
 
@@ -163,15 +166,20 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       // 登录按钮
                       BlocConsumer<AuthCubit, AuthState>(
                         listenWhen: (previous, current) =>
-                            !previous.isAuthenticated && current.isAuthenticated || current.hasError && current.errorMessage != previous.errorMessage,
+                            !previous.isAuthenticated &&
+                                current.isAuthenticated ||
+                            current.hasError &&
+                                current.errorMessage != previous.errorMessage,
                         listener: (context, state) {
                           if (state.isAuthenticated) {
                             // 确保数据库初始化完成后再导航
-                            _logger.i('验证数据库初始化状态: ${DatabaseInitializer.isInitialized}');
+                            _logger.i(
+                                '验证数据库初始化状态: ${DatabaseInitializer.isInitialized}');
 
                             if (DatabaseInitializer.isInitialized) {
                               _logger.i('数据库已初始化,直接导航到Home页面');
-                              Navigator.of(context).pushReplacementNamed('/home');
+                              Navigator.of(context)
+                                  .pushReplacementNamed('/home');
                             } else {
                               _logger.w('数据库尚未初始化,等待初始化完成后再导航');
                               // 轮询等待数据库初始化完成
@@ -182,8 +190,10 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                                 checkCount++;
                                 if (DatabaseInitializer.isInitialized) {
                                   timer.cancel();
-                                  _logger.i('数据库初始化完成,现在导航到Home页面 (检查次数: $checkCount)');
-                                  Navigator.of(context).pushReplacementNamed('/home');
+                                  _logger.i(
+                                      '数据库初始化完成,现在导航到Home页面 (检查次数: $checkCount)');
+                                  Navigator.of(context)
+                                      .pushReplacementNamed('/home');
                                 } else if (checkCount >= 50) {
                                   // 5秒超时
                                   timer.cancel();
@@ -201,14 +211,20 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: state.isLoading ? null : () => context.read<AuthCubit>().login(_tabController.index == 0),
+                              onPressed: state.isLoading
+                                  ? null
+                                  : () => context
+                                      .read<AuthCubit>()
+                                      .login(_tabController.index == 0),
                               child: state.isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
-                                      child: CircularProgressIndicator(color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white),
                                     )
-                                  : const Text('登录', style: TextStyle(fontSize: 16)),
+                                  : const Text('登录',
+                                      style: TextStyle(fontSize: 16)),
                             ),
                           );
                         },
@@ -222,7 +238,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                         children: [
                           TextButton(
                             onPressed: () {
-                              final authCubit = BlocProvider.of<AuthCubit>(context);
+                              final authCubit =
+                                  BlocProvider.of<AuthCubit>(context);
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) => BlocProvider.value(
@@ -239,7 +256,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                           ),
                           TextButton(
                             onPressed: () {
-                              final authCubit = BlocProvider.of<AuthCubit>(context);
+                              final authCubit =
+                                  BlocProvider.of<AuthCubit>(context);
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) => BlocProvider.value(
@@ -282,16 +300,22 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             decoration: const InputDecoration(
               labelText: '请输入验证码',
               prefixIcon: Icon(Icons.message),
-              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
-            onChanged: (value) => context.read<AuthCubit>().updateVerificationCode(value),
+            onChanged: (value) =>
+                context.read<AuthCubit>().updateVerificationCode(value),
           ),
         ),
         const SizedBox(width: 8),
         BlocBuilder<AuthCubit, AuthState>(
           builder: (context, state) {
             return ElevatedButton(
-              onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(purpose: 'login'),
+              onPressed: state.isCodeSent || state.isLoading
+                  ? null
+                  : () => context
+                      .read<AuthCubit>()
+                      .sendVerificationCode(purpose: 'login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
@@ -322,17 +346,22 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
             decoration: const InputDecoration(
               labelText: '请输入密码',
               prefixIcon: Icon(Icons.lock),
-              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
             obscureText: true,
-            onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
+            onChanged: (value) =>
+                context.read<AuthCubit>().updatePassword(value),
           ),
         ));
   }
 
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   诊断   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
   // 显示诊断对话框
   void _showDiagnosticsDialog() {
-    final serverUrlController = TextEditingController(text: 'http://d2.orb.local:3000');
+    final serverUrlController =
+        TextEditingController(text: 'http://d2.orb.local:3000');
     final tokenController = TextEditingController();
 
     showDialog(
@@ -458,7 +487,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         else
           Text(
             '当前状态: ${currentSettings['status']}',
-            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Colors.orange, fontWeight: FontWeight.bold),
           ),
         Text(
           '服务器地址: ${currentSettings['serverUrl']}',
@@ -469,7 +499,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
           title: '传输方式',
           description: '建议同时启用websocket和polling',
           value: currentSettings['transports'].toString(),
-          isWarning: !(currentSettings['transports'] is List && currentSettings['transports'].contains('websocket') && currentSettings['transports'].contains('polling')),
+          isWarning: !(currentSettings['transports'] is List &&
+              currentSettings['transports'].contains('websocket') &&
+              currentSettings['transports'].contains('polling')),
         ),
         _buildSocketConfigItem(
           title: '连接超时',
@@ -493,7 +525,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
           title: '重连延迟',
           description: '推荐值: 1000-5000 (毫秒)',
           value: '${currentSettings['reconnectionDelay']} ms',
-          isWarning: currentSettings['reconnectionDelay'] < 1000 || currentSettings['reconnectionDelay'] > 5000,
+          isWarning: currentSettings['reconnectionDelay'] < 1000 ||
+              currentSettings['reconnectionDelay'] > 5000,
         ),
         _buildSocketConfigItem(
           title: '路径前缀',
@@ -520,10 +553,12 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                 final socketService = ProtoSocketService();
                 if (socketService.isConnected) {
                   UINotificationHelper.showSuccess('当前Socket已连接');
-                  _logger.i('测试当前连接: 已连接', extra: socketService.getConnectionInfo());
+                  _logger.i('测试当前连接: 已连接',
+                      extra: socketService.getConnectionInfo());
                 } else {
                   UINotificationHelper.showMessage('当前Socket未连接，检查连接状态...');
-                  _logger.i('测试当前连接: 未连接', extra: socketService.getConnectionInfo());
+                  _logger.i('测试当前连接: 未连接',
+                      extra: socketService.getConnectionInfo());
 
                   // 对于调试目的，我们可以添加一些额外的检查
                   final status = socketService.checkConnectionStatus();
@@ -547,7 +582,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        const Text('• 如果连接失败，尝试同时启用websocket和polling传输方式', style: TextStyle(fontSize: 13)),
+        const Text('• 如果连接失败，尝试同时启用websocket和polling传输方式',
+            style: TextStyle(fontSize: 13)),
         const Text('• 移动网络环境下可能需要更长的超时时间', style: TextStyle(fontSize: 13)),
         const Text('• 确保路径前缀与服务器配置一致', style: TextStyle(fontSize: 13)),
         const Text('• 检查服务器是否支持跨域请求(CORS)', style: TextStyle(fontSize: 13)),
@@ -646,9 +682,12 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   // 显示Socket配置编辑对话框
   void _showSocketConfigEditDialog() {
     final settings = _getCurrentSocketSettings();
-    var useWebsocket = settings['transports'] is List && settings['transports'].contains('websocket');
-    var usePolling = settings['transports'] is List && settings['transports'].contains('polling');
-    final serverUrlController = TextEditingController(text: settings['serverUrl'] ?? '');
+    var useWebsocket = settings['transports'] is List &&
+        settings['transports'].contains('websocket');
+    var usePolling = settings['transports'] is List &&
+        settings['transports'].contains('polling');
+    final serverUrlController =
+        TextEditingController(text: settings['serverUrl'] ?? '');
 
     showDialog(
       context: context,
@@ -743,7 +782,8 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       setState(() => settings['timeout'] = value.toInt());
                     },
                   ),
-                  Text('当前值: ${settings['timeout']}ms', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                  Text('当前值: ${settings['timeout']}ms',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700])),
 
                   if (settings['reconnection']) ...[
                     const SizedBox(height: 8),
@@ -755,10 +795,13 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       divisions: 19,
                       label: '${settings['reconnectionAttempts']}次',
                       onChanged: (value) {
-                        setState(() => settings['reconnectionAttempts'] = value.toInt());
+                        setState(() =>
+                            settings['reconnectionAttempts'] = value.toInt());
                       },
                     ),
-                    Text('当前值: ${settings['reconnectionAttempts']}次', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    Text('当前值: ${settings['reconnectionAttempts']}次',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[700])),
                     const SizedBox(height: 8),
                     const Text('重连延迟 (毫秒):'),
                     Slider(
@@ -768,10 +811,13 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                       divisions: 9,
                       label: '${settings['reconnectionDelay']}ms',
                       onChanged: (value) {
-                        setState(() => settings['reconnectionDelay'] = value.toInt());
+                        setState(() =>
+                            settings['reconnectionDelay'] = value.toInt());
                       },
                     ),
-                    Text('当前值: ${settings['reconnectionDelay']}ms', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    Text('当前值: ${settings['reconnectionDelay']}ms',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[700])),
                   ],
 
                   const SizedBox(height: 16),
@@ -829,7 +875,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     setState(() => _isRunningDiagnosis = true);
 
     try {
-      final results = token.isNotEmpty ? await _socketTest.runTest(serverUrl, token) : await _networkDiagnostics.runDiagnostics(serverUrl);
+      final results = token.isNotEmpty
+          ? await _socketTest.runTest(serverUrl, token)
+          : await _networkDiagnostics.runDiagnostics(serverUrl);
 
       setState(() => _isRunningDiagnosis = false);
 
@@ -884,7 +932,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               const SizedBox(height: 4),
               Text('IP地址: ${results['dns']['addresses'].join(', ')}'),
             ],
-            if (!results['dns']['success'] && results['dns'].containsKey('error')) Text('错误: ${results['dns']['error']}'),
+            if (!results['dns']['success'] &&
+                results['dns'].containsKey('error'))
+              Text('错误: ${results['dns']['error']}'),
             const SizedBox(height: 12),
           ],
 
@@ -913,7 +963,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               const SizedBox(height: 4),
               Text('状态码: ${results['http']['statusCode']}'),
             ],
-            if (!results['http']['success'] && results['http'].containsKey('error')) Text('错误: ${results['http']['error']}'),
+            if (!results['http']['success'] &&
+                results['http'].containsKey('error'))
+              Text('错误: ${results['http']['error']}'),
             const SizedBox(height: 12),
           ],
 
@@ -923,14 +975,17 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               'Socket.IO握手: ${results['socketio']['success'] ? '成功' : '失败'}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: results['socketio']['success'] ? Colors.green : Colors.red,
+                color:
+                    results['socketio']['success'] ? Colors.green : Colors.red,
               ),
             ),
             if (results['socketio']['success']) ...[
               const SizedBox(height: 4),
               Text('SID: ${results['socketio']['sid'] ?? '未获取'}'),
             ],
-            if (!results['socketio']['success'] && results['socketio'].containsKey('error')) Text('错误: ${results['socketio']['error']}'),
+            if (!results['socketio']['success'] &&
+                results['socketio'].containsKey('error'))
+              Text('错误: ${results['socketio']['error']}'),
             const SizedBox(height: 12),
           ],
 
@@ -963,14 +1018,19 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               'DNS解析: ${results['diagnostics']['dns']['success'] ? '成功' : '失败'}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: results['diagnostics']['dns']['success'] ? Colors.green : Colors.red,
+                color: results['diagnostics']['dns']['success']
+                    ? Colors.green
+                    : Colors.red,
               ),
             ),
             if (results['diagnostics']['dns']['success']) ...[
               const SizedBox(height: 4),
-              Text('IP地址: ${results['diagnostics']['dns']['addresses'].join(', ')}'),
+              Text(
+                  'IP地址: ${results['diagnostics']['dns']['addresses'].join(', ')}'),
             ],
-            if (!results['diagnostics']['dns']['success'] && results['diagnostics']['dns'].containsKey('error')) Text('错误: ${results['diagnostics']['dns']['error']}'),
+            if (!results['diagnostics']['dns']['success'] &&
+                results['diagnostics']['dns'].containsKey('error'))
+              Text('错误: ${results['diagnostics']['dns']['error']}'),
             const SizedBox(height: 12),
           ],
 
@@ -980,7 +1040,9 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               'TCP连接: ${results['diagnostics']['tcp']['success'] ? '成功' : '失败'}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: results['diagnostics']['tcp']['success'] ? Colors.green : Colors.red,
+                color: results['diagnostics']['tcp']['success']
+                    ? Colors.green
+                    : Colors.red,
               ),
             ),
             const SizedBox(height: 12),
@@ -992,14 +1054,18 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               'HTTP请求: ${results['diagnostics']['http']['success'] ? '成功' : '失败'}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: results['diagnostics']['http']['success'] ? Colors.green : Colors.red,
+                color: results['diagnostics']['http']['success']
+                    ? Colors.green
+                    : Colors.red,
               ),
             ),
             if (results['diagnostics']['http']['success']) ...[
               const SizedBox(height: 4),
               Text('状态码: ${results['diagnostics']['http']['statusCode']}'),
             ],
-            if (!results['diagnostics']['http']['success'] && results['diagnostics']['http'].containsKey('error')) Text('错误: ${results['diagnostics']['http']['error']}'),
+            if (!results['diagnostics']['http']['success'] &&
+                results['diagnostics']['http'].containsKey('error'))
+              Text('错误: ${results['diagnostics']['http']['error']}'),
             const SizedBox(height: 12),
           ],
 
@@ -1009,14 +1075,18 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
               'Socket.IO握手: ${results['diagnostics']['socketio']['success'] ? '成功' : '失败'}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: results['diagnostics']['socketio']['success'] ? Colors.green : Colors.red,
+                color: results['diagnostics']['socketio']['success']
+                    ? Colors.green
+                    : Colors.red,
               ),
             ),
             if (results['diagnostics']['socketio']['success']) ...[
               const SizedBox(height: 4),
-              Text('SID: ${results['diagnostics']['socketio']['sid'] ?? '未获取'}'),
+              Text(
+                  'SID: ${results['diagnostics']['socketio']['sid'] ?? '未获取'}'),
             ],
-            if (!results['diagnostics']['socketio']['success'] && results['diagnostics']['socketio'].containsKey('error'))
+            if (!results['diagnostics']['socketio']['success'] &&
+                results['diagnostics']['socketio'].containsKey('error'))
               Text('错误: ${results['diagnostics']['socketio']['error']}'),
             const SizedBox(height: 12),
           ],

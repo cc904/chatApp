@@ -314,7 +314,7 @@ class ProtoSocketService {
     T Function() creator,
     void Function(T) handler,
   ) {
-    _logger.i('👂 注册Protobuf事件监听: $eventName');
+    // _logger.i('👂 注册Protobuf事件监听: $eventName');
     _socket?.on(eventName, (data) {
       try {
         final message = creator()..mergeFromBuffer(data);
