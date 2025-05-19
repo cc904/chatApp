@@ -6,6 +6,7 @@ import 'package:cc/core/database/models/friend_request.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:isar/isar.dart';
 import 'dart:async';
 import 'package:cc/core/proto/generated/contacts.pb.dart' as proto;
@@ -17,6 +18,9 @@ import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
 class ContactsRepositoryImpl implements ContactsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
+  
+  /// 用户信息仓库
+  final ProfileRepository _profileRepository = ProfileRepository();
 
   // 获取数据库实例
   Isar get _isar => DatabaseInitializer.isar;
@@ -36,6 +40,13 @@ class ContactsRepositoryImpl implements ContactsRepository {
   // 构造函数
   ContactsRepositoryImpl() {
     _initializeSubscriptions();
+    
+    // 初始化用户信息仓库
+    _profileRepository.init().then((_) {
+      _logger.i('用户信息仓库初始化成功');
+    }).catchError((error) {
+      _logger.e('用户信息仓库初始化失败', error: error);
+    });
   }
 
   /// 初始化订阅
@@ -293,7 +304,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<void> syncContacts() async {
     try {
       // 从服务器获取最新数据
-      final currentUser = await MyUserService.getCurrentUser();
+      final currentUser = await _profileRepository.getCurrentUser();
       if (currentUser != null && _communicationService.isInitialized) {
         final syncRequest = proto.SyncContactsRequest()
           ..userId = currentUser.userId
@@ -311,7 +322,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<List<FriendRequest>> getFriendRequests() async {
     try {
       // 获取当前用户
-      final currentUser = await MyUserService.getCurrentUser();
+      final currentUser = await _profileRepository.getCurrentUser();
       if (currentUser == null) {
         throw '未找到当前用户信息';
       }
@@ -337,7 +348,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _logger.i('发送好友请求', extra: {'targetUserId': targetUserId, 'message': message});
 
       // 获取当前用户
-      final currentUser = await MyUserService.getCurrentUser();
+      final currentUser = await _profileRepository.getCurrentUser();
       if (currentUser == null) {
         throw '未找到当前用户信息';
       }
@@ -499,7 +510,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<List<FriendRequest>> getAllFriendRequests() async {
     try {
       // 获取当前用户
-      final currentUser = await MyUserService.getCurrentUser();
+      final currentUser = await _profileRepository.getCurrentUser();
       if (currentUser == null) {
         throw '未找到当前用户信息';
       }
@@ -522,5 +533,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
       subscription.cancel();
     }
     _subscriptions.clear();
+    
+    // 关闭用户信息仓库
+    _profileRepository.close().catchError((error) {
+      _logger.e('关闭用户信息仓库失败', error: error);
+    });
   }
 }

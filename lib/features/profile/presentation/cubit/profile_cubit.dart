@@ -1,10 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
-
-part 'profile_state.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   final ProfileRepository _repository;
@@ -86,4 +84,46 @@ class ProfileCubit extends Cubit<ProfileState> {
       ));
     }
   }
+}
+
+enum ProfileStatus {
+  initial,
+  loading,
+  success,
+  error,
+}
+
+class ProfileState extends Equatable {
+  final ProfileStatus status;
+  final MyUserProto? user;
+  final String? error;
+  final String? serverUrl;
+
+  const ProfileState({
+    required this.status,
+    this.user,
+    this.error,
+    this.serverUrl,
+  });
+
+  factory ProfileState.initial() {
+    return const ProfileState(status: ProfileStatus.initial);
+  }
+
+  ProfileState copyWith({
+    ProfileStatus? status,
+    MyUserProto? user,
+    String? error,
+    String? serverUrl,
+  }) {
+    return ProfileState(
+      status: status ?? this.status,
+      user: user ?? this.user,
+      error: error ?? this.error,
+      serverUrl: serverUrl ?? this.serverUrl,
+    );
+  }
+
+  @override
+  List<Object?> get props => [status, user, error, serverUrl];
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/presentation/pages/chats_page.dart';
-import 'package:cc/features/home/presentation/pages/contacts_page.dart';
 import 'package:cc/features/home/presentation/pages/calls_page.dart';
+import 'package:cc/features/home/presentation/pages/profile_page.dart';
+import 'package:cc/features/home/presentation/pages/contacts_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,11 +17,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   late TabController _tabController;
   final bool _isLoading = false;
   String? _error;
+  int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _currentIndex = _tabController.index;
+      });
+    });
   }
 
   @override
@@ -33,47 +40,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     _logger.d('HomePage build');
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              _logger.d('搜索');
-              // TODO: 实现搜索功能
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              _logger.d('更多选项');
-              // TODO: 实现更多选项
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-          tabs: const [
-            Tab(text: '消息'),
-            Tab(text: '联系人'),
-            Tab(text: '通话'),
-          ],
-        ),
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -84,8 +50,39 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ChatsPage(),
                     ContactsPage(),
                     CallsPage(),
+                    ProfilePage(),
                   ],
                 ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+            _tabController.animateTo(index);
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: '消息',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.contacts),
+            label: '联系人',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.call),
+            label: '通话',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '我的',
+          ),
+        ],
+      ),
     );
   }
 }

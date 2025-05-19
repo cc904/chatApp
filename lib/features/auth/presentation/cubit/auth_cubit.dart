@@ -5,6 +5,9 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/network/auth_api_client.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/features/profile/data/repositories/profile_repository.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:fixnum/fixnum.dart';
 
 part 'auth_state.dart';
 
@@ -19,6 +22,9 @@ class AuthCubit extends Cubit<AuthState> {
 
   // 认证API客户端
   final AuthApiClient _authApiClient = AuthApiClient.getInstance();
+
+  // 用户信息仓库
+  final ProfileRepository _profileRepository = ProfileRepository();
 
   // 服务器URL
   final String _serverUrl;
@@ -93,11 +99,17 @@ class AuthCubit extends Cubit<AuthState> {
 
       _logger.i('数据库初始化成功，开始保存用户信息');
 
+      // 初始化用户信息仓库
+      await _profileRepository.init();
+
       // 保存当前用户信息
-      await MyUserService.saveCurrentUser(
-        userId: userId,
-        token: token,
-        name: '我',
+      await _profileRepository.saveUser(
+        MyUserProto(
+          userId: userId,
+          token: token,
+          name: '我',
+          lastLoginTime: Int64(DateTime.now().millisecondsSinceEpoch),
+        ),
       );
 
       // 初始化实时通信
@@ -392,6 +404,7 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> close() {
     _countdownTimer?.cancel();
     _communicationService.disconnect();
+    _profileRepository.close();
     return super.close();
   }
 
@@ -401,6 +414,9 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       // 断开通信连接
       await _communicationService.disconnect();
+
+      // 关闭ProfileRepository
+      await _profileRepository.close();
 
       // 关闭数据库
       if (DatabaseInitializer.isInitialized) {

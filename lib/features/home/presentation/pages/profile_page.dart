@@ -1,6 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
@@ -17,57 +17,74 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     _logger.d('ProfilePage build');
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('我的', style: TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'logout') {
-                _handleLogout(context);
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'settings',
-                  child: Text('账号设置'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'privacy',
-                  child: Text('隐私设置'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'feedback',
-                  child: Text('反馈建议'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'logout',
-                  child: Text('退出登录'),
-                ),
-              ];
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
+      body: SafeArea(
+        child: Stack(
           children: [
-            // 个人信息卡片
-            _buildProfileCard(),
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  // 标题和操作按钮
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '我的',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'logout') {
+                              _handleLogout(context);
+                            }
+                          },
+                          itemBuilder: (BuildContext context) {
+                            return [
+                              const PopupMenuItem<String>(
+                                value: 'settings',
+                                child: Text('账号设置'),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'privacy',
+                                child: Text('隐私设置'),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'feedback',
+                                child: Text('反馈建议'),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'logout',
+                                child: Text('退出登录'),
+                              ),
+                            ];
+                          },
+                          icon: const Icon(Icons.more_vert),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // 个人信息卡片
+                  _buildProfileCard(),
 
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // 功能列表
-            _buildFunctionList(context),
+                  // 功能列表
+                  _buildFunctionList(context),
 
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // 开发者选项
-            _buildDeveloperOptions(context),
+                  // 开发者选项
+                  _buildDeveloperOptions(context),
+                  
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
           ],
         ),
       ),

@@ -9,6 +9,7 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
@@ -83,10 +84,20 @@ class ChatRepositoryImpl implements ChatRepository {
 
   final _conversationStateController = StreamController<List<db.Conversation>>.broadcast();
 
+  /// 用户信息仓库
+  final ProfileRepository _profileRepository = ProfileRepository();
+
   // 构造函数
   ChatRepositoryImpl({required Isar isar, required String currentUserId})
       : _isar = isar,
         _currentUserId = currentUserId {
+    // 初始化用户信息仓库
+    _profileRepository.init().then((_) {
+      _logger.i('用户信息仓库初始化成功');
+    }).catchError((error) {
+      _logger.e('用户信息仓库初始化失败', error: error);
+    });
+    
     // 注册事件处理
     _registerEventHandlers();
   }
@@ -172,7 +183,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 从用户服务获取当前登录用户的ID
   /// 返回用户ID,如未找到则抛出异常
   Future<String> _getCurrentUserId() async {
-    final currentUser = await MyUserService.getCurrentUser();
+    final currentUser = await _profileRepository.getCurrentUser();
     if (currentUser == null) {
       throw Exception('找不到当前用户信息,请确保已登录');
     }
@@ -1179,6 +1190,11 @@ class ChatRepositoryImpl implements ChatRepository {
     _onlineStatusController.close();
     _messageStatusController.close();
     _syncStatusController.close();
+    
+    // 关闭用户信息仓库
+    _profileRepository.close().catchError((error) {
+      _logger.e('关闭用户信息仓库失败', error: error);
+    });
   }
 
   /// 创建或获取与用户的对话
