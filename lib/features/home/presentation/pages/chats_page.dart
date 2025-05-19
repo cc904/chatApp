@@ -5,9 +5,11 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
+import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 /// 消息页面
-/// 
+///
 /// 显示所有聊天会话列表，是应用程序的主要入口页面之一
 /// 包含搜索、筛选和新建聊天等核心功能
 class ChatsPage extends StatefulWidget {
@@ -20,25 +22,25 @@ class ChatsPage extends StatefulWidget {
 class _ChatsPageState extends State<ChatsPage> {
   /// 搜索框控制器
   final TextEditingController _searchController = TextEditingController();
-  
+
   /// 日志服务实例
   final _logger = LogService.instance;
-  
+
   /// 是否处于搜索状态
   bool _isSearching = false;
-  
+
   /// 是否正在加载数据
   bool _isLoading = false;
-  
+
   /// 错误信息
   String? _error;
-  
+
   /// 会话列表数据
   List<Conversation> _conversations = [];
-  
+
   /// 联系人列表数据
   List<User> _contacts = [];
-  
+
   /// 当前打开的滑动菜单项ID
   String? _openedItemId;
 
@@ -49,7 +51,7 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 加载会话和联系人数据
-  /// 
+  ///
   /// 从数据库获取会话列表和相关联系人信息
   /// 设置加载状态并处理可能的错误
   Future<void> _loadData() async {
@@ -59,11 +61,37 @@ class _ChatsPageState extends State<ChatsPage> {
     });
 
     try {
-      // TODO: 从数据库加载会话和联系人数据
-      await Future.delayed(const Duration(seconds: 1)); // 模拟加载
+      // 使用repository加载数据
+      if (!DatabaseInitializer.isInitialized) {
+        throw Exception('数据库未初始化');
+      }
+      
+      final currentUserId = DatabaseInitializer.currentUserId ?? '';
+      final isar = DatabaseInitializer.isar;
+      
+      // 创建仓库实例
+      final chatRepository = ChatRepositoryImpl(
+        isar: isar, 
+        currentUserId: currentUserId
+      );
+      
+      // 获取所有会话
+      final conversations = await chatRepository.getAllConversations();
+      
+      // 获取联系人信息
+      final List<User> contacts = [];
+      for (final conversation in conversations) {
+        if (conversation.contactUserId != null) {
+          final contact = await chatRepository.getContactById(conversation.contactUserId!);
+          if (contact != null && !contacts.contains(contact)) {
+            contacts.add(contact);
+          }
+        }
+      }
+      
       setState(() {
-        _conversations = []; // 替换为实际数据
-        _contacts = []; // 替换为实际数据
+        _conversations = conversations;
+        _contacts = contacts;
       });
     } catch (e) {
       setState(() {
@@ -77,10 +105,10 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 搜索会话
-  /// 
+  ///
   /// 根据输入的查询文本搜索匹配的会话
   /// 如果查询为空，则重新加载所有会话
-  /// 
+  ///
   /// 参数:
   ///   - query: 搜索关键词
   Future<void> _searchConversations(String query) async {
@@ -303,10 +331,10 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 构建聊天列表
-  /// 
+  ///
   /// 根据当前状态(加载中/错误/空数据)构建不同的界面
   /// 正常状态下显示会话列表，每个项目显示联系人头像、名称、最后消息和时间
-  /// 
+  ///
   /// 返回值:
   ///   - Widget: 构建的列表视图或状态提示视图
   Widget _buildChatList() {
@@ -380,16 +408,16 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 格式化消息时间
-  /// 
+  ///
   /// 将时间戳转换为用户友好的显示格式:
   /// - 今天的消息显示时:分
   /// - 昨天的消息显示"昨天"
   /// - 一周内的消息显示"x天前"
   /// - 更早的消息显示月/日
-  /// 
+  ///
   /// 参数:
   ///   - time: 需要格式化的时间
-  /// 
+  ///
   /// 返回值:
   ///   - String: 格式化后的时间字符串
   String _formatTime(DateTime? time) {
@@ -410,7 +438,7 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 显示筛选对话框
-  /// 
+  ///
   /// 弹出底部模态对话框，提供会话筛选选项:
   /// - 筛选未读消息
   /// - 筛选群聊
@@ -463,9 +491,9 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 打开二维码扫描页面
-  /// 
+  ///
   /// 导航到扫码页面，用于扫描二维码添加好友或加入群聊
-  /// 
+  ///
   /// 参数:
   ///   - context: 当前构建上下文
   void _openQRScanner(BuildContext context) {
@@ -478,14 +506,14 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   /// 构建弹出菜单项
-  /// 
+  ///
   /// 创建自定义样式的PopupMenuItem，用于添加功能菜单
-  /// 
+  ///
   /// 参数:
   ///   - value: 菜单项的值，用于标识被选中的项
   ///   - iconData: 菜单项的图标
   ///   - label: 菜单项的文本标签
-  /// 
+  ///
   /// 返回值:
   ///   - PopupMenuItem<String>: 构建的菜单项
   PopupMenuItem<String> _buildMenuItem(
