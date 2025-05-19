@@ -8,11 +8,18 @@ import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 
+/// 个人资料仓库
+/// 
+/// 负责管理用户配置文件数据的持久化存储和检索
+/// 使用Isar数据库实现本地存储，并处理MyUser模型和MyUserProto之间的转换
 class ProfileRepository {
   final _logger = LogService.instance;
   late final Isar _db;
 
   /// 初始化数据库
+  /// 
+  /// 在应用程序文档目录中创建并打开Isar数据库实例
+  /// 注册MyUser数据模型到数据库
   Future<void> init() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -27,7 +34,13 @@ class ProfileRepository {
     }
   }
 
-  /// 获取当前用户信息
+  /// 获取当前登录用户信息
+  /// 
+  /// 从数据库中读取MyUser记录并转换为MyUserProto对象
+  /// 如果没有用户记录，返回null
+  /// 
+  /// 返回值:
+  ///   - MyUserProto?: 当前登录用户信息，如果未登录则为null
   Future<MyUserProto?> getCurrentUser() async {
     try {
       final users = await _db.myUsers.where().findAll();
@@ -55,6 +68,12 @@ class ProfileRepository {
   }
 
   /// 保存用户信息
+  /// 
+  /// 将MyUserProto对象转换为MyUser并保存到数据库
+  /// 在保存前会清除所有现有用户数据
+  /// 
+  /// 参数:
+  ///   - user: 需要保存的用户信息(MyUserProto格式)
   Future<void> saveUser(MyUserProto user) async {
     try {
       await _db.writeTxn(() async {
@@ -84,6 +103,17 @@ class ProfileRepository {
   }
 
   /// 更新用户信息
+  /// 
+  /// 允许选择性地更新用户的昵称、头像和状态
+  /// 不会更改其他用户属性
+  /// 
+  /// 参数:
+  ///   - nickname: 可选，新昵称
+  ///   - avatar: 可选，新头像URL
+  ///   - status: 可选，新状态信息
+  /// 
+  /// 异常:
+  ///   - 如果用户未登录，抛出异常
   Future<void> updateUserInfo({
     String? nickname,
     String? avatar,
@@ -115,12 +145,22 @@ class ProfileRepository {
     }
   }
 
-  /// 获取服务器配置
+  /// 获取服务器URL
+  /// 
+  /// 从应用程序配置中获取当前的服务器URL
+  /// 
+  /// 返回值:
+  ///   - String: 当前配置的服务器URL
   String getServerUrl() {
     return AppConfig().serverUrl;
   }
 
-  /// 更新服务器配置
+  /// 更新服务器URL
+  /// 
+  /// 更新应用程序配置中的服务器URL
+  /// 
+  /// 参数:
+  ///   - url: 新的服务器URL地址
   Future<void> updateServerUrl(String url) async {
     try {
       AppConfig().serverUrl = url;
@@ -132,6 +172,13 @@ class ProfileRepository {
   }
 
   /// 重置所有数据
+  /// 
+  /// 完全清除应用程序数据:
+  /// 1. 关闭现有数据库连接
+  /// 2. 删除所有Isar数据库文件
+  /// 3. 删除媒体文件夹及其内容
+  /// 
+  /// 通常用于用户退出登录或应用重置功能
   Future<void> resetAllData() async {
     try {
       _logger.i('开始重置数据');
@@ -167,7 +214,10 @@ class ProfileRepository {
     }
   }
 
-  /// 关闭数据库
+  /// 关闭数据库连接
+  /// 
+  /// 安全地关闭Isar数据库连接
+  /// 应在应用程序关闭或不再需要该仓库时调用
   Future<void> close() async {
     try {
       await _db.close();

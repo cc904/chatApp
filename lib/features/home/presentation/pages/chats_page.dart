@@ -1,11 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:cc/core/services/log_service.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'search_page.dart';
 import 'scan_code_page.dart';
+import 'package:flutter/material.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 
+/// 消息页面
+/// 
+/// 显示所有聊天会话列表，是应用程序的主要入口页面之一
+/// 包含搜索、筛选和新建聊天等核心功能
 class ChatsPage extends StatefulWidget {
   const ChatsPage({super.key});
 
@@ -14,13 +18,28 @@ class ChatsPage extends StatefulWidget {
 }
 
 class _ChatsPageState extends State<ChatsPage> {
+  /// 搜索框控制器
   final TextEditingController _searchController = TextEditingController();
+  
+  /// 日志服务实例
   final _logger = LogService.instance;
+  
+  /// 是否处于搜索状态
   bool _isSearching = false;
+  
+  /// 是否正在加载数据
   bool _isLoading = false;
+  
+  /// 错误信息
   String? _error;
+  
+  /// 会话列表数据
   List<Conversation> _conversations = [];
+  
+  /// 联系人列表数据
   List<User> _contacts = [];
+  
+  /// 当前打开的滑动菜单项ID
   String? _openedItemId;
 
   @override
@@ -29,6 +48,10 @@ class _ChatsPageState extends State<ChatsPage> {
     _loadData();
   }
 
+  /// 加载会话和联系人数据
+  /// 
+  /// 从数据库获取会话列表和相关联系人信息
+  /// 设置加载状态并处理可能的错误
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
@@ -53,6 +76,13 @@ class _ChatsPageState extends State<ChatsPage> {
     }
   }
 
+  /// 搜索会话
+  /// 
+  /// 根据输入的查询文本搜索匹配的会话
+  /// 如果查询为空，则重新加载所有会话
+  /// 
+  /// 参数:
+  ///   - query: 搜索关键词
   Future<void> _searchConversations(String query) async {
     if (query.isEmpty) {
       await _loadData();
@@ -158,10 +188,10 @@ class _ChatsPageState extends State<ChatsPage> {
 
         // 底部搜索区域
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60), // 设置底部区域高度
+          preferredSize: const Size.fromHeight(50), // 设置底部区域高度
           child: Container(
             color: Colors.green,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: TextField(
               controller: _searchController,
               textAlign: TextAlign.center,
@@ -171,7 +201,8 @@ class _ChatsPageState extends State<ChatsPage> {
                 // 删除搜索图标
                 prefixIcon: null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
                 // 因为删除了外层Container,需要添加圆角和背景颜色
                 filled: true,
@@ -190,7 +221,8 @@ class _ChatsPageState extends State<ChatsPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                            icon: const Icon(Icons.clear,
+                                color: Colors.grey, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
@@ -220,7 +252,8 @@ class _ChatsPageState extends State<ChatsPage> {
                                 FocusScope.of(context).unfocus();
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   borderRadius: BorderRadius.circular(16),
@@ -269,7 +302,13 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  // 构建聊天列表,添加空状态处理
+  /// 构建聊天列表
+  /// 
+  /// 根据当前状态(加载中/错误/空数据)构建不同的界面
+  /// 正常状态下显示会话列表，每个项目显示联系人头像、名称、最后消息和时间
+  /// 
+  /// 返回值:
+  ///   - Widget: 构建的列表视图或状态提示视图
   Widget _buildChatList() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -294,7 +333,8 @@ class _ChatsPageState extends State<ChatsPage> {
 
         return ListTile(
           leading: CircleAvatar(
-            backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
+            backgroundImage:
+                contact.avatar != null ? NetworkImage(contact.avatar!) : null,
             child: contact.avatar == null ? Text(contact.name[0]) : null,
           ),
           title: Text(contact.name),
@@ -339,7 +379,19 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  // 格式化消息时间
+  /// 格式化消息时间
+  /// 
+  /// 将时间戳转换为用户友好的显示格式:
+  /// - 今天的消息显示时:分
+  /// - 昨天的消息显示"昨天"
+  /// - 一周内的消息显示"x天前"
+  /// - 更早的消息显示月/日
+  /// 
+  /// 参数:
+  ///   - time: 需要格式化的时间
+  /// 
+  /// 返回值:
+  ///   - String: 格式化后的时间字符串
   String _formatTime(DateTime? time) {
     if (time == null) return '';
 
@@ -357,6 +409,12 @@ class _ChatsPageState extends State<ChatsPage> {
     }
   }
 
+  /// 显示筛选对话框
+  /// 
+  /// 弹出底部模态对话框，提供会话筛选选项:
+  /// - 筛选未读消息
+  /// - 筛选群聊
+  /// - 筛选星标会话
   void _showFilterDialog() {
     showModalBottomSheet(
       context: context,
@@ -404,6 +462,12 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
+  /// 打开二维码扫描页面
+  /// 
+  /// 导航到扫码页面，用于扫描二维码添加好友或加入群聊
+  /// 
+  /// 参数:
+  ///   - context: 当前构建上下文
   void _openQRScanner(BuildContext context) {
     // 导航到二维码扫描页面
     Navigator.of(context).push(
@@ -413,7 +477,19 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  PopupMenuItem<String> _buildMenuItem(String value, IconData iconData, String label) {
+  /// 构建弹出菜单项
+  /// 
+  /// 创建自定义样式的PopupMenuItem，用于添加功能菜单
+  /// 
+  /// 参数:
+  ///   - value: 菜单项的值，用于标识被选中的项
+  ///   - iconData: 菜单项的图标
+  ///   - label: 菜单项的文本标签
+  /// 
+  /// 返回值:
+  ///   - PopupMenuItem<String>: 构建的菜单项
+  PopupMenuItem<String> _buildMenuItem(
+      String value, IconData iconData, String label) {
     return PopupMenuItem<String>(
       value: value,
       height: 40,

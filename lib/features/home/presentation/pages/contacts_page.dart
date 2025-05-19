@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/chat/presentation/pages/new_chat_page.dart';
+import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
