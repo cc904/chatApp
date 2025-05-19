@@ -33,10 +33,6 @@ class AuthRepositoryImpl implements AuthRepository {
   // auth响应订阅
   StreamSubscription? _authResponseSubscription;
 
-  // auth响应流控制器
-  final StreamController<AuthResponse> _authController =
-      StreamController<AuthResponse>.broadcast();
-
   // 单例实例
   static AuthRepositoryImpl? _instance;
 
@@ -66,22 +62,21 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('初始化authAPI客户端失败');
       }
 
-      // 订阅auth响应
+      // 仍然需要订阅auth响应，用于处理实时通信等
       _authResponseSubscription =
           _authApiClient.onAuthResponse.listen(_handleAuthResponse);
 
-      // // 尝试从本地数据获取用户信息，而不是调用getCurrentUser()
-      // // 这样可以避免循环依赖
-      // final userInfo = await getUserInfo();
-      // if (userInfo != null && userInfo.token.isNotEmpty) {
-      //   _currentUserId = userInfo.userId;
-      //   _currentToken = userInfo.token;
+      // 尝试从本地数据获取用户信息
+      final userInfo = await getUserInfo();
+      if (userInfo != null && userInfo.token.isNotEmpty) {
+        _currentUserId = userInfo.userId;
+        _currentToken = userInfo.token;
 
-      //   // 如果已经有登录用户，确保数据库已初始化
-      //   if (!DatabaseInitializer.isInitialized && _currentUserId != null) {
-      //     await DatabaseInitializer.init(userId: _currentUserId!);
-      //   }
-      // }
+        // 如果已经有登录用户，确保数据库已初始化
+        if (!DatabaseInitializer.isInitialized && _currentUserId != null) {
+          await DatabaseInitializer.init(userId: _currentUserId!);
+        }
+      }
 
       _isInitialized = true;
       _logger.i('AuthRepository初始化完成');
@@ -102,8 +97,8 @@ class AuthRepositoryImpl implements AuthRepository {
     _logger.i('收到auth响应',
         extra: {'success': response.success, 'message': response.message});
 
+    // 如果认证失败，不需要特别处理
     if (!response.success) {
-      _authController.add(response);
       return;
     }
 
@@ -117,19 +112,9 @@ class AuthRepositoryImpl implements AuthRepository {
       _currentToken = token;
 
       // 异步初始化数据库和通信服务
-      _initUserSession(userId, token).then((_) {
-        // 初始化完成后发送成功响应
-        _authController.add(response);
-      }).catchError((error) {
+      _initUserSession(userId, token).catchError((error) {
         _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
-        _authController.add(AuthResponse(
-          success: false,
-          message: '初始化失败：${error.toString()}',
-        ));
       });
-    } else {
-      // 直接传递响应
-      _authController.add(response);
     }
   }
 
@@ -142,7 +127,8 @@ class AuthRepositoryImpl implements AuthRepository {
   /// - token: auth令牌
   Future<void> _initUserSession(String userId, String token) async {
     try {
-      _logger.d('开始初始化用户会话', extra: {'userId': userId},stackTrace: StackTrace.current);
+      _logger.d('开始初始化用户会话',
+          extra: {'userId': userId}, stackTrace: StackTrace.current);
 
       // 初始化Isar数据库
       await DatabaseInitializer.init(userId: userId);
@@ -383,10 +369,10 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('登录成功但未返回用户ID');
       }
 
-      // // 处理登录成功后的用户会话初始化
-      // if (response.hasToken()) {
-      //   await _initUserSession(response.userId!, response.token!);
-      // }
+      // 处理登录成功后的用户会话初始化
+      if (response.hasToken()) {
+        await _initUserSession(response.userId!, response.token!);
+      }
 
       return response.userId!;
     } catch (error) {
@@ -796,6 +782,5 @@ class AuthRepositoryImpl implements AuthRepository {
   /// 取消订阅、关闭流控制器等
   Future<void> dispose() async {
     _authResponseSubscription?.cancel();
-    _authController.close();
   }
 }

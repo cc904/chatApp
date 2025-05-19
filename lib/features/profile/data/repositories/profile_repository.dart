@@ -9,45 +9,47 @@ import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 
 /// 个人资料仓库
-/// 
+///
 /// 负责管理用户配置文件数据的持久化存储和检索
-/// 使用Isar数据库实现本地存储，并处理MyUser模型和MyUserProto之间的转换
+/// 使用DatabaseInitializer中的Isar数据库实现本地存储，并处理MyUser模型和MyUserProto之间的转换
 class ProfileRepository {
   final _logger = LogService.instance;
-  late final Isar _db;
 
-  /// 初始化数据库
-  /// 
-  /// 在应用程序文档目录中创建并打开Isar数据库实例
-  /// 注册MyUser数据模型到数据库
+  /// 初始化方法
+  ///
+  /// 检查DatabaseInitializer是否已初始化
+  /// 如果未初始化，则抛出异常，需要先初始化DatabaseInitializer
   Future<void> init() async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      _db = await Isar.open(
-        [MyUserSchema],
-        directory: dir.path,
-      );
-      _logger.i('ProfileRepository 数据库初始化成功');
+      if (!DatabaseInitializer.isInitialized) {
+        throw Exception('DatabaseInitializer未初始化，请先初始化DatabaseInitializer');
+      }
+      _logger.i('ProfileRepository 已准备就绪');
     } catch (e) {
-      _logger.e('ProfileRepository 数据库初始化失败', error: e);
+      _logger.e('ProfileRepository 初始化失败', error: e);
       rethrow;
     }
   }
 
   /// 获取当前登录用户信息
-  /// 
-  /// 从数据库中读取MyUser记录并转换为MyUserProto对象
+  ///
+  /// 从DatabaseInitializer的Isar实例中读取MyUser记录并转换为MyUserProto对象
   /// 如果没有用户记录，返回null
-  /// 
+  ///
   /// 返回值:
   ///   - MyUserProto?: 当前登录用户信息，如果未登录则为null
   Future<MyUserProto?> getCurrentUser() async {
     try {
-      final users = await _db.myUsers.where().findAll();
+      if (!DatabaseInitializer.isInitialized) {
+        _logger.w('数据库未初始化，无法获取用户信息');
+        return null;
+      }
+
+      final users = await DatabaseInitializer.isar.myUsers.where().findAll();
       if (users.isEmpty) {
         return null;
       }
-      
+
       // 转换为 MyUserProto
       final user = users.first;
       return MyUserProto(
@@ -57,28 +59,36 @@ class ProfileRepository {
         avatar: user.avatar,
         phone: user.phone,
         email: user.email,
-        tokenExpireTime: user.tokenExpireTime != null ? Int64(user.tokenExpireTime!.millisecondsSinceEpoch) : null,
-        lastLoginTime: user.lastLoginTime != null ? Int64(user.lastLoginTime!.millisecondsSinceEpoch) : null,
+        tokenExpireTime: user.tokenExpireTime != null
+            ? Int64(user.tokenExpireTime!.millisecondsSinceEpoch)
+            : null,
+        lastLoginTime: user.lastLoginTime != null
+            ? Int64(user.lastLoginTime!.millisecondsSinceEpoch)
+            : null,
         status: user.status,
       );
     } catch (e) {
       _logger.e('获取用户信息失败', error: e);
-      rethrow;
+      return null;
     }
   }
 
   /// 保存用户信息
-  /// 
+  ///
   /// 将MyUserProto对象转换为MyUser并保存到数据库
   /// 在保存前会清除所有现有用户数据
-  /// 
+  ///
   /// 参数:
   ///   - user: 需要保存的用户信息(MyUserProto格式)
   Future<void> saveUser(MyUserProto user) async {
     try {
-      await _db.writeTxn(() async {
-        await _db.myUsers.clear(); // 清除旧数据
-        
+      if (!DatabaseInitializer.isInitialized) {
+        throw Exception('数据库未初始化，无法保存用户信息');
+      }
+
+      await DatabaseInitializer.isar.writeTxn(() async {
+        await DatabaseInitializer.isar.myUsers.clear(); // 清除旧数据
+
         // 创建 MyUser 对象并保存
         final myUser = MyUser()
           ..userId = user.userId
@@ -87,13 +97,16 @@ class ProfileRepository {
           ..avatar = user.avatar
           ..phone = user.phone
           ..email = user.email
-          ..tokenExpireTime = user.hasTokenExpireTime() ? 
-              DateTime.fromMillisecondsSinceEpoch(user.tokenExpireTime.toInt()) : null
-          ..lastLoginTime = user.hasLastLoginTime() ? 
-              DateTime.fromMillisecondsSinceEpoch(user.lastLoginTime.toInt()) : null
+          ..tokenExpireTime = user.hasTokenExpireTime()
+              ? DateTime.fromMillisecondsSinceEpoch(
+                  user.tokenExpireTime.toInt())
+              : null
+          ..lastLoginTime = user.hasLastLoginTime()
+              ? DateTime.fromMillisecondsSinceEpoch(user.lastLoginTime.toInt())
+              : null
           ..status = user.status;
-        
-        await _db.myUsers.put(myUser); // 保存新数据
+
+        await DatabaseInitializer.isar.myUsers.put(myUser); // 保存新数据
       });
       _logger.i('用户信息保存成功', extra: {'userId': user.userId});
     } catch (e) {
@@ -103,15 +116,15 @@ class ProfileRepository {
   }
 
   /// 更新用户信息
-  /// 
+  ///
   /// 允许选择性地更新用户的昵称、头像和状态
   /// 不会更改其他用户属性
-  /// 
+  ///
   /// 参数:
   ///   - nickname: 可选，新昵称
   ///   - avatar: 可选，新头像URL
   ///   - status: 可选，新状态信息
-  /// 
+  ///
   /// 异常:
   ///   - 如果用户未登录，抛出异常
   Future<void> updateUserInfo({
@@ -146,9 +159,9 @@ class ProfileRepository {
   }
 
   /// 获取服务器URL
-  /// 
+  ///
   /// 从应用程序配置中获取当前的服务器URL
-  /// 
+  ///
   /// 返回值:
   ///   - String: 当前配置的服务器URL
   String getServerUrl() {
@@ -156,9 +169,9 @@ class ProfileRepository {
   }
 
   /// 更新服务器URL
-  /// 
+  ///
   /// 更新应用程序配置中的服务器URL
-  /// 
+  ///
   /// 参数:
   ///   - url: 新的服务器URL地址
   Future<void> updateServerUrl(String url) async {
@@ -172,12 +185,12 @@ class ProfileRepository {
   }
 
   /// 重置所有数据
-  /// 
+  ///
   /// 完全清除应用程序数据:
   /// 1. 关闭现有数据库连接
   /// 2. 删除所有Isar数据库文件
   /// 3. 删除媒体文件夹及其内容
-  /// 
+  ///
   /// 通常用于用户退出登录或应用重置功能
   Future<void> resetAllData() async {
     try {
@@ -192,19 +205,24 @@ class ProfileRepository {
       final appDocDir = await getApplicationDocumentsDirectory();
 
       // 删除数据库文件
-      _logger.i('数据库文件目录: $appDocDir');
-      final isarFiles = await appDocDir.list().where((entity) => entity.path.endsWith('.isar') || entity.path.endsWith('.isar.lock')).toList();
+      _logger.i('数据库文件目录: ${appDocDir.path}');
+      final isarFiles = await appDocDir
+          .list()
+          .where((entity) =>
+              entity.path.endsWith('.isar') ||
+              entity.path.endsWith('.isar.lock'))
+          .toList();
 
       for (final file in isarFiles) {
         await file.delete();
         _logger.i('删除数据库文件: ${file.path}');
       }
 
-      // 删除媒体文件
+      // 删除媒体文件夹
       final mediaDir = Directory('${appDocDir.path}/media');
       if (await mediaDir.exists()) {
         await mediaDir.delete(recursive: true);
-        _logger.i('媒体文件已删除');
+        _logger.i('删除媒体文件夹: ${mediaDir.path}');
       }
 
       _logger.i('数据重置完成');
@@ -214,14 +232,13 @@ class ProfileRepository {
     }
   }
 
-  /// 关闭数据库连接
-  /// 
-  /// 安全地关闭Isar数据库连接
-  /// 应在应用程序关闭或不再需要该仓库时调用
+  /// 关闭数据库
+  ///
+  /// 安全地关闭数据库连接
   Future<void> close() async {
     try {
-      await _db.close();
-      _logger.i('ProfileRepository 数据库已关闭');
+      // 不直接关闭数据库，由DatabaseInitializer负责
+      _logger.i('ProfileRepository 已释放资源');
     } catch (e) {
       _logger.e('关闭数据库失败', error: e);
       rethrow;

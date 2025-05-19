@@ -4,11 +4,12 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/features/profile/data/repositories/profile_repository.dart';
+// import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
@@ -40,17 +41,13 @@ class MessageException implements Exception {
 /// 2. 消息管理：发送、接收、查询、删除消息
 /// 3. 实时通信：管理Socket连接、处理实时事件
 /// 4. 联系人操作：获取联系人信息、同步联系人
-class ChatRepositoryImpl implements ChatRepository {    
+class ChatRepositoryImpl implements ChatRepository {
   // 构造函数
-  ChatRepositoryImpl({required Isar isar, required String currentUserId})
-      : _isar = isar,
-        _currentUserId = currentUserId {
-    // 初始化用户信息仓库
-    _profileRepository.init().then((_) {
-      _logger.i('用户信息仓库初始化成功');
-    }).catchError((error) {
-      _logger.e('用户信息仓库初始化失败', error: error);
-    });
+  ChatRepositoryImpl() {
+    // 确保数据库已初始化
+    if (!DatabaseInitializer.isInitialized) {
+      throw Exception('数据库未初始化，请确保在使用ChatRepository前初始化数据库');
+    }
 
     // 注册事件处理
     _registerEventHandlers();
@@ -58,12 +55,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
-
-  /// 当前用户ID
-  final String _currentUserId;
-
-  /// 用户信息仓库
-  final ProfileRepository _profileRepository = ProfileRepository();
 
   /// 文件上传服务,处理媒体文件上传
   final FileUploadService _fileUploadService = FileUploadService();
@@ -103,8 +94,8 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   Isar   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  // 获取当前数据库实例
-  final Isar _isar;
+  // 获取当前数据库实例，使用DatabaseInitializer
+  Isar get _isar => DatabaseInitializer.isar;
 
   // 获取用户集合
   IsarCollection<User> get _users => _isar.users;
@@ -244,14 +235,25 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 获取当前用户ID
-  /// 从用户服务获取当前登录用户的ID
+  /// 直接从数据库获取当前登录用户的ID
   /// 返回用户ID,如未找到则抛出异常
   Future<String> _getCurrentUserId() async {
-    final currentUser = await _profileRepository.getCurrentUser();
-    if (currentUser == null) {
-      throw Exception('找不到当前用户信息,请确保已登录');
+    try {
+      if (!DatabaseInitializer.isInitialized) {
+        throw Exception('数据库未初始化，请确保已登录');
+      }
+
+      final myUsers = await DatabaseInitializer.isar.myUsers.where().findAll();
+
+      if (myUsers.isEmpty) {
+        throw Exception('找不到当前用户信息，请确保已登录');
+      }
+
+      // 返回第一个用户的ID（通常只会有一个用户记录）
+      return myUsers.first.userId;
+    } catch (e) {
+      throw Exception('获取当前用户ID失败: ${e.toString()}');
     }
-    return currentUser.userId;
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  会话相关  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
@@ -300,10 +302,13 @@ class ChatRepositoryImpl implements ChatRepository {
         return;
       }
 
+      // 获取当前用户ID
+      final currentUserId = await _getCurrentUserId();
+
       // 创建同步请求数据
       final request = conversation_proto.SyncConversationsRequest()
         ..localConversationIds.addAll(localConversationIds)
-        ..userId = _currentUserId;
+        ..userId = currentUserId;
 
       // 发送同步请求
       await _communicationService.emitProto('conversation:sync', request);
@@ -1314,11 +1319,6 @@ class ChatRepositoryImpl implements ChatRepository {
     _onlineStatusController.close();
     _messageStatusController.close();
     _syncStatusController.close();
-
-    // 关闭用户信息仓库
-    _profileRepository.close().catchError((error) {
-      _logger.e('关闭用户信息仓库失败', error: error);
-    });
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢      TODo     💢💢💢💢💢💢💢💢💢💢💢💢💢💢

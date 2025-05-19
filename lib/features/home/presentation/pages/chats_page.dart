@@ -8,8 +8,8 @@ import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
-import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+// import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
+// import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 消息页面
 ///
@@ -42,7 +42,7 @@ class _ChatsPageState extends State<ChatsPage> {
   List<Conversation> _conversations = [];
 
   /// 联系人列表数据
-  List<User> _contacts = [];
+  final List<User> _contacts = [];
 
   /// 当前打开的滑动菜单项ID
   String? _openedItemId;
@@ -79,26 +79,25 @@ class _ChatsPageState extends State<ChatsPage> {
       }
 
       // 创建仓库实例
-      final ChatRepository chatRepository = ChatRepositoryImpl(
-        isar: DatabaseInitializer.isar,
-        currentUserId: currentUserId
-      );
-      
-      final ContactsRepository contactsRepository = ContactsRepositoryImpl();
+      final ChatRepository chatRepository = ChatRepositoryImpl();
+
+      // final ContactsRepository contactsRepository = ContactsRepositoryImpl();
 
       // 加载会话和联系人数据
-      List<Conversation> conversations = await chatRepository.getAllConversations();
-      List<User> contacts = await contactsRepository.getAllContacts();
+      List<Conversation> conversations =
+          await chatRepository.getAllConversations();
+      // List<User> contacts = await contactsRepository.getAllContacts();
 
       // 更新状态
       setState(() {
         _conversations = conversations;
         _filteredConversations = conversations;
-        _contacts = contacts;
+        // _contacts = contacts;
         _isLoading = false;
       });
-      
-      _logger.i('已加载 ${conversations.length} 个会话和 ${contacts.length} 个联系人');
+
+      _logger.i('已加载 ${conversations.length} 个会话');
+      // _logger.i('已加载  ${contacts.length} 个联系人');
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -126,7 +125,7 @@ class _ChatsPageState extends State<ChatsPage> {
     try {
       // 搜索会话和联系人数据
       final lowercaseQuery = query.toLowerCase();
-      
+
       // 根据联系人名称或会话内容搜索
       final filteredList = _conversations.where((conversation) {
         // 查找会话对应的联系人
@@ -134,17 +133,20 @@ class _ChatsPageState extends State<ChatsPage> {
           (c) => c.userId == conversation.contactUserId,
           orElse: () => User()..name = '',
         );
-        
+
         // 检查联系人名称、拼音和会话最后消息是否包含搜索关键词
         return contact.name.toLowerCase().contains(lowercaseQuery) ||
-               (contact.pinyin?.toLowerCase().contains(lowercaseQuery) ?? false) ||
-               (conversation.lastMessagePreview?.toLowerCase().contains(lowercaseQuery) ?? false);
+            (contact.pinyin?.toLowerCase().contains(lowercaseQuery) ?? false) ||
+            (conversation.lastMessagePreview
+                    ?.toLowerCase()
+                    .contains(lowercaseQuery) ??
+                false);
       }).toList();
-      
+
       setState(() {
         _filteredConversations = filteredList;
       });
-      
+
       _logger.i('搜索结果: ${filteredList.length} 个会话');
     } catch (e) {
       _logger.e('搜索会话出错', error: e);
