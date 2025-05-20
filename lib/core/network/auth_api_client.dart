@@ -2,35 +2,41 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 // import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
 
 /// 认证响应模型
 class AuthResponse {
   final bool success;
   final String message;
-  final String? userId;
-  final String? token;
-  final String? nickname;
+  final MyUserProto? myUser;
 
   AuthResponse({
     required this.success,
     required this.message,
-    this.userId,
-    this.token,
-    this.nickname,
+    this.myUser,
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
+    final userData = json['myUser'];
+    MyUserProto? myUser;
+
+    if (userData != null) {
+      myUser = MyUserProto(
+        userId: userData['userId'],
+        token: userData['token'],
+        name: userData['nickname'] ?? '',
+      );
+    }
+
     return AuthResponse(
       success: json['success'] ?? false,
       message: json['message'] ?? '',
-      userId: json['data']?['userId'],
-      token: json['data']?['token'],
-      nickname: json['data']?['nickname'],
+      myUser: myUser,
     );
   }
 
-  bool hasUserId() => userId != null && userId!.isNotEmpty;
-  bool hasToken() => token != null && token!.isNotEmpty;
+  bool hasUserId() => myUser != null && myUser!.hasUserId();
+  bool hasToken() => myUser != null && myUser!.hasToken();
 }
 
 /// 认证异常
@@ -75,7 +81,7 @@ class AuthApiClient {
         return true;
       }
 
-      _logger.i('初始化认证API客户端', extra: {'serverUrl': serverUrl});
+      _logger.x('初始化认证API客户端', extra: {'serverUrl': serverUrl});
 
       // 创建和配置Dio客户端
       _dio = Dio(BaseOptions(
@@ -135,8 +141,7 @@ class AuthApiClient {
   /// 发送验证码
   /// [phoneNumber] - 手机号码
   /// [purpose] - 验证码用途(login/register/reset)
-  Future<AuthResponse> sendVerificationCode(
-      String phoneNumber, String purpose) async {
+  Future<bool> sendVerificationCode(String phoneNumber, String purpose) async {
     try {
       _logger
           .i('发送验证码', extra: {'phoneNumber': phoneNumber, 'purpose': purpose});
@@ -156,7 +161,7 @@ class AuthApiClient {
       // 发送到流
       _authResponseController.add(authResponse);
 
-      return authResponse;
+      return authResponse.success;
     } catch (error) {
       _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
 
@@ -172,7 +177,7 @@ class AuthApiClient {
       // 向流中添加错误响应
       _authResponseController.add(errorResponse);
 
-      return errorResponse;
+      return false;
     }
   }
 
@@ -315,6 +320,40 @@ class AuthApiClient {
 
       // 使用通用错误处理方法
       final errorMsg = _getFriendlyErrorMessage(error, '重置密码失败');
+
+      // 创建错误响应
+      final errorResponse = AuthResponse(
+        success: false,
+        message: errorMsg,
+      );
+
+      // 向流中添加错误响应
+      _authResponseController.add(errorResponse);
+
+      return errorResponse;
+    }
+  }
+
+  /// 验证令牌有效性
+  /// [userId] - 用户ID
+  /// [token] - 认证令牌
+  Future<AuthResponse> verifyToken(String token) async {
+    try {
+      _logger.d('验证令牌有效性',
+          extra: {'token': token}, stackTrace: StackTrace.current);
+
+      final response =
+          await _dio.post('/api/v1/auth/verifyToken', data: {'token': token});
+
+      final authResponse = AuthResponse.fromJson(response.data);
+      _authResponseController.add(authResponse);
+
+      return authResponse;
+    } catch (error) {
+      _logger.d('令牌验证失败', extra: {'error': error.toString()});
+
+      // 使用通用错误处理方法
+      final errorMsg = _getFriendlyErrorMessage(error, '令牌验证失败');
 
       // 创建错误响应
       final errorResponse = AuthResponse(

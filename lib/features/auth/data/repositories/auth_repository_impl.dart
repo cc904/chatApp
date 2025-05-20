@@ -13,6 +13,7 @@ import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:isar/isar.dart';
 // import 'package:path_provider/path_provider.dart';
+import 'package:cc/core/services/secure_storage_service.dart';
 
 /// AuthRepository的实现类
 /// 负责auth相关的业务逻辑,包括登录、注册、重置密码等功能
@@ -21,6 +22,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthApiClient _authApiClient = AuthApiClient.getInstance();
   // final ProfileRepository _profileRepository = ProfileRepository();
   final CommunicationService _communicationService = CommunicationService();
+  final SecureStorageService _secureStorage = SecureStorageService.instance;
 
   // 服务器URL
   final String _serverUrl;
@@ -50,6 +52,7 @@ class AuthRepositoryImpl implements AuthRepository {
   /// 初始化仓库
   @override
   Future<void> init() async {
+    _logger.i('初始化AuthRepository');
     try {
       if (_isInitialized) {
         _logger.i('AuthRepository已经初始化');
@@ -62,22 +65,6 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('初始化authAPI客户端失败');
       }
 
-      // 仍然需要订阅auth响应，用于处理实时通信等
-      _authResponseSubscription =
-          _authApiClient.onAuthResponse.listen(_handleAuthResponse);
-
-      // 尝试从本地数据获取用户信息
-      final userInfo = await getUserInfo();
-      if (userInfo != null && userInfo.token.isNotEmpty) {
-        _currentUserId = userInfo.userId;
-        _currentToken = userInfo.token;
-
-        // 如果已经有登录用户，确保数据库已初始化
-        if (!DatabaseInitializer.isInitialized && _currentUserId != null) {
-          await DatabaseInitializer.init(userId: _currentUserId!);
-        }
-      }
-
       _isInitialized = true;
       _logger.i('AuthRepository初始化完成');
     } catch (error) {
@@ -87,64 +74,32 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// 处理auth响应
-  ///
-  /// 处理来自AuthApiClient的auth响应，并管理auth状态
-  ///
-  /// 参数:
-  /// - response: auth响应对象
-  void _handleAuthResponse(AuthResponse response) {
-    _logger.i('收到auth响应',
-        extra: {'success': response.success, 'message': response.message});
-
-    // 如果认证失败，不需要特别处理
-    if (!response.success) {
-      return;
-    }
-
-    // 如果auth成功且包含用户ID和令牌
-    if (response.hasUserId() && response.hasToken()) {
-      final userId = response.userId!;
-      final token = response.token!;
-
-      // 更新当前状态
-      _currentUserId = userId;
-      _currentToken = token;
-
-      // 异步初始化数据库和通信服务
-      _initUserSession(userId, token).catchError((error) {
-        _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
-      });
-    }
-  }
 
   /// 初始化用户会话
   ///
   /// 完成用户auth后进行数据库初始化和通信服务连接
   ///
   /// 参数:
-  /// - userId: 用户ID
-  /// - token: auth令牌
-  Future<void> _initUserSession(String userId, String token) async {
+  /// - user: 用户信息（MyUserProto）
+  Future<void> _initUserSession(MyUserProto my) async {
     try {
       _logger.d('开始初始化用户会话',
-          extra: {'userId': userId}, stackTrace: StackTrace.current);
+          extra: {'userId': my.userId}, stackTrace: StackTrace.current);
 
       // 初始化Isar数据库
-      await DatabaseInitializer.init(userId: userId);
+      await DatabaseInitializer.init(userId: my.userId);
 
-      // 保存用户信息
-      await saveUserInfo(
-        MyUserProto(
-          userId: userId,
-          token: token,
-          name: '我',
-          lastLoginTime: Int64(DateTime.now().millisecondsSinceEpoch),
-        ),
+      // 保存用户信息到数据库
+      await saveUserInfo(my);
+
+      // 同时保存到安全存储
+      await _secureStorage.saveUserCredentials(
+        my,
+        expireTime: DateTime.now().add(const Duration(days: 30)), // 假设令牌有效期为30天
       );
 
       // 初始化实时通信
-      await _initRealTimeCommunication(userId, token);
+      await _initRealTimeCommunication(my.userId, my.token);
 
       _logger.i('用户会话初始化完成');
     } catch (error) {
@@ -159,7 +114,7 @@ class AuthRepositoryImpl implements AuthRepository {
   ///
   /// 参数:
   /// - user: 用户信息（MyUserProto）
-  Future<void> saveUserInfo(MyUserProto user) async {
+  Future<void> saveUserInfo(MyUserProto my) async {
     try {
       if (!DatabaseInitializer.isInitialized) {
         throw Exception('数据库未初始化，无法保存用户信息');
@@ -171,24 +126,23 @@ class AuthRepositoryImpl implements AuthRepository {
 
         // 创建 MyUser 对象并保存
         final myUser = MyUser()
-          ..userId = user.userId
-          ..token = user.token
-          ..name = user.name
-          ..avatar = user.avatar
-          ..phone = user.phone
-          ..email = user.email
-          ..tokenExpireTime = user.hasTokenExpireTime()
-              ? DateTime.fromMillisecondsSinceEpoch(
-                  user.tokenExpireTime.toInt())
+          ..userId = my.userId
+          ..token = my.token
+          ..name = my.name
+          ..avatar = my.avatar
+          ..phone = my.phone
+          ..email = my.email
+          ..tokenExpireTime = my.hasTokenExpireTime()
+              ? DateTime.fromMillisecondsSinceEpoch(my.tokenExpireTime.toInt())
               : null
-          ..lastLoginTime = user.hasLastLoginTime()
-              ? DateTime.fromMillisecondsSinceEpoch(user.lastLoginTime.toInt())
+          ..lastLoginTime = my.hasLastLoginTime()
+              ? DateTime.fromMillisecondsSinceEpoch(my.lastLoginTime.toInt())
               : null
-          ..status = user.status;
+          ..status = my.status;
 
         await db.myUsers.put(myUser); // 保存新数据
       });
-      _logger.i('用户信息保存成功', extra: {'userId': user.userId});
+      _logger.i('用户信息保存成功', extra: {'userId': my.userId});
     } catch (e) {
       _logger.e('保存用户信息失败', error: e, stackTrace: StackTrace.current);
       throw Exception('保存用户信息失败: ${e.toString()}');
@@ -205,7 +159,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       if (!DatabaseInitializer.isInitialized) {
         // 数据库尚未初始化时，默认返回null而不是抛出异常
-        _logger.d('数据库未初始化，无法获取用户信息',stackTrace: StackTrace.current);
+        _logger.d('数据库未初始化，无法获取用户信息', stackTrace: StackTrace.current);
         return null;
       }
 
@@ -321,12 +275,12 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('登录成功但未返回用户ID');
       }
 
-      // 处理登录成功后的用户会话初始化
-      if (response.hasToken()) {
-        await _initUserSession(response.userId!, response.token!);
-      }
+      // // 处理登录成功后的用户会话初始化
+      // if (response.hasToken()) {
+      //   await _initUserSession(response.userId!, response.token!);
+      // }
 
-      return response.userId!;
+      return response.myUser!.userId;
     } catch (error) {
       _logger.e('密码登录失败', error: error, stackTrace: StackTrace.current);
       throw Exception('登录失败：${error.toString()}');
@@ -369,63 +323,61 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('登录成功但未返回用户ID');
       }
 
-      // 处理登录成功后的用户会话初始化
-      if (response.hasToken()) {
-        await _initUserSession(response.userId!, response.token!);
-      }
+      // // 处理登录成功后的用户会话初始化
+      // if (response.hasToken()) {
+      //   await _initUserSession(response.userId!, response.token!);
+      // }
 
-      return response.userId!;
+      return response.myUser!.userId;
     } catch (error) {
       _logger.e('验证码登录失败', error: error, stackTrace: StackTrace.current);
       throw Exception('登录失败：${error.toString()}');
     }
   }
 
-  /// 登录
-  ///
-  /// 使用用户名和密码进行登录（保留此方法以向后兼容）
-  ///
-  /// 参数:
-  /// - username: 用户名/手机号
-  /// - password: 密码
-  ///
-  /// 返回:
-  /// - 登录成功返回用户ID
-  @override
-  Future<String> login(String username, String password) async {
-    return loginWithPassword(username, password);
-  }
-
   /// 使用令牌登录
   ///
-  /// 使用保存的令牌进行自动登录
+  /// 尝试使用存储的令牌自动登录
   ///
   /// 返回:
-  /// - 登录成功返回用户ID，失败返回null
+  /// - 成功返回包含用户信息的AuthResponse，失败返回错误信息的AuthResponse
   @override
-  Future<String?> loginWithToken() async {
+  Future<AuthResponse> loginWithToken() async {
     try {
       await _ensureInitialized();
 
-      final currentUser = await getUserInfo();
-      if (currentUser == null || currentUser.token.isEmpty) {
-        _logger.i('没有可用的登录令牌');
-        return null;
+      // 优先从安全存储获取凭证
+      final userId = await _secureStorage.getUserId();
+      final token = await _secureStorage.getToken();
+      final isTokenValid = await _secureStorage.isTokenValid();
+
+      if (userId == null || token == null || !isTokenValid) {
+        // 如果安全存储中没有有效凭证，直接返回null
+        _logger.x('没有可用的登录令牌', extra: {'reason': '安全存储中无凭证或凭证已过期'});
+        return AuthResponse(success: false, message: '令牌不存在或已过期');
       }
 
-      // TODO: 实现令牌验证逻辑，向服务器验证令牌有效性
-      // 目前简单返回已存储的用户ID
+      // 直接使用安全存储中的凭证
+      _currentUserId = userId;
+      _currentToken = token;
 
-      // 初始化数据库和通信服务
-      await _initUserSession(currentUser.userId, currentUser.token);
+      // 验证令牌有效性
+      final tokenResponse = await _authApiClient.verifyToken(_currentToken!);
+      if (!tokenResponse.success) {
+        _logger.w('令牌验证失败，需要重新登录', extra: {'message': tokenResponse.message});
+        return tokenResponse;
+      }
 
-      _currentUserId = currentUser.userId;
-      _currentToken = currentUser.token;
-
-      return currentUser.userId;
+      // 创建成功响应，包含用户信息
+      return AuthResponse(
+        success: true,
+        message: '令牌登录成功',
+        myUser: tokenResponse.myUser,
+      );
     } catch (error) {
       _logger.e('令牌登录失败', error: error, stackTrace: StackTrace.current);
-      return null;
+      return AuthResponse(
+          success: false, message: '令牌登录失败: ${error.toString()}');
     }
   }
 
@@ -436,14 +388,14 @@ class AuthRepositoryImpl implements AuthRepository {
   /// 参数:
   /// - username: 用户名/手机号
   /// - password: 密码
+  /// - verificationCode: 验证码
   /// - name: 用户昵称
-  /// - avatar: 可选的头像URL
   ///
   /// 返回:
-  /// - 注册成功返回用户ID
+  /// - 注册成功返回包含用户信息的AuthResponse，失败返回错误信息的AuthResponse
   @override
-  Future<String> register(String username, String password, String name,
-      {String? avatar}) async {
+  Future<AuthResponse> register(String username, String password,
+      String verificationCode, String name) async {
     try {
       await _ensureInitialized();
 
@@ -457,43 +409,46 @@ class AuthRepositoryImpl implements AuthRepository {
       if (name.isEmpty) {
         throw Exception('请输入昵称');
       }
+      if (verificationCode.isEmpty) {
+        throw Exception('请输入验证码');
+      }
 
-      // TODO: 获取验证码的流程需要单独实现
       // 这里假设已经获取了验证码
-      const verificationCode = '123456'; // 实际应用中应从用户输入获取
+      // const verificationCode = '123456'; // 实际应用中应从用户输入获取
 
       // 直接使用ApiClient注册并获取响应
       final response = await _authApiClient.register(
           username, verificationCode, password, name);
 
-      // 如果注册不成功，抛出异常
+      // 如果注册不成功，直接返回错误响应
       if (!response.success) {
-        throw Exception(response.message);
+        return response;
       }
 
-      // 如果没有用户ID，抛出异常
+      // 如果没有用户ID，返回错误响应
       if (!response.hasUserId()) {
-        throw Exception('注册成功但未返回用户ID');
+        return AuthResponse(success: false, message: '注册成功但未返回用户ID');
       }
 
       // 处理注册成功后的用户会话初始化
       if (response.hasToken()) {
-        await _initUserSession(response.userId!, response.token!);
+        await _initUserSession(response.myUser!);
       }
 
-      return response.userId!;
+      // 返回成功响应
+      return response;
     } catch (error) {
       _logger.e('注册失败', error: error, stackTrace: StackTrace.current);
-      throw Exception('注册失败：${error.toString()}');
+      return AuthResponse(success: false, message: '注册失败：${error.toString()}');
     }
   }
 
   /// 登出
   ///
-  /// 注销当前用户会话
+  /// 清除用户身份认证相关数据
   ///
   /// 返回:
-  /// - 操作成功返回true
+  /// - 成功返回true，失败返回false
   @override
   Future<bool> logout() async {
     try {
@@ -514,11 +469,14 @@ class AuthRepositoryImpl implements AuthRepository {
         await DatabaseInitializer.close();
       }
 
+      // 清除安全存储中的凭证
+      await _secureStorage.clearUserCredentials();
+
       // 重置auth状态
       _currentUserId = null;
       _currentToken = null;
 
-      _logger.i('登出成功');
+      _logger.i('用户已登出，所有凭证已清除');
       return true;
     } catch (error) {
       _logger.e('登出失败', error: error, stackTrace: StackTrace.current);
@@ -665,12 +623,8 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('请输入手机号或邮箱');
       }
 
-      // 调用API方法并获取响应
-      final response =
-          await _authApiClient.sendVerificationCode(phoneOrEmail, type);
-
-      // 返回操作是否成功
-      return response.success;
+      // 调用API方法并直接返回布尔结果
+      return await _authApiClient.sendVerificationCode(phoneOrEmail, type);
     } catch (error) {
       _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
       return false;
@@ -757,6 +711,33 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (error) {
       _logger.e('删除账户失败', error: error, stackTrace: StackTrace.current);
       return false;
+    }
+  }
+
+  /// 从安全存储中获取用户信息
+  ///
+  /// 直接返回安全存储中的用户ID和令牌，不访问数据库
+  ///
+  /// 返回:
+  /// - 包含userId和token的Map，如果不存在则对应值为null
+  Future<Map<String, String?>> getLocalUserInfo() async {
+    try {
+      // 从安全存储中获取用户凭证
+      final userId = await _secureStorage.getUserId();
+      final token = await _secureStorage.getToken();
+
+      _logger.x('从安全存储获取用户信息', extra: {'userId': userId ?? '未找到'});
+
+      return {
+        'userId': userId,
+        'token': token,
+      };
+    } catch (error) {
+      _logger.e('从安全存储获取用户信息失败', error: error, stackTrace: StackTrace.current);
+      return {
+        'userId': null,
+        'token': null,
+      };
     }
   }
 

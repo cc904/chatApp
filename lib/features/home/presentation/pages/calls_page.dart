@@ -20,7 +20,7 @@ class _CallsPageState extends State<CallsPage> {
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _calls = [];
-  List<Map<String, dynamic>> _filteredCalls = [];
+  final List<Map<String, dynamic>> _filteredCalls = [];
   String? _openedItemId;
 
   // 添加ChatCubit实例

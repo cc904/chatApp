@@ -5,6 +5,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
@@ -21,11 +22,11 @@ void main() async {
 
   // 创建日志记录器
   final logger = LogService.instance;
-  logger.i('应用启动');
+  logger.x('应用启动');
 
   // 初始化全局配置
   final appConfig = AppConfig();
-  logger.i('应用配置加载完成', extra: {'serverUrl': appConfig.serverUrl});
+  logger.x('应用配置加载完成', extra: {'serverUrl': appConfig.serverUrl});
 
   try {
     // 初始化timeago中文本地化
@@ -43,6 +44,27 @@ void main() async {
     // 初始化文件上传服务
     FileUploadService();
 
+    // 初始化安全存储服务并检查是否有保存的服务器URL
+    try {
+      final secureStorage = SecureStorageService.instance;
+      final savedServerUrl = await secureStorage.getServerUrl();
+      if (savedServerUrl != null && savedServerUrl.isNotEmpty) {
+        appConfig.serverUrl = savedServerUrl;
+        logger.x('从安全存储加载服务器URL', extra: {'serverUrl': savedServerUrl});
+      } else {
+        // 保存当前服务器URL到安全存储
+        try {
+          await secureStorage.saveServerUrl(appConfig.serverUrl);
+        } catch (e) {
+          // 保存服务器URL失败，但不影响应用启动
+          logger.w('保存服务器URL到安全存储失败，将使用默认URL', extra: {'error': e.toString()});
+        }
+      }
+    } catch (e) {
+      // 安全存储服务初始化失败，但不影响应用启动
+      logger.w('安全存储服务初始化失败，将使用默认设置', extra: {'error': e.toString()});
+    }
+
     // 运行应用
     runApp(const MyApp());
   } catch (error) {
@@ -52,7 +74,8 @@ void main() async {
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: Text('应用初始化失败: $error', style: const TextStyle(color: Colors.red)),
+            child: Text('应用初始化失败: $error',
+                style: const TextStyle(color: Colors.red)),
           ),
         ),
       ),
@@ -104,7 +127,8 @@ class DatabaseErrorApp extends StatelessWidget {
 
 /// 应用生命周期观察器
 class AppLifecycleObserver extends WidgetsBindingObserver {
-  static final AppLifecycleObserver _instance = AppLifecycleObserver._internal();
+  static final AppLifecycleObserver _instance =
+      AppLifecycleObserver._internal();
   static bool _isInitialized = false;
 
   factory AppLifecycleObserver() {
@@ -121,14 +145,31 @@ class AppLifecycleObserver extends WidgetsBindingObserver {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _logger = LogService.instance;
+  final _appConfig = AppConfig();
+  late final AuthCubit _authCubit;
+
+  // 根据初始路由决定启动页面
+
+  @override
+  void initState() {
+    super.initState();
+    _logger.x('初始化MyApp状态');
+
+    _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final logger = LogService.instance;
-    final appConfig = AppConfig();
-    logger.i('MyApp build');
+    _logger.x('MyApp build');
 
     // 确保在应用运行时服务仍然存在，应用退出时释放资源
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -145,24 +186,38 @@ class MyApp extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
-          // 只创建AuthCubit
+          // 使用已创建的AuthCubit
           BlocProvider<AuthCubit>(
-            create: (context) => AuthCubit(
-              serverUrl: appConfig.serverUrl, // 使用全局配置的服务器URL
-            ),
+            create: (context) => _authCubit,
           ),
         ],
-        child: MaterialApp(
-          title: 'WhatsApp',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-            useMaterial3: true,
-          ),
-          scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
-          initialRoute: '/auth',
-          routes: {
-            '/home': (context) => const HomePage(),
-            '/auth': (context) => const AuthPage(),
+        child: BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            // 显示加载指示器，直到认证状态确定
+            if (state.isLoading) {
+              return const MaterialApp(
+                home: Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              );
+            }
+
+            return MaterialApp(
+              title: 'WhatsApp',
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+                useMaterial3: true,
+              ),
+              scaffoldMessengerKey:
+                  UINotificationService.instance.scaffoldMessengerKey,
+              initialRoute: state.isAuthenticated ? '/home' : '/auth',
+              routes: {
+                '/home': (context) => const HomePage(),
+                '/auth': (context) => const AuthPage(),
+              },
+            );
           },
         ),
       ),

@@ -58,7 +58,7 @@ class DatabaseInitializer {
         return;
       }
 
-      _logger.i('开始初始化数据库,用户ID: $userId');
+      _logger.d('开始初始化数据库,用户ID: $userId', stackTrace: StackTrace.current);
 
       final dir = await getApplicationDocumentsDirectory();
       String dbName = '$userId.isar';
@@ -85,8 +85,7 @@ class DatabaseInitializer {
 
       // 创建索引
       await _createIndexes();
-      _logger.d('数据库初始化完成，isInitialized: $isInitialized',
-          stackTrace: StackTrace.current);
+      _logger.i('数据库初始化完成，isInitialized: $isInitialized');
     } catch (error) {
       // 确保在初始化失败时重置状态
       _isar = null;

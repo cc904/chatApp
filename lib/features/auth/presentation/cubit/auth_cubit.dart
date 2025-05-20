@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
 
 part 'auth_state.dart';
 
@@ -27,17 +28,17 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// 初始化
   Future<void> _init() async {
+    _logger.i('初始化AuthCubit');
     try {
-      // 初始化认证仓库
+      // 初始authRepository
       await _authRepository.init();
 
       // 尝试使用令牌自动登录
-      final userId = await _authRepository.loginWithToken();
-      if (userId != null) {
-        _logger.i('自动登录成功，用户ID: $userId');
+      final response = await _authRepository.loginWithToken();
+      if (response.success && response.myUser != null) {
+        _logger.i('自动登录成功，用户ID: ${response.myUser!.userId}');
         emit(state.toAuthenticatedState(
-          userId: userId,
-          token: '', // 令牌已保存在仓库中，这里仅用于标记状态
+          myUser: response.myUser!,
         ));
       }
     } catch (error) {
@@ -66,10 +67,22 @@ class AuthCubit extends Cubit<AuthState> {
     emit(state.copyWith(nickname: nickname));
   }
 
+  /// 发送验证码
+  ///
+  /// 根据指定目的向当前手机号发送验证码
+  ///
+  /// 参数:
+  /// - purpose: 验证码用途 (login/register/reset)
   Future<void> sendVerificationCode({required String purpose}) async {
     _logger.i('发送验证码', extra: {'purpose': purpose});
 
-    if (state.phoneNumber?.length != 11) {
+    // 检查手机号是否有效
+    if (state.phoneNumber?.isEmpty ?? true) {
+      _logger.i('手机号为空');
+      emit(state.toErrorState('请输入手机号码'));
+      return;
+    }
+    if (state.phoneNumber!.length != 11) {
       _logger.e('手机号错误: ${state.phoneNumber}', stackTrace: StackTrace.current);
       emit(state.toErrorState('请输入正确的手机号码'));
       return;
@@ -77,6 +90,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     try {
       _logger.i('发送验证码中...');
+      if (isClosed) return;
       emit(state.toLoadingState());
 
       // 使用认证仓库发送验证码
@@ -89,6 +103,7 @@ class AuthCubit extends Cubit<AuthState> {
         throw '发送验证码失败,请稍后再试';
       }
 
+      if (isClosed) return;
       emit(state.updateCodeSentStatus(
         isCodeSent: true,
         countdown: countdownDuration,
@@ -99,6 +114,7 @@ class AuthCubit extends Cubit<AuthState> {
     } catch (error) {
       _logger.e('发送验证码错误: $error',
           error: error, stackTrace: StackTrace.current);
+      if (isClosed) return;
       emit(state.toErrorState(error.toString()));
     }
   }
@@ -106,16 +122,61 @@ class AuthCubit extends Cubit<AuthState> {
   void _startCountdown() {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (isClosed) {
+        timer.cancel();
+        return;
+      }
+
       final newCountdown = (state.countdown ?? 0) - 1;
       if (newCountdown <= 0) {
         timer.cancel();
-        emit(state.updateCodeSentStatus(isCodeSent: false, countdown: null));
+        if (!isClosed) {
+          emit(state.updateCodeSentStatus(isCodeSent: false, countdown: null));
+        }
       } else {
-        emit(state.copyWith(countdown: newCountdown));
+        if (!isClosed) emit(state.copyWith(countdown: newCountdown));
       }
     });
   }
 
+  /// 使用令牌登录
+  ///
+  /// 尝试使用存储的令牌自动登录
+  ///
+  /// 返回是否登录成功
+  Future<bool> loginWithToken() async {
+    try {
+      emit(state.toLoadingState());
+      _logger.i('尝试使用令牌登录');
+
+      final response = await _authRepository.loginWithToken();
+
+      if (response.success && response.myUser != null) {
+        _logger.i('令牌登录成功', extra: {'userId': response.myUser!.userId});
+        emit(state.toAuthenticatedState(
+          myUser: response.myUser!,
+        ));
+        return true;
+      } else {
+        _logger.i('令牌登录失败：${response.message}');
+        emit(state.copyWith(
+          isLoading: false,
+        ));
+        return false;
+      }
+    } catch (error) {
+      _logger.e('令牌登录过程中发生错误', error: error);
+      emit(state.toErrorState(error.toString()));
+      return false;
+    }
+  }
+
+  /// 用户登录
+  ///
+  /// 使用手机号和密码或验证码登录
+  ///
+  /// 参数:
+  /// - isQuickLogin: 是否使用快捷登录(验证码)
   Future<void> login(bool isQuickLogin) async {
     _logger.i('登录请求 - 快捷登录: $isQuickLogin');
 
@@ -161,8 +222,11 @@ class AuthCubit extends Cubit<AuthState> {
       // 登录成功
       _logger.i('登录成功，用户ID: $userId');
       emit(state.toAuthenticatedState(
-        userId: userId,
-        token: '', // 令牌已保存在仓库中，这里仅用于标记状态
+        myUser: MyUserProto(
+          userId: userId,
+          token: '', // 令牌已保存在仓库中，这里仅用于标记状态
+          name: '',
+        ),
       ));
     } catch (error) {
       _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
@@ -218,17 +282,22 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('注册中...');
 
       // 使用认证仓库注册
-      final userId = await _authRepository.register(
+      final response = await _authRepository.register(
         phoneNumber,
         password,
+        verificationCode,
         nickname,
       );
 
+      // 检查注册是否成功
+      if (!response.success) {
+        throw response.message;
+      }
+
       // 注册成功
-      _logger.i('注册成功，用户ID: $userId');
+      _logger.i('注册成功，用户ID: ${response.myUser!.userId}');
       emit(state.toAuthenticatedState(
-        userId: userId,
-        token: '', // 令牌已保存在仓库中，这里仅用于标记状态
+        myUser  : response.myUser!,
       ));
     } catch (error) {
       _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);

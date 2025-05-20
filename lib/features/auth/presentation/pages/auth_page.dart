@@ -182,25 +182,25 @@ class _AuthPageState extends State<AuthPage>
                                   .pushReplacementNamed('/home');
                             } else {
                               _logger.w('数据库尚未初始化,等待初始化完成后再导航');
-                              // 轮询等待数据库初始化完成
-                              const checkInterval = Duration(milliseconds: 100);
-                              var checkCount = 0;
+                              // // 轮询等待数据库初始化完成
+                              // const checkInterval = Duration(milliseconds: 100);
+                              // var checkCount = 0;
 
-                              Timer.periodic(checkInterval, (timer) {
-                                checkCount++;
-                                if (DatabaseInitializer.isInitialized) {
-                                  timer.cancel();
-                                  _logger.i(
-                                      '数据库初始化完成,现在导航到Home页面 (检查次数: $checkCount)');
-                                  Navigator.of(context)
-                                      .pushReplacementNamed('/home');
-                                } else if (checkCount >= 50) {
-                                  // 5秒超时
-                                  timer.cancel();
-                                  _logger.e('等待数据库初始化超时');
-                                  UINotificationHelper.showError('初始化超时,请重试');
-                                }
-                              });
+                              // Timer.periodic(checkInterval, (timer) {
+                              //   checkCount++;
+                              //   if (DatabaseInitializer.isInitialized) {
+                              //     timer.cancel();
+                              //     _logger.i(
+                              //         '数据库初始化完成,现在导航到Home页面 (检查次数: $checkCount)');
+                              //     Navigator.of(context)
+                              //         .pushReplacementNamed('/home');
+                              //   } else if (checkCount >= 50) {
+                              //     // 5秒超时
+                              //     timer.cancel();
+                              //     _logger.e('等待数据库初始化超时');
+                              //     UINotificationHelper.showError('初始化超时,请重试');
+                              //   }
+                              // });
                             }
                           } else if (state.hasError) {
                             UINotificationHelper.showError(state.errorMessage!);
@@ -308,7 +308,14 @@ class _AuthPageState extends State<AuthPage>
           ),
         ),
         const SizedBox(width: 8),
-        BlocBuilder<AuthCubit, AuthState>(
+        BlocConsumer<AuthCubit, AuthState>(
+          listenWhen: (previous, current) =>
+              current.hasError && current.errorMessage != previous.errorMessage,
+          listener: (context, state) {
+            if (state.hasError) {
+              UINotificationHelper.showError(state.errorMessage!);
+            }
+          },
           builder: (context, state) {
             return ElevatedButton(
               onPressed: state.isCodeSent || state.isLoading
