@@ -66,8 +66,8 @@ class VSCodeLogPrinter extends LogPrinter {
 
     // 判断是否为X级别日志
     if (_xLevel != null) {
-      // 使用蓝色
-      final levelColor = '\x1B[34m';
+      // 使用与info相同的绿色
+      final levelColor = '\x1B[32m';
       String emoji = _xEmoji;
 
       if (_xLevel == XLevel.noAt) {
