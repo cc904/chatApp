@@ -18,7 +18,7 @@ class VSCodeLogPrinter extends LogPrinter {
   static const String _xEmoji = '💬';
 
   // 添加灰黑色文本
-  static String _lightX(String text) => '\x1B[38;2;40;40;40m$text\x1B[0m';
+  static String _lightX(String text) => '\x1B[38;2;30;30;30m$text\x1B[0m';
 
   // 项目根目录
   static const String projectRoot = '/Users/ad/Dev/Flutter/cc';
