@@ -1,22 +1,24 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/services/media_service.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
-import 'package:cc/core/services/file_upload_service.dart';
-import 'package:video_player/video_player.dart';
-import 'dart:async';
-import 'package:cc/core/services/ui_notification_service.dart'; // 导入UI通知服务
-import 'package:cc/features/chat/presentation/pages/chat_info_page.dart'; // 导入聊天信息页面
-// 导入聊天搜索页面
+import 'package:cc/core/database/models/conversation.dart';
+
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/media_service.dart';
+import 'package:cc/core/services/file_upload_service.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
+
 import 'package:cc/core/utils/ui_notification_helper.dart';
 import 'package:cc/core/constants/message_types.dart';
-import 'package:cc/core/database/models/user.dart';
 
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
+
+import 'package:video_player/video_player.dart';
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
   final User contact;
@@ -31,7 +33,8 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStateMixin {
+class _ChatDetailPageState extends State<ChatDetailPage>
+    with TickerProviderStateMixin {
   final _logger = LogService.instance;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -133,10 +136,18 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
   // 加载会话和消息
   void _loadConversation() {
     try {
-      // 使用BlocProvider.of而不是context.read
-      final chatCubit = BlocProvider.of<ChatCubit>(context);
+      ChatCubit? chatCubit;
+
+      try {
+        chatCubit = BlocProvider.of<ChatCubit>(context);
+      } catch (e) {
+        // 如果使用BlocProvider.of失败，尝试使用context.read
+        _logger.w('尝试使用BlocProvider.of获取ChatCubit失败: $e');
+        chatCubit = context.read<ChatCubit>();
+      }
+
       chatCubit.setCurrentConversation(widget.conversationId);
-    } catch (error) {
+        } catch (error) {
       _logger.e('加载会话失败: $error');
       UINotificationService().showError('加载会话失败: $error');
     }
@@ -163,7 +174,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 // 因为reverse=true,所以0是底部位置
 
       // 检测是否到达顶部（旧消息方向）,用于加载更多历史消息
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9 && !_isLoadingMore) {
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent * 0.9 &&
+          !_isLoadingMore) {
         _loadMoreMessages();
       }
     }
@@ -184,7 +197,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
     try {
       // 获取最早的消息时间作为加载更多的基准
-      final earliestMessage = messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
+      final earliestMessage =
+          messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
 
       // 加载更早的消息
       await chatCubit.loadMessagesForConversation(
@@ -242,14 +256,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       switch (_attachmentType) {
         case MessageType.image:
           // 上传图片
-          final uploadResult = await _fileUploadService.uploadImage(_selectedAttachment!);
+          final uploadResult =
+              await _fileUploadService.uploadImage(_selectedAttachment!);
           if (uploadResult == null) {
             UINotificationService().showError('图片上传失败');
             return;
           }
 
           // 打印上传结果以便调试
-          _logger.i('图片上传成功: localPath=${uploadResult.localPath}, remoteUrl=${uploadResult.remoteUrl}');
+          _logger.i(
+              '图片上传成功: localPath=${uploadResult.localPath}, remoteUrl=${uploadResult.remoteUrl}');
 
           // 发送图片消息
           if (mounted) {
@@ -263,7 +279,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
         case MessageType.file:
           // 上传文件
-          final uploadResult = await _fileUploadService.uploadFile(_selectedAttachment!);
+          final uploadResult =
+              await _fileUploadService.uploadFile(_selectedAttachment!);
           if (uploadResult == null) {
             UINotificationService().showError('文件上传失败');
             return;
@@ -283,7 +300,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
         case MessageType.video:
           // 上传视频
-          final uploadResult = await _fileUploadService.uploadVideo(_selectedAttachment!);
+          final uploadResult =
+              await _fileUploadService.uploadVideo(_selectedAttachment!);
           if (uploadResult == null) {
             UINotificationService().showError('视频上传失败');
             return;
@@ -361,7 +379,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       listener: (context, state) {
         // 处理导航数据
         if (state.navigationData != null) {
-          _logger.i('-----> 处理导航数据', extra: {'navigationData': state.navigationData});
+          _logger.i('-----> 处理导航数据',
+              extra: {'navigationData': state.navigationData});
           final navigationData = state.navigationData!;
 
           if (navigationData.containsKey('jumpToDate')) {
@@ -386,9 +405,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
                 try {
                   // 检查是否有当天的消息
-                  final messages = state.messagesByConversation[widget.conversationId] ?? [];
-                  final dateOnlyMessages =
-                      messages.where((msg) => msg.createdAt.year == targetDate.year && msg.createdAt.month == targetDate.month && msg.createdAt.day == targetDate.day).toList();
+                  final messages =
+                      state.messagesByConversation[widget.conversationId] ?? [];
+                  final dateOnlyMessages = messages
+                      .where((msg) =>
+                          msg.createdAt.year == targetDate.year &&
+                          msg.createdAt.month == targetDate.month &&
+                          msg.createdAt.day == targetDate.day)
+                      .toList();
 
                   // 确保context仍然有效
                   if (!mounted) return;
@@ -422,9 +446,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                     });
 
                     // 显示成功提示
-                    UINotificationHelper.showSuccess('已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
+                    UINotificationHelper.showSuccess(
+                        '已跳转到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日');
                   } else {
-                    UINotificationHelper.showWarning('未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
+                    UINotificationHelper.showWarning(
+                        '未找到 ${targetDate.year}年${targetDate.month}月${targetDate.day}日 的消息');
                   }
                 } catch (error) {
                   _logger.e('处理跳转日期失败: $error');
@@ -485,8 +511,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ChatInfoPage(
-                        conversationId: widget.conversationId,
+                      builder: (context) => BlocProvider.value(
+                        value: context.read<ChatCubit>(),
+                        child: ChatInfoPage(
+                          conversationId: widget.conversationId,
+                        ),
                       ),
                     ),
                   );
@@ -529,15 +558,18 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                             },
                             child: ScrollConfiguration(
                               // 自定义滚动行为,隐藏滚动条
-                              behavior: ScrollConfiguration.of(context).copyWith(
+                              behavior:
+                                  ScrollConfiguration.of(context).copyWith(
                                 scrollbars: false,
                               ),
                               child: ListView.builder(
-                                key: ValueKey('message_list_${_messages.length}'), // 添加key让Flutter知道列表已更新
+                                key: ValueKey(
+                                    'message_list_${_messages.length}'), // 添加key让Flutter知道列表已更新
                                 controller: _scrollController,
                                 reverse: true, // 最新消息在底部
                                 physics: const BouncingScrollPhysics(),
-                                padding: const EdgeInsets.only(bottom: 8.0), // 添加底部间距
+                                padding: const EdgeInsets.only(
+                                    bottom: 8.0), // 添加底部间距
                                 itemCount: _messages.length,
                                 itemBuilder: (context, index) {
                                   if (index >= _messages.length) {
@@ -545,7 +577,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                                   }
 
                                   final message = _messages[index];
-                                  final isFromMe = message.senderId == '1'; // 假设当前用户ID为1
+                                  final isFromMe =
+                                      message.senderId == '1'; // 假设当前用户ID为1
 
                                   return _buildMessageItem(message, isFromMe);
                                 },
@@ -562,7 +595,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               // 日期跳转加载指示器
               if (_isJumpingToDate)
                 Container(
-                  color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 128),
+                  color: Colors.black
+                      .withValues(red: 0, green: 0, blue: 0, alpha: 128),
                   child: const Center(
                     child: CircularProgressIndicator(
                       color: Colors.white,
@@ -611,11 +645,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
 
   // 构建消息项
   Widget _buildMessageItem(Message message, bool isFromMe) {
-    _logger.i('-----> 构建消息项', extra: {'message': message, 'isFromMe': isFromMe});
+    _logger
+        .i('-----> 构建消息项', extra: {'message': message, 'isFromMe': isFromMe});
     // 检查是否需要显示时间气泡
     final bool showTimeBubble = _shouldShowTimeBubble(message);
     // 检查是否是目标消息
-    final bool isTargetMessage = _targetMessageId != null && message.messageId == _targetMessageId;
+    final bool isTargetMessage =
+        _targetMessageId != null && message.messageId == _targetMessageId;
 
     // 在构建消息前,如果是目标消息,打印日志
     if (isTargetMessage) {
@@ -630,7 +666,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
             padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
@@ -656,11 +693,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
           // 为目标消息添加高亮背景和动画效果
           decoration: isTargetMessage
               ? BoxDecoration(
-                  color: Colors.yellow.withValues(red: 255, green: 255, blue: 51, alpha: 76),
+                  color: Colors.yellow
+                      .withValues(red: 255, green: 255, blue: 51, alpha: 76),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.orange.withValues(red: 255, green: 140, blue: 0, alpha: 76),
+                      color: Colors.orange
+                          .withValues(red: 255, green: 140, blue: 0, alpha: 76),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -668,7 +707,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 )
               : null,
           child: Row(
-            mainAxisAlignment: isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment:
+                isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 发送者头像（仅在非自己发送的消息显示）
@@ -676,10 +716,17 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.grey[300],
-                  backgroundImage: message.senderAvatar != null && message.senderAvatar!.isNotEmpty ? NetworkImage(message.senderAvatar!) : null,
-                  child: message.senderAvatar == null || message.senderAvatar!.isEmpty
+                  backgroundImage: message.senderAvatar != null &&
+                          message.senderAvatar!.isNotEmpty
+                      ? NetworkImage(message.senderAvatar!)
+                      : null,
+                  child: message.senderAvatar == null ||
+                          message.senderAvatar!.isEmpty
                       ? Text(
-                          message.senderName != null && message.senderName!.isNotEmpty ? message.senderName![0].toUpperCase() : '?',
+                          message.senderName != null &&
+                                  message.senderName!.isNotEmpty
+                              ? message.senderName![0].toUpperCase()
+                              : '?',
                           style: const TextStyle(color: Colors.white),
                         )
                       : null,
@@ -688,7 +735,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               if (!isFromMe) const SizedBox(width: 8),
 
               Column(
-                crossAxisAlignment: isFromMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: isFromMe
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 消息内容行 - 包含气泡和状态
@@ -704,7 +753,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                             message.isRead ? '已读' : '已送达',
                             style: TextStyle(
                               fontSize: 10,
-                              color: message.isRead ? Colors.blue : Colors.grey[600],
+                              color: message.isRead
+                                  ? Colors.blue
+                                  : Colors.grey[600],
                             ),
                           ),
                         ),
@@ -717,10 +768,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                           decoration: BoxDecoration(
                             color: isTargetMessage
                                 ? Colors.amber[50] // 目标消息使用更亮的颜色
-                                : (isFromMe ? Colors.green[100] : Colors.grey[200]),
+                                : (isFromMe
+                                    ? Colors.green[100]
+                                    : Colors.grey[200]),
                             borderRadius: BorderRadius.circular(16),
                             border: isTargetMessage
-                                ? Border.all(color: Colors.orange, width: 1.5) // 目标消息添加边框
+                                ? Border.all(
+                                    color: Colors.orange,
+                                    width: 1.5) // 目标消息添加边框
                                 : null,
                           ),
                           child: Column(
@@ -732,7 +787,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                                   message.text ?? '',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: isTargetMessage ? FontWeight.bold : FontWeight.normal,
+                                    fontWeight: isTargetMessage
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 )
                               else if (message.type == MessageType.image)
@@ -787,7 +844,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
     try {
       // 获取当前消息的索引
       final state = context.read<ChatCubit>().state;
-      final messages = state.messagesByConversation[widget.conversationId] ?? [];
+      final messages =
+          state.messagesByConversation[widget.conversationId] ?? [];
 
       // 安全检查：消息列表为空
       if (messages.isEmpty) {
@@ -810,7 +868,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
       final previousMessage = messages[index + 1];
 
       // 如果与前一条消息时间相差超过5分钟,显示时间
-      final timeDifference = message.createdAt.difference(previousMessage.createdAt).inMinutes.abs();
+      final timeDifference = message.createdAt
+          .difference(previousMessage.createdAt)
+          .inMinutes
+          .abs();
       return timeDifference >= 5;
     } catch (error) {
       // 发生异常时默认显示时间气泡
@@ -827,7 +888,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 13),
+            color:
+                Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 13),
             blurRadius: 3,
             offset: const Offset(0, -1),
           ),
@@ -849,7 +911,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 hintText: '发送消息...',
                 hintStyle: TextStyle(color: Colors.grey[400]),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               maxLines: 5,
               minLines: 1,
@@ -909,7 +972,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
                 width: 150,
                 height: 150,
                 color: Colors.grey[300],
-                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                child: const Icon(Icons.broken_image,
+                    size: 50, color: Colors.grey),
               );
             },
           ),
@@ -931,11 +995,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
               width: 150,
               height: 150,
               color: Colors.black,
-              child: const Icon(Icons.video_library, size: 50, color: Colors.white),
+              child: const Icon(Icons.video_library,
+                  size: 50, color: Colors.white),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.play_circle_fill, size: 50, color: Colors.white),
+            icon: const Icon(Icons.play_circle_fill,
+                size: 50, color: Colors.white),
             onPressed: () {
               // 播放视频
             },
@@ -958,7 +1024,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with TickerProviderStat
         children: [
           const Icon(Icons.mic, color: Colors.green),
           const SizedBox(width: 8),
-          Text('${message.duration ?? 0}″', style: const TextStyle(color: Colors.black87)),
+          Text('${message.duration ?? 0}″',
+              style: const TextStyle(color: Colors.black87)),
         ],
       ),
     );

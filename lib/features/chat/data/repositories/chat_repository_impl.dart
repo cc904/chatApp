@@ -287,7 +287,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 标记同步错误
       _syncStatusController.add(SyncStatus.error);
-      return [];
+        return [];
     }
   }
 

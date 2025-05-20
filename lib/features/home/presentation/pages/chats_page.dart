@@ -1,6 +1,7 @@
 import 'search_page.dart';
 import 'scan_code_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
@@ -8,6 +9,7 @@ import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 // import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 // import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
@@ -50,9 +52,19 @@ class _ChatsPageState extends State<ChatsPage> {
   /// 过滤后的会话列表数据
   List<Conversation> _filteredConversations = [];
 
+  /// 聊天Cubit
+  late ChatCubit _chatCubit;
+
   @override
   void initState() {
     super.initState();
+
+    // 创建聊天仓库
+    final chatRepository = ChatRepositoryImpl();
+
+    // 初始化ChatCubit
+    _chatCubit = ChatCubit(repository: chatRepository);
+
     _loadData();
   }
 
@@ -159,6 +171,7 @@ class _ChatsPageState extends State<ChatsPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _chatCubit.close(); // 关闭ChatCubit，释放资源
     super.dispose();
   }
 
@@ -425,9 +438,12 @@ class _ChatsPageState extends State<ChatsPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ChatDetailPage(
-                  conversationId: conversation.conversationId,
-                  contact: contact,
+                builder: (context) => BlocProvider.value(
+                  value: _chatCubit,
+                  child: ChatDetailPage(
+                    conversationId: conversation.conversationId,
+                    contact: contact,
+                  ),
                 ),
               ),
             );

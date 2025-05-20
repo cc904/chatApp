@@ -59,7 +59,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 _buildSettingsList(conversation, primaryColor),
 
                 // 媒体文件、文件等内容
-                if (conversation.type == ConversationType.group) _buildGroupMembersSection(primaryColor),
+                if (conversation.type == ConversationType.group)
+                  _buildGroupMembersSection(primaryColor),
 
                 // 底部按钮区域
                 _buildBottomButtons(conversation),
@@ -91,14 +92,18 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                     width: 80,
                     height: 80,
                     color: Colors.grey[300],
-                    child: conversation.avatar != null && conversation.avatar!.isNotEmpty
+                    child: conversation.avatar != null &&
+                            conversation.avatar!.isNotEmpty
                         ? Image.network(
                             conversation.avatar!,
                             fit: BoxFit.cover,
                           )
                         : Center(
                             child: Text(
-                              conversation.name != null && conversation.name!.isNotEmpty ? conversation.name![0].toUpperCase() : '?',
+                              conversation.name != null &&
+                                      conversation.name!.isNotEmpty
+                                  ? conversation.name![0].toUpperCase()
+                                  : '?',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 32,
@@ -145,7 +150,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         children: [
           // 消息免打扰
           ListTile(
-            leading: Icon(Icons.notifications_off_outlined, color: Colors.grey[700]),
+            leading:
+                Icon(Icons.notifications_off_outlined, color: Colors.grey[700]),
             title: const Text('消息免打扰', style: TextStyle(fontSize: 15)),
             trailing: Switch(
               value: _isMuted,
@@ -395,7 +401,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
             },
           ),
           TextButton(
-            child: Text(isGroup ? '退出' : '删除', style: const TextStyle(color: Colors.red)),
+            child: Text(isGroup ? '退出' : '删除',
+                style: const TextStyle(color: Colors.red)),
             onPressed: () {
               Navigator.pop(context);
               // 实现删除会话功能
@@ -423,9 +430,12 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       final navigator = Navigator.of(context);
       navigator.push<dynamic>(
         MaterialPageRoute(
-          builder: (context) => ChatSearchPage(
-            conversationId: conversationId,
-            conversationName: conversationName,
+          builder: (context) => BlocProvider.value(
+            value: context.read<ChatCubit>(),
+            child: ChatSearchPage(
+              conversationId: conversationId,
+              conversationName: conversationName,
+            ),
           ),
         ),
       );

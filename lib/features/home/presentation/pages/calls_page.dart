@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 
 class CallsPage extends StatefulWidget {
   const CallsPage({super.key});
@@ -14,14 +17,21 @@ class _CallsPageState extends State<CallsPage> {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
   bool _isSearching = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _calls = [];
+  List<Map<String, dynamic>> _filteredCalls = [];
   String? _openedItemId;
+
+  // 添加ChatCubit实例
+  late ChatCubit _chatCubit;
 
   @override
   void initState() {
     super.initState();
+    // 初始化ChatCubit实例
+    final chatRepository = ChatRepositoryImpl();
+    _chatCubit = ChatCubit(repository: chatRepository);
     _loadData();
   }
 
@@ -69,6 +79,7 @@ class _CallsPageState extends State<CallsPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _chatCubit.close();
     super.dispose();
   }
 
@@ -109,7 +120,8 @@ class _CallsPageState extends State<CallsPage> {
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
@@ -126,7 +138,8 @@ class _CallsPageState extends State<CallsPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                            icon: const Icon(Icons.clear,
+                                color: Colors.grey, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
@@ -154,7 +167,8 @@ class _CallsPageState extends State<CallsPage> {
                                 FocusScope.of(context).unfocus();
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   borderRadius: BorderRadius.circular(16),
@@ -224,7 +238,8 @@ class _CallsPageState extends State<CallsPage> {
 
         return ListTile(
           leading: CircleAvatar(
-            backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
+            backgroundImage:
+                contact.avatar != null ? NetworkImage(contact.avatar!) : null,
             child: contact.avatar == null ? Text(contact.name[0]) : null,
           ),
           title: Text(contact.name),
@@ -253,9 +268,12 @@ class _CallsPageState extends State<CallsPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ChatDetailPage(
-                  contact: contact,
-                  conversationId: '', // TODO: 从数据库获取或创建会话ID
+                builder: (context) => BlocProvider.value(
+                  value: _chatCubit,
+                  child: ChatDetailPage(
+                    contact: contact,
+                    conversationId: '', // TODO: 从数据库获取或创建会话ID
+                  ),
                 ),
               ),
             );

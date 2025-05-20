@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 
 class NewChatPage extends StatefulWidget {
   const NewChatPage({super.key});
@@ -76,7 +78,8 @@ class _NewChatPageState extends State<NewChatPage> {
     _logger.d('NewChatPage build');
     return Scaffold(
       appBar: AppBar(
-        title: const Text('新建聊天', style: TextStyle(fontWeight: FontWeight.w600)),
+        title:
+            const Text('新建聊天', style: TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -97,7 +100,8 @@ class _NewChatPageState extends State<NewChatPage> {
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
@@ -111,7 +115,8 @@ class _NewChatPageState extends State<NewChatPage> {
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                        icon: const Icon(Icons.clear,
+                            color: Colors.grey, size: 18),
                         onPressed: () {
                           setState(() {
                             _searchController.clear();
@@ -193,8 +198,11 @@ class _NewChatPageState extends State<NewChatPage> {
             ),
             ...contacts.map((contact) => ListTile(
                   leading: CircleAvatar(
-                    backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
-                    child: contact.avatar == null ? Text(contact.name[0]) : null,
+                    backgroundImage: contact.avatar != null
+                        ? NetworkImage(contact.avatar!)
+                        : null,
+                    child:
+                        contact.avatar == null ? Text(contact.name[0]) : null,
                   ),
                   title: Text(contact.name),
                   subtitle: Text(contact.status ?? ''),
@@ -202,9 +210,12 @@ class _NewChatPageState extends State<NewChatPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ChatDetailPage(
-                          contact: contact,
-                          conversationId: '', // TODO: 创建新会话
+                        builder: (context) => BlocProvider.value(
+                          value: context.read<ChatCubit>(),
+                          child: ChatDetailPage(
+                            contact: contact,
+                            conversationId: '', // TODO: 创建新会话
+                          ),
                         ),
                       ),
                     );

@@ -205,7 +205,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       if (!DatabaseInitializer.isInitialized) {
         // 数据库尚未初始化时，默认返回null而不是抛出异常
-        _logger.i('数据库未初始化，无法获取用户信息');
+        _logger.d('数据库未初始化，无法获取用户信息',stackTrace: StackTrace.current);
         return null;
       }
 
