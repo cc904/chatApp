@@ -2,7 +2,7 @@ import 'package:logger/logger.dart';
 import 'package:stack_trace/stack_trace.dart';
 
 // 添加自定义日志级别
-enum XLevel { noAt }
+enum XLevel { noAt, showMember }
 
 class VSCodeLogPrinter extends LogPrinter {
   static final Map<Level, String> _levelEmojis = {
@@ -43,31 +43,9 @@ class VSCodeLogPrinter extends LogPrinter {
 
   @override
   List<String> log(LogEvent event) {
-    String emoji;
     final message = event.message;
     final stackTrace = event.stackTrace;
     final buffer = StringBuffer();
-
-    // 判断是否为X级别日志
-    if (_xLevel == XLevel.noAt) {
-      emoji = _xEmoji;
-      final levelColor = '\x1B[34m'; // 蓝色
-
-      // X级别日志直接输出，不包含at信息
-      buffer.write('$levelColor[ x0x ] $emoji $message\x1B[0m');
-
-      // 重置X级别，确保只应用于当前日志
-      _xLevel = null;
-
-      return [buffer.toString()];
-    }
-
-    // 以下是原始日志处理逻辑
-    emoji = _levelEmojis[event.level]!;
-
-    // 添加日志级别
-    final levelColor = _getLevelColor(event.level);
-    final levelName = event.level.name.toUpperCase();
 
     // 获取调用堆栈信息
     String? atText;
@@ -85,6 +63,34 @@ class VSCodeLogPrinter extends LogPrinter {
         break;
       }
     }
+
+    // 判断是否为X级别日志
+    if (_xLevel != null) {
+      // 使用蓝色
+      final levelColor = '\x1B[34m';
+      String emoji = _xEmoji;
+
+      if (_xLevel == XLevel.noAt) {
+        // 不显示任何调用者信息
+        buffer.write('$levelColor[ x0x ] $emoji $message\x1B[0m');
+      } else if (_xLevel == XLevel.showMember && memberName != null) {
+        // 显示调用者名称但不显示at信息
+        buffer.write(
+            '$levelColor[ x0x ] $emoji [ $memberName ] -> $message\x1B[0m');
+      }
+
+      // 重置X级别，确保只应用于当前日志
+      _xLevel = null;
+
+      return [buffer.toString()];
+    }
+
+    // 以下是原始日志处理逻辑
+    String emoji = _levelEmojis[event.level]!;
+
+    // 添加日志级别
+    final levelColor = _getLevelColor(event.level);
+    final levelName = event.level.name.toUpperCase();
 
     // 构建框框样式
     if (memberName != null) {
@@ -208,9 +214,9 @@ class LogService {
         error: error, stackTrace: stackTrace);
   }
 
-  /// 自定义日志，不显示at信息
+  /// 自定义日志，不显示at信息但显示调用者
   void x(String message, {Map<String, dynamic>? extra}) {
-    _printer.setXLevel(XLevel.noAt);
+    _printer.setXLevel(XLevel.showMember);
     _logger.i(_formatMessage(message, extra: extra));
   }
 }
