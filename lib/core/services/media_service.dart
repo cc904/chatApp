@@ -444,11 +444,7 @@ class MediaService {
       // 获取文件路径并返回File对象
       String? filePath = result.files.single.path;
 
-      if (filePath == null) {
-        return null;
-      }
-
-      return File(filePath);
+      return File(filePath!);
     } catch (error) {
       _logger.e('选择文件失败', error: error, stackTrace: StackTrace.current);
       return null;

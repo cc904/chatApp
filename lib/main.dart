@@ -212,11 +212,7 @@ class _MyAppState extends State<MyApp> {
               ),
               scaffoldMessengerKey:
                   UINotificationService.instance.scaffoldMessengerKey,
-              initialRoute: state.isAuthenticated ? '/home' : '/auth',
-              routes: {
-                '/home': (context) => const HomePage(),
-                '/auth': (context) => const AuthPage(),
-              },
+              home: state.isAuthenticated ? const HomePage() : const AuthPage(),
             );
           },
         ),

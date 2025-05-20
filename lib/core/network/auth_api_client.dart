@@ -339,8 +339,7 @@ class AuthApiClient {
   /// [token] - 认证令牌
   Future<AuthResponse> verifyToken(String token) async {
     try {
-      _logger.d('验证令牌有效性',
-          extra: {'token': token}, stackTrace: StackTrace.current);
+      _logger.i('验证令牌有效性', extra: {'token': token});
 
       final response =
           await _dio.post('/api/v1/auth/verifyToken', data: {'token': token});

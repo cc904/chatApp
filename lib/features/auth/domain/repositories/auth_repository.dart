@@ -1,11 +1,23 @@
 import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/network/auth_api_client.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
 
 /// AuthRepository接口
 /// 定义了与认证相关的数据操作方法
 abstract class AuthRepository {
   /// 初始化AuthRepository
   Future<void> init();
+
+  /// 初始化用户会话
+  ///
+  /// 初始化用户数据和通信连接
+  ///
+  /// 参数:
+  /// - user: 用户信息对象
+  ///
+  /// 返回:
+  /// - 操作成功返回true，失败返回false
+  Future<bool> initUserSession(MyUserProto user);
 
   /// 使用令牌登录
   ///
@@ -108,21 +120,25 @@ abstract class AuthRepository {
 
   /// 使用验证码登录
   ///
+  /// 使用手机号和验证码进行登录
+  ///
   /// 参数:
   /// - username: 用户名/手机号
   /// - code: 验证码
   ///
   /// 返回:
-  /// - 登录成功返回用户ID
-  Future<String> loginWithCode(String username, String code);
+  /// - 登录成功返回AuthResponse
+  Future<AuthResponse> loginWithCode(String username, String code);
 
   /// 使用密码登录
+  ///
+  /// 使用用户名和密码进行登录
   ///
   /// 参数:
   /// - username: 用户名/手机号
   /// - password: 密码
   ///
   /// 返回:
-  /// - 登录成功返回用户ID
-  Future<String> loginWithPassword(String username, String password);
+  /// - 登录成功返回AuthResponse
+  Future<AuthResponse> loginWithPassword(String username, String password);
 }

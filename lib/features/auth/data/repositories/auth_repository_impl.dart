@@ -81,29 +81,31 @@ class AuthRepositoryImpl implements AuthRepository {
   ///
   /// 参数:
   /// - user: 用户信息（MyUserProto）
-  Future<void> _initUserSession(MyUserProto my) async {
+  @override
+  Future<bool> initUserSession(MyUserProto myUser) async {
     try {
-      _logger.d('开始初始化用户会话',
-          extra: {'userId': my.userId}, stackTrace: StackTrace.current);
+      _logger.d('rep 开始初始化用户会话',
+          extra: {'userId': myUser.userId}, stackTrace: StackTrace.current);
 
       // 初始化Isar数据库
-      await DatabaseInitializer.init(userId: my.userId);
+      await DatabaseInitializer.init(userId: myUser.userId);
 
       // 保存用户信息到数据库
-      await saveUserInfo(my);
+      await saveUserInfo(myUser);
 
       // 同时保存到安全存储
       await _secureStorage.saveUserCredentials(
-        my,
+        myUser,
         expireTime: DateTime.now().add(const Duration(days: 30)), // 假设令牌有效期为30天
       );
 
       // 初始化实时通信
-      await _initRealTimeCommunication(my.userId, my.token);
+      await _initRealTimeCommunication(myUser.userId, myUser.token);
 
-      _logger.i('用户会话初始化完成');
+      _logger.i('rep 用户会话初始化完成');
+      return true;
     } catch (error) {
-      _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('rep 初始化用户会话失败', error: error, stackTrace: StackTrace.current);
       throw Exception('初始化失败：${error.toString()}');
     }
   }
@@ -247,9 +249,10 @@ class AuthRepositoryImpl implements AuthRepository {
   /// - password: 密码
   ///
   /// 返回:
-  /// - 登录成功返回用户ID
+  /// - 登录成功返回AuthResponse
   @override
-  Future<String> loginWithPassword(String username, String password) async {
+  Future<AuthResponse> loginWithPassword(
+      String username, String password) async {
     try {
       await _ensureInitialized();
 
@@ -275,15 +278,10 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('登录成功但未返回用户ID');
       }
 
-      // // 处理登录成功后的用户会话初始化
-      // if (response.hasToken()) {
-      //   await _initUserSession(response.userId!, response.token!);
-      // }
-
-      return response.myUser!.userId;
+      return response;
     } catch (error) {
       _logger.e('密码登录失败', error: error, stackTrace: StackTrace.current);
-      throw Exception('登录失败：${error.toString()}');
+      return AuthResponse(success: false, message: '登录失败：${error.toString()}');
     }
   }
 
@@ -296,9 +294,9 @@ class AuthRepositoryImpl implements AuthRepository {
   /// - code: 验证码
   ///
   /// 返回:
-  /// - 登录成功返回用户ID
+  /// - 登录成功返回AuthResponse
   @override
-  Future<String> loginWithCode(String username, String code) async {
+  Future<AuthResponse> loginWithCode(String username, String code) async {
     try {
       await _ensureInitialized();
 
@@ -323,15 +321,10 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('登录成功但未返回用户ID');
       }
 
-      // // 处理登录成功后的用户会话初始化
-      // if (response.hasToken()) {
-      //   await _initUserSession(response.userId!, response.token!);
-      // }
-
-      return response.myUser!.userId;
+      return response;
     } catch (error) {
       _logger.e('验证码登录失败', error: error, stackTrace: StackTrace.current);
-      throw Exception('登录失败：${error.toString()}');
+      return AuthResponse(success: false, message: '登录失败：${error.toString()}');
     }
   }
 
@@ -428,11 +421,6 @@ class AuthRepositoryImpl implements AuthRepository {
       // 如果没有用户ID，返回错误响应
       if (!response.hasUserId()) {
         return AuthResponse(success: false, message: '注册成功但未返回用户ID');
-      }
-
-      // 处理注册成功后的用户会话初始化
-      if (response.hasToken()) {
-        await _initUserSession(response.myUser!);
       }
 
       // 返回成功响应

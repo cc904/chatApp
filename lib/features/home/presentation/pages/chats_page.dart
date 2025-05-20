@@ -177,7 +177,7 @@ class _ChatsPageState extends State<ChatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    _logger.d('ChatsPage build');
+    _logger.d('ChatsPage build', stackTrace: StackTrace.current);
     return Scaffold(
       // AppBar: 自定义导航栏,包含标题、编辑按钮和新建聊天按钮
       // 顶部导航区配置了底部搜索栏作为扩展部分

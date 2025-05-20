@@ -5,6 +5,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/network/auth_api_client.dart';
 
 part 'auth_state.dart';
 
@@ -32,15 +33,16 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       // 初始authRepository
       await _authRepository.init();
+      await loginWithToken();
 
-      // 尝试使用令牌自动登录
-      final response = await _authRepository.loginWithToken();
-      if (response.success && response.myUser != null) {
-        _logger.i('自动登录成功，用户ID: ${response.myUser!.userId}');
-        emit(state.toAuthenticatedState(
-          myUser: response.myUser!,
-        ));
-      }
+      // // 尝试使用令牌自动登录
+      // final response = await _authRepository.loginWithToken();
+      // if (response.success && response.myUser != null) {
+      //   _logger.i('loginWithToken成功，用户ID: ${response.myUser!.userId}');
+      //   emit(state.toAuthenticatedState(
+      //     myUser: response.myUser!,
+      //   ));
+      // }
     } catch (error) {
       _logger.e('初始化认证服务失败', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
@@ -153,6 +155,10 @@ class AuthCubit extends Cubit<AuthState> {
 
       if (response.success && response.myUser != null) {
         _logger.i('令牌登录成功', extra: {'userId': response.myUser!.userId});
+
+        // 初始化用户会话
+        await initUserSession(response.myUser!);
+
         emit(state.toAuthenticatedState(
           myUser: response.myUser!,
         ));
@@ -195,7 +201,7 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.toLoadingState());
       // _logger.i('登录中...');
 
-      String userId;
+      AuthResponse response;
 
       if (isQuickLogin) {
         // 验证码登录
@@ -205,7 +211,7 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         _logger.i('使用验证码登录: ${state.verificationCode}');
-        userId = await _authRepository.loginWithCode(
+        response = await _authRepository.loginWithCode(
             state.phoneNumber!, state.verificationCode!);
       } else {
         // 密码登录
@@ -215,22 +221,54 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         _logger.i('使用密码登录: ${state.password}');
-        userId = await _authRepository.loginWithPassword(
+        response = await _authRepository.loginWithPassword(
             state.phoneNumber!, state.password!);
       }
 
+      // 检查登录结果
+      if (!response.success) {
+        throw response.message;
+      }
+
+      // 检查返回的用户信息
+      if (!response.hasUserId()) {
+        throw '登录成功但未返回用户信息';
+      }
+
       // 登录成功
-      _logger.i('登录成功，用户ID: $userId');
+      _logger.i('登录成功，用户信息: ${response.myUser!.userId}');
+
+      // 初始化用户会话
+      await initUserSession(response.myUser!);
+
       emit(state.toAuthenticatedState(
-        myUser: MyUserProto(
-          userId: userId,
-          token: '', // 令牌已保存在仓库中，这里仅用于标记状态
-          name: '',
-        ),
+        myUser: response.myUser!,
       ));
     } catch (error) {
       _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
+    }
+  }
+
+  /// 初始化用户会话
+  ///
+  /// 在用户成功登录后初始化数据库和通信连接
+  ///
+  /// 参数:
+  /// - user: 用户信息对象
+  Future<void> initUserSession(MyUserProto user) async {
+    try {
+      _logger.d('开始初始化用户会话',
+          extra: {'userId': user.userId}, stackTrace: StackTrace.current);
+      final success = await _authRepository.initUserSession(user);
+      if (!success) {
+        _logger.w('用户会话初始化失败，但不影响登录状态');
+      } else {
+        _logger.i('用户会话初始化成功');
+      }
+    } catch (error) {
+      _logger.e('初始化用户会话时发生错误', error: error, stackTrace: StackTrace.current);
+      // 不阻止登录流程，只记录错误
     }
   }
 
@@ -296,8 +334,12 @@ class AuthCubit extends Cubit<AuthState> {
 
       // 注册成功
       _logger.i('注册成功，用户ID: ${response.myUser!.userId}');
+
+      // 初始化用户会话
+      await initUserSession(response.myUser!);
+
       emit(state.toAuthenticatedState(
-        myUser  : response.myUser!,
+        myUser: response.myUser!,
       ));
     } catch (error) {
       _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);
