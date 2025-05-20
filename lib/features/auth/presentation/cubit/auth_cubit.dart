@@ -156,9 +156,6 @@ class AuthCubit extends Cubit<AuthState> {
       if (response.success && response.myUser != null) {
         _logger.i('令牌登录成功', extra: {'userId': response.myUser!.userId});
 
-        // 初始化用户会话
-        await initUserSession(response.myUser!);
-
         emit(state.toAuthenticatedState(
           myUser: response.myUser!,
         ));
@@ -238,37 +235,12 @@ class AuthCubit extends Cubit<AuthState> {
       // 登录成功
       _logger.i('登录成功，用户信息: ${response.myUser!.userId}');
 
-      // 初始化用户会话
-      await initUserSession(response.myUser!);
-
       emit(state.toAuthenticatedState(
         myUser: response.myUser!,
       ));
     } catch (error) {
       _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
-    }
-  }
-
-  /// 初始化用户会话
-  ///
-  /// 在用户成功登录后初始化数据库和通信连接
-  ///
-  /// 参数:
-  /// - user: 用户信息对象
-  Future<void> initUserSession(MyUserProto user) async {
-    try {
-      _logger.d('开始初始化用户会话',
-          extra: {'userId': user.userId}, stackTrace: StackTrace.current);
-      final success = await _authRepository.initUserSession(user);
-      if (!success) {
-        _logger.w('用户会话初始化失败，但不影响登录状态');
-      } else {
-        _logger.i('用户会话初始化成功');
-      }
-    } catch (error) {
-      _logger.e('初始化用户会话时发生错误', error: error, stackTrace: StackTrace.current);
-      // 不阻止登录流程，只记录错误
     }
   }
 
@@ -334,9 +306,6 @@ class AuthCubit extends Cubit<AuthState> {
 
       // 注册成功
       _logger.i('注册成功，用户ID: ${response.myUser!.userId}');
-
-      // 初始化用户会话
-      await initUserSession(response.myUser!);
 
       emit(state.toAuthenticatedState(
         myUser: response.myUser!,

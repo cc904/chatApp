@@ -291,32 +291,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 从服务器同步会话列表
-  /// 只同步有未读消息的会话以及本地已有的会话
-  /// [localConversationIds] - 本地已有的会话ID集合
-  /// 返回同步响应，包含同步是否成功和会话列表
-  Future<void> _syncConversations(Set<String> localConversationIds) async {
-    try {
-      if (!_communicationService.isInitialized) {
-        _logger.e('通信服务未初始化');
-        return;
-      }
-
-      // 获取当前用户ID
-      final currentUserId = await _getCurrentUserId();
-
-      // 创建同步请求数据
-      final request = conversation_proto.SyncConversationsRequest()
-        ..localConversationIds.addAll(localConversationIds)
-        ..userId = currentUserId;
-
-      // 发送同步请求
-      await _communicationService.emitProto('conversation:sync', request);
-    } catch (error) {
-      _logger.e('从服务器同步会话列表失败', error: error, stackTrace: StackTrace.current);
-      return;
-    }
-  }
 
   /// 更新本地会话数据
   /// 将服务器返回的会话数据保存到本地数据库

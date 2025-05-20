@@ -10,8 +10,6 @@ import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 // import 'package:cc/features/profile/data/repositories/profile_repository.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:isar/isar.dart';
 // import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 
@@ -74,170 +72,54 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-
-  /// 初始化用户会话
-  ///
-  /// 完成用户auth后进行数据库初始化和通信服务连接
+  /// 保存用户凭证到安全存储
   ///
   /// 参数:
-  /// - user: 用户信息（MyUserProto）
-  @override
-  Future<bool> initUserSession(MyUserProto myUser) async {
+  /// - user: 用户信息
+  ///
+  /// 返回:
+  /// - 保存成功返回true，失败返回false
+  Future<bool> saveUserCredentials(MyUserProto user) async {
     try {
-      _logger.d('rep 开始初始化用户会话',
-          extra: {'userId': myUser.userId}, stackTrace: StackTrace.current);
-
-      // 初始化Isar数据库
-      await DatabaseInitializer.init(userId: myUser.userId);
-
-      // 保存用户信息到数据库
-      await saveUserInfo(myUser);
-
-      // 同时保存到安全存储
+      // 保存到安全存储
       await _secureStorage.saveUserCredentials(
-        myUser,
+        user,
         expireTime: DateTime.now().add(const Duration(days: 30)), // 假设令牌有效期为30天
       );
-
-      // 初始化实时通信
-      await _initRealTimeCommunication(myUser.userId, myUser.token);
-
-      _logger.i('rep 用户会话初始化完成');
+      _logger.i('用户凭证保存到安全存储成功', extra: {'userId': user.userId});
       return true;
     } catch (error) {
-      _logger.e('rep 初始化用户会话失败', error: error, stackTrace: StackTrace.current);
-      throw Exception('初始化失败：${error.toString()}');
-    }
-  }
-
-  /// 保存用户信息
-  ///
-  /// 将用户信息保存到本地数据库
-  ///
-  /// 参数:
-  /// - user: 用户信息（MyUserProto）
-  Future<void> saveUserInfo(MyUserProto my) async {
-    try {
-      if (!DatabaseInitializer.isInitialized) {
-        throw Exception('数据库未初始化，无法保存用户信息');
-      }
-
-      final db = DatabaseInitializer.isar;
-      await db.writeTxn(() async {
-        await db.myUsers.clear(); // 清除旧数据
-
-        // 创建 MyUser 对象并保存
-        final myUser = MyUser()
-          ..userId = my.userId
-          ..token = my.token
-          ..name = my.name
-          ..avatar = my.avatar
-          ..phone = my.phone
-          ..email = my.email
-          ..tokenExpireTime = my.hasTokenExpireTime()
-              ? DateTime.fromMillisecondsSinceEpoch(my.tokenExpireTime.toInt())
-              : null
-          ..lastLoginTime = my.hasLastLoginTime()
-              ? DateTime.fromMillisecondsSinceEpoch(my.lastLoginTime.toInt())
-              : null
-          ..status = my.status;
-
-        await db.myUsers.put(myUser); // 保存新数据
-      });
-      _logger.i('用户信息保存成功', extra: {'userId': my.userId});
-    } catch (e) {
-      _logger.e('保存用户信息失败', error: e, stackTrace: StackTrace.current);
-      throw Exception('保存用户信息失败: ${e.toString()}');
+      _logger.e('保存用户凭证失败', error: error, stackTrace: StackTrace.current);
+      return false;
     }
   }
 
   /// 获取用户信息
   ///
-  /// 从本地数据库获取用户信息
+  /// 从安全存储获取用户信息
   ///
   /// 返回:
   /// - 用户信息（MyUserProto），不存在则返回null
   Future<MyUserProto?> getUserInfo() async {
     try {
-      if (!DatabaseInitializer.isInitialized) {
-        // 数据库尚未初始化时，默认返回null而不是抛出异常
-        _logger.d('数据库未初始化，无法获取用户信息', stackTrace: StackTrace.current);
+      // 从安全存储获取用户信息
+      final userId = await _secureStorage.getUserId();
+      final token = await _secureStorage.getToken();
+
+      if (userId == null || token == null) {
+        _logger.d('安全存储中未找到用户信息', stackTrace: StackTrace.current);
         return null;
       }
 
-      final db = DatabaseInitializer.isar;
-      final users = await db.myUsers.where().findAll();
-      if (users.isEmpty) {
-        return null;
-      }
-
-      // 转换为 MyUserProto
-      final user = users.first;
+      // 创建 MyUserProto 对象
       return MyUserProto(
-        userId: user.userId,
-        token: user.token,
-        name: user.name,
-        avatar: user.avatar,
-        phone: user.phone,
-        email: user.email,
-        tokenExpireTime: user.tokenExpireTime != null
-            ? Int64(user.tokenExpireTime!.millisecondsSinceEpoch)
-            : null,
-        lastLoginTime: user.lastLoginTime != null
-            ? Int64(user.lastLoginTime!.millisecondsSinceEpoch)
-            : null,
-        status: user.status,
+        userId: userId,
+        token: token,
       );
-    } catch (e) {
-      _logger.e('获取用户信息失败', error: e, stackTrace: StackTrace.current);
+    } catch (error) {
+      _logger.e('从安全存储获取用户信息失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
-  }
-
-  /// 初始化实时通信
-  ///
-  /// 连接Socket.io服务器，建立实时通信
-  ///
-  /// 参数:
-  /// - userId: 用户ID
-  /// - token: auth令牌
-  Future<void> _initRealTimeCommunication(String userId, String token) async {
-    int retryCount = 0;
-    const maxRetries = 3;
-
-    while (retryCount < maxRetries) {
-      try {
-        _logger.i('初始化实时通信，尝试次数: ${retryCount + 1}');
-
-        final success = await _communicationService.connect(
-          serverUrl: _serverUrl,
-          userId: userId,
-          token: token,
-        );
-
-        if (success) {
-          _logger.i('实时通信初始化成功');
-          return;
-        } else {
-          _logger.e('实时通信初始化失败', stackTrace: StackTrace.current);
-          retryCount++;
-          if (retryCount < maxRetries) {
-            await Future.delayed(Duration(seconds: retryCount * 2));
-            continue;
-          }
-        }
-      } catch (error) {
-        _logger.e('初始化实时通信错误', error: error, stackTrace: StackTrace.current);
-        retryCount++;
-        if (retryCount < maxRetries) {
-          await Future.delayed(Duration(seconds: retryCount * 2));
-          continue;
-        }
-      }
-    }
-
-    // 所有重试都失败后，记录错误但不中断流程
-    _logger.e('实时通信初始化失败，已达到最大重试次数', stackTrace: StackTrace.current);
   }
 
   /// 使用密码登录
@@ -277,6 +159,9 @@ class AuthRepositoryImpl implements AuthRepository {
       if (!response.hasUserId()) {
         throw Exception('登录成功但未返回用户ID');
       }
+
+      // 保存用户凭证
+      await saveUserCredentials(response.myUser!);
 
       return response;
     } catch (error) {
@@ -320,6 +205,9 @@ class AuthRepositoryImpl implements AuthRepository {
       if (!response.hasUserId()) {
         throw Exception('登录成功但未返回用户ID');
       }
+
+      // 保存用户凭证
+      await saveUserCredentials(response.myUser!);
 
       return response;
     } catch (error) {
@@ -422,6 +310,9 @@ class AuthRepositoryImpl implements AuthRepository {
       if (!response.hasUserId()) {
         return AuthResponse(success: false, message: '注册成功但未返回用户ID');
       }
+
+      // 保存用户凭证
+      await saveUserCredentials(response.myUser!);
 
       // 返回成功响应
       return response;

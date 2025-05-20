@@ -6,7 +6,6 @@ import 'register_page.dart';
 import 'forgot_password_page.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
-import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/network_diagnostics.dart';
 import 'package:cc/core/services/socket_test.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
@@ -260,19 +259,13 @@ class _AuthPageState extends State<AuthPage>
   /// 处理认证状态变化
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state.isAuthenticated) {
-      // 确保数据库初始化完成后再导航
-      _logger.i('验证数据库初始化状态: ${DatabaseInitializer.isInitialized}');
-
-      if (DatabaseInitializer.isInitialized) {
-        _logger.i('数据库已初始化,直接导航到Home页面');
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const HomePage(),
-          ),
-        );
-      } else {
-        _logger.w('数据库尚未初始化,等待初始化完成后再导航');
-      }
+      // 不再检查数据库初始化状态，直接导航到Home页面
+      _logger.i('认证成功，直接导航到Home页面');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const HomePage(),
+        ),
+      );
     } else if (state.hasError) {
       UINotificationHelper.showError(state.errorMessage!);
     }

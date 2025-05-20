@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:fixnum/fixnum.dart';
 
 /// 安全存储服务
 ///
@@ -287,17 +288,19 @@ class SecureStorageService {
 
   /// 保存用户凭证
   ///
-  /// 将用户ID、令牌和过期时间保存到安全存储
+  /// 将用户信息保存到安全存储中
   ///
   /// 参数:
-  /// - user: 用户信息（MyUserProto）
+  /// - user: 用户信息对象
   /// - expireTime: 令牌过期时间（可选）
   Future<void> saveUserCredentials(MyUserProto user,
       {DateTime? expireTime}) async {
     try {
+      // 保存基本凭证
       await write(keyUserId, user.userId);
       await write(keyToken, user.token);
 
+      // 保存过期时间
       if (expireTime != null) {
         await write(
             keyTokenExpireTime, expireTime.millisecondsSinceEpoch.toString());
@@ -307,21 +310,127 @@ class SecureStorageService {
             keyTokenExpireTime, user.tokenExpireTime.toInt().toString());
       }
 
-      // 保存额外的用户信息
+      // 保存用户信息详情
       final userInfo = {
         'userId': user.userId,
-        'name': user.name,
-        'avatar': user.avatar,
-        'phone': user.phone,
-        'email': user.email,
-        'status': user.status,
+        'token': user.token,
       };
+
+      // 添加可选字段
+      if (user.hasName()) {
+        userInfo['name'] = user.name;
+        await write('userName', user.name);
+      }
+
+      if (user.hasAvatar()) {
+        userInfo['avatar'] = user.avatar;
+        await write('userAvatar', user.avatar);
+      }
+
+      if (user.hasPhone()) {
+        userInfo['phone'] = user.phone;
+        await write('userPhone', user.phone);
+      }
+
+      if (user.hasEmail()) {
+        userInfo['email'] = user.email;
+        await write('userEmail', user.email);
+      }
+
+      if (user.hasStatus()) {
+        userInfo['status'] = user.status.toString();
+        await write('userStatus', user.status.toString());
+      }
+
+      if (user.hasLastLoginTime()) {
+        userInfo['lastLoginTime'] = user.lastLoginTime.toInt().toString();
+        await write('lastLoginTime', user.lastLoginTime.toInt().toString());
+      }
+
       await writeObject(keyUserInfo, userInfo);
 
       _logger.i('用户凭证保存成功', extra: {'userId': user.userId});
     } catch (e) {
       _logger.e('保存用户凭证失败', error: e, stackTrace: StackTrace.current);
       rethrow;
+    }
+  }
+
+  /// 获取完整用户信息
+  ///
+  /// 从安全存储中读取完整的用户信息
+  ///
+  /// 返回:
+  /// - 完整的用户信息对象，如果不存在则返回null
+  Future<MyUserProto?> getFullUserInfo() async {
+    try {
+      // 获取基本凭证
+      final userId = await getUserId();
+      final token = await getToken();
+
+      if (userId == null || token == null) {
+        _logger.i('安全存储中未找到用户ID或令牌');
+        return null;
+      }
+
+      // 创建用户对象
+      final user = MyUserProto(
+        userId: userId,
+        token: token,
+      );
+
+      // 获取可选字段
+      final name = await read('userName');
+      if (name != null) {
+        user.name = name;
+      }
+
+      final avatar = await read('userAvatar');
+      if (avatar != null) {
+        user.avatar = avatar;
+      }
+
+      final phone = await read('userPhone');
+      if (phone != null) {
+        user.phone = phone;
+      }
+
+      final email = await read('userEmail');
+      if (email != null) {
+        user.email = email;
+      }
+
+      final statusStr = await read('userStatus');
+      if (statusStr != null) {
+        try {
+          // status 是字符串，不需要解析
+          user.status = statusStr;
+        } catch (e) {
+          _logger.w('设置status失败', extra: {'error': e.toString()});
+        }
+      }
+
+      final lastLoginTimeStr = await read('lastLoginTime');
+      if (lastLoginTimeStr != null) {
+        try {
+          final lastLoginTime = int.parse(lastLoginTimeStr);
+          user.lastLoginTime = Int64(lastLoginTime);
+        } catch (e) {
+          _logger.w('解析lastLoginTime失败', extra: {'error': e.toString()});
+        }
+      }
+
+      // 获取令牌过期时间
+      final expireTime = await getTokenExpireTime();
+      if (expireTime != null) {
+        user.tokenExpireTime = Int64(expireTime.millisecondsSinceEpoch);
+      }
+
+      _logger.i('从安全存储获取完整用户信息成功', extra: {'userId': userId});
+      return user;
+    } catch (e) {
+      _logger.e('从安全存储获取完整用户信息失败', error: e, stackTrace: StackTrace.current);
+      return null;
     }
   }
 
@@ -400,6 +509,14 @@ class SecureStorageService {
       await delete(keyToken);
       await delete(keyTokenExpireTime);
       await delete(keyUserInfo);
+
+      // 清除扩展的用户信息字段
+      await delete('userName');
+      await delete('userAvatar');
+      await delete('userPhone');
+      await delete('userEmail');
+      await delete('userStatus');
+      await delete('lastLoginTime');
 
       _logger.i('用户凭证已清除');
     } catch (e) {

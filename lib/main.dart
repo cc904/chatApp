@@ -6,6 +6,7 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/services/socket_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
@@ -182,6 +183,14 @@ class _MyAppState extends State<MyApp> {
         // 注册通信服务
         RepositoryProvider<CommunicationService>(
           create: (context) => communicationService,
+        ),
+        // 注册Socket服务
+        RepositoryProvider<SocketService>(
+          create: (context) => SocketService.instance,
+        ),
+        // 注册安全存储服务
+        RepositoryProvider<SecureStorageService>(
+          create: (context) => SecureStorageService.instance,
         ),
       ],
       child: MultiBlocProvider(
