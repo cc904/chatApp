@@ -1,6 +1,9 @@
 import 'package:logger/logger.dart';
 import 'package:stack_trace/stack_trace.dart';
 
+// 添加自定义日志级别
+enum XLevel { noAt }
+
 class VSCodeLogPrinter extends LogPrinter {
   static final Map<Level, String> _levelEmojis = {
     Level.trace: '🔍',
@@ -11,8 +14,11 @@ class VSCodeLogPrinter extends LogPrinter {
     Level.fatal: '👾',
   };
 
+  // 添加X级别的表情符号
+  static const String _xEmoji = '💬';
+
   // 添加灰黑色文本
-  static String _lightX(String text) => '\x1B[38;2;30;30;30m$text\x1B[0m';
+  static String _lightX(String text) => '\x1B[38;2;40;40;40m$text\x1B[0m';
 
   // 项目根目录
   static const String projectRoot = '/Users/ad/Dev/Flutter/cc';
@@ -27,13 +33,37 @@ class VSCodeLogPrinter extends LogPrinter {
     return uri;
   }
 
+  // 记录是否为X级别日志
+  XLevel? _xLevel;
+
+  // 设置X级别
+  void setXLevel(XLevel? xLevel) {
+    _xLevel = xLevel;
+  }
+
   @override
   List<String> log(LogEvent event) {
-    final emoji = _levelEmojis[event.level]!;
+    String emoji;
     final message = event.message;
     final stackTrace = event.stackTrace;
-
     final buffer = StringBuffer();
+
+    // 判断是否为X级别日志
+    if (_xLevel == XLevel.noAt) {
+      emoji = _xEmoji;
+      final levelColor = '\x1B[34m'; // 蓝色
+
+      // X级别日志直接输出，不包含at信息
+      buffer.write('$levelColor[ x0x ] $emoji $message\x1B[0m');
+
+      // 重置X级别，确保只应用于当前日志
+      _xLevel = null;
+
+      return [buffer.toString()];
+    }
+
+    // 以下是原始日志处理逻辑
+    emoji = _levelEmojis[event.level]!;
 
     // 添加日志级别
     final levelColor = _getLevelColor(event.level);
@@ -41,31 +71,28 @@ class VSCodeLogPrinter extends LogPrinter {
 
     // 获取调用堆栈信息
     String? atText;
-    String? className;
+    String? memberName;
     final trace = Trace.current();
     final frames = trace.frames;
     for (var i = 1; i < frames.length; i++) {
       final frame = frames[i];
-      final member = frame.member ?? '';
+      memberName = frame.member ?? '';
       final uri = frame.uri.toString();
-      if (!uri.contains('logger') && !member.contains('LogService')) {
+      if (!uri.contains('logger') && !memberName.contains('LogService')) {
         final fileUri = _convertToFileUri(uri);
         final location = '$fileUri:${frame.line}:${frame.column}';
-        atText = 'at $member ($location)';
-        // 从成员名中提取类名
-        final memberParts = member.split('.');
-        if (memberParts.length > 1) {
-          className = memberParts[0];
-        }
+        atText = 'at ($location)';
         break;
       }
     }
 
     // 构建框框样式
-    if (className != null) {
-      buffer.write('$levelColor[${levelName.padRight(5)}] $emoji [ $className ] -> $message\x1B[0m');
+    if (memberName != null) {
+      buffer.write(
+          '$levelColor[${levelName.padRight(5)}] $emoji [ $memberName ] -> $message\x1B[0m');
     } else {
-      buffer.write('$levelColor[${levelName.padRight(5)}] $emoji $message\x1B[0m');
+      buffer.write(
+          '$levelColor[${levelName.padRight(5)}] $emoji $message\x1B[0m');
     }
 
     // 如果有错误堆栈，显示它
@@ -74,8 +101,10 @@ class VSCodeLogPrinter extends LogPrinter {
       final lines = stackTrace.toString().split('\n');
       // 过滤出 package:cc 开头的行，并替换路径，同时过滤掉 at 开头的行
       final filteredLines = lines
-          .where((line) => line.contains('package:cc') && !line.trim().startsWith('at'))
-          .map((line) => line.replaceAll('package:cc', 'file:///Users/ad/Dev/Flutter/cc/lib'))
+          .where((line) =>
+              line.contains('package:cc') && !line.trim().startsWith('at'))
+          .map((line) => line.replaceAll(
+              'package:cc', 'file:///Users/ad/Dev/Flutter/cc/lib'))
           .toList();
       // 显示堆栈帧，最多显示6行
       final maxLines = filteredLines.length > 6 ? 6 : filteredLines.length;
@@ -91,7 +120,8 @@ class VSCodeLogPrinter extends LogPrinter {
 
       // 如果还有更多堆栈帧，显示省略号
       if (filteredLines.length > 6) {
-        buffer.write('\n$levelColor  └─ ... 还有 ${filteredLines.length - 6} 个堆栈帧 ...\x1B[31;2;30;30;30m');
+        buffer.write(
+            '\n$levelColor  └─ ... 还有 ${filteredLines.length - 6} 个堆栈帧 ...\x1B[31;2;30;30;30m');
       }
     } else {
       // 如果没有堆栈信息，但有 at 信息，在新的一行显示
@@ -127,14 +157,16 @@ class VSCodeLogPrinter extends LogPrinter {
 /// 提供统一的日志记录功能
 class LogService {
   static final LogService instance = LogService._();
+  static final VSCodeLogPrinter _printer = VSCodeLogPrinter();
   static final _logger = Logger(
-    printer: VSCodeLogPrinter(),
+    printer: _printer,
   );
 
   LogService._();
 
   /// 格式化日志消息
-  String _formatMessage(String message, {Map<String, dynamic>? extra, Object? error}) {
+  String _formatMessage(String message,
+      {Map<String, dynamic>? extra, Object? error}) {
     var formattedMessage = message;
     if (extra != null && extra.isNotEmpty) {
       formattedMessage += ' : $extra';
@@ -146,7 +178,8 @@ class LogService {
   }
 
   /// 记录调试信息
-  void d(String message, {Map<String, dynamic>? extra, StackTrace? stackTrace}) {
+  void d(String message,
+      {Map<String, dynamic>? extra, StackTrace? stackTrace}) {
     _logger.d(_formatMessage(message, extra: extra), stackTrace: stackTrace);
   }
 
@@ -156,17 +189,28 @@ class LogService {
   }
 
   /// 记录警告
-  void w(String message, {Map<String, dynamic>? extra, StackTrace? stackTrace}) {
+  void w(String message,
+      {Map<String, dynamic>? extra, StackTrace? stackTrace}) {
     _logger.w(_formatMessage(message, extra: extra), stackTrace: stackTrace);
   }
 
   /// 记录错误
-  void e(String message, {Object? error, StackTrace? stackTrace, Map<String, dynamic>? extra}) {
-    _logger.e(_formatMessage(message, extra: extra, error: error), error: error, stackTrace: stackTrace);
+  void e(String message,
+      {Object? error, StackTrace? stackTrace, Map<String, dynamic>? extra}) {
+    _logger.e(_formatMessage(message, extra: extra, error: error),
+        error: error, stackTrace: stackTrace);
   }
 
   /// 记录致命错误
-  void wtf(String message, {Object? error, StackTrace? stackTrace, Map<String, dynamic>? extra}) {
-    _logger.f(_formatMessage(message, extra: extra, error: error), error: error, stackTrace: stackTrace);
+  void wtf(String message,
+      {Object? error, StackTrace? stackTrace, Map<String, dynamic>? extra}) {
+    _logger.f(_formatMessage(message, extra: extra, error: error),
+        error: error, stackTrace: stackTrace);
+  }
+
+  /// 自定义日志，不显示at信息
+  void x(String message, {Map<String, dynamic>? extra}) {
+    _printer.setXLevel(XLevel.noAt);
+    _logger.i(_formatMessage(message, extra: extra));
   }
 }
