@@ -293,7 +293,7 @@ class SecureStorageService {
   /// 参数:
   /// - user: 用户信息对象
   /// - expireTime: 令牌过期时间（可选）
-  Future<void> saveUserCredentials(MyUserProto user,
+  Future<void> saveUserCredentials(CurrentUserProto user,
       {DateTime? expireTime}) async {
     try {
       // 保存基本凭证
@@ -362,7 +362,7 @@ class SecureStorageService {
   ///
   /// 返回:
   /// - 完整的用户信息对象，如果不存在则返回null
-  Future<MyUserProto?> getFullUserInfo() async {
+  Future<CurrentUserProto?> getFullUserInfo() async {
     try {
       // 获取基本凭证
       final userId = await getUserId();
@@ -374,7 +374,7 @@ class SecureStorageService {
       }
 
       // 创建用户对象
-      final user = MyUserProto(
+      final user = CurrentUserProto(
         userId: userId,
         token: token,
       );

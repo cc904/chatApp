@@ -18,7 +18,7 @@ class AuthState extends Equatable {
   final String? errorMessage;
 
   // 认证成功数据
-  final MyUserProto? myUser;
+  final CurrentUserProto? currentUser;
 
   const AuthState({
     this.phoneNumber,
@@ -29,13 +29,16 @@ class AuthState extends Equatable {
     this.countdown,
     this.isLoading = false,
     this.errorMessage,
-    this.myUser,
+    this.currentUser,
   });
 
   // 状态判断方法
   bool get isInitial => !isLoading && !isAuthenticated && errorMessage == null;
   bool get hasError => errorMessage != null;
-  bool get isAuthenticated => myUser != null && myUser!.hasUserId() && myUser!.hasToken();
+  bool get isAuthenticated =>
+      currentUser != null &&
+      currentUser!.hasUserId() &&
+      currentUser!.hasToken();
 
   // 创建表单状态
   factory AuthState.initial() {
@@ -53,11 +56,11 @@ class AuthState extends Equatable {
   }
 
   // 创建认证成功状态
-  AuthState toAuthenticatedState({required MyUserProto myUser}) {
+  AuthState toAuthenticatedState({required CurrentUserProto currentUserProto}) {
     return copyWith(
       isLoading: false,
       errorMessage: null,
-      myUser: myUser,
+      currentUser: currentUserProto,
     );
   }
 
@@ -85,7 +88,7 @@ class AuthState extends Equatable {
     int? countdown,
     bool? isLoading,
     String? errorMessage,
-    MyUserProto? myUser,
+    CurrentUserProto? currentUser,
   }) {
     return AuthState(
       phoneNumber: phoneNumber ?? this.phoneNumber,
@@ -96,7 +99,7 @@ class AuthState extends Equatable {
       countdown: countdown ?? this.countdown,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage, // 特意不使用??,允许设置为null
-      myUser: myUser ?? this.myUser,
+      currentUser: currentUser ?? this.currentUser,
     );
   }
 
@@ -110,6 +113,6 @@ class AuthState extends Equatable {
         countdown,
         isLoading,
         errorMessage,
-        myUser,
+        currentUser,
       ];
 }

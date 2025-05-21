@@ -95,7 +95,7 @@ enum ProfileStatus {
 
 class ProfileState extends Equatable {
   final ProfileStatus status;
-  final MyUserProto? user;
+  final CurrentUserProto? user;
   final String? error;
   final String? serverUrl;
 
@@ -112,7 +112,7 @@ class ProfileState extends Equatable {
 
   ProfileState copyWith({
     ProfileStatus? status,
-    MyUserProto? user,
+    CurrentUserProto? user,
     String? error,
     String? serverUrl,
   }) {

@@ -3,8 +3,8 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'package:cc/features/home/presentation/cubit/home_state.dart';
 
 class CallsPage extends StatefulWidget {
   const CallsPage({super.key});
@@ -20,18 +20,11 @@ class _CallsPageState extends State<CallsPage> {
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _calls = [];
-  final List<Map<String, dynamic>> _filteredCalls = [];
   String? _openedItemId;
-
-  // 添加ChatCubit实例
-  late ChatCubit _chatCubit;
 
   @override
   void initState() {
     super.initState();
-    // 初始化ChatCubit实例
-    final chatRepository = ChatRepositoryImpl();
-    _chatCubit = ChatCubit(repository: chatRepository);
     _loadData();
   }
 
@@ -42,17 +35,21 @@ class _CallsPageState extends State<CallsPage> {
     });
 
     try {
-      // TODO: 从数据库加载通话记录
-      await Future.delayed(const Duration(seconds: 1)); // 模拟加载
+      // 从HomeCubit获取通话记录
+      final homeCubit = context.read<HomeCubit>();
+      await homeCubit.loadCallHistory();
+
       setState(() {
-        _calls = []; // 替换为实际数据
+        // 使用正确的字段名称 calls，并进行类型转换
+        _calls = List<Map<String, dynamic>>.from(homeCubit.state.calls);
+        _isLoading = false;
       });
+
+      _logger.d('加载通话记录成功，共 ${_calls.length} 条记录');
     } catch (e) {
+      _logger.e('加载通话记录失败', error: e);
       setState(() {
         _error = e.toString();
-      });
-    } finally {
-      setState(() {
         _isLoading = false;
       });
     }
@@ -64,14 +61,33 @@ class _CallsPageState extends State<CallsPage> {
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
-      // TODO: 实现搜索逻辑
+      // 使用HomeCubit搜索通话记录
+      final homeCubit = context.read<HomeCubit>();
+      final results = homeCubit.state.calls
+          .where((call) {
+            final contact = call['contact'] as User;
+            return contact.name.toLowerCase().contains(query.toLowerCase());
+          })
+          .map((call) => Map<String, dynamic>.from(call))
+          .toList();
+
       setState(() {
-        _calls = []; // 替换为搜索结果
+        _calls = results;
+        _isLoading = false;
       });
+
+      _logger.d('搜索通话记录成功，共 ${_calls.length} 条结果');
     } catch (e) {
+      _logger.e('搜索通话记录失败', error: e);
       setState(() {
         _error = e.toString();
+        _isLoading = false;
       });
     }
   }
@@ -79,7 +95,6 @@ class _CallsPageState extends State<CallsPage> {
   @override
   void dispose() {
     _searchController.dispose();
-    _chatCubit.close();
     super.dispose();
   }
 
@@ -227,55 +242,69 @@ class _CallsPageState extends State<CallsPage> {
       return const Center(child: Text('没有通话记录'));
     }
 
-    return ListView.builder(
-      itemCount: _calls.length,
-      itemBuilder: (context, index) {
-        final call = _calls[index];
-        final contact = call['contact'] as User;
-        final isOutgoing = call['isOutgoing'] as bool;
-        final isMissed = call['isMissed'] as bool;
-        final time = call['time'] as DateTime;
+    return BlocBuilder<HomeCubit, HomeState>(
+      buildWhen: (previous, current) => previous.contacts != current.contacts,
+      builder: (context, state) {
+        return ListView.builder(
+          itemCount: _calls.length,
+          itemBuilder: (context, index) {
+            final call = _calls[index];
+            final contact = call['contact'] as User;
+            final isOutgoing = call['isOutgoing'] as bool;
+            final isMissed = call['isMissed'] as bool;
+            final time = call['time'] as DateTime;
 
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundImage:
-                contact.avatar != null ? NetworkImage(contact.avatar!) : null,
-            child: contact.avatar == null ? Text(contact.name[0]) : null,
-          ),
-          title: Text(contact.name),
-          subtitle: Text(
-            isMissed
-                ? '未接来电'
-                : isOutgoing
-                    ? '已拨出'
-                    : '已接听',
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _formatTime(time),
-                style: const TextStyle(fontSize: 12),
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage: contact.avatar != null
+                    ? NetworkImage(contact.avatar!)
+                    : null,
+                child: contact.avatar == null ? Text(contact.name[0]) : null,
               ),
-              Icon(
-                isOutgoing ? Icons.call_made : Icons.call_received,
-                color: isMissed ? Colors.red : Colors.green,
-                size: 16,
-              ),
-            ],
-          ),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BlocProvider.value(
-                  value: _chatCubit,
-                  child: ChatDetailPage(
-                    contact: contact,
-                    conversationId: '', // TODO: 从数据库获取或创建会话ID
-                  ),
+              title: Text(contact.name),
+              subtitle: Text(
+                isMissed
+                    ? '未接来电'
+                    : isOutgoing
+                        ? '已拨出'
+                        : '已接听',
+                style: TextStyle(
+                  color: isMissed ? Colors.red : Colors.grey[600],
                 ),
               ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatCallTime(time),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(
+                      isOutgoing ? Icons.call_made : Icons.call_received,
+                      size: 18,
+                      color: isMissed ? Colors.red : Colors.green,
+                    ),
+                    onPressed: () {
+                      _logger.d('回拨通话');
+                      _makeCall(contact);
+                    },
+                  ),
+                ],
+              ),
+              onTap: () {
+                _openContactDetail(contact);
+              },
+              onLongPress: () {
+                setState(() {
+                  _openedItemId = call['id'] as String;
+                });
+                _showCallOptions(call);
+              },
             );
           },
         );
@@ -283,65 +312,142 @@ class _CallsPageState extends State<CallsPage> {
     );
   }
 
-  String _formatTime(DateTime time) {
+  String _formatCallTime(DateTime time) {
+    // 获取当前时间
     final now = DateTime.now();
-    final difference = now.difference(time);
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final callDate = DateTime(time.year, time.month, time.day);
 
-    if (difference.inDays == 0) {
-      return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
-    } else if (difference.inDays == 1) {
-      return '昨天';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}天前';
+    // 格式化时间
+    String formattedTime =
+        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+    // 根据日期返回不同格式
+    if (callDate == today) {
+      return formattedTime; // 今天
+    } else if (callDate == yesterday) {
+      return '昨天 $formattedTime'; // 昨天
     } else {
-      return '${time.month}/${time.day}';
+      return '${time.month}-${time.day} $formattedTime'; // 其他日期
     }
   }
 
-  void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '筛选通话',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+  void _makeCall(User contact) {
+    // TODO: 实现通话功能
+    _logger.d('拨打电话', extra: {'contactId': contact.userId});
+  }
+
+  void _openContactDetail(User contact) {
+    // 通过HomeCubit创建或获取与联系人的会话
+    final homeCubit = context.read<HomeCubit>();
+    homeCubit
+        .getOrCreatePrivateConversation(contact.userId)
+        .then((conversationId) {
+      if (conversationId != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BlocProvider.value(
+              value: homeCubit,
+              child: ChatDetailPage(
+                contact: contact,
+                conversationId: conversationId,
               ),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.call_made, color: Colors.green),
-              title: const Text('已拨出'),
-              onTap: () {
+          ),
+        );
+      }
+    });
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text('筛选通话记录'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () {
                 Navigator.pop(context);
-                _logger.d('筛选已拨出通话');
+                // TODO: 筛选所有通话
               },
+              child: const Text('所有通话'),
             ),
-            ListTile(
-              leading: const Icon(Icons.call_received, color: Colors.green),
-              title: const Text('已接听'),
-              onTap: () {
+            SimpleDialogOption(
+              onPressed: () {
                 Navigator.pop(context);
-                _logger.d('筛选已接听通话');
+                // TODO: 筛选未接来电
               },
+              child: const Text('未接来电'),
             ),
-            ListTile(
-              leading: const Icon(Icons.call_missed, color: Colors.red),
-              title: const Text('未接来电'),
-              onTap: () {
+            SimpleDialogOption(
+              onPressed: () {
                 Navigator.pop(context);
-                _logger.d('筛选未接来电');
+                // TODO: 筛选已拨电话
               },
+              child: const Text('已拨电话'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context);
+                // TODO: 筛选已接来电
+              },
+              child: const Text('已接来电'),
             ),
           ],
-        ),
-      ),
+        );
+      },
+    );
+  }
+
+  void _showCallOptions(Map<String, dynamic> call) {
+    final contact = call['contact'] as User;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.call),
+                title: const Text('语音通话'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _makeCall(contact);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam),
+                title: const Text('视频通话'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: 实现视频通话
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.message),
+                title: const Text('发送消息'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openContactDetail(contact);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('删除此记录'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: 删除此通话记录
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

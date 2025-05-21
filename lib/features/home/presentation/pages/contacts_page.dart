@@ -114,7 +114,8 @@ class _ContactsPageState extends State<ContactsPage> {
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
@@ -131,7 +132,8 @@ class _ContactsPageState extends State<ContactsPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.grey, size: 18),
+                            icon: const Icon(Icons.clear,
+                                color: Colors.grey, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
@@ -159,7 +161,8 @@ class _ContactsPageState extends State<ContactsPage> {
                                 FocusScope.of(context).unfocus();
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   borderRadius: BorderRadius.circular(16),
@@ -254,8 +257,11 @@ class _ContactsPageState extends State<ContactsPage> {
             ),
             ...contacts.map((contact) => ListTile(
                   leading: CircleAvatar(
-                    backgroundImage: contact.avatar != null ? NetworkImage(contact.avatar!) : null,
-                    child: contact.avatar == null ? Text(contact.name[0]) : null,
+                    backgroundImage: contact.avatar != null
+                        ? NetworkImage(contact.avatar!)
+                        : null,
+                    child:
+                        contact.avatar == null ? Text(contact.name[0]) : null,
                   ),
                   title: Text(contact.name),
                   subtitle: Text(contact.status ?? ''),

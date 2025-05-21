@@ -1,5 +1,7 @@
 import 'package:isar/isar.dart';
+import 'package:fixnum/fixnum.dart';
 import 'conversation.dart';
+import 'package:cc/core/proto/generated/user.pb.dart' as proto;
 
 part 'user.g.dart';
 
@@ -44,5 +46,47 @@ class User {
   String get avatarText {
     if (name.isEmpty) return '?';
     return name.substring(0, 1).toUpperCase();
+  }
+
+  /// 从Protocol Buffer对象创建数据库对象
+  ///
+  /// 直接从UserProto对象创建User实例
+  /// 简化了在仓库中的数据转换逻辑
+  ///
+  /// [proto] - 原始的Protocol Buffer对象
+  /// 返回：转换后的数据库对象
+  static User fromProto(proto.UserProto proto) {
+    return User()
+      ..userId = proto.userId
+      ..name = proto.name
+      ..avatar = proto.hasAvatar() ? proto.avatar : null
+      ..phone = proto.hasPhone() ? proto.phone : null
+      ..email = proto.hasEmail() ? proto.email : null
+      ..pinyin = proto.hasPinyin() ? proto.pinyin : null
+      ..lastActiveTime = proto.hasLastActiveTime()
+          ? DateTime.fromMillisecondsSinceEpoch(proto.lastActiveTime.toInt())
+          : null
+      ..status = proto.hasStatus() ? proto.status : null;
+  }
+
+  /// 将数据库对象转换为Protocol Buffer对象
+  ///
+  /// 用于将User对象转换为可序列化的Proto对象
+  /// 便于网络传输和存储
+  ///
+  /// 返回：转换后的Protocol Buffer对象
+  proto.UserProto toProto() {
+    return proto.UserProto(
+      userId: userId,
+      name: name,
+      avatar: avatar,
+      phone: phone,
+      email: email,
+      pinyin: pinyin,
+      lastActiveTime: lastActiveTime != null
+          ? Int64(lastActiveTime!.millisecondsSinceEpoch)
+          : null,
+      status: status,
+    );
   }
 }

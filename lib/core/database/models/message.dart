@@ -1,5 +1,7 @@
 import 'package:isar/isar.dart';
+import 'package:fixnum/fixnum.dart';
 import 'conversation.dart';
+import 'package:cc/core/proto/generated/message.pb.dart' as proto;
 
 part 'message.g.dart';
 
@@ -52,4 +54,94 @@ class Message {
 
   // 与会话的关系
   final conversation = IsarLink<Conversation>();
+
+  /// 从Protocol Buffer对象创建数据库对象
+  ///
+  /// 直接从MessageProto对象创建Message实例
+  /// 简化了在仓库中的数据转换逻辑
+  ///
+  /// [proto] - 原始的Protocol Buffer对象
+  /// 返回：转换后的数据库对象
+  static Message fromProto(proto.MessageProto proto) {
+    return Message()
+      ..messageId = proto.messageId
+      ..conversationId = proto.conversationId
+      ..senderId = proto.senderId
+      ..senderName = proto.hasSenderName() ? proto.senderName : null
+      ..senderAvatar = proto.hasSenderAvatar() ? proto.senderAvatar : null
+      ..createdAt = proto.hasCreatedAt()
+          ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
+          : DateTime.now()
+      ..isRead = proto.hasIsRead() ? proto.isRead : false
+      ..status = proto.hasStatus() ? proto.status : 'sent'
+      ..type = proto.hasType() ? proto.type.name : 'text'
+      ..text = proto.hasText() ? proto.text : null
+      ..mediaUrl = proto.hasMediaUrl() ? proto.mediaUrl : null
+      ..localPath = proto.hasLocalPath() ? proto.localPath : null
+      ..duration = proto.hasDuration() ? proto.duration : null
+      ..fileSize = proto.hasFileSize() ? proto.fileSize : null
+      ..fileName = proto.hasFileName() ? proto.fileName : null
+      ..thumbnailUrl = proto.hasThumbnailUrl() ? proto.thumbnailUrl : null
+      ..latitude = proto.hasLatitude() ? proto.latitude : null
+      ..longitude = proto.hasLongitude() ? proto.longitude : null
+      ..locationAddress =
+          proto.hasLocationAddress() ? proto.locationAddress : null
+      ..quotedMessageId =
+          proto.hasQuotedMessageId() ? proto.quotedMessageId : null;
+  }
+
+  /// 将数据库对象转换为Protocol Buffer对象
+  ///
+  /// 用于将Message对象转换为可序列化的Proto对象
+  /// 便于网络传输和存储
+  ///
+  /// 返回：转换后的Protocol Buffer对象
+  proto.MessageProto toProto() {
+    final messageType = _stringToMessageType(type);
+
+    return proto.MessageProto(
+      messageId: messageId,
+      conversationId: conversationId,
+      senderId: senderId,
+      senderName: senderName,
+      senderAvatar: senderAvatar,
+      createdAt: Int64(createdAt.millisecondsSinceEpoch),
+      isRead: isRead,
+      status: status,
+      type: messageType,
+      text: text,
+      mediaUrl: mediaUrl,
+      localPath: localPath,
+      duration: duration,
+      fileSize: fileSize,
+      fileName: fileName,
+      thumbnailUrl: thumbnailUrl,
+      latitude: latitude,
+      longitude: longitude,
+      locationAddress: locationAddress,
+      quotedMessageId: quotedMessageId,
+    );
+  }
+
+  /// 将字符串类型转换为Proto的枚举类型
+  static proto.MessageType _stringToMessageType(String type) {
+    switch (type.toLowerCase()) {
+      case 'text':
+        return proto.MessageType.text;
+      case 'image':
+        return proto.MessageType.image;
+      case 'voice':
+        return proto.MessageType.voice;
+      case 'video':
+        return proto.MessageType.video;
+      case 'file':
+        return proto.MessageType.file;
+      case 'location':
+        return proto.MessageType.location;
+      case 'system':
+        return proto.MessageType.system;
+      default:
+        return proto.MessageType.text;
+    }
+  }
 }

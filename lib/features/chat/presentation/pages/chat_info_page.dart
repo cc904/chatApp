@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
 import 'package:cc/core/services/log_service.dart';
 
 class ChatInfoPage extends StatefulWidget {
   final String conversationId;
+  final dynamic contact;
 
   const ChatInfoPage({
     super.key,
     required this.conversationId,
+    this.contact,
   });
 
   @override
@@ -31,13 +33,16 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    return BlocBuilder<ChatCubit, ChatState>(
+    return BlocBuilder<HomeCubit, HomeState>(
       builder: (context, state) {
         // 获取当前会话
         final conversation = state.conversations.firstWhere(
-          (c) => c.id.toString() == widget.conversationId,
+          (c) => c.conversationId == widget.conversationId,
           orElse: () => Conversation()..name = '未知会话',
         );
+
+        // 判断是否为群聊
+        final isGroup = conversation.type == ConversationType.group;
 
         return Scaffold(
           appBar: AppBar(
@@ -63,7 +68,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                   _buildGroupMembersSection(primaryColor),
 
                 // 底部按钮区域
-                _buildBottomButtons(conversation),
+                _buildBottomButtons(conversation, isGroup),
               ],
             ),
           ),
@@ -74,6 +79,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
   // 聊天信息卡片 - 显示头像、名称等
   Widget _buildChatInfoCard(Conversation conversation) {
+    final isGroup = conversation.type == ConversationType.group;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
@@ -92,17 +99,17 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                     width: 80,
                     height: 80,
                     color: Colors.grey[300],
-                    child: conversation.avatar != null &&
-                            conversation.avatar!.isNotEmpty
+                    child: widget.contact?.avatar != null &&
+                            widget.contact!.avatar!.isNotEmpty
                         ? Image.network(
-                            conversation.avatar!,
+                            widget.contact!.avatar!,
                             fit: BoxFit.cover,
                           )
                         : Center(
                             child: Text(
-                              conversation.name != null &&
-                                      conversation.name!.isNotEmpty
-                                  ? conversation.name![0].toUpperCase()
+                              widget.contact?.name != null &&
+                                      widget.contact!.name.isNotEmpty
+                                  ? widget.contact!.name[0].toUpperCase()
                                   : '?',
                               style: const TextStyle(
                                 color: Colors.white,
@@ -116,13 +123,13 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 const SizedBox(height: 12),
                 // 会话名称
                 Text(
-                  conversation.name ?? '未知会话',
+                  widget.contact?.name ?? conversation.name ?? '未知会话',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (conversation.type == ConversationType.private)
+                if (!isGroup)
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Text(
@@ -299,9 +306,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   }
 
   // 底部按钮区域
-  Widget _buildBottomButtons(Conversation conversation) {
-    final isGroup = conversation.type == ConversationType.group;
-
+  Widget _buildBottomButtons(Conversation conversation, bool isGroup) {
     return Container(
       margin: const EdgeInsets.only(top: 10, bottom: 20),
       color: Colors.white,
@@ -336,7 +341,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               ),
             ),
             onTap: () {
-              _showLeaveConfirmation(context);
+              _showLeaveConfirmation(context, isGroup);
             },
           ),
         ],
@@ -347,7 +352,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   // 显示清空聊天记录确认对话框
   void _showDeleteConfirmation(BuildContext context) {
     final conversationId = widget.conversationId;
-    final chatCubit = context.read<ChatCubit>();
 
     showDialog(
       context: context,
@@ -365,8 +369,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
             child: const Text('清空', style: TextStyle(color: Colors.red)),
             onPressed: () {
               Navigator.pop(context);
-              // 实现清空聊天记录功能
-              chatCubit.clearConversationMessages(conversationId);
+              // TODO: 实现清空聊天记录功能
+              // 需要在HomeCubit中添加对应方法
               UINotificationService().showSuccess('聊天记录已清空');
             },
           ),
@@ -376,15 +380,14 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   }
 
   // 显示退出确认对话框
-  void _showLeaveConfirmation(BuildContext context) {
+  void _showLeaveConfirmation(BuildContext context, bool isGroup) {
     final conversationId = widget.conversationId;
-    final chatCubit = context.read<ChatCubit>();
-    final conversation = chatCubit.state.conversations.firstWhere(
-      (c) => c.id.toString() == conversationId,
+    final homeCubit = context.read<HomeCubit>();
+    final conversation = homeCubit.state.conversations.firstWhere(
+      (c) => c.conversationId == conversationId,
       orElse: () => Conversation(),
     );
 
-    final isGroup = conversation.type == ConversationType.group;
     final title = isGroup ? '删除并退出' : '删除聊天';
     final content = isGroup ? '退出后,将不再接收此群聊信息' : '删除后,将不再接收此联系人的消息';
 
@@ -405,8 +408,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                 style: const TextStyle(color: Colors.red)),
             onPressed: () {
               Navigator.pop(context);
-              // 实现删除会话功能
-              chatCubit.deleteConversation(conversationId);
+              // TODO: 实现删除会话功能
+              // 需要在HomeCubit中添加对应方法
               UINotificationService().showSuccess(isGroup ? '已退出群聊' : '已删除聊天');
               // 返回上一级
               Navigator.pop(context);
@@ -421,7 +424,8 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   void _openChatSearch(BuildContext context, Conversation conversation) {
     // 使用局部变量
     final conversationId = widget.conversationId;
-    final conversationName = conversation.name ?? '未知会话';
+    final conversationName =
+        widget.contact?.name ?? conversation.name ?? '未知会话';
 
     // 使用延迟调用来避免直接使用BuildContext
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -431,7 +435,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       navigator.push<dynamic>(
         MaterialPageRoute(
           builder: (context) => BlocProvider.value(
-            value: context.read<ChatCubit>(),
+            value: context.read<HomeCubit>(),
             child: ChatSearchPage(
               conversationId: conversationId,
               conversationName: conversationName,

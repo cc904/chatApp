@@ -4,178 +4,183 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/constants/message_types.dart';
 
-// 搜索状态
+// 定义过滤器类型
+enum FilterType { all, text, media, file, date, month, year }
+
+// 定义状态类
 class SearchState extends Equatable {
-  final List<Message> searchResults;
   final bool isSearching;
+  final bool isInitial; // 添加初始状态标志
+  final String? searchQuery;
+  final List<Message> searchResults;
   final FilterType? currentFilter;
   final DateTime? selectedDate;
-  final String searchQuery;
+  final String? errorMessage;
 
   const SearchState({
-    this.searchResults = const [],
     this.isSearching = false,
-    this.currentFilter,
+    this.isInitial = true, // 默认为初始状态
+    this.searchQuery,
+    this.searchResults = const [],
+    this.currentFilter = FilterType.all,
     this.selectedDate,
-    this.searchQuery = '',
+    this.errorMessage,
   });
 
+  // 工厂构造函数 - 初始状态
+  factory SearchState.initial() {
+    return const SearchState(
+      isSearching: false,
+      isInitial: true,
+      searchResults: [],
+      currentFilter: FilterType.all,
+    );
+  }
+
+  // 复制方法
   SearchState copyWith({
-    List<Message>? searchResults,
     bool? isSearching,
+    bool? isInitial,
+    String? searchQuery,
+    List<Message>? searchResults,
     FilterType? currentFilter,
     DateTime? selectedDate,
-    String? searchQuery,
+    String? errorMessage,
   }) {
     return SearchState(
-      searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
+      isInitial: isInitial ?? this.isInitial,
+      searchQuery: searchQuery ?? this.searchQuery,
+      searchResults: searchResults ?? this.searchResults,
       currentFilter: currentFilter ?? this.currentFilter,
       selectedDate: selectedDate ?? this.selectedDate,
-      searchQuery: searchQuery ?? this.searchQuery,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
   @override
-  List<Object?> get props => [searchResults, isSearching, currentFilter, selectedDate, searchQuery];
-}
-
-// 过滤类型枚举
-enum FilterType {
-  all,
-  text,
-  media,
-  file,
-  date,
-  month,
-  year,
+  List<Object?> get props => [
+        isSearching,
+        isInitial,
+        searchQuery,
+        searchResults,
+        currentFilter,
+        selectedDate,
+        errorMessage,
+      ];
 }
 
 class SearchCubit extends Cubit<SearchState> {
-  final LogService _logger = LogService.instance;
+  final _logger = LogService.instance;
 
-  SearchCubit() : super(const SearchState(currentFilter: FilterType.all));
+  SearchCubit() : super(SearchState.initial());
 
-  // 执行搜索操作
+  // 执行搜索
   void performSearch(String query, List<Message> messages) {
-    if (query.trim().isEmpty && state.currentFilter == FilterType.all) {
+    if (query.isEmpty && state.currentFilter == FilterType.all) {
+      // 如果搜索词为空且过滤器为全部，则返回空结果
       emit(state.copyWith(
-        searchResults: [],
         isSearching: false,
+        isInitial: false,
         searchQuery: query,
+        searchResults: [],
       ));
       return;
     }
 
-    // 开始搜索,更新状态
-    emit(state.copyWith(
-      isSearching: true,
-      searchQuery: query,
-    ));
+    emit(state.copyWith(isSearching: true, isInitial: false));
 
     try {
-      // 先应用过滤器
-      var filteredMessages = _applyFilter(messages);
+      List<Message> results = [];
 
-      // 再应用搜索文本
-      if (query.trim().isNotEmpty) {
-        final searchQuery = query.toLowerCase();
-        filteredMessages = filteredMessages.where((message) {
-          // 文本消息搜索内容
-          if (message.type == MessageType.text) {
-            return message.text?.toLowerCase().contains(searchQuery) ?? false;
-          }
-          // 文件消息搜索文件名
-          else if (message.type == MessageType.file) {
-            return message.fileName?.toLowerCase().contains(searchQuery) ?? false;
-          }
-          return false;
+      if (query.isNotEmpty) {
+        // 搜索文本内容
+        results = messages.where((message) {
+          return message.text != null &&
+              message.text!.toLowerCase().contains(query.toLowerCase());
         }).toList();
+      } else {
+        // 只应用过滤器
+        results = messages;
       }
 
-      // 更新结果状态
+      // 应用过滤器
+      results = _applyFilter(results, state.currentFilter!);
+
       emit(state.copyWith(
-        searchResults: filteredMessages,
         isSearching: false,
+        searchQuery: query,
+        searchResults: results,
       ));
     } catch (error) {
-      _logger.e('搜索失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('搜索失败', error: error);
       emit(state.copyWith(
         isSearching: false,
+        errorMessage: error.toString(),
       ));
     }
   }
 
-  // 设置过滤类型
+  // 设置过滤器
   void setFilter(FilterType filter) {
     emit(state.copyWith(currentFilter: filter));
   }
 
-  // 设置选中的日期
-  void setSelectedDate(DateTime? date) {
+  // 设置日期
+  void setSelectedDate(DateTime date) {
+    emit(state.copyWith(selectedDate: date, currentFilter: FilterType.date));
+  }
+
+  // 应用过滤器
+  List<Message> _applyFilter(List<Message> messages, FilterType filter) {
+    switch (filter) {
+      case FilterType.all:
+        return messages;
+      case FilterType.text:
+        return messages.where((m) => m.type == MessageType.text).toList();
+      case FilterType.media:
+        return messages
+            .where((m) =>
+                m.type == MessageType.image || m.type == MessageType.video)
+            .toList();
+      case FilterType.file:
+        return messages.where((m) => m.type == MessageType.file).toList();
+      case FilterType.date:
+        if (state.selectedDate != null) {
+          final date = state.selectedDate!;
+          return messages.where((m) {
+            final messageDate = DateTime(
+              m.createdAt.year,
+              m.createdAt.month,
+              m.createdAt.day,
+            );
+            final targetDate = DateTime(date.year, date.month, date.day);
+            return messageDate.isAtSameMomentAs(targetDate);
+          }).toList();
+        }
+        return messages;
+      case FilterType.month:
+        final now = DateTime.now();
+        final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
+        return messages.where((m) => m.createdAt.isAfter(oneMonthAgo)).toList();
+      case FilterType.year:
+        final now = DateTime.now();
+        final oneYearAgo = DateTime(now.year - 1, now.month, now.day);
+        return messages.where((m) => m.createdAt.isAfter(oneYearAgo)).toList();
+      }
+  }
+
+  // 应用过滤器到消息列表（供外部调用）
+  void applyFilter(List<Message> messages) {
+    final filtered = _applyFilter(messages, state.currentFilter!);
     emit(state.copyWith(
-      selectedDate: date,
-      currentFilter: date != null ? FilterType.date : state.currentFilter,
+      searchResults: filtered,
+      isInitial: false,
     ));
-  }
-
-  // 日期选择操作开始（显示加载状态）
-  void dateSelectionStarted() {
-    emit(state.copyWith(isSearching: true));
-  }
-
-  // 日期选择操作结束（隐藏加载状态）
-  void dateSelectionEnded() {
-    emit(state.copyWith(isSearching: false));
   }
 
   // 日期选择失败
   void dateSelectionFailed(String errorMessage) {
-    _logger.e('日期选择失败', error: errorMessage);
-    emit(state.copyWith(isSearching: false));
-  }
-
-  // 应用过滤器
-  List<Message> _applyFilter(List<Message> messages) {
-    switch (state.currentFilter) {
-      case FilterType.all:
-        return messages;
-
-      case FilterType.text:
-        return messages.where((m) => m.type == MessageType.text).toList();
-
-      case FilterType.media:
-        // 合并图片和视频
-        return messages.where((m) => m.type == MessageType.image || m.type == MessageType.video).toList();
-
-      case FilterType.file:
-        return messages.where((m) => m.type == MessageType.file).toList();
-
-      case FilterType.date:
-        // 日期过滤
-        if (state.selectedDate == null) {
-          return messages;
-        }
-
-        final startOfDay = DateTime(state.selectedDate!.year, state.selectedDate!.month, state.selectedDate!.day);
-        final endOfDay = DateTime(state.selectedDate!.year, state.selectedDate!.month, state.selectedDate!.day, 23, 59, 59);
-
-        return messages
-            .where((m) => m.createdAt.isAfter(startOfDay.subtract(const Duration(seconds: 1))) && m.createdAt.isBefore(endOfDay.add(const Duration(seconds: 1))))
-            .toList();
-
-      case FilterType.month:
-        // 最近一个月
-        final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
-        return messages.where((m) => m.createdAt.isAfter(oneMonthAgo)).toList();
-
-      case FilterType.year:
-        // 最近一年
-        final oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
-        return messages.where((m) => m.createdAt.isAfter(oneYearAgo)).toList();
-
-      default:
-        return messages;
-    }
+    emit(state.copyWith(errorMessage: errorMessage));
   }
 }

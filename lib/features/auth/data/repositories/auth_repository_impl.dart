@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:cc/core/database/models/my_user.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/network/auth_api_client.dart';
 
@@ -18,7 +18,6 @@ import 'package:cc/core/services/secure_storage_service.dart';
 class AuthRepositoryImpl implements AuthRepository {
   final LogService _logger = LogService.instance;
   final AuthApiClient _authApiClient = AuthApiClient.getInstance();
-  // final ProfileRepository _profileRepository = ProfileRepository();
   final CommunicationService _communicationService = CommunicationService();
   final SecureStorageService _secureStorage = SecureStorageService.instance;
 
@@ -79,7 +78,7 @@ class AuthRepositoryImpl implements AuthRepository {
   ///
   /// 返回:
   /// - 保存成功返回true，失败返回false
-  Future<bool> saveUserCredentials(MyUserProto user) async {
+  Future<bool> saveUserCredentials(CurrentUserProto user) async {
     try {
       // 保存到安全存储
       await _secureStorage.saveUserCredentials(
@@ -99,8 +98,8 @@ class AuthRepositoryImpl implements AuthRepository {
   /// 从安全存储获取用户信息
   ///
   /// 返回:
-  /// - 用户信息（MyUserProto），不存在则返回null
-  Future<MyUserProto?> getUserInfo() async {
+  /// - 用户信息（CurrentUserProto），不存在则返回null
+  Future<CurrentUserProto?> getUserInfo() async {
     try {
       // 从安全存储获取用户信息
       final userId = await _secureStorage.getUserId();
@@ -111,8 +110,8 @@ class AuthRepositoryImpl implements AuthRepository {
         return null;
       }
 
-      // 创建 MyUserProto 对象
-      return MyUserProto(
+      // 创建 CurrentUserProto 对象
+      return CurrentUserProto(
         userId: userId,
         token: token,
       );
@@ -161,7 +160,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存用户凭证
-      await saveUserCredentials(response.myUser!);
+      await saveUserCredentials(response.currentUser!);
 
       return response;
     } catch (error) {
@@ -207,7 +206,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存用户凭证
-      await saveUserCredentials(response.myUser!);
+      await saveUserCredentials(response.currentUser!);
 
       return response;
     } catch (error) {
@@ -253,7 +252,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return AuthResponse(
         success: true,
         message: '令牌登录成功',
-        myUser: tokenResponse.myUser,
+        currentUser: tokenResponse.currentUser,
       );
     } catch (error) {
       _logger.e('令牌登录失败', error: error, stackTrace: StackTrace.current);
@@ -312,7 +311,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存用户凭证
-      await saveUserCredentials(response.myUser!);
+      await saveUserCredentials(response.currentUser!);
 
       // 返回成功响应
       return response;
@@ -339,7 +338,7 @@ class AuthRepositoryImpl implements AuthRepository {
       // 清除本地用户数据
       if (DatabaseInitializer.isInitialized) {
         await DatabaseInitializer.isar.writeTxn(() async {
-          await DatabaseInitializer.isar.myUsers.clear();
+          await DatabaseInitializer.isar.currentUsers.clear();
         });
       }
 
@@ -370,29 +369,14 @@ class AuthRepositoryImpl implements AuthRepository {
   /// 返回:
   /// - 当前用户信息，未登录返回null
   @override
-  Future<MyUser?> getCurrentUser() async {
+  Future<CurrentUser?> getCurrentUser() async {
     try {
       // 如果还没初始化，先尝试安全地初始化，但不递归调用
       if (!_isInitialized) {
         // 只是简单地获取用户信息，不进行完整的初始化流程
         final userInfo = await getUserInfo();
         if (userInfo != null) {
-          return MyUser()
-            ..userId = userInfo.userId
-            ..token = userInfo.token
-            ..name = userInfo.name
-            ..avatar = userInfo.avatar
-            ..phone = userInfo.phone
-            ..email = userInfo.email
-            ..tokenExpireTime = userInfo.hasTokenExpireTime()
-                ? DateTime.fromMillisecondsSinceEpoch(
-                    userInfo.tokenExpireTime.toInt())
-                : null
-            ..lastLoginTime = userInfo.hasLastLoginTime()
-                ? DateTime.fromMillisecondsSinceEpoch(
-                    userInfo.lastLoginTime.toInt())
-                : null
-            ..status = userInfo.status;
+          return CurrentUser.fromProto(userInfo);
         }
         return null;
       }
@@ -404,23 +388,8 @@ class AuthRepositoryImpl implements AuthRepository {
         return null;
       }
 
-      // 将 MyUserProto 转换为 MyUser
-      return MyUser()
-        ..userId = userProto.userId
-        ..token = userProto.token
-        ..name = userProto.name
-        ..avatar = userProto.avatar
-        ..phone = userProto.phone
-        ..email = userProto.email
-        ..tokenExpireTime = userProto.hasTokenExpireTime()
-            ? DateTime.fromMillisecondsSinceEpoch(
-                userProto.tokenExpireTime.toInt())
-            : null
-        ..lastLoginTime = userProto.hasLastLoginTime()
-            ? DateTime.fromMillisecondsSinceEpoch(
-                userProto.lastLoginTime.toInt())
-            : null
-        ..status = userProto.status;
+      // 将 CurrentUserProto 转换为 CurrentUser
+      return CurrentUser.fromProto(userProto);
     } catch (error) {
       _logger.e('获取当前用户失败', error: error, stackTrace: StackTrace.current);
       return null;

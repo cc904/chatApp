@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/features/home/data/repositories/home_repository_impl.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/home/presentation/pages/chats_page.dart';
@@ -36,16 +35,12 @@ class _HomePageState extends State<HomePage>
       });
     });
 
-    // 检查用户是否已登录
-    _checkUserLoggedIn();
-
-    _initHomeCubit();
+    _init();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 移除这里的初始化代码，避免重复初始化
+  Future<void> _init() async {
+    await _checkUserLoggedIn();
+    await _initHomeCubit();
   }
 
   // 检查用户是否已登录
@@ -61,21 +56,30 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  void _initHomeCubit() {
+  Future<void> _initHomeCubit() async {
     // 避免重复初始化
     if (_homeCubit != null) return;
 
     // 直接创建所需服务
     final secureStorage = SecureStorageService.instance;
+    final currentUser = await secureStorage.getFullUserInfo();
 
-    final homeRepository = HomeRepositoryImpl(
-      secureStorage: secureStorage,
+    if (currentUser == null) {
+      _logger.e('无法获取用户信息，返回登录页面');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AuthPage()),
+        );
+      });
+      return;
+    }
+
+    _homeCubit = HomeCubit(
+      currentUserProto: currentUser,
     );
 
-    _homeCubit = HomeCubit(homeRepository: homeRepository);
-
     // 初始化用户会话
-    _homeCubit?.initUserSession();
+    await _homeCubit?.initUserSession();
   }
 
   @override

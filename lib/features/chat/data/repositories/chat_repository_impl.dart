@@ -1,20 +1,21 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cc/core/database/models/current_user.dart';
+import 'package:isar/isar.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/my_user.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-// import 'package:cc/features/profile/data/repositories/profile_repository.dart';
-import 'package:isar/isar.dart';
+import 'package:fixnum/fixnum.dart' as $fixnum;
+
+import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:fixnum/fixnum.dart' as $fixnum;
 
 /// 消息异常
 class MessageException implements Exception {
@@ -25,36 +26,12 @@ class MessageException implements Exception {
   String toString() => message;
 }
 
-// /// 同步响应类，用于内部处理服务器同步结果
-// class _SyncResponse {
-//   final bool success;
-//   final List<db.Conversation> conversations;
-//   final String? errorMessage;
-
-//   _SyncResponse(this.success, this.conversations, this.errorMessage);
-// }
-
 /// ChatRepository的实现类
 /// 负责聊天相关的数据处理、消息收发、实时通信等功能
-/// 主要功能包括：
-/// 1. 会话管理：创建、获取、删除会话
-/// 2. 消息管理：发送、接收、查询、删除消息
-/// 3. 实时通信：管理Socket连接、处理实时事件
-/// 4. 联系人操作：获取联系人信息、同步联系人
 class ChatRepositoryImpl implements ChatRepository {
-  // 构造函数
-  ChatRepositoryImpl() {
-    // 确保数据库已初始化
-    if (!DatabaseInitializer.isInitialized) {
-      throw Exception('数据库未初始化，请确保在使用ChatRepository前初始化数据库');
-    }
-
-    // 注册事件处理
-    _registerEventHandlers();
-  }
-
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
+  final CurrentUserProto _currentUser;
 
   /// 文件上传服务,处理媒体文件上传
   final FileUploadService _fileUploadService = FileUploadService();
@@ -79,18 +56,25 @@ class ChatRepositoryImpl implements ChatRepository {
   final StreamController<SyncStatus> _syncStatusController =
       StreamController<SyncStatus>.broadcast();
 
+  /// 通信服务事件订阅集合
+  final List<StreamSubscription> _subscriptions = [];
+
+  // 获取消息流
+  Stream<Message> get messageStream => _newMessagesController.stream;
+
+  // 构造函数
+  ChatRepositoryImpl({required CurrentUserProto currentUserProto})
+      : _currentUser = currentUserProto {
+    // 注册事件处理
+    _registerEventHandlers();
+  }
+
   /// 获取同步状态流
   /// 返回数据同步状态变化的流
   @override
   Stream<SyncStatus> getSyncStatusStream() {
     return _syncStatusController.stream;
   }
-
-  /// 通信服务事件订阅集合
-  final List<StreamSubscription> _subscriptions = [];
-
-  // 获取消息流
-  Stream<Message> get messageStream => _newMessagesController.stream;
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   Isar   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -243,14 +227,15 @@ class ChatRepositoryImpl implements ChatRepository {
         throw Exception('数据库未初始化，请确保已登录');
       }
 
-      final myUsers = await DatabaseInitializer.isar.myUsers.where().findAll();
+      final currentUsers =
+          await DatabaseInitializer.isar.currentUsers.where().findAll();
 
-      if (myUsers.isEmpty) {
+      if (currentUsers.isEmpty) {
         throw Exception('找不到当前用户信息，请确保已登录');
       }
 
       // 返回第一个用户的ID（通常只会有一个用户记录）
-      return myUsers.first.userId;
+      return currentUsers.first.userId;
     } catch (e) {
       throw Exception('获取当前用户ID失败: ${e.toString()}');
     }
@@ -287,10 +272,9 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 标记同步错误
       _syncStatusController.add(SyncStatus.error);
-        return [];
+      return [];
     }
   }
-
 
   /// 更新本地会话数据
   /// 将服务器返回的会话数据保存到本地数据库

@@ -34,15 +34,6 @@ class AuthCubit extends Cubit<AuthState> {
       // 初始authRepository
       await _authRepository.init();
       await loginWithToken();
-
-      // // 尝试使用令牌自动登录
-      // final response = await _authRepository.loginWithToken();
-      // if (response.success && response.myUser != null) {
-      //   _logger.i('loginWithToken成功，用户ID: ${response.myUser!.userId}');
-      //   emit(state.toAuthenticatedState(
-      //     myUser: response.myUser!,
-      //   ));
-      // }
     } catch (error) {
       _logger.e('初始化认证服务失败', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
@@ -153,11 +144,11 @@ class AuthCubit extends Cubit<AuthState> {
 
       final response = await _authRepository.loginWithToken();
 
-      if (response.success && response.myUser != null) {
-        _logger.i('令牌登录成功', extra: {'userId': response.myUser!.userId});
+      if (response.success && response.currentUser != null) {
+        _logger.i('令牌登录成功', extra: {'userId': response.currentUser!.userId});
 
         emit(state.toAuthenticatedState(
-          myUser: response.myUser!,
+          currentUserProto: response.currentUser!,
         ));
         return true;
       } else {
@@ -233,10 +224,10 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       // 登录成功
-      _logger.i('登录成功，用户信息: ${response.myUser!.userId}');
+      _logger.i('登录成功，用户信息: ${response.currentUser!.userId}');
 
       emit(state.toAuthenticatedState(
-        myUser: response.myUser!,
+        currentUserProto: response.currentUser!,
       ));
     } catch (error) {
       _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
@@ -305,10 +296,10 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       // 注册成功
-      _logger.i('注册成功，用户ID: ${response.myUser!.userId}');
+      _logger.i('注册成功，用户ID: ${response.currentUser!.userId}');
 
       emit(state.toAuthenticatedState(
-        myUser: response.myUser!,
+        currentUserProto: response.currentUser!,
       ));
     } catch (error) {
       _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);

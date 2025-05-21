@@ -1,17 +1,16 @@
 import 'dart:io';
 import 'package:isar/isar.dart';
-import 'package:fixnum/fixnum.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
-import 'package:cc/core/database/models/my_user.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 
 /// 个人资料仓库
 ///
 /// 负责管理用户配置文件数据的持久化存储和检索
-/// 使用DatabaseInitializer中的Isar数据库实现本地存储，并处理MyUser模型和MyUserProto之间的转换
+/// 使用DatabaseInitializer中的Isar数据库实现本地存储，并处理CurrentUser模型和CurrentUserProto之间的转换
 class ProfileRepository {
   final _logger = LogService.instance;
 
@@ -33,40 +32,27 @@ class ProfileRepository {
 
   /// 获取当前登录用户信息
   ///
-  /// 从DatabaseInitializer的Isar实例中读取MyUser记录并转换为MyUserProto对象
+  /// 从DatabaseInitializer的Isar实例中读取CurrentUser记录并转换为CurrentUserProto对象
   /// 如果没有用户记录，返回null
   ///
   /// 返回值:
-  ///   - MyUserProto?: 当前登录用户信息，如果未登录则为null
-  Future<MyUserProto?> getCurrentUser() async {
+  ///   - CurrentUserProto?: 当前登录用户信息，如果未登录则为null
+  Future<CurrentUserProto?> getCurrentUser() async {
     try {
       if (!DatabaseInitializer.isInitialized) {
         _logger.w('数据库未初始化，无法获取用户信息');
         return null;
       }
 
-      final users = await DatabaseInitializer.isar.myUsers.where().findAll();
+      final users =
+          await DatabaseInitializer.isar.currentUsers.where().findAll();
       if (users.isEmpty) {
         return null;
       }
 
-      // 转换为 MyUserProto
+      // 转换为 CurrentUserProto
       final user = users.first;
-      return MyUserProto(
-        userId: user.userId,
-        token: user.token,
-        name: user.name,
-        avatar: user.avatar,
-        phone: user.phone,
-        email: user.email,
-        tokenExpireTime: user.tokenExpireTime != null
-            ? Int64(user.tokenExpireTime!.millisecondsSinceEpoch)
-            : null,
-        lastLoginTime: user.lastLoginTime != null
-            ? Int64(user.lastLoginTime!.millisecondsSinceEpoch)
-            : null,
-        status: user.status,
-      );
+      return user.toProto();
     } catch (e) {
       _logger.e('获取用户信息失败', error: e);
       return null;
@@ -75,38 +61,23 @@ class ProfileRepository {
 
   /// 保存用户信息
   ///
-  /// 将MyUserProto对象转换为MyUser并保存到数据库
+  /// 将CurrentUserProto对象转换为CurrentUser并保存到数据库
   /// 在保存前会清除所有现有用户数据
   ///
   /// 参数:
-  ///   - user: 需要保存的用户信息(MyUserProto格式)
-  Future<void> saveUser(MyUserProto user) async {
+  ///   - user: 需要保存的用户信息(CurrentUserProto格式)
+  Future<void> saveUser(CurrentUserProto user) async {
     try {
       if (!DatabaseInitializer.isInitialized) {
         throw Exception('数据库未初始化，无法保存用户信息');
       }
 
       await DatabaseInitializer.isar.writeTxn(() async {
-        await DatabaseInitializer.isar.myUsers.clear(); // 清除旧数据
+        await DatabaseInitializer.isar.currentUsers.clear(); // 清除旧数据
 
-        // 创建 MyUser 对象并保存
-        final myUser = MyUser()
-          ..userId = user.userId
-          ..token = user.token
-          ..name = user.name
-          ..avatar = user.avatar
-          ..phone = user.phone
-          ..email = user.email
-          ..tokenExpireTime = user.hasTokenExpireTime()
-              ? DateTime.fromMillisecondsSinceEpoch(
-                  user.tokenExpireTime.toInt())
-              : null
-          ..lastLoginTime = user.hasLastLoginTime()
-              ? DateTime.fromMillisecondsSinceEpoch(user.lastLoginTime.toInt())
-              : null
-          ..status = user.status;
-
-        await DatabaseInitializer.isar.myUsers.put(myUser); // 保存新数据
+        // 创建 CurrentUser 对象并保存
+        final currentUser = CurrentUser.fromProto(user);
+        await DatabaseInitializer.isar.currentUsers.put(currentUser); // 保存新数据
       });
       _logger.i('用户信息保存成功', extra: {'userId': user.userId});
     } catch (e) {
@@ -138,7 +109,7 @@ class ProfileRepository {
         throw Exception('用户未登录');
       }
 
-      final updatedUser = MyUserProto(
+      final updatedUser = CurrentUserProto(
         userId: currentUser.userId,
         token: currentUser.token,
         name: nickname ?? currentUser.name,

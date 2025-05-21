@@ -3,7 +3,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 
 class NewChatPage extends StatefulWidget {
   const NewChatPage({super.key});
@@ -33,10 +33,11 @@ class _NewChatPageState extends State<NewChatPage> {
     });
 
     try {
-      // TODO: 从数据库加载联系人数据
-      await Future.delayed(const Duration(seconds: 1)); // 模拟加载
+      // 从HomeCubit中加载联系人数据
+      final homeCubit = context.read<HomeCubit>();
+      await homeCubit.loadContacts();
       setState(() {
-        _contacts = []; // 替换为实际数据
+        _contacts = homeCubit.state.contacts;
       });
     } catch (e) {
       setState(() {
@@ -56,9 +57,20 @@ class _NewChatPageState extends State<NewChatPage> {
     }
 
     try {
-      // TODO: 实现搜索逻辑
+      // 在已加载的联系人中搜索
+      final homeCubit = context.read<HomeCubit>();
+      final allContacts = homeCubit.state.contacts;
+
+      // 通过名称搜索联系人
+      final searchResults = allContacts
+          .where((contact) =>
+              contact.name.toLowerCase().contains(query.toLowerCase()) ||
+              (contact.pinyin?.toLowerCase().contains(query.toLowerCase()) ??
+                  false))
+          .toList();
+
       setState(() {
-        _contacts = []; // 替换为搜索结果
+        _contacts = searchResults;
       });
     } catch (e) {
       setState(() {
@@ -71,6 +83,23 @@ class _NewChatPageState extends State<NewChatPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // 导航到聊天详情页的方法
+  void _navigateToChat(
+      User contact, String conversationId, HomeCubit homeCubit) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider.value(
+          value: homeCubit,
+          child: ChatDetailPage(
+            contact: contact,
+            conversationId: conversationId,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -165,7 +194,8 @@ class _NewChatPageState extends State<NewChatPage> {
     // 按首字母分组
     final Map<String, List<User>> groupedContacts = {};
     for (var contact in _contacts) {
-      final firstChar = contact.name[0].toUpperCase();
+      final firstChar =
+          contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '#';
       if (!groupedContacts.containsKey(firstChar)) {
         groupedContacts[firstChar] = [];
       }
@@ -206,19 +236,19 @@ class _NewChatPageState extends State<NewChatPage> {
                   ),
                   title: Text(contact.name),
                   subtitle: Text(contact.status ?? ''),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BlocProvider.value(
-                          value: context.read<ChatCubit>(),
-                          child: ChatDetailPage(
-                            contact: contact,
-                            conversationId: '', // TODO: 创建新会话
-                          ),
-                        ),
-                      ),
-                    );
+                  onTap: () async {
+                    final homeCubit = context.read<HomeCubit>();
+
+                    // 创建或获取与该联系人的会话
+                    final conversationId = await homeCubit
+                        .getOrCreatePrivateConversation(contact.userId);
+
+                    if (conversationId != null) {
+                      if (!mounted) return;
+
+                      // 调用类方法进行导航
+                      _navigateToChat(contact, conversationId, homeCubit);
+                    }
                   },
                 )),
           ],

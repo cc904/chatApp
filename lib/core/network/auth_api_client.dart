@@ -8,20 +8,20 @@ import 'package:cc/core/proto/generated/user.pb.dart';
 class AuthResponse {
   final bool success;
   final String message;
-  final MyUserProto? myUser;
+  final CurrentUserProto? currentUser;
 
   AuthResponse({
     required this.success,
     required this.message,
-    this.myUser,
+    this.currentUser,
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
-    final userData = json['myUser'];
-    MyUserProto? myUser;
+    final userData = json['currentUser'];
+    CurrentUserProto? currentUser;
 
     if (userData != null) {
-      myUser = MyUserProto(
+      currentUser = CurrentUserProto(
         userId: userData['userId'],
         token: userData['token'],
         name: userData['nickname'] ?? '',
@@ -31,12 +31,12 @@ class AuthResponse {
     return AuthResponse(
       success: json['success'] ?? false,
       message: json['message'] ?? '',
-      myUser: myUser,
+      currentUser: currentUser,
     );
   }
 
-  bool hasUserId() => myUser != null && myUser!.hasUserId();
-  bool hasToken() => myUser != null && myUser!.hasToken();
+  bool hasUserId() => currentUser != null && currentUser!.hasUserId();
+  bool hasToken() => currentUser != null && currentUser!.hasToken();
 }
 
 /// 认证异常

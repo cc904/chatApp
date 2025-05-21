@@ -11,4 +11,4 @@ alwaysApply: true
 使用protoc生成的对象模型
 
 页面(UI层) → Cubit(业务逻辑层) → Repository(数据层)
-通过 ChatCubit 的 state 获取数据，而不是直接访问数据层
+通过 Cubit 的 state 获取数据，而不是直接访问数据层

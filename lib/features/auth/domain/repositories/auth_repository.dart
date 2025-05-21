@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/my_user.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/network/auth_api_client.dart';
 
 /// AuthRepository接口
@@ -44,7 +44,7 @@ abstract class AuthRepository {
   ///
   /// 返回:
   /// - 当前用户信息，未登录返回null
-  Future<MyUser?> getCurrentUser();
+  Future<CurrentUser?> getCurrentUser();
 
   /// 检查是否已登录
   ///

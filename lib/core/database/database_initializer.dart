@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/my_user.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
@@ -58,6 +58,12 @@ class DatabaseInitializer {
         return;
       }
 
+      // 如果已有其他用户的数据库实例打开，先关闭它
+      if (_isar != null) {
+        _logger.i('关闭之前打开的数据库实例，用户ID: $_currentUserId');
+        await close();
+      }
+
       _logger.x('开始初始化数据库,用户ID: $userId');
 
       final dir = await getApplicationDocumentsDirectory();
@@ -66,11 +72,17 @@ class DatabaseInitializer {
       _logger.x('使用数据库文件目录: $dir');
       _logger.x('使用数据库文件: $dbName');
 
+      // 检查是否已有相同名称的实例打开
+      if (Isar.instanceNames.contains(dbName)) {
+        _logger.w('检测到数据库实例 $dbName 已被打开，尝试关闭');
+        await Isar.getInstance(dbName)?.close();
+      }
+
       // 保存临时实例，避免初始化失败时影响全局变量
       final isarInstance = await Isar.open(
         [
           UserSchema,
-          MyUserSchema,
+          CurrentUserSchema,
           ConversationSchema,
           MessageSchema,
           FriendRequestSchema,
@@ -83,9 +95,9 @@ class DatabaseInitializer {
       _isar = isarInstance;
       _currentUserId = userId;
 
+      _logger.x('数据库初始化完成，isInitialized: $isInitialized');
       // 创建索引
       await _createIndexes();
-      _logger.x('数据库初始化完成，isInitialized: $isInitialized');
     } catch (error) {
       // 确保在初始化失败时重置状态
       _isar = null;
@@ -107,19 +119,11 @@ class DatabaseInitializer {
         isar.users.where().filter().pinyinContains('').build();
 
         // 当前用户索引
-        isar.myUsers.where().build();
+        isar.currentUsers.where().build();
 
         // 会话索引
-        isar.conversations
-            .where()
-            .filter()
-            .typeEqualTo(ConversationType.private)
-            .build();
-        isar.conversations
-            .where()
-            .filter()
-            .typeEqualTo(ConversationType.group)
-            .build();
+        isar.conversations.where().filter().typeEqualTo(ConversationType.private).build();
+        isar.conversations.where().filter().typeEqualTo(ConversationType.group).build();
 
         // 消息索引
         isar.messages.where().filter().conversationIdEqualTo('').build();
