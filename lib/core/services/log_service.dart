@@ -57,7 +57,7 @@ class VSCodeLogPrinter extends LogPrinter {
       final uri = frame.uri.toString();
       if (!uri.contains('logger') &&
           !(frame.member ?? '').contains('LogService')) {
-        memberName = '${frame.member}:${frame.line}';
+        memberName = '${frame.member} :${frame.line}';
         final fileUri = _convertToFileUri(uri);
         final location = '$fileUri:${frame.line}:${frame.column}';
         atText = 'at ($location)';
@@ -96,7 +96,7 @@ class VSCodeLogPrinter extends LogPrinter {
     // 构建框框样式
     if (memberName != null) {
       buffer.write(
-          '$levelColor[${levelName.padRight(5)}] $emoji [ $memberName ] -> $message\x1B[0m');
+          '$levelColor[${levelName.padRight(5)}] $emoji [ $memberName] -> $message\x1B[0m');
     } else {
       buffer.write(
           '$levelColor[${levelName.padRight(5)}] $emoji $message\x1B[0m');
