@@ -54,9 +54,10 @@ class VSCodeLogPrinter extends LogPrinter {
     final frames = trace.frames;
     for (var i = 1; i < frames.length; i++) {
       final frame = frames[i];
-      memberName = frame.member ?? '';
       final uri = frame.uri.toString();
-      if (!uri.contains('logger') && !memberName.contains('LogService')) {
+      if (!uri.contains('logger') &&
+          !(frame.member ?? '').contains('LogService')) {
+        memberName = '${frame.member}:${frame.line}';
         final fileUri = _convertToFileUri(uri);
         final location = '$fileUri:${frame.line}:${frame.column}';
         atText = 'at ($location)';
