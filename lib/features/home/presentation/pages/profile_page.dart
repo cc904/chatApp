@@ -5,7 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:cc/features/auth/presentation/pages/auth_page.dart';
+import 'package:cc/core/services/secure_storage_service.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -67,7 +68,7 @@ class ProfilePage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // 个人信息卡片
                   _buildProfileCard(),
 
@@ -80,7 +81,7 @@ class ProfilePage extends StatelessWidget {
 
                   // 开发者选项
                   _buildDeveloperOptions(context),
-                  
+
                   const SizedBox(height: 24),
                 ],
               ),
@@ -107,9 +108,43 @@ class ProfilePage extends StatelessWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context); // 关闭对话框
-              await context.read<AuthCubit>().logout();
+
+              // 显示加载指示器
               if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              try {
+                // 直接使用SecureStorageService清除用户凭据
+                final secureStorage = SecureStorageService.instance;
+                await secureStorage.clearUserCredentials();
+
+                _logger.i('用户已登出，凭据已清除');
+
+                // 关闭数据库连接
+                if (DatabaseInitializer.isInitialized) {
+                  await DatabaseInitializer.close();
+                  _logger.i('数据库连接已关闭');
+                }
+              } catch (e) {
+                _logger.e('登出过程中发生错误', error: e);
+              }
+
+              // 关闭加载指示器并导航到登录页面
+              if (context.mounted) {
+                Navigator.pop(context); // 关闭加载对话框
+
+                // 使用MaterialPageRoute导航到AuthPage，并清除之前的路由
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const AuthPage()),
+                  (route) => false,
+                );
               }
             },
             child: const Text('确定', style: TextStyle(color: Colors.red)),
@@ -139,7 +174,8 @@ class ProfilePage extends StatelessWidget {
           // 头像
           CircleAvatar(
             radius: 40,
-            backgroundImage: const NetworkImage('https://picsum.photos/200?random=99'),
+            backgroundImage:
+                const NetworkImage('https://picsum.photos/200?random=99'),
             backgroundColor: Colors.green[50],
           ),
           const SizedBox(width: 20),
@@ -166,7 +202,8 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.green[50],
                     borderRadius: BorderRadius.circular(16),
@@ -367,7 +404,12 @@ class ProfilePage extends StatelessWidget {
 
       // 删除数据库文件
       _logger.i('数据库文件目录: $appDocDir');
-      final isarFiles = await appDocDir.list().where((entity) => entity.path.endsWith('.isar') || entity.path.endsWith('.isar.lock')).toList();
+      final isarFiles = await appDocDir
+          .list()
+          .where((entity) =>
+              entity.path.endsWith('.isar') ||
+              entity.path.endsWith('.isar.lock'))
+          .toList();
 
       for (final file in isarFiles) {
         await file.delete();
@@ -446,7 +488,11 @@ class ProfilePage extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(left: 16, top: 16, bottom: 8),
-            child: Text('开发者选项', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
+            child: Text('开发者选项',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red)),
           ),
 
           // 服务器URL设置

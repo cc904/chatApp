@@ -81,7 +81,7 @@ class AuthApiClient {
         return true;
       }
 
-      _logger.x('初始化认证API客户端', extra: {'serverUrl': serverUrl});
+      _logger.i('初始化认证API客户端', extra: {'serverUrl': serverUrl});
 
       // 创建和配置Dio客户端
       _dio = Dio(BaseOptions(

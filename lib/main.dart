@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
-import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-import 'package:cc/core/services/socket_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:cc/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
-import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
-// 通信服务实例
-final communicationService = CommunicationService();
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -155,17 +147,11 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _logger = LogService.instance;
-  final _appConfig = AppConfig();
-  late final AuthCubit _authCubit;
-
-  // 根据初始路由决定启动页面
 
   @override
   void initState() {
     super.initState();
     _logger.x('初始化MyApp状态');
-
-    _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
   }
 
   @override
@@ -178,54 +164,14 @@ class _MyAppState extends State<MyApp> {
       AppLifecycleObserver.initialize();
     });
 
-    return MultiRepositoryProvider(
-      providers: [
-        // 注册通信服务
-        RepositoryProvider<CommunicationService>(
-          create: (context) => communicationService,
-        ),
-        // 注册Socket服务
-        RepositoryProvider<SocketService>(
-          create: (context) => SocketService.instance,
-        ),
-        // 注册安全存储服务
-        RepositoryProvider<SecureStorageService>(
-          create: (context) => SecureStorageService.instance,
-        ),
-      ],
-      child: MultiBlocProvider(
-        providers: [
-          // 使用已创建的AuthCubit
-          BlocProvider<AuthCubit>(
-            create: (context) => _authCubit,
-          ),
-        ],
-        child: BlocBuilder<AuthCubit, AuthState>(
-          builder: (context, state) {
-            // 显示加载指示器，直到认证状态确定
-            if (state.isLoading) {
-              return const MaterialApp(
-                home: Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              );
-            }
-
-            return MaterialApp(
-              title: 'WhatsApp',
-              theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-                useMaterial3: true,
-              ),
-              scaffoldMessengerKey:
-                  UINotificationService.instance.scaffoldMessengerKey,
-              home: state.isAuthenticated ? const HomePage() : const AuthPage(),
-            );
-          },
-        ),
+    return MaterialApp(
+      title: 'WhatsApp',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        useMaterial3: true,
       ),
+      scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
+      home: const AuthPage(),
     );
   }
 }

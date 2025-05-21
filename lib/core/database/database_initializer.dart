@@ -58,13 +58,13 @@ class DatabaseInitializer {
         return;
       }
 
-      _logger.d('开始初始化数据库,用户ID: $userId', stackTrace: StackTrace.current);
+      _logger.x('开始初始化数据库,用户ID: $userId');
 
       final dir = await getApplicationDocumentsDirectory();
       String dbName = '$userId.isar';
 
-      _logger.i('使用数据库文件目录: $dir');
-      _logger.i('使用数据库文件: $dbName');
+      _logger.x('使用数据库文件目录: $dir');
+      _logger.x('使用数据库文件: $dbName');
 
       // 保存临时实例，避免初始化失败时影响全局变量
       final isarInstance = await Isar.open(
@@ -85,7 +85,7 @@ class DatabaseInitializer {
 
       // 创建索引
       await _createIndexes();
-      _logger.i('数据库初始化完成，isInitialized: $isInitialized');
+      _logger.x('数据库初始化完成，isInitialized: $isInitialized');
     } catch (error) {
       // 确保在初始化失败时重置状态
       _isar = null;
@@ -100,7 +100,7 @@ class DatabaseInitializer {
   /// 为各个集合创建必要的查询索引，提高查询性能
   static Future<void> _createIndexes() async {
     try {
-      _logger.i('开始创建数据库索引');
+      _logger.x('开始创建数据库索引');
       await isar.writeTxn(() async {
         // 联系人索引
         isar.users.where().filter().nameContains('').build();
@@ -125,7 +125,7 @@ class DatabaseInitializer {
         isar.messages.where().filter().conversationIdEqualTo('').build();
         isar.messages.where().filter().senderIdEqualTo('').build();
       });
-      _logger.i('数据库索引创建完成');
+      _logger.x('数据库索引创建完成');
     } catch (error) {
       _logger.e('创建数据库索引失败', error: error, stackTrace: StackTrace.current);
       rethrow;

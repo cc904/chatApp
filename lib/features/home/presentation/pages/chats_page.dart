@@ -90,26 +90,20 @@ class _ChatsPageState extends State<ChatsPage> {
         throw Exception('当前用户ID无效，请重新登录');
       }
 
-      // 创建仓库实例
-      final ChatRepository chatRepository = ChatRepositoryImpl();
+      // 使用ChatCubit加载会话数据
+      await _chatCubit.loadConversations();
 
-      // final ContactsRepository contactsRepository = ContactsRepositoryImpl();
-
-      // 加载会话和联系人数据
-      List<Conversation> conversations =
-          await chatRepository.getAllConversations();
-      // List<User> contacts = await contactsRepository.getAllContacts();
+      // 从ChatCubit的状态获取会话数据
+      final conversations = _chatCubit.state.conversations;
 
       // 更新状态
       setState(() {
         _conversations = conversations;
         _filteredConversations = conversations;
-        // _contacts = contacts;
         _isLoading = false;
       });
 
       _logger.i('已加载 ${conversations.length} 个会话');
-      // _logger.i('已加载  ${contacts.length} 个联系人');
     } catch (e) {
       setState(() {
         _error = e.toString();

@@ -2,25 +2,18 @@ import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-import 'package:cc/core/services/socket_service.dart';
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
-import 'package:cc/core/constants/app_config.dart';
 
 /// HomeRepository的实现类
 /// 负责用户会话初始化相关的业务逻辑
 class HomeRepositoryImpl implements HomeRepository {
   final SecureStorageService _secureStorage;
-  final SocketService _socketService;
   final LogService _logger = LogService.instance;
-  final String _serverUrl;
 
   /// 构造函数
   HomeRepositoryImpl({
     required SecureStorageService secureStorage,
-    required SocketService socketService,
-  })  : _secureStorage = secureStorage,
-        _socketService = socketService,
-        _serverUrl = AppConfig().serverUrl;
+  }) : _secureStorage = secureStorage;
 
   /// 初始化用户会话
   ///
@@ -34,7 +27,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<bool> initUserSession(MyUserProto user) async {
     try {
-      _logger.i('初始化用户会话', extra: {'userId': user.userId});
+      _logger.i('repo 初始化用户会话', extra: {'userId': user.userId});
 
       // 初始化数据库
       final dbInitialized = await initDatabase(user.userId);
@@ -50,7 +43,7 @@ class HomeRepositoryImpl implements HomeRepository {
         return false;
       }
 
-      _logger.i('用户会话初始化成功');
+      _logger.i('repo 用户会话初始化成功');
       return true;
     } catch (error) {
       _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
@@ -73,7 +66,7 @@ class HomeRepositoryImpl implements HomeRepository {
       await DatabaseInitializer.init(userId: userId);
 
       if (DatabaseInitializer.isInitialized) {
-        _logger.i('数据库初始化成功');
+        _logger.i('repo 数据库初始化成功');
         return true;
       } else {
         _logger.e('数据库初始化失败');
@@ -95,40 +88,8 @@ class HomeRepositoryImpl implements HomeRepository {
   /// - 操作成功返回true，失败返回false
   @override
   Future<bool> initCommunication(String userId, String token) async {
-    try {
-      _logger.i('初始化通信服务', extra: {'userId': userId});
-
-      int attempts = 0;
-      const maxAttempts = 3;
-      bool success = false;
-
-      while (attempts < maxAttempts && !success) {
-        attempts++;
-        _logger.i('尝试连接到服务器', extra: {'attempt': attempts});
-
-        success = await _socketService.initializeSocket(
-          userId: userId,
-          token: token,
-          serverUrl: _serverUrl,
-        );
-
-        if (!success && attempts < maxAttempts) {
-          _logger.i('连接失败，等待重试');
-          await Future.delayed(const Duration(seconds: 2));
-        }
-      }
-
-      if (success) {
-        _logger.i('通信服务初始化成功');
-      } else {
-        _logger.e('通信服务初始化失败，达到最大重试次数');
-      }
-
-      return success;
-    } catch (error) {
-      _logger.e('初始化通信服务出错', error: error, stackTrace: StackTrace.current);
-      return false;
-    }
+    // 简化实现，不再需要连接服务
+    return true;
   }
 
   /// 从安全存储获取用户信息

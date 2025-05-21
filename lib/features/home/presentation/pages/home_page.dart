@@ -9,7 +9,7 @@ import 'package:cc/features/home/presentation/pages/calls_page.dart';
 import 'package:cc/features/home/presentation/pages/profile_page.dart';
 import 'package:cc/features/home/presentation/pages/contacts_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-import 'package:cc/core/services/socket_service.dart';
+import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,7 +24,7 @@ class _HomePageState extends State<HomePage>
   late TabController _tabController;
   int _currentIndex = 0;
   HomeCubit? _homeCubit;
-  bool _isInitialized = false;
+  final _secureStorage = SecureStorageService.instance;
 
   @override
   void initState() {
@@ -35,27 +35,41 @@ class _HomePageState extends State<HomePage>
         _currentIndex = _tabController.index;
       });
     });
+
+    // 检查用户是否已登录
+    _checkUserLoggedIn();
+
+    _initHomeCubit();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 在依赖项可用后初始化HomeCubit
-    if (!_isInitialized) {
-      _initHomeCubit();
-      _isInitialized = true;
+    // 移除这里的初始化代码，避免重复初始化
+  }
+
+  // 检查用户是否已登录
+  Future<void> _checkUserLoggedIn() async {
+    final token = await _secureStorage.getToken();
+    if (token == null || token.isEmpty) {
+      _logger.w('用户未登录，返回登录页面');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AuthPage()),
+        );
+      });
     }
   }
 
   void _initHomeCubit() {
-    // 从上下文中获取服务
-    final secureStorage = context.read<SecureStorageService>();
-    final socketService = context.read<SocketService>();
+    // 避免重复初始化
+    if (_homeCubit != null) return;
 
-    // 创建HomeRepository和HomeCubit
+    // 直接创建所需服务
+    final secureStorage = SecureStorageService.instance;
+
     final homeRepository = HomeRepositoryImpl(
       secureStorage: secureStorage,
-      socketService: socketService,
     );
 
     _homeCubit = HomeCubit(homeRepository: homeRepository);
@@ -84,9 +98,16 @@ class _HomePageState extends State<HomePage>
       );
     }
 
-    return BlocProvider.value(
+    // 使用稳定的key来避免BlocProvider重建
+    return BlocProvider<HomeCubit>.value(
+      // 使用固定的值作为key
+      key: const ValueKey('home_cubit_provider'),
       value: _homeCubit!,
       child: BlocConsumer<HomeCubit, HomeState>(
+        // 添加listenWhen条件，避免不必要的监听
+        listenWhen: (previous, current) =>
+            previous.hasError != current.hasError ||
+            (current.hasError && previous.errorMessage != current.errorMessage),
         listener: (context, state) {
           // 可以在这里处理状态变化的副作用，如显示弹窗等
           if (state.hasError) {
@@ -95,6 +116,10 @@ class _HomePageState extends State<HomePage>
             );
           }
         },
+        // 添加buildWhen条件，避免不必要的重建
+        buildWhen: (previous, current) =>
+            previous.isInitializing != current.isInitializing ||
+            previous.hasError != current.hasError,
         builder: (context, state) {
           return Scaffold(
             body: state.isInitializing
