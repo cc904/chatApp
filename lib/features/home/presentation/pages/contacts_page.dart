@@ -15,7 +15,8 @@ class ContactsPage extends StatefulWidget {
   State<ContactsPage> createState() => _ContactsPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> {
+class _ContactsPageState extends State<ContactsPage>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
@@ -111,8 +112,12 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    _logger.i('构建ContactsPage');
+    super.build(context);
+    _logger.d('ContactsPage build');
     return Scaffold(
       appBar: _buildAppBar(),
       body: GestureDetector(

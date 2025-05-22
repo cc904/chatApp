@@ -7,14 +7,24 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage>
+    with AutomaticKeepAliveClientMixin {
   // 创建静态logger实例
   static final _logger = LogService.instance;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // This is required by AutomaticKeepAliveClientMixin
     _logger.d('ProfilePage build');
     return Scaffold(
       body: SafeArea(

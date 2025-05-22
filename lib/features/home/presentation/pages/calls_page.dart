@@ -13,7 +13,8 @@ class CallsPage extends StatefulWidget {
   State<CallsPage> createState() => _CallsPageState();
 }
 
-class _CallsPageState extends State<CallsPage> {
+class _CallsPageState extends State<CallsPage>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
   bool _isSearching = false;
@@ -99,7 +100,11 @@ class _CallsPageState extends State<CallsPage> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     _logger.d('CallsPage build');
     return Scaffold(
       appBar: AppBar(

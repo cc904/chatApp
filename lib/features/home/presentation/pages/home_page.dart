@@ -145,14 +145,18 @@ class _HomePageState extends State<HomePage>
                           ],
                         ),
                       )
-                    : TabBarView(
-                        controller: _tabController,
-                        children: const [
-                          ChatsPage(),
-                          ContactsPage(),
-                          CallsPage(),
-                          ProfilePage(),
-                        ],
+                    : PageStorage(
+                        bucket: PageStorageBucket(),
+                        child: TabBarView(
+                          controller: _tabController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: const [
+                            ChatsPage(key: PageStorageKey('chats_page')),
+                            ContactsPage(key: PageStorageKey('contacts_page')),
+                            CallsPage(key: PageStorageKey('calls_page')),
+                            ProfilePage(key: PageStorageKey('profile_page')),
+                          ],
+                        ),
                       ),
             bottomNavigationBar: BottomNavigationBar(
               currentIndex: _currentIndex,

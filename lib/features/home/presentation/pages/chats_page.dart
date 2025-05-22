@@ -20,7 +20,8 @@ class ChatsPage extends StatefulWidget {
   State<ChatsPage> createState() => _ChatsPageState();
 }
 
-class _ChatsPageState extends State<ChatsPage> {
+class _ChatsPageState extends State<ChatsPage>
+    with AutomaticKeepAliveClientMixin {
   /// 搜索框控制器
   final TextEditingController _searchController = TextEditingController();
 
@@ -101,8 +102,12 @@ class _ChatsPageState extends State<ChatsPage> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    _logger.d('ChatsPage build', stackTrace: StackTrace.current);
+    super.build(context); // This is required by AutomaticKeepAliveClientMixin
+    _logger.d('ChatsPage build');
     return BlocBuilder<HomeCubit, HomeState>(
       buildWhen: (previous, current) =>
           previous.conversations != current.conversations ||
