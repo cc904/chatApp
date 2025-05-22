@@ -113,6 +113,12 @@ abstract class ChatRepository {
   /// 获取消息同步状态流
   Stream<SyncStatus> getSyncStatusStream();
 
+  /// 同步会话列表
+  /// 从服务器同步最新的会话数据
+  /// 该方法只发送同步请求，不返回会话列表
+  /// 会话数据将通过事件通知并由状态管理系统更新UI
+  Future<void> syncConversations();
+
   /// 从服务器获取消息
   /// 获取指定会话的消息列表,支持分页
   /// [conversationId] - 会话ID

@@ -45,7 +45,7 @@ class _ContactsPageState extends State<ContactsPage> {
     final homeCubit = context.read<HomeCubit>();
     if (homeCubit.state.contacts.isEmpty &&
         !homeCubit.state.isLoadingContacts) {
-      _logger.x('加载联系人数据');
+      _logger.i('加载联系人数据');
       homeCubit.loadContacts();
     } else {
       _updateGroupedContacts(homeCubit.state.contacts);
@@ -112,7 +112,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    _logger.x('构建ContactsPage');
+    _logger.i('构建ContactsPage');
     return Scaffold(
       appBar: _buildAppBar(),
       body: GestureDetector(
@@ -171,7 +171,7 @@ class _ContactsPageState extends State<ContactsPage> {
         backgroundColor: Colors.green,
         child: const Icon(Icons.person_add),
         onPressed: () {
-          _logger.x('打开添加联系人页面');
+          _logger.i('打开添加联系人页面');
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => const NewChatPage(),
@@ -474,7 +474,7 @@ class _ContactsPageState extends State<ContactsPage> {
               title: const Text('星标联系人'),
               onTap: () {
                 Navigator.pop(context);
-                _logger.x('筛选星标联系人');
+                _logger.i('筛选星标联系人');
                 // 实现星标联系人筛选逻辑
               },
             ),
@@ -483,7 +483,7 @@ class _ContactsPageState extends State<ContactsPage> {
               title: const Text('群组'),
               onTap: () {
                 Navigator.pop(context);
-                _logger.x('筛选群组');
+                _logger.i('筛选群组');
                 // 实现群组筛选逻辑
               },
             ),
@@ -492,7 +492,7 @@ class _ContactsPageState extends State<ContactsPage> {
               title: const Text('已屏蔽'),
               onTap: () {
                 Navigator.pop(context);
-                _logger.x('筛选已屏蔽联系人');
+                _logger.i('筛选已屏蔽联系人');
                 // 实现已屏蔽联系人筛选逻辑
               },
             ),

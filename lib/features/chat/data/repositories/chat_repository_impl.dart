@@ -114,7 +114,6 @@ class ChatRepositoryImpl implements ChatRepository {
           .onProto<conversation_proto.ConversationCollection>(
               'conversation:sync:result')
           .listen(_handleSyncResultProto));
-
   }
 
   /// 处理新消息
@@ -180,12 +179,21 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.i('解析到 ${response.conversations.length} 个会话');
       if (response.conversations.isEmpty) {
         _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
+        // 即使列表为空，也标记为同步成功
+        _syncStatusController.add(SyncStatus.completed);
+        return;
       }
 
       // 处理同步返回的会话数据
-      _processSyncedConversations(response.conversations);
+      _processSyncedConversations(response.conversations).then((_) {
+        // 处理完成后标记同步成功
+        _syncStatusController.add(SyncStatus.completed);
+        _logger.i('会话同步完成');
+      });
     } catch (e, stack) {
       _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
+      // 处理失败时标记同步错误
+      _syncStatusController.add(SyncStatus.error);
     }
   }
 
@@ -1074,6 +1082,94 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Stream<void> watchContacts() {
     return _users.watchLazy();
+  }
+
+  /// 同步会话列表
+  /// 从服务器同步最新的会话数据
+  /// 该方法只发送同步请求，不返回会话列表
+  /// 会话数据将通过事件通知并由状态管理系统更新UI
+  @override
+  Future<void> syncConversations() async {
+    try {
+      // 通知开始同步
+      _syncStatusController.add(SyncStatus.syncing);
+      _logger.i('开始会话同步流程');
+
+      // 验证当前用户信息
+      if (_currentUser.userId.isEmpty) {
+        _logger.e('当前用户信息不完整，无法同步会话', extra: {'userId': _currentUser.userId});
+        _syncStatusController.add(SyncStatus.error);
+        return;
+      }
+
+      if (_communicationService.isInitialized) {
+        // 创建同步请求并填充数据
+        final syncRequest = conversation_proto.SyncConversationsRequest()
+          ..userId = _currentUser.userId;
+
+        // 获取本地会话ID列表
+        final localConversations = await _conversations.where().findAll();
+        final localIds = localConversations
+            .map((conv) => conv.conversationId)
+            .where((id) => id.isNotEmpty)
+            .toList();
+
+        // 添加本地会话ID到请求中
+        syncRequest.localConversationIds.addAll(localIds);
+
+        // 发送请求
+        _communicationService.emitProto('conversation:sync', syncRequest);
+        _logger.i('会话同步请求已发送', extra: {'localIdsCount': localIds.length});
+
+        // 创建一个变量来跟踪同步状态
+        bool isSyncComplete = false;
+
+        // 添加一个临时监听器来检测同步状态变化
+        final syncSubscription = _syncStatusController.stream.listen((status) {
+          if (status != SyncStatus.syncing) {
+            isSyncComplete = true;
+          }
+        });
+
+        // 启动超时检查，如果15秒内没有收到响应，则标记为失败
+        Future.delayed(const Duration(seconds: 15), () {
+          syncSubscription.cancel(); // 取消监听器
+          if (!isSyncComplete) {
+            _logger.w('会话同步请求超时');
+            _syncStatusController.add(SyncStatus.error);
+          }
+        });
+      } else {
+        _logger.e('通信服务未初始化，无法同步会话');
+        _syncStatusController.add(SyncStatus.error);
+      }
+    } catch (error, stack) {
+      _logger.e('同步会话失败', error: error, stackTrace: stack);
+      _syncStatusController.add(SyncStatus.error);
+      rethrow;
+    }
+  }
+
+  /// 获取最后会话同步时间
+  Future<DateTime?> _getLastConversationSyncTime() async {
+    try {
+      // 这里可以使用SharedPreferences或其他存储方式
+      // 简单起见，这里暂时返回null
+      return null;
+    } catch (e) {
+      _logger.e('获取最后会话同步时间失败', error: e);
+      return null;
+    }
+  }
+
+  /// 保存最后会话同步时间
+  Future<void> _saveLastConversationSyncTime(DateTime time) async {
+    try {
+      // 这里可以使用SharedPreferences或其他存储方式
+      // 简单起见，这里暂时不实现
+    } catch (e) {
+      _logger.e('保存最后会话同步时间失败', error: e);
+    }
   }
 
   /// 收集消息中的媒体文件路径

@@ -73,6 +73,9 @@ class HomeCubit extends Cubit<HomeState> {
           DateTime.now().difference(lastSyncTime).inHours >= 1) {
         syncContacts();
       }
+
+      // 同步会话列表
+      syncConversations();
     } catch (error) {
       _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
@@ -181,6 +184,20 @@ class HomeCubit extends Cubit<HomeState> {
   /// 加载所有会话
   Future<void> loadConversations() async {
     await _loadConversations();
+  }
+
+  /// 同步会话列表
+  /// 从服务器同步最新的会话数据
+  Future<void> syncConversations() async {
+    _logger.i('同步会话列表');
+    try {
+      await _chatRepository.syncConversations();
+    } catch (error) {
+      _logger.e('同步会话失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '同步会话失败: ${error.toString()}',
+      ));
+    }
   }
 
   /// 内部加载会话实现
