@@ -78,6 +78,10 @@ class _HomePageState extends State<HomePage>
 
     // 初始化用户会话
     await _homeCubit?.initUserSession();
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override

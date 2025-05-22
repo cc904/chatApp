@@ -1,11 +1,18 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 
+/// 联系人同步状态枚举
+enum ContactsSyncStatus { idle, syncing, success, error }
+
 /// 联系人仓库接口
 /// 定义了与联系人相关的数据操作方法
 abstract class ContactsRepository {
-  /// 联系人同步完成回调
-  set onContactsSynced(Function(List<User>)? callback);
+  /// 联系人同步状态流
+  Stream<ContactsSyncStatus> get syncStatusStream;
+
+  /// 注册事件处理器
+  /// 设置与通信服务的事件监听，用于接收和处理服务器发送的Proto消息
+  Future<void> registerEventHandlers();
 
   /// 获取所有联系人
   Future<List<User>> getAllContacts();
@@ -42,4 +49,7 @@ abstract class ContactsRepository {
 
   /// 监听联系人列表变化
   Stream<void> watchContacts();
+
+  /// 获取最后同步时间
+  Future<DateTime?> getLastSyncTime();
 }

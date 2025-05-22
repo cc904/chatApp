@@ -3,6 +3,7 @@ import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// HomePage的状态类
 class HomeState extends Equatable {
@@ -23,6 +24,9 @@ class HomeState extends Equatable {
   // 联系人相关状态
   final List<User> contacts;
   final bool isLoadingContacts;
+  final ContactsSyncStatus contactsSyncStatus; // 联系人同步状态
+  final DateTime? lastContactsSyncTime; // 最后同步时间
+  final String? contactsErrorMessage; // 联系人错误信息
 
   // 通话相关状态
   final List<dynamic> calls; // 可以根据实际需求定义Call类型
@@ -51,6 +55,9 @@ class HomeState extends Equatable {
     // 联系人相关状态
     this.contacts = const [],
     this.isLoadingContacts = false,
+    this.contactsSyncStatus = ContactsSyncStatus.idle,
+    this.lastContactsSyncTime,
+    this.contactsErrorMessage,
 
     // 通话相关状态
     this.calls = const [],
@@ -144,6 +151,9 @@ class HomeState extends Equatable {
     // 联系人相关状态
     List<User>? contacts,
     bool? isLoadingContacts,
+    ContactsSyncStatus? contactsSyncStatus,
+    DateTime? lastContactsSyncTime,
+    String? contactsErrorMessage,
 
     // 通话相关状态
     List<dynamic>? calls,
@@ -174,6 +184,9 @@ class HomeState extends Equatable {
       // 联系人相关状态
       contacts: contacts ?? this.contacts,
       isLoadingContacts: isLoadingContacts ?? this.isLoadingContacts,
+      contactsSyncStatus: contactsSyncStatus ?? this.contactsSyncStatus,
+      lastContactsSyncTime: lastContactsSyncTime ?? this.lastContactsSyncTime,
+      contactsErrorMessage: contactsErrorMessage ?? this.contactsErrorMessage,
 
       // 通话相关状态
       calls: calls ?? this.calls,
@@ -188,6 +201,9 @@ class HomeState extends Equatable {
 
   /// 判断是否有错误
   bool get hasError => errorMessage != null;
+
+  /// 判断联系人同步是否有错误
+  bool get hasContactsError => contactsErrorMessage != null;
 
   @override
   List<Object?> get props => [
@@ -208,6 +224,9 @@ class HomeState extends Equatable {
         // 联系人相关状态
         contacts,
         isLoadingContacts,
+        contactsSyncStatus,
+        lastContactsSyncTime,
+        contactsErrorMessage,
 
         // 通话相关状态
         calls,

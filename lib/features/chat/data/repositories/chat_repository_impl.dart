@@ -65,9 +65,8 @@ class ChatRepositoryImpl implements ChatRepository {
   // 构造函数
   ChatRepositoryImpl({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
-    _registerEventHandlers();
+    _logger.x('ChatRepositoryImpl 初始化');
   }
-  
 
   /// 获取同步状态流
   /// 返回数据同步状态变化的流
@@ -93,7 +92,14 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  事件处理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 注册事件监听
-  void _registerEventHandlers() {
+  @override
+  Future<void> registerEventHandlers() async {
+    if (!_communicationService.isInitialized) {
+      _logger.i('通信服务未初始化，无法注册事件处理器');
+      return;
+    }
+
+    _logger.i('ChatRepository Proto事件流 订阅');
     _subscriptions
       ..add(_communicationService
           .onProto<message_proto.NewMessageProto>('message:new')
@@ -109,7 +115,6 @@ class ChatRepositoryImpl implements ChatRepository {
               'conversation:sync:result')
           .listen(_handleSyncResultProto));
 
-    _logger.i('已注册所有事件处理器');
   }
 
   /// 处理新消息

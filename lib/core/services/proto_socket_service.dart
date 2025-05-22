@@ -2,13 +2,20 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cc/core/services/log_service.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 /// Socket连接状态枚举
-enum SocketConnectionStatus { disconnected, connecting, connected, reconnecting, error }
+enum SocketConnectionStatus {
+  disconnected,
+  connecting,
+  connected,
+  reconnecting,
+  error
+}
 
 /// Protobuf Socket通信服务
 class ProtoSocketService {
@@ -41,12 +48,16 @@ class ProtoSocketService {
   SocketConnectionStatus get status => _status;
 
   // 重连状态流控制器
-  final StreamController<bool> _reconnectingStateController = StreamController<bool>.broadcast();
-  Stream<bool> get reconnectingStateStream => _reconnectingStateController.stream;
+  final StreamController<bool> _reconnectingStateController =
+      StreamController<bool>.broadcast();
+  Stream<bool> get reconnectingStateStream =>
+      _reconnectingStateController.stream;
 
   // 连接状态流控制器
-  final StreamController<SocketConnectionStatus> _connectionStateController = StreamController<SocketConnectionStatus>.broadcast();
-  Stream<SocketConnectionStatus> get connectionStateStream => _connectionStateController.stream;
+  final StreamController<SocketConnectionStatus> _connectionStateController =
+      StreamController<SocketConnectionStatus>.broadcast();
+  Stream<SocketConnectionStatus> get connectionStateStream =>
+      _connectionStateController.stream;
 
   // 单例模式
   static final ProtoSocketService _instance = ProtoSocketService._internal();
@@ -150,7 +161,8 @@ class ProtoSocketService {
 
       // 打印连接状态
       Timer(const Duration(milliseconds: 500), () {
-        _logger.i('📊 连接状态检查: connected=${_socket?.connected}, id=${_socket?.id}');
+        _logger
+            .i('📊 连接状态检查: connected=${_socket?.connected}, id=${_socket?.id}');
       });
 
       _setupSocketListeners();
@@ -184,7 +196,11 @@ class ProtoSocketService {
   /// 尝试重新连接
   Future<void> _attemptReconnect() async {
     if (_isReconnecting || _reconnectAttempts >= _maxReconnectAttempts) {
-      _logger.w('已达到最大重连次数或正在重连中', extra: {'attempts': _reconnectAttempts, 'maxAttempts': _maxReconnectAttempts, 'isReconnecting': _isReconnecting});
+      _logger.w('已达到最大重连次数或正在重连中', extra: {
+        'attempts': _reconnectAttempts,
+        'maxAttempts': _maxReconnectAttempts,
+        'isReconnecting': _isReconnecting
+      });
       return;
     }
 
@@ -273,7 +289,8 @@ class ProtoSocketService {
 
     // 监听所有事件
     _socket?.onAny((event, data) {
-      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}', stackTrace: StackTrace.current);
+      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}',
+          stackTrace: StackTrace.current);
     });
   }
 
@@ -314,16 +331,45 @@ class ProtoSocketService {
     T Function() creator,
     void Function(T) handler,
   ) {
-    // _logger.i('👂 注册Protobuf事件监听: $eventName');
+    // _logger.x('注册Protobuf事件监听: $eventName [${T.toString()}]');
+
     _socket?.on(eventName, (data) {
       try {
+        // 创建并解析Protobuf消息
         final message = creator()..mergeFromBuffer(data);
-        _logger.i(
-          '📩 接收到Protobuf事件: $eventName 数据类型: ${data.runtimeType}',
-        );
+
+        _logger.d('接收到Protobuf事件: $eventName', extra: {
+          'messageType': message.runtimeType,
+          'dataType': data.runtimeType
+        });
+
+        // 调用处理函数
         handler(message);
-      } catch (e) {
-        _logger.e('❌ 解析Protobuf消息失败: $e', extra: {'eventName': eventName, 'data': data}, stackTrace: StackTrace.current);
+      } catch (e, stack) {
+        _logger.e('解析Protobuf消息失败',
+            error: e,
+            stackTrace: stack,
+            extra: {'eventName': eventName, 'dataType': data?.runtimeType});
+
+        // 尝试输出原始数据的一部分以帮助诊断
+        if (data != null) {
+          try {
+            String dataPreview = '';
+            if (data is List) {
+              dataPreview =
+                  'List length: ${data.length}, first few bytes: ${data.take(20)}';
+            } else if (data is String) {
+              dataPreview =
+                  'String length: ${data.length}, preview: ${data.substring(0, min(50, data.length))}';
+            } else {
+              dataPreview =
+                  'ToString: ${data.toString().substring(0, min(100, data.toString().length))}';
+            }
+            _logger.e('原始数据预览', extra: {'dataPreview': dataPreview});
+          } catch (previewError) {
+            _logger.e('无法预览原始数据', error: previewError);
+          }
+        }
       }
     });
   }
@@ -336,7 +382,7 @@ class ProtoSocketService {
     }
 
     try {
-      _logger.w('📤 发送Socket消息: $eventName, 类型: ${message.runtimeType}', stackTrace: StackTrace.current);
+      _logger.i('📤 发送Socket消息: $eventName, 类型: ${message.runtimeType}');
       _socket?.emit(eventName, message.writeToBuffer());
       return true;
     } catch (e) {
@@ -372,7 +418,8 @@ class ProtoSocketService {
         _logger.i('📩 接收到原始事件: $eventName,dataType: ${data.runtimeType}');
         handler(data);
       } catch (e) {
-        _logger.e('❌ 处理原始事件失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
+        _logger.e('❌ 处理原始事件失败: $e',
+            extra: {'eventName': eventName}, stackTrace: StackTrace.current);
       }
     });
   }
@@ -398,7 +445,8 @@ class ProtoSocketService {
       _logger.i('📤 发送原始事件: $eventName');
       _socket?.emit(eventName, data);
     } catch (e) {
-      _logger.e('❌ 发送原始事件失败: $e', extra: {'eventName': eventName}, stackTrace: StackTrace.current);
+      _logger.e('❌ 发送原始事件失败: $e',
+          extra: {'eventName': eventName}, stackTrace: StackTrace.current);
     }
   }
 }
@@ -434,11 +482,15 @@ class UserStatus implements GeneratedMessage {
   }
 
   @override
-  void mergeFromBuffer(List<int> i, [ExtensionRegistry r = ExtensionRegistry.EMPTY]) {
+  void mergeFromBuffer(List<int> i,
+      [ExtensionRegistry r = ExtensionRegistry.EMPTY]) {
     // 临时实现，实际上应该使用protoc生成的代码
     try {
       final jsonStr = String.fromCharCodes(i);
-      final Map<String, dynamic> data = Map<String, dynamic>.from(jsonStr.startsWith('{') ? jsonDecode(jsonStr) : {'userId': '', 'status': '', 'timestamp': 0});
+      final Map<String, dynamic> data = Map<String, dynamic>.from(
+          jsonStr.startsWith('{')
+              ? jsonDecode(jsonStr)
+              : {'userId': '', 'status': '', 'timestamp': 0});
       userId = data['userId'] ?? '';
       status = data['status'] ?? '';
       timestamp = data['timestamp'] ?? 0;
@@ -460,3 +512,4 @@ class UserStatus implements GeneratedMessage {
     throw UnimplementedError('${invocation.memberName} 未实现');
   }
 }
+ 

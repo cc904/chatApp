@@ -6,6 +6,7 @@ import 'package:cc/features/chat/presentation/pages/new_chat_page.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
+import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -97,6 +98,12 @@ class _ContactsPageState extends State<ContactsPage> {
     });
   }
 
+  /// 同步联系人
+  Future<void> _syncContacts() async {
+    final homeCubit = context.read<HomeCubit>();
+    await homeCubit.syncContacts();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -116,33 +123,104 @@ class _ContactsPageState extends State<ContactsPage> {
             });
           }
         },
-        child: BlocConsumer<HomeCubit, HomeState>(
-          listener: (context, state) {
-            if (!state.isLoadingContacts && !_isFiltering) {
-              _updateGroupedContacts(state.contacts);
-            }
-          },
-          builder: (context, state) {
-            if (state.isLoadingContacts && state.contacts.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        child: Column(
+          children: [
+            // 同步状态指示器
+            _buildSyncStatusIndicator(),
 
-            if (state.hasError) {
-              return Center(child: Text('错误: ${state.errorMessage}'));
-            }
+            // 联系人列表
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _syncContacts,
+                child: BlocConsumer<HomeCubit, HomeState>(
+                  listener: (context, state) {
+                    if (!state.isLoadingContacts && !_isFiltering) {
+                      _updateGroupedContacts(state.contacts);
+                    }
+                  },
+                  buildWhen: (previous, current) =>
+                      previous.contacts != current.contacts ||
+                      previous.isLoadingContacts != current.isLoadingContacts ||
+                      previous.contactsSyncStatus != current.contactsSyncStatus,
+                  builder: (context, state) {
+                    if (state.isLoadingContacts && state.contacts.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-            if (_isFiltering) {
-              return _buildFilteredList();
-            }
+                    if (state.hasError) {
+                      return Center(child: Text('错误: ${state.errorMessage}'));
+                    }
 
-            if (_sortedKeys.isEmpty) {
-              return const Center(child: Text('没有联系人'));
-            }
+                    if (_isFiltering) {
+                      return _buildFilteredList();
+                    }
 
-            return _buildGroupedAnimatedList();
-          },
+                    if (_sortedKeys.isEmpty) {
+                      return const Center(child: Text('没有联系人'));
+                    }
+
+                    return _buildGroupedAnimatedList();
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.person_add),
+        onPressed: () {
+          _logger.x('打开添加联系人页面');
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const NewChatPage(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 构建同步状态指示器
+  Widget _buildSyncStatusIndicator() {
+    return BlocBuilder<HomeCubit, HomeState>(
+      buildWhen: (previous, current) =>
+          previous.contactsSyncStatus != current.contactsSyncStatus ||
+          previous.hasContactsError != current.hasContactsError,
+      builder: (context, state) {
+        if (state.contactsSyncStatus == ContactsSyncStatus.syncing) {
+          return const LinearProgressIndicator(
+            backgroundColor: Colors.white,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+          );
+        } else if (state.hasContactsError) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            color: Colors.red.shade100,
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    state.contactsErrorMessage ?? '同步联系人失败',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.red, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: _syncContacts,
+                ),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 
@@ -161,15 +239,8 @@ class _ContactsPageState extends State<ContactsPage> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.person_add),
-          onPressed: () {
-            _logger.x('打开添加联系人页面');
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const NewChatPage(),
-              ),
-            );
-          },
+          icon: const Icon(Icons.refresh),
+          onPressed: _syncContacts,
         ),
       ],
       centerTitle: true,
@@ -254,11 +325,15 @@ class _ContactsPageState extends State<ContactsPage> {
                     )
                   : null,
             ),
-            style: const TextStyle(fontSize: 14),
             onChanged: (value) {
               setState(() {
                 _isSearching = value.isNotEmpty;
+                if (!_isSearching) {
+                  _isFiltering = false;
+                }
               });
+            },
+            onSubmitted: (value) {
               if (value.isNotEmpty) {
                 _searchContacts(value);
               } else {

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'dart:async';
 import 'package:isar/isar.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -8,8 +6,10 @@ import 'package:cc/core/database/models/friend_request.dart'
     as db_friend_request;
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/proto_events.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/contacts.pb.dart';
+import 'package:fixnum/fixnum.dart';
 
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
@@ -33,48 +33,69 @@ class ContactsRepositoryImpl implements ContactsRepository {
   // 事件订阅管理
   final List<StreamSubscription> _subscriptions = [];
 
-  // 添加回调函数
-  Function(List<db_user.User>)? onContactsSynced;
+  // 同步状态流
+  final _syncStatusController =
+      StreamController<ContactsSyncStatus>.broadcast();
+  @override
+  Stream<ContactsSyncStatus> get syncStatusStream =>
+      _syncStatusController.stream;
 
   // 构造函数
   ContactsRepositoryImpl({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
-    _initializeSubscriptions();
+    _logger.x('ContactsRepositoryImpl 初始化');
   }
 
-  /// 初始化订阅
-  /// 订阅通信服务提供的事件流
-  void _initializeSubscriptions() {
-    if (!_communicationService.isInitialized) return;
+  /// 注册事件监听 
+  @override
+  Future<void> registerEventHandlers() async {
+    if (!_communicationService.isInitialized) {
+      _logger.i('通信服务未初始化，无法设置Proto事件订阅');
+      return;
+    }
 
-    // 订阅用户在线状态事件
-    _subscriptions.add(_communicationService
-        .onProto<UserStatusUpdate>('user:online')
-        .listen((data) {
-      if (data.hasUserId()) {
-        _updateUserOnlineStatus(data.userId, true);
-      }
-    }));
+    _logger.i('开始设置ContactsRepository Proto事件流 订阅');
 
-    _subscriptions.add(_communicationService
-        .onProto<UserStatusUpdate>('user:offline')
-        .listen((data) {
-      if (data.hasUserId()) {
-        _updateUserOnlineStatus(data.userId, false);
-      }
-    }));
+    try {
+      // 使用链式调用方式添加订阅
+      _subscriptions
+        // 订阅用户在线状态事件
+        ..add(_communicationService
+            .onProto<UserStatusUpdate>('user:online')
+            .listen((data) {
+          if (data.hasUserId()) {
+            _updateUserOnlineStatus(data.userId, true);
+          }
+        }))
 
-    // 订阅联系人同步事件
-    _subscriptions.add(_communicationService
-        .onProto<UserCollection>('contact:synced')
-        .listen(_handleContactsSyncedEvent));
+        // 订阅用户离线状态事件
+        ..add(_communicationService
+            .onProto<UserStatusUpdate>('user:offline')
+            .listen((data) {
+          if (data.hasUserId()) {
+            _updateUserOnlineStatus(data.userId, false);
+          }
+        }))
 
-    // 添加对contact:sync:result的处理
-    // 使用原始事件处理，因为可能返回的是二进制数据
-    _communicationService.onRawEvent(
-        'contact:sync:result', _handleContactSyncResult);
+        // 订阅联系人同步事件
+        ..add(_communicationService
+            .onProto<UserCollection>('contact:synced')
+            .listen(_handleContactsSyncedEvent))
 
-    // 可以添加其他联系人相关事件的订阅
+        // 订阅联系人同步结果事件
+        ..add(_communicationService
+            .onProto<SyncContactsResponse>('contact:sync:result')
+            .listen((response) {
+          _logger.d('收到联系人同步结果', extra: {
+            'responseType': response.runtimeType.toString(),
+            'contactsCount': response.contacts.length
+          });
+          _handleContactsSyncResultProto(response);
+        }));
+
+    } catch (e, stack) {
+      _logger.e('设置Proto事件订阅失败', error: e, stackTrace: stack);
+    }
   }
 
   /// 处理联系人同步完成事件
@@ -82,15 +103,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
     try {
       _logger.i('收到联系人同步事件', extra: {'count': data.users.length});
 
-      // 解析联系人数据并保存到数据库
+      // 使用 fromProto 方法将 UserProto 转换为 User 对象
       final List<db_user.User> contacts = data.users.map((contact) {
-        return db_user.User()
-          ..userId = contact.userId
-          ..name = contact.name
-          ..avatar = contact.avatar
-          ..phone = contact.phone
-          ..email = contact.email
-          ..pinyin = contact.pinyin;
+        return db_user.User.fromProto(contact);
       }).toList();
 
       // 保存到数据库
@@ -100,76 +115,66 @@ class ContactsRepositoryImpl implements ContactsRepository {
         }
       });
 
-      // 通知Cubit数据已更新
-      onContactsSynced?.call(contacts);
+      // 通知同步成功
+      _syncStatusController.add(ContactsSyncStatus.success);
 
       _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
     } catch (error) {
       _logger.e('处理联系人同步事件失败', error: error, stackTrace: StackTrace.current);
+      _syncStatusController.add(ContactsSyncStatus.error);
     }
   }
 
-  /// 处理联系人同步结果事件
-  void _handleContactSyncResult(dynamic data) {
+  /// 处理联系人同步结果事件 - 使用 Protocol Buffer 类型
+  void _handleContactsSyncResultProto(SyncContactsResponse response) {
     try {
-      _logger.i('收到联系人同步结果事件', extra: {'dataType': data.runtimeType});
+      _logger
+          .i('收到联系人同步结果事件', extra: {'contactsCount': response.contacts.length});
 
-      // 处理二进制数据
-      if (data is Uint8List ||
-          data is ByteData ||
-          (data != null && data.runtimeType.toString().contains('Uint8'))) {
-        // 解析二进制数据
-        final response = SyncContactsResponse()..mergeFromBuffer(data);
+      if (response.contacts.isEmpty) {
+        _logger.i('联系人列表为空，这可能是新用户或同步过程中的正常状态');
+        // 通知同步成功（即使列表为空）
+        _syncStatusController.add(ContactsSyncStatus.success);
+        return;
+      }
 
-        _logger.i('解析到 ${response.contacts.length} 个联系人');
-        if (response.contacts.isEmpty) {
-          _logger.i('联系人列表为空，这可能是新用户或同步过程中的正常状态');
-          return;
+      // 使用 fromProto 方法将 UserProto 转换为 User 对象
+      final List<db_user.User> contacts = response.contacts.map((contact) {
+        return db_user.User.fromProto(contact);
+      }).toList();
+
+      // 保存到数据库
+      _isar.writeTxn(() async {
+        for (final contact in contacts) {
+          // 检查是否已存在相同userId的联系人
+          final existingUser =
+              await _users.filter().userIdEqualTo(contact.userId).findFirst();
+          if (existingUser != null) {
+            // 更新现有联系人信息
+            existingUser
+              ..name = contact.name
+              ..avatar = contact.avatar
+              ..phone = contact.phone
+              ..email = contact.email
+              ..pinyin = contact.pinyin;
+            await _users.put(existingUser);
+          } else {
+            // 添加新联系人
+            await _users.put(contact);
+          }
         }
 
-        // 解析联系人数据并保存到数据库
-        final List<db_user.User> contacts = response.contacts.map((contact) {
-          return db_user.User()
-            ..userId = contact.userId
-            ..name = contact.name
-            ..avatar = contact.avatar
-            ..phone = contact.phone
-            ..email = contact.email
-            ..pinyin = contact.pinyin;
-        }).toList();
+        // 保存最后同步时间
+        await _saveLastSyncTime(DateTime.now());
+      });
 
-        // 保存到数据库
-        _isar.writeTxn(() async {
-          for (final contact in contacts) {
-            // 检查是否已存在相同userId的联系人
-            final existingUser =
-                await _users.filter().userIdEqualTo(contact.userId).findFirst();
-            if (existingUser != null) {
-              // 更新现有联系人信息
-              existingUser
-                ..name = contact.name
-                ..avatar = contact.avatar
-                ..phone = contact.phone
-                ..email = contact.email
-                ..pinyin = contact.pinyin;
-              await _users.put(existingUser);
-            } else {
-              // 添加新联系人
-              await _users.put(contact);
-            }
-          }
-        });
+      // 通知同步成功
+      _syncStatusController.add(ContactsSyncStatus.success);
 
-        // 通知Cubit数据已更新
-        onContactsSynced?.call(contacts);
-
-        _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
-      } else {
-        _logger.w('联系人同步响应数据格式不支持',
-            extra: {'dataType': data.runtimeType, 'data': data});
-      }
+      _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
     } catch (e, stack) {
       _logger.e('处理联系人同步结果事件失败', error: e, stackTrace: stack);
+      _syncStatusController.add(ContactsSyncStatus.error);
     }
   }
 
@@ -201,7 +206,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
     try {
       // 返回本地数据库中的联系人列表
       final users = await _users.where().findAll();
-      _logger.i('获取联系人列表成功 - ${users.length} 个联系人');
+      _logger.d('获取联系人列表成功 - ${users.length} 个联系人',
+          stackTrace: StackTrace.current);
       return users;
     } catch (error) {
       _logger.e('获取联系人列表失败', error: error, stackTrace: StackTrace.current);
@@ -312,14 +318,65 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<void> syncContacts() async {
     try {
+      // 通知开始同步
+      _syncStatusController.add(ContactsSyncStatus.syncing);
+      _logger.i('开始联系人同步流程');
+
+      // 验证当前用户信息
+      if (_currentUser.userId.isEmpty || _currentUser.token.isEmpty) {
+        _logger.e('当前用户信息不完整，无法同步联系人', extra: {
+          'userId': _currentUser.userId,
+          'hasToken': _currentUser.token.isNotEmpty
+        });
+        _syncStatusController.add(ContactsSyncStatus.error);
+        return;
+      }
+
       if (_communicationService.isInitialized) {
+        // 创建同步请求并填充数据
         final syncRequest = SyncContactsRequest()
           ..userId = _currentUser.userId
           ..token = _currentUser.token;
-        await _communicationService.emitProto('contact:sync', syncRequest);
+
+        // 获取并添加上次同步时间（如果有）
+        final lastSyncTime = await getLastSyncTime();
+        if (lastSyncTime != null) {
+          // 使用Int64将毫秒时间戳转换为Int64类型
+          syncRequest.lastSyncTime = Int64(lastSyncTime.millisecondsSinceEpoch);
+          _logger
+              .d('添加上次同步时间', extra: {'lastSyncTime': lastSyncTime.toString()});
+        }
+
+        // 发送请求
+        _communicationService.emitProto('contact:sync', syncRequest);
+        _logger.i('联系人同步请求已发送');
+
+        // 创建一个变量来跟踪同步状态
+        bool isSyncComplete = false;
+
+        // 添加一个临时监听器来检测同步状态变化
+        final syncSubscription = _syncStatusController.stream.listen((status) {
+          if (status != ContactsSyncStatus.syncing) {
+            isSyncComplete = true;
+          }
+        });
+
+        // 启动超时检查，如果15秒内没有收到响应，则标记为失败
+        Future.delayed(const Duration(seconds: 15), () {
+          syncSubscription.cancel(); // 取消监听器
+          if (!isSyncComplete) {
+            _logger.w('联系人同步请求超时');
+            _syncStatusController.add(ContactsSyncStatus.error);
+          }
+        });
+      } else {
+        _logger.e('通信服务未初始化，无法同步联系人');
+        _syncStatusController.add(ContactsSyncStatus.error);
       }
-    } catch (error) {
-      _logger.e('获取联系人列表失败', error: error, stackTrace: StackTrace.current);
+    } catch (error, stack) {
+      _logger.e('同步联系人失败', error: error, stackTrace: stack);
+      _syncStatusController.add(ContactsSyncStatus.error);
+      rethrow;
     }
   }
 
@@ -541,6 +598,29 @@ class ContactsRepositoryImpl implements ContactsRepository {
     }
   }
 
+  /// 获取最后同步时间
+  @override
+  Future<DateTime?> getLastSyncTime() async {
+    try {
+      // 这里可以使用SharedPreferences或其他存储方式
+      // 简单起见，这里暂时返回null
+      return null;
+    } catch (e) {
+      _logger.e('获取最后同步时间失败', error: e);
+      return null;
+    }
+  }
+
+  /// 保存最后同步时间
+  Future<void> _saveLastSyncTime(DateTime time) async {
+    try {
+      // 这里可以使用SharedPreferences或其他存储方式
+      // 简单起见，这里暂时不实现
+    } catch (e) {
+      _logger.e('保存最后同步时间失败', error: e);
+    }
+  }
+
   /// 释放资源
   /// 取消订阅,释放所占用的资源
   void dispose() {
@@ -548,5 +628,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
       subscription.cancel();
     }
     _subscriptions.clear();
+    _syncStatusController.close();
   }
 }
