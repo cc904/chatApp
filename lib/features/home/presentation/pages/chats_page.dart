@@ -6,7 +6,6 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
-import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 
@@ -40,42 +39,6 @@ class _ChatsPageState extends State<ChatsPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
-
-  /// 加载会话和联系人数据
-  ///
-  /// 从数据库加载会话列表和联系人信息
-  /// 并更新状态以显示在界面上
-  Future<void> _loadData() async {
-    try {
-      // 检查数据库是否已初始化
-      if (!DatabaseInitializer.isInitialized) {
-        throw Exception('数据库未初始化，请先登录');
-      }
-
-      // 获取当前用户ID
-      final currentUserId = DatabaseInitializer.currentUserId;
-      if (currentUserId == null || currentUserId.isEmpty) {
-        throw Exception('当前用户ID无效，请重新登录');
-      }
-
-      // 使用HomeCubit加载会话数据
-      final homeCubit = context.read<HomeCubit>();
-      await homeCubit.loadConversations();
-
-      // 从HomeCubit的状态获取会话数据
-      final conversations = homeCubit.state.conversations;
-
-      // 更新状态
-      setState(() {
-        _filteredConversations = conversations;
-      });
-
-      _logger.i('已加载 ${conversations.length} 个会话');
-    } catch (e) {
-      _logger.e('加载数据失败', error: e);
-    }
   }
 
   /// 搜索会话
@@ -276,7 +239,6 @@ class _ChatsPageState extends State<ChatsPage> {
                               _searchController.clear();
                               _isSearching = false;
                             });
-                            _loadData();
                           },
                         ),
                         Container(

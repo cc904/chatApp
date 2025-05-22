@@ -74,9 +74,7 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
-    _homeCubit = HomeCubit(
-      currentUserProto: currentUser,
-    );
+    _homeCubit = HomeCubit(currentUserProto: currentUser);
 
     // 初始化用户会话
     await _homeCubit?.initUserSession();

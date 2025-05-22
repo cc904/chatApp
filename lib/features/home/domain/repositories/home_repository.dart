@@ -1,4 +1,3 @@
-import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
@@ -14,7 +13,7 @@ abstract class HomeRepository {
   ///
   /// 返回:
   /// - 操作成功返回true，失败返回false
-  Future<bool> initUserSession(CurrentUserProto currentUserProto);
+  Future<bool> initUserSession();
 
   /// 初始化数据库
   ///
@@ -23,7 +22,7 @@ abstract class HomeRepository {
   ///
   /// 返回:
   /// - 操作成功返回true，失败返回false
-  Future<bool> initDatabase(CurrentUserProto currentUserProto);
+  Future<bool> initDatabase();
 
   /// 初始化实时通信
   ///
@@ -32,7 +31,7 @@ abstract class HomeRepository {
   ///
   /// 返回:
   /// - 操作成功返回true，失败返回false
-  Future<bool> initCommunication(CurrentUserProto currentUserProto);
+  Future<bool> initCommunication();
 
   // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   聊天相关   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 

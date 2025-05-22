@@ -65,9 +65,9 @@ class ChatRepositoryImpl implements ChatRepository {
   // 构造函数
   ChatRepositoryImpl({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
-    // 注册事件处理
     _registerEventHandlers();
   }
+  
 
   /// 获取同步状态流
   /// 返回数据同步状态变化的流
@@ -573,13 +573,6 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<String?> createOrGetConversation(String userId) async {
     try {
       _logger.i('获取或创建与用户的会话', extra: {'userId': userId});
-
-      // 获取当前用户ID
-      final currentUserId = DatabaseInitializer.currentUserId;
-      if (currentUserId == null) {
-        _logger.e('当前用户未登录,无法创建会话');
-        return null;
-      }
 
       // 检查是否已有与该用户的私聊会话
       final existingConversation = await _conversations

@@ -21,9 +21,8 @@ class HomeCubit extends Cubit<HomeState> {
 
   HomeCubit({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto,
-        _homeRepository = HomeRepositoryImpl(
-          currentUserProto: currentUserProto,
-        ),
+        _homeRepository =
+            HomeRepositoryImpl(currentUserProto: currentUserProto),
         super(HomeState.initial());
 
   /// 初始化用户会话
@@ -31,8 +30,10 @@ class HomeCubit extends Cubit<HomeState> {
   /// 初始化数据库和通信
   Future<void> initUserSession() async {
     try {
-      _logger.i('开始初始化用户会话');
+      _logger.x('开始初始化用户会话');
       emit(state.toInitializingState());
+
+      await _homeRepository.initUserSession();
 
       // 设置数据库变化监听
       _setupSubscriptions();
@@ -51,7 +52,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 设置数据变化订阅
   void _setupSubscriptions() {
-    _logger.i('设置数据变化订阅');
+    _logger.x('设置数据变化订阅');
 
     // 取消已有订阅
     for (var subscription in _subscriptions.values) {
@@ -86,7 +87,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载初始数据
   Future<void> _loadInitialData() async {
-    _logger.i('加载初始数据');
+    _logger.x('加载初始数据');
 
     try {
       // 加载会话数据
@@ -107,6 +108,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 重试初始化
   Future<void> retryInitialization() async {
+    _logger.x('重试初始化');
     if (!state.isInitializing) {
       await initUserSession();
     }
@@ -116,6 +118,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载所有会话
   Future<void> loadConversations() async {
+    _logger.x('加载所有会话');
     try {
       emit(state.copyWith(isInitializing: true));
       final conversations = await _homeRepository.getAllConversations();
@@ -135,6 +138,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载会话消息
   Future<void> loadMessagesForConversation(String conversationId) async {
+    _logger.x('加载会话消息', extra: {'conversationId': conversationId});
     try {
       emit(state.copyWith(
           isLoadingMessages: true, currentConversationId: conversationId));
@@ -167,6 +171,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 发送消息
   Future<void> sendMessage(Message message) async {
+    _logger.x('发送消息', extra: {'conversationId': message.conversationId});
     try {
       final success = await _homeRepository.sendMessage(message);
       if (success) {
@@ -182,6 +187,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 处理打字状态
   void _handleTypingStatus(Map<String, dynamic> data) {
+    _logger.x('处理打字状态', extra: data);
     try {
       final conversationId = data['conversationId'] as String?;
       final userId = data['userId'] as String?;
@@ -209,6 +215,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 处理在线状态
   void _handleOnlineStatus(Map<String, dynamic> data) {
+    _logger.x('处理在线状态', extra: data);
     try {
       final userId = data['userId'] as String?;
       final isOnline = data['isOnline'] as bool? ?? false;
@@ -234,6 +241,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载所有联系人
   Future<void> loadContacts() async {
+    _logger.x('加载所有联系人');
     try {
       emit(state.copyWith(isLoadingContacts: true));
       final contacts = await _homeRepository.getAllContacts();
@@ -253,6 +261,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 获取联系人详情
   Future<User?> getContact(String userId) async {
+    _logger.x('获取联系人详情', extra: {'userId': userId});
     try {
       return await _homeRepository.getContact(userId);
     } catch (error) {
@@ -263,6 +272,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 添加联系人
   Future<bool> addContact(User contact) async {
+    _logger.x('添加联系人', extra: {'userId': contact.userId});
     try {
       final success = await _homeRepository.addContact(contact);
       if (success) {
@@ -279,8 +289,8 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载通话记录
   Future<void> loadCallHistory() async {
+    _logger.x('加载通话记录');
     try {
-      _logger.i('加载通话记录');
       emit(state.copyWith(isLoadingCalls: true));
 
       // 如果有实际的通话记录加载逻辑，应该在这里实现
@@ -307,6 +317,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 发起通话
   Future<bool> initiateCall(String contactId, bool isVideo) async {
+    _logger.x('发起通话', extra: {'contactId': contactId, 'isVideo': isVideo});
     try {
       return await _homeRepository.initiateCall(contactId, isVideo);
     } catch (error) {
@@ -319,6 +330,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载用户资料
   Future<void> loadUserProfile() async {
+    _logger.x('加载用户资料');
     try {
       final profile = await _homeRepository.getCurrentUserProfile();
       if (profile != null) {
@@ -331,6 +343,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 更新用户状态
   Future<bool> updateUserStatus(String status) async {
+    _logger.x('更新用户状态', extra: {'status': status});
     try {
       return await _homeRepository.updateUserStatus(status);
     } catch (error) {
@@ -341,6 +354,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 搜索功能
   void search(String query) {
+    _logger.x('执行搜索', extra: {'query': query});
     emit(state.copyWith(
       searchQuery: query,
       isSearching: query.isNotEmpty,
@@ -375,8 +389,8 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 获取或创建私聊会话
   Future<String?> getOrCreatePrivateConversation(String contactUserId) async {
+    _logger.x('获取或创建私聊会话', extra: {'contactUserId': contactUserId});
     try {
-      _logger.i('获取或创建私聊会话', extra: {'contactUserId': contactUserId});
       // 使用ChatRepository创建会话
       final conversation =
           await _homeRepository.getOrCreatePrivateConversation(contactUserId);
@@ -400,6 +414,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   @override
   Future<void> close() {
+    _logger.x('关闭HomeCubit');
     // 取消所有订阅
     for (var subscription in _subscriptions.values) {
       subscription.cancel();

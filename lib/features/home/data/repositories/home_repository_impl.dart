@@ -1,13 +1,17 @@
-import 'package:cc/core/proto/generated/user.pb.dart';
-import 'package:cc/core/database/database_initializer.dart';
+import 'dart:async';
+
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/constants/app_config.dart';
+
+import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
-import 'dart:async';
+import 'package:cc/core/database/database_initializer.dart';
 
 /// HomeRepository的实现类
 /// 负责用户会话初始化相关的业务逻辑
@@ -28,9 +32,9 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 构造函数
   HomeRepositoryImpl({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
-    initUserSession(currentUserProto);
     _chatRepository = ChatRepositoryImpl(currentUserProto: currentUserProto);
-    _contactsRepository = ContactsRepositoryImpl(currentUserProto: currentUserProto);
+    _contactsRepository =
+        ContactsRepositoryImpl(currentUserProto: currentUserProto);
   }
 
   /// 初始化用户会话
@@ -43,25 +47,25 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 返回:
   /// - 操作成功返回true，失败返回false
   @override
-  Future<bool> initUserSession(CurrentUserProto currentUserProto) async {
+  Future<bool> initUserSession() async {
     try {
-      _logger.i('repo 初始化用户会话', extra: {'userId': currentUserProto.userId});
+      _logger.x('初始化用户会话', extra: {'userId': _currentUser.userId});
 
       // 初始化数据库
-      final dbInitialized = await initDatabase(currentUserProto);
+      final dbInitialized = await initDatabase();
       if (!dbInitialized) {
         _logger.e('数据库初始化失败');
         return false;
       }
 
       // 初始化通信服务
-      final commInitialized = await initCommunication(currentUserProto);
+      final commInitialized = await initCommunication();
       if (!commInitialized) {
         _logger.e('通信服务初始化失败');
         return false;
       }
 
-      _logger.i('repo 用户会话初始化成功');
+      _logger.i('用户会话初始化成功');
       return true;
     } catch (error) {
       _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
@@ -77,14 +81,14 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 返回:
   /// - 操作成功返回true，失败返回false
   @override
-  Future<bool> initDatabase(CurrentUserProto currentUserProto) async {
+  Future<bool> initDatabase() async {
     try {
-      _logger.i('初始化数据库', extra: {'userId': currentUserProto.userId});
+      _logger.x('初始化数据库', extra: {'userId': _currentUser.userId});
 
-      await DatabaseInitializer.init(userId: currentUserProto.userId);
+      await DatabaseInitializer.init(currentUser: _currentUser);
 
       if (DatabaseInitializer.isInitialized) {
-        _logger.i('repo 数据库初始化成功');
+        _logger.i('数据库初始化成功');
         return true;
       } else {
         _logger.e('数据库初始化失败');
@@ -105,17 +109,47 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 返回:
   /// - 操作成功返回true，失败返回false
   @override
-  Future<bool> initCommunication(CurrentUserProto currentUserProto) async {
-    // 简化实现，不再需要连接服务
-    return true;
+  Future<bool> initCommunication() async {
+    try {
+      _logger.x('初始化实时通信', extra: {'userId': _currentUser.userId});
+
+      // 获取服务器URL
+      final serverUrl = AppConfig().serverUrl;
+
+      // 初始化通信服务
+      final communicationService = CommunicationService();
+
+      // 连接到服务器
+      final connected = await communicationService.connect(
+        serverUrl: serverUrl,
+        userId: _currentUser.userId,
+        token: _currentUser.token,
+      );
+
+      if (connected) {
+        _logger.i('实时通信连接成功');
+
+        // 这里可以注册各种事件监听
+        // 例如：在线状态变化、消息接收等
+
+        return true;
+      } else {
+        _logger.e('实时通信连接失败');
+        return false;
+      }
+    } catch (error) {
+      _logger.e('初始化实时通信失败', error: error, stackTrace: StackTrace.current);
+      return false;
+    }
   }
 
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 聊天相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  // 💢💢💢💢��💢💢💢💢💢💢💢💢💢 聊天相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取所有会话
   @override
   Future<List<Conversation>> getAllConversations() async {
     try {
+      _logger.x('获取所有会话');
       return await _chatRepository.getAllConversations();
     } catch (error) {
       _logger.e('获取所有会话失败', error: error);
@@ -127,6 +161,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Stream<List<Conversation>> watchConversations() {
     try {
+      _logger.x('监听会话变化');
       // 转换Stream<void>为Stream<List<Conversation>>
       final controller = StreamController<List<Conversation>>.broadcast();
 
@@ -161,6 +196,7 @@ class HomeRepositoryImpl implements HomeRepository {
   Future<List<Message>> getMessagesForConversation(
       String conversationId) async {
     try {
+      _logger.x('获取会话消息', extra: {'conversationId': conversationId});
       // 使用正确的方法名
       return await _chatRepository.getConversationMessages(conversationId);
     } catch (error) {
@@ -173,6 +209,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Stream<List<Message>> watchMessagesForConversation(String conversationId) {
     try {
+      _logger.x('监听会话消息变化', extra: {'conversationId': conversationId});
       // 转换Stream<void>为Stream<List<Message>>
       final controller = StreamController<List<Message>>.broadcast();
 
@@ -208,6 +245,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<bool> sendMessage(Message message) async {
     try {
+      _logger.x('发送消息', extra: {'conversationId': message.conversationId});
       // 使用sendTextMessage方法，返回的是Message对象
       final sentMessage = await _chatRepository.sendTextMessage(
           message.conversationId, message.text ?? '');
@@ -223,6 +261,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<bool> markAsRead(String conversationId) async {
     try {
+      _logger.x('标记消息为已读', extra: {'conversationId': conversationId});
       // 调用无返回值的方法
       await _chatRepository.markConversationAsRead(conversationId);
       // 假设成功执行即为成功标记
@@ -236,12 +275,14 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 获取打字状态流
   @override
   Stream<Map<String, dynamic>> getTypingStatusStream() {
+    _logger.x('获取打字状态流');
     return _typingStatusController.stream;
   }
 
   /// 获取在线状态流
   @override
   Stream<Map<String, dynamic>> getOnlineStatusStream() {
+    _logger.x('获取在线状态流');
     return _onlineStatusController.stream;
   }
 
@@ -250,6 +291,7 @@ class HomeRepositoryImpl implements HomeRepository {
   Future<Conversation> getOrCreatePrivateConversation(
       String contactUserId) async {
     try {
+      _logger.x('获取或创建私聊会话', extra: {'contactUserId': contactUserId});
       return await _chatRepository
           .getOrCreatePrivateConversation(contactUserId);
     } catch (error) {
@@ -264,6 +306,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<List<User>> getAllContacts() async {
     try {
+      _logger.x('获取所有联系人');
       return await _contactsRepository.getAllContacts();
     } catch (error) {
       _logger.e('获取所有联系人失败', error: error);
@@ -275,6 +318,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Stream<List<User>> watchContacts() {
     try {
+      _logger.x('监听联系人变化');
       // 转换Stream<void>为Stream<List<User>>
       final controller = StreamController<List<User>>.broadcast();
 
@@ -308,6 +352,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<User?> getContact(String userId) async {
     try {
+      _logger.x('获取联系人详情', extra: {'userId': userId});
       // 使用正确的方法名
       return await _contactsRepository.getContactById(userId);
     } catch (error) {
@@ -320,6 +365,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<bool> addContact(User contact) async {
     try {
+      _logger.x('添加联系人', extra: {'userId': contact.userId});
       return await _contactsRepository.addContact(contact);
     } catch (error) {
       _logger.e('添加联系人失败', error: error);
@@ -333,14 +379,13 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<List<dynamic>> getCallHistory() async {
     try {
-      _logger.i('获取通话记录');
+      _logger.x('获取通话记录');
 
       // 获取联系人列表，用于生成模拟通话记录
       final contacts = await _contactsRepository.getAllContacts();
       if (contacts.isEmpty) {
         return [];
       }
-      
 
       return contacts;
     } catch (error) {
@@ -352,6 +397,7 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 发起通话
   @override
   Future<bool> initiateCall(String contactId, bool isVideo) async {
+    _logger.x('发起通话', extra: {'contactId': contactId, 'isVideo': isVideo});
     // 暂未实现，返回false
     return false;
   }
@@ -359,6 +405,7 @@ class HomeRepositoryImpl implements HomeRepository {
   /// 结束通话
   @override
   Future<bool> endCall(String callId) async {
+    _logger.x('结束通话', extra: {'callId': callId});
     // 暂未实现，返回true
     return true;
   }
@@ -369,11 +416,9 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<User?> getCurrentUserProfile() async {
     try {
-      final currentUserId = DatabaseInitializer.currentUserId;
-      if (currentUserId == null) return null;
-
+      _logger.x('获取当前用户资料', extra: {'userId': _currentUser.userId});
       // 使用正确的方法名
-      return await _contactsRepository.getContactById(currentUserId);
+      return await _contactsRepository.getContactById(_currentUser.userId);
     } catch (error) {
       _logger.e('获取当前用户资料失败', error: error);
       return null;
@@ -384,6 +429,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<bool> updateUserProfile(User user) async {
     try {
+      _logger.x('更新用户资料', extra: {'userId': user.userId});
       // 暂不实现，返回true
       return true;
     } catch (error) {
@@ -396,6 +442,7 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<String> getUserStatus() async {
     try {
+      _logger.x('获取用户状态', extra: {'userId': _currentUser.userId});
       // 暂时返回固定状态
       return 'online';
     } catch (error) {
@@ -408,6 +455,8 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<bool> updateUserStatus(String status) async {
     try {
+      _logger.x('更新用户状态',
+          extra: {'userId': _currentUser.userId, 'status': status});
       // 暂不实现，返回true
       return true;
     } catch (error) {
@@ -418,6 +467,7 @@ class HomeRepositoryImpl implements HomeRepository {
 
   /// 释放资源
   void dispose() {
+    _logger.x('释放资源');
     _typingStatusController.close();
     _onlineStatusController.close();
   }

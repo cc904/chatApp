@@ -29,7 +29,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// 初始化
   Future<void> _init() async {
-    _logger.i('初始化AuthCubit');
+    _logger.x('初始化AuthCubit');
     try {
       // 初始authRepository
       await _authRepository.init();
@@ -41,22 +41,22 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void updatePhoneNumber(String phoneNumber) {
-    // _logger.i('更新手机号: $phoneNumber');
+    // _logger.x('更新手机号', extra: {'phoneNumber': phoneNumber});
     emit(state.copyWith(phoneNumber: phoneNumber));
   }
 
   void updateVerificationCode(String code) {
-    // _logger.i('更新验证码: $code');
+    // _logger.x('更新验证码', extra: {'code': code});
     emit(state.copyWith(verificationCode: code));
   }
 
   void updatePassword(String password) {
-    // _logger.i('更新密码: $password');
+    // _logger.x('更新密码');
     emit(state.copyWith(password: password));
   }
 
   void updateNickname(String nickname) {
-    // _logger.i('更新昵称: $nickname');
+    // _logger.x('更新昵称', extra: {'nickname': nickname});
     emit(state.copyWith(nickname: nickname));
   }
 
@@ -67,7 +67,8 @@ class AuthCubit extends Cubit<AuthState> {
   /// 参数:
   /// - purpose: 验证码用途 (login/register/reset)
   Future<void> sendVerificationCode({required String purpose}) async {
-    _logger.i('发送验证码', extra: {'purpose': purpose});
+    _logger.x('发送验证码',
+        extra: {'purpose': purpose, 'phoneNumber': state.phoneNumber});
 
     // 检查手机号是否有效
     if (state.phoneNumber?.isEmpty ?? true) {
@@ -82,7 +83,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     try {
-      _logger.i('发送验证码中...');
+      _logger.x('发送验证码中...', extra: {'phoneNumber': state.phoneNumber});
       if (isClosed) return;
       emit(state.toLoadingState());
 
@@ -113,6 +114,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void _startCountdown() {
+    _logger.x('开始倒计时', extra: {'duration': countdownDuration});
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (isClosed) {
@@ -140,7 +142,7 @@ class AuthCubit extends Cubit<AuthState> {
   Future<bool> loginWithToken() async {
     try {
       emit(state.toLoadingState());
-      _logger.i('尝试使用令牌登录');
+      _logger.x('尝试使用令牌登录');
 
       final response = await _authRepository.loginWithToken();
 
@@ -172,7 +174,10 @@ class AuthCubit extends Cubit<AuthState> {
   /// 参数:
   /// - isQuickLogin: 是否使用快捷登录(验证码)
   Future<void> login(bool isQuickLogin) async {
-    _logger.i('登录请求 - 快捷登录: $isQuickLogin');
+    _logger.x('登录请求', extra: {
+      'isQuickLogin': isQuickLogin,
+      'phoneNumber': state.phoneNumber
+    });
 
     try {
       // 验证手机号
@@ -198,7 +203,7 @@ class AuthCubit extends Cubit<AuthState> {
           throw '请输入验证码';
         }
 
-        _logger.i('使用验证码登录: ${state.verificationCode}');
+        _logger.x('使用验证码登录', extra: {'phoneNumber': state.phoneNumber});
         response = await _authRepository.loginWithCode(
             state.phoneNumber!, state.verificationCode!);
       } else {
@@ -208,7 +213,7 @@ class AuthCubit extends Cubit<AuthState> {
           throw '请输入密码';
         }
 
-        _logger.i('使用密码登录: ${state.password}');
+        _logger.x('使用密码登录', extra: {'phoneNumber': state.phoneNumber});
         response = await _authRepository.loginWithPassword(
             state.phoneNumber!, state.password!);
       }
@@ -237,7 +242,8 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> register(String phoneNumber, String password,
       String verificationCode, String nickname) async {
-    _logger.i('注册请求: $phoneNumber, 昵称: $nickname');
+    _logger
+        .x('注册请求', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
     try {
       // 验证手机号
       if (phoneNumber.isEmpty) {
@@ -280,7 +286,8 @@ class AuthCubit extends Cubit<AuthState> {
       ));
 
       emit(state.toLoadingState());
-      _logger.i('注册中...');
+      _logger.x('注册中...',
+          extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
 
       // 使用认证仓库注册
       final response = await _authRepository.register(
@@ -309,7 +316,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> resetPassword(
       String phoneNumber, String newPassword, String verificationCode) async {
-    _logger.i('重置密码请求: $phoneNumber');
+    _logger.x('重置密码请求', extra: {'phoneNumber': phoneNumber});
     try {
       // 验证手机号
       if (phoneNumber.isEmpty) {
@@ -345,7 +352,7 @@ class AuthCubit extends Cubit<AuthState> {
       ));
 
       emit(state.toLoadingState());
-      _logger.i('重置密码中...');
+      _logger.x('重置密码中...', extra: {'phoneNumber': phoneNumber});
 
       // 使用认证仓库重置密码
       final success = await _authRepository.resetPassword(
@@ -371,13 +378,14 @@ class AuthCubit extends Cubit<AuthState> {
 
   @override
   Future<void> close() {
+    _logger.x('关闭AuthCubit');
     _countdownTimer?.cancel();
     return super.close();
   }
 
   /// 退出登录
   Future<void> logout() async {
-    _logger.i('退出登录');
+    _logger.x('退出登录');
     try {
       // 使用认证仓库登出
       final success = await _authRepository.logout();

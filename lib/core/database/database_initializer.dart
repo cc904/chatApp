@@ -7,6 +7,8 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
+
 
 /// 数据库初始化器
 ///
@@ -19,7 +21,7 @@ import 'package:path_provider/path_provider.dart';
 class DatabaseInitializer {
   static final _logger = LogService.instance;
   static Isar? _isar;
-  static String? _currentUserId;
+  static CurrentUserProto? _currentUser;
 
   /// 数据库是否已初始化
   static bool get isInitialized => _isar != null;
@@ -27,7 +29,7 @@ class DatabaseInitializer {
   /// 当前用户ID
   ///
   /// 可用于创建资源库实例和关联用户数据
-  static String? get currentUserId => _currentUserId;
+  static CurrentUserProto? get currentUser => _currentUser;
 
   /// 获取数据库实例
   ///
@@ -50,24 +52,24 @@ class DatabaseInitializer {
   ///
   /// 异常:
   /// - 如果初始化失败，会抛出异常并记录错误信息
-  static Future<void> init({required String userId}) async {
+  static Future<void> init({required CurrentUserProto currentUser}) async {
     try {
       // 如果数据库已经初始化,且用户ID相同,则直接返回
-      if (_isar != null && _currentUserId == userId) {
-        _logger.i('数据库已经初始化,当前用户ID: $_currentUserId');
+      if (_isar != null && _currentUser?.userId == currentUser.userId) {
+        _logger.i('数据库已经初始化,当前用户ID: ${_currentUser?.userId}');
         return;
       }
 
       // 如果已有其他用户的数据库实例打开，先关闭它
       if (_isar != null) {
-        _logger.i('关闭之前打开的数据库实例，用户ID: $_currentUserId');
+        _logger.i('关闭之前打开的数据库实例，用户ID: ${_currentUser?.userId}');
         await close();
       }
 
-      _logger.x('开始初始化数据库,用户ID: $userId');
+      _logger.x('开始初始化数据库,用户ID: ${currentUser.userId}');
 
       final dir = await getApplicationDocumentsDirectory();
-      String dbName = '$userId.isar';
+      String dbName = '${currentUser.userId}.isar';
 
       _logger.x('使用数据库文件目录: $dir');
       _logger.x('使用数据库文件: $dbName');
@@ -93,7 +95,7 @@ class DatabaseInitializer {
 
       // 实例创建成功后才设置全局变量
       _isar = isarInstance;
-      _currentUserId = userId;
+      _currentUser = currentUser;
 
       _logger.x('数据库初始化完成，isInitialized: $isInitialized');
       // 创建索引
@@ -101,7 +103,7 @@ class DatabaseInitializer {
     } catch (error) {
       // 确保在初始化失败时重置状态
       _isar = null;
-      _currentUserId = null;
+      _currentUser = null;
       _logger.e('数据库初始化失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
@@ -122,8 +124,16 @@ class DatabaseInitializer {
         isar.currentUsers.where().build();
 
         // 会话索引
-        isar.conversations.where().filter().typeEqualTo(ConversationType.private).build();
-        isar.conversations.where().filter().typeEqualTo(ConversationType.group).build();
+        isar.conversations
+            .where()
+            .filter()
+            .typeEqualTo(ConversationType.private)
+            .build();
+        isar.conversations
+            .where()
+            .filter()
+            .typeEqualTo(ConversationType.group)
+            .build();
 
         // 消息索引
         isar.messages.where().filter().conversationIdEqualTo('').build();
@@ -146,7 +156,7 @@ class DatabaseInitializer {
         _logger.i('开始关闭数据库');
         await _isar!.close();
         _isar = null;
-        _currentUserId = null;
+        _currentUser = null;
         _logger.i('数据库关闭完成');
       }
     } catch (error) {
@@ -188,7 +198,7 @@ class DatabaseInitializer {
   static Future<bool> deleteUserDatabase(String userId) async {
     try {
       // 如果当前打开的是要删除的数据库,先关闭它
-      if (_currentUserId == userId && _isar != null) {
+      if (_currentUser?.userId == userId && _isar != null) {
         await close();
       }
 
