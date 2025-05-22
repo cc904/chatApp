@@ -6,7 +6,7 @@ import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/home/presentation/pages/chats_page.dart';
 import 'package:cc/features/home/presentation/pages/calls_page.dart';
 import 'package:cc/features/home/presentation/pages/profile_page.dart';
-import 'package:cc/features/contacts/presentation/pages/contacts_page.dart';
+import 'package:cc/features/home/presentation/pages/contacts_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 
