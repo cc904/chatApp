@@ -21,9 +21,11 @@ class _ContactsPageState extends State<ContactsPage>
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  final ScrollController _scrollController = ScrollController();
 
   bool _isSearching = false;
   String? _openedItemId;
+  String? _currentLetter;
 
   // 分组联系人数据结构
   Map<String, List<User>> _groupedContacts = {};
@@ -32,6 +34,9 @@ class _ContactsPageState extends State<ContactsPage>
   // 用于搜索结果
   List<User> _filteredContacts = [];
   bool _isFiltering = false;
+
+  // 字母索引位置映射
+  Map<String, double> _letterPositions = {};
 
   @override
   void initState() {
@@ -107,6 +112,76 @@ class _ContactsPageState extends State<ContactsPage>
 
     // 获取所有首字母并排序
     _sortedKeys = _groupedContacts.keys.toList()..sort();
+
+    // 计算字母位置需要在布局完成后进行，使用postFrameCallback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _calculateLetterPositions();
+    });
+  }
+
+  /// 计算各个字母索引的位置
+  void _calculateLetterPositions() {
+    _letterPositions = {};
+    for (var key in _sortedKeys) {
+      final RenderBox? renderBox = _getGroupRenderBox(key);
+      if (renderBox != null) {
+        final position = renderBox.localToGlobal(Offset.zero);
+        _letterPositions[key] = position.dy;
+      }
+    }
+  }
+
+  /// 获取分组标题的RenderBox
+  RenderBox? _getGroupRenderBox(String key) {
+    final keyContext = _getKeyContext(key);
+    if (keyContext != null) {
+      return keyContext.findRenderObject() as RenderBox?;
+    }
+    return null;
+  }
+
+  /// 获取分组标题的BuildContext
+  BuildContext? _getKeyContext(String key) {
+    final GlobalKey groupKey = GlobalKey(debugLabel: 'group_$key');
+    final context = groupKey.currentContext;
+    return context;
+  }
+
+  /// 滚动到指定字母分组
+  void _scrollToLetter(String letter) {
+    setState(() {
+      _currentLetter = letter;
+    });
+
+    // 查找字母对应的位置
+    final index = _sortedKeys.indexOf(letter);
+    if (index != -1) {
+      double offset = 0;
+
+      // 计算滚动位置
+      for (int i = 0; i < index; i++) {
+        final key = _sortedKeys[i];
+        final contactsCount = _groupedContacts[key]?.length ?? 0;
+        // 每个分组标题高度 + 每个联系人项目高度
+        offset += 36 + contactsCount * 56;
+      }
+
+      // 滚动到指定位置
+      _scrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    // 短暂显示当前字母指示器，然后隐藏
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _currentLetter = null;
+        });
+      }
+    });
   }
 
   /// 搜索联系人
@@ -143,6 +218,7 @@ class _ContactsPageState extends State<ContactsPage>
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -155,57 +231,98 @@ class _ContactsPageState extends State<ContactsPage>
     _logger.d('ContactsPage build');
     return Scaffold(
       appBar: _buildAppBar(),
-      body: GestureDetector(
-        onTap: () {
-          if (_openedItemId != null) {
-            setState(() {
-              _openedItemId = null;
-            });
-          }
-        },
-        child: Column(
-          children: [
-            // 同步状态指示器
-            _buildSyncStatusIndicator(),
+      body: Stack(
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (_openedItemId != null) {
+                setState(() {
+                  _openedItemId = null;
+                });
+              }
+            },
+            child: Column(
+              children: [
+                // 同步状态指示器
+                _buildSyncStatusIndicator(),
 
-            // 联系人列表
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _syncContacts,
-                child: BlocConsumer<HomeCubit, HomeState>(
-                  listener: (context, state) {
-                    if (!state.isLoadingContacts && !_isFiltering) {
-                      _updateGroupedContacts(state.contacts);
-                    }
-                  },
-                  buildWhen: (previous, current) =>
-                      previous.contacts != current.contacts ||
-                      previous.isLoadingContacts != current.isLoadingContacts ||
-                      previous.contactsSyncStatus != current.contactsSyncStatus,
-                  builder: (context, state) {
-                    if (state.isLoadingContacts && state.contacts.isEmpty) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                // 联系人列表
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _syncContacts,
+                    child: BlocConsumer<HomeCubit, HomeState>(
+                      listener: (context, state) {
+                        if (!state.isLoadingContacts && !_isFiltering) {
+                          _updateGroupedContacts(state.contacts);
+                        }
+                      },
+                      buildWhen: (previous, current) =>
+                          previous.contacts != current.contacts ||
+                          previous.isLoadingContacts !=
+                              current.isLoadingContacts ||
+                          previous.contactsSyncStatus !=
+                              current.contactsSyncStatus,
+                      builder: (context, state) {
+                        if (state.isLoadingContacts && state.contacts.isEmpty) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
 
-                    if (state.hasError) {
-                      return Center(child: Text('错误: ${state.errorMessage}'));
-                    }
+                        if (state.hasError) {
+                          return Center(
+                              child: Text('错误: ${state.errorMessage}'));
+                        }
 
-                    if (_isFiltering) {
-                      return _buildFilteredList();
-                    }
+                        if (_isFiltering) {
+                          return _buildFilteredList();
+                        }
 
-                    if (_sortedKeys.isEmpty) {
-                      return const Center(child: Text('没有联系人'));
-                    }
+                        if (_sortedKeys.isEmpty) {
+                          return const Center(child: Text('没有联系人'));
+                        }
 
-                    return _buildGroupedAnimatedList();
-                  },
+                        return _buildGroupedAnimatedList();
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 右侧字母索引栏
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _buildLetterIndex(),
+            ),
+          ),
+
+          // 中间显示当前选中的字母
+          if (_currentLetter != null)
+            Positioned.fill(
+              child: Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _currentLetter!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.green,
@@ -218,6 +335,55 @@ class _ContactsPageState extends State<ContactsPage>
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// 构建字母索引栏
+  Widget _buildLetterIndex() {
+    // 计算字母索引栏的总高度
+    // 每个字母高度为20，不改变这个值
+    // 添加额外的顶部和底部空间，确保圆角不会遮挡字母
+    final double totalLettersHeight =
+        _sortedKeys.length * 20.0 + 16; // 增加16像素以适应圆角
+
+    return Container(
+      width: 24,
+      height: totalLettersHeight,
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8), // 增加垂直内边距
+      margin: const EdgeInsets.only(right: 8),
+      child: ScrollConfiguration(
+        // 隐藏滚动条
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(), // 禁用滚动
+          itemCount: _sortedKeys.length,
+          itemBuilder: (context, index) {
+            final letter = _sortedKeys[index];
+            return GestureDetector(
+              onTap: () => _scrollToLetter(letter),
+              child: Container(
+                height: 20,
+                alignment: Alignment.center,
+                child: Text(
+                  letter,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _currentLetter == letter
+                        ? Colors.green
+                        : Colors.black54,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -392,7 +558,9 @@ class _ContactsPageState extends State<ContactsPage>
   /// 使用AnimatedList显示按首字母分组的联系人
   Widget _buildGroupedAnimatedList() {
     return ListView.builder(
+      controller: _scrollController,
       itemCount: _sortedKeys.length,
+      physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
         final key = _sortedKeys[index];
         final contacts = _groupedContacts[key]!;
@@ -445,6 +613,7 @@ class _ContactsPageState extends State<ContactsPage>
   /// [key] - 分组的首字母
   Widget _buildGroupHeader(String key) {
     return Container(
+      key: GlobalKey(debugLabel: 'group_$key'),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.grey[200],
