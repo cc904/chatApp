@@ -8,6 +8,7 @@ import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:lpinyin/lpinyin.dart';
+import 'dart:async';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -22,6 +23,10 @@ class _ContactsPageState extends State<ContactsPage>
   final _logger = LogService.instance;
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
+
+  // 搜索防抖计时器
+  Timer? _debounceTimer;
 
   bool _isSearching = false;
   String? _openedItemId;
@@ -30,6 +35,9 @@ class _ContactsPageState extends State<ContactsPage>
   // 分组联系人数据结构
   Map<String, List<User>> _groupedContacts = {};
   List<String> _sortedKeys = [];
+
+  // 所有可用的索引，包括搜索图标
+  List<String> get _allIndexes => ['🔍', ..._sortedKeys];
 
   // 用于搜索结果
   List<User> _filteredContacts = [];
@@ -110,6 +118,18 @@ class _ContactsPageState extends State<ContactsPage>
       _groupedContacts[groupKey]!.add(contact);
     }
 
+    // 对每个分组内的联系人按名称排序
+    for (var key in _groupedContacts.keys) {
+      _groupedContacts[key]!.sort((a, b) {
+        // 首先尝试按拼音排序（如果有）
+        if (a.pinyin != null && b.pinyin != null) {
+          return a.pinyin!.compareTo(b.pinyin!);
+        }
+        // 否则按名称字符串排序
+        return a.name.compareTo(b.name);
+      });
+    }
+
     // 获取所有首字母并排序
     _sortedKeys = _groupedContacts.keys.toList()..sort();
 
@@ -147,31 +167,43 @@ class _ContactsPageState extends State<ContactsPage>
     return context;
   }
 
-  /// 滚动到指定字母分组
+  /// 滚动到指定字母分组或搜索框
   void _scrollToLetter(String letter) {
     setState(() {
       _currentLetter = letter;
     });
 
-    // 查找字母对应的位置
-    final index = _sortedKeys.indexOf(letter);
-    if (index != -1) {
-      double offset = 0;
-
-      // 计算滚动位置
-      for (int i = 0; i < index; i++) {
-        final key = _sortedKeys[i];
-        final contactsCount = _groupedContacts[key]?.length ?? 0;
-        // 每个分组标题高度 + 每个联系人项目高度
-        offset += 36 + contactsCount * 56;
-      }
-
-      // 滚动到指定位置
+    if (letter == '🔍') {
+      // 滚动到顶部（搜索框位置）
       _scrollController.animateTo(
-        offset,
+        0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+
+      // 聚焦到搜索框
+      _searchFocusNode.requestFocus();
+    } else {
+      // 查找字母对应的位置
+      final index = _sortedKeys.indexOf(letter);
+      if (index != -1) {
+        double offset = 60; // 搜索框的高度
+
+        // 计算滚动位置
+        for (int i = 0; i < index; i++) {
+          final key = _sortedKeys[i];
+          final contactsCount = _groupedContacts[key]?.length ?? 0;
+          // 每个分组标题高度 + 每个联系人项目高度
+          offset += 36 + contactsCount * 56;
+        }
+
+        // 滚动到指定位置
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     }
 
     // 短暂显示当前字母指示器，然后隐藏
@@ -187,7 +219,7 @@ class _ContactsPageState extends State<ContactsPage>
   /// 搜索联系人
   /// 根据查询词过滤联系人列表
   /// [query] - 搜索关键词
-  Future<void> _searchContacts(String query) async {
+  void _searchContacts(String query) {
     if (query.isEmpty) {
       setState(() {
         _isFiltering = false;
@@ -219,6 +251,8 @@ class _ContactsPageState extends State<ContactsPage>
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
+    _searchFocusNode.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -230,7 +264,24 @@ class _ContactsPageState extends State<ContactsPage>
     super.build(context);
     _logger.d('ContactsPage build');
     return Scaffold(
-      appBar: _buildAppBar(),
+      appBar: AppBar(
+        title: const Text('联系人', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.filter_list),
+          onPressed: _showFilterDialog,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _syncContacts,
+          ),
+        ],
+        centerTitle: true,
+      ),
       body: Stack(
         children: [
           GestureDetector(
@@ -290,13 +341,14 @@ class _ContactsPageState extends State<ContactsPage>
             ),
           ),
 
-          // 右侧字母索引栏
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: _buildLetterIndex(),
+          // 右侧字母索引栏 - 只在非搜索状态下显示
+          if (!_isFiltering)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _buildLetterIndex(),
+              ),
             ),
-          ),
 
           // 中间显示当前选中的字母
           if (_currentLetter != null)
@@ -345,7 +397,7 @@ class _ContactsPageState extends State<ContactsPage>
     // 每个字母高度为20，不改变这个值
     // 添加额外的顶部和底部空间，确保圆角不会遮挡字母
     final double totalLettersHeight =
-        _sortedKeys.length * 20.0 + 16; // 增加16像素以适应圆角
+        _allIndexes.length * 20.0 + 16; // 增加16像素以适应圆角
 
     return Container(
       width: 24,
@@ -362,9 +414,9 @@ class _ContactsPageState extends State<ContactsPage>
         child: ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(), // 禁用滚动
-          itemCount: _sortedKeys.length,
+          itemCount: _allIndexes.length,
           itemBuilder: (context, index) {
-            final letter = _sortedKeys[index];
+            final letter = _allIndexes[index];
             return GestureDetector(
               onTap: () => _scrollToLetter(letter),
               child: Container(
@@ -430,126 +482,106 @@ class _ContactsPageState extends State<ContactsPage>
     );
   }
 
-  /// 构建应用栏
-  /// 包含标题、过滤按钮、添加联系人按钮和搜索框
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text('联系人', style: TextStyle(fontWeight: FontWeight.w600)),
-      backgroundColor: Colors.green,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      leading: IconButton(
-        icon: const Icon(Icons.filter_list),
-        onPressed: _showFilterDialog,
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _syncContacts,
-        ),
-      ],
-      centerTitle: true,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: Container(
-          color: Colors.green,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: TextField(
-            controller: _searchController,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              hintText: '搜索',
-              hintStyle: const TextStyle(color: Colors.grey),
-              prefixIcon: null,
-              border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              isDense: true,
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.circular(20),
+  /// 构建搜索框
+  Widget _buildSearchBox() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                hintText: '搜索',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                isDense: true,
+                filled: true,
+                fillColor: Colors.grey[200],
+                suffixIcon: _isSearching
+                    ? IconButton(
+                        icon: const Icon(Icons.clear,
+                            color: Colors.grey, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _isSearching = false;
+                            _isFiltering = false;
+                          });
+                          // 清除后重新聚焦到搜索框
+                          _searchFocusNode.requestFocus();
+                        },
+                      )
+                    : null,
               ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              suffixIcon: _isSearching
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.clear,
-                              color: Colors.grey, size: 18),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                              _isSearching = false;
-                              _isFiltering = false;
-                            });
-                          },
-                        ),
-                        Container(
-                          height: 24,
-                          width: 1,
-                          color: Colors.grey[300],
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: InkWell(
-                            onTap: () {
-                              final query = _searchController.text;
-                              if (query.isNotEmpty) {
-                                _searchContacts(query);
-                              }
-                              FocusScope.of(context).unfocus();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Text(
-                                '搜索',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : null,
-            ),
-            onChanged: (value) {
-              setState(() {
-                _isSearching = value.isNotEmpty;
-                if (!_isSearching) {
-                  _isFiltering = false;
-                }
-              });
-            },
-            onSubmitted: (value) {
-              if (value.isNotEmpty) {
-                _searchContacts(value);
-              } else {
+              onChanged: (value) {
+                // 只更新搜索状态，不执行搜索
                 setState(() {
-                  _isFiltering = false;
+                  _isSearching = value.isNotEmpty;
+                  if (!_isSearching) {
+                    _isFiltering = false;
+                  }
                 });
-              }
-            },
+              },
+              // 确保输入法完成时不会失去焦点
+              textInputAction: TextInputAction.search,
+              onSubmitted: (value) {
+                // 提交时执行搜索
+                if (value.isNotEmpty) {
+                  _searchContacts(value);
+                }
+                // 提交后重新聚焦到搜索框
+                _searchFocusNode.requestFocus();
+              },
+            ),
           ),
-        ),
+          // 添加搜索按钮
+          if (_isSearching)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  final query = _searchController.text;
+                  if (query.isNotEmpty) {
+                    _searchContacts(query);
+                  }
+                  // 点击搜索后收起键盘但保持焦点
+                  FocusScope.of(context).unfocus();
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) {
+                      _searchFocusNode.requestFocus();
+                    }
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  minimumSize: const Size(0, 36),
+                ),
+                child: const Text(
+                  '搜索',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -559,28 +591,39 @@ class _ContactsPageState extends State<ContactsPage>
   Widget _buildGroupedAnimatedList() {
     return ListView.builder(
       controller: _scrollController,
-      itemCount: _sortedKeys.length,
+      itemCount: _sortedKeys.length + 1, // +1 for search box
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
-        final key = _sortedKeys[index];
+        // 第一项是搜索框
+        if (index == 0) {
+          return _buildSearchBox();
+        }
+
+        // 调整索引以获取正确的键
+        final actualIndex = index - 1;
+        final key = _sortedKeys[actualIndex];
         final contacts = _groupedContacts[key]!;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildGroupHeader(key),
+            // 使用AnimatedList为每个分组中的联系人项目添加动画效果
             AnimatedList(
               key: ValueKey('group_$key'),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               initialItemCount: contacts.length,
               itemBuilder: (context, itemIndex, animation) {
+                // 这里使用了两种动画效果：
+                // 1. SizeTransition - 使项目从小到大展开
                 return SizeTransition(
                   sizeFactor: animation,
+                  // 2. SlideTransition - 使项目从右侧滑入
                   child: SlideTransition(
                     position: Tween<Offset>(
-                      begin: const Offset(1, 0),
-                      end: Offset.zero,
+                      begin: const Offset(1, 0), // 从右侧开始
+                      end: Offset.zero, // 滑动到原位置
                     ).animate(animation),
                     child: _buildContactItem(contacts[itemIndex]),
                   ),
@@ -596,15 +639,22 @@ class _ContactsPageState extends State<ContactsPage>
   /// 构建过滤后的联系人列表
   /// 显示搜索结果中的联系人
   Widget _buildFilteredList() {
-    if (_filteredContacts.isEmpty) {
-      return const Center(child: Text('没有找到匹配的联系人'));
-    }
+    return Column(
+      children: [
+        // 保留搜索框在顶部
+        _buildSearchBox(),
 
-    return ListView.builder(
-      itemCount: _filteredContacts.length,
-      itemBuilder: (context, index) {
-        return _buildContactItem(_filteredContacts[index]);
-      },
+        Expanded(
+          child: _filteredContacts.isEmpty
+              ? const Center(child: Text('没有找到匹配的联系人'))
+              : ListView.builder(
+                  itemCount: _filteredContacts.length,
+                  itemBuilder: (context, index) {
+                    return _buildContactItem(_filteredContacts[index]);
+                  },
+                ),
+        ),
+      ],
     );
   }
 
