@@ -222,7 +222,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载会话消息
   Future<void> loadMessagesForConversation(String conversationId) async {
-    _logger.i('加载会话消息', extra: {'conversationId': conversationId});
+    _logger.d('加载会话消息', extra: {'conversationId': conversationId},stackTrace: StackTrace.current);
     try {
       emit(state.copyWith(
           isLoadingMessages: true, currentConversationId: conversationId));

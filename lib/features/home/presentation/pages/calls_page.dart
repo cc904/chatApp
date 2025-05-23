@@ -350,11 +350,13 @@ class _CallsPageState extends State<CallsPage>
         .getOrCreatePrivateConversation(contact.userId)
         .then((conversationId) {
       if (conversationId != null && mounted) {
+        // 在异步操作后重新获取homeCubit，确保它仍然有效
+        final currentHomeCubit = context.read<HomeCubit>();
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => BlocProvider.value(
-              value: homeCubit,
+              value: currentHomeCubit,
               child: ChatDetailPage(
                 contact: contact,
                 conversationId: conversationId,

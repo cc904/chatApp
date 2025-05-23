@@ -10,11 +10,9 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 
-
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
-
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -131,15 +129,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   // 加载会话和消息
   void _loadConversation() {
     try {
-      HomeCubit? homeCubit;
-
-      try {
-        homeCubit = BlocProvider.of<HomeCubit>(context);
-      } catch (e) {
-        // 如果使用BlocProvider.of失败，尝试使用context.read
-        _logger.w('尝试使用BlocProvider.of获取HomeCubit失败: $e');
-        homeCubit = context.read<HomeCubit>();
-      }
+      final homeCubit = BlocProvider.of<HomeCubit>(context);
 
       // 设置当前会话ID
       homeCubit.loadMessagesForConversation(widget.conversationId);

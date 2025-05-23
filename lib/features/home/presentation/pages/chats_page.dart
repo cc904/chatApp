@@ -37,6 +37,9 @@ class _ChatsPageState extends State<ChatsPage>
   /// 当前打开的滑动菜单项ID
   String? _openedItemId;
 
+  /// 动画列表的key
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +96,36 @@ class _ChatsPageState extends State<ChatsPage>
         _filteredConversations = allConversations;
       });
     }
+  }
+
+  /// 添加新会话时调用此方法
+  void _insertItem(int index) {
+    _listKey.currentState?.insertItem(index);
+  }
+
+  /// 删除会话时调用此方法
+  void _removeItem(int index, Conversation conversation, User contact) {
+    _listKey.currentState?.removeItem(
+      index,
+      (context, animation) => SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(animation),
+        child: FadeTransition(
+          opacity: animation,
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundImage:
+                  contact.avatar != null ? NetworkImage(contact.avatar!) : null,
+              child: contact.avatar == null ? Text(contact.name[0]) : null,
+            ),
+            title: Text(contact.name),
+            subtitle: Text(conversation.lastMessagePreview ?? ''),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -325,66 +358,78 @@ class _ChatsPageState extends State<ChatsPage>
       return const Center(child: Text('没有会话'));
     }
 
-    // 显示会话列表
-    return ListView.builder(
-      itemCount: _filteredConversations.length,
-      itemBuilder: (context, index) {
+    // 显示会话列表 - 使用AnimatedList替换ListView.builder
+    return AnimatedList(
+      key: _listKey,
+      initialItemCount: _filteredConversations.length,
+      itemBuilder: (context, index, animation) {
         final conversation = _filteredConversations[index];
         final contact = state.contacts.firstWhere(
           (c) => c.userId == conversation.contactUserId,
           orElse: () => User()..name = '未知用户',
         );
 
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundImage:
-                contact.avatar != null ? NetworkImage(contact.avatar!) : null,
-            child: contact.avatar == null ? Text(contact.name[0]) : null,
-          ),
-          title: Text(contact.name),
-          subtitle: Text(conversation.lastMessagePreview ?? ''),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _formatTime(conversation.lastMessageTime),
-                style: const TextStyle(fontSize: 12),
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: FadeTransition(
+            opacity: animation,
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundImage: contact.avatar != null
+                    ? NetworkImage(contact.avatar!)
+                    : null,
+                child: contact.avatar == null ? Text(contact.name[0]) : null,
               ),
-              if (conversation.unreadCount > 0)
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
+              title: Text(contact.name),
+              subtitle: Text(conversation.lastMessagePreview ?? ''),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _formatTime(conversation.lastMessageTime),
+                    style: const TextStyle(fontSize: 12),
                   ),
-                  child: Text(
-                    conversation.unreadCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                  if (conversation.unreadCount > 0)
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        conversation.unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onTap: () {
+                // 使用HomeCubit加载会话消息
+                final homeCubit = context.read<HomeCubit>();
+                homeCubit
+                    .loadMessagesForConversation(conversation.conversationId);
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BlocProvider.value(
+                      value: homeCubit,
+                      child: ChatDetailPage(
+                        conversationId: conversation.conversationId,
+                        contact: contact,
+                      ),
                     ),
                   ),
-                ),
-            ],
+                );
+              },
+            ),
           ),
-          onTap: () {
-            // 使用HomeCubit加载会话消息
-            final homeCubit = context.read<HomeCubit>();
-            homeCubit.loadMessagesForConversation(conversation.conversationId);
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BlocProvider.value(
-                  value: context.read<HomeCubit>(),
-                  child: ChatDetailPage(
-                    conversationId: conversation.conversationId,
-                    contact: contact,
-                  ),
-                ),
-              ),
-            );
-          },
         );
       },
     );

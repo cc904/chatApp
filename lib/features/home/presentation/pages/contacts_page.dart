@@ -7,6 +7,7 @@ import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+import 'package:lpinyin/lpinyin.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -63,11 +64,45 @@ class _ContactsPageState extends State<ContactsPage>
     for (var contact in contacts) {
       if (contact.name.isEmpty) continue;
 
-      final firstChar = contact.name[0].toUpperCase();
-      if (!_groupedContacts.containsKey(firstChar)) {
-        _groupedContacts[firstChar] = [];
+      // 获取首字符
+      final firstChar = contact.name[0];
+
+      // 确定分组键
+      String groupKey;
+
+      // 判断首字符是否为英文字母
+      if (RegExp(r'[A-Za-z]').hasMatch(firstChar)) {
+        // 如果是英文字母，直接使用大写形式
+        groupKey = firstChar.toUpperCase();
+      } else if (RegExp(r'[0-9]').hasMatch(firstChar)) {
+        // 如果是数字，归类到 '#'
+        groupKey = '#';
+      } else {
+        // 如果是其他字符（如中文），获取拼音首字母
+        try {
+          // 使用lpinyin库获取拼音首字母
+          String pinyinFirst = PinyinHelper.getFirstWordPinyin(firstChar);
+          if (pinyinFirst.isNotEmpty) {
+            groupKey = pinyinFirst[0].toUpperCase();
+            // 确保是英文字母
+            if (!RegExp(r'[A-Z]').hasMatch(groupKey)) {
+              groupKey = '#';
+            }
+          } else {
+            groupKey = '#';
+          }
+        } catch (e) {
+          // 转换失败时使用 '#'
+          _logger.e('拼音转换失败', error: e);
+          groupKey = '#';
+        }
       }
-      _groupedContacts[firstChar]!.add(contact);
+
+      // 添加到对应分组
+      if (!_groupedContacts.containsKey(groupKey)) {
+        _groupedContacts[groupKey] = [];
+      }
+      _groupedContacts[groupKey]!.add(contact);
     }
 
     // 获取所有首字母并排序
@@ -410,6 +445,7 @@ class _ContactsPageState extends State<ContactsPage>
   /// [key] - 分组的首字母
   Widget _buildGroupHeader(String key) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.grey[200],
       child: Text(
@@ -440,13 +476,18 @@ class _ContactsPageState extends State<ContactsPage>
         final conversationId =
             await homeCubit.getOrCreatePrivateConversation(contact.userId);
 
-        if (conversationId != null && context.mounted) {
+        if (conversationId != null && mounted) {
+          // 在异步操作后重新获取homeCubit，确保它仍然有效
+          final currentHomeCubit = context.read<HomeCubit>();
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ChatDetailPage(
-                contact: contact,
-                conversationId: conversationId,
+              builder: (context) => BlocProvider.value(
+                value: currentHomeCubit,
+                child: ChatDetailPage(
+                  contact: contact,
+                  conversationId: conversationId,
+                ),
               ),
             ),
           );
