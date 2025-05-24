@@ -8,6 +8,7 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 /// 消息页面
 ///
@@ -45,11 +46,6 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 当前选中的标签索引
   int _selectedTabIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   /// 搜索会话
   ///
@@ -121,10 +117,10 @@ class _ChatsPageState extends State<ChatsPage>
         child: FadeTransition(
           opacity: animation,
           child: ListTile(
-            leading: CircleAvatar(
-              backgroundImage:
-                  contact.avatar != null ? NetworkImage(contact.avatar!) : null,
-              child: contact.avatar == null ? Text(contact.name[0]) : null,
+            leading: UserAvatar(
+              avatarUrl: contact.avatar,
+              name: contact.name,
+              radius: 20,
             ),
             title: Text(contact.name),
             subtitle: Text(conversation.lastMessagePreview ?? ''),
@@ -176,7 +172,7 @@ class _ChatsPageState extends State<ChatsPage>
               children: [
                 _buildTabBar(),
                 Expanded(
-                  child: _buildChatList(state),
+            child: _buildChatList(state),
                 ),
               ],
             ),
@@ -382,9 +378,9 @@ class _ChatsPageState extends State<ChatsPage>
                 _openQRScanner(context);
               },
             ),
-          ],
+            ],
+          ),
         ),
-      ),
     );
   }
 
@@ -568,26 +564,26 @@ class _ChatsPageState extends State<ChatsPage>
     const double avatarSize = 60.0;
 
     return Column(
-      children: [
+                  children: [
         GestureDetector(
-          onTap: () {
-            // 使用HomeCubit加载会话消息
-            final homeCubit = context.read<HomeCubit>();
+                onTap: () {
+                  // 使用HomeCubit加载会话消息
+                  final homeCubit = context.read<HomeCubit>();
             homeCubit.loadMessagesForConversation(conversation.conversationId);
 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BlocProvider.value(
-                  value: homeCubit,
-                  child: ChatDetailPage(
-                    conversationId: conversation.conversationId,
-                    contact: contact,
-                  ),
-                ),
-              ),
-            );
-          },
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BlocProvider.value(
+                        value: homeCubit,
+                        child: ChatDetailPage(
+                          conversationId: conversation.conversationId,
+                          contact: contact,
+                        ),
+                      ),
+                    ),
+                  );
+                },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10.0),
             child: Row(
@@ -599,17 +595,10 @@ class _ChatsPageState extends State<ChatsPage>
                   child: SizedBox(
                     width: avatarSize,
                     height: avatarSize,
-                    child: CircleAvatar(
+                    child: UserAvatar(
+                      avatarUrl: contact.avatar,
+                      name: contact.name,
                       radius: avatarSize / 2,
-                      backgroundImage: contact.avatar != null
-                          ? NetworkImage(contact.avatar!)
-                          : null,
-                      child: contact.avatar == null
-                          ? Text(
-                              contact.name[0],
-                              style: const TextStyle(fontSize: 24),
-                            )
-                          : null,
                     ),
                   ),
                 ),
@@ -747,7 +736,7 @@ class _ChatsPageState extends State<ChatsPage>
           ),
         ),
       ],
-    );
+          );
   }
 
   /// 格式化消息时间

@@ -5,7 +5,7 @@ import 'package:cc/core/proto/generated/contacts.pb.dart' as proto;
 part 'friend_request.g.dart';
 
 /// 好友请求模型
-@Collection(accessor: 'friendRequests')
+@collection
 class FriendRequest {
   /// 主键ID
   Id id = Isar.autoIncrement;
@@ -29,7 +29,7 @@ class FriendRequest {
   String? message;
 
   /// 请求状态: pending, accepted, rejected
-  @enumerated
+  @Enumerated(EnumType.name)
   late FriendRequestStatus status;
 
   /// 请求创建时间
@@ -113,7 +113,7 @@ class FriendRequest {
         return proto.FriendRequestStatus.ACCEPTED;
       case FriendRequestStatus.rejected:
         return proto.FriendRequestStatus.REJECTED;
-      }
+    }
   }
 }
 

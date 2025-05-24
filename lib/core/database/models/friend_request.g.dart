@@ -60,7 +60,7 @@ const FriendRequestSchema = CollectionSchema(
     r'status': PropertySchema(
       id: 8,
       name: r'status',
-      type: IsarType.byte,
+      type: IsarType.string,
       enumMap: _FriendRequeststatusEnumValueMap,
     )
   },
@@ -100,6 +100,7 @@ int _friendRequestEstimateSize(
   }
   bytesCount += 3 + object.senderId.length * 3;
   bytesCount += 3 + object.senderName.length * 3;
+  bytesCount += 3 + object.status.name.length * 3;
   return bytesCount;
 }
 
@@ -117,7 +118,7 @@ void _friendRequestSerialize(
   writer.writeString(offsets[5], object.senderAvatar);
   writer.writeString(offsets[6], object.senderId);
   writer.writeString(offsets[7], object.senderName);
-  writer.writeByte(offsets[8], object.status.index);
+  writer.writeString(offsets[8], object.status.name);
 }
 
 FriendRequest _friendRequestDeserialize(
@@ -137,7 +138,7 @@ FriendRequest _friendRequestDeserialize(
   object.senderId = reader.readString(offsets[6]);
   object.senderName = reader.readString(offsets[7]);
   object.status =
-      _FriendRequeststatusValueEnumMap[reader.readByteOrNull(offsets[8])] ??
+      _FriendRequeststatusValueEnumMap[reader.readStringOrNull(offsets[8])] ??
           FriendRequestStatus.pending;
   return object;
 }
@@ -166,7 +167,8 @@ P _friendRequestDeserializeProp<P>(
     case 7:
       return (reader.readString(offset)) as P;
     case 8:
-      return (_FriendRequeststatusValueEnumMap[reader.readByteOrNull(offset)] ??
+      return (_FriendRequeststatusValueEnumMap[
+              reader.readStringOrNull(offset)] ??
           FriendRequestStatus.pending) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -174,14 +176,14 @@ P _friendRequestDeserializeProp<P>(
 }
 
 const _FriendRequeststatusEnumValueMap = {
-  'pending': 0,
-  'accepted': 1,
-  'rejected': 2,
+  r'pending': r'pending',
+  r'accepted': r'accepted',
+  r'rejected': r'rejected',
 };
 const _FriendRequeststatusValueEnumMap = {
-  0: FriendRequestStatus.pending,
-  1: FriendRequestStatus.accepted,
-  2: FriendRequestStatus.rejected,
+  r'pending': FriendRequestStatus.pending,
+  r'accepted': FriendRequestStatus.accepted,
+  r'rejected': FriendRequestStatus.rejected,
 };
 
 Id _friendRequestGetId(FriendRequest object) {
@@ -1317,11 +1319,15 @@ extension FriendRequestQueryFilter
   }
 
   QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
-      statusEqualTo(FriendRequestStatus value) {
+      statusEqualTo(
+    FriendRequestStatus value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'status',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
@@ -1330,12 +1336,14 @@ extension FriendRequestQueryFilter
       statusGreaterThan(
     FriendRequestStatus value, {
     bool include = false,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
         property: r'status',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
@@ -1344,12 +1352,14 @@ extension FriendRequestQueryFilter
       statusLessThan(
     FriendRequestStatus value, {
     bool include = false,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
         property: r'status',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
@@ -1360,6 +1370,7 @@ extension FriendRequestQueryFilter
     FriendRequestStatus upper, {
     bool includeLower = true,
     bool includeUpper = true,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
@@ -1368,6 +1379,77 @@ extension FriendRequestQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
+      statusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'status',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
+      statusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'status',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
+      statusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'status',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
+      statusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'status',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
+      statusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'status',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FriendRequest, FriendRequest, QAfterFilterCondition>
+      statusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'status',
+        value: '',
       ));
     });
   }
@@ -1686,9 +1768,10 @@ extension FriendRequestQueryWhereDistinct
     });
   }
 
-  QueryBuilder<FriendRequest, FriendRequest, QDistinct> distinctByStatus() {
+  QueryBuilder<FriendRequest, FriendRequest, QDistinct> distinctByStatus(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'status');
+      return query.addDistinctBy(r'status', caseSensitive: caseSensitive);
     });
   }
 }

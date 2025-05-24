@@ -3,12 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/new_chat_page.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/pages/contact_detail_page.dart';
-import 'package:lpinyin/lpinyin.dart';
 import 'dart:async';
 
 class ContactsPage extends StatefulWidget {
@@ -22,7 +20,6 @@ class _ContactsPageState extends State<ContactsPage>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   final _logger = LogService.instance;
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -34,7 +31,7 @@ class _ContactsPageState extends State<ContactsPage>
   String? _currentLetter;
 
   // 分组联系人数据结构
-  Map<String, List<User>> _groupedContacts = {};
+  final Map<String, List<User>> _groupedContacts = {};
   List<String> _sortedKeys = [];
 
   // 所有可用的索引，包括搜索图标

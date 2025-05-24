@@ -2,17 +2,19 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/media_service.dart';
-import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
-import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -36,16 +38,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   final FocusNode _focusNode = FocusNode();
   bool _isLoadingMore = false;
   bool _dataInitialized = false;
-  String? _targetMessageId; // 目标消息ID,用于滚动定位
-  final List<Message> _messages = []; // 缓存的消息列表
-  final bool _isJumpingToDate = false; // 控制日期跳转加载指示器
 
   // 录音波形动画控制
   late AnimationController _waveformController;
 
   // 媒体服务
   final MediaService _mediaService = MediaService();
-  final FileUploadService _fileUploadService = FileUploadService();
 
   // 录音状态
   Timer? _recordingTimer;
@@ -53,8 +51,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   // 添加选择的附件状态
   File? _selectedAttachment;
   String? _attachmentType;
-  String? _attachmentName;
-  double? _attachmentSize;
 
   // 添加语音动画控制器
   late AnimationController _voiceAnimationController;
@@ -182,8 +178,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     try {
       // 获取最早的消息时间作为加载更多的基准
-      final earliestMessage =
-          messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
+      messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
 
       // TODO: 实现通过HomeCubit加载更早消息的逻辑
       // 暂时不支持加载更多历史消息，需要扩展HomeCubit以支持此功能
@@ -244,14 +239,28 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         setState(() {
           _selectedAttachment = null;
           _attachmentType = null;
-          _attachmentName = null;
-          _attachmentSize = null;
         });
       }
     } catch (error) {
       if (mounted) {
         UINotificationService().showError('发送附件失败: $error');
       }
+    }
+  }
+
+  // 格式化消息时间
+  String _formatMessageTime(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(time.year, time.month, time.day);
+
+    if (messageDate == today) {
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    } else if (messageDate == yesterday) {
+      return '昨天 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    } else {
+      return '${time.month}月${time.day}日 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     }
   }
 
@@ -267,100 +276,440 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         final messages =
             state.messagesByConversation[widget.conversationId] ?? [];
 
+        // 获取当前用户ID
+        final currentUserId = state.currentUser?.userId ?? '';
+
         return Scaffold(
           appBar: AppBar(
-            title: Text(widget.contact.name),
+            title: GestureDetector(
+              onTap: () => _openChatInfoPage(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(widget.contact.name),
+                  const Text(
+                    'connecting...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
             actions: [
-              IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: () {
-                  final homeCubit = context.read<HomeCubit>();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BlocProvider.value(
-                        value: homeCubit,
-                        child: ChatInfoPage(
-                          conversationId: widget.conversationId,
-                          contact: widget.contact,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              GestureDetector(
+                onTap: () => _openChatInfoPage(context),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 16.0),
+                  child: UserAvatar(
+                    avatarUrl: widget.contact.avatar,
+                    name: widget.contact.name,
+                    radius: 16,
+                  ),
+                ),
               ),
             ],
           ),
-          body: Column(
+          body: Stack(
             children: [
-              // 加载指示器
-              if (state.isLoadingMessages) const LinearProgressIndicator(),
-
-              // 消息列表
-              Expanded(
-                child: messages.isEmpty
-                    ? const Center(child: Text('没有消息'))
-                    : ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        itemCount: messages.length,
-                        itemBuilder: (context, index) {
-                          final message = messages[index];
-                          // 构建消息气泡
-                          return ListTile(
-                            title: Text(message.text ?? ''),
-                            subtitle: Text(message.createdAt.toString()),
-                          );
-                        },
-                      ),
+              // 绿色渐变背景
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.green.shade300,
+                      Colors.green.shade100,
+                    ],
+                  ),
+                ),
               ),
 
-              // 输入区域
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, -1),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.attach_file),
-                      onPressed: () {
-                        // TODO: 实现附件选择逻辑
-                      },
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        focusNode: _focusNode,
-                        decoration: const InputDecoration(
-                          hintText: '输入消息...',
-                          border: InputBorder.none,
+              // SVG图案背景 - 使用提供的SVG文件
+              Positioned.fill(
+                child: _buildSvgBackground(),
+              ),
+
+              // 主要内容
+              Column(
+                children: [
+                  // 加载指示器
+                  if (state.isLoadingMessages) const LinearProgressIndicator(),
+
+                  // 消息列表
+                  Expanded(
+                    child: messages.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 48,
+                                  color: Colors.white.withOpacity(0.6),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '没有消息',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            reverse: true,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 8.0),
+                            itemCount: messages.length,
+                            itemBuilder: (context, index) {
+                              final message = messages[index];
+                              final isMe = message.senderId == currentUserId;
+
+                              // 检查是否需要显示日期分隔符
+                              final showDate = index == messages.length - 1 ||
+                                  !_isSameDay(message.createdAt,
+                                      messages[index + 1].createdAt);
+
+                              return Column(
+                                children: [
+                                  // 日期分隔符
+                                  if (showDate)
+                                    _buildDateSeparator(message.createdAt),
+
+                                  // 消息气泡
+                                  MessageBubble(
+                                    message: message,
+                                    isMe: isMe,
+                                    timeString:
+                                        _formatMessageTime(message.createdAt),
+                                    senderName:
+                                        isMe ? 'You' : widget.contact.name,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                  ),
+
+                  // 输入区域
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, -1),
                         ),
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: _sendMessage,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.attach_file),
+                          color: Colors.grey.shade600,
+                          onPressed: () {
+                            // TODO: 实现附件选择逻辑
+                          },
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(24.0),
+                            ),
+                            child: TextField(
+                              controller: _messageController,
+                              focusNode: _focusNode,
+                              decoration: const InputDecoration(
+                                hintText: 'Message',
+                                hintStyle: TextStyle(color: Colors.grey),
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (_) => _sendMessage(),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.send),
+                          color: Colors.green,
+                          onPressed: _sendMessage,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  /// 构建SVG背景
+  Widget _buildSvgBackground() {
+    // // 随机选择一个SVG图案
+    // final random = Random();
+    // final patternIndex = random.nextInt(3) + 13; // 从13, 15, 19中选择
+
+    // 根据设备高度决定缩放和重复次数
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Opacity(
+          opacity: 0.2, // 调整透明度以获得更好的可读性
+          child: SvgPicture.asset(
+            'assets/images/pattern-13.svg',
+            fit: BoxFit.cover,
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            colorFilter: const ColorFilter.mode(
+              Colors.white,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 判断两个日期是否为同一天
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
+  // 构建日期分隔符
+  Widget _buildDateSeparator(DateTime date) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Text(
+            _formatDateSeparator(date),
+            style: const TextStyle(
+              fontSize: 12.0,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 格式化日期分隔符
+  String _formatDateSeparator(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    if (dateOnly == today) {
+      return '今天';
+    } else if (dateOnly == yesterday) {
+      return '昨天';
+    } else {
+      final months = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December'
+      ];
+      return '${months[date.month - 1]} ${date.day}';
+    }
+  }
+
+  // 打开聊天信息页面
+  void _openChatInfoPage(BuildContext context) {
+    final homeCubit = context.read<HomeCubit>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider.value(
+          value: homeCubit,
+          child: ChatInfoPage(
+            conversationId: widget.conversationId,
+            contact: widget.contact,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 消息气泡组件
+class MessageBubble extends StatelessWidget {
+  final Message message;
+  final bool isMe;
+  final String timeString;
+  final String senderName;
+
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMe,
+    required this.timeString,
+    required this.senderName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 判断消息类型
+    final isSystemMessage = message.type == 'system';
+
+    // 系统消息居中显示
+    if (isSystemMessage) {
+      return _buildSystemMessage();
+    }
+
+    // 普通消息
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // 发送时间（左侧消息）
+          if (!isMe && !isSystemMessage)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Text(
+                timeString,
+                style: const TextStyle(
+                  fontSize: 10.0,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+
+          // 消息气泡
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.7,
+            ),
+            decoration: BoxDecoration(
+              color: isMe ? Colors.green.shade300 : Colors.white,
+              borderRadius: BorderRadius.circular(16.0).copyWith(
+                bottomLeft: isMe
+                    ? const Radius.circular(16.0)
+                    : const Radius.circular(0.0),
+                bottomRight: isMe
+                    ? const Radius.circular(0.0)
+                    : const Radius.circular(16.0),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 发送者名称（仅群聊且非自己发送的消息显示）
+                if (!isMe && _isGroupMessage(message))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: Text(
+                      senderName,
+                      style: TextStyle(
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.bold,
+                        color: isMe ? Colors.white : Colors.blue,
+                      ),
+                    ),
+                  ),
+
+                // 消息内容
+                Text(
+                  message.text ?? '',
+                  style: TextStyle(
+                    fontSize: 16.0,
+                    color: isMe ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 发送时间（右侧消息）
+          if (isMe && !isSystemMessage)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Text(
+                timeString,
+                style: const TextStyle(
+                  fontSize: 10.0,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 构建系统消息
+  Widget _buildSystemMessage() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Text(
+            message.text ?? '',
+            style: const TextStyle(
+              fontSize: 12.0,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 判断是否为群聊消息
+  bool _isGroupMessage(Message message) {
+    // 根据消息所属的会话类型判断
+    // 在此示例中，简单地假设有发送者名称的消息是群聊消息
+    return message.senderName != null;
   }
 }

@@ -128,9 +128,7 @@ class Conversation {
       case ConversationType.channel:
         protoType = proto.ConversationType.channel;
         break;
-      default:
-        protoType = proto.ConversationType.private;
-    }
+      }
 
     return proto.ConversationProto(
       conversationId: conversationId,

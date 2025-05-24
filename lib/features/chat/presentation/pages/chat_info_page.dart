@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
@@ -6,6 +7,7 @@ import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 class ChatInfoPage extends StatefulWidget {
   final String conversationId;
@@ -29,10 +31,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 获取主题颜色
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-
     return BlocBuilder<HomeCubit, HomeState>(
       builder: (context, state) {
         // 获取当前会话
@@ -45,30 +43,55 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         final isGroup = conversation.type == ConversationType.group;
 
         return Scaffold(
+          backgroundColor: const Color(0xFFF2F2F7), // iOS风格的背景色
           appBar: AppBar(
-            title: const Text(
-              '聊天信息',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios, size: 20),
+              onPressed: () => Navigator.pop(context),
             ),
-            backgroundColor: primaryColor,
-            foregroundColor: Colors.white,
+            title: const Text(
+              'Back',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.normal),
+            ),
+            centerTitle: false,
+            titleSpacing: 0,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // 编辑功能
+                },
+                child: const Text(
+                  'Edit',
+                  style: TextStyle(
+                    fontSize: 17,
+                    color: Colors.blue,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
           ),
           body: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 聊天信息卡片
-                _buildChatInfoCard(conversation),
+                // 头像和名称区域 - 移除白色背景
+                _buildProfileHeader(conversation),
 
-                // 聊天设置选项列表
-                _buildSettingsList(conversation, primaryColor),
+                const SizedBox(height: 20),
 
-                // 媒体文件、文件等内容
-                if (conversation.type == ConversationType.group)
-                  _buildGroupMembersSection(primaryColor),
+                // 操作按钮区域 - 修改为直接在背景上的按钮
+                _buildActionButtons(),
 
-                // 底部按钮区域
-                _buildBottomButtons(conversation, isGroup),
+                const SizedBox(height: 30),
+
+                // 手机号码区域 - 修改为显示用户ID
+                _buildPhoneSection(),
+
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -77,274 +100,304 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     );
   }
 
-  // 聊天信息卡片 - 显示头像、名称等
-  Widget _buildChatInfoCard(Conversation conversation) {
-    final isGroup = conversation.type == ConversationType.group;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
+  // 头像和名称区域 - 移除白色背景
+  Widget _buildProfileHeader(Conversation conversation) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 30, bottom: 10),
       child: Column(
         children: [
-          // 头像区域
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                // 头像
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    color: Colors.grey[300],
-                    child: widget.contact?.avatar != null &&
-                            widget.contact!.avatar!.isNotEmpty
-                        ? Image.network(
-                            widget.contact!.avatar!,
-                            fit: BoxFit.cover,
-                          )
-                        : Center(
-                            child: Text(
-                              widget.contact?.name != null &&
-                                      widget.contact!.name.isNotEmpty
-                                  ? widget.contact!.name[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+          // 头像
+          UserAvatar(
+            avatarUrl: widget.contact?.avatar,
+            name: widget.contact?.name ?? '?',
+            radius: 50,
+            backgroundColor: Colors.cyan,
+          ),
+          const SizedBox(height: 16),
+          // 名称
+          Text(
+            widget.contact?.name ?? conversation.name ?? '未知联系人',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // 状态
+          const Text(
+            'last seen a long time ago',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 操作按钮区域 - 修改为直接在背景上的按钮
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildActionButton(Icons.call, 'call', Colors.blue),
+          _buildActionButton(Icons.videocam, 'video', Colors.blue),
+          _buildActionButton(
+              Icons.notifications_off_outlined, 'mute', Colors.blue),
+          _buildActionButton(Icons.search, 'search', Colors.blue),
+          _buildMoreButton(),
+        ],
+      ),
+    );
+  }
+
+  // 单个操作按钮
+  Widget _buildActionButton(IconData icon, String label, Color color) {
+    // 计算一个按钮占据的宽度 (总宽度减去4个8px的间隙，再除以5)
+    // 减小了按钮间距从16px到8px
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / 5;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              _logger.i('点击了操作按钮', extra: {'action': label});
+              UINotificationService().showInfo('$label 功能开发中');
+            },
+            child: Container(
+              width: buttonWidth,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: color, size: 26),
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: color,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                // 会话名称
-                Text(
-                  widget.contact?.name ?? conversation.name ?? '未知会话',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 更多按钮 - 点击显示弹出菜单
+  Widget _buildMoreButton() {
+    // 计算一个按钮占据的宽度 (总宽度减去4个8px的间隙，再除以5)
+    // 减小了按钮间距从16px到8px
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / 5;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<String>(
+          offset: const Offset(0, 76), // 向下偏移按钮高度(70) + 6像素
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          color: Colors.white, // 设置菜单背景色为白色，与按钮一致
+          elevation: 4, // 轻微的阴影
+          itemBuilder: (context) => [
+            _buildPopupMenuItem(Icons.edit, '编辑联系人'),
+            _buildPopupMenuItem(Icons.block, '屏蔽用户'),
+            _buildPopupMenuItem(Icons.report, '举报'),
+            _buildPopupMenuItem(Icons.delete_forever, '清空聊天记录',
+                isDestructive: true),
+          ],
+          onSelected: (value) {
+            _handleMenuItemSelected(value);
+          },
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: buttonWidth,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.more_horiz, color: Colors.blue, size: 26),
+                  const SizedBox(height: 6),
+                  Text(
+                    'more',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                    ),
                   ),
-                ),
-                if (!isGroup)
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 构建弹出菜单项
+  PopupMenuItem<String> _buildPopupMenuItem(IconData icon, String text,
+      {bool isDestructive = false}) {
+    return PopupMenuItem<String>(
+      value: text,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: isDestructive ? Colors.red : Colors.black87,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            text,
+            style: TextStyle(
+              color: isDestructive ? Colors.red : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 处理菜单项选择
+  void _handleMenuItemSelected(String value) {
+    _logger.i('选择了菜单项', extra: {'action': value});
+
+    switch (value) {
+      case '编辑联系人':
+        UINotificationService().showInfo('编辑联系人功能开发中');
+        break;
+      case '屏蔽用户':
+        UINotificationService().showInfo('屏蔽用户功能开发中');
+        break;
+      case '举报':
+        UINotificationService().showInfo('举报功能开发中');
+        break;
+      case '清空聊天记录':
+        _showDeleteConfirmation(context);
+        break;
+    }
+  }
+
+  // 手机号码区域 - 修改为显示用户ID
+  Widget _buildPhoneSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const Padding(
-                    padding: EdgeInsets.only(top: 4),
+                    padding: EdgeInsets.only(left: 16, top: 3),
                     child: Text(
-                      '微信号: wxid_example',
+                      'user ID',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 设置选项列表 - 简化版
-  Widget _buildSettingsList(Conversation conversation, Color primaryColor) {
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      color: Colors.white,
-      child: Column(
-        children: [
-          // 消息免打扰
-          ListTile(
-            leading:
-                Icon(Icons.notifications_off_outlined, color: Colors.grey[700]),
-            title: const Text('消息免打扰', style: TextStyle(fontSize: 15)),
-            trailing: Switch(
-              value: _isMuted,
-              activeColor: primaryColor,
-              onChanged: (value) {
-                setState(() {
-                  _isMuted = value;
-                });
-                // 实现消息免打扰功能
-                _logger.i('设置消息免打扰', extra: {'value': value});
-              },
-            ),
-          ),
-          const Divider(height: 1),
-
-          // 置顶聊天
-          ListTile(
-            leading: Icon(Icons.push_pin_outlined, color: Colors.grey[700]),
-            title: const Text('置顶聊天', style: TextStyle(fontSize: 15)),
-            trailing: Switch(
-              value: _isPinned,
-              activeColor: primaryColor,
-              onChanged: (value) {
-                setState(() {
-                  _isPinned = value;
-                });
-                // 实现置顶聊天功能
-                _logger.i('设置置顶聊天', extra: {'value': value});
-              },
-            ),
-          ),
-          const Divider(height: 1),
-
-          // 查找聊天记录
-          ListTile(
-            leading: Icon(Icons.search, color: Colors.grey[700]),
-            title: const Text('查找聊天记录', style: TextStyle(fontSize: 15)),
-            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-            onTap: () {
-              // 打开聊天记录搜索页面
-              _openChatSearch(context, conversation);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 群成员区域 (仅群聊显示) - 简化版
-  Widget _buildGroupMembersSection(Color primaryColor) {
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '群成员 (12)',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 显示群成员网格
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.7,
-            ),
-            itemCount: 12, // 假设12个成员
-            itemBuilder: (context, index) {
-              if (index < 10) {
-                return _buildMemberItem('成员${index + 1}');
-              } else if (index == 10) {
-                return _buildActionItem(Icons.add, '添加', primaryColor);
-              } else {
-                return _buildActionItem(Icons.remove, '移除', Colors.grey);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 构建群成员项
-  Widget _buildMemberItem(String name) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Center(
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Text(
+                                '@${widget.conversationId}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () {
+                                  // 复制用户ID到剪贴板
+                                  final idToCopy = widget.conversationId;
+                                  Clipboard.setData(
+                                      ClipboardData(text: idToCopy));
+                                  _logger
+                                      .i('复制用户ID到剪贴板', extra: {'id': idToCopy});
+                                  UINotificationService()
+                                      .showSuccess('已复制用户ID');
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.copy,
+                                    color: Colors.blue,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          style: const TextStyle(fontSize: 12),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  // 构建操作项（添加/移除）
-  Widget _buildActionItem(IconData icon, String label, Color color) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Icon(icon, color: color),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: color),
-        ),
-      ],
-    );
-  }
-
-  // 底部按钮区域
-  Widget _buildBottomButtons(Conversation conversation, bool isGroup) {
-    return Container(
-      margin: const EdgeInsets.only(top: 10, bottom: 20),
-      color: Colors.white,
-      child: Column(
-        children: [
-          // 清空聊天记录
-          ListTile(
-            title: const Center(
-              child: Text(
-                '清空聊天记录',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.black87,
+            Container(
+              width: 70,
+              height: 70,
+              decoration: const BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: Color(0xFFEEEEEE),
+                    width: 1,
+                  ),
                 ),
               ),
-            ),
-            onTap: () {
-              _showDeleteConfirmation(context);
-            },
-          ),
-          const Divider(height: 1),
-
-          // 删除并退出 (群聊) 或 删除聊天 (私聊)
-          ListTile(
-            title: Center(
-              child: Text(
-                isGroup ? '删除并退出' : '删除聊天',
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Colors.red,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.qr_code,
+                  color: Colors.blue,
+                  size: 28,
                 ),
+                onPressed: () {
+                  _logger.i('显示用户二维码');
+                  UINotificationService().showInfo('显示用户二维码功能开发中');
+                },
               ),
             ),
-            onTap: () {
-              _showLeaveConfirmation(context, isGroup);
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

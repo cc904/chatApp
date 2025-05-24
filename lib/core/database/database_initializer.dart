@@ -9,7 +9,6 @@ import 'package:cc/core/database/models/friend_request.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 
-
 /// 数据库初始化器
 ///
 /// 负责初始化和管理Isar数据库实例，提供统一的数据库访问点
@@ -66,13 +65,12 @@ class DatabaseInitializer {
         await close();
       }
 
-      _logger.x('开始初始化数据库,用户ID: ${currentUser.userId}');
+      _logger.i('初始化数据库,用户ID: ${currentUser.userId}');
 
       final dir = await getApplicationDocumentsDirectory();
-      String dbName = '${currentUser.userId}.isar';
+      String dbName = currentUser.userId;
 
-      _logger.x('使用数据库文件目录: $dir');
-      _logger.x('使用数据库文件: $dbName');
+      _logger.i('使用数据库目录: ${dir.path}');
 
       // 检查是否已有相同名称的实例打开
       if (Isar.instanceNames.contains(dbName)) {
@@ -80,24 +78,31 @@ class DatabaseInitializer {
         await Isar.getInstance(dbName)?.close();
       }
 
-      // 保存临时实例，避免初始化失败时影响全局变量
+      // 清理旧的数据库文件
+      await _cleanupDatabaseFiles(dir.path, currentUser.userId);
+
+      // 打开数据库
+      final schemas = [
+        UserSchema,
+        ConversationSchema,
+        MessageSchema,
+        CurrentUserSchema,
+        FriendRequestSchema
+      ];
+
       final isarInstance = await Isar.open(
-        [
-          UserSchema,
-          CurrentUserSchema,
-          ConversationSchema,
-          MessageSchema,
-          FriendRequestSchema,
-        ],
+        schemas,
         directory: dir.path,
         name: dbName,
+        inspector: true,
       );
 
-      // 实例创建成功后才设置全局变量
+      // 实例创建成功后设置全局变量
       _isar = isarInstance;
       _currentUser = currentUser;
 
-      _logger.x('数据库初始化完成，isInitialized: $isInitialized');
+      _logger.i('数据库初始化完成');
+
       // 创建索引
       await _createIndexes();
     } catch (error) {
@@ -114,7 +119,7 @@ class DatabaseInitializer {
   /// 为各个集合创建必要的查询索引，提高查询性能
   static Future<void> _createIndexes() async {
     try {
-      _logger.x('开始创建数据库索引');
+      _logger.i('创建数据库索引');
       await isar.writeTxn(() async {
         // 联系人索引
         isar.users.where().filter().nameContains('').build();
@@ -139,10 +144,10 @@ class DatabaseInitializer {
         isar.messages.where().filter().conversationIdEqualTo('').build();
         isar.messages.where().filter().senderIdEqualTo('').build();
       });
-      _logger.x('数据库索引创建完成');
+      _logger.i('数据库索引创建完成');
     } catch (error) {
-      _logger.e('创建数据库索引失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      _logger.e('创建数据库索引失败', error: error);
+      // 不抛出异常，允许应用在没有索引的情况下继续运行
     }
   }
 
@@ -153,7 +158,7 @@ class DatabaseInitializer {
   static Future<void> close() async {
     try {
       if (_isar != null) {
-        _logger.i('开始关闭数据库');
+        _logger.i('关闭数据库');
         await _isar!.close();
         _isar = null;
         _currentUser = null;
@@ -239,6 +244,39 @@ class DatabaseInitializer {
     } catch (error) {
       _logger.e('清空数据库失败', error: error, stackTrace: StackTrace.current);
       rethrow;
+    }
+  }
+
+  /// 清理数据库文件
+  ///
+  /// 删除旧的数据库文件，确保从干净的状态开始
+  static Future<void> _cleanupDatabaseFiles(
+      String dirPath, String userId) async {
+    try {
+      // 检查所有可能的文件名格式
+      final possibleFileNames = [
+        '$userId.isar', // 正确的文件名
+        '$userId.isar.isar', // 重复后缀的文件名
+        '$userId', // 无后缀的文件名
+      ];
+
+      // 检查并删除所有可能的文件
+      for (var baseName in possibleFileNames) {
+        final dbFile = File('$dirPath/$baseName');
+        final lockFile = File('$dirPath/$baseName.lock');
+
+        if (await dbFile.exists()) {
+          await dbFile.delete();
+          _logger.i('删除旧数据库文件: ${dbFile.path}');
+        }
+
+        if (await lockFile.exists()) {
+          await lockFile.delete();
+          _logger.i('删除旧数据库锁文件: ${lockFile.path}');
+        }
+      }
+    } catch (e) {
+      _logger.e('清理数据库文件时出错', error: e);
     }
   }
 }
