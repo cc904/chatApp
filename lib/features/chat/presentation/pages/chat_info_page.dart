@@ -25,9 +25,36 @@ class ChatInfoPage extends StatefulWidget {
 
 class _ChatInfoPageState extends State<ChatInfoPage> {
   final _logger = LogService.instance;
-  // 模拟属性值,实际应该保存在数据库中
-  bool _isMuted = false;
-  bool _isPinned = false;
+
+  // 添加编辑模式状态
+  bool _isEditMode = false;
+
+  // 添加文本编辑控制器
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 初始化文本编辑控制器
+    if (widget.contact != null) {
+      final nameParts = widget.contact.name.split(' ');
+      if (nameParts.isNotEmpty) {
+        _firstNameController.text = nameParts.first;
+        if (nameParts.length > 1) {
+          _lastNameController.text = nameParts.sublist(1).join(' ');
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,29 +70,99 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         final isGroup = conversation.type == ConversationType.group;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF2F2F7), // iOS风格的背景色
+          backgroundColor: const Color(0xFFF2F2F7), // 保持iOS风格的浅色背景
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: const Color(0xFFF2F2F7), // 与背景颜色一致
             foregroundColor: Colors.black,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, size: 20),
-              onPressed: () => Navigator.pop(context),
+            elevation: 0, // 无阴影
+            automaticallyImplyLeading: false, // 不显示默认返回按钮
+            // 使用自定义的返回/取消按钮区域
+            leadingWidth: _isEditMode ? 105 : 80, // 为Cancel模式提供更多空间
+            leading: GestureDetector(
+              onTap: () {
+                if (_isEditMode) {
+                  // 取消编辑，恢复原始状态
+                  setState(() {
+                    _isEditMode = false;
+                    // 重新初始化文本控制器
+                    if (widget.contact != null) {
+                      final nameParts = widget.contact.name.split(' ');
+                      if (nameParts.isNotEmpty) {
+                        _firstNameController.text = nameParts.first;
+                        if (nameParts.length > 1) {
+                          _lastNameController.text =
+                              nameParts.sublist(1).join(' ');
+                        }
+                      }
+                    }
+                  });
+                } else {
+                  // 返回上一页
+                  Navigator.pop(context);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.only(left: 10.0),
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    // 不同模式显示不同图标
+                    _isEditMode
+                        ? const Icon(
+                            Icons.close,
+                            color: Colors.red,
+                            size: 20,
+                          )
+                        : const Icon(
+                            Icons.arrow_back_ios,
+                            color: Colors.blue,
+                            size: 18,
+                          ),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        _isEditMode ? 'Cancel' : 'Back',
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: _isEditMode ? Colors.red : Colors.blue,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            title: const Text(
-              'Back',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.normal),
-            ),
+            // 清除默认标题
+            title: const Text(''),
             centerTitle: false,
             titleSpacing: 0,
             actions: [
               TextButton(
                 onPressed: () {
-                  // 编辑功能
+                  if (_isEditMode) {
+                    // 完成编辑，保存更改
+                    final newName =
+                        '${_firstNameController.text} ${_lastNameController.text}'
+                            .trim();
+                    _logger.i('保存用户名称', extra: {'newName': newName});
+                    UINotificationService().showSuccess('名称已更新');
+                    setState(() {
+                      _isEditMode = false;
+                    });
+                  } else {
+                    // 进入编辑模式
+                    setState(() {
+                      _isEditMode = true;
+                    });
+                  }
                 },
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(
+                child: Text(
+                  _isEditMode ? 'Done' : 'Edit',
+                  style: const TextStyle(
                     fontSize: 17,
                     color: Colors.blue,
                     fontWeight: FontWeight.normal,
@@ -74,29 +171,133 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               ),
             ],
           ),
-          body: SingleChildScrollView(
+          body: _isEditMode
+              ? _buildEditModeContent(conversation)
+              : _buildViewModeContent(conversation, isGroup),
+        );
+      },
+    );
+  }
+
+  // 编辑模式下的内容
+  Widget _buildEditModeContent(Conversation conversation) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 头像和名称区域 - 保持原有布局
+          Padding(
+            padding: const EdgeInsets.only(top: 30, bottom: 10),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 头像和名称区域 - 移除白色背景
-                _buildProfileHeader(conversation),
-
-                const SizedBox(height: 20),
-
-                // 操作按钮区域 - 修改为直接在背景上的按钮
-                _buildActionButtons(),
-
-                const SizedBox(height: 30),
-
-                // 手机号码区域 - 修改为显示用户ID
-                _buildPhoneSection(),
-
-                const SizedBox(height: 20),
+                // 头像
+                UserAvatar(
+                  avatarUrl: widget.contact?.avatar,
+                  name: widget.contact?.name ?? '?',
+                  radius: 50,
+                  backgroundColor: Colors.cyan,
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
-        );
-      },
+
+          // 名字输入框
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _firstNameController,
+                    style: const TextStyle(color: Colors.black),
+                    decoration: const InputDecoration(
+                      hintText: '姓',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                  const Divider(
+                    height: 1,
+                    color: Color(0xFFE0E0E0),
+                    indent: 16,
+                  ),
+                  TextField(
+                    controller: _lastNameController,
+                    style: const TextStyle(color: Colors.black),
+                    decoration: const InputDecoration(
+                      hintText: '名',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // 删除联系人按钮
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ListTile(
+                title: const Center(
+                  child: Text(
+                    'Delete Contact',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ),
+                onTap: () {
+                  // 删除联系人
+                  _showLeaveConfirmation(context, false);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 查看模式下的内容
+  Widget _buildViewModeContent(Conversation conversation, bool isGroup) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 头像和名称区域 - 移除白色背景
+          _buildProfileHeader(conversation),
+
+          const SizedBox(height: 20),
+
+          // 操作按钮区域 - 修改为直接在背景上的按钮
+          _buildActionButtons(),
+
+          const SizedBox(height: 30),
+
+          // 手机号码区域 - 修改为显示用户ID
+          _buildPhoneSection(),
+
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -285,7 +486,9 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
     switch (value) {
       case '编辑联系人':
-        UINotificationService().showInfo('编辑联系人功能开发中');
+        setState(() {
+          _isEditMode = true;
+        });
         break;
       case '屏蔽用户':
         UINotificationService().showInfo('屏蔽用户功能开发中');
@@ -441,7 +644,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
       orElse: () => Conversation(),
     );
 
-    final title = isGroup ? '删除并退出' : '删除聊天';
+    final title = isGroup ? '删除并退出' : '删除联系人';
     final content = isGroup ? '退出后,将不再接收此群聊信息' : '删除后,将不再接收此联系人的消息';
 
     showDialog(
@@ -463,7 +666,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               Navigator.pop(context);
               // TODO: 实现删除会话功能
               // 需要在HomeCubit中添加对应方法
-              UINotificationService().showSuccess(isGroup ? '已退出群聊' : '已删除聊天');
+              UINotificationService().showSuccess(isGroup ? '已退出群聊' : '已删除联系人');
               // 返回上一级
               Navigator.pop(context);
             },

@@ -13,7 +13,6 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 
 class ChatDetailPage extends StatefulWidget {
@@ -299,6 +298,37 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
+            automaticallyImplyLeading: false,
+            leading: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Container(
+                padding: const EdgeInsets.only(left: 8.0),
+                alignment: Alignment.centerLeft,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    SizedBox(width: 2),
+                    Text(
+                      'Back',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            leadingWidth: 70,
             actions: [
               GestureDetector(
                 onTap: () => _openChatInfoPage(context),
@@ -307,7 +337,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   child: UserAvatar(
                     avatarUrl: widget.contact.avatar,
                     name: widget.contact.name,
-                    radius: 16,
+                    radius: 22,
                   ),
                 ),
               ),
@@ -476,6 +506,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             fit: BoxFit.cover,
             width: constraints.maxWidth,
             height: constraints.maxHeight,
+            // 移除颜色过滤器，保留SVG原始线条样式
             colorFilter: const ColorFilter.mode(
               Colors.white,
               BlendMode.srcIn,

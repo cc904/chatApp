@@ -257,7 +257,7 @@ class DatabaseInitializer {
       final possibleFileNames = [
         '$userId.isar', // 正确的文件名
         '$userId.isar.isar', // 重复后缀的文件名
-        '$userId', // 无后缀的文件名
+        userId, // 无后缀的文件名
       ];
 
       // 检查并删除所有可能的文件
