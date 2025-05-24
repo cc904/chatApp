@@ -17,10 +17,12 @@ import 'package:protobuf/protobuf.dart' as $pb;
 class ConversationType extends $pb.ProtobufEnum {
   static const ConversationType private = ConversationType._(0, _omitEnumNames ? '' : 'private');
   static const ConversationType group = ConversationType._(1, _omitEnumNames ? '' : 'group');
+  static const ConversationType channel = ConversationType._(2, _omitEnumNames ? '' : 'channel');
 
   static const $core.List<ConversationType> values = <ConversationType> [
     private,
     group,
+    channel,
   ];
 
   static final $core.Map<$core.int, ConversationType> _byValue = $pb.ProtobufEnum.initByValue(values);

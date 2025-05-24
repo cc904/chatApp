@@ -19,12 +19,14 @@ const ConversationType$json = {
   '2': [
     {'1': 'private', '2': 0},
     {'1': 'group', '2': 1},
+    {'1': 'channel', '2': 2},
   ],
 };
 
 /// Descriptor for `ConversationType`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List conversationTypeDescriptor = $convert.base64Decode(
-    'ChBDb252ZXJzYXRpb25UeXBlEgsKB3ByaXZhdGUQABIJCgVncm91cBAB');
+    'ChBDb252ZXJzYXRpb25UeXBlEgsKB3ByaXZhdGUQABIJCgVncm91cBABEgsKB2NoYW5uZWwQAg'
+    '==');
 
 @$core.Deprecated('Use conversationProtoDescriptor instead')
 const ConversationProto$json = {

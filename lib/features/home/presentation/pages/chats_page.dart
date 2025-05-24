@@ -43,6 +43,9 @@ class _ChatsPageState extends State<ChatsPage>
   /// 动画列表的key
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
+  /// 当前选中的标签索引
+  int _selectedTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -152,7 +155,8 @@ class _ChatsPageState extends State<ChatsPage>
       builder: (context, state) {
         // 更新过滤后的会话列表
         if (!_isSearching) {
-          _filteredConversations = state.conversations;
+          _filteredConversations =
+              _filterConversationsByTab(state.conversations);
         }
 
         return Scaffold(
@@ -168,10 +172,120 @@ class _ChatsPageState extends State<ChatsPage>
                 });
               }
             },
-            child: _buildChatList(state),
+            child: Column(
+              children: [
+                _buildTabBar(),
+                Expanded(
+                  child: _buildChatList(state),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  /// 根据选中的标签过滤会话
+  List<Conversation> _filterConversationsByTab(
+      List<Conversation> conversations) {
+    switch (_selectedTabIndex) {
+      case 0: // All Chats
+        return conversations;
+      case 1: // 私密
+        return conversations
+            .where((c) => c.type == ConversationType.private)
+            .toList();
+      case 2: // 群组
+        return conversations
+            .where((c) => c.type == ConversationType.group)
+            .toList();
+      case 3: // 频道
+        return conversations
+            .where((c) => c.type == ConversationType.channel)
+            .toList();
+      case 4: // 未读
+        return conversations.where((c) => c.unreadCount > 0).toList();
+      default:
+        return conversations;
+    }
+  }
+
+  /// 构建标签栏
+  Widget _buildTabBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildTabItem('All Chats', 0, null),
+          _buildTabItem('私密', 1, null),
+          _buildTabItem('群组', 2, 2),
+          _buildTabItem('频道', 3, 3),
+          _buildTabItem('未读', 4, 5),
+        ],
+      ),
+    );
+  }
+
+  /// 构建单个标签项
+  Widget _buildTabItem(String title, int index, int? count) {
+    final isSelected = _selectedTabIndex == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTabIndex = index;
+            // 切换标签后更新过滤的会话列表
+            _filteredConversations = _filterConversationsByTab(
+                context.read<HomeCubit>().state.conversations);
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? Colors.blue : Colors.transparent,
+                width: 2.0,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.blue : Colors.grey,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              if (count != null)
+                Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.blue : Colors.grey,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    count.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -179,73 +293,105 @@ class _ChatsPageState extends State<ChatsPage>
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       // 中间标题
-      title: const Text('消息', style: TextStyle(fontWeight: FontWeight.w600)),
-      backgroundColor: Colors.green,
-      foregroundColor: Colors.white,
+      title: const Text('Chats', style: TextStyle(fontWeight: FontWeight.w600)),
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
       elevation: 0,
       automaticallyImplyLeading: false, // 禁用默认返回按钮
 
-      // 左侧筛选按钮
-      leading: IconButton(
-        icon: const Icon(Icons.filter_list),
-        onPressed: _showFilterDialog,
+      // 左侧编辑按钮
+      leading: TextButton(
+        onPressed: () {
+          // 处理编辑操作
+          _logger.d('编辑按钮点击');
+        },
+        child: const Text(
+          'Edit',
+          style: TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
 
       // 右侧操作按钮区域
       actions: [
-        Theme(
-          data: Theme.of(context).copyWith(
-            popupMenuTheme: const PopupMenuThemeData(
-              textStyle: TextStyle(fontSize: 14),
-            ),
-          ),
-          child: PopupMenuButton<String>(
-            icon: const Icon(Icons.add),
-            offset: const Offset(0, 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 3,
-            constraints: const BoxConstraints(maxWidth: 145),
-            position: PopupMenuPosition.under,
-            onSelected: (value) {
-              if (value == 'scan') {
-                _logger.d('打开扫一扫');
-                _openQRScanner(context);
-              } else if (value == 'group') {
-                _logger.d('发起群聊');
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SearchPage(),
-                  ),
-                );
-              } else if (value == 'friend') {
-                _logger.d('添加朋友');
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SearchPage(),
-                  ),
-                );
-              }
-            },
-            itemBuilder: (context) => <PopupMenuEntry<String>>[
-              _buildMenuItem('friend', Icons.person_add, '添加朋友或群'),
-              const PopupMenuDivider(height: 0.5),
-              _buildMenuItem('group', Icons.group_add, '发起群聊'),
-              const PopupMenuDivider(height: 0.5),
-              _buildMenuItem('scan', Icons.qr_code_scanner, '扫一扫'),
-            ],
-          ),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
+          onPressed: () {
+            _logger.d('添加会话按钮点击');
+            // 打开创建新会话选项
+            _showNewChatOptions();
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit_square, color: Colors.blue),
+          onPressed: () {
+            _logger.d('编辑会话按钮点击');
+            // 处理编辑操作
+          },
         ),
       ],
       centerTitle: true,
     );
   }
 
+  /// 显示新建会话选项
+  void _showNewChatOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '新建会话',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.person_add, color: Colors.blue),
+              title: const Text('添加好友'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SearchPage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_add, color: Colors.blue),
+              title: const Text('创建群组'),
+              onTap: () {
+                Navigator.pop(context);
+                // 导航到创建群组页面
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner, color: Colors.blue),
+              title: const Text('扫一扫'),
+              onTap: () {
+                Navigator.pop(context);
+                _openQRScanner(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 构建搜索框
   Widget _buildSearchBox() {
     return Container(
-      color: Colors.white,
+      color: Colors.grey[200],
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
@@ -254,18 +400,18 @@ class _ChatsPageState extends State<ChatsPage>
               controller: _searchController,
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
-                hintText: '搜索',
+                hintText: 'Search',
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
                 filled: true,
-                fillColor: Colors.grey[200],
+                fillColor: Colors.white,
                 suffixIcon: _isSearching
                     ? IconButton(
                         icon: const Icon(Icons.clear,
@@ -299,6 +445,7 @@ class _ChatsPageState extends State<ChatsPage>
               },
             ),
           ),
+          // 当输入内容后显示搜索按钮
           if (_isSearching)
             Padding(
               padding: const EdgeInsets.only(left: 8.0),
@@ -308,7 +455,7 @@ class _ChatsPageState extends State<ChatsPage>
                   if (query.isNotEmpty) {
                     _searchConversations(query);
                   }
-                  // 点击搜索后收起键盘但保持焦点
+                  // 收起键盘但保持焦点
                   FocusScope.of(context).unfocus();
                   Future.delayed(const Duration(milliseconds: 100), () {
                     if (mounted) {
@@ -317,9 +464,9 @@ class _ChatsPageState extends State<ChatsPage>
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: Colors.blue,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
@@ -375,7 +522,6 @@ class _ChatsPageState extends State<ChatsPage>
         : ListView.builder(
             itemCount: _filteredConversations.length + 1, // +1 for search box
             itemBuilder: (context, index) {
-              _logger.d('index: $index');
               // 第一个项目是搜索框
               if (index == 0) {
                 return _buildSearchBox();
@@ -393,61 +539,215 @@ class _ChatsPageState extends State<ChatsPage>
                 orElse: () => User()..name = '未知用户',
               );
 
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: contact.avatar != null
-                      ? NetworkImage(contact.avatar!)
-                      : null,
-                  child: contact.avatar == null ? Text(contact.name[0]) : null,
-                ),
-                title: Text(contact.name),
-                subtitle: Text(conversation.lastMessagePreview ?? ''),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _formatTime(conversation.lastMessageTime),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    if (conversation.unreadCount > 0)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          conversation.unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                onTap: () {
-                  // 使用HomeCubit加载会话消息
-                  final homeCubit = context.read<HomeCubit>();
-                  homeCubit
-                      .loadMessagesForConversation(conversation.conversationId);
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BlocProvider.value(
-                        value: homeCubit,
-                        child: ChatDetailPage(
-                          conversationId: conversation.conversationId,
-                          contact: contact,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
+              return _buildConversationItem(conversation, contact);
             },
           );
+  }
+
+  /// 构建单个会话项
+  Widget _buildConversationItem(Conversation conversation, User contact) {
+    // _logger.d('创建会话Item: ${contact.name} ${contact.avatar}');
+    // 判断是否有静音图标
+    final bool isMuted = conversation.isMuted;
+
+    // 判断会话类型
+    final bool isGroup = conversation.type == ConversationType.group;
+
+    // 查找最后一条消息的发送者（如果是群聊）
+    String? senderName;
+    if (isGroup && conversation.lastMessageSenderId != null) {
+      // 从contacts中查找发送者
+      final sender = context.read<HomeCubit>().state.contacts.firstWhere(
+            (c) => c.userId == conversation.lastMessageSenderId,
+            orElse: () => User()..name = '未知用户',
+          );
+      senderName = sender.name;
+    }
+
+    // 头像大小 - 与三行内容高度匹配
+    const double avatarSize = 60.0;
+
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () {
+            // 使用HomeCubit加载会话消息
+            final homeCubit = context.read<HomeCubit>();
+            homeCubit.loadMessagesForConversation(conversation.conversationId);
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BlocProvider.value(
+                  value: homeCubit,
+                  child: ChatDetailPage(
+                    conversationId: conversation.conversationId,
+                    contact: contact,
+                  ),
+                ),
+              ),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
+              children: [
+                // 头像
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SizedBox(
+                    width: avatarSize,
+                    height: avatarSize,
+                    child: CircleAvatar(
+                      radius: avatarSize / 2,
+                      backgroundImage: contact.avatar != null
+                          ? NetworkImage(contact.avatar!)
+                          : null,
+                      child: contact.avatar == null
+                          ? Text(
+                              contact.name[0],
+                              style: const TextStyle(fontSize: 24),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+
+                // 中间内容区域
+                Expanded(
+                  child: SizedBox(
+                    height: avatarSize + 1, // 与头像高度一致
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment:
+                          MainAxisAlignment.spaceEvenly, // 均匀分布三行内容
+                      children: [
+                        // 第一行：会话名称和静音图标
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                contact.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 16,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isMuted)
+                              const Icon(Icons.volume_off,
+                                  size: 16, color: Colors.grey),
+                          ],
+                        ),
+
+                        // 第二行：
+                        // 群聊 - 发送者名称
+                        // 私聊/频道 - 消息内容第一部分
+                        if (isGroup)
+                          Text(
+                            senderName ?? '未知用户',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              // color: Colors.grey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        else
+                          Text(
+                            conversation.lastMessagePreview ?? '',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                        // 第三行：
+                        // 群聊 - 消息内容
+                        // 私聊/频道 - 消息内容延续或空白
+                        Text(
+                          isGroup
+                              ? (conversation.lastMessagePreview ?? '')
+                              : '',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 右侧时间和未读数
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0, left: 8.0),
+                  child: SizedBox(
+                    height: avatarSize, // 与头像高度一致
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly, // 均匀分布
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // 时间
+                        Text(
+                          _formatTime(conversation.lastMessageTime),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+
+                        // 未读数
+                        if (conversation.unreadCount > 0)
+                          Container(
+                            margin: const EdgeInsets.only(top: 16),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 20,
+                              minHeight: 20,
+                            ),
+                            child: Text(
+                              _formatUnreadCount(conversation.unreadCount),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+
+                        // 如果没有未读消息，添加一个空占位符以保持布局平衡
+                        if (conversation.unreadCount <= 0)
+                          const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 分割线 - 从头像右侧开始延伸
+        Padding(
+          padding: const EdgeInsets.only(left: 72.0),
+          child: Container(
+            height: 0.5,
+            color: Colors.grey.withOpacity(0.3),
+          ),
+        ),
+      ],
+    );
   }
 
   /// 格式化消息时间
@@ -480,57 +780,14 @@ class _ChatsPageState extends State<ChatsPage>
     }
   }
 
-  /// 显示筛选对话框
-  ///
-  /// 弹出底部模态对话框，提供会话筛选选项:
-  /// - 筛选未读消息
-  /// - 筛选群聊
-  /// - 筛选星标会话
-  void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '筛选会话',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.message, color: Colors.green),
-              title: const Text('未读消息'),
-              onTap: () {
-                Navigator.pop(context);
-                _logger.d('筛选未读消息');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.group, color: Colors.green),
-              title: const Text('群聊'),
-              onTap: () {
-                Navigator.pop(context);
-                _logger.d('筛选群聊');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.star, color: Colors.green),
-              title: const Text('星标会话'),
-              onTap: () {
-                Navigator.pop(context);
-                _logger.d('筛选星标会话');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+  /// 格式化未读消息数量
+  /// 如果超过1000，则以k为单位显示，保留一位小数
+  String _formatUnreadCount(int count) {
+    if (count >= 1000) {
+      final double countInK = count / 1000;
+      return '${countInK.toStringAsFixed(1)}k';
+    }
+    return count.toString();
   }
 
   /// 打开二维码扫描页面
@@ -543,40 +800,6 @@ class _ChatsPageState extends State<ChatsPage>
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const ScanCodePage(),
-      ),
-    );
-  }
-
-  /// 构建弹出菜单项
-  ///
-  /// 创建自定义样式的PopupMenuItem，用于添加功能菜单
-  ///
-  /// 参数:
-  ///   - value: 菜单项的值，用于标识被选中的项
-  ///   - iconData: 菜单项的图标
-  ///   - label: 菜单项的文本标签
-  ///
-  /// 返回值:
-  ///   - PopupMenuItem<String>: 构建的菜单项
-  PopupMenuItem<String> _buildMenuItem(
-      String value, IconData iconData, String label) {
-    return PopupMenuItem<String>(
-      value: value,
-      height: 40,
-      padding: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(iconData, color: Colors.green, size: 20),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
       ),
     );
   }
