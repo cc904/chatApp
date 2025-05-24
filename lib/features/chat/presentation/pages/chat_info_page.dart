@@ -430,12 +430,13 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
     // 使用延迟调用来避免直接使用BuildContext
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
       final navigator = Navigator.of(context);
+      final homeCubit = context.read<HomeCubit>();
+
       navigator.push<dynamic>(
         MaterialPageRoute(
           builder: (context) => BlocProvider.value(
-            value: context.read<HomeCubit>(),
+            value: homeCubit,
             child: ChatSearchPage(
               conversationId: conversationId,
               conversationName: conversationName,

@@ -113,7 +113,11 @@ class ChatRepositoryImpl implements ChatRepository {
       ..add(_communicationService
           .onProto<conversation_proto.ConversationCollection>(
               'conversation:sync:result')
-          .listen(_handleSyncResultProto));
+          .listen(_handleSyncResultProto))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationUpdateNotification>(
+              'conversation:update:notification')
+          .listen(_handleConversationUpdateNotification));
   }
 
   /// 处理新消息
@@ -135,6 +139,9 @@ class ChatRepositoryImpl implements ChatRepository {
       _isar.writeTxn(() async {
         message.id = await _messages.put(message);
       });
+
+      // 更新会话的最后消息信息
+      _updateConversationLastMessage(message);
 
       // 通知UI
       _newMessagesController.add(message);
@@ -223,8 +230,8 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<User?> getContactById(String userId) async {
     try {
-      int id = int.tryParse(userId) ?? 0;
-      return await _users.get(id);
+      // 使用userId字段查询，而不是尝试转换为整数ID
+      return await _users.filter().userIdEqualTo(userId).findFirst();
     } catch (error) {
       _logger.e('获取联系人信息失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -339,9 +346,11 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<db.Conversation?> getConversationById(String conversationId) async {
     try {
-      int id = int.tryParse(conversationId) ?? 0;
-      // 使用生成的访问器
-      return await _conversations.get(id);
+      // 使用conversationId字段查询，而不是尝试转换为整数ID
+      return await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
     } catch (error) {
       _logger.e('获取会话信息失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -946,10 +955,9 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<void> deleteMessage(String messageId) async {
     try {
-      final id = int.tryParse(messageId) ?? 0;
-
-      // 先获取消息以获取媒体文件路径信息
-      final message = await _messages.get(id);
+      // 使用messageId字段查询，而不是尝试转换为整数ID
+      final message =
+          await _messages.filter().messageIdEqualTo(messageId).findFirst();
       if (message == null) {
         throw Exception('找不到要删除的消息');
       }
@@ -959,7 +967,8 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 在数据库事务中删除消息
       await _isar.writeTxn(() async {
-        final success = await _messages.delete(id);
+        // 使用消息的Isar ID删除
+        final success = await _messages.delete(message.id);
         if (!success) {
           throw Exception('删除消息失败');
         }
@@ -993,10 +1002,63 @@ class ChatRepositoryImpl implements ChatRepository {
       // 通过通信服务发送消息
       _communicationService.emitProto('message:new', protoMsg);
 
+      // 更新会话的最后消息信息
+      await _updateConversationLastMessage(message);
+
       return message.messageId;
     } catch (error) {
       _logger.e('发送消息失败', extra: {'error': error.toString()});
       throw MessageException('发送消息失败: ${error.toString()}');
+    }
+  }
+
+  /// 更新会话的最后消息信息
+  /// 当发送或接收新消息时，更新会话的最后消息预览和时间
+  /// [message] - 最新的消息
+  Future<void> _updateConversationLastMessage(Message message) async {
+    try {
+      await _isar.writeTxn(() async {
+        // 查找会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(message.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          // 更新会话信息
+          conversation.lastMessageTime = message.createdAt;
+
+          // 根据消息类型设置预览文本
+          switch (message.type) {
+            case 'text':
+              conversation.lastMessagePreview = message.text ?? '';
+              break;
+            case 'image':
+              conversation.lastMessagePreview = '[图片]';
+              break;
+            case 'voice':
+              conversation.lastMessagePreview = '[语音]';
+              break;
+            case 'video':
+              conversation.lastMessagePreview = '[视频]';
+              break;
+            case 'file':
+              conversation.lastMessagePreview = '[文件]${message.fileName ?? ''}';
+              break;
+            case 'location':
+              conversation.lastMessagePreview =
+                  '[位置]${message.locationAddress ?? ''}';
+              break;
+            default:
+              conversation.lastMessagePreview = '[消息]';
+          }
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+        }
+      });
+    } catch (error) {
+      _logger.e('更新会话最后消息失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -1381,5 +1443,84 @@ class ChatRepositoryImpl implements ChatRepository {
   void _simulateServerProcessing(Message message) {
     // 空实现，实际项目中应该由服务器处理
     _logger.d('模拟服务器处理视频缩略图', extra: {'messageId': message.messageId});
+  }
+
+  /// 处理会话更新通知
+  /// 根据服务器推送的会话更新通知更新本地会话数据
+  /// [notification] - 会话更新通知数据
+  void _handleConversationUpdateNotification(
+      conversation_proto.ConversationUpdateNotification notification) {
+    try {
+      _logger.i('收到会话更新通知',
+          extra: {'conversationId': notification.conversationId});
+
+      // 更新本地会话数据
+      _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(notification.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          // 更新会话信息
+          conversation.lastMessagePreview = notification.lastMessagePreview;
+          if (notification.lastMessageTime > 0) {
+            conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
+                notification.lastMessageTime.toInt());
+          }
+
+          // 如果发送者不是当前用户，则增加未读消息计数
+          if (notification.senderId != _currentUser.userId) {
+            conversation.unreadCount = notification.unreadCount;
+          }
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+          _logger.d('已更新本地会话数据',
+              extra: {'conversationId': notification.conversationId});
+        } else {
+          _logger.w('本地找不到对应的会话',
+              extra: {'conversationId': notification.conversationId});
+          // 如果本地没有该会话，可以考虑触发会话同步
+          await syncConversations();
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话更新通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 测试会话更新通知功能
+  /// 仅用于开发和测试，模拟接收会话更新通知
+  /// [conversationId] - 会话ID
+  Future<void> testConversationUpdateNotification(String conversationId) async {
+    try {
+      _logger.i('测试会话更新通知功能', extra: {'conversationId': conversationId});
+
+      // 获取会话信息
+      final conversation = await getConversationById(conversationId);
+      if (conversation == null) {
+        _logger.w('找不到会话', extra: {'conversationId': conversationId});
+        return;
+      }
+
+      // 创建模拟的会话更新通知
+      final notification = conversation_proto.ConversationUpdateNotification()
+        ..conversationId = conversationId
+        ..lastMessagePreview = '这是一条测试消息'
+        ..lastMessageTime = $fixnum.Int64(DateTime.now().millisecondsSinceEpoch)
+        ..unreadCount = 1
+        ..senderId = 'test_user_id'
+        ..senderName = '测试用户'
+        ..messageType = 'text';
+
+      // 直接调用处理方法
+      _handleConversationUpdateNotification(notification);
+
+      _logger.i('测试会话更新通知已发送');
+    } catch (error) {
+      _logger.e('测试会话更新通知失败', error: error, stackTrace: StackTrace.current);
+    }
   }
 }

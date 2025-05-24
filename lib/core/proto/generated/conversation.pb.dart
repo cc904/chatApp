@@ -595,6 +595,141 @@ class SyncConversationsRequest extends $pb.GeneratedMessage {
   void clearUserId() => $_clearField(2);
 }
 
+/// 会话更新通知
+class ConversationUpdateNotification extends $pb.GeneratedMessage {
+  factory ConversationUpdateNotification({
+    $core.String? conversationId,
+    $core.String? lastMessagePreview,
+    $fixnum.Int64? lastMessageTime,
+    $core.int? unreadCount,
+    $core.String? senderId,
+    $core.String? senderName,
+    $core.String? messageType,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (lastMessagePreview != null) {
+      $result.lastMessagePreview = lastMessagePreview;
+    }
+    if (lastMessageTime != null) {
+      $result.lastMessageTime = lastMessageTime;
+    }
+    if (unreadCount != null) {
+      $result.unreadCount = unreadCount;
+    }
+    if (senderId != null) {
+      $result.senderId = senderId;
+    }
+    if (senderName != null) {
+      $result.senderName = senderName;
+    }
+    if (messageType != null) {
+      $result.messageType = messageType;
+    }
+    return $result;
+  }
+  ConversationUpdateNotification._() : super();
+  factory ConversationUpdateNotification.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationUpdateNotification.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationUpdateNotification', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'lastMessagePreview')
+    ..aInt64(3, _omitFieldNames ? '' : 'lastMessageTime')
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
+    ..aOS(5, _omitFieldNames ? '' : 'senderId')
+    ..aOS(6, _omitFieldNames ? '' : 'senderName')
+    ..aOS(7, _omitFieldNames ? '' : 'messageType')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationUpdateNotification clone() => ConversationUpdateNotification()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationUpdateNotification copyWith(void Function(ConversationUpdateNotification) updates) => super.copyWith((message) => updates(message as ConversationUpdateNotification)) as ConversationUpdateNotification;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationUpdateNotification create() => ConversationUpdateNotification._();
+  ConversationUpdateNotification createEmptyInstance() => create();
+  static $pb.PbList<ConversationUpdateNotification> createRepeated() => $pb.PbList<ConversationUpdateNotification>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationUpdateNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationUpdateNotification>(create);
+  static ConversationUpdateNotification? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get lastMessagePreview => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set lastMessagePreview($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasLastMessagePreview() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLastMessagePreview() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get lastMessageTime => $_getI64(2);
+  @$pb.TagNumber(3)
+  set lastMessageTime($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasLastMessageTime() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLastMessageTime() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get unreadCount => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set unreadCount($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasUnreadCount() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearUnreadCount() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get senderId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set senderId($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasSenderId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSenderId() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get senderName => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set senderName($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasSenderName() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSenderName() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get messageType => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set messageType($core.String v) { $_setString(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasMessageType() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMessageType() => $_clearField(7);
+}
+
 
 const _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
 const _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');

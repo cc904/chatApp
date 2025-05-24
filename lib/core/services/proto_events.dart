@@ -20,6 +20,8 @@ class ProtoEvents {
     'conversation:deleted': () => conversation.ConversationProto(),
     'conversation:sync': () => conversation.SyncConversationsRequest(),
     'conversation:sync:result': () => conversation.ConversationCollection(),
+    'conversation:update:notification': () =>
+        conversation.ConversationUpdateNotification(),
 
     // 用户相关事件
     'user:online': () => user.UserStatusUpdate(),
@@ -52,7 +54,8 @@ class ProtoEvents {
   /// 注册自定义事件和对应的Protobuf消息类型
   /// [eventName] - 事件名称
   /// [creator] - 创建对应Protobuf消息的函数
-  static void registerEvent(String eventName, GeneratedMessage Function() creator) {
+  static void registerEvent(
+      String eventName, GeneratedMessage Function() creator) {
     _eventTypeMap[eventName] = creator;
   }
 

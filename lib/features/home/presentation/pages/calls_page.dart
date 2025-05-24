@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
+import 'package:cc/features/contacts/presentation/pages/contact_detail_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
@@ -344,6 +345,23 @@ class _CallsPageState extends State<CallsPage>
   }
 
   void _openContactDetail(User contact) {
+    _logger.d('打开联系人详情页: ${contact.name}');
+    final homeCubit = context.read<HomeCubit>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider.value(
+          value: homeCubit,
+          child: ContactDetailPage(
+            contact: contact,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openChatDetail(User contact) {
+    _logger.d('打开与${contact.name}的聊天');
     // 通过HomeCubit创建或获取与联系人的会话
     final homeCubit = context.read<HomeCubit>();
     homeCubit
@@ -440,7 +458,7 @@ class _CallsPageState extends State<CallsPage>
                 title: const Text('发送消息'),
                 onTap: () {
                   Navigator.pop(context);
-                  _openContactDetail(contact);
+                  _openChatDetail(contact);
                 },
               ),
               ListTile(

@@ -276,12 +276,16 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               IconButton(
                 icon: const Icon(Icons.info_outline),
                 onPressed: () {
+                  final homeCubit = context.read<HomeCubit>();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ChatInfoPage(
-                        conversationId: widget.conversationId,
-                        contact: widget.contact,
+                      builder: (context) => BlocProvider.value(
+                        value: homeCubit,
+                        child: ChatInfoPage(
+                          conversationId: widget.conversationId,
+                          contact: widget.contact,
+                        ),
                       ),
                     ),
                   );

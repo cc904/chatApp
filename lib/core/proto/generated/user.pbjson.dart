@@ -42,13 +42,7 @@ const UserProto$json = {
     {'1': 'username', '3': 10, '4': 1, '5': 9, '10': 'username'},
     {'1': 'display_name', '3': 11, '4': 1, '5': 9, '10': 'displayName'},
     {'1': 'is_typing', '3': 12, '4': 1, '5': 8, '10': 'isTyping'},
-    {
-      '1': 'typing_in_conversation',
-      '3': 13,
-      '4': 1,
-      '5': 9,
-      '10': 'typingInConversation'
-    },
+    {'1': 'typing_in_conversation', '3': 13, '4': 1, '5': 9, '10': 'typingInConversation'},
   ],
 };
 
@@ -80,11 +74,11 @@ const CurrentUserProto$json = {
 
 /// Descriptor for `CurrentUserProto`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List currentUserProtoDescriptor = $convert.base64Decode(
-    'CgtNeVVzZXJQcm90bxIXCgd1c2VyX2lkGAEgASgJUgZ1c2VySWQSFAoFdG9rZW4YAiABKAlSBX'
-    'Rva2VuEhIKBG5hbWUYAyABKAlSBG5hbWUSFgoGYXZhdGFyGAQgASgJUgZhdmF0YXISFAoFcGhv'
-    'bmUYBSABKAlSBXBob25lEhQKBWVtYWlsGAYgASgJUgVlbWFpbBIqChF0b2tlbl9leHBpcmVfdG'
-    'ltZRgHIAEoA1IPdG9rZW5FeHBpcmVUaW1lEiYKD2xhc3RfbG9naW5fdGltZRgIIAEoA1INbGFz'
-    'dExvZ2luVGltZRIWCgZzdGF0dXMYCSABKAlSBnN0YXR1cw==');
+    'ChBDdXJyZW50VXNlclByb3RvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIUCgV0b2tlbhgCIA'
+    'EoCVIFdG9rZW4SEgoEbmFtZRgDIAEoCVIEbmFtZRIWCgZhdmF0YXIYBCABKAlSBmF2YXRhchIU'
+    'CgVwaG9uZRgFIAEoCVIFcGhvbmUSFAoFZW1haWwYBiABKAlSBWVtYWlsEioKEXRva2VuX2V4cG'
+    'lyZV90aW1lGAcgASgDUg90b2tlbkV4cGlyZVRpbWUSJgoPbGFzdF9sb2dpbl90aW1lGAggASgD'
+    'Ug1sYXN0TG9naW5UaW1lEhYKBnN0YXR1cxgJIAEoCVIGc3RhdHVz');
 
 @$core.Deprecated('Use userStatusUpdateDescriptor instead')
 const UserStatusUpdate$json = {
@@ -137,14 +131,7 @@ final $typed_data.Uint8List userResponseDescriptor = $convert.base64Decode(
 const UserCollection$json = {
   '1': 'UserCollection',
   '2': [
-    {
-      '1': 'users',
-      '3': 1,
-      '4': 3,
-      '5': 11,
-      '6': '.cc.UserProto',
-      '10': 'users'
-    },
+    {'1': 'users', '3': 1, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'users'},
   ],
 };
 
@@ -173,30 +160,9 @@ const UserSettings$json = {
   '1': 'UserSettings',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {
-      '1': 'notifications',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.cc.NotificationSettings',
-      '10': 'notifications'
-    },
-    {
-      '1': 'privacy',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.cc.PrivacySettings',
-      '10': 'privacy'
-    },
-    {
-      '1': 'theme',
-      '3': 4,
-      '4': 1,
-      '5': 11,
-      '6': '.cc.ThemeSettings',
-      '10': 'theme'
-    },
+    {'1': 'notifications', '3': 2, '4': 1, '5': 11, '6': '.cc.NotificationSettings', '10': 'notifications'},
+    {'1': 'privacy', '3': 3, '4': 1, '5': 11, '6': '.cc.PrivacySettings', '10': 'privacy'},
+    {'1': 'theme', '3': 4, '4': 1, '5': 11, '6': '.cc.ThemeSettings', '10': 'theme'},
     {'1': 'language', '3': 5, '4': 1, '5': 9, '10': 'language'},
     {'1': 'timezone', '3': 6, '4': 1, '5': 9, '10': 'timezone'},
   ],
@@ -214,42 +180,12 @@ final $typed_data.Uint8List userSettingsDescriptor = $convert.base64Decode(
 const NotificationSettings$json = {
   '1': 'NotificationSettings',
   '2': [
-    {
-      '1': 'message_notifications',
-      '3': 1,
-      '4': 1,
-      '5': 8,
-      '10': 'messageNotifications'
-    },
-    {
-      '1': 'friend_request_notifications',
-      '3': 2,
-      '4': 1,
-      '5': 8,
-      '10': 'friendRequestNotifications'
-    },
-    {
-      '1': 'group_notifications',
-      '3': 3,
-      '4': 1,
-      '5': 8,
-      '10': 'groupNotifications'
-    },
+    {'1': 'message_notifications', '3': 1, '4': 1, '5': 8, '10': 'messageNotifications'},
+    {'1': 'friend_request_notifications', '3': 2, '4': 1, '5': 8, '10': 'friendRequestNotifications'},
+    {'1': 'group_notifications', '3': 3, '4': 1, '5': 8, '10': 'groupNotifications'},
     {'1': 'do_not_disturb', '3': 4, '4': 1, '5': 8, '10': 'doNotDisturb'},
-    {
-      '1': 'do_not_disturb_start',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '10': 'doNotDisturbStart'
-    },
-    {
-      '1': 'do_not_disturb_end',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '10': 'doNotDisturbEnd'
-    },
+    {'1': 'do_not_disturb_start', '3': 5, '4': 1, '5': 9, '10': 'doNotDisturbStart'},
+    {'1': 'do_not_disturb_end', '3': 6, '4': 1, '5': 9, '10': 'doNotDisturbEnd'},
   ],
 };
 
@@ -266,27 +202,9 @@ final $typed_data.Uint8List notificationSettingsDescriptor = $convert.base64Deco
 const PrivacySettings$json = {
   '1': 'PrivacySettings',
   '2': [
-    {
-      '1': 'allow_profile_view',
-      '3': 1,
-      '4': 1,
-      '5': 8,
-      '10': 'allowProfileView'
-    },
-    {
-      '1': 'allow_friend_requests',
-      '3': 2,
-      '4': 1,
-      '5': 8,
-      '10': 'allowFriendRequests'
-    },
-    {
-      '1': 'show_online_status',
-      '3': 3,
-      '4': 1,
-      '5': 8,
-      '10': 'showOnlineStatus'
-    },
+    {'1': 'allow_profile_view', '3': 1, '4': 1, '5': 8, '10': 'allowProfileView'},
+    {'1': 'allow_friend_requests', '3': 2, '4': 1, '5': 8, '10': 'allowFriendRequests'},
+    {'1': 'show_online_status', '3': 3, '4': 1, '5': 8, '10': 'showOnlineStatus'},
     {'1': 'show_last_active', '3': 4, '4': 1, '5': 8, '10': 'showLastActive'},
     {'1': 'show_read_status', '3': 5, '4': 1, '5': 8, '10': 'showReadStatus'},
   ],
@@ -314,3 +232,4 @@ const ThemeSettings$json = {
 final $typed_data.Uint8List themeSettingsDescriptor = $convert.base64Decode(
     'Cg1UaGVtZVNldHRpbmdzEh0KCnRoZW1lX21vZGUYASABKAlSCXRoZW1lTW9kZRIfCgt0aGVtZV'
     '9jb2xvchgCIAEoCVIKdGhlbWVDb2xvchIbCglmb250X3NpemUYAyABKAlSCGZvbnRTaXpl');
+

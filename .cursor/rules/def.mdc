@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
-这是一个模仿whatapp的flutter项目
+这是一个模仿telegra的flutter项目
 使用Cubit作为状态管理
 使用isar作为数据库
 使用integration_test作为测试框架

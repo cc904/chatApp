@@ -25,6 +25,9 @@ class _ChatsPageState extends State<ChatsPage>
   /// 搜索框控制器
   final TextEditingController _searchController = TextEditingController();
 
+  /// 搜索框焦点节点
+  final FocusNode _searchFocusNode = FocusNode();
+
   /// 日志服务实例
   final _logger = LogService.instance;
 
@@ -131,6 +134,7 @@ class _ChatsPageState extends State<ChatsPage>
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -235,99 +239,102 @@ class _ChatsPageState extends State<ChatsPage>
         ),
       ],
       centerTitle: true,
+    );
+  }
 
-      // 底部搜索区域
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(50),
-        child: Container(
-          color: Colors.green,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: TextField(
-            controller: _searchController,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              hintText: '搜索',
-              hintStyle: const TextStyle(color: Colors.grey),
-              prefixIcon: null,
-              border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              isDense: true,
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.circular(20),
+  /// 构建搜索框
+  Widget _buildSearchBox() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                hintText: '搜索',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                isDense: true,
+                filled: true,
+                fillColor: Colors.grey[200],
+                suffixIcon: _isSearching
+                    ? IconButton(
+                        icon: const Icon(Icons.clear,
+                            color: Colors.grey, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _isSearching = false;
+                          });
+                          // 清除后重新聚焦到搜索框
+                          _searchFocusNode.requestFocus();
+                        },
+                      )
+                    : null,
               ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              suffixIcon: _isSearching
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.clear,
-                              color: Colors.grey, size: 18),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                              _isSearching = false;
-                            });
-                          },
-                        ),
-                        Container(
-                          height: 24,
-                          width: 1,
-                          color: Colors.grey[300],
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: InkWell(
-                            onTap: () {
-                              final query = _searchController.text;
-                              if (query.isNotEmpty) {
-                                _searchConversations(query);
-                              }
-                              FocusScope.of(context).unfocus();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Text(
-                                '搜索',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : null,
+              style: const TextStyle(fontSize: 14),
+              onChanged: (value) {
+                setState(() {
+                  _isSearching = value.isNotEmpty;
+                });
+              },
+              textInputAction: TextInputAction.search,
+              onSubmitted: (value) {
+                if (value.isNotEmpty) {
+                  _searchConversations(value);
+                }
+                // 提交后重新聚焦到搜索框
+                _searchFocusNode.requestFocus();
+              },
             ),
-            style: const TextStyle(fontSize: 14),
-            onChanged: (value) {
-              setState(() {
-                _isSearching = value.isNotEmpty;
-              });
-              if (value.isNotEmpty) {
-                _searchConversations(value);
-              }
-            },
           ),
-        ),
+          if (_isSearching)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  final query = _searchController.text;
+                  if (query.isNotEmpty) {
+                    _searchConversations(query);
+                  }
+                  // 点击搜索后收起键盘但保持焦点
+                  FocusScope.of(context).unfocus();
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) {
+                      _searchFocusNode.requestFocus();
+                    }
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  minimumSize: const Size(0, 36),
+                ),
+                child: const Text(
+                  '搜索',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -351,88 +358,96 @@ class _ChatsPageState extends State<ChatsPage>
     }
 
     // 检查是否有会话
-    if (_filteredConversations.isEmpty) {
-      if (_isSearching && state.conversations.isNotEmpty) {
-        return const Center(child: Text('没有找到匹配的会话'));
-      }
+    if (_filteredConversations.isEmpty && !_isSearching) {
       return const Center(child: Text('没有会话'));
     }
 
     // 显示会话列表 - 使用AnimatedList替换ListView.builder
-    return AnimatedList(
-      key: _listKey,
-      initialItemCount: _filteredConversations.length,
-      itemBuilder: (context, index, animation) {
-        final conversation = _filteredConversations[index];
-        final contact = state.contacts.firstWhere(
-          (c) => c.userId == conversation.contactUserId,
-          orElse: () => User()..name = '未知用户',
-        );
-
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(animation),
-          child: FadeTransition(
-            opacity: animation,
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundImage: contact.avatar != null
-                    ? NetworkImage(contact.avatar!)
-                    : null,
-                child: contact.avatar == null ? Text(contact.name[0]) : null,
+    return _isSearching && _filteredConversations.isEmpty
+        ? Column(
+            children: [
+              _buildSearchBox(),
+              const Expanded(
+                child: Center(child: Text('没有找到匹配的会话')),
               ),
-              title: Text(contact.name),
-              subtitle: Text(conversation.lastMessagePreview ?? ''),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _formatTime(conversation.lastMessageTime),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  if (conversation.unreadCount > 0)
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
+            ],
+          )
+        : ListView.builder(
+            itemCount: _filteredConversations.length + 1, // +1 for search box
+            itemBuilder: (context, index) {
+              _logger.d('index: $index');
+              // 第一个项目是搜索框
+              if (index == 0) {
+                return _buildSearchBox();
+              }
+
+              // 调整索引以获取正确的会话
+              final conversationIndex = index - 1;
+              if (conversationIndex >= _filteredConversations.length) {
+                return null; // 防止越界
+              }
+
+              final conversation = _filteredConversations[conversationIndex];
+              final contact = state.contacts.firstWhere(
+                (c) => c.userId == conversation.contactUserId,
+                orElse: () => User()..name = '未知用户',
+              );
+
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: contact.avatar != null
+                      ? NetworkImage(contact.avatar!)
+                      : null,
+                  child: contact.avatar == null ? Text(contact.name[0]) : null,
+                ),
+                title: Text(contact.name),
+                subtitle: Text(conversation.lastMessagePreview ?? ''),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _formatTime(conversation.lastMessageTime),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    if (conversation.unreadCount > 0)
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          conversation.unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        conversation.unreadCount.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                  ],
+                ),
+                onTap: () {
+                  // 使用HomeCubit加载会话消息
+                  final homeCubit = context.read<HomeCubit>();
+                  homeCubit
+                      .loadMessagesForConversation(conversation.conversationId);
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BlocProvider.value(
+                        value: homeCubit,
+                        child: ChatDetailPage(
+                          conversationId: conversation.conversationId,
+                          contact: contact,
                         ),
                       ),
                     ),
-                ],
-              ),
-              onTap: () {
-                // 使用HomeCubit加载会话消息
-                final homeCubit = context.read<HomeCubit>();
-                homeCubit
-                    .loadMessagesForConversation(conversation.conversationId);
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BlocProvider.value(
-                      value: homeCubit,
-                      child: ChatDetailPage(
-                        conversationId: conversation.conversationId,
-                        contact: contact,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
+                  );
+                },
+              );
+            },
+          );
   }
 
   /// 格式化消息时间

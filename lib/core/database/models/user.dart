@@ -2,6 +2,7 @@ import 'package:isar/isar.dart';
 import 'package:fixnum/fixnum.dart';
 import 'conversation.dart';
 import 'package:cc/core/proto/generated/user.pb.dart' as proto;
+import 'package:lpinyin/lpinyin.dart';
 
 part 'user.g.dart';
 
@@ -56,17 +57,31 @@ class User {
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
   static User fromProto(proto.UserProto proto) {
-    return User()
+    final user = User()
       ..userId = proto.userId
       ..name = proto.name
       ..avatar = proto.hasAvatar() ? proto.avatar : null
       ..phone = proto.hasPhone() ? proto.phone : null
       ..email = proto.hasEmail() ? proto.email : null
-      ..pinyin = proto.hasPinyin() ? proto.pinyin : null
       ..lastActiveTime = proto.hasLastActiveTime()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastActiveTime.toInt())
           : null
       ..status = proto.hasStatus() ? proto.status : null;
+
+    // 如果proto中有拼音字段，则使用它；否则生成拼音
+    if (proto.hasPinyin() && proto.pinyin.isNotEmpty) {
+      user.pinyin = proto.pinyin;
+    } else if (user.name.isNotEmpty) {
+      try {
+        // 生成拼音
+        user.pinyin = PinyinHelper.getPinyin(user.name, separator: '');
+      } catch (e) {
+        // 生成失败时使用原名称
+        user.pinyin = user.name;
+      }
+    }
+
+    return user;
   }
 
   /// 将数据库对象转换为Protocol Buffer对象

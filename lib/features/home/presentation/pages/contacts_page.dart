@@ -7,6 +7,7 @@ import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+import 'package:cc/features/contacts/presentation/pages/contact_detail_page.dart';
 import 'package:lpinyin/lpinyin.dart';
 import 'dart:async';
 
@@ -91,23 +92,20 @@ class _ContactsPageState extends State<ContactsPage>
         // 如果是数字，归类到 '#'
         groupKey = '#';
       } else {
-        // 如果是其他字符（如中文），获取拼音首字母
-        try {
-          // 使用lpinyin库获取拼音首字母
-          String pinyinFirst = PinyinHelper.getFirstWordPinyin(firstChar);
-          if (pinyinFirst.isNotEmpty) {
-            groupKey = pinyinFirst[0].toUpperCase();
-            // 确保是英文字母
-            if (!RegExp(r'[A-Z]').hasMatch(groupKey)) {
-              groupKey = '#';
-            }
+        // 如果是中文或其他字符，使用联系人的pinyin字段
+        if (contact.pinyin != null && contact.pinyin!.isNotEmpty) {
+          // 使用pinyin字段的第一个字符作为分组键
+          final firstPinyinChar = contact.pinyin![0].toUpperCase();
+          // 确保是英文字母
+          if (RegExp(r'[A-Z]').hasMatch(firstPinyinChar)) {
+            groupKey = firstPinyinChar;
           } else {
             groupKey = '#';
           }
-        } catch (e) {
-          // 转换失败时使用 '#'
-          _logger.e('拼音转换失败', error: e);
+        } else {
+          // 如果pinyin字段为空，归类到 '#'
           groupKey = '#';
+          _logger.w('联系人没有拼音字段', extra: {'name': contact.name});
         }
       }
 
@@ -679,7 +677,7 @@ class _ContactsPageState extends State<ContactsPage>
   }
 
   /// 构建联系人列表项
-  /// 显示单个联系人的信息，点击后导航到聊天详情页
+  /// 显示单个联系人的信息，点击后导航到联系人详情页
   /// [contact] - 要显示的联系人对象
   Widget _buildContactItem(User contact) {
     return ListTile(
@@ -690,27 +688,20 @@ class _ContactsPageState extends State<ContactsPage>
       ),
       title: Text(contact.name),
       subtitle: Text(contact.status ?? ''),
-      onTap: () async {
+      onTap: () {
+        _logger.i('打开联系人详情页：${contact.name}');
         final homeCubit = context.read<HomeCubit>();
-        final conversationId =
-            await homeCubit.getOrCreatePrivateConversation(contact.userId);
-
-        if (conversationId != null && mounted) {
-          // 在异步操作后重新获取homeCubit，确保它仍然有效
-          final currentHomeCubit = context.read<HomeCubit>();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BlocProvider.value(
-                value: currentHomeCubit,
-                child: ChatDetailPage(
-                  contact: contact,
-                  conversationId: conversationId,
-                ),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BlocProvider.value(
+              value: homeCubit,
+              child: ContactDetailPage(
+                contact: contact,
               ),
             ),
-          );
-        }
+          ),
+        );
       },
     );
   }

@@ -6,7 +6,6 @@ import 'package:cc/core/database/models/friend_request.dart'
     as db_friend_request;
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
-import 'package:cc/core/services/proto_events.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/contacts.pb.dart';
 import 'package:fixnum/fixnum.dart';
@@ -46,7 +45,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
     _logger.x('ContactsRepositoryImpl 初始化');
   }
 
-  /// 注册事件监听 
+  /// 注册事件监听
   @override
   Future<void> registerEventHandlers() async {
     if (!_communicationService.isInitialized) {
@@ -92,7 +91,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
           });
           _handleContactsSyncResultProto(response);
         }));
-
     } catch (e, stack) {
       _logger.e('设置Proto事件订阅失败', error: e, stackTrace: stack);
     }
@@ -105,7 +103,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 使用 fromProto 方法将 UserProto 转换为 User 对象
       final List<db_user.User> contacts = data.users.map((contact) {
-        return db_user.User.fromProto(contact);
+        final user = db_user.User.fromProto(contact);
+        return user;
       }).toList();
 
       // 保存到数据库
@@ -140,7 +139,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 使用 fromProto 方法将 UserProto 转换为 User 对象
       final List<db_user.User> contacts = response.contacts.map((contact) {
-        return db_user.User.fromProto(contact);
+        final user = db_user.User.fromProto(contact);
+        return user;
       }).toList();
 
       // 保存到数据库
@@ -156,7 +156,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
               ..avatar = contact.avatar
               ..phone = contact.phone
               ..email = contact.email
-              ..pinyin = contact.pinyin;
+              ..pinyin = contact.pinyin; // 使用contact中的拼音
             await _users.put(existingUser);
           } else {
             // 添加新联系人
@@ -206,11 +206,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
     try {
       // 返回本地数据库中的联系人列表
       final users = await _users.where().findAll();
-      _logger.d('获取联系人列表成功 - ${users.length} 个联系人',
-          stackTrace: StackTrace.current);
+      _logger.i('从本地数据库中获取 - ${users.length} 个联系人');
       return users;
     } catch (error) {
-      _logger.e('获取联系人列表失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('从本地数据库中获取联系人列表失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -242,11 +241,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<db_user.User?> getContactById(String userId) async {
     try {
-      final id = int.tryParse(userId);
-      if (id == null) return null;
-
-      final user = await _users.get(id);
-      return user;
+      // 使用userId字段查询，而不是尝试转换为整数ID
+      return await _users.filter().userIdEqualTo(userId).findFirst();
     } catch (error) {
       _logger.e('获取联系人详情失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -291,11 +287,13 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> deleteContact(String userId) async {
     try {
-      final id = int.tryParse(userId);
-      if (id == null) return false;
+      // 使用userId字段查询，而不是尝试转换为整数ID
+      final contact = await _users.filter().userIdEqualTo(userId).findFirst();
+      if (contact == null) return false;
 
       await _isar.writeTxn(() async {
-        await _users.delete(id);
+        // 使用联系人的Isar ID删除
+        await _users.delete(contact.id);
       });
       return true;
     } catch (error) {

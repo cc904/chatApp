@@ -128,3 +128,26 @@ final $typed_data.Uint8List syncConversationsRequestDescriptor = $convert.base64
     'ChhTeW5jQ29udmVyc2F0aW9uc1JlcXVlc3QSNAoWbG9jYWxfY29udmVyc2F0aW9uX2lkcxgBIA'
     'MoCVIUbG9jYWxDb252ZXJzYXRpb25JZHMSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
 
+@$core.Deprecated('Use conversationUpdateNotificationDescriptor instead')
+const ConversationUpdateNotification$json = {
+  '1': 'ConversationUpdateNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'last_message_preview', '3': 2, '4': 1, '5': 9, '10': 'lastMessagePreview'},
+    {'1': 'last_message_time', '3': 3, '4': 1, '5': 3, '10': 'lastMessageTime'},
+    {'1': 'unread_count', '3': 4, '4': 1, '5': 5, '10': 'unreadCount'},
+    {'1': 'sender_id', '3': 5, '4': 1, '5': 9, '10': 'senderId'},
+    {'1': 'sender_name', '3': 6, '4': 1, '5': 9, '10': 'senderName'},
+    {'1': 'message_type', '3': 7, '4': 1, '5': 9, '10': 'messageType'},
+  ],
+};
+
+/// Descriptor for `ConversationUpdateNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationUpdateNotificationDescriptor = $convert.base64Decode(
+    'Ch5Db252ZXJzYXRpb25VcGRhdGVOb3RpZmljYXRpb24SJwoPY29udmVyc2F0aW9uX2lkGAEgAS'
+    'gJUg5jb252ZXJzYXRpb25JZBIwChRsYXN0X21lc3NhZ2VfcHJldmlldxgCIAEoCVISbGFzdE1l'
+    'c3NhZ2VQcmV2aWV3EioKEWxhc3RfbWVzc2FnZV90aW1lGAMgASgDUg9sYXN0TWVzc2FnZVRpbW'
+    'USIQoMdW5yZWFkX2NvdW50GAQgASgFUgt1bnJlYWRDb3VudBIbCglzZW5kZXJfaWQYBSABKAlS'
+    'CHNlbmRlcklkEh8KC3NlbmRlcl9uYW1lGAYgASgJUgpzZW5kZXJOYW1lEiEKDG1lc3NhZ2VfdH'
+    'lwZRgHIAEoCVILbWVzc2FnZVR5cGU=');
+
