@@ -22,6 +22,25 @@ class ProtoEvents {
     'conversation:sync:result': () => conversation.ConversationCollection(),
     'conversation:update:notification': () =>
         conversation.ConversationUpdateNotification(),
+    'conversation:settings:update': () =>
+        conversation.ConversationSettingsUpdateRequest(),
+    'conversation:settings:updated': () =>
+        conversation.ConversationSettingsUpdateResponse(),
+    'conversation:join': () => conversation.ConversationJoinRequest(),
+    'conversation:leave': () => conversation.ConversationLeaveRequest(),
+    'conversation:create': () => conversation.ConversationCreateRequest(),
+    'conversation:create:response': () =>
+        conversation.ConversationCreateResponse(),
+    'conversation:mark:read': () => conversation.ConversationMarkReadRequest(),
+    'conversation:mark:read:response': () =>
+        conversation.ConversationMarkReadResponse(),
+    'conversation:member:update': () =>
+        conversation.ConversationMemberRequest(),
+    'conversation:members': () => conversation.ConversationMembersResponse(),
+    'conversation:member:change': () =>
+        conversation.ConversationMemberChangeNotification(),
+    'conversation:user:joined': () => conversation.UserJoinedNotification(),
+    'conversation:user:left': () => conversation.UserLeftNotification(),
 
     // 用户相关事件
     'user:online': () => user.UserStatusUpdate(),

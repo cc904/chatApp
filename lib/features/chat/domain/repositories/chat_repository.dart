@@ -131,6 +131,22 @@ abstract class ChatRepository {
   /// 更新会话的静音状态
   Future<void> updateConversationMuteStatus(
       String conversationId, bool isMuted);
+
+  /// 更新会话的置顶状态
+  Future<void> updateConversationPinStatus(
+      String conversationId, bool isPinned);
+
+  /// 更新会话的最后阅读时间
+  Future<void> updateLastReadAt(String conversationId, DateTime timestamp);
+
+  /// 更新会话的最后阅读消息ID
+  Future<void> updateLastReadMessageId(String conversationId, String messageId);
+
+  /// 用户进入会话页面，加入对应的Socket.io会话房间
+  Future<void> joinConversationRoom(String conversationId);
+
+  /// 用户离开会话页面，离开对应的Socket.io会话房间
+  Future<void> leaveConversationRoom(String conversationId);
 }
 
 /// 同步状态枚举

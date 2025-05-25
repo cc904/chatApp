@@ -42,49 +42,69 @@ const ConversationSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'isMuted': PropertySchema(
+    r'hasUnread': PropertySchema(
       id: 5,
+      name: r'hasUnread',
+      type: IsarType.bool,
+    ),
+    r'isMuted': PropertySchema(
+      id: 6,
       name: r'isMuted',
       type: IsarType.bool,
     ),
+    r'isPinned': PropertySchema(
+      id: 7,
+      name: r'isPinned',
+      type: IsarType.bool,
+    ),
     r'lastMessageId': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'lastMessageId',
       type: IsarType.string,
     ),
     r'lastMessagePreview': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'lastMessagePreview',
       type: IsarType.string,
     ),
     r'lastMessageSenderId': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'lastMessageSenderId',
       type: IsarType.string,
     ),
     r'lastMessageTime': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'lastMessageTime',
       type: IsarType.dateTime,
     ),
+    r'lastReadAt': PropertySchema(
+      id: 12,
+      name: r'lastReadAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastReadMessageId': PropertySchema(
+      id: 13,
+      name: r'lastReadMessageId',
+      type: IsarType.string,
+    ),
     r'name': PropertySchema(
-      id: 10,
+      id: 14,
       name: r'name',
       type: IsarType.string,
     ),
     r'safeUnreadCount': PropertySchema(
-      id: 11,
+      id: 15,
       name: r'safeUnreadCount',
       type: IsarType.long,
     ),
     r'type': PropertySchema(
-      id: 12,
+      id: 16,
       name: r'type',
       type: IsarType.string,
       enumMap: _ConversationtypeEnumValueMap,
     ),
     r'unreadCount': PropertySchema(
-      id: 13,
+      id: 17,
       name: r'unreadCount',
       type: IsarType.long,
     )
@@ -156,6 +176,12 @@ int _conversationEstimateSize(
     }
   }
   {
+    final value = object.lastReadMessageId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.name;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -176,15 +202,19 @@ void _conversationSerialize(
   writer.writeString(offsets[2], object.contactUserId);
   writer.writeString(offsets[3], object.conversationId);
   writer.writeDateTime(offsets[4], object.createdAt);
-  writer.writeBool(offsets[5], object.isMuted);
-  writer.writeString(offsets[6], object.lastMessageId);
-  writer.writeString(offsets[7], object.lastMessagePreview);
-  writer.writeString(offsets[8], object.lastMessageSenderId);
-  writer.writeDateTime(offsets[9], object.lastMessageTime);
-  writer.writeString(offsets[10], object.name);
-  writer.writeLong(offsets[11], object.safeUnreadCount);
-  writer.writeString(offsets[12], object.type.name);
-  writer.writeLong(offsets[13], object.unreadCount);
+  writer.writeBool(offsets[5], object.hasUnread);
+  writer.writeBool(offsets[6], object.isMuted);
+  writer.writeBool(offsets[7], object.isPinned);
+  writer.writeString(offsets[8], object.lastMessageId);
+  writer.writeString(offsets[9], object.lastMessagePreview);
+  writer.writeString(offsets[10], object.lastMessageSenderId);
+  writer.writeDateTime(offsets[11], object.lastMessageTime);
+  writer.writeDateTime(offsets[12], object.lastReadAt);
+  writer.writeString(offsets[13], object.lastReadMessageId);
+  writer.writeString(offsets[14], object.name);
+  writer.writeLong(offsets[15], object.safeUnreadCount);
+  writer.writeString(offsets[16], object.type.name);
+  writer.writeLong(offsets[17], object.unreadCount);
 }
 
 Conversation _conversationDeserialize(
@@ -199,17 +229,20 @@ Conversation _conversationDeserialize(
   object.conversationId = reader.readString(offsets[3]);
   object.createdAt = reader.readDateTime(offsets[4]);
   object.id = id;
-  object.isMuted = reader.readBool(offsets[5]);
-  object.lastMessageId = reader.readStringOrNull(offsets[6]);
-  object.lastMessagePreview = reader.readStringOrNull(offsets[7]);
-  object.lastMessageSenderId = reader.readStringOrNull(offsets[8]);
-  object.lastMessageTime = reader.readDateTimeOrNull(offsets[9]);
-  object.name = reader.readStringOrNull(offsets[10]);
-  object.safeUnreadCount = reader.readLong(offsets[11]);
+  object.isMuted = reader.readBool(offsets[6]);
+  object.isPinned = reader.readBool(offsets[7]);
+  object.lastMessageId = reader.readStringOrNull(offsets[8]);
+  object.lastMessagePreview = reader.readStringOrNull(offsets[9]);
+  object.lastMessageSenderId = reader.readStringOrNull(offsets[10]);
+  object.lastMessageTime = reader.readDateTimeOrNull(offsets[11]);
+  object.lastReadAt = reader.readDateTimeOrNull(offsets[12]);
+  object.lastReadMessageId = reader.readStringOrNull(offsets[13]);
+  object.name = reader.readStringOrNull(offsets[14]);
+  object.safeUnreadCount = reader.readLong(offsets[15]);
   object.type =
-      _ConversationtypeValueEnumMap[reader.readStringOrNull(offsets[12])] ??
+      _ConversationtypeValueEnumMap[reader.readStringOrNull(offsets[16])] ??
           ConversationType.private;
-  object.unreadCount = reader.readLong(offsets[13]);
+  object.unreadCount = reader.readLong(offsets[17]);
   return object;
 }
 
@@ -233,21 +266,29 @@ P _conversationDeserializeProp<P>(
     case 5:
       return (reader.readBool(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 8:
       return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 12:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readLong(offset)) as P;
+    case 16:
       return (_ConversationtypeValueEnumMap[reader.readStringOrNull(offset)] ??
           ConversationType.private) as P;
-    case 13:
+    case 17:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -997,6 +1038,16 @@ extension ConversationQueryFilter
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      hasUnreadEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'hasUnread',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QAfterFilterCondition> idEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -1055,6 +1106,16 @@ extension ConversationQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isMuted',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      isPinnedEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isPinned',
         value: value,
       ));
     });
@@ -1592,6 +1653,234 @@ extension ConversationQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastReadAt',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastReadAt',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastReadAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastReadAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastReadAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastReadAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastReadMessageId',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastReadMessageId',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastReadMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastReadMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastReadMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastReadMessageId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastReadMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastReadMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastReadMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastReadMessageId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastReadMessageId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      lastReadMessageIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastReadMessageId',
+        value: '',
       ));
     });
   }
@@ -2188,6 +2477,18 @@ extension ConversationQuerySortBy
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByHasUnread() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasUnread', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByHasUnreadDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasUnread', Sort.desc);
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByIsMuted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isMuted', Sort.asc);
@@ -2197,6 +2498,18 @@ extension ConversationQuerySortBy
   QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByIsMutedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isMuted', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByIsPinnedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.desc);
     });
   }
 
@@ -2252,6 +2565,33 @@ extension ConversationQuerySortBy
       sortByLastMessageTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastMessageTime', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByLastReadAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy>
+      sortByLastReadAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy>
+      sortByLastReadMessageId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadMessageId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy>
+      sortByLastReadMessageIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadMessageId', Sort.desc);
     });
   }
 
@@ -2373,6 +2713,18 @@ extension ConversationQuerySortThenBy
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByHasUnread() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasUnread', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByHasUnreadDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasUnread', Sort.desc);
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2394,6 +2746,18 @@ extension ConversationQuerySortThenBy
   QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByIsMutedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isMuted', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByIsPinnedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.desc);
     });
   }
 
@@ -2449,6 +2813,33 @@ extension ConversationQuerySortThenBy
       thenByLastMessageTimeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastMessageTime', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByLastReadAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy>
+      thenByLastReadAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy>
+      thenByLastReadMessageId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadMessageId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy>
+      thenByLastReadMessageIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastReadMessageId', Sort.desc);
     });
   }
 
@@ -2542,9 +2933,21 @@ extension ConversationQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QDistinct> distinctByHasUnread() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'hasUnread');
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QDistinct> distinctByIsMuted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isMuted');
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QDistinct> distinctByIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isPinned');
     });
   }
 
@@ -2576,6 +2979,20 @@ extension ConversationQueryWhereDistinct
       distinctByLastMessageTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastMessageTime');
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QDistinct> distinctByLastReadAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastReadAt');
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QDistinct>
+      distinctByLastReadMessageId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastReadMessageId',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2647,9 +3064,21 @@ extension ConversationQueryProperty
     });
   }
 
+  QueryBuilder<Conversation, bool, QQueryOperations> hasUnreadProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'hasUnread');
+    });
+  }
+
   QueryBuilder<Conversation, bool, QQueryOperations> isMutedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isMuted');
+    });
+  }
+
+  QueryBuilder<Conversation, bool, QQueryOperations> isPinnedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isPinned');
     });
   }
 
@@ -2678,6 +3107,19 @@ extension ConversationQueryProperty
       lastMessageTimeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastMessageTime');
+    });
+  }
+
+  QueryBuilder<Conversation, DateTime?, QQueryOperations> lastReadAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastReadAt');
+    });
+  }
+
+  QueryBuilder<Conversation, String?, QQueryOperations>
+      lastReadMessageIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastReadMessageId');
     });
   }
 

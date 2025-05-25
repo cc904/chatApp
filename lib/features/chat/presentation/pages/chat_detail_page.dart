@@ -58,8 +58,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void initState() {
     super.initState();
     _logger.i('初始化ChatDetailPage: conversationId=${widget.conversationId}');
-    // 加载会话消息
-    _loadConversation();
 
     // 监听滚动事件,用于加载历史消息
     _scrollController.addListener(_scrollListener);
@@ -79,6 +77,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       duration: const Duration(milliseconds: 750),
     );
     _voiceAnimationController.repeat(reverse: true);
+
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _loadConversation();
   }
 
   @override
@@ -122,12 +126,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   }
 
   // 加载会话和消息
-  void _loadConversation() {
+  Future<void> _loadConversation() async {
     try {
       final homeCubit = BlocProvider.of<HomeCubit>(context);
 
       // 设置当前会话ID
-      homeCubit.loadMessagesForConversation(widget.conversationId);
+      await homeCubit.loadMessagesForConversation(widget.conversationId);
     } catch (error) {
       _logger.e('加载会话失败: $error');
       UINotificationService().showError('加载会话失败: $error');

@@ -117,7 +117,19 @@ class ChatRepositoryImpl implements ChatRepository {
       ..add(_communicationService
           .onProto<conversation_proto.ConversationUpdateNotification>(
               'conversation:update:notification')
-          .listen(_handleConversationUpdateNotification));
+          .listen(_handleConversationUpdateNotification))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationSettingsUpdateResponse>(
+              'conversation:settings:updated')
+          .listen(_handleConversationSettingsUpdate))
+      ..add(_communicationService
+          .onProto<conversation_proto.UserJoinedNotification>(
+              'conversation:user:joined')
+          .listen(_handleUserJoinedNotification))
+      ..add(_communicationService
+          .onProto<conversation_proto.UserLeftNotification>(
+              'conversation:user:left')
+          .listen(_handleUserLeftNotification));
   }
 
   /// 处理新消息
@@ -457,8 +469,26 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [conversationId] - 会话ID
   @override
   Future<void> markConversationAsRead(String conversationId) async {
-    // 调用已实现的markMessagesAsRead方法
-    await markMessagesAsRead(conversationId);
+    try {
+      // 获取会话的最后一条消息ID
+      final conversation = await getConversationById(conversationId);
+      final lastMessageId = conversation?.lastMessageId;
+
+      // 更新最后阅读时间
+      await updateLastReadAt(conversationId, DateTime.now());
+
+      // 如果有最后一条消息ID，更新最后阅读消息ID
+      if (lastMessageId != null) {
+        await updateLastReadMessageId(conversationId, lastMessageId);
+      }
+
+      // 标记消息为已读
+      await markMessagesAsRead(conversationId);
+
+      _logger.i('会话已标记为已读', extra: {'conversationId': conversationId});
+    } catch (error) {
+      _logger.e('标记会话为已读失败', error: error, stackTrace: StackTrace.current);
+    }
   }
 
   /// 监听会话变化
@@ -718,12 +748,7 @@ class ChatRepositoryImpl implements ChatRepository {
           await _messages.put(message);
         }
 
-        // 更新会话未读数
-        final conversation = await getConversationById(conversationId);
-        if (conversation != null) {
-          conversation.unreadCount = 0;
-          await _conversations.put(conversation);
-        }
+        // 不再更新会话未读数，由updateLastReadAt处理
       });
     } catch (error) {
       _logger.e('标记消息为已读失败', error: error, stackTrace: StackTrace.current);
@@ -1051,6 +1076,22 @@ class ChatRepositoryImpl implements ChatRepository {
               break;
             default:
               conversation.lastMessagePreview = '[消息]';
+          }
+
+          // 如果消息不是当前用户发送的，且用户不在会话页面中，增加未读计数
+          if (message.senderId != _currentUser.userId) {
+            // TODO: 检查用户是否在会话页面中（需要Socket.io房间信息）
+            // 暂时简单处理：如果最后阅读时间晚于消息时间，则不增加未读计数
+            final isUserInConversation = conversation.lastReadAt != null &&
+                conversation.lastReadAt!.isAfter(message.createdAt);
+
+            if (!isUserInConversation) {
+              conversation.unreadCount += 1;
+              _logger.d('增加会话未读计数', extra: {
+                'conversationId': message.conversationId,
+                'unreadCount': conversation.unreadCount
+              });
+            }
           }
 
           // 保存更新后的会话
@@ -1549,10 +1590,395 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       // 同步到服务器
-      // TODO: 如果有服务器同步需求，这里添加相应的API调用
+      if (_communicationService.isInitialized) {
+        _logger.i('开始同步会话静音状态到服务器');
+
+        // 创建会话设置更新请求
+        final settingsUpdateRequest =
+            conversation_proto.ConversationSettingsUpdateRequest()
+              ..conversationId = conversationId
+              ..muted = isMuted;
+
+        // 发送请求到服务器
+        _communicationService.emitProto(
+            'conversation:settings:update', settingsUpdateRequest);
+
+        // 服务器响应会通过_handleConversationSettingsUpdate方法处理
+      } else {
+        _logger.w('通信服务未初始化，无法同步会话静音状态到服务器');
+      }
     } catch (error) {
       _logger.e('更新会话静音状态失败', error: error);
       throw Exception('更新会话静音状态失败: ${error.toString()}');
+    }
+  }
+
+  /// 处理会话设置更新响应
+  /// 监听服务器推送的会话设置变更（如静音、置顶状态）并更新本地数据库
+  /// 主要用于处理来自其他设备同步的设置变更
+  /// [response] - 会话设置更新响应数据
+  void _handleConversationSettingsUpdate(
+      conversation_proto.ConversationSettingsUpdateResponse response) {
+    try {
+      _logger.i('收到会话设置更新通知', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'muted': response.hasMuted() ? response.muted : '未变更',
+        'pinned': response.hasPinned() ? response.pinned : '未变更'
+      });
+
+      if (!response.success) {
+        _logger
+            .w('会话设置更新失败', extra: {'conversationId': response.conversationId});
+        return;
+      }
+
+      // 更新本地会话数据
+      _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(response.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          // 更新静音状态
+          if (response.hasMuted()) {
+            conversation.isMuted = response.muted;
+            _logger.d('已更新会话静音状态', extra: {
+              'conversationId': response.conversationId,
+              'muted': response.muted
+            });
+          }
+
+          // 更新置顶状态
+          if (response.hasPinned()) {
+            conversation.isPinned = response.pinned;
+            _logger.d('已更新会话置顶状态', extra: {
+              'conversationId': response.conversationId,
+              'pinned': response.pinned
+            });
+          }
+
+          /* 
+          // 更新最后阅读时间 - 等待proto定义更新后再启用
+          if (response.hasLastReadAt()) {
+            final lastReadAt = 
+                DateTime.fromMillisecondsSinceEpoch(response.lastReadAt.toInt());
+            conversation.lastReadAt = lastReadAt;
+            
+            // 如果最后阅读时间晚于或等于最后消息时间，则清零未读计数
+            if (conversation.lastMessageTime != null && 
+                (lastReadAt.isAfter(conversation.lastMessageTime!) || 
+                 lastReadAt.isAtSameMomentAs(conversation.lastMessageTime!))) {
+              conversation.unreadCount = 0;
+            }
+            
+            _logger.d('已更新会话最后阅读时间',
+                extra: {'conversationId': response.conversationId, 'lastReadAt': lastReadAt.toString()});
+          }
+          */
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+          _logger.d('已更新本地会话设置',
+              extra: {'conversationId': response.conversationId});
+        } else {
+          _logger.w('本地找不到对应的会话',
+              extra: {'conversationId': response.conversationId});
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话设置更新响应失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  @override
+  Future<void> updateConversationPinStatus(
+      String conversationId, bool isPinned) async {
+    _logger.i('更新会话置顶状态',
+        extra: {'conversationId': conversationId, 'isPinned': isPinned});
+
+    try {
+      // 更新本地数据库
+      final conversation = await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+      if (conversation != null) {
+        // 使用事务包装数据库写入操作
+        await _isar.writeTxn(() async {
+          conversation.isPinned = isPinned;
+          await _conversations.put(conversation);
+        });
+        _logger.i('本地数据库会话置顶状态已更新');
+      } else {
+        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
+        throw Exception('找不到指定会话');
+      }
+
+      // 同步到服务器
+      if (_communicationService.isInitialized) {
+        _logger.i('开始同步会话置顶状态到服务器');
+
+        // 创建会话设置更新请求
+        final settingsUpdateRequest =
+            conversation_proto.ConversationSettingsUpdateRequest()
+              ..conversationId = conversationId
+              ..pinned = isPinned;
+
+        // 发送请求到服务器
+        _communicationService.emitProto(
+            'conversation:settings:update', settingsUpdateRequest);
+
+        // 服务器响应会通过_handleConversationSettingsUpdate方法处理
+      } else {
+        _logger.w('通信服务未初始化，无法同步会话置顶状态到服务器');
+      }
+    } catch (error) {
+      _logger.e('更新会话置顶状态失败', error: error);
+      throw Exception('更新会话置顶状态失败: ${error.toString()}');
+    }
+  }
+
+  @override
+  Future<void> updateLastReadAt(
+      String conversationId, DateTime timestamp) async {
+    _logger.i('更新会话最后阅读时间', extra: {
+      'conversationId': conversationId,
+      'timestamp': timestamp.toString()
+    });
+
+    try {
+      // 更新本地数据库
+      final conversation = await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+      if (conversation != null) {
+        // 使用事务包装数据库写入操作
+        await _isar.writeTxn(() async {
+          conversation.lastReadAt = timestamp;
+
+          // 如果最后阅读时间晚于或等于最后消息时间，则清零未读计数
+          if (conversation.lastMessageTime != null &&
+              (timestamp.isAfter(conversation.lastMessageTime!) ||
+                  timestamp.isAtSameMomentAs(conversation.lastMessageTime!))) {
+            conversation.unreadCount = 0;
+          }
+
+          await _conversations.put(conversation);
+        });
+        _logger.i('本地数据库会话最后阅读时间已更新');
+      } else {
+        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
+        throw Exception('找不到指定会话');
+      }
+
+      // 同步到服务器
+      if (_communicationService.isInitialized) {
+        _logger.i('开始同步会话最后阅读时间到服务器');
+
+        // 创建会话标记已读请求
+        final markReadRequest = conversation_proto.ConversationMarkReadRequest()
+          ..conversationId = conversationId
+          ..userId = _currentUser.userId
+          ..readAt = $fixnum.Int64(timestamp.millisecondsSinceEpoch);
+
+        // 发送请求到服务器
+        _communicationService.emitProto(
+            'conversation:mark:read', markReadRequest);
+
+        // 监听服务器响应
+        _communicationService
+            .onProto<conversation_proto.ConversationMarkReadResponse>(
+                'conversation:mark:read:response')
+            .first
+            .then((response) {
+          if (response.success) {
+            _logger.i('服务器已更新会话最后阅读时间', extra: {
+              'conversationId': response.conversationId,
+              'remainingUnread': response.remainingUnread
+            });
+          } else {
+            _logger.w('服务器更新会话最后阅读时间失败',
+                extra: {'conversationId': response.conversationId});
+          }
+        }).catchError((error) {
+          _logger.e('接收服务器最后阅读时间更新响应时出错', error: error);
+        });
+      } else {
+        _logger.w('通信服务未初始化，无法同步会话最后阅读时间到服务器');
+      }
+    } catch (error) {
+      _logger.e('更新会话最后阅读时间失败', error: error);
+      throw Exception('更新会话最后阅读时间失败: ${error.toString()}');
+    }
+  }
+
+  @override
+  Future<void> updateLastReadMessageId(
+      String conversationId, String messageId) async {
+    _logger.i('更新会话最后阅读消息ID',
+        extra: {'conversationId': conversationId, 'messageId': messageId});
+
+    try {
+      // 更新本地数据库
+      final conversation = await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+      if (conversation != null) {
+        // 使用事务包装数据库写入操作
+        await _isar.writeTxn(() async {
+          conversation.lastReadMessageId = messageId;
+          await _conversations.put(conversation);
+        });
+        _logger.i('本地数据库会话最后阅读消息ID已更新');
+      } else {
+        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
+        throw Exception('找不到指定会话');
+      }
+
+      // 同步到服务器
+      if (_communicationService.isInitialized) {
+        _logger.i('开始同步会话最后阅读消息ID到服务器');
+
+        // 创建会话标记已读请求
+        final markReadRequest = conversation_proto.ConversationMarkReadRequest()
+          ..conversationId = conversationId
+          ..userId = _currentUser.userId
+          ..messageId = messageId;
+
+        // 发送请求到服务器
+        _communicationService.emitProto(
+            'conversation:mark:read', markReadRequest);
+
+        // 监听服务器响应
+        _communicationService
+            .onProto<conversation_proto.ConversationMarkReadResponse>(
+                'conversation:mark:read:response')
+            .first
+            .then((response) {
+          if (response.success) {
+            _logger.i('服务器已更新会话最后阅读消息ID', extra: {
+              'conversationId': response.conversationId,
+              'remainingUnread': response.remainingUnread
+            });
+          } else {
+            _logger.w('服务器更新会话最后阅读消息ID失败',
+                extra: {'conversationId': response.conversationId});
+          }
+        }).catchError((error) {
+          _logger.e('接收服务器最后阅读消息ID更新响应时出错', error: error);
+        });
+      } else {
+        _logger.w('通信服务未初始化，无法同步会话最后阅读消息ID到服务器');
+      }
+    } catch (error) {
+      _logger.e('更新会话最后阅读消息ID失败', error: error);
+      throw Exception('更新会话最后阅读消息ID失败: ${error.toString()}');
+    }
+  }
+
+  /// 用户进入会话页面
+  /// 将用户加入对应的Socket.io会话房间，但不重置未读消息计数
+  /// [conversationId] - 会话ID
+  Future<void> joinConversationRoom(String conversationId) async {
+    try {
+      _logger.i('用户进入会话页面', extra: {'conversationId': conversationId});
+
+      // 通知服务器用户加入会话房间
+      if (_communicationService.isInitialized) {
+        final joinRoomRequest = conversation_proto.ConversationJoinRequest()
+          ..conversationId = conversationId
+          ..userId = _currentUser.userId;
+
+        _communicationService.emitProto('conversation:join', joinRoomRequest);
+        _logger.d('已发送加入会话房间请求');
+      }
+
+      // 更新最后阅读时间，但不重置未读计数
+      await _isar.writeTxn(() async {
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          conversation.lastReadAt = DateTime.now();
+
+          // 如果有最后一条消息ID，也更新最后阅读消息ID
+          if (conversation.lastMessageId != null) {
+            conversation.lastReadMessageId = conversation.lastMessageId;
+          }
+
+          await _conversations.put(conversation);
+          _logger.d('已更新会话最后阅读时间和最后阅读消息ID');
+        }
+      });
+    } catch (error) {
+      _logger.e('加入会话房间失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 用户离开会话页面
+  /// 将用户从对应的Socket.io会话房间中移除
+  /// [conversationId] - 会话ID
+  Future<void> leaveConversationRoom(String conversationId) async {
+    try {
+      _logger.i('用户离开会话页面', extra: {'conversationId': conversationId});
+
+      // 通知服务器用户离开会话房间
+      if (_communicationService.isInitialized) {
+        final leaveRoomRequest = conversation_proto.ConversationLeaveRequest()
+          ..conversationId = conversationId
+          ..userId = _currentUser.userId;
+
+        _communicationService.emitProto('conversation:leave', leaveRoomRequest);
+        _logger.d('已发送离开会话房间请求');
+      }
+    } catch (error) {
+      _logger.e('离开会话房间失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理用户加入会话通知
+  /// 当其他用户加入会话时接收到的通知
+  /// [notification] - 用户加入通知数据
+  void _handleUserJoinedNotification(
+      conversation_proto.UserJoinedNotification notification) {
+    try {
+      _logger.i('收到用户加入会话通知', extra: {
+        'conversationId': notification.conversationId,
+        'userId': notification.userId,
+        'userName': notification.userName
+      });
+
+      // TODO: 更新会话参与者列表
+      // 需要获取用户信息并添加到会话参与者中
+    } catch (error, stackTrace) {
+      _logger.e('处理用户加入会话通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理用户离开会话通知
+  /// 当其他用户离开会话时接收到的通知
+  /// [notification] - 用户离开通知数据
+  void _handleUserLeftNotification(
+      conversation_proto.UserLeftNotification notification) {
+    try {
+      _logger.i('收到用户离开会话通知', extra: {
+        'conversationId': notification.conversationId,
+        'userId': notification.userId,
+        'userName': notification.userName,
+        'reason': notification.reason
+      });
+
+      // TODO: 更新会话参与者列表
+      // 需要从会话参与者中移除该用户
+    } catch (error, stackTrace) {
+      _logger.e('处理用户离开会话通知失败', error: error, stackTrace: stackTrace);
     }
   }
 }

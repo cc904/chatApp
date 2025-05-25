@@ -40,6 +40,8 @@ class ConversationProto extends $pb.GeneratedMessage {
     $core.bool? pinned,
     $core.String? createdBy,
     $1.MessageProto? lastMessage,
+    $fixnum.Int64? lastReadAt,
+    $core.String? lastReadMessageId,
   }) {
     final $result = create();
     if (conversationId != null) {
@@ -90,6 +92,12 @@ class ConversationProto extends $pb.GeneratedMessage {
     if (lastMessage != null) {
       $result.lastMessage = lastMessage;
     }
+    if (lastReadAt != null) {
+      $result.lastReadAt = lastReadAt;
+    }
+    if (lastReadMessageId != null) {
+      $result.lastReadMessageId = lastReadMessageId;
+    }
     return $result;
   }
   ConversationProto._() : super();
@@ -113,6 +121,8 @@ class ConversationProto extends $pb.GeneratedMessage {
     ..aOB(14, _omitFieldNames ? '' : 'pinned')
     ..aOS(15, _omitFieldNames ? '' : 'createdBy')
     ..aOM<$1.MessageProto>(16, _omitFieldNames ? '' : 'lastMessage', subBuilder: $1.MessageProto.create)
+    ..aInt64(17, _omitFieldNames ? '' : 'lastReadAt')
+    ..aOS(18, _omitFieldNames ? '' : 'lastReadMessageId')
     ..hasRequiredFields = false
   ;
 
@@ -279,6 +289,25 @@ class ConversationProto extends $pb.GeneratedMessage {
   void clearLastMessage() => $_clearField(16);
   @$pb.TagNumber(16)
   $1.MessageProto ensureLastMessage() => $_ensure(15);
+
+  /// 最后阅读时间，用于客户端计算会话未读状态
+  @$pb.TagNumber(17)
+  $fixnum.Int64 get lastReadAt => $_getI64(16);
+  @$pb.TagNumber(17)
+  set lastReadAt($fixnum.Int64 v) { $_setInt64(16, v); }
+  @$pb.TagNumber(17)
+  $core.bool hasLastReadAt() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearLastReadAt() => $_clearField(17);
+
+  @$pb.TagNumber(18)
+  $core.String get lastReadMessageId => $_getSZ(17);
+  @$pb.TagNumber(18)
+  set lastReadMessageId($core.String v) { $_setString(17, v); }
+  @$pb.TagNumber(18)
+  $core.bool hasLastReadMessageId() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearLastReadMessageId() => $_clearField(18);
 }
 
 /// 会话更新
@@ -728,6 +757,1365 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   $core.bool hasMessageType() => $_has(6);
   @$pb.TagNumber(7)
   void clearMessageType() => $_clearField(7);
+}
+
+/// 会话设置更新请求
+class ConversationSettingsUpdateRequest extends $pb.GeneratedMessage {
+  factory ConversationSettingsUpdateRequest({
+    $core.String? conversationId,
+    $core.bool? muted,
+    $core.bool? pinned,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (muted != null) {
+      $result.muted = muted;
+    }
+    if (pinned != null) {
+      $result.pinned = pinned;
+    }
+    return $result;
+  }
+  ConversationSettingsUpdateRequest._() : super();
+  factory ConversationSettingsUpdateRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationSettingsUpdateRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationSettingsUpdateRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOB(2, _omitFieldNames ? '' : 'muted')
+    ..aOB(3, _omitFieldNames ? '' : 'pinned')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationSettingsUpdateRequest clone() => ConversationSettingsUpdateRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationSettingsUpdateRequest copyWith(void Function(ConversationSettingsUpdateRequest) updates) => super.copyWith((message) => updates(message as ConversationSettingsUpdateRequest)) as ConversationSettingsUpdateRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationSettingsUpdateRequest create() => ConversationSettingsUpdateRequest._();
+  ConversationSettingsUpdateRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationSettingsUpdateRequest> createRepeated() => $pb.PbList<ConversationSettingsUpdateRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationSettingsUpdateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationSettingsUpdateRequest>(create);
+  static ConversationSettingsUpdateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get muted => $_getBF(1);
+  @$pb.TagNumber(2)
+  set muted($core.bool v) { $_setBool(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMuted() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMuted() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get pinned => $_getBF(2);
+  @$pb.TagNumber(3)
+  set pinned($core.bool v) { $_setBool(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasPinned() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPinned() => $_clearField(3);
+}
+
+/// 会话设置更新响应
+class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
+  factory ConversationSettingsUpdateResponse({
+    $core.String? conversationId,
+    $core.bool? success,
+    $core.bool? muted,
+    $core.bool? pinned,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (success != null) {
+      $result.success = success;
+    }
+    if (muted != null) {
+      $result.muted = muted;
+    }
+    if (pinned != null) {
+      $result.pinned = pinned;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  ConversationSettingsUpdateResponse._() : super();
+  factory ConversationSettingsUpdateResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationSettingsUpdateResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationSettingsUpdateResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOB(2, _omitFieldNames ? '' : 'success')
+    ..aOB(3, _omitFieldNames ? '' : 'muted')
+    ..aOB(4, _omitFieldNames ? '' : 'pinned')
+    ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationSettingsUpdateResponse clone() => ConversationSettingsUpdateResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationSettingsUpdateResponse copyWith(void Function(ConversationSettingsUpdateResponse) updates) => super.copyWith((message) => updates(message as ConversationSettingsUpdateResponse)) as ConversationSettingsUpdateResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationSettingsUpdateResponse create() => ConversationSettingsUpdateResponse._();
+  ConversationSettingsUpdateResponse createEmptyInstance() => create();
+  static $pb.PbList<ConversationSettingsUpdateResponse> createRepeated() => $pb.PbList<ConversationSettingsUpdateResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationSettingsUpdateResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationSettingsUpdateResponse>(create);
+  static ConversationSettingsUpdateResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get success => $_getBF(1);
+  @$pb.TagNumber(2)
+  set success($core.bool v) { $_setBool(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasSuccess() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSuccess() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get muted => $_getBF(2);
+  @$pb.TagNumber(3)
+  set muted($core.bool v) { $_setBool(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasMuted() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMuted() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get pinned => $_getBF(3);
+  @$pb.TagNumber(4)
+  set pinned($core.bool v) { $_setBool(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasPinned() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPinned() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get timestamp => $_getI64(4);
+  @$pb.TagNumber(5)
+  set timestamp($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTimestamp() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTimestamp() => $_clearField(5);
+}
+
+/// 新增：会话加入请求
+class ConversationJoinRequest extends $pb.GeneratedMessage {
+  factory ConversationJoinRequest({
+    $core.String? conversationId,
+    $core.String? userId,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    return $result;
+  }
+  ConversationJoinRequest._() : super();
+  factory ConversationJoinRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationJoinRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationJoinRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationJoinRequest clone() => ConversationJoinRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationJoinRequest copyWith(void Function(ConversationJoinRequest) updates) => super.copyWith((message) => updates(message as ConversationJoinRequest)) as ConversationJoinRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationJoinRequest create() => ConversationJoinRequest._();
+  ConversationJoinRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationJoinRequest> createRepeated() => $pb.PbList<ConversationJoinRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationJoinRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationJoinRequest>(create);
+  static ConversationJoinRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+}
+
+/// 新增：会话离开请求
+class ConversationLeaveRequest extends $pb.GeneratedMessage {
+  factory ConversationLeaveRequest({
+    $core.String? conversationId,
+    $core.String? userId,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    return $result;
+  }
+  ConversationLeaveRequest._() : super();
+  factory ConversationLeaveRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationLeaveRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationLeaveRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationLeaveRequest clone() => ConversationLeaveRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationLeaveRequest copyWith(void Function(ConversationLeaveRequest) updates) => super.copyWith((message) => updates(message as ConversationLeaveRequest)) as ConversationLeaveRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationLeaveRequest create() => ConversationLeaveRequest._();
+  ConversationLeaveRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationLeaveRequest> createRepeated() => $pb.PbList<ConversationLeaveRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationLeaveRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationLeaveRequest>(create);
+  static ConversationLeaveRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+}
+
+/// 新增：会话创建请求
+class ConversationCreateRequest extends $pb.GeneratedMessage {
+  factory ConversationCreateRequest({
+    $core.String? name,
+    $core.String? avatar,
+    ConversationType? type,
+    $core.Iterable<$core.String>? participantIds,
+    $core.String? contactUserId,
+  }) {
+    final $result = create();
+    if (name != null) {
+      $result.name = name;
+    }
+    if (avatar != null) {
+      $result.avatar = avatar;
+    }
+    if (type != null) {
+      $result.type = type;
+    }
+    if (participantIds != null) {
+      $result.participantIds.addAll(participantIds);
+    }
+    if (contactUserId != null) {
+      $result.contactUserId = contactUserId;
+    }
+    return $result;
+  }
+  ConversationCreateRequest._() : super();
+  factory ConversationCreateRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationCreateRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationCreateRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'avatar')
+    ..e<ConversationType>(3, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: ConversationType.private, valueOf: ConversationType.valueOf, enumValues: ConversationType.values)
+    ..pPS(4, _omitFieldNames ? '' : 'participantIds')
+    ..aOS(5, _omitFieldNames ? '' : 'contactUserId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationCreateRequest clone() => ConversationCreateRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationCreateRequest copyWith(void Function(ConversationCreateRequest) updates) => super.copyWith((message) => updates(message as ConversationCreateRequest)) as ConversationCreateRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationCreateRequest create() => ConversationCreateRequest._();
+  ConversationCreateRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationCreateRequest> createRepeated() => $pb.PbList<ConversationCreateRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationCreateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationCreateRequest>(create);
+  static ConversationCreateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get avatar => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set avatar($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasAvatar() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAvatar() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  ConversationType get type => $_getN(2);
+  @$pb.TagNumber(3)
+  set type(ConversationType v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearType() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $pb.PbList<$core.String> get participantIds => $_getList(3);
+
+  @$pb.TagNumber(5)
+  $core.String get contactUserId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set contactUserId($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasContactUserId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearContactUserId() => $_clearField(5);
+}
+
+/// 新增：用户加入会话通知
+class UserJoinedNotification extends $pb.GeneratedMessage {
+  factory UserJoinedNotification({
+    $core.String? conversationId,
+    $core.String? userId,
+    $core.String? userName,
+    $core.String? userAvatar,
+    $fixnum.Int64? joinedAt,
+    $core.String? joinedBy,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (userName != null) {
+      $result.userName = userName;
+    }
+    if (userAvatar != null) {
+      $result.userAvatar = userAvatar;
+    }
+    if (joinedAt != null) {
+      $result.joinedAt = joinedAt;
+    }
+    if (joinedBy != null) {
+      $result.joinedBy = joinedBy;
+    }
+    return $result;
+  }
+  UserJoinedNotification._() : super();
+  factory UserJoinedNotification.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UserJoinedNotification.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserJoinedNotification', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'userName')
+    ..aOS(4, _omitFieldNames ? '' : 'userAvatar')
+    ..aInt64(5, _omitFieldNames ? '' : 'joinedAt')
+    ..aOS(6, _omitFieldNames ? '' : 'joinedBy')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UserJoinedNotification clone() => UserJoinedNotification()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UserJoinedNotification copyWith(void Function(UserJoinedNotification) updates) => super.copyWith((message) => updates(message as UserJoinedNotification)) as UserJoinedNotification;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UserJoinedNotification create() => UserJoinedNotification._();
+  UserJoinedNotification createEmptyInstance() => create();
+  static $pb.PbList<UserJoinedNotification> createRepeated() => $pb.PbList<UserJoinedNotification>();
+  @$core.pragma('dart2js:noInline')
+  static UserJoinedNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserJoinedNotification>(create);
+  static UserJoinedNotification? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get userName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set userName($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUserName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUserName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get userAvatar => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set userAvatar($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasUserAvatar() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearUserAvatar() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get joinedAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set joinedAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasJoinedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearJoinedAt() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get joinedBy => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set joinedBy($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasJoinedBy() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearJoinedBy() => $_clearField(6);
+}
+
+/// 新增：用户离开会话通知
+class UserLeftNotification extends $pb.GeneratedMessage {
+  factory UserLeftNotification({
+    $core.String? conversationId,
+    $core.String? userId,
+    $core.String? userName,
+    $fixnum.Int64? leftAt,
+    $core.String? reason,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (userName != null) {
+      $result.userName = userName;
+    }
+    if (leftAt != null) {
+      $result.leftAt = leftAt;
+    }
+    if (reason != null) {
+      $result.reason = reason;
+    }
+    return $result;
+  }
+  UserLeftNotification._() : super();
+  factory UserLeftNotification.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UserLeftNotification.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserLeftNotification', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'userName')
+    ..aInt64(4, _omitFieldNames ? '' : 'leftAt')
+    ..aOS(5, _omitFieldNames ? '' : 'reason')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UserLeftNotification clone() => UserLeftNotification()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UserLeftNotification copyWith(void Function(UserLeftNotification) updates) => super.copyWith((message) => updates(message as UserLeftNotification)) as UserLeftNotification;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UserLeftNotification create() => UserLeftNotification._();
+  UserLeftNotification createEmptyInstance() => create();
+  static $pb.PbList<UserLeftNotification> createRepeated() => $pb.PbList<UserLeftNotification>();
+  @$core.pragma('dart2js:noInline')
+  static UserLeftNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserLeftNotification>(create);
+  static UserLeftNotification? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get userName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set userName($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUserName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUserName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get leftAt => $_getI64(3);
+  @$pb.TagNumber(4)
+  set leftAt($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasLeftAt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLeftAt() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get reason => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set reason($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasReason() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearReason() => $_clearField(5);
+}
+
+/// 新增：会话创建成功响应
+class ConversationCreateResponse extends $pb.GeneratedMessage {
+  factory ConversationCreateResponse({
+    $core.bool? success,
+    $core.String? message,
+    ConversationProto? conversation,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (conversation != null) {
+      $result.conversation = conversation;
+    }
+    return $result;
+  }
+  ConversationCreateResponse._() : super();
+  factory ConversationCreateResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationCreateResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationCreateResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOM<ConversationProto>(3, _omitFieldNames ? '' : 'conversation', subBuilder: ConversationProto.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationCreateResponse clone() => ConversationCreateResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationCreateResponse copyWith(void Function(ConversationCreateResponse) updates) => super.copyWith((message) => updates(message as ConversationCreateResponse)) as ConversationCreateResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationCreateResponse create() => ConversationCreateResponse._();
+  ConversationCreateResponse createEmptyInstance() => create();
+  static $pb.PbList<ConversationCreateResponse> createRepeated() => $pb.PbList<ConversationCreateResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationCreateResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationCreateResponse>(create);
+  static ConversationCreateResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  ConversationProto get conversation => $_getN(2);
+  @$pb.TagNumber(3)
+  set conversation(ConversationProto v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversation() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversation() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ConversationProto ensureConversation() => $_ensure(2);
+}
+
+/// 新增：会话已读标记请求
+class ConversationMarkReadRequest extends $pb.GeneratedMessage {
+  factory ConversationMarkReadRequest({
+    $core.String? conversationId,
+    $core.String? userId,
+    $fixnum.Int64? readAt,
+    $core.String? messageId,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (readAt != null) {
+      $result.readAt = readAt;
+    }
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    return $result;
+  }
+  ConversationMarkReadRequest._() : super();
+  factory ConversationMarkReadRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationMarkReadRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMarkReadRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aInt64(3, _omitFieldNames ? '' : 'readAt')
+    ..aOS(4, _omitFieldNames ? '' : 'messageId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationMarkReadRequest clone() => ConversationMarkReadRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationMarkReadRequest copyWith(void Function(ConversationMarkReadRequest) updates) => super.copyWith((message) => updates(message as ConversationMarkReadRequest)) as ConversationMarkReadRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMarkReadRequest create() => ConversationMarkReadRequest._();
+  ConversationMarkReadRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationMarkReadRequest> createRepeated() => $pb.PbList<ConversationMarkReadRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMarkReadRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMarkReadRequest>(create);
+  static ConversationMarkReadRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get readAt => $_getI64(2);
+  @$pb.TagNumber(3)
+  set readAt($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasReadAt() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearReadAt() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get messageId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set messageId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasMessageId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMessageId() => $_clearField(4);
+}
+
+/// 新增：会话已读标记响应
+class ConversationMarkReadResponse extends $pb.GeneratedMessage {
+  factory ConversationMarkReadResponse({
+    $core.bool? success,
+    $core.String? conversationId,
+    $core.int? remainingUnread,
+    $fixnum.Int64? readAt,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (remainingUnread != null) {
+      $result.remainingUnread = remainingUnread;
+    }
+    if (readAt != null) {
+      $result.readAt = readAt;
+    }
+    return $result;
+  }
+  ConversationMarkReadResponse._() : super();
+  factory ConversationMarkReadResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationMarkReadResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMarkReadResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'conversationId')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'remainingUnread', $pb.PbFieldType.O3)
+    ..aInt64(4, _omitFieldNames ? '' : 'readAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationMarkReadResponse clone() => ConversationMarkReadResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationMarkReadResponse copyWith(void Function(ConversationMarkReadResponse) updates) => super.copyWith((message) => updates(message as ConversationMarkReadResponse)) as ConversationMarkReadResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMarkReadResponse create() => ConversationMarkReadResponse._();
+  ConversationMarkReadResponse createEmptyInstance() => create();
+  static $pb.PbList<ConversationMarkReadResponse> createRepeated() => $pb.PbList<ConversationMarkReadResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMarkReadResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMarkReadResponse>(create);
+  static ConversationMarkReadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get conversationId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set conversationId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasConversationId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversationId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get remainingUnread => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set remainingUnread($core.int v) { $_setSignedInt32(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasRemainingUnread() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRemainingUnread() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get readAt => $_getI64(3);
+  @$pb.TagNumber(4)
+  set readAt($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasReadAt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearReadAt() => $_clearField(4);
+}
+
+/// 新增：会话信息更新请求
+class ConversationUpdateRequest extends $pb.GeneratedMessage {
+  factory ConversationUpdateRequest({
+    $core.String? conversationId,
+    $core.String? name,
+    $core.String? avatar,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (name != null) {
+      $result.name = name;
+    }
+    if (avatar != null) {
+      $result.avatar = avatar;
+    }
+    return $result;
+  }
+  ConversationUpdateRequest._() : super();
+  factory ConversationUpdateRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationUpdateRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationUpdateRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'avatar')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationUpdateRequest clone() => ConversationUpdateRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationUpdateRequest copyWith(void Function(ConversationUpdateRequest) updates) => super.copyWith((message) => updates(message as ConversationUpdateRequest)) as ConversationUpdateRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationUpdateRequest create() => ConversationUpdateRequest._();
+  ConversationUpdateRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationUpdateRequest> createRepeated() => $pb.PbList<ConversationUpdateRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationUpdateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationUpdateRequest>(create);
+  static ConversationUpdateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get avatar => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set avatar($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasAvatar() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAvatar() => $_clearField(3);
+}
+
+/// 新增：会话成员管理请求
+class ConversationMemberRequest extends $pb.GeneratedMessage {
+  factory ConversationMemberRequest({
+    $core.String? conversationId,
+    $core.String? userId,
+    $core.String? action,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (action != null) {
+      $result.action = action;
+    }
+    return $result;
+  }
+  ConversationMemberRequest._() : super();
+  factory ConversationMemberRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationMemberRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMemberRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'action')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationMemberRequest clone() => ConversationMemberRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationMemberRequest copyWith(void Function(ConversationMemberRequest) updates) => super.copyWith((message) => updates(message as ConversationMemberRequest)) as ConversationMemberRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMemberRequest create() => ConversationMemberRequest._();
+  ConversationMemberRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationMemberRequest> createRepeated() => $pb.PbList<ConversationMemberRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMemberRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMemberRequest>(create);
+  static ConversationMemberRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get action => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set action($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasAction() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAction() => $_clearField(3);
+}
+
+/// 新增：会话成员信息
+class ConversationMember extends $pb.GeneratedMessage {
+  factory ConversationMember({
+    $core.String? userId,
+    $core.String? name,
+    $core.String? avatar,
+    MemberRole? role,
+    $fixnum.Int64? joinedAt,
+    $core.bool? isActive,
+  }) {
+    final $result = create();
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (name != null) {
+      $result.name = name;
+    }
+    if (avatar != null) {
+      $result.avatar = avatar;
+    }
+    if (role != null) {
+      $result.role = role;
+    }
+    if (joinedAt != null) {
+      $result.joinedAt = joinedAt;
+    }
+    if (isActive != null) {
+      $result.isActive = isActive;
+    }
+    return $result;
+  }
+  ConversationMember._() : super();
+  factory ConversationMember.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationMember.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMember', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'userId')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'avatar')
+    ..e<MemberRole>(4, _omitFieldNames ? '' : 'role', $pb.PbFieldType.OE, defaultOrMaker: MemberRole.member, valueOf: MemberRole.valueOf, enumValues: MemberRole.values)
+    ..aInt64(5, _omitFieldNames ? '' : 'joinedAt')
+    ..aOB(6, _omitFieldNames ? '' : 'isActive')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationMember clone() => ConversationMember()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationMember copyWith(void Function(ConversationMember) updates) => super.copyWith((message) => updates(message as ConversationMember)) as ConversationMember;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMember create() => ConversationMember._();
+  ConversationMember createEmptyInstance() => create();
+  static $pb.PbList<ConversationMember> createRepeated() => $pb.PbList<ConversationMember>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMember getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMember>(create);
+  static ConversationMember? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get userId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set userId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasUserId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUserId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get avatar => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set avatar($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasAvatar() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAvatar() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  MemberRole get role => $_getN(3);
+  @$pb.TagNumber(4)
+  set role(MemberRole v) { $_setField(4, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasRole() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRole() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get joinedAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set joinedAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasJoinedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearJoinedAt() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get isActive => $_getBF(5);
+  @$pb.TagNumber(6)
+  set isActive($core.bool v) { $_setBool(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasIsActive() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearIsActive() => $_clearField(6);
+}
+
+/// 新增：会话成员列表响应
+class ConversationMembersResponse extends $pb.GeneratedMessage {
+  factory ConversationMembersResponse({
+    $core.String? conversationId,
+    $core.Iterable<ConversationMember>? members,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (members != null) {
+      $result.members.addAll(members);
+    }
+    return $result;
+  }
+  ConversationMembersResponse._() : super();
+  factory ConversationMembersResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationMembersResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMembersResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..pc<ConversationMember>(2, _omitFieldNames ? '' : 'members', $pb.PbFieldType.PM, subBuilder: ConversationMember.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationMembersResponse clone() => ConversationMembersResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationMembersResponse copyWith(void Function(ConversationMembersResponse) updates) => super.copyWith((message) => updates(message as ConversationMembersResponse)) as ConversationMembersResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMembersResponse create() => ConversationMembersResponse._();
+  ConversationMembersResponse createEmptyInstance() => create();
+  static $pb.PbList<ConversationMembersResponse> createRepeated() => $pb.PbList<ConversationMembersResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMembersResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMembersResponse>(create);
+  static ConversationMembersResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<ConversationMember> get members => $_getList(1);
+}
+
+/// 新增：会话成员变更通知
+class ConversationMemberChangeNotification extends $pb.GeneratedMessage {
+  factory ConversationMemberChangeNotification({
+    $core.String? conversationId,
+    ConversationMember? member,
+    $core.String? action,
+    $core.String? actionBy,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (member != null) {
+      $result.member = member;
+    }
+    if (action != null) {
+      $result.action = action;
+    }
+    if (actionBy != null) {
+      $result.actionBy = actionBy;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  ConversationMemberChangeNotification._() : super();
+  factory ConversationMemberChangeNotification.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationMemberChangeNotification.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMemberChangeNotification', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOM<ConversationMember>(2, _omitFieldNames ? '' : 'member', subBuilder: ConversationMember.create)
+    ..aOS(3, _omitFieldNames ? '' : 'action')
+    ..aOS(4, _omitFieldNames ? '' : 'actionBy')
+    ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationMemberChangeNotification clone() => ConversationMemberChangeNotification()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationMemberChangeNotification copyWith(void Function(ConversationMemberChangeNotification) updates) => super.copyWith((message) => updates(message as ConversationMemberChangeNotification)) as ConversationMemberChangeNotification;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationMemberChangeNotification create() => ConversationMemberChangeNotification._();
+  ConversationMemberChangeNotification createEmptyInstance() => create();
+  static $pb.PbList<ConversationMemberChangeNotification> createRepeated() => $pb.PbList<ConversationMemberChangeNotification>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationMemberChangeNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMemberChangeNotification>(create);
+  static ConversationMemberChangeNotification? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  ConversationMember get member => $_getN(1);
+  @$pb.TagNumber(2)
+  set member(ConversationMember v) { $_setField(2, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMember() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMember() => $_clearField(2);
+  @$pb.TagNumber(2)
+  ConversationMember ensureMember() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $core.String get action => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set action($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasAction() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAction() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get actionBy => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set actionBy($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasActionBy() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearActionBy() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get timestamp => $_getI64(4);
+  @$pb.TagNumber(5)
+  set timestamp($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTimestamp() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTimestamp() => $_clearField(5);
 }
 
 

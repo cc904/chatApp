@@ -31,5 +31,23 @@ class ConversationType extends $pb.ProtobufEnum {
   const ConversationType._(super.v, super.n);
 }
 
+/// 新增：会话成员角色
+class MemberRole extends $pb.ProtobufEnum {
+  static const MemberRole member = MemberRole._(0, _omitEnumNames ? '' : 'member');
+  static const MemberRole admin = MemberRole._(1, _omitEnumNames ? '' : 'admin');
+  static const MemberRole owner = MemberRole._(2, _omitEnumNames ? '' : 'owner');
+
+  static const $core.List<MemberRole> values = <MemberRole> [
+    member,
+    admin,
+    owner,
+  ];
+
+  static final $core.Map<$core.int, MemberRole> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static MemberRole? valueOf($core.int value) => _byValue[value];
+
+  const MemberRole._(super.v, super.n);
+}
+
 
 const _omitEnumNames = $core.bool.fromEnvironment('protobuf.omit_enum_names');

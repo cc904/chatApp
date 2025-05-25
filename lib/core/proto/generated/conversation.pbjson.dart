@@ -28,6 +28,20 @@ final $typed_data.Uint8List conversationTypeDescriptor = $convert.base64Decode(
     'ChBDb252ZXJzYXRpb25UeXBlEgsKB3ByaXZhdGUQABIJCgVncm91cBABEgsKB2NoYW5uZWwQAg'
     '==');
 
+@$core.Deprecated('Use memberRoleDescriptor instead')
+const MemberRole$json = {
+  '1': 'MemberRole',
+  '2': [
+    {'1': 'member', '2': 0},
+    {'1': 'admin', '2': 1},
+    {'1': 'owner', '2': 2},
+  ],
+};
+
+/// Descriptor for `MemberRole`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List memberRoleDescriptor = $convert.base64Decode(
+    'CgpNZW1iZXJSb2xlEgoKBm1lbWJlchAAEgkKBWFkbWluEAESCQoFb3duZXIQAg==');
+
 @$core.Deprecated('Use conversationProtoDescriptor instead')
 const ConversationProto$json = {
   '1': 'ConversationProto',
@@ -48,6 +62,8 @@ const ConversationProto$json = {
     {'1': 'pinned', '3': 14, '4': 1, '5': 8, '10': 'pinned'},
     {'1': 'created_by', '3': 15, '4': 1, '5': 9, '10': 'createdBy'},
     {'1': 'last_message', '3': 16, '4': 1, '5': 11, '6': '.cc.MessageProto', '10': 'lastMessage'},
+    {'1': 'last_read_at', '3': 17, '4': 1, '5': 3, '10': 'lastReadAt'},
+    {'1': 'last_read_message_id', '3': 18, '4': 1, '5': 9, '10': 'lastReadMessageId'},
   ],
 };
 
@@ -63,7 +79,9 @@ final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
     '0KCnVwZGF0ZWRfYXQYCyABKANSCXVwZGF0ZWRBdBImCg9sYXN0X21lc3NhZ2VfaWQYDCABKAlS'
     'DWxhc3RNZXNzYWdlSWQSFAoFbXV0ZWQYDSABKAhSBW11dGVkEhYKBnBpbm5lZBgOIAEoCFIGcG'
     'lubmVkEh0KCmNyZWF0ZWRfYnkYDyABKAlSCWNyZWF0ZWRCeRIzCgxsYXN0X21lc3NhZ2UYECAB'
-    'KAsyEC5jYy5NZXNzYWdlUHJvdG9SC2xhc3RNZXNzYWdl');
+    'KAsyEC5jYy5NZXNzYWdlUHJvdG9SC2xhc3RNZXNzYWdlEiAKDGxhc3RfcmVhZF9hdBgRIAEoA1'
+    'IKbGFzdFJlYWRBdBIvChRsYXN0X3JlYWRfbWVzc2FnZV9pZBgSIAEoCVIRbGFzdFJlYWRNZXNz'
+    'YWdlSWQ=');
 
 @$core.Deprecated('Use conversationUpdateDescriptor instead')
 const ConversationUpdate$json = {
@@ -152,4 +170,273 @@ final $typed_data.Uint8List conversationUpdateNotificationDescriptor = $convert.
     'USIQoMdW5yZWFkX2NvdW50GAQgASgFUgt1bnJlYWRDb3VudBIbCglzZW5kZXJfaWQYBSABKAlS'
     'CHNlbmRlcklkEh8KC3NlbmRlcl9uYW1lGAYgASgJUgpzZW5kZXJOYW1lEiEKDG1lc3NhZ2VfdH'
     'lwZRgHIAEoCVILbWVzc2FnZVR5cGU=');
+
+@$core.Deprecated('Use conversationSettingsUpdateRequestDescriptor instead')
+const ConversationSettingsUpdateRequest$json = {
+  '1': 'ConversationSettingsUpdateRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'muted', '3': 2, '4': 1, '5': 8, '9': 0, '10': 'muted', '17': true},
+    {'1': 'pinned', '3': 3, '4': 1, '5': 8, '9': 1, '10': 'pinned', '17': true},
+  ],
+  '8': [
+    {'1': '_muted'},
+    {'1': '_pinned'},
+  ],
+};
+
+/// Descriptor for `ConversationSettingsUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationSettingsUpdateRequestDescriptor = $convert.base64Decode(
+    'CiFDb252ZXJzYXRpb25TZXR0aW5nc1VwZGF0ZVJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGA'
+    'EgASgJUg5jb252ZXJzYXRpb25JZBIZCgVtdXRlZBgCIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5u'
+    'ZWQYAyABKAhIAVIGcGlubmVkiAEBQggKBl9tdXRlZEIJCgdfcGlubmVk');
+
+@$core.Deprecated('Use conversationSettingsUpdateResponseDescriptor instead')
+const ConversationSettingsUpdateResponse$json = {
+  '1': 'ConversationSettingsUpdateResponse',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'success', '3': 2, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'muted', '3': 3, '4': 1, '5': 8, '9': 0, '10': 'muted', '17': true},
+    {'1': 'pinned', '3': 4, '4': 1, '5': 8, '9': 1, '10': 'pinned', '17': true},
+    {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+  '8': [
+    {'1': '_muted'},
+    {'1': '_pinned'},
+  ],
+};
+
+/// Descriptor for `ConversationSettingsUpdateResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationSettingsUpdateResponseDescriptor = $convert.base64Decode(
+    'CiJDb252ZXJzYXRpb25TZXR0aW5nc1VwZGF0ZVJlc3BvbnNlEicKD2NvbnZlcnNhdGlvbl9pZB'
+    'gBIAEoCVIOY29udmVyc2F0aW9uSWQSGAoHc3VjY2VzcxgCIAEoCFIHc3VjY2VzcxIZCgVtdXRl'
+    'ZBgDIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5uZWQYBCABKAhIAVIGcGlubmVkiAEBEhwKCXRpbW'
+    'VzdGFtcBgFIAEoA1IJdGltZXN0YW1wQggKBl9tdXRlZEIJCgdfcGlubmVk');
+
+@$core.Deprecated('Use conversationJoinRequestDescriptor instead')
+const ConversationJoinRequest$json = {
+  '1': 'ConversationJoinRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+  ],
+};
+
+/// Descriptor for `ConversationJoinRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationJoinRequestDescriptor = $convert.base64Decode(
+    'ChdDb252ZXJzYXRpb25Kb2luUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbn'
+    'ZlcnNhdGlvbklkEhcKB3VzZXJfaWQYAiABKAlSBnVzZXJJZA==');
+
+@$core.Deprecated('Use conversationLeaveRequestDescriptor instead')
+const ConversationLeaveRequest$json = {
+  '1': 'ConversationLeaveRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+  ],
+};
+
+/// Descriptor for `ConversationLeaveRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationLeaveRequestDescriptor = $convert.base64Decode(
+    'ChhDb252ZXJzYXRpb25MZWF2ZVJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg5jb2'
+    '52ZXJzYXRpb25JZBIXCgd1c2VyX2lkGAIgASgJUgZ1c2VySWQ=');
+
+@$core.Deprecated('Use conversationCreateRequestDescriptor instead')
+const ConversationCreateRequest$json = {
+  '1': 'ConversationCreateRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 2, '4': 1, '5': 9, '10': 'avatar'},
+    {'1': 'type', '3': 3, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
+    {'1': 'participant_ids', '3': 4, '4': 3, '5': 9, '10': 'participantIds'},
+    {'1': 'contact_user_id', '3': 5, '4': 1, '5': 9, '10': 'contactUserId'},
+  ],
+};
+
+/// Descriptor for `ConversationCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationCreateRequestDescriptor = $convert.base64Decode(
+    'ChlDb252ZXJzYXRpb25DcmVhdGVSZXF1ZXN0EhIKBG5hbWUYASABKAlSBG5hbWUSFgoGYXZhdG'
+    'FyGAIgASgJUgZhdmF0YXISKAoEdHlwZRgDIAEoDjIULmNjLkNvbnZlcnNhdGlvblR5cGVSBHR5'
+    'cGUSJwoPcGFydGljaXBhbnRfaWRzGAQgAygJUg5wYXJ0aWNpcGFudElkcxImCg9jb250YWN0X3'
+    'VzZXJfaWQYBSABKAlSDWNvbnRhY3RVc2VySWQ=');
+
+@$core.Deprecated('Use userJoinedNotificationDescriptor instead')
+const UserJoinedNotification$json = {
+  '1': 'UserJoinedNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'user_name', '3': 3, '4': 1, '5': 9, '10': 'userName'},
+    {'1': 'user_avatar', '3': 4, '4': 1, '5': 9, '10': 'userAvatar'},
+    {'1': 'joined_at', '3': 5, '4': 1, '5': 3, '10': 'joinedAt'},
+    {'1': 'joined_by', '3': 6, '4': 1, '5': 9, '10': 'joinedBy'},
+  ],
+};
+
+/// Descriptor for `UserJoinedNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List userJoinedNotificationDescriptor = $convert.base64Decode(
+    'ChZVc2VySm9pbmVkTm90aWZpY2F0aW9uEicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY29udm'
+    'Vyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklkEhsKCXVzZXJfbmFtZRgDIAEoCVII'
+    'dXNlck5hbWUSHwoLdXNlcl9hdmF0YXIYBCABKAlSCnVzZXJBdmF0YXISGwoJam9pbmVkX2F0GA'
+    'UgASgDUghqb2luZWRBdBIbCglqb2luZWRfYnkYBiABKAlSCGpvaW5lZEJ5');
+
+@$core.Deprecated('Use userLeftNotificationDescriptor instead')
+const UserLeftNotification$json = {
+  '1': 'UserLeftNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'user_name', '3': 3, '4': 1, '5': 9, '10': 'userName'},
+    {'1': 'left_at', '3': 4, '4': 1, '5': 3, '10': 'leftAt'},
+    {'1': 'reason', '3': 5, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `UserLeftNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List userLeftNotificationDescriptor = $convert.base64Decode(
+    'ChRVc2VyTGVmdE5vdGlmaWNhdGlvbhInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
+    'NhdGlvbklkEhcKB3VzZXJfaWQYAiABKAlSBnVzZXJJZBIbCgl1c2VyX25hbWUYAyABKAlSCHVz'
+    'ZXJOYW1lEhcKB2xlZnRfYXQYBCABKANSBmxlZnRBdBIWCgZyZWFzb24YBSABKAlSBnJlYXNvbg'
+    '==');
+
+@$core.Deprecated('Use conversationCreateResponseDescriptor instead')
+const ConversationCreateResponse$json = {
+  '1': 'ConversationCreateResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation', '3': 3, '4': 1, '5': 11, '6': '.cc.ConversationProto', '10': 'conversation'},
+  ],
+};
+
+/// Descriptor for `ConversationCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationCreateResponseDescriptor = $convert.base64Decode(
+    'ChpDb252ZXJzYXRpb25DcmVhdGVSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
+    'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USOQoMY29udmVyc2F0aW9uGAMgASgLMhUuY2MuQ29u'
+    'dmVyc2F0aW9uUHJvdG9SDGNvbnZlcnNhdGlvbg==');
+
+@$core.Deprecated('Use conversationMarkReadRequestDescriptor instead')
+const ConversationMarkReadRequest$json = {
+  '1': 'ConversationMarkReadRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'read_at', '3': 3, '4': 1, '5': 3, '10': 'readAt'},
+    {'1': 'message_id', '3': 4, '4': 1, '5': 9, '10': 'messageId'},
+  ],
+};
+
+/// Descriptor for `ConversationMarkReadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMarkReadRequestDescriptor = $convert.base64Decode(
+    'ChtDb252ZXJzYXRpb25NYXJrUmVhZFJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg'
+    '5jb252ZXJzYXRpb25JZBIXCgd1c2VyX2lkGAIgASgJUgZ1c2VySWQSFwoHcmVhZF9hdBgDIAEo'
+    'A1IGcmVhZEF0Eh0KCm1lc3NhZ2VfaWQYBCABKAlSCW1lc3NhZ2VJZA==');
+
+@$core.Deprecated('Use conversationMarkReadResponseDescriptor instead')
+const ConversationMarkReadResponse$json = {
+  '1': 'ConversationMarkReadResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'remaining_unread', '3': 3, '4': 1, '5': 5, '10': 'remainingUnread'},
+    {'1': 'read_at', '3': 4, '4': 1, '5': 3, '10': 'readAt'},
+  ],
+};
+
+/// Descriptor for `ConversationMarkReadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMarkReadResponseDescriptor = $convert.base64Decode(
+    'ChxDb252ZXJzYXRpb25NYXJrUmVhZFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3'
+    'MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIpChByZW1haW5pbmdf'
+    'dW5yZWFkGAMgASgFUg9yZW1haW5pbmdVbnJlYWQSFwoHcmVhZF9hdBgEIAEoA1IGcmVhZEF0');
+
+@$core.Deprecated('Use conversationUpdateRequestDescriptor instead')
+const ConversationUpdateRequest$json = {
+  '1': 'ConversationUpdateRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'avatar', '17': true},
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_avatar'},
+  ],
+};
+
+/// Descriptor for `ConversationUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationUpdateRequestDescriptor = $convert.base64Decode(
+    'ChlDb252ZXJzYXRpb25VcGRhdGVSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY2'
+    '9udmVyc2F0aW9uSWQSFwoEbmFtZRgCIAEoCUgAUgRuYW1liAEBEhsKBmF2YXRhchgDIAEoCUgB'
+    'UgZhdmF0YXKIAQFCBwoFX25hbWVCCQoHX2F2YXRhcg==');
+
+@$core.Deprecated('Use conversationMemberRequestDescriptor instead')
+const ConversationMemberRequest$json = {
+  '1': 'ConversationMemberRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'action', '3': 3, '4': 1, '5': 9, '10': 'action'},
+  ],
+};
+
+/// Descriptor for `ConversationMemberRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMemberRequestDescriptor = $convert.base64Decode(
+    'ChlDb252ZXJzYXRpb25NZW1iZXJSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY2'
+    '9udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklkEhYKBmFjdGlvbhgDIAEoCVIG'
+    'YWN0aW9u');
+
+@$core.Deprecated('Use conversationMemberDescriptor instead')
+const ConversationMember$json = {
+  '1': 'ConversationMember',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
+    {'1': 'role', '3': 4, '4': 1, '5': 14, '6': '.cc.MemberRole', '10': 'role'},
+    {'1': 'joined_at', '3': 5, '4': 1, '5': 3, '10': 'joinedAt'},
+    {'1': 'is_active', '3': 6, '4': 1, '5': 8, '10': 'isActive'},
+  ],
+};
+
+/// Descriptor for `ConversationMember`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMemberDescriptor = $convert.base64Decode(
+    'ChJDb252ZXJzYXRpb25NZW1iZXISFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEhIKBG5hbWUYAi'
+    'ABKAlSBG5hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISIgoEcm9sZRgEIAEoDjIOLmNjLk1l'
+    'bWJlclJvbGVSBHJvbGUSGwoJam9pbmVkX2F0GAUgASgDUghqb2luZWRBdBIbCglpc19hY3Rpdm'
+    'UYBiABKAhSCGlzQWN0aXZl');
+
+@$core.Deprecated('Use conversationMembersResponseDescriptor instead')
+const ConversationMembersResponse$json = {
+  '1': 'ConversationMembersResponse',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'members', '3': 2, '4': 3, '5': 11, '6': '.cc.ConversationMember', '10': 'members'},
+  ],
+};
+
+/// Descriptor for `ConversationMembersResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMembersResponseDescriptor = $convert.base64Decode(
+    'ChtDb252ZXJzYXRpb25NZW1iZXJzUmVzcG9uc2USJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg'
+    '5jb252ZXJzYXRpb25JZBIwCgdtZW1iZXJzGAIgAygLMhYuY2MuQ29udmVyc2F0aW9uTWVtYmVy'
+    'UgdtZW1iZXJz');
+
+@$core.Deprecated('Use conversationMemberChangeNotificationDescriptor instead')
+const ConversationMemberChangeNotification$json = {
+  '1': 'ConversationMemberChangeNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'member', '3': 2, '4': 1, '5': 11, '6': '.cc.ConversationMember', '10': 'member'},
+    {'1': 'action', '3': 3, '4': 1, '5': 9, '10': 'action'},
+    {'1': 'action_by', '3': 4, '4': 1, '5': 9, '10': 'actionBy'},
+    {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `ConversationMemberChangeNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMemberChangeNotificationDescriptor = $convert.base64Decode(
+    'CiRDb252ZXJzYXRpb25NZW1iZXJDaGFuZ2VOb3RpZmljYXRpb24SJwoPY29udmVyc2F0aW9uX2'
+    'lkGAEgASgJUg5jb252ZXJzYXRpb25JZBIuCgZtZW1iZXIYAiABKAsyFi5jYy5Db252ZXJzYXRp'
+    'b25NZW1iZXJSBm1lbWJlchIWCgZhY3Rpb24YAyABKAlSBmFjdGlvbhIbCglhY3Rpb25fYnkYBC'
+    'ABKAlSCGFjdGlvbkJ5EhwKCXRpbWVzdGFtcBgFIAEoA1IJdGltZXN0YW1w');
 

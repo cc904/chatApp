@@ -172,7 +172,7 @@ class _ChatsPageState extends State<ChatsPage>
               children: [
                 _buildTabBar(),
                 Expanded(
-                  child: _buildChatList(state),
+            child: _buildChatList(state),
                 ),
               ],
             ),
@@ -378,9 +378,9 @@ class _ChatsPageState extends State<ChatsPage>
                 _openQRScanner(context);
               },
             ),
-          ],
+            ],
+          ),
         ),
-      ),
     );
   }
 
@@ -564,29 +564,29 @@ class _ChatsPageState extends State<ChatsPage>
     const double avatarSize = 60.0;
 
     return Column(
-      children: [
+                  children: [
         Material(
           color: Colors.transparent, // 使用透明背景
           child: InkWell(
-            onTap: () {
-              // 使用HomeCubit加载会话消息
-              final homeCubit = context.read<HomeCubit>();
-              homeCubit
-                  .loadMessagesForConversation(conversation.conversationId);
+                onTap: () {
+                  // 使用HomeCubit加载会话消息
+                  final homeCubit = context.read<HomeCubit>();
+              // homeCubit
+              //     .loadMessagesForConversation(conversation.conversationId);
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BlocProvider.value(
-                    value: homeCubit,
-                    child: ChatDetailPage(
-                      conversationId: conversation.conversationId,
-                      contact: contact,
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BlocProvider.value(
+                        value: homeCubit,
+                        child: ChatDetailPage(
+                          conversationId: conversation.conversationId,
+                          contact: contact,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
+                  );
+                },
             splashColor: Colors.grey.withAlpha(26), // 添加水波纹效果
             highlightColor: Colors.grey.withAlpha(13), // 按下时的高亮效果
             child: Container(
@@ -753,7 +753,7 @@ class _ChatsPageState extends State<ChatsPage>
           ),
         ),
       ],
-    );
+          );
   }
 
   /// 格式化消息时间

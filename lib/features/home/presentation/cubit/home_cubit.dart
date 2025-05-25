@@ -202,7 +202,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 内部加载会话实现
   Future<void> _loadConversations() async {
-    _logger.i('加载所有会话');
+    _logger.d('加载所有会话', stackTrace: StackTrace.current);
     try {
       emit(state.copyWith(isInitializing: true));
       final conversations = await _chatRepository.getAllConversations();
@@ -241,9 +241,6 @@ class HomeCubit extends Cubit<HomeState> {
         messagesByConversation: updatedMessages,
         isLoadingMessages: false,
       ));
-
-      // 标记会话为已读
-      await _chatRepository.markConversationAsRead(conversationId);
 
       _logger.i('加载会话消息成功，会话 $conversationId，共 ${messages.length} 条消息');
     } catch (error) {
@@ -587,6 +584,79 @@ class HomeCubit extends Cubit<HomeState> {
       _logger.e('更新会话静音状态失败', error: error);
       emit(state.copyWith(
         errorMessage: '更新会话静音状态失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 更新会话的置顶状态
+  Future<void> updateConversationPinStatus(
+      String conversationId, bool isPinned) async {
+    _logger.i('更新会话置顶状态',
+        extra: {'conversationId': conversationId, 'isPinned': isPinned});
+    try {
+      await _chatRepository.updateConversationPinStatus(
+          conversationId, isPinned);
+      // 通过监听数据库变化会自动更新状态，无需在此处手动更新
+    } catch (error) {
+      _logger.e('更新会话置顶状态失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '更新会话置顶状态失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 更新会话的最后阅读时间
+  Future<void> updateLastReadAt(String conversationId,
+      [DateTime? timestamp]) async {
+    final now = timestamp ?? DateTime.now();
+    _logger.i('更新会话最后阅读时间',
+        extra: {'conversationId': conversationId, 'timestamp': now.toString()});
+    try {
+      await _chatRepository.updateLastReadAt(conversationId, now);
+      // 通过监听数据库变化会自动更新状态，无需在此处手动更新
+    } catch (error) {
+      _logger.e('更新会话最后阅读时间失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '更新会话最后阅读时间失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 用户进入会话页面
+  Future<void> enterConversation(String conversationId) async {
+    _logger.i('用户进入会话页面', extra: {'conversationId': conversationId});
+    try {
+      // 加入Socket.io会话房间
+      await _chatRepository.joinConversationRoom(conversationId);
+
+      // 设置当前会话ID
+      emit(state.copyWith(currentConversationId: conversationId));
+
+      // 加载会话消息
+      await loadMessagesForConversation(conversationId);
+    } catch (error) {
+      _logger.e('进入会话失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '进入会话失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 用户离开会话页面
+  Future<void> leaveConversation(String conversationId) async {
+    _logger.i('用户离开会话页面', extra: {'conversationId': conversationId});
+    try {
+      // 离开Socket.io会话房间
+      await _chatRepository.leaveConversationRoom(conversationId);
+
+      // 清除当前会话ID
+      if (state.currentConversationId == conversationId) {
+        emit(state.copyWith(currentConversationId: null));
+      }
+    } catch (error) {
+      _logger.e('离开会话失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '离开会话失败: ${error.toString()}',
       ));
     }
   }

@@ -33,6 +33,15 @@ class Conversation {
   // 会话是否静音
   bool isMuted = false;
 
+  // 会话是否置顶
+  bool isPinned = false;
+
+  // 最后阅读时间，用于客户端计算会话未读状态
+  DateTime? lastReadAt;
+
+  // 最后阅读的消息ID，用于记录阅读位置
+  String? lastReadMessageId;
+
   // 未读消息数量
   int unreadCount = 0;
 
@@ -60,6 +69,22 @@ class Conversation {
     return type == ConversationType.private
         ? 'U'
         : (type == ConversationType.group ? 'G' : 'C');
+  }
+
+  /// 判断会话是否有未读消息
+  bool get hasUnread {
+    // 基本版本：如果最后消息时间晚于最后阅读时间，则会话有未读消息
+    if (lastMessageTime != null && lastReadAt != null) {
+      return lastMessageTime!.isAfter(lastReadAt!);
+    }
+
+    // 如果没有最后阅读时间但有未读计数，也认为有未读消息
+    if (lastReadAt == null && unreadCount > 0) {
+      return true;
+    }
+
+    // 增强版本：结合未读消息计数判断
+    return unreadCount > 0;
   }
 
   /// 从Protocol Buffer对象创建数据库对象
@@ -102,11 +127,20 @@ class Conversation {
           ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
           : DateTime.now()
       ..unreadCount = proto.hasUnreadCount() ? proto.unreadCount : 0
+      ..safeUnreadCount = proto.hasUnreadCount()
+          ? (proto.unreadCount < 0 ? 0 : proto.unreadCount)
+          : 0
       ..contactUserId = proto.hasContactUserId() ? proto.contactUserId : null
       ..lastMessageId = proto.hasLastMessageId() ? proto.lastMessageId : null
       ..isMuted = proto.hasMuted() ? proto.muted : false
       ..lastMessageSenderId =
-          proto.hasLastMessage() ? proto.lastMessage.senderId : null;
+          proto.hasLastMessage() ? proto.lastMessage.senderId : null
+      ..isPinned = proto.hasPinned() ? proto.pinned : false
+      ..lastReadAt = proto.hasLastReadAt()
+          ? DateTime.fromMillisecondsSinceEpoch(proto.lastReadAt.toInt())
+          : null
+      ..lastReadMessageId =
+          proto.hasLastReadMessageId() ? proto.lastReadMessageId : null;
   }
 
   /// 将数据库对象转换为Protocol Buffer对象
@@ -128,7 +162,7 @@ class Conversation {
       case ConversationType.channel:
         protoType = proto.ConversationType.channel;
         break;
-      }
+    }
 
     return proto.ConversationProto(
       conversationId: conversationId,
@@ -141,9 +175,14 @@ class Conversation {
           : null,
       createdAt: Int64(createdAt.millisecondsSinceEpoch),
       unreadCount: unreadCount,
+      // safeUnreadCount不需要序列化，它是从unreadCount计算得出的本地属性
       contactUserId: contactUserId,
       lastMessageId: lastMessageId,
       muted: isMuted,
+      pinned: isPinned,
+      lastReadAt:
+          lastReadAt != null ? Int64(lastReadAt!.millisecondsSinceEpoch) : null,
+      lastReadMessageId: lastReadMessageId,
     );
   }
 }
