@@ -506,11 +506,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             fit: BoxFit.cover,
             width: constraints.maxWidth,
             height: constraints.maxHeight,
-            // 移除颜色过滤器，保留SVG原始线条样式
-            colorFilter: const ColorFilter.mode(
-              Colors.white,
-              BlendMode.srcIn,
-            ),
+            // 完全移除颜色过滤器，使用SVG原始颜色
           ),
         );
       },
