@@ -353,7 +353,7 @@ class _ContactsPageState extends State<ContactsPage>
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withAlpha(128),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -398,7 +398,7 @@ class _ContactsPageState extends State<ContactsPage>
       width: 24,
       height: totalLettersHeight,
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.2),
+        color: Colors.grey.withAlpha(51),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.symmetric(vertical: 8), // 增加垂直内边距

@@ -172,7 +172,7 @@ class _ChatsPageState extends State<ChatsPage>
               children: [
                 _buildTabBar(),
                 Expanded(
-            child: _buildChatList(state),
+                  child: _buildChatList(state),
                 ),
               ],
             ),
@@ -378,9 +378,9 @@ class _ChatsPageState extends State<ChatsPage>
                 _openQRScanner(context);
               },
             ),
-            ],
-          ),
+          ],
         ),
+      ),
     );
   }
 
@@ -564,89 +564,119 @@ class _ChatsPageState extends State<ChatsPage>
     const double avatarSize = 60.0;
 
     return Column(
-                  children: [
-        GestureDetector(
-                onTap: () {
-                  // 使用HomeCubit加载会话消息
-                  final homeCubit = context.read<HomeCubit>();
-            homeCubit.loadMessagesForConversation(conversation.conversationId);
+      children: [
+        Material(
+          color: Colors.transparent, // 使用透明背景
+          child: InkWell(
+            onTap: () {
+              // 使用HomeCubit加载会话消息
+              final homeCubit = context.read<HomeCubit>();
+              homeCubit
+                  .loadMessagesForConversation(conversation.conversationId);
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BlocProvider.value(
-                        value: homeCubit,
-                        child: ChatDetailPage(
-                          conversationId: conversation.conversationId,
-                          contact: contact,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
-              children: [
-                // 头像
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: SizedBox(
-                    width: avatarSize,
-                    height: avatarSize,
-                    child: UserAvatar(
-                      avatarUrl: contact.avatar,
-                      name: contact.name,
-                      radius: avatarSize / 2,
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BlocProvider.value(
+                    value: homeCubit,
+                    child: ChatDetailPage(
+                      conversationId: conversation.conversationId,
+                      contact: contact,
                     ),
                   ),
                 ),
+              );
+            },
+            splashColor: Colors.grey.withAlpha(26), // 添加水波纹效果
+            highlightColor: Colors.grey.withAlpha(13), // 按下时的高亮效果
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10.0),
+              width: double.infinity, // 确保宽度占满整行
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
+                children: [
+                  // 头像
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: SizedBox(
+                      width: avatarSize,
+                      height: avatarSize,
+                      child: UserAvatar(
+                        avatarUrl: contact.avatar,
+                        name: contact.name,
+                        radius: avatarSize / 2,
+                      ),
+                    ),
+                  ),
 
-                // 中间内容区域
-                Expanded(
-                  child: SizedBox(
-                    height: avatarSize + 1, // 与头像高度一致
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment:
-                          MainAxisAlignment.spaceEvenly, // 均匀分布三行内容
-                      children: [
-                        // 第一行：会话名称和静音图标
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                contact.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
+                  // 中间内容区域
+                  Expanded(
+                    child: SizedBox(
+                      height: avatarSize + 1, // 与头像高度一致
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceEvenly, // 均匀分布三行内容
+                        children: [
+                          // 第一行：会话名称和静音图标
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        contact.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 16,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isMuted)
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 4.0),
+                                        child: Icon(Icons.volume_off,
+                                            size: 16, color: Colors.grey),
+                                      ),
+                                  ],
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            if (isMuted)
-                              const Icon(Icons.volume_off,
-                                  size: 16, color: Colors.grey),
-                          ],
-                        ),
+                            ],
+                          ),
 
-                        // 第二行：
-                        // 群聊 - 发送者名称
-                        // 私聊/频道 - 消息内容第一部分
-                        if (isGroup)
-                          Text(
-                            senderName ?? '未知用户',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              // color: Colors.grey,
+                          // 第二行：
+                          // 群聊 - 发送者名称
+                          // 私聊/频道 - 消息内容第一部分
+                          if (isGroup)
+                            Text(
+                              senderName ?? '未知用户',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                // color: Colors.grey,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          else
+                            Text(
+                              conversation.lastMessagePreview ?? '',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          )
-                        else
+
+                          // 第三行：
+                          // 群聊 - 消息内容
+                          // 私聊/频道 - 消息内容延续或空白
                           Text(
-                            conversation.lastMessagePreview ?? '',
+                            isGroup
+                                ? (conversation.lastMessagePreview ?? '')
+                                : '',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Colors.grey,
@@ -654,89 +684,76 @@ class _ChatsPageState extends State<ChatsPage>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-
-                        // 第三行：
-                        // 群聊 - 消息内容
-                        // 私聊/频道 - 消息内容延续或空白
-                        Text(
-                          isGroup
-                              ? (conversation.lastMessagePreview ?? '')
-                              : '',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // 右侧时间和未读数
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-                  child: SizedBox(
-                    height: avatarSize, // 与头像高度一致
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly, // 均匀分布
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // 时间
-                        Text(
-                          _formatTime(conversation.lastMessageTime),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                  // 右侧时间和未读数
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0, left: 8.0),
+                    child: SizedBox(
+                      height: avatarSize, // 与头像高度一致
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceEvenly, // 均匀分布
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // 时间
+                          Text(
+                            _formatTime(conversation.lastMessageTime),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
-                        ),
 
-                        // 未读数
-                        if (conversation.unreadCount > 0)
-                          Container(
-                            margin: const EdgeInsets.only(top: 16),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 20,
-                              minHeight: 20,
-                            ),
-                            child: Text(
-                              _formatUnreadCount(conversation.unreadCount),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
+                          // 未读数
+                          if (conversation.unreadCount > 0)
+                            Container(
+                              margin: const EdgeInsets.only(top: 16),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              textAlign: TextAlign.center,
+                              constraints: const BoxConstraints(
+                                minWidth: 20,
+                                minHeight: 20,
+                              ),
+                              child: Text(
+                                _formatUnreadCount(conversation.unreadCount),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                          ),
 
-                        // 如果没有未读消息，添加一个空占位符以保持布局平衡
-                        if (conversation.unreadCount <= 0)
-                          const SizedBox(height: 20),
-                      ],
+                          // 如果没有未读消息，添加一个空占位符以保持布局平衡
+                          if (conversation.unreadCount <= 0)
+                            const SizedBox(height: 20),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
         // 分割线 - 从头像右侧开始延伸
         Padding(
-          padding: const EdgeInsets.only(left: 72.0),
+          padding: const EdgeInsets.only(left: 92.0),
           child: Container(
             height: 0.5,
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withAlpha(77),
           ),
         ),
       ],
-          );
+    );
   }
 
   /// 格式化消息时间

@@ -1523,4 +1523,36 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.e('测试会话更新通知失败', error: error, stackTrace: StackTrace.current);
     }
   }
+
+  @override
+  Future<void> updateConversationMuteStatus(
+      String conversationId, bool isMuted) async {
+    _logger.i('更新会话静音状态',
+        extra: {'conversationId': conversationId, 'isMuted': isMuted});
+
+    try {
+      // 更新本地数据库
+      final conversation = await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+      if (conversation != null) {
+        // 使用事务包装数据库写入操作
+        await _isar.writeTxn(() async {
+          conversation.isMuted = isMuted;
+          await _conversations.put(conversation);
+        });
+        _logger.i('本地数据库会话静音状态已更新');
+      } else {
+        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
+        throw Exception('找不到指定会话');
+      }
+
+      // 同步到服务器
+      // TODO: 如果有服务器同步需求，这里添加相应的API调用
+    } catch (error) {
+      _logger.e('更新会话静音状态失败', error: error);
+      throw Exception('更新会话静音状态失败: ${error.toString()}');
+    }
+  }
 }

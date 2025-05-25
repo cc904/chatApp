@@ -5,7 +5,6 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
-import 'package:cc/features/chat/presentation/pages/chat_search_page.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 
@@ -23,8 +22,14 @@ class ChatInfoPage extends StatefulWidget {
   State<ChatInfoPage> createState() => _ChatInfoPageState();
 }
 
-class _ChatInfoPageState extends State<ChatInfoPage> {
+class _ChatInfoPageState extends State<ChatInfoPage>
+    with SingleTickerProviderStateMixin {
   final _logger = LogService.instance;
+  // 模拟属性值,实际应该保存在数据库中
+  bool _isMuted = false;
+  // 静音按钮动画控制器
+  late AnimationController _muteAnimController;
+  late Animation<double> _rotateAnimation;
 
   // 添加编辑模式状态
   bool _isEditMode = false;
@@ -36,6 +41,38 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   @override
   void initState() {
     super.initState();
+
+    // 初始化静音按钮动画控制器
+    _muteAnimController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _rotateAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _muteAnimController,
+      curve: Curves.easeInOut,
+    ));
+
+    // 获取当前会话，初始化静音状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final homeCubit = context.read<HomeCubit>();
+        final conversation = homeCubit.state.conversations.firstWhere(
+          (c) => c.conversationId == widget.conversationId,
+          orElse: () => Conversation(),
+        );
+
+        setState(() {
+          _isMuted = conversation.isMuted;
+          if (_isMuted) {
+            _muteAnimController.value = 1.0; // 直接设置到终点
+          }
+        });
+      }
+    });
 
     // 初始化文本编辑控制器
     if (widget.contact != null) {
@@ -51,9 +88,29 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
   @override
   void dispose() {
+    _muteAnimController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     super.dispose();
+  }
+
+  // 切换静音状态
+  void _toggleMuteState() {
+    setState(() {
+      _isMuted = !_isMuted;
+      if (_isMuted) {
+        _muteAnimController.forward();
+      } else {
+        _muteAnimController.reverse();
+      }
+    });
+
+    UINotificationService().showSuccess(_isMuted ? '已开启静音' : '已关闭静音');
+    _logger.i('切换静音状态', extra: {'isMuted': _isMuted});
+
+    // 更新数据库中的静音状态
+    final homeCubit = context.read<HomeCubit>();
+    homeCubit.updateConversationMuteStatus(widget.conversationId, _isMuted);
   }
 
   @override
@@ -346,12 +403,100 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
         children: [
           _buildActionButton(Icons.call, 'call', Colors.blue),
           _buildActionButton(Icons.videocam, 'video', Colors.blue),
-          _buildActionButton(
-              Icons.notifications_off_outlined, 'mute', Colors.blue),
+          _buildMuteButton(),
           _buildActionButton(Icons.search, 'search', Colors.blue),
           _buildMoreButton(),
         ],
       ),
+    );
+  }
+
+  // 静音按钮 - 带有动画效果
+  Widget _buildMuteButton() {
+    // 计算一个按钮占据的宽度 (总宽度减去4个8px的间隙，再除以5)
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / 5;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: _toggleMuteState,
+            child: Container(
+              width: buttonWidth,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 使用旋转动画包装图标
+                  AnimatedBuilder(
+                    animation: _rotateAnimation,
+                    builder: (context, child) {
+                      return Transform.rotate(
+                        angle: _rotateAnimation.value * 0.5, // 旋转90度
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // 两种图标在同一位置，通过透明度控制显示/隐藏
+                            Opacity(
+                              opacity: 1 - _rotateAnimation.value,
+                              child: Icon(
+                                Icons.notifications_none,
+                                color: Colors.blue,
+                                size: 26,
+                              ),
+                            ),
+                            Opacity(
+                              opacity: _rotateAnimation.value,
+                              child: Icon(
+                                Icons.notifications_off_outlined,
+                                color: Colors.blue,
+                                size: 26,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  // 文本根据状态变化
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.0, 0.5),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      _isMuted ? 'unmute' : 'mute',
+                      key: ValueKey<bool>(_isMuted),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -435,23 +580,26 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.more_horiz, color: Colors.blue, size: 26),
-                  const SizedBox(height: 6),
-                  Text(
-                    'more',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue,
+              child: Container(
+                color: Colors.transparent,
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.more_horiz, color: Colors.blue, size: 26),
+                    SizedBox(height: 6),
+                    Text(
+                      'more',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        )
       ],
     );
   }
@@ -557,7 +705,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
+                                    color: Colors.blue.withAlpha(26),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(
@@ -607,8 +755,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
 
   // 显示清空聊天记录确认对话框
   void _showDeleteConfirmation(BuildContext context) {
-    final conversationId = widget.conversationId;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -639,7 +785,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   void _showLeaveConfirmation(BuildContext context, bool isGroup) {
     final conversationId = widget.conversationId;
     final homeCubit = context.read<HomeCubit>();
-    final conversation = homeCubit.state.conversations.firstWhere(
+    homeCubit.state.conversations.firstWhere(
       (c) => c.conversationId == conversationId,
       orElse: () => Conversation(),
     );
@@ -677,29 +823,4 @@ class _ChatInfoPageState extends State<ChatInfoPage> {
   }
 
   // 打开聊天记录搜索页面
-  void _openChatSearch(BuildContext context, Conversation conversation) {
-    // 使用局部变量
-    final conversationId = widget.conversationId;
-    final conversationName =
-        widget.contact?.name ?? conversation.name ?? '未知会话';
-
-    // 使用延迟调用来避免直接使用BuildContext
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final navigator = Navigator.of(context);
-      final homeCubit = context.read<HomeCubit>();
-
-      navigator.push<dynamic>(
-        MaterialPageRoute(
-          builder: (context) => BlocProvider.value(
-            value: homeCubit,
-            child: ChatSearchPage(
-              conversationId: conversationId,
-              conversationName: conversationName,
-            ),
-          ),
-        ),
-      );
-    });
-  }
 }

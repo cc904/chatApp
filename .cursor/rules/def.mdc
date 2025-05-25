@@ -12,3 +12,5 @@ alwaysApply: true
 
 页面(UI层) → Cubit(业务逻辑层) → Repository(数据层)
 通过 Cubit 的 state 获取数据，而不是直接访问数据层
+
+Color withOpacity(double opacity)已经标为过时,请使用Color withAlpha(int a)

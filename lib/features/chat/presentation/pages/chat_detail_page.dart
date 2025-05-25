@@ -380,13 +380,13 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                 Icon(
                                   Icons.chat_bubble_outline,
                                   size: 48,
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withAlpha(153),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   '没有消息',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: Colors.white.withAlpha(153),
                                     fontSize: 16,
                                   ),
                                 ),
@@ -437,7 +437,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withAlpha(26),
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, -1),
@@ -531,7 +531,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withAlpha(51),
             borderRadius: BorderRadius.circular(16.0),
           ),
           child: Text(
@@ -658,7 +658,7 @@ class MessageBubble extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(13),
                   spreadRadius: 1,
                   blurRadius: 3,
                   offset: const Offset(0, 1),
@@ -721,7 +721,7 @@ class MessageBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withAlpha(51),
             borderRadius: BorderRadius.circular(16.0),
           ),
           child: Text(

@@ -127,6 +127,10 @@ abstract class ChatRepository {
   /// 返回消息列表
   Future<List<Message>> fetchMessagesFromServer(String conversationId,
       {int limit = 20, DateTime? before});
+
+  /// 更新会话的静音状态
+  Future<void> updateConversationMuteStatus(
+      String conversationId, bool isMuted);
 }
 
 /// 同步状态枚举

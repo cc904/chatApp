@@ -222,7 +222,9 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 加载会话消息
   Future<void> loadMessagesForConversation(String conversationId) async {
-    _logger.d('加载会话消息', extra: {'conversationId': conversationId},stackTrace: StackTrace.current);
+    _logger.d('加载会话消息',
+        extra: {'conversationId': conversationId},
+        stackTrace: StackTrace.current);
     try {
       emit(state.copyWith(
           isLoadingMessages: true, currentConversationId: conversationId));
@@ -569,6 +571,23 @@ class HomeCubit extends Cubit<HomeState> {
       _logger.e('获取或创建会话失败', error: error);
       emit(state.copyWith(errorMessage: '创建会话失败: ${error.toString()}'));
       return null;
+    }
+  }
+
+  /// 更新会话的静音状态
+  Future<void> updateConversationMuteStatus(
+      String conversationId, bool isMuted) async {
+    _logger.i('更新会话静音状态',
+        extra: {'conversationId': conversationId, 'isMuted': isMuted});
+    try {
+      await _chatRepository.updateConversationMuteStatus(
+          conversationId, isMuted);
+      // 通过监听数据库变化会自动更新状态，无需在此处手动更新
+    } catch (error) {
+      _logger.e('更新会话静音状态失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '更新会话静音状态失败: ${error.toString()}',
+      ));
     }
   }
 
