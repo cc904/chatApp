@@ -32,15 +32,46 @@ final $typed_data.Uint8List conversationTypeDescriptor = $convert.base64Decode(
 const MemberRole$json = {
   '1': 'MemberRole',
   '2': [
-    {'1': 'member', '2': 0},
-    {'1': 'admin', '2': 1},
-    {'1': 'owner', '2': 2},
+    {'1': 'MEMBER', '2': 0},
+    {'1': 'ADMIN', '2': 1},
+    {'1': 'OWNER', '2': 2},
   ],
 };
 
 /// Descriptor for `MemberRole`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List memberRoleDescriptor = $convert.base64Decode(
-    'CgpNZW1iZXJSb2xlEgoKBm1lbWJlchAAEgkKBWFkbWluEAESCQoFb3duZXIQAg==');
+    'CgpNZW1iZXJSb2xlEgoKBk1FTUJFUhAAEgkKBUFETUlOEAESCQoFT1dORVIQAg==');
+
+@$core.Deprecated('Use participantProtoDescriptor instead')
+const ParticipantProto$json = {
+  '1': 'ParticipantProto',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
+    {'1': 'unread_count', '3': 4, '4': 1, '5': 5, '10': 'unreadCount'},
+    {'1': 'muted', '3': 5, '4': 1, '5': 8, '10': 'muted'},
+    {'1': 'pinned', '3': 6, '4': 1, '5': 8, '10': 'pinned'},
+    {'1': 'joined_at', '3': 7, '4': 1, '5': 3, '10': 'joinedAt'},
+    {'1': 'last_read_at', '3': 8, '4': 1, '5': 3, '10': 'lastReadAt'},
+    {'1': 'last_read_message_id', '3': 9, '4': 1, '5': 9, '10': 'lastReadMessageId'},
+    {'1': 'role', '3': 10, '4': 1, '5': 14, '6': '.cc.MemberRole', '10': 'role'},
+    {'1': 'added_by', '3': 11, '4': 1, '5': 9, '10': 'addedBy'},
+    {'1': 'online', '3': 12, '4': 1, '5': 8, '10': 'online'},
+    {'1': 'is_active', '3': 13, '4': 1, '5': 8, '10': 'isActive'},
+  ],
+};
+
+/// Descriptor for `ParticipantProto`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List participantProtoDescriptor = $convert.base64Decode(
+    'ChBQYXJ0aWNpcGFudFByb3RvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBISCgRuYW1lGAIgAS'
+    'gJUgRuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFyEiEKDHVucmVhZF9jb3VudBgEIAEoBVIL'
+    'dW5yZWFkQ291bnQSFAoFbXV0ZWQYBSABKAhSBW11dGVkEhYKBnBpbm5lZBgGIAEoCFIGcGlubm'
+    'VkEhsKCWpvaW5lZF9hdBgHIAEoA1IIam9pbmVkQXQSIAoMbGFzdF9yZWFkX2F0GAggASgDUgps'
+    'YXN0UmVhZEF0Ei8KFGxhc3RfcmVhZF9tZXNzYWdlX2lkGAkgASgJUhFsYXN0UmVhZE1lc3NhZ2'
+    'VJZBIiCgRyb2xlGAogASgOMg4uY2MuTWVtYmVyUm9sZVIEcm9sZRIZCghhZGRlZF9ieRgLIAEo'
+    'CVIHYWRkZWRCeRIWCgZvbmxpbmUYDCABKAhSBm9ubGluZRIbCglpc19hY3RpdmUYDSABKAhSCG'
+    'lzQWN0aXZl');
 
 @$core.Deprecated('Use conversationProtoDescriptor instead')
 const ConversationProto$json = {
@@ -53,17 +84,15 @@ const ConversationProto$json = {
     {'1': 'created_at', '3': 5, '4': 1, '5': 3, '10': 'createdAt'},
     {'1': 'last_message_time', '3': 6, '4': 1, '5': 3, '10': 'lastMessageTime'},
     {'1': 'last_message_preview', '3': 7, '4': 1, '5': 9, '10': 'lastMessagePreview'},
-    {'1': 'unread_count', '3': 8, '4': 1, '5': 5, '10': 'unreadCount'},
-    {'1': 'contact_user_id', '3': 9, '4': 1, '5': 9, '10': 'contactUserId'},
-    {'1': 'participant_ids', '3': 10, '4': 3, '5': 9, '10': 'participantIds'},
-    {'1': 'updated_at', '3': 11, '4': 1, '5': 3, '10': 'updatedAt'},
-    {'1': 'last_message_id', '3': 12, '4': 1, '5': 9, '10': 'lastMessageId'},
-    {'1': 'muted', '3': 13, '4': 1, '5': 8, '10': 'muted'},
-    {'1': 'pinned', '3': 14, '4': 1, '5': 8, '10': 'pinned'},
-    {'1': 'created_by', '3': 15, '4': 1, '5': 9, '10': 'createdBy'},
-    {'1': 'last_message', '3': 16, '4': 1, '5': 11, '6': '.cc.MessageProto', '10': 'lastMessage'},
-    {'1': 'last_read_at', '3': 17, '4': 1, '5': 3, '10': 'lastReadAt'},
-    {'1': 'last_read_message_id', '3': 18, '4': 1, '5': 9, '10': 'lastReadMessageId'},
+    {'1': 'last_message_name', '3': 8, '4': 1, '5': 9, '10': 'lastMessageName'},
+    {'1': 'unread_count', '3': 9, '4': 1, '5': 5, '10': 'unreadCount'},
+    {'1': 'contact_user_id', '3': 10, '4': 1, '5': 9, '10': 'contactUserId'},
+    {'1': 'participants', '3': 11, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
+    {'1': 'muted', '3': 12, '4': 1, '5': 8, '10': 'muted'},
+    {'1': 'pinned', '3': 13, '4': 1, '5': 8, '10': 'pinned'},
+    {'1': 'created_by', '3': 14, '4': 1, '5': 9, '10': 'createdBy'},
+    {'1': 'last_read_at', '3': 15, '4': 1, '5': 3, '10': 'lastReadAt'},
+    {'1': 'last_read_message_id', '3': 16, '4': 1, '5': 9, '10': 'lastReadMessageId'},
   ],
 };
 
@@ -73,15 +102,13 @@ final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
     'lvbklkEhIKBG5hbWUYAiABKAlSBG5hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISKAoEdHlw'
     'ZRgEIAEoDjIULmNjLkNvbnZlcnNhdGlvblR5cGVSBHR5cGUSHQoKY3JlYXRlZF9hdBgFIAEoA1'
     'IJY3JlYXRlZEF0EioKEWxhc3RfbWVzc2FnZV90aW1lGAYgASgDUg9sYXN0TWVzc2FnZVRpbWUS'
-    'MAoUbGFzdF9tZXNzYWdlX3ByZXZpZXcYByABKAlSEmxhc3RNZXNzYWdlUHJldmlldxIhCgx1bn'
-    'JlYWRfY291bnQYCCABKAVSC3VucmVhZENvdW50EiYKD2NvbnRhY3RfdXNlcl9pZBgJIAEoCVIN'
-    'Y29udGFjdFVzZXJJZBInCg9wYXJ0aWNpcGFudF9pZHMYCiADKAlSDnBhcnRpY2lwYW50SWRzEh'
-    '0KCnVwZGF0ZWRfYXQYCyABKANSCXVwZGF0ZWRBdBImCg9sYXN0X21lc3NhZ2VfaWQYDCABKAlS'
-    'DWxhc3RNZXNzYWdlSWQSFAoFbXV0ZWQYDSABKAhSBW11dGVkEhYKBnBpbm5lZBgOIAEoCFIGcG'
-    'lubmVkEh0KCmNyZWF0ZWRfYnkYDyABKAlSCWNyZWF0ZWRCeRIzCgxsYXN0X21lc3NhZ2UYECAB'
-    'KAsyEC5jYy5NZXNzYWdlUHJvdG9SC2xhc3RNZXNzYWdlEiAKDGxhc3RfcmVhZF9hdBgRIAEoA1'
-    'IKbGFzdFJlYWRBdBIvChRsYXN0X3JlYWRfbWVzc2FnZV9pZBgSIAEoCVIRbGFzdFJlYWRNZXNz'
-    'YWdlSWQ=');
+    'MAoUbGFzdF9tZXNzYWdlX3ByZXZpZXcYByABKAlSEmxhc3RNZXNzYWdlUHJldmlldxIqChFsYX'
+    'N0X21lc3NhZ2VfbmFtZRgIIAEoCVIPbGFzdE1lc3NhZ2VOYW1lEiEKDHVucmVhZF9jb3VudBgJ'
+    'IAEoBVILdW5yZWFkQ291bnQSJgoPY29udGFjdF91c2VyX2lkGAogASgJUg1jb250YWN0VXNlck'
+    'lkEjgKDHBhcnRpY2lwYW50cxgLIAMoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SDHBhcnRpY2lw'
+    'YW50cxIUCgVtdXRlZBgMIAEoCFIFbXV0ZWQSFgoGcGlubmVkGA0gASgIUgZwaW5uZWQSHQoKY3'
+    'JlYXRlZF9ieRgOIAEoCVIJY3JlYXRlZEJ5EiAKDGxhc3RfcmVhZF9hdBgPIAEoA1IKbGFzdFJl'
+    'YWRBdBIvChRsYXN0X3JlYWRfbWVzc2FnZV9pZBgQIAEoCVIRbGFzdFJlYWRNZXNzYWdlSWQ=');
 
 @$core.Deprecated('Use conversationUpdateDescriptor instead')
 const ConversationUpdate$json = {
@@ -386,47 +413,27 @@ final $typed_data.Uint8List conversationMemberRequestDescriptor = $convert.base6
     '9udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklkEhYKBmFjdGlvbhgDIAEoCVIG'
     'YWN0aW9u');
 
-@$core.Deprecated('Use conversationMemberDescriptor instead')
-const ConversationMember$json = {
-  '1': 'ConversationMember',
-  '2': [
-    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
-    {'1': 'role', '3': 4, '4': 1, '5': 14, '6': '.cc.MemberRole', '10': 'role'},
-    {'1': 'joined_at', '3': 5, '4': 1, '5': 3, '10': 'joinedAt'},
-    {'1': 'is_active', '3': 6, '4': 1, '5': 8, '10': 'isActive'},
-  ],
-};
-
-/// Descriptor for `ConversationMember`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMemberDescriptor = $convert.base64Decode(
-    'ChJDb252ZXJzYXRpb25NZW1iZXISFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEhIKBG5hbWUYAi'
-    'ABKAlSBG5hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISIgoEcm9sZRgEIAEoDjIOLmNjLk1l'
-    'bWJlclJvbGVSBHJvbGUSGwoJam9pbmVkX2F0GAUgASgDUghqb2luZWRBdBIbCglpc19hY3Rpdm'
-    'UYBiABKAhSCGlzQWN0aXZl');
-
 @$core.Deprecated('Use conversationMembersResponseDescriptor instead')
 const ConversationMembersResponse$json = {
   '1': 'ConversationMembersResponse',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'members', '3': 2, '4': 3, '5': 11, '6': '.cc.ConversationMember', '10': 'members'},
+    {'1': 'members', '3': 2, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'members'},
   ],
 };
 
 /// Descriptor for `ConversationMembersResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List conversationMembersResponseDescriptor = $convert.base64Decode(
     'ChtDb252ZXJzYXRpb25NZW1iZXJzUmVzcG9uc2USJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg'
-    '5jb252ZXJzYXRpb25JZBIwCgdtZW1iZXJzGAIgAygLMhYuY2MuQ29udmVyc2F0aW9uTWVtYmVy'
-    'UgdtZW1iZXJz');
+    '5jb252ZXJzYXRpb25JZBIuCgdtZW1iZXJzGAIgAygLMhQuY2MuUGFydGljaXBhbnRQcm90b1IH'
+    'bWVtYmVycw==');
 
 @$core.Deprecated('Use conversationMemberChangeNotificationDescriptor instead')
 const ConversationMemberChangeNotification$json = {
   '1': 'ConversationMemberChangeNotification',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'member', '3': 2, '4': 1, '5': 11, '6': '.cc.ConversationMember', '10': 'member'},
+    {'1': 'member', '3': 2, '4': 1, '5': 11, '6': '.cc.ParticipantProto', '10': 'member'},
     {'1': 'action', '3': 3, '4': 1, '5': 9, '10': 'action'},
     {'1': 'action_by', '3': 4, '4': 1, '5': 9, '10': 'actionBy'},
     {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
@@ -436,7 +443,20 @@ const ConversationMemberChangeNotification$json = {
 /// Descriptor for `ConversationMemberChangeNotification`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List conversationMemberChangeNotificationDescriptor = $convert.base64Decode(
     'CiRDb252ZXJzYXRpb25NZW1iZXJDaGFuZ2VOb3RpZmljYXRpb24SJwoPY29udmVyc2F0aW9uX2'
-    'lkGAEgASgJUg5jb252ZXJzYXRpb25JZBIuCgZtZW1iZXIYAiABKAsyFi5jYy5Db252ZXJzYXRp'
-    'b25NZW1iZXJSBm1lbWJlchIWCgZhY3Rpb24YAyABKAlSBmFjdGlvbhIbCglhY3Rpb25fYnkYBC'
-    'ABKAlSCGFjdGlvbkJ5EhwKCXRpbWVzdGFtcBgFIAEoA1IJdGltZXN0YW1w');
+    'lkGAEgASgJUg5jb252ZXJzYXRpb25JZBIsCgZtZW1iZXIYAiABKAsyFC5jYy5QYXJ0aWNpcGFu'
+    'dFByb3RvUgZtZW1iZXISFgoGYWN0aW9uGAMgASgJUgZhY3Rpb24SGwoJYWN0aW9uX2J5GAQgAS'
+    'gJUghhY3Rpb25CeRIcCgl0aW1lc3RhbXAYBSABKANSCXRpbWVzdGFtcA==');
+
+@$core.Deprecated('Use conversationMembersRequestDescriptor instead')
+const ConversationMembersRequest$json = {
+  '1': 'ConversationMembersRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+  ],
+};
+
+/// Descriptor for `ConversationMembersRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMembersRequestDescriptor = $convert.base64Decode(
+    'ChpDb252ZXJzYXRpb25NZW1iZXJzUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDm'
+    'NvbnZlcnNhdGlvbklk');
 

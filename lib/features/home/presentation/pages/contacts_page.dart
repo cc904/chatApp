@@ -7,6 +7,7 @@ import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/pages/contact_detail_page.dart';
+import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
 import 'dart:async';
 
 class ContactsPage extends StatefulWidget {
@@ -260,9 +261,21 @@ class _ContactsPageState extends State<ContactsPage>
     _logger.d('ContactsPage build');
     return Scaffold(
       appBar: AppBar(
-        title: const Text('联系人', style: TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        title: BlocBuilder<HomeCubit, HomeState>(
+          buildWhen: (previous, current) => 
+            previous.networkStatus != current.networkStatus ||
+            previous.isLoadingContacts != current.isLoadingContacts,
+          builder: (context, state) {
+            return AppBarTitleWithNetworkStatus(
+              title: '联系人',
+              networkStatus: state.networkStatus,
+              isLoading: state.isLoadingContacts,
+              onRetry: () => context.read<HomeCubit>().reconnect(),
+            );
+          },
+        ),
+        backgroundColor: Colors.grey[200],
+        foregroundColor: Colors.black,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
@@ -279,61 +292,79 @@ class _ContactsPageState extends State<ContactsPage>
       ),
       body: Stack(
         children: [
-          GestureDetector(
-            onTap: () {
-              if (_openedItemId != null) {
-                setState(() {
-                  _openedItemId = null;
-                });
-              }
-            },
-            child: Column(
-              children: [
-                // 同步状态指示器
-                _buildSyncStatusIndicator(),
+          CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              // 同步状态指示器
+              SliverToBoxAdapter(
+                child: _buildSyncStatusIndicator(),
+              ),
 
-                // 联系人列表
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _syncContacts,
-                    child: BlocConsumer<HomeCubit, HomeState>(
-                      listener: (context, state) {
-                        if (!state.isLoadingContacts && !_isFiltering) {
-                          _updateGroupedContacts(state.contacts);
-                        }
-                      },
-                      buildWhen: (previous, current) =>
-                          previous.contacts != current.contacts ||
-                          previous.isLoadingContacts !=
-                              current.isLoadingContacts ||
-                          previous.contactsSyncStatus !=
-                              current.contactsSyncStatus,
-                      builder: (context, state) {
-                        if (state.isLoadingContacts && state.contacts.isEmpty) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
+              // 可折叠的搜索栏
+              SliverAppBar(
+                automaticallyImplyLeading: false,
+                floating: true,
+                snap: true,
+                backgroundColor: Colors.grey[200],
+                title: _buildSearchBox(),
+                titleSpacing: 0,
+              ),
 
-                        if (state.hasError) {
-                          return Center(
-                              child: Text('错误: ${state.errorMessage}'));
-                        }
+              // 联系人列表
+              SliverToBoxAdapter(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_openedItemId != null) {
+                      setState(() {
+                        _openedItemId = null;
+                      });
+                    }
+                  },
+                  child: BlocConsumer<HomeCubit, HomeState>(
+                    listener: (context, state) {
+                      if (!state.isLoadingContacts && !_isFiltering) {
+                        _updateGroupedContacts(state.contacts);
+                      }
+                    },
+                    buildWhen: (previous, current) =>
+                        previous.contacts != current.contacts ||
+                        previous.isLoadingContacts !=
+                            current.isLoadingContacts ||
+                        previous.contactsSyncStatus !=
+                            current.contactsSyncStatus,
+                    builder: (context, state) {
+                      if (state.isLoadingContacts && state.contacts.isEmpty) {
+                        return const SizedBox(
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
 
-                        if (_isFiltering) {
-                          return _buildFilteredList();
-                        }
+                      if (state.hasError) {
+                        return SizedBox(
+                          height: 200,
+                          child:
+                              Center(child: Text('错误: ${state.errorMessage}')),
+                        );
+                      }
 
-                        if (_sortedKeys.isEmpty) {
-                          return const Center(child: Text('没有联系人'));
-                        }
+                      if (_isFiltering) {
+                        return _buildFilteredList();
+                      }
 
-                        return _buildGroupedAnimatedList();
-                      },
-                    ),
+                      if (_sortedKeys.isEmpty) {
+                        return const SizedBox(
+                          height: 200,
+                          child: Center(child: Text('没有联系人')),
+                        );
+                      }
+
+                      return _buildGroupedAnimatedList();
+                    },
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
           // 右侧字母索引栏 - 只在非搜索状态下显示
@@ -480,7 +511,6 @@ class _ContactsPageState extends State<ContactsPage>
   /// 构建搜索框
   Widget _buildSearchBox() {
     return Container(
-      color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
@@ -489,18 +519,18 @@ class _ContactsPageState extends State<ContactsPage>
               controller: _searchController,
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
-                hintText: '搜索',
+                hintText: 'Search',
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 isDense: true,
                 filled: true,
-                fillColor: Colors.grey[200],
+                fillColor: Colors.white,
                 suffixIcon: _isSearching
                     ? IconButton(
                         icon: const Icon(Icons.clear,
@@ -519,6 +549,7 @@ class _ContactsPageState extends State<ContactsPage>
                       )
                     : null,
               ),
+              style: const TextStyle(fontSize: 14),
               onChanged: (value) {
                 // 只更新搜索状态，不执行搜索
                 setState(() {
@@ -559,9 +590,9 @@ class _ContactsPageState extends State<ContactsPage>
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: Colors.blue,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
@@ -585,18 +616,13 @@ class _ContactsPageState extends State<ContactsPage>
   /// 使用AnimatedList显示按首字母分组的联系人
   Widget _buildGroupedAnimatedList() {
     return ListView.builder(
-      controller: _scrollController,
-      itemCount: _sortedKeys.length + 1, // +1 for search box
-      physics: const BouncingScrollPhysics(),
+      // 禁用ListView的滚动功能，因为它已经在CustomScrollView中
+      physics: const NeverScrollableScrollPhysics(),
+      // 计算总高度，使ListView能够正确显示
+      shrinkWrap: true,
+      itemCount: _sortedKeys.length,
       itemBuilder: (context, index) {
-        // 第一项是搜索框
-        if (index == 0) {
-          return _buildSearchBox();
-        }
-
-        // 调整索引以获取正确的键
-        final actualIndex = index - 1;
-        final key = _sortedKeys[actualIndex];
+        final key = _sortedKeys[index];
         final contacts = _groupedContacts[key]!;
 
         return Column(
@@ -634,23 +660,21 @@ class _ContactsPageState extends State<ContactsPage>
   /// 构建过滤后的联系人列表
   /// 显示搜索结果中的联系人
   Widget _buildFilteredList() {
-    return Column(
-      children: [
-        // 保留搜索框在顶部
-        _buildSearchBox(),
-
-        Expanded(
-          child: _filteredContacts.isEmpty
-              ? const Center(child: Text('没有找到匹配的联系人'))
-              : ListView.builder(
-                  itemCount: _filteredContacts.length,
-                  itemBuilder: (context, index) {
-                    return _buildContactItem(_filteredContacts[index]);
-                  },
-                ),
-        ),
-      ],
-    );
+    return _filteredContacts.isEmpty
+        ? const SizedBox(
+            height: 200,
+            child: Center(child: Text('没有找到匹配的联系人')),
+          )
+        : ListView.builder(
+            // 禁用ListView的滚动功能，因为它已经在CustomScrollView中
+            physics: const NeverScrollableScrollPhysics(),
+            // 计算总高度，使ListView能够正确显示
+            shrinkWrap: true,
+            itemCount: _filteredContacts.length,
+            itemBuilder: (context, index) {
+              return _buildContactItem(_filteredContacts[index]);
+            },
+          );
   }
 
   /// 构建分组标题

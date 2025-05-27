@@ -83,7 +83,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
         // 订阅联系人同步结果事件
         ..add(_communicationService
-            .onProto<SyncContactsResponse>('contact:sync:result')
+            .onProto<SyncContactsResponse>('contact:sync:response')
             .listen((response) {
           _logger.d('收到联系人同步结果', extra: {
             'responseType': response.runtimeType.toString(),
@@ -209,7 +209,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _logger.i('从本地数据库中获取 - ${users.length} 个联系人');
       return users;
     } catch (error) {
-      _logger.e('从本地数据库中获取联系人列表失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('从本地数据库中获取联系人列表失败',
+          error: error, stackTrace: StackTrace.current);
       return [];
     }
   }

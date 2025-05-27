@@ -27,8 +27,8 @@ class Conversation {
   String? lastMessagePreview;
   String? lastMessageId;
 
-  // 最后一条消息的发送者ID，用于群聊显示
-  String? lastMessageSenderId;
+  // 最后一条消息的发送者名称，用于群聊或频道显示
+  String? lastMessageName;
 
   // 会话是否静音
   bool isMuted = false;
@@ -44,9 +44,6 @@ class Conversation {
 
   // 未读消息数量
   int unreadCount = 0;
-
-  // 安全的未读消息数量（非负值）
-  int safeUnreadCount = 0;
 
   // 私聊会话对应的联系人ID(仅私聊有效)
   String? contactUserId;
@@ -113,7 +110,7 @@ class Conversation {
         convType = ConversationType.private;
     }
 
-    return Conversation()
+    final conversation = Conversation()
       ..conversationId = proto.conversationId
       ..type = convType
       ..name = proto.hasName() ? proto.name : null
@@ -127,20 +124,30 @@ class Conversation {
           ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
           : DateTime.now()
       ..unreadCount = proto.hasUnreadCount() ? proto.unreadCount : 0
-      ..safeUnreadCount = proto.hasUnreadCount()
-          ? (proto.unreadCount < 0 ? 0 : proto.unreadCount)
-          : 0
       ..contactUserId = proto.hasContactUserId() ? proto.contactUserId : null
-      ..lastMessageId = proto.hasLastMessageId() ? proto.lastMessageId : null
+      ..lastMessageId = proto.hasLastReadMessageId() ? proto.lastReadMessageId : null
       ..isMuted = proto.hasMuted() ? proto.muted : false
-      ..lastMessageSenderId =
-          proto.hasLastMessage() ? proto.lastMessage.senderId : null
+      ..lastMessageName = proto.hasLastMessageName() ? proto.lastMessageName : null
       ..isPinned = proto.hasPinned() ? proto.pinned : false
       ..lastReadAt = proto.hasLastReadAt()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastReadAt.toInt())
           : null
       ..lastReadMessageId =
           proto.hasLastReadMessageId() ? proto.lastReadMessageId : null;
+          
+    // 注意：这里不直接设置 participants，因为它是 IsarLinks 类型
+    // 需要在仓库层处理，通过查询用户并建立关联
+    // 例如：
+    // for (final participantProto in proto.participants) {
+    //   // 查询用户并添加到 participants
+    //   final user = await userRepository.getUserById(participantProto.userId);
+    //   if (user != null) {
+    //     conversation.participants.add(user);
+    //   }
+    // }
+    // await conversation.participants.save();
+    
+    return conversation;
   }
 
   /// 将数据库对象转换为Protocol Buffer对象
@@ -164,6 +171,18 @@ class Conversation {
         break;
     }
 
+    // 将参与者转换为ParticipantProto对象列表
+    final participantProtos = <proto.ParticipantProto>[];
+    for (final user in participants) {
+      participantProtos.add(proto.ParticipantProto(
+        userId: user.userId,
+        name: user.name,
+        avatar: user.avatar,
+        // 注意：这里只添加了基本字段，如果需要更多字段，请根据实际情况添加
+        // 例如：role、joinedAt、lastReadAt等
+      ));
+    }
+
     return proto.ConversationProto(
       conversationId: conversationId,
       type: protoType,
@@ -175,9 +194,9 @@ class Conversation {
           : null,
       createdAt: Int64(createdAt.millisecondsSinceEpoch),
       unreadCount: unreadCount,
-      // safeUnreadCount不需要序列化，它是从unreadCount计算得出的本地属性
       contactUserId: contactUserId,
-      lastMessageId: lastMessageId,
+      lastMessageName: lastMessageName,
+      participants: participantProtos,
       muted: isMuted,
       pinned: isPinned,
       lastReadAt:

@@ -19,7 +19,7 @@ class ProtoEvents {
     'conversation:created': () => conversation.ConversationProto(),
     'conversation:deleted': () => conversation.ConversationProto(),
     'conversation:sync': () => conversation.SyncConversationsRequest(),
-    'conversation:sync:result': () => conversation.ConversationCollection(),
+    'conversation:sync:response': () => conversation.ConversationCollection(),
     'conversation:update:notification': () =>
         conversation.ConversationUpdateNotification(),
     'conversation:settings:update': () =>
@@ -51,7 +51,7 @@ class ProtoEvents {
 
     // 联系人相关事件
     'contact:sync': () => contacts.SyncContactsRequest(),
-    'contact:sync:result': () => contacts.SyncContactsResponse(),
+    'contact:sync:response': () => contacts.SyncContactsResponse(),
 
     // 系统相关事件
     'system:message': () => message.SystemMessage(),

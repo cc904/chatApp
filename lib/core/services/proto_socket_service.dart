@@ -289,8 +289,7 @@ class ProtoSocketService {
 
     // 监听所有事件
     _socket?.onAny((event, data) {
-      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}',
-          stackTrace: StackTrace.current);
+      _logger.i('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
     });
   }
 

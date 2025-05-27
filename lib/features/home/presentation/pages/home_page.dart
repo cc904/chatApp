@@ -4,7 +4,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/home/presentation/pages/chats_page.dart';
-import 'package:cc/features/home/presentation/pages/calls_page.dart';
+// 已移除 calls_page.dart 的引用
 import 'package:cc/features/home/presentation/pages/profile_page.dart';
 import 'package:cc/features/home/presentation/pages/contacts_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
@@ -28,7 +28,7 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {
         _currentIndex = _tabController.index;
@@ -124,11 +124,13 @@ class _HomePageState extends State<HomePage>
         },
         // 添加buildWhen条件，避免不必要的重建
         buildWhen: (previous, current) =>
-            previous.isInitializing != current.isInitializing ||
-            previous.hasError != current.hasError,
+            previous.homePageIsInitializing != current.homePageIsInitializing ||
+            previous.hasError != current.hasError ||
+            previous.currentUser != current.currentUser,
+            // TODO: 根据实际需求添加其他需要触发重建的条件，但不包括会话列表和联系人列表的变化
         builder: (context, state) {
           return Scaffold(
-            body: state.isInitializing
+            body: state.homePageIsInitializing
                 ? const Center(child: CircularProgressIndicator())
                 : state.hasError
                     ? Center(
@@ -147,15 +149,16 @@ class _HomePageState extends State<HomePage>
                       )
                     : PageStorage(
                         bucket: PageStorageBucket(),
-                        child: TabBarView(
-                          controller: _tabController,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: const [
-                            ChatsPage(key: PageStorageKey('chats_page')),
-                            ContactsPage(key: PageStorageKey('contacts_page')),
-                            CallsPage(key: PageStorageKey('calls_page')),
-                            ProfilePage(key: PageStorageKey('profile_page')),
-                          ],
+                        child: RepaintBoundary(
+                          child: TabBarView(
+                            controller: _tabController,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: const [
+                              ChatsPage(key: PageStorageKey('chats_page')),
+                              ContactsPage(key: PageStorageKey('contacts_page')),
+                              ProfilePage(key: PageStorageKey('profile_page')),
+                            ],
+                          ),
                         ),
                       ),
             bottomNavigationBar: BottomNavigationBar(
@@ -177,10 +180,6 @@ class _HomePageState extends State<HomePage>
                 BottomNavigationBarItem(
                   icon: Icon(Icons.contacts),
                   label: '联系人',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.call),
-                  label: '通话',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person),

@@ -12,7 +12,7 @@ import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
-import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
@@ -31,39 +31,30 @@ class MessageException implements Exception {
 class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
-  final CurrentUserProto _currentUser;
-
-  /// 文件上传服务,处理媒体文件上传
   final FileUploadService _fileUploadService = FileUploadService();
+  final user_proto.CurrentUserProto _currentUser;
 
-  /// 消息流控制器,用于向UI发送新消息通知
-  final StreamController<Message> _newMessagesController =
-      StreamController<Message>.broadcast();
+  // 活跃的会话ID，用于过滤事件
+  String? _activeConversationId;
 
-  /// 输入状态流控制器,传递用户输入状态事件
-  final StreamController<Map<String, dynamic>> _typingStatusController =
+  // 事件流控制器
+  final _newMessagesController = StreamController<Message>.broadcast();
+  final _typingStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
-
-  /// 在线状态流控制器,传递用户在线状态事件
-  final StreamController<Map<String, dynamic>> _onlineStatusController =
+  final _onlineStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
-
-  /// 消息状态流控制器,传递消息送达/已读状态事件
-  final StreamController<Map<String, dynamic>> _messageStatusController =
+  final _messageStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _syncStatusController = StreamController<SyncStatus>.broadcast();
 
-  /// 同步状态流控制器,传递数据同步状态事件
-  final StreamController<SyncStatus> _syncStatusController =
-      StreamController<SyncStatus>.broadcast();
-
-  /// 通信服务事件订阅集合
+  // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
   // 获取消息流
   Stream<Message> get messageStream => _newMessagesController.stream;
 
   // 构造函数
-  ChatRepositoryImpl({required CurrentUserProto currentUserProto})
+  ChatRepositoryImpl({required user_proto.CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
     _logger.x('ChatRepositoryImpl 初始化');
   }
@@ -112,7 +103,7 @@ class ChatRepositoryImpl implements ChatRepository {
           .listen(_handleMessageDelivered))
       ..add(_communicationService
           .onProto<conversation_proto.ConversationCollection>(
-              'conversation:sync:result')
+              'conversation:sync:response')
           .listen(_handleSyncResultProto))
       ..add(_communicationService
           .onProto<conversation_proto.ConversationUpdateNotification>(
@@ -1146,7 +1137,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 等待响应
       final response = await _communicationService
-          .onProto<message_proto.MessageCollection>('messages:fetch:result')
+          .onProto<message_proto.MessageCollection>('messages:fetch:response')
           .first;
 
       // 转换服务器响应为消息列表
@@ -1463,17 +1454,13 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 释放资源
   /// 取消所有订阅并关闭流控制器
+  @override
   void dispose() {
-    for (final subscription in _subscriptions) {
+    _logger.i('销毁ChatRepository');
+    for (var subscription in _subscriptions) {
       subscription.cancel();
     }
     _subscriptions.clear();
-
-    _newMessagesController.close();
-    _typingStatusController.close();
-    _onlineStatusController.close();
-    _messageStatusController.close();
-    _syncStatusController.close();
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢      TODo     💢💢💢💢💢💢💢💢💢💢💢💢💢💢
@@ -1884,6 +1871,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 用户进入会话页面
   /// 将用户加入对应的Socket.io会话房间，但不重置未读消息计数
   /// [conversationId] - 会话ID
+  @override
   Future<void> joinConversationRoom(String conversationId) async {
     try {
       _logger.i('用户进入会话页面', extra: {'conversationId': conversationId});
@@ -1896,6 +1884,8 @@ class ChatRepositoryImpl implements ChatRepository {
 
         _communicationService.emitProto('conversation:join', joinRoomRequest);
         _logger.d('已发送加入会话房间请求');
+      } else {
+        _logger.w('通信服务未初始化，无法同步会话最后阅读消息ID到服务器');
       }
 
       // 更新最后阅读时间，但不重置未读计数
@@ -1925,6 +1915,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 用户离开会话页面
   /// 将用户从对应的Socket.io会话房间中移除
   /// [conversationId] - 会话ID
+  @override
   Future<void> leaveConversationRoom(String conversationId) async {
     try {
       _logger.i('用户离开会话页面', extra: {'conversationId': conversationId});
@@ -1979,6 +1970,59 @@ class ChatRepositoryImpl implements ChatRepository {
       // 需要从会话参与者中移除该用户
     } catch (error, stackTrace) {
       _logger.e('处理用户离开会话通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 注册特定会话的事件处理器
+  /// 当用户进入会话页面时调用，用于监听与该会话相关的事件
+  /// [conversationId] - 会话ID
+  @override
+  void registerConversationEventHandlers(String conversationId) {
+    _logger.i('注册会话事件处理器', extra: {'conversationId': conversationId});
+
+    // 我们已经在 registerEventHandlers() 中设置了全局事件监听
+    // 这里只需要记录当前活跃的会话ID，用于过滤事件
+    _activeConversationId = conversationId;
+
+    _logger.i('已注册会话[$conversationId]的事件处理器');
+  }
+
+  /// 移除特定会话的事件处理器
+  /// 当用户离开会话页面时调用，用于移除与该会话相关的事件监听
+  /// [conversationId] - 会话ID
+  @override
+  void unregisterConversationEventHandlers(String conversationId) {
+    _logger.i('移除会话事件处理器', extra: {'conversationId': conversationId});
+
+    // 清除当前活跃的会话ID
+    _activeConversationId = null;
+
+    _logger.i('已移除会话[$conversationId]的事件处理器');
+  }
+
+  /// 处理消息状态变更事件
+  void _handleMessageStatus(message_proto.MessageReadProto data) {
+    try {
+      _messageStatusController.add({
+        'messageId': data.messageId,
+        'conversationId': data.conversationId,
+        'status': 'read',
+      });
+    } catch (error) {
+      _logger.e('处理消息状态变更事件失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理用户输入状态事件
+  void _handleTypingStatus(user_proto.UserTypingUpdate data) {
+    try {
+      _typingStatusController.add({
+        'userId': data.userId,
+        'conversationId': data.conversationId,
+        'isTyping': data.isTyping,
+      });
+    } catch (error) {
+      _logger.e('处理用户输入状态事件失败', error: error, stackTrace: StackTrace.current);
     }
   }
 }

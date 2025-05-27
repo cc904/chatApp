@@ -5,11 +5,26 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
+/// 网络状态枚举
+enum NetworkStatus {
+  /// 已连接
+  connected,
+  
+  /// 连接中
+  connecting,
+  
+  /// 断开连接
+  disconnected,
+  
+  /// 连接错误
+  error
+}
+
 /// HomePage的状态类
 class HomeState extends Equatable {
   // 初始化状态
-  final bool isInitializing;
-  final bool isInitialized;
+  final bool homePageIsInitializing;
+  final bool homePageIsInitialized;
   final String? errorMessage;
   final CurrentUserProto? currentUser;
 
@@ -28,9 +43,11 @@ class HomeState extends Equatable {
   final DateTime? lastContactsSyncTime; // 最后同步时间
   final String? contactsErrorMessage; // 联系人错误信息
 
-  // 通话相关状态
-  final List<dynamic> calls; // 可以根据实际需求定义Call类型
-  final bool isLoadingCalls;
+  // 网络相关状态
+  final bool isConnected; // 是否连接到网络
+  final NetworkStatus networkStatus; // 网络状态
+  final DateTime? lastConnectionTime; // 最后一次连接时间
+  final String? connectionErrorMessage; // 连接错误信息
 
   // 搜索相关状态
   final String? searchQuery;
@@ -39,8 +56,8 @@ class HomeState extends Equatable {
 
   const HomeState({
     // 初始化状态
-    required this.isInitializing,
-    required this.isInitialized,
+    required this.homePageIsInitializing,
+    required this.homePageIsInitialized,
     this.errorMessage,
     this.currentUser,
 
@@ -59,9 +76,11 @@ class HomeState extends Equatable {
     this.lastContactsSyncTime,
     this.contactsErrorMessage,
 
-    // 通话相关状态
-    this.calls = const [],
-    this.isLoadingCalls = false,
+    // 网络相关状态
+    this.isConnected = true,
+    this.networkStatus = NetworkStatus.connected,
+    this.lastConnectionTime,
+    this.connectionErrorMessage,
 
     // 搜索相关状态
     this.searchQuery,
@@ -72,15 +91,15 @@ class HomeState extends Equatable {
   /// 初始状态
   factory HomeState.initial() {
     return const HomeState(
-      isInitializing: false,
-      isInitialized: false,
+      homePageIsInitializing: false,
+      homePageIsInitialized: false,
     );
   }
 
   /// 初始化中状态
   HomeState toInitializingState() {
     return copyWith(
-      isInitializing: true,
+      homePageIsInitializing: true,
       errorMessage: null,
     );
   }
@@ -88,17 +107,17 @@ class HomeState extends Equatable {
   /// 初始化成功状态
   HomeState toInitializedState({required CurrentUserProto currentUserProto}) {
     return copyWith(
-      isInitializing: false,
-      isInitialized: true,
+      homePageIsInitializing: false,
+      homePageIsInitialized: true,
       errorMessage: null,
-      currentUser: currentUser,
+      currentUser: currentUserProto,
     );
   }
 
   /// 初始化失败状态
   HomeState toErrorState(String message) {
     return copyWith(
-      isInitializing: false,
+      homePageIsInitializing: false,
       errorMessage: message,
     );
   }
@@ -135,8 +154,8 @@ class HomeState extends Equatable {
   /// 复制实例方法
   HomeState copyWith({
     // 初始化状态
-    bool? isInitializing,
-    bool? isInitialized,
+    bool? homePageIsInitializing,
+    bool? homePageIsInitialized,
     String? errorMessage,
     CurrentUserProto? currentUser,
 
@@ -155,9 +174,11 @@ class HomeState extends Equatable {
     DateTime? lastContactsSyncTime,
     String? contactsErrorMessage,
 
-    // 通话相关状态
-    List<dynamic>? calls,
-    bool? isLoadingCalls,
+    // 网络相关状态
+    bool? isConnected,
+    NetworkStatus? networkStatus,
+    DateTime? lastConnectionTime,
+    String? connectionErrorMessage,
 
     // 搜索相关状态
     String? searchQuery,
@@ -166,8 +187,8 @@ class HomeState extends Equatable {
   }) {
     return HomeState(
       // 初始化状态
-      isInitializing: isInitializing ?? this.isInitializing,
-      isInitialized: isInitialized ?? this.isInitialized,
+      homePageIsInitializing: homePageIsInitializing ?? this.homePageIsInitializing,
+      homePageIsInitialized: homePageIsInitialized ?? this.homePageIsInitialized,
       errorMessage: errorMessage ?? this.errorMessage,
       currentUser: currentUser ?? this.currentUser,
 
@@ -188,9 +209,11 @@ class HomeState extends Equatable {
       lastContactsSyncTime: lastContactsSyncTime ?? this.lastContactsSyncTime,
       contactsErrorMessage: contactsErrorMessage ?? this.contactsErrorMessage,
 
-      // 通话相关状态
-      calls: calls ?? this.calls,
-      isLoadingCalls: isLoadingCalls ?? this.isLoadingCalls,
+      // 网络相关状态
+      isConnected: isConnected ?? this.isConnected,
+      networkStatus: networkStatus ?? this.networkStatus,
+      lastConnectionTime: lastConnectionTime ?? this.lastConnectionTime,
+      connectionErrorMessage: connectionErrorMessage ?? this.connectionErrorMessage,
 
       // 搜索相关状态
       searchQuery: searchQuery ?? this.searchQuery,
@@ -208,8 +231,8 @@ class HomeState extends Equatable {
   @override
   List<Object?> get props => [
         // 初始化状态
-        isInitializing,
-        isInitialized,
+        homePageIsInitializing,
+        homePageIsInitialized,
         errorMessage,
         currentUser,
 
@@ -228,9 +251,11 @@ class HomeState extends Equatable {
         lastContactsSyncTime,
         contactsErrorMessage,
 
-        // 通话相关状态
-        calls,
-        isLoadingCalls,
+        // 网络相关状态
+        isConnected,
+        networkStatus,
+        lastConnectionTime,
+        connectionErrorMessage,
 
         // 搜索相关状态
         searchQuery,

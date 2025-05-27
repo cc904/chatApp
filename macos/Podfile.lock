@@ -3,7 +3,6 @@ PODS:
     - FlutterMacOS
   - connectivity_plus (0.0.1):
     - FlutterMacOS
-    - ReachabilitySwift
   - file_saver (0.0.1):
     - FlutterMacOS
   - file_selector_macos (0.0.1):
@@ -28,7 +27,6 @@ PODS:
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - ReachabilitySwift (5.2.4)
   - record_macos (0.2.0):
     - FlutterMacOS
   - share_plus (0.0.1):
@@ -69,7 +67,6 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - ReachabilitySwift
     - WebRTC-SDK
 
 EXTERNAL SOURCES:
@@ -114,7 +111,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
-  connectivity_plus: e74b9f74717d2d99d45751750e266e55912baeb5
+  connectivity_plus: 4adf20a405e25b42b9c9f87feff8f4b6fde18a4e
   file_saver: e35bd97de451dde55ff8c38862ed7ad0f3418d0f
   file_selector_macos: 6280b52b459ae6c590af5d78fc35c7267a3c4b31
   flutter_local_notifications: 453432cd6399a07d072885bc7828fb2307868856
@@ -126,7 +123,6 @@ SPEC CHECKSUMS:
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
-  ReachabilitySwift: 32793e867593cfc1177f5d16491e3a197d2fccda
   record_macos: fcfa993538261e6fdb5b3ce08b82000be6ddec71
   share_plus: 3c787998077d6b31e839225a282e9e27edf99274
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7

@@ -365,19 +365,28 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       child: Column(
         children: [
           // 头像
-          UserAvatar(
-            avatarUrl: widget.contact?.avatar,
-            name: widget.contact?.name ?? '?',
-            radius: 50,
-            backgroundColor: Colors.cyan,
+          Hero(
+            tag: 'avatar_${widget.conversationId}',
+            child: UserAvatar(
+              avatarUrl: widget.contact?.avatar,
+              name: widget.contact?.name ?? '?',
+              radius: 50,
+              backgroundColor: Colors.cyan,
+            ),
           ),
           const SizedBox(height: 16),
           // 名称
-          Text(
-            widget.contact?.name ?? conversation.name ?? '未知联系人',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          Hero(
+            tag: 'name_${widget.conversationId}',
+            child: Material(
+              color: Colors.transparent,
+              child: Text(
+                widget.contact?.name ?? conversation.name ?? '未知联系人',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -446,7 +455,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                             // 两种图标在同一位置，通过透明度控制显示/隐藏
                             Opacity(
                               opacity: 1 - _rotateAnimation.value,
-                              child: Icon(
+                              child: const Icon(
                                 Icons.notifications_none,
                                 color: Colors.blue,
                                 size: 26,
@@ -454,7 +463,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                             ),
                             Opacity(
                               opacity: _rotateAnimation.value,
-                              child: Icon(
+                              child: const Icon(
                                 Icons.notifications_off_outlined,
                                 color: Colors.blue,
                                 size: 26,

@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/features/home/data/repositories/home_repository_impl.dart';
@@ -26,6 +28,9 @@ class HomeCubit extends Cubit<HomeState> {
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
+  
+  // 网络连接实例
+  final Connectivity _connectivity = Connectivity();
 
   HomeCubit({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto,
@@ -44,6 +49,9 @@ class HomeCubit extends Cubit<HomeState> {
     try {
       _logger.i('开始初始化用户会话');
       emit(state.toInitializingState());
+      
+      // 初始化网络状态监听
+      await _initNetworkMonitoring();
 
       // 初始化各个 Repository
       final homeRepositoryInitialized = await _homeRepository.initUserSession();
@@ -165,7 +173,7 @@ class HomeCubit extends Cubit<HomeState> {
       await _loadContacts();
 
       // 加载通话记录
-      // await _loadCallHistory();
+      // 通话相关功能已移除
     } catch (error) {
       _logger.e('加载初始数据失败', error: error);
     }
@@ -174,7 +182,7 @@ class HomeCubit extends Cubit<HomeState> {
   /// 重试初始化
   Future<void> retryInitialization() async {
     _logger.i('重试初始化');
-    if (!state.isInitializing) {
+    if (!state.homePageIsInitializing) {
       await initUserSession();
     }
   }
@@ -204,20 +212,60 @@ class HomeCubit extends Cubit<HomeState> {
   Future<void> _loadConversations() async {
     _logger.d('加载所有会话', stackTrace: StackTrace.current);
     try {
-      emit(state.copyWith(isInitializing: true));
+      // 只在首次加载时设置 isInitializing
+      final isFirstLoad = state.conversations.isEmpty;
+      if (isFirstLoad) {
+        emit(state.copyWith(homePageIsInitializing: true));
+      }
+      
       final conversations = await _chatRepository.getAllConversations();
-      emit(state.copyWith(
-        conversations: conversations,
-        isInitializing: false,
-      ));
-      _logger.i('加载会话成功，共 ${conversations.length} 个会话');
+      
+      // 检查会话列表是否真正变化了
+      if (!_areConversationsEqual(state.conversations, conversations)) {
+        emit(state.copyWith(
+          conversations: conversations,
+          homePageIsInitializing: isFirstLoad ? false : state.homePageIsInitializing,
+        ));
+        _logger.i('加载会话成功，共 ${conversations.length} 个会话');
+      } else {
+        _logger.i('会话数据未变化，跳过更新');
+        // 如果是首次加载，但数据没变化，仍然需要更新 isInitializing
+        if (isFirstLoad) {
+          emit(state.copyWith(homePageIsInitializing: false));
+        }
+      }
     } catch (error) {
       _logger.e('加载会话失败', error: error);
       emit(state.copyWith(
-        isInitializing: false,
+        homePageIsInitializing: false,
         errorMessage: '加载会话失败: ${error.toString()}',
       ));
     }
+  }
+  
+  /// 比较两个会话列表是否相等
+  bool _areConversationsEqual(List<Conversation> list1, List<Conversation> list2) {
+    if (list1.length != list2.length) return false;
+    
+    // 创建会话 ID 到会话的映射，便于快速查找
+    final map1 = {for (var conv in list1) conv.conversationId: conv};
+    
+    // 检查每个会话的关键字段是否变化
+    for (final conv2 in list2) {
+      final conv1 = map1[conv2.conversationId];
+      if (conv1 == null) return false;
+      
+      // 比较关键字段
+      if (conv1.lastMessageTime != conv2.lastMessageTime ||
+          conv1.unreadCount != conv2.unreadCount ||
+          conv1.lastMessagePreview != conv2.lastMessagePreview ||
+          conv1.isPinned != conv2.isPinned ||
+          conv1.isMuted != conv2.isMuted ||
+          conv1.lastReadAt != conv2.lastReadAt) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// 加载会话消息
@@ -444,47 +492,97 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 通话相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  // 通话相关功能已移除
 
-  /// 加载通话记录
-  Future<void> loadCallHistory() async {
-    _logger.i('加载通话记录');
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 网络状态相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 初始化网络状态监听
+  Future<void> _initNetworkMonitoring() async {
+    _logger.i('初始化网络状态监听');
+    
+    // 检查当前网络状态
+    final connectivityResult = await _connectivity.checkConnectivity();
+    _updateNetworkStatus(connectivityResult.first);
+    
+    // 监听网络状态变化
+    _subscriptions['connectivity'] = _connectivity.onConnectivityChanged.listen(
+      (result) => _handleNetworkChange(result.first)
+    );
+  }
+  
+  /// 处理网络状态变化
+  void _handleNetworkChange(ConnectivityResult result) {
+    _logger.i('网络状态变化', extra: {'result': result.toString()});
+    _updateNetworkStatus(result);
+  }
+  
+  /// 更新网络状态
+  void _updateNetworkStatus(ConnectivityResult result) {
+    NetworkStatus networkStatus;
+    bool isConnected = false;
+    String? errorMessage;
+    
+    switch (result) {
+      case ConnectivityResult.wifi:
+      case ConnectivityResult.mobile:
+      case ConnectivityResult.ethernet:
+        networkStatus = NetworkStatus.connected;
+        isConnected = true;
+        errorMessage = null;
+        break;
+      case ConnectivityResult.none:
+        networkStatus = NetworkStatus.disconnected;
+        isConnected = false;
+        errorMessage = '无网络连接';
+        break;
+      default:
+        networkStatus = NetworkStatus.error;
+        isConnected = false;
+        errorMessage = '网络连接异常';
+    }
+    
+    emit(state.copyWith(
+      isConnected: isConnected,
+      networkStatus: networkStatus,
+      lastConnectionTime: isConnected ? DateTime.now() : state.lastConnectionTime,
+      connectionErrorMessage: errorMessage,
+    ));
+  }
+  
+  /// 检查网络连接
+  Future<void> checkNetworkConnection() async {
+    _logger.i('检查网络连接');
+    
     try {
-      emit(state.copyWith(isLoadingCalls: true));
-
-      // 如果有实际的通话记录加载逻辑，应该在这里实现
-      // 目前使用模拟数据
-      await Future.delayed(const Duration(milliseconds: 500)); // 模拟网络延迟
-
-      // 模拟通话记录数据
-      // final mockCalls = await _homeRepository.getCallHistory();
-
-      // emit(state.copyWith(
-      //   calls: mockCalls,
-      //   isLoadingCalls: false,
-      // ));
-
-      // _logger.i('通话记录加载成功，共 ${mockCalls.length} 条记录');
-    } catch (error) {
-      _logger.e('加载通话记录失败', error: error);
+      // 先更新为连接中状态
       emit(state.copyWith(
-        isLoadingCalls: false,
-        errorMessage: '加载通话记录失败: ${error.toString()}',
+        networkStatus: NetworkStatus.connecting,
+      ));
+      
+      // 检查当前网络状态
+      final connectivityResult = await _connectivity.checkConnectivity();
+      _updateNetworkStatus(connectivityResult.first);
+      
+      // 如果连接上了，尝试加载数据
+      if (state.isConnected) {
+        await _loadConversations();
+      }
+    } catch (error) {
+      _logger.e('检查网络连接失败', error: error);
+      emit(state.copyWith(
+        networkStatus: NetworkStatus.error,
+        isConnected: false,
+        connectionErrorMessage: '检查网络连接失败: ${error.toString()}',
       ));
     }
   }
-
-  /// 发起通话
-  // Future<bool> initiateCall(String contactId, bool isVideo) async {
-  //   _logger.i('发起通话', extra: {'contactId': contactId, 'isVideo': isVideo});
-  //   try {
-  //     return await _homeRepository.initiateCall(contactId, isVideo);
-  //   } catch (error) {
-  //     _logger.e('发起通话失败', error: error);
-  //     return false;
-  //   }
-  // }
-
+  
+  /// 尝试重新连接
+  Future<void> reconnect() async {
+    _logger.i('尝试重新连接');
+    await checkNetworkConnection();
+  }
+  
   // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 个人资料相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 加载用户资料
@@ -629,11 +727,16 @@ class HomeCubit extends Cubit<HomeState> {
       // 加入Socket.io会话房间
       await _chatRepository.joinConversationRoom(conversationId);
 
+      // 注册会话事件处理器
+      _chatRepository.registerConversationEventHandlers(conversationId);
+
       // 设置当前会话ID
       emit(state.copyWith(currentConversationId: conversationId));
 
       // 加载会话消息
       await loadMessagesForConversation(conversationId);
+
+      _logger.i('已进入会话: $conversationId');
     } catch (error) {
       _logger.e('进入会话失败', error: error);
       emit(state.copyWith(
@@ -649,10 +752,15 @@ class HomeCubit extends Cubit<HomeState> {
       // 离开Socket.io会话房间
       await _chatRepository.leaveConversationRoom(conversationId);
 
+      // 移除会话事件处理器
+      _chatRepository.unregisterConversationEventHandlers(conversationId);
+
       // 清除当前会话ID
       if (state.currentConversationId == conversationId) {
         emit(state.copyWith(currentConversationId: null));
       }
+
+      _logger.i('已离开会话: $conversationId');
     } catch (error) {
       _logger.e('离开会话失败', error: error);
       emit(state.copyWith(
@@ -661,13 +769,33 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
+  /// 标记会话为已读
+  Future<void> markConversationAsRead(String conversationId) async {
+    _logger.i('标记会话为已读', extra: {'conversationId': conversationId});
+    try {
+      await _chatRepository.markConversationAsRead(conversationId);
+
+      // 重新加载会话列表以更新未读计数
+      await _loadConversations();
+
+      _logger.i('会话已标记为已读: $conversationId');
+    } catch (error) {
+      _logger.e('标记会话为已读失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '标记会话为已读失败: ${error.toString()}',
+      ));
+    }
+  }
+
   @override
   Future<void> close() {
     _logger.i('关闭HomeCubit');
     // 取消所有订阅
-    for (var subscription in _subscriptions.values) {
+    for (final subscription in _subscriptions.values) {
       subscription.cancel();
     }
+    // 取消网络状态监听
+    _subscriptions['connectivity']?.cancel();
     _subscriptions.clear();
 
     // 关闭各个 Repository

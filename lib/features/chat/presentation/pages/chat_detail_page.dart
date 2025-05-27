@@ -14,6 +14,7 @@ import 'package:cc/core/services/ui_notification_service.dart';
 
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
+import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -31,58 +32,89 @@ class ChatDetailPage extends StatefulWidget {
 
 class _ChatDetailPageState extends State<ChatDetailPage>
     with TickerProviderStateMixin {
-  final _logger = LogService.instance;
+  final LogService _logger = LogService.instance;
+  final MediaService _mediaService = MediaService();
   final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  bool _isLoadingMore = false;
-  bool _dataInitialized = false;
 
-  // 录音波形动画控制
+  // 添加HomeCubit引用
+  late HomeCubit _homeCubit;
+
+  // 控制器声明
+  late ScrollController _scrollController;
+  late AnimationController _voiceAnimationController;
   late AnimationController _waveformController;
 
-  // 媒体服务
-  final MediaService _mediaService = MediaService();
-
-  // 录音状态
+  // 状态变量
+  final bool _isRecording = false;
+  final bool _isTyping = false;
+  final bool _showEmojiPicker = false;
+  bool _dataInitialized = false;
+  bool _isLoadingMore = false;
   Timer? _recordingTimer;
+  final int _recordingDuration = 0;
 
   // 添加选择的附件状态
   File? _selectedAttachment;
   String? _attachmentType;
 
-  // 添加语音动画控制器
-  late AnimationController _voiceAnimationController;
-
   @override
   void initState() {
     super.initState();
-    _logger.i('初始化ChatDetailPage: conversationId=${widget.conversationId}');
-
-    // 监听滚动事件,用于加载历史消息
-    _scrollController.addListener(_scrollListener);
-
-    // 初始化波形动画控制器
-    _waveformController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..addListener(() {
-        setState(() {});
-      });
-    _waveformController.repeat();
-
-    // 初始化语音动画控制器
+    // 初始化控制器
+    _scrollController = ScrollController()..addListener(_scrollListener);
     _voiceAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 750),
+      duration: const Duration(milliseconds: 500),
     );
-    _voiceAnimationController.repeat(reverse: true);
+    _waveformController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
 
+    // 初始化数据
     _init();
   }
 
   Future<void> _init() async {
-    await _loadConversation();
+    _logger.i('初始化会话');
+    try {
+      final homeCubit = context.read<HomeCubit>();
+
+      // 1. 进入会话（加入房间和注册事件处理器）
+      await homeCubit.enterConversation(widget.conversationId);
+
+      // 2. 标记会话为已读
+      await homeCubit.markConversationAsRead(widget.conversationId);
+
+      // 3. 如果需要滚动到特定消息，可以在这里处理
+      final conversation = homeCubit.state.currentConversation;
+      if (conversation?.lastReadMessageId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToMessage(conversation!.lastReadMessageId!);
+        });
+      }
+    } catch (error) {
+      _logger.e('初始化会话失败: $error');
+      UINotificationService().showError('初始化会话失败: $error');
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 保存HomeCubit引用，避免在dispose中查找
+    _homeCubit = context.read<HomeCubit>();
+
+    // 确保数据仅被初始化一次
+    if (!_dataInitialized) {
+      _dataInitialized = true;
+      // 确保消息加载完成后滚动到底部
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
+    }
   }
 
   @override
@@ -98,10 +130,19 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     // 清理录音计时器
     _recordingTimer?.cancel();
 
-    // 在微任务中安排媒体服务清理,避免在Navigator处于locked状态时执行
+    // 离开会话 - 使用已保存的HomeCubit引用
+    final conversationId = widget.conversationId;
     Future.microtask(() {
       try {
-        // 尝试停止所有音频播放
+        _homeCubit.leaveConversation(conversationId);
+      } catch (e) {
+        // 忽略可能的错误
+      }
+    });
+
+    // 在微任务中安排媒体服务清理
+    Future.microtask(() {
+      try {
         _mediaService.stopAudio();
         _mediaService.disposeAudio();
       } catch (error) {
@@ -110,32 +151,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     });
 
     super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 确保数据仅被初始化一次
-    if (!_dataInitialized) {
-      _dataInitialized = true;
-      // 确保消息加载完成后滚动到底部
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
-    }
-  }
-
-  // 加载会话和消息
-  Future<void> _loadConversation() async {
-    try {
-      final homeCubit = BlocProvider.of<HomeCubit>(context);
-
-      // 设置当前会话ID
-      await homeCubit.loadMessagesForConversation(widget.conversationId);
-    } catch (error) {
-      _logger.e('加载会话失败: $error');
-      UINotificationService().showError('加载会话失败: $error');
-    }
   }
 
   // 滚动到底部
@@ -286,18 +301,18 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           appBar: AppBar(
             title: GestureDetector(
               onTap: () => _openChatInfoPage(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(widget.contact.name),
-                  const Text(
-                    'connecting...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
+              child: BlocBuilder<HomeCubit, HomeState>(
+                buildWhen: (previous, current) => 
+                  previous.networkStatus != current.networkStatus ||
+                  previous.isLoadingMessages != current.isLoadingMessages,
+                builder: (context, state) {
+                  return AppBarTitleWithNetworkStatus(
+                    title: widget.contact.name,
+                    networkStatus: state.networkStatus,
+                    isLoading: state.isLoadingMessages,
+                    onRetry: () => context.read<HomeCubit>().reconnect(),
+                  );
+                },
               ),
             ),
             backgroundColor: Colors.green,
@@ -337,11 +352,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               GestureDetector(
                 onTap: () => _openChatInfoPage(context),
                 child: Container(
-                  margin: const EdgeInsets.only(right: 16.0),
-                  child: UserAvatar(
-                    avatarUrl: widget.contact.avatar,
-                    name: widget.contact.name,
-                    radius: 22,
+                  margin: const EdgeInsets.only(right: 8.0),
+                  child: Hero(
+                    tag: 'avatar_${widget.conversationId}',
+                    child: UserAvatar(
+                      avatarUrl: widget.contact.avatar,
+                      name: widget.contact.name,
+                      radius: 22,
+                      backgroundColor: Colors.cyan,
+                    ),
                   ),
                 ),
               ),
@@ -596,6 +615,31 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         ),
       ),
     );
+  }
+
+  // 滚动到特定消息
+  void _scrollToMessage(String messageId) {
+    // 在实际应用中，这里需要找到消息的索引并滚动到该位置
+    // 这里只是一个简化的示例
+    _logger.i('滚动到消息: $messageId');
+
+    // 查找消息在列表中的位置
+    final homeCubit = context.read<HomeCubit>();
+    final messages =
+        homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+
+    final messageIndex = messages.indexWhere((m) => m.messageId == messageId);
+    if (messageIndex != -1) {
+      // 计算滚动位置
+      final scrollPosition = messageIndex * 80.0; // 假设每条消息高度约为80
+
+      // 滚动到指定位置
+      _scrollController.animateTo(
+        scrollPosition,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 }
 

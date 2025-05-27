@@ -31,16 +31,16 @@ class ConversationType extends $pb.ProtobufEnum {
   const ConversationType._(super.v, super.n);
 }
 
-/// 新增：会话成员角色
+/// 成员角色枚举，匹配数据库模型中的 MemberRole
 class MemberRole extends $pb.ProtobufEnum {
-  static const MemberRole member = MemberRole._(0, _omitEnumNames ? '' : 'member');
-  static const MemberRole admin = MemberRole._(1, _omitEnumNames ? '' : 'admin');
-  static const MemberRole owner = MemberRole._(2, _omitEnumNames ? '' : 'owner');
+  static const MemberRole MEMBER = MemberRole._(0, _omitEnumNames ? '' : 'MEMBER');
+  static const MemberRole ADMIN = MemberRole._(1, _omitEnumNames ? '' : 'ADMIN');
+  static const MemberRole OWNER = MemberRole._(2, _omitEnumNames ? '' : 'OWNER');
 
   static const $core.List<MemberRole> values = <MemberRole> [
-    member,
-    admin,
-    owner,
+    MEMBER,
+    ADMIN,
+    OWNER,
   ];
 
   static final $core.Map<$core.int, MemberRole> _byValue = $pb.ProtobufEnum.initByValue(values);
