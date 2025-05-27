@@ -3,6 +3,7 @@ trigger: always_on
 ---
 
 所有的回答都使用中文
+git提交commit也使用中文
 这是一个模仿telegra的flutter项目
 使用Cubit作为状态管理
 使用isar作为数据库

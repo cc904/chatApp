@@ -786,6 +786,26 @@ class HomeCubit extends Cubit<HomeState> {
       ));
     }
   }
+  
+  /// 更新最后阅读的消息ID
+  Future<void> updateLastReadMessageId(String conversationId, String messageId) async {
+    _logger.i('更新最后阅读的消息ID', 
+      extra: {'conversationId': conversationId, 'messageId': messageId});
+    try {
+      // 调用仓库方法更新最后阅读的消息ID
+      await _chatRepository.updateLastReadMessageId(conversationId, messageId);
+      
+      // 重新加载会话列表以更新状态
+      await _loadConversations();
+      
+      _logger.i('最后阅读的消息ID已更新: $messageId');
+    } catch (error) {
+      _logger.e('更新最后阅读的消息ID失败', error: error);
+      emit(state.copyWith(
+        errorMessage: '更新最后阅读的消息ID失败: ${error.toString()}',
+      ));
+    }
+  }
 
   @override
   Future<void> close() {

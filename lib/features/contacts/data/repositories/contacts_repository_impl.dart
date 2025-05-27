@@ -52,6 +52,12 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _logger.i('通信服务未初始化，无法设置Proto事件订阅');
       return;
     }
+    
+    // 先取消所有现有的监听器，防止重复注册
+    for (var subscription in _subscriptions) {
+      subscription.cancel();
+    }
+    _subscriptions.clear();
 
     _logger.i('开始设置ContactsRepository Proto事件流 订阅');
 

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -52,6 +53,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   bool _dataInitialized = false;
   bool _isLoadingMore = false;
   Timer? _recordingTimer;
+  Timer? _debounceTimer; // 防抖定时器，用于限制更新最后阅读消息ID的频率
   final int _recordingDuration = 0;
 
   // 添加选择的附件状态
@@ -83,17 +85,23 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
       // 1. 进入会话（加入房间和注册事件处理器）
       await homeCubit.enterConversation(widget.conversationId);
-
-      // 2. 标记会话为已读
-      await homeCubit.markConversationAsRead(widget.conversationId);
-
-      // 3. 如果需要滚动到特定消息，可以在这里处理
+      
+      // 2. 获取当前会话和消息
       final conversation = homeCubit.state.currentConversation;
-      if (conversation?.lastReadMessageId != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+      final messages = homeCubit.state.currentMessages;
+      
+      // 3. 定位到上次阅读位置
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (conversation?.lastReadMessageId != null && messages.isNotEmpty) {
+          // 如果有上次阅读位置，则滚动到该位置
           _scrollToMessage(conversation!.lastReadMessageId!);
-        });
-      }
+          _logger.i('滚动到上次阅读位置: ${conversation.lastReadMessageId}');
+        } else if (messages.isNotEmpty) {
+          // 如果没有上次阅读位置但有消息，则滚动到底部
+          _scrollToBottom();
+          _logger.i('没有上次阅读位置，滚动到底部');
+        }
+      });
     } catch (error) {
       _logger.e('初始化会话失败: $error');
       UINotificationService().showError('初始化会话失败: $error');
@@ -129,6 +137,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     // 清理录音计时器
     _recordingTimer?.cancel();
+    
+    // 清理防抖定时器
+    _debounceTimer?.cancel();
 
     // 离开会话 - 使用已保存的HomeCubit引用
     final conversationId = widget.conversationId;
@@ -177,7 +188,42 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           !_isLoadingMore) {
         _loadMoreMessages();
       }
+      
+      // 更新最后阅读的消息ID
+      _updateLastReadMessageIdFromScroll();
     }
+  }
+  
+  /// 从滚动位置更新最后阅读的消息ID
+  void _updateLastReadMessageIdFromScroll() {
+    // 防抖处理，避免频繁更新
+    if (!_scrollController.hasClients || (_debounceTimer != null && _debounceTimer!.isActive)) {
+      return;
+    }
+    
+    // 设置防抖定时器，500毫秒内只处理一次
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      // 获取当前所有消息
+      final homeCubit = context.read<HomeCubit>();
+      final messages = homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+      if (messages.isEmpty) return;
+      
+      // 计算当前可见的消息索引
+      // 这里的计算方式是一个估算，假设每条消息高度约为80像素
+      final scrollPosition = _scrollController.position.pixels;
+      final estimatedIndex = (scrollPosition / 80.0).floor();
+      
+      // 确保索引在有效范围内
+      final visibleIndex = math.max(0, math.min(estimatedIndex, messages.length - 1));
+      final visibleMessage = messages[visibleIndex];
+      
+      // 更新最后阅读的消息ID
+      final messageId = visibleMessage.messageId;
+      if (messageId != null && messageId.isNotEmpty) {
+        _updateLastReadMessageId(messageId);
+      }
+    });
   }
 
   // 加载更多历史消息
@@ -618,9 +664,20 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   }
 
   // 滚动到特定消息
+  /// 更新最后阅读的消息ID
+  void _updateLastReadMessageId(String messageId) {
+    _logger.i('更新最后阅读的消息ID: $messageId');
+    try {
+      final homeCubit = context.read<HomeCubit>();
+      // 调用ChatRepository的方法更新最后阅读的消息ID
+      homeCubit.updateLastReadMessageId(widget.conversationId, messageId);
+    } catch (error) {
+      _logger.e('更新最后阅读的消息ID失败', error: error);
+    }
+  }
+
+  /// 滚动到指定消息
   void _scrollToMessage(String messageId) {
-    // 在实际应用中，这里需要找到消息的索引并滚动到该位置
-    // 这里只是一个简化的示例
     _logger.i('滚动到消息: $messageId');
 
     // 查找消息在列表中的位置

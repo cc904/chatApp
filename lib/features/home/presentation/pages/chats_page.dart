@@ -264,14 +264,19 @@ class _ChatsPageState extends State<ChatsPage>
           bottom: BorderSide(color: Colors.grey, width: 0.5),
         ),
       ),
-      child: Row(
-        children: [
-          _buildTabItem('All Chats', 0, null),
-          _buildTabItem('私密', 1, null),
-          _buildTabItem('群组', 2, 2),
-          _buildTabItem('频道', 3, 3),
-          _buildTabItem('未读', 4, 5),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTabItem('All Chats', 0, null),
+            _buildTabItem('私密', 1, null),
+            _buildTabItem('群组', 2, 2),
+            _buildTabItem('频道', 3, 3),
+            _buildTabItem('未读', 4, 5),
+          ],
+        ),
       ),
     );
   }
@@ -280,55 +285,59 @@ class _ChatsPageState extends State<ChatsPage>
   Widget _buildTabItem(String title, int index, int? count) {
     final isSelected = _selectedTabIndex == index;
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedTabIndex = index;
-            // 切换标签后更新过滤的会话列表
-            _filteredConversations = _filterConversationsByTab(
-                context.read<HomeCubit>().state.conversations);
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: isSelected ? Colors.blue : Colors.transparent,
-                width: 2.0,
-              ),
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTabIndex = index;
+          // 切换标签后更新过滤的会话列表
+          _filteredConversations = _filterConversationsByTab(
+              context.read<HomeCubit>().state.conversations);
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? Colors.blue : Colors.transparent,
+              width: 2.0,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 使用 DefaultTextStyle.merge 确保文本在选中和非选中状态下保持相同宽度
+            DefaultTextStyle.merge(
+              style: TextStyle(
+                color: isSelected ? Colors.blue : Colors.grey,
+                fontWeight: FontWeight.bold, // 始终使用粗体，但通过不同的透明度区分选中状态
+                fontSize: 14,
+              ),
+              child: Opacity(
+                opacity: isSelected ? 1.0 : 0.8, // 非选中时稍微降低透明度
+                child: Text(title),
+              ),
+            ),
+            if (count != null)
+              Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
                   color: isSelected ? Colors.blue : Colors.grey,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-              if (count != null)
-                Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.blue : Colors.grey,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    count.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -796,19 +805,20 @@ class _ChatsPageState extends State<ChatsPage>
                                   ],
                                 ),
 
-                                // 第二行：消息内容
-                                Text(
-                                  conversation.lastMessagePreview ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey,
+                                // 第二、三行：消息内容预览（始终保持两行高度）
+                                Container(
+                                  height: 36, // 固定高度，相当于两行文本的高度
+                                  alignment: Alignment.topLeft,
+                                  child: Text(
+                                    conversation.lastMessagePreview ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-
-                                // 第三行：留空
-                                const SizedBox(height: 16),
                               ],
                             );
                           // 群聊布局
