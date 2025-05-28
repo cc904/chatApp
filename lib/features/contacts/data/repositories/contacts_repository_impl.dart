@@ -33,11 +33,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
   final List<StreamSubscription> _subscriptions = [];
 
   // 同步状态流
-  final _syncStatusController =
+  final _syncContactsStatusController =
       StreamController<ContactsSyncStatus>.broadcast();
   @override
   Stream<ContactsSyncStatus> get syncStatusStream =>
-      _syncStatusController.stream;
+      _syncContactsStatusController.stream;
 
   // 构造函数
   ContactsRepositoryImpl({required CurrentUserProto currentUserProto})
@@ -121,12 +121,12 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 通知同步成功
-      _syncStatusController.add(ContactsSyncStatus.success);
+      _syncContactsStatusController.add(ContactsSyncStatus.success);
 
       _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
     } catch (error) {
       _logger.e('处理联系人同步事件失败', error: error, stackTrace: StackTrace.current);
-      _syncStatusController.add(ContactsSyncStatus.error);
+      _syncContactsStatusController.add(ContactsSyncStatus.error);
     }
   }
 
@@ -139,7 +139,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       if (response.contacts.isEmpty) {
         _logger.i('联系人列表为空，这可能是新用户或同步过程中的正常状态');
         // 通知同步成功（即使列表为空）
-        _syncStatusController.add(ContactsSyncStatus.success);
+        _syncContactsStatusController.add(ContactsSyncStatus.success);
         return;
       }
 
@@ -175,12 +175,12 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 通知同步成功
-      _syncStatusController.add(ContactsSyncStatus.success);
+      _syncContactsStatusController.add(ContactsSyncStatus.success);
 
       _logger.i('联系人同步数据处理完成', extra: {'count': contacts.length});
     } catch (e, stack) {
       _logger.e('处理联系人同步结果事件失败', error: e, stackTrace: stack);
-      _syncStatusController.add(ContactsSyncStatus.error);
+      _syncContactsStatusController.add(ContactsSyncStatus.error);
     }
   }
 
@@ -324,7 +324,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<void> syncContacts() async {
     try {
       // 通知开始同步
-      _syncStatusController.add(ContactsSyncStatus.syncing);
+      _syncContactsStatusController.add(ContactsSyncStatus.syncing);
       _logger.i('开始联系人同步流程');
 
       // 验证当前用户信息
@@ -333,7 +333,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           'userId': _currentUser.userId,
           'hasToken': _currentUser.token.isNotEmpty
         });
-        _syncStatusController.add(ContactsSyncStatus.error);
+        _syncContactsStatusController.add(ContactsSyncStatus.error);
         return;
       }
 
@@ -358,7 +358,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         bool isSyncComplete = false;
 
         // 添加一个临时监听器来检测同步状态变化
-        final syncSubscription = _syncStatusController.stream.listen((status) {
+        final syncSubscription = _syncContactsStatusController.stream.listen((status) {
           if (status != ContactsSyncStatus.syncing) {
             isSyncComplete = true;
           }
@@ -369,16 +369,16 @@ class ContactsRepositoryImpl implements ContactsRepository {
           syncSubscription.cancel(); // 取消监听器
           if (!isSyncComplete) {
             _logger.w('联系人同步请求超时');
-            _syncStatusController.add(ContactsSyncStatus.error);
+            _syncContactsStatusController.add(ContactsSyncStatus.error);
           }
         });
       } else {
         _logger.e('通信服务未初始化，无法同步联系人');
-        _syncStatusController.add(ContactsSyncStatus.error);
+        _syncContactsStatusController.add(ContactsSyncStatus.error);
       }
     } catch (error, stack) {
       _logger.e('同步联系人失败', error: error, stackTrace: stack);
-      _syncStatusController.add(ContactsSyncStatus.error);
+      _syncContactsStatusController.add(ContactsSyncStatus.error);
       rethrow;
     }
   }
@@ -631,6 +631,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _syncStatusController.close();
+    _syncContactsStatusController.close();
   }
 }

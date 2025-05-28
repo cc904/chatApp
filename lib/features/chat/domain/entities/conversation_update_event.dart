@@ -23,15 +23,43 @@ class ConversationUpdateEvent {
   /// 会话对象（新增和更新时有值）
   final Conversation? conversation;
   
+  /// 最后一条消息预览
+  final String? lastMessagePreview;
+  
+  /// 最后一条消息时间
+  final DateTime? lastMessageTime;
+  
+  /// 未读消息数
+  final int? unreadCount;
+  
+  /// 发送者ID
+  final String? senderId;
+  
+  /// 发送者名称
+  final String? senderName;
+  
+  /// 是否是静音状态
+  final bool? isMuted;
+  
+  /// 是否是置顶状态
+  final bool? isPinned;
+  
   /// 构造函数
   ConversationUpdateEvent({
     required this.conversationId,
     required this.type,
     this.conversation,
+    this.lastMessagePreview,
+    this.lastMessageTime,
+    this.unreadCount,
+    this.senderId,
+    this.senderName,
+    this.isMuted,
+    this.isPinned,
   });
   
   @override
   String toString() {
-    return 'ConversationUpdateEvent{conversationId: $conversationId, type: $type, conversation: ${conversation?.name}}';
+    return 'ConversationUpdateEvent{conversationId: $conversationId, type: $type, conversation: ${conversation?.name}, lastMessagePreview: $lastMessagePreview, lastMessageTime: $lastMessageTime, unreadCount: $unreadCount}';
   }
 }

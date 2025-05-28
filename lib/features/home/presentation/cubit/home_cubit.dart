@@ -102,9 +102,6 @@ class HomeCubit extends Cubit<HomeState> {
       _handleConversationUpdateEvent(event);
     });
 
-    // 初始化时加载所有会话
-    _loadConversations();
-
     // 监听联系人变化
     _subscriptions['contacts'] =
         _contactsRepository.watchContacts().listen((_) {
@@ -165,9 +162,6 @@ class HomeCubit extends Cubit<HomeState> {
     _logger.i('加载初始数据');
 
     try {
-      // 加载会话
-      await _loadConversations();
-
       // 加载联系人
       await _loadContacts();
 
@@ -188,17 +182,22 @@ class HomeCubit extends Cubit<HomeState> {
 
   // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 聊天相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 加载所有会话
-  Future<void> loadConversations() async {
-    await _loadConversations();
-  }
-
   /// 同步会话列表
   /// 从服务器同步最新的会话数据
   Future<void> syncConversations() async {
+    emit(state.copyWith(
+      conversationSyncStatus: ConversationSyncStatus.syncing,
+    ));
     _logger.i('同步会话列表');
     try {
       await _chatRepository.syncConversations();
+
+      // 同步完成后加载最新数据
+      final conversations = await _chatRepository.getAllConversations();
+      emit(state.copyWith(
+        conversations: conversations,
+        conversationSyncStatus: ConversationSyncStatus.completed,
+      ));
     } catch (error) {
       _logger.e('同步会话失败', error: error);
       emit(state.copyWith(
@@ -267,117 +266,13 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  /// 内部加载会话实现
-  Future<void> _loadConversations() async {
-    _logger.d('加载所有会话', stackTrace: StackTrace.current);
-    try {
-      // 只在首次加载时设置 isInitializing
-      final isFirstLoad = state.conversations.isEmpty;
-      if (isFirstLoad) {
-        emit(state.copyWith(homePageIsInitializing: true));
-      }
-
-      final conversations = await _chatRepository.getAllConversations();
-
-      // 检查会话列表是否真正变化了
-      if (!_areConversationsEqual(state.conversations, conversations)) {
-        // 计算更新和删除的会话ID
-        final updatedIds = <String>{};
-        final removedIds = <String>{};
-
-        // 找出新增和更新的会话
-        for (final conversation in conversations) {
-          final oldIndex = state.conversations.indexWhere(
-              (c) => c.conversationId == conversation.conversationId);
-
-          if (oldIndex >= 0) {
-            // 如果已存在，检查是否有变化
-            final oldConversation = state.conversations[oldIndex];
-            if (oldConversation != conversation) {
-              updatedIds.add(conversation.conversationId);
-            }
-          } else {
-            // 新增的会话
-            updatedIds.add(conversation.conversationId);
-          }
-        }
-
-        // 找出删除的会话
-        for (final oldConversation in state.conversations) {
-          final exists = conversations
-              .any((c) => c.conversationId == oldConversation.conversationId);
-
-          if (!exists) {
-            removedIds.add(oldConversation.conversationId);
-          }
-        }
-
-        emit(state.copyWith(
-          conversations: conversations,
-          homePageIsInitializing:
-              isFirstLoad ? false : state.homePageIsInitializing,
-          updatedConversationIds: updatedIds,
-          removedConversationIds: removedIds,
-        ));
-
-        // 初始化过滤后的会话列表
-        initFilteredConversations();
-
-        _logger.i(
-            '加载会话成功，共 ${conversations.length} 个会话，更新 ${updatedIds.length} 个，删除 ${removedIds.length} 个');
-      } else {
-        _logger.i('会话数据未变化，跳过更新');
-        // 如果是首次加载，但数据没变化，仍然需要更新 isInitializing
-        if (isFirstLoad) {
-          emit(state.copyWith(homePageIsInitializing: false));
-          
-          // 初始化过滤后的会话列表
-          initFilteredConversations();
-        }
-      }
-    } catch (error) {
-      _logger.e('加载会话失败', error: error);
-      emit(state.copyWith(
-        homePageIsInitializing: false,
-        errorMessage: '加载会话失败: ${error.toString()}',
-      ));
-    }
-  }
-
-  /// 比较两个会话列表是否相等
-  bool _areConversationsEqual(
-      List<Conversation> list1, List<Conversation> list2) {
-    if (list1.length != list2.length) return false;
-
-    // 创建会话 ID 到会话的映射，便于快速查找
-    final map1 = {for (var conv in list1) conv.conversationId: conv};
-
-    // 检查每个会话的关键字段是否变化
-    for (final conv2 in list2) {
-      final conv1 = map1[conv2.conversationId];
-      if (conv1 == null) return false;
-
-      // 比较关键字段
-      if (conv1.lastMessageTime != conv2.lastMessageTime ||
-          conv1.unreadCount != conv2.unreadCount ||
-          conv1.lastMessagePreview != conv2.lastMessagePreview ||
-          conv1.isPinned != conv2.isPinned ||
-          conv1.isMuted != conv2.isMuted ||
-          conv1.lastReadAt != conv2.lastReadAt) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   /// 加载会话消息
   Future<void> loadMessagesForConversation(String conversationId) async {
     _logger.d('加载会话消息',
         extra: {'conversationId': conversationId},
         stackTrace: StackTrace.current);
     try {
-      emit(state.copyWith(
-          isLoadingMessages: true, currentConversationId: conversationId));
+      emit(state.copyWith(isLoadingMessages: true));
 
       final messages =
           await _chatRepository.getConversationMessages(conversationId);
@@ -789,7 +684,7 @@ class HomeCubit extends Cubit<HomeState> {
 
       // 如果连接上了，尝试加载数据
       if (state.isConnected) {
-        await _loadConversations();
+        // TODO: await _loadConversations();
       }
     } catch (error) {
       _logger.e('检查网络连接失败', error: error);
@@ -899,8 +794,16 @@ class HomeCubit extends Cubit<HomeState> {
     _logger.i('更新会话静音状态',
         extra: {'conversationId': conversationId, 'isMuted': isMuted});
     try {
-      await _chatRepository.updateConversationMuteStatus(
-          conversationId, isMuted);
+      // 使用新的统一设置更新方法
+      final success = await _chatRepository
+          .updateConversationSettings(conversationId, muted: isMuted);
+
+      if (!success) {
+        _logger.w('更新会话静音状态失败');
+        emit(state.copyWith(
+          errorMessage: '更新会话静音状态失败',
+        ));
+      }
       // 通过监听数据库变化会自动更新状态，无需在此处手动更新
     } catch (error) {
       _logger.e('更新会话静音状态失败', error: error);
@@ -916,8 +819,16 @@ class HomeCubit extends Cubit<HomeState> {
     _logger.i('更新会话置顶状态',
         extra: {'conversationId': conversationId, 'isPinned': isPinned});
     try {
-      await _chatRepository.updateConversationPinStatus(
-          conversationId, isPinned);
+      // 使用新的统一设置更新方法
+      final success = await _chatRepository
+          .updateConversationSettings(conversationId, pinned: isPinned);
+
+      if (!success) {
+        _logger.w('更新会话置顶状态失败');
+        emit(state.copyWith(
+          errorMessage: '更新会话置顶状态失败',
+        ));
+      }
       // 通过监听数据库变化会自动更新状态，无需在此处手动更新
     } catch (error) {
       _logger.e('更新会话置顶状态失败', error: error);
@@ -951,11 +862,11 @@ class HomeCubit extends Cubit<HomeState> {
       // 加入Socket.io会话房间
       await _chatRepository.joinConversationRoom(conversationId);
 
-      // 注册会话事件处理器
-      _chatRepository.registerConversationEventHandlers(conversationId);
+      // // 注册会话事件处理器
+      // _chatRepository.registerConversationEventHandlers(conversationId);
 
-      // 设置当前会话ID
-      emit(state.copyWith(currentConversationId: conversationId));
+      // // 设置当前会话ID
+      // emit(state.copyWith(currentConversationId: conversationId));
 
       // 加载会话消息
       await loadMessagesForConversation(conversationId);
@@ -976,13 +887,13 @@ class HomeCubit extends Cubit<HomeState> {
       // 离开Socket.io会话房间
       await _chatRepository.leaveConversationRoom(conversationId);
 
-      // 移除会话事件处理器
-      _chatRepository.unregisterConversationEventHandlers(conversationId);
+      // // 移除会话事件处理器
+      // _chatRepository.unregisterConversationEventHandlers(conversationId);
 
-      // 清除当前会话ID
-      if (state.currentConversationId == conversationId) {
-        emit(state.copyWith(currentConversationId: null));
-      }
+      // // 清除当前会话ID
+      // if (state.currentConversationId == conversationId) {
+      //   emit(state.copyWith(currentConversationId: null));
+      // }
 
       _logger.i('已离开会话: $conversationId');
     } catch (error) {
@@ -1000,7 +911,7 @@ class HomeCubit extends Cubit<HomeState> {
       await _chatRepository.markConversationAsRead(conversationId);
 
       // 重新加载会话列表以更新未读计数
-      await _loadConversations();
+      // await _loadConversations();
 
       _logger.i('会话已标记为已读: $conversationId');
     } catch (error) {
@@ -1021,7 +932,7 @@ class HomeCubit extends Cubit<HomeState> {
       await _chatRepository.updateLastReadMessageId(conversationId, messageId);
 
       // 重新加载会话列表以更新状态
-      await _loadConversations();
+      // await _loadConversations();
 
       _logger.i('最后阅读的消息ID已更新: $messageId');
     } catch (error) {
@@ -1036,138 +947,129 @@ class HomeCubit extends Cubit<HomeState> {
   ///
   /// 根据搜索关键词过滤会话列表
   /// 如果搜索关键词为空，则显示所有会话
-  void searchConversations(String query) {
+  Future<void> searchConversations(String query) async {
     _logger.d('搜索会话: $query');
-    
+
     try {
       // 更新搜索关键词
       emit(state.copyWith(searchQuery: query));
-      
+
       if (query.isEmpty) {
         // 如果搜索关键词为空，则根据当前选中的标签过滤会话
-        _filterConversationsByTab(state.selectedTabIndex);
+        await _filterConversationsByTab(state.selectedTabIndex);
         return;
       }
-      
-      // 搜索会话和联系人数据
+
+      // 在 Cubit 层实现搜索逻辑
       final lowercaseQuery = query.toLowerCase();
-      
-      // 根据联系人名称或会话内容搜索
+
+      // 过滤会话
       final filteredList = state.conversations.where((conversation) {
-        // 查找会话对应的联系人
-        final contact = state.contacts.firstWhere(
-          (c) => c.userId == conversation.contactUserId,
-          orElse: () => User()..name = '',
-        );
-        
-        // 检查联系人名称、拼音和会话最后消息是否包含搜索关键词
-        return contact.name.toLowerCase().contains(lowercaseQuery) ||
-            (contact.pinyin?.toLowerCase().contains(lowercaseQuery) ?? false) ||
-            (conversation.lastMessagePreview
-                    ?.toLowerCase()
-                    .contains(lowercaseQuery) ??
-                false);
+        // 先检查会话名称
+        final name = conversation.name;
+        if (name != null &&
+            name.isNotEmpty &&
+            name.toLowerCase().contains(lowercaseQuery)) {
+          return true;
+        }
+
+        // 检查最后一条消息预览
+        if (conversation.lastMessagePreview != null &&
+            conversation.lastMessagePreview!
+                .toLowerCase()
+                .contains(lowercaseQuery)) {
+          return true;
+        }
+
+        // 如果是私聊，检查联系人信息
+        if (conversation.type == ConversationType.private &&
+            conversation.contactUserId != null) {
+          // 查找对应的联系人
+          final contact = state.contacts.firstWhere(
+            (c) => c.userId == conversation.contactUserId,
+            orElse: () => User()..name = '',
+          );
+
+          // 检查联系人名称和拼音
+          if (contact.name.toLowerCase().contains(lowercaseQuery)) {
+            return true;
+          }
+
+          if (contact.pinyin != null &&
+              contact.pinyin!.toLowerCase().contains(lowercaseQuery)) {
+            return true;
+          }
+        }
+
+        return false;
       }).toList();
-      
+
       // 更新过滤后的会话列表
       emit(state.copyWith(filteredConversations: filteredList));
-      
+
       _logger.i('搜索结果: ${filteredList.length} 个会话');
     } catch (e) {
       _logger.e('搜索会话出错', error: e);
       // 出错时显示所有会话
-      _filterConversationsByTab(state.selectedTabIndex);
+      await _filterConversationsByTab(state.selectedTabIndex);
     }
   }
-  
+
   /// 切换标签
   ///
   /// 切换标签并过滤会话列表
-  void switchTab(int tabIndex) {
+  Future<void> switchTab(int tabIndex) async {
     _logger.d('切换标签: $tabIndex');
-    
+
+    if (state.selectedTabIndex == tabIndex) return;
+
     // 更新选中的标签索引
     emit(state.copyWith(selectedTabIndex: tabIndex));
-    
+
     // 根据标签过滤会话
-    _filterConversationsByTab(tabIndex);
+    await _filterConversationsByTab(tabIndex);
   }
-  
+
   /// 根据标签过滤会话
   ///
   /// 根据选中的标签类型过滤会话列表
-  void _filterConversationsByTab(int tabIndex) {
+  Future<void> _filterConversationsByTab(int tabIndex) async {
     _logger.d('根据标签过滤会话: $tabIndex');
-    
-    // 根据标签类型过滤会话
-    List<Conversation> filteredList;
-    
-    switch (tabIndex) {
-      case 0: // All Chats
-        filteredList = state.conversations;
-      case 1: // 私密
-        filteredList = state.conversations
-            .where((c) => c.type == ConversationType.private)
-            .toList();
-      case 2: // 群组
-        filteredList = state.conversations
-            .where((c) => c.type == ConversationType.group)
-            .toList();
-      case 3: // 频道
-        filteredList = state.conversations
-            .where((c) => c.type == ConversationType.channel)
-            .toList();
-      case 4: // 未读
-        filteredList = state.conversations.where((c) => c.unreadCount > 0).toList();
-      default:
-        filteredList = state.conversations;
+
+    try {
+      // 使用仓库方法过滤会话
+      final filteredList =
+          await _chatRepository.filterConversationsByTab(tabIndex);
+
+      // 更新过滤后的会话列表
+      emit(state.copyWith(filteredConversations: filteredList));
+
+      _logger.i('标签过滤结果: ${filteredList.length} 个会话');
+    } catch (e) {
+      _logger.e('过滤会话失败', error: e);
+      emit(state.copyWith(
+        errorMessage: '过滤会话失败: ${e.toString()}',
+      ));
     }
-    
-    // 分离置顶和非置顶会话
-    final pinnedConversations = filteredList.where((c) => c.isPinned).toList();
-    final unpinnedConversations = filteredList.where((c) => !c.isPinned).toList();
-    
-    // 按最后消息时间排序
-    _sortConversationsByTime(pinnedConversations);
-    _sortConversationsByTime(unpinnedConversations);
-    
-    // 重新组合会话列表，置顶会话在前面
-    filteredList = [...pinnedConversations, ...unpinnedConversations];
-    
-    // 更新过滤后的会话列表
-    emit(state.copyWith(filteredConversations: filteredList));
   }
-  
-  /// 按最后消息时间排序会话列表
-  void _sortConversationsByTime(List<Conversation> conversations) {
-    conversations.sort((a, b) {
-      if (a.lastMessageTime == null && b.lastMessageTime == null) {
-        return b.createdAt.compareTo(a.createdAt); // 都没有lastMessageTime，按创建时间排序
-      } else if (a.lastMessageTime == null) {
-        return 1; // a没有lastMessageTime，排在后面
-      } else if (b.lastMessageTime == null) {
-        return -1; // b没有lastMessageTime，a排在前面
-      }
-      return b.lastMessageTime!
-          .compareTo(a.lastMessageTime!); // 都有lastMessageTime，按时间降序
-    });
-  }
-  
+
+  // 排序逻辑已移至 ChatRepository 层实现
+
   /// 初始化过滤的会话列表
   ///
   /// 在加载会话列表后调用，初始化过滤后的会话列表
-  void initFilteredConversations() {
+  Future<void> initFilteredConversations() async {
     _logger.d('初始化过滤的会话列表');
-    
+
     // 如果有搜索关键词，则执行搜索
     if (state.searchQuery.isNotEmpty) {
-      searchConversations(state.searchQuery);
+      await searchConversations(state.searchQuery);
     } else {
       // 否则根据当前选中的标签过滤会话
-      _filterConversationsByTab(state.selectedTabIndex);
+      await _filterConversationsByTab(state.selectedTabIndex);
     }
   }
-  
+
   @override
   Future<void> close() {
     _logger.i('关闭HomeCubit');

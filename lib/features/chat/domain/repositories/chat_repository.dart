@@ -10,15 +10,15 @@ abstract class ChatRepository {
   /// 设置与通信服务的事件监听，用于接收和处理服务器发送的Proto消息
   Future<void> registerEventHandlers();
 
-  /// 注册特定会话的事件处理器
-  /// 当用户进入会话页面时调用，用于监听与该会话相关的事件
-  /// [conversationId] - 会话ID
-  void registerConversationEventHandlers(String conversationId);
+  // /// 注册特定会话的事件处理器
+  // /// 当用户进入会话页面时调用，用于监听与该会话相关的事件
+  // /// [conversationId] - 会话ID
+  // void registerConversationEventHandlers(String conversationId);
 
-  /// 移除特定会话的事件处理器
-  /// 当用户离开会话页面时调用，用于移除与该会话相关的事件监听
-  /// [conversationId] - 会话ID
-  void unregisterConversationEventHandlers(String conversationId);
+  // /// 移除特定会话的事件处理器
+  // /// 当用户离开会话页面时调用，用于移除与该会话相关的事件监听
+  // /// [conversationId] - 会话ID
+  // void unregisterConversationEventHandlers(String conversationId);
 
   /// 获取单个联系人信息
   /// 注：此方法仅用于支持聊天功能,不应用于联系人管理
@@ -133,7 +133,7 @@ abstract class ChatRepository {
   Stream<Map<String, dynamic>> getMessageStatusStream();
 
   /// 获取消息同步状态流
-  Stream<SyncStatus> getSyncStatusStream();
+  Stream<ConversationSyncStatus> getSyncConversationStatusStream();
 
   /// 同步会话列表
   /// 从服务器同步最新的会话数据
@@ -169,10 +169,26 @@ abstract class ChatRepository {
 
   /// 用户离开会话页面，离开对应的Socket.io会话房间
   Future<void> leaveConversationRoom(String conversationId);
+  
+  /// 根据标签过滤会话
+  ///
+  /// 根据标签类型过滤会话列表
+  /// [tabIndex] - 标签索引
+  /// 返回过滤后的会话列表
+  Future<List<Conversation>> filterConversationsByTab(int tabIndex);
+
+  /// 更新会话设置
+  ///
+  /// 更新会话的静音或置顶状态
+  /// [conversationId] - 会话ID
+  /// [muted] - 是否静音
+  /// [pinned] - 是否置顶
+  /// 返回是否更新成功
+  Future<bool> updateConversationSettings(String conversationId, {bool? muted, bool? pinned});
 }
 
 /// 同步状态枚举
-enum SyncStatus {
+enum ConversationSyncStatus {
   idle, // 空闲
   syncing, // 同步中
   completed, // 完成

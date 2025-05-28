@@ -1,3 +1,4 @@
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/models/user.dart';
@@ -38,6 +39,7 @@ class HomeState extends Equatable {
   final Set<String> onlineUsers; // 在线用户ID集合
   final Set<String> updatedConversationIds; // 更新的会话ID集合
   final Set<String> removedConversationIds; // 删除的会话ID集合
+  final ConversationSyncStatus conversationSyncStatus; // 会话同步状态
   
   // 会话过滤相关状态
   final List<Conversation> filteredConversations; // 过滤后的会话列表
@@ -78,6 +80,7 @@ class HomeState extends Equatable {
     this.onlineUsers = const {},
     this.updatedConversationIds = const {},
     this.removedConversationIds = const {},
+    this.conversationSyncStatus = ConversationSyncStatus.idle,
 
     // 会话过滤相关状态
     this.filteredConversations = const [],
@@ -192,6 +195,7 @@ class HomeState extends Equatable {
     Set<String>? onlineUsers,
     Set<String>? updatedConversationIds,
     Set<String>? removedConversationIds,
+    ConversationSyncStatus? conversationSyncStatus,
 
     // 会话过滤相关状态
     List<Conversation>? filteredConversations,

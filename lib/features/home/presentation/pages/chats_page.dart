@@ -8,6 +8,7 @@ import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
 import 'package:cc/features/home/presentation/widgets/conversation_item.dart';
+import 'package:cc/core/database/models/conversation.dart';
 
 /// 消息页面
 ///
@@ -34,7 +35,8 @@ class _ChatsPageState extends State<ChatsPage>
   /// 是否处于搜索状态
   bool _isSearching = false;
 
-  // 移除了动画列表的key，因为我们使用 SliverList 而非 AnimatedList
+  /// 滚动控制器
+  final ScrollController _scrollController = ScrollController();
 
   /// 搜索会话
   ///
@@ -51,9 +53,9 @@ class _ChatsPageState extends State<ChatsPage>
   }
 
   // 已移除 _handleRemovedConversations 方法，因为在使用 Cubit 后不再需要手动处理删除操作
-  
+
   // 已移除 _handleUpdatedConversations 方法，因为在使用 Cubit 后不再需要手动处理更新操作
-  
+
   // 移除了 _sortConversations 方法，因为这个逻辑已经移到 HomeCubit 中
 
   // 已移除 _insertItem 和 _removeItem 方法，因为在使用 SliverList 后不再需要这些方法
@@ -62,6 +64,7 @@ class _ChatsPageState extends State<ChatsPage>
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -76,21 +79,33 @@ class _ChatsPageState extends State<ChatsPage>
       buildWhen: (previous, current) {
         // 优化buildWhen条件，减少不必要的重建
         // 1. 会话数量变化
-        final conversationsChanged = previous.conversations.length != current.conversations.length;
-        
+        final conversationsChanged = previous.filteredConversations.length !=
+            current.filteredConversations.length;
+
         // 2. 有更新的会话ID
         final hasUpdates = current.updatedConversationIds.isNotEmpty;
-        
+
         // 3. 有删除的会话ID
         final hasRemovals = current.removedConversationIds.isNotEmpty;
-        
+
         // 4. 联系人列表变化
         final contactsChanged = previous.contacts != current.contacts;
-        
-        return conversationsChanged || hasUpdates || hasRemovals || contactsChanged;
+
+        // 5. 选中的标签变化
+        final tabChanged =
+            previous.selectedTabIndex != current.selectedTabIndex;
+
+        // 6. 搜索查询变化
+        final searchChanged = previous.searchQuery != current.searchQuery;
+
+        return conversationsChanged ||
+            hasUpdates ||
+            hasRemovals ||
+            contactsChanged ||
+            tabChanged ||
+            searchChanged;
       },
       builder: (context, state) {
-
         return Scaffold(
           // AppBar: 自定义导航栏,包含标题、编辑按钮和新建聊天按钮
           appBar: _buildAppBar(),
@@ -102,6 +117,7 @@ class _ChatsPageState extends State<ChatsPage>
               FocusScope.of(context).unfocus();
             },
             child: CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 // 可折叠的搜索栏
                 SliverAppBar(
@@ -121,8 +137,8 @@ class _ChatsPageState extends State<ChatsPage>
                   pinned: true,
                 ),
 
-                // 使用SliverList替代ListView
-                _buildChatListSliver(state),
+                // 使用多个 Sliver 组件
+                ..._buildChatListSlivers(state),
               ],
             ),
           ),
@@ -432,131 +448,143 @@ class _ChatsPageState extends State<ChatsPage>
     );
   }
 
-  /// 构建聊天列表（SliverList版本）
-  ///
-  /// 根据当前状态(加载中/错误/空数据)构建不同的界面
-  /// 正常状态下显示会话列表，每个项目显示联系人头像、名称、最后消息和时间
-  ///
-  /// 返回值:
-  ///   - Widget: 构建的SliverList或其他Sliver组件
-  Widget _buildChatListSliver(HomeState state) {
-    if (state.isLoadingMessages) {
-      return const SliverFillRemaining(
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
+  /// 构建聊天列表的 Sliver 组件
+  /// 返回多个 Sliver 组件组成的列表
+  List<Widget> _buildChatListSlivers(HomeState state) {
     if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                '加载失败: ${state.errorMessage}',
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  context.read<HomeCubit>().loadConversations();
-                },
-                child: const Text('重试'),
-              ),
-            ],
+      return [
+        SliverFillRemaining(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  '加载失败: ${state.errorMessage}',
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: context.read<HomeCubit>().loadConversations();
+                  },
+                  child: const Text('重试'),
+                ),
+              ],
+            ),
           ),
         ),
-      );
+      ];
     }
 
     if (state.filteredConversations.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.chat_bubble_outline,
-                  size: 48, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text(
-                '没有会话',
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  _showNewChatOptions();
-                },
-                child: const Text('新建会话'),
-              ),
-            ],
+      return [
+        SliverFillRemaining(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.chat_bubble_outline,
+                    size: 48, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  state.searchQuery.isNotEmpty ? '没有找到匹配的会话' : '没有会话',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                if (state.searchQuery.isEmpty)
+                  ElevatedButton(
+                    onPressed: () {
+                      _showNewChatOptions();
+                    },
+                    child: const Text('新建会话'),
+                  ),
+              ],
+            ),
           ),
         ),
-      );
+      ];
     }
 
-    // 准备列表项
-    final List<Widget> items = [];
+    // 分离置顶和非置顶会话
+    final pinnedConversations = <Conversation>[];
+    final unpinnedConversations = <Conversation>[];
 
-    // 获取置顶会话
-    final pinnedConversations = state.filteredConversations.where((c) => c.isPinned).toList();
-    
-    // 如果有置顶会话，添加一个置顶标签
+    for (final conversation in state.filteredConversations) {
+      if (conversation.isPinned) {
+        pinnedConversations.add(conversation);
+      } else {
+        unpinnedConversations.add(conversation);
+      }
+    }
+
+    // 构建多个 Sliver 组件
+    final List<Widget> slivers = [];
+
+    // 置顶会话部分
     if (pinnedConversations.isNotEmpty) {
-      items.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          color: Colors.grey[200],
-          child: Row(
-            children: [
-              const Icon(Icons.push_pin, size: 16, color: Colors.blue),
-              const SizedBox(width: 8),
-              const Text('置顶会话',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.blue)),
-              const Spacer(),
-              Text('${pinnedConversations.length} 个',
-                  style: const TextStyle(color: Colors.grey)),
-            ],
+      // 置顶会话列表
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final conversation = pinnedConversations[index];
+
+              // 查找对应的联系人
+              final contact = _findContactForConversation(state, conversation);
+
+              return ConversationItem(
+                key: ValueKey('pinned_${conversation.conversationId}'),
+                conversation: conversation,
+                contact: contact,
+                formatTimeCallback: _formatTime,
+                formatUnreadCountCallback: _formatUnreadCount,
+              );
+            },
+            childCount: pinnedConversations.length,
           ),
         ),
       );
     }
 
-    // 使用 SliverList 而非 SliverAnimatedList
-    // 因为在使用 Cubit 后，我们依赖 BlocBuilder 来重建列表
-    // 这避免了与 AnimatedList 的状态不同步问题
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          // 确保索引在有效范围内
-          if (index >= state.filteredConversations.length) {
-            return null;
-          }
-          
-          final conversation = state.filteredConversations[index];
-          
-          // 查找对应的联系人
-          final contact = state.contacts.firstWhere(
-            (c) => c.userId == conversation.contactUserId,
-            orElse: () => User()
-              ..name = conversation.name ?? '未知联系人'
-              ..avatar = conversation.avatar,
-          );
-          
-          return ConversationItem(
-            key: ValueKey(conversation.conversationId),
-            conversation: conversation,
-            contact: contact,
-            formatTimeCallback: _formatTime,
-            formatUnreadCountCallback: _formatUnreadCount,
-          );
-        },
-        childCount: state.filteredConversations.length,
-      ),
+    // 非置顶会话列表
+    if (unpinnedConversations.isNotEmpty) {
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final conversation = unpinnedConversations[index];
+
+              // 查找对应的联系人
+              final contact = _findContactForConversation(state, conversation);
+
+              return ConversationItem(
+                key: ValueKey(conversation.conversationId),
+                conversation: conversation,
+                contact: contact,
+                formatTimeCallback: _formatTime,
+                formatUnreadCountCallback: _formatUnreadCount,
+              );
+            },
+            childCount: unpinnedConversations.length,
+          ),
+        ),
+      );
+    }
+
+    // 直接返回 sliver 数组
+    return slivers;
+  }
+
+  /// 为会话查找对应的联系人
+  User _findContactForConversation(HomeState state, Conversation conversation) {
+    return state.contacts.firstWhere(
+      (c) => c.userId == conversation.contactUserId,
+      orElse: () => User()
+        ..name = conversation.name ?? '未知联系人'
+        ..avatar = conversation.avatar,
     );
   }
 
