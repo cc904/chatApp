@@ -116,8 +116,8 @@ class CommunicationService {
   /// [message] - Protobuf消息对象
   Future<void> emitProto<T extends GeneratedMessage>(
       String eventName, T message) async {
-    _logger.d('发送Proto消息: $eventName [${message.runtimeType}]',
-        stackTrace: StackTrace.current);
+    // _logger.d('发送Proto消息: $eventName [${message.runtimeType}]',
+    //     stackTrace: StackTrace.current);
 
     // 验证事件类型是否匹配
     final expectedCreator = ProtoEvents.getEventCreator(eventName);

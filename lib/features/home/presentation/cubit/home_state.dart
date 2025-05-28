@@ -33,8 +33,16 @@ class HomeState extends Equatable {
   final Map<String, List<Message>> messagesByConversation;
   final String? currentConversationId;
   final bool isLoadingMessages;
+  final bool isLoadingMoreMessages; // 是否正在加载更多历史消息
   final Map<String, List<String>> typingUsers; // 会话ID -> 正在输入的用户ID列表
   final Set<String> onlineUsers; // 在线用户ID集合
+  final Set<String> updatedConversationIds; // 更新的会话ID集合
+  final Set<String> removedConversationIds; // 删除的会话ID集合
+  
+  // 会话过滤相关状态
+  final List<Conversation> filteredConversations; // 过滤后的会话列表
+  final int selectedTabIndex; // 当前选中的标签索引
+  final String searchQuery; // 当前搜索关键词
 
   // 联系人相关状态
   final List<User> contacts;
@@ -50,14 +58,13 @@ class HomeState extends Equatable {
   final String? connectionErrorMessage; // 连接错误信息
 
   // 搜索相关状态
-  final String? searchQuery;
   final List<dynamic> searchResults; // 可能是联系人、会话或消息
   final bool isSearching;
 
   const HomeState({
     // 初始化状态
-    required this.homePageIsInitializing,
-    required this.homePageIsInitialized,
+    this.homePageIsInitializing = false,
+    this.homePageIsInitialized = false,
     this.errorMessage,
     this.currentUser,
 
@@ -66,8 +73,16 @@ class HomeState extends Equatable {
     this.messagesByConversation = const {},
     this.currentConversationId,
     this.isLoadingMessages = false,
+    this.isLoadingMoreMessages = false,
     this.typingUsers = const {},
     this.onlineUsers = const {},
+    this.updatedConversationIds = const {},
+    this.removedConversationIds = const {},
+
+    // 会话过滤相关状态
+    this.filteredConversations = const [],
+    this.selectedTabIndex = 0,
+    this.searchQuery = "",
 
     // 联系人相关状态
     this.contacts = const [],
@@ -83,16 +98,24 @@ class HomeState extends Equatable {
     this.connectionErrorMessage,
 
     // 搜索相关状态
-    this.searchQuery,
     this.searchResults = const [],
     this.isSearching = false,
   });
 
   /// 初始状态
-  factory HomeState.initial() {
+  static HomeState initial() {
     return const HomeState(
       homePageIsInitializing: false,
       homePageIsInitialized: false,
+      conversations: [],
+      messagesByConversation: {},
+      typingUsers: {},
+      onlineUsers: {},
+      updatedConversationIds: {},
+      removedConversationIds: {},
+      filteredConversations: [],
+      selectedTabIndex: 0,
+      searchQuery: "",
     );
   }
 
@@ -164,8 +187,16 @@ class HomeState extends Equatable {
     Map<String, List<Message>>? messagesByConversation,
     String? currentConversationId,
     bool? isLoadingMessages,
+    bool? isLoadingMoreMessages,
     Map<String, List<String>>? typingUsers,
     Set<String>? onlineUsers,
+    Set<String>? updatedConversationIds,
+    Set<String>? removedConversationIds,
+
+    // 会话过滤相关状态
+    List<Conversation>? filteredConversations,
+    int? selectedTabIndex,
+    String? searchQuery,
 
     // 联系人相关状态
     List<User>? contacts,
@@ -181,7 +212,6 @@ class HomeState extends Equatable {
     String? connectionErrorMessage,
 
     // 搜索相关状态
-    String? searchQuery,
     List<dynamic>? searchResults,
     bool? isSearching,
   }) {
@@ -199,8 +229,16 @@ class HomeState extends Equatable {
       currentConversationId:
           currentConversationId ?? this.currentConversationId,
       isLoadingMessages: isLoadingMessages ?? this.isLoadingMessages,
+      isLoadingMoreMessages: isLoadingMoreMessages ?? this.isLoadingMoreMessages,
       typingUsers: typingUsers ?? this.typingUsers,
       onlineUsers: onlineUsers ?? this.onlineUsers,
+      updatedConversationIds: updatedConversationIds ?? this.updatedConversationIds,
+      removedConversationIds: removedConversationIds ?? this.removedConversationIds,
+
+      // 会话过滤相关状态
+      filteredConversations: filteredConversations ?? this.filteredConversations,
+      selectedTabIndex: selectedTabIndex ?? this.selectedTabIndex,
+      searchQuery: searchQuery ?? this.searchQuery,
 
       // 联系人相关状态
       contacts: contacts ?? this.contacts,
@@ -216,7 +254,6 @@ class HomeState extends Equatable {
       connectionErrorMessage: connectionErrorMessage ?? this.connectionErrorMessage,
 
       // 搜索相关状态
-      searchQuery: searchQuery ?? this.searchQuery,
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
     );
@@ -243,6 +280,13 @@ class HomeState extends Equatable {
         isLoadingMessages,
         typingUsers,
         onlineUsers,
+        updatedConversationIds,
+        removedConversationIds,
+
+        // 会话过滤相关状态
+        filteredConversations,
+        selectedTabIndex,
+        searchQuery,
 
         // 联系人相关状态
         contacts,

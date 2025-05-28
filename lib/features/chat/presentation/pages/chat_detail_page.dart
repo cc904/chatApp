@@ -47,14 +47,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   late AnimationController _waveformController;
 
   // 状态变量
-  final bool _isRecording = false;
-  final bool _isTyping = false;
-  final bool _showEmojiPicker = false;
   bool _dataInitialized = false;
   bool _isLoadingMore = false;
   Timer? _recordingTimer;
   Timer? _debounceTimer; // 防抖定时器，用于限制更新最后阅读消息ID的频率
-  final int _recordingDuration = 0;
 
   // 添加选择的附件状态
   File? _selectedAttachment;
@@ -220,7 +216,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       
       // 更新最后阅读的消息ID
       final messageId = visibleMessage.messageId;
-      if (messageId != null && messageId.isNotEmpty) {
+      if (messageId.isNotEmpty) {
         _updateLastReadMessageId(messageId);
       }
     });
@@ -229,12 +225,30 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   // 加载更多历史消息
   Future<void> _loadMoreMessages() async {
     // 获取当前会话的消息
-    final messages = context
-            .read<HomeCubit>()
-            .state
-            .messagesByConversation[widget.conversationId] ??
-        [];
-    if (messages.isEmpty) return;
+    final homeCubit = context.read<HomeCubit>();
+    final messages = homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+    
+    // 如果没有消息，尝试从服务器获取历史消息
+    if (messages.isEmpty) {
+      setState(() {
+        _isLoadingMore = true;
+      });
+      
+      try {
+        // 从服务器获取历史消息
+        await homeCubit.loadHistoryMessagesFromServer(widget.conversationId);
+        _logger.i('从服务器加载历史消息成功');
+      } catch (error) {
+        _logger.e('从服务器加载历史消息失败: $error');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+          });
+        }
+      }
+      return;
+    }
 
     setState(() {
       _isLoadingMore = true;
@@ -242,10 +256,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     try {
       // 获取最早的消息时间作为加载更多的基准
-      messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
-
-      // TODO: 实现通过HomeCubit加载更早消息的逻辑
-      // 暂时不支持加载更多历史消息，需要扩展HomeCubit以支持此功能
+      final oldestMessage = messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
+      
+      // 通过HomeCubit加载更多历史消息
+      await homeCubit.loadMoreMessagesForConversation(widget.conversationId, oldestMessage.createdAt);
+      _logger.i('加载更多历史消息成功');
     } catch (error) {
       _logger.e('加载更多消息失败: $error');
     } finally {

@@ -5,9 +5,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/features/home/data/repositories/home_repository_impl.dart';
-import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
@@ -28,7 +29,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
-  
+
   // 网络连接实例
   final Connectivity _connectivity = Connectivity();
 
@@ -49,7 +50,7 @@ class HomeCubit extends Cubit<HomeState> {
     try {
       _logger.i('开始初始化用户会话');
       emit(state.toInitializingState());
-      
+
       // 初始化网络状态监听
       await _initNetworkMonitoring();
 
@@ -75,13 +76,8 @@ class HomeCubit extends Cubit<HomeState> {
       emit(state.toInitializedState(currentUserProto: _currentUser));
       _logger.i('用户会话初始化完成');
 
-      // 检查是否需要同步联系人
-      final lastSyncTime = await _contactsRepository.getLastSyncTime();
-      if (lastSyncTime == null ||
-          DateTime.now().difference(lastSyncTime).inHours >= 1) {
-        syncContacts();
-      }
-
+      // 同步联系人
+      syncContacts();
       // 同步会话列表
       syncConversations();
     } catch (error) {
@@ -100,11 +96,14 @@ class HomeCubit extends Cubit<HomeState> {
     }
     _subscriptions.clear();
 
-    // 监听会话列表变化
-    _subscriptions['conversations'] =
-        _chatRepository.watchConversations().listen((_) {
-      _loadConversations();
+    // 监听会话更新事件
+    _subscriptions['conversationUpdates'] =
+        _chatRepository.conversationUpdateStream.listen((event) {
+      _handleConversationUpdateEvent(event);
     });
+
+    // 初始化时加载所有会话
+    _loadConversations();
 
     // 监听联系人变化
     _subscriptions['contacts'] =
@@ -133,7 +132,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 处理联系人同步状态
   void _handleContactsSyncStatus(ContactsSyncStatus status) {
-    _logger.i('联系人同步状态变化', extra: {'status': status.toString()});
+    _logger.i('处理联系人同步状态', extra: {'status': status.toString()});
 
     switch (status) {
       case ContactsSyncStatus.syncing:
@@ -208,6 +207,66 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
+  /// 处理会话更新事件
+  /// 根据事件类型直接更新状态，而不需要重新从数据库加载所有会话
+  void _handleConversationUpdateEvent(ConversationUpdateEvent event) {
+    _logger.d('处理会话更新事件', extra: {
+      'conversationId': event.conversationId,
+      'type': event.type.toString(),
+    });
+
+    // 创建更新和删除的会话ID集合
+    final updatedIds = <String>{};
+    final removedIds = <String>{};
+
+    switch (event.type) {
+      case ConversationUpdateType.added:
+      case ConversationUpdateType.updated:
+        if (event.conversation != null) {
+          // 更新会话列表
+          final conversations = List<Conversation>.from(state.conversations);
+
+          // 查找会话索引
+          final index = conversations
+              .indexWhere((c) => c.conversationId == event.conversationId);
+
+          if (index >= 0) {
+            // 如果已存在，则更新
+            conversations[index] = event.conversation!;
+          } else {
+            // 如果不存在，则添加
+            conversations.add(event.conversation!);
+          }
+
+          // 添加到更新的ID集合
+          updatedIds.add(event.conversationId);
+
+          // 更新状态
+          emit(state.copyWith(
+            conversations: conversations,
+            updatedConversationIds: updatedIds,
+          ));
+        }
+        break;
+
+      case ConversationUpdateType.removed:
+        // 删除会话
+        final conversations = state.conversations
+            .where((c) => c.conversationId != event.conversationId)
+            .toList();
+
+        // 添加到删除的ID集合
+        removedIds.add(event.conversationId);
+
+        // 更新状态
+        emit(state.copyWith(
+          conversations: conversations,
+          removedConversationIds: removedIds,
+        ));
+        break;
+    }
+  }
+
   /// 内部加载会话实现
   Future<void> _loadConversations() async {
     _logger.d('加载所有会话', stackTrace: StackTrace.current);
@@ -217,21 +276,63 @@ class HomeCubit extends Cubit<HomeState> {
       if (isFirstLoad) {
         emit(state.copyWith(homePageIsInitializing: true));
       }
-      
+
       final conversations = await _chatRepository.getAllConversations();
-      
+
       // 检查会话列表是否真正变化了
       if (!_areConversationsEqual(state.conversations, conversations)) {
+        // 计算更新和删除的会话ID
+        final updatedIds = <String>{};
+        final removedIds = <String>{};
+
+        // 找出新增和更新的会话
+        for (final conversation in conversations) {
+          final oldIndex = state.conversations.indexWhere(
+              (c) => c.conversationId == conversation.conversationId);
+
+          if (oldIndex >= 0) {
+            // 如果已存在，检查是否有变化
+            final oldConversation = state.conversations[oldIndex];
+            if (oldConversation != conversation) {
+              updatedIds.add(conversation.conversationId);
+            }
+          } else {
+            // 新增的会话
+            updatedIds.add(conversation.conversationId);
+          }
+        }
+
+        // 找出删除的会话
+        for (final oldConversation in state.conversations) {
+          final exists = conversations
+              .any((c) => c.conversationId == oldConversation.conversationId);
+
+          if (!exists) {
+            removedIds.add(oldConversation.conversationId);
+          }
+        }
+
         emit(state.copyWith(
           conversations: conversations,
-          homePageIsInitializing: isFirstLoad ? false : state.homePageIsInitializing,
+          homePageIsInitializing:
+              isFirstLoad ? false : state.homePageIsInitializing,
+          updatedConversationIds: updatedIds,
+          removedConversationIds: removedIds,
         ));
-        _logger.i('加载会话成功，共 ${conversations.length} 个会话');
+
+        // 初始化过滤后的会话列表
+        initFilteredConversations();
+
+        _logger.i(
+            '加载会话成功，共 ${conversations.length} 个会话，更新 ${updatedIds.length} 个，删除 ${removedIds.length} 个');
       } else {
         _logger.i('会话数据未变化，跳过更新');
         // 如果是首次加载，但数据没变化，仍然需要更新 isInitializing
         if (isFirstLoad) {
           emit(state.copyWith(homePageIsInitializing: false));
+          
+          // 初始化过滤后的会话列表
+          initFilteredConversations();
         }
       }
     } catch (error) {
@@ -242,19 +343,20 @@ class HomeCubit extends Cubit<HomeState> {
       ));
     }
   }
-  
+
   /// 比较两个会话列表是否相等
-  bool _areConversationsEqual(List<Conversation> list1, List<Conversation> list2) {
+  bool _areConversationsEqual(
+      List<Conversation> list1, List<Conversation> list2) {
     if (list1.length != list2.length) return false;
-    
+
     // 创建会话 ID 到会话的映射，便于快速查找
     final map1 = {for (var conv in list1) conv.conversationId: conv};
-    
+
     // 检查每个会话的关键字段是否变化
     for (final conv2 in list2) {
       final conv1 = map1[conv2.conversationId];
       if (conv1 == null) return false;
-      
+
       // 比较关键字段
       if (conv1.lastMessageTime != conv2.lastMessageTime ||
           conv1.unreadCount != conv2.unreadCount ||
@@ -290,12 +392,134 @@ class HomeCubit extends Cubit<HomeState> {
         isLoadingMessages: false,
       ));
 
-      _logger.i('加载会话消息成功，会话 $conversationId，共 ${messages.length} 条消息');
+      // 如果本地没有消息，从服务器获取历史消息
+      if (messages.isEmpty) {
+        _logger.i('本地没有消息，尝试从服务器获取历史消息');
+        await loadHistoryMessagesFromServer(conversationId);
+      } else {
+        _logger.i('加载会话消息成功，会话 $conversationId，共 ${messages.length} 条消息');
+      }
     } catch (error) {
       _logger.e('加载会话消息失败', error: error);
       emit(state.copyWith(
         isLoadingMessages: false,
         errorMessage: '加载消息失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 从服务器加载历史消息
+  Future<void> loadHistoryMessagesFromServer(String conversationId,
+      {DateTime? before, int limit = 20}) async {
+    _logger.d('从服务器加载历史消息', extra: {
+      'conversationId': conversationId,
+      'before': before?.toIso8601String(),
+      'limit': limit
+    });
+    try {
+      emit(state.copyWith(isLoadingMessages: true));
+
+      // 从服务器获取历史消息
+      final messages = await _chatRepository
+          .fetchHistoryMessages(conversationId, before: before, limit: limit);
+
+      if (messages.isNotEmpty) {
+        // 创建新的消息映射，保留原有消息，添加新加载的消息
+        final updatedMessages =
+            Map<String, List<Message>>.from(state.messagesByConversation);
+        final existingMessages = updatedMessages[conversationId] ?? [];
+
+        // 合并消息并按时间排序
+        final mergedMessages = [...existingMessages, ...messages];
+        mergedMessages.sort(
+            (a, b) => b.createdAt.compareTo(a.createdAt)); // 按时间降序排序，最新的在前
+
+        // 去除重复消息
+        final uniqueMessages = <Message>[];
+        final messageIds = <String>{};
+        for (final message in mergedMessages) {
+          if (!messageIds.contains(message.messageId)) {
+            uniqueMessages.add(message);
+            messageIds.add(message.messageId);
+          }
+        }
+
+        updatedMessages[conversationId] = uniqueMessages;
+
+        emit(state.copyWith(
+          messagesByConversation: updatedMessages,
+          isLoadingMessages: false,
+        ));
+
+        _logger.i('从服务器加载历史消息成功，会话 $conversationId，新加载 ${messages.length} 条消息');
+      } else {
+        emit(state.copyWith(isLoadingMessages: false));
+        _logger.i('服务器没有更多历史消息');
+      }
+    } catch (error) {
+      _logger.e('从服务器加载历史消息失败', error: error);
+      emit(state.copyWith(
+        isLoadingMessages: false,
+        errorMessage: '加载历史消息失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 加载更多历史消息
+  Future<void> loadMoreMessagesForConversation(
+      String conversationId, DateTime before) async {
+    _logger.d('加载更多历史消息', extra: {
+      'conversationId': conversationId,
+      'before': before.toIso8601String()
+    });
+
+    // 先尝试从本地数据库加载
+    try {
+      emit(state.copyWith(isLoadingMoreMessages: true));
+
+      final messages = await _chatRepository
+          .getConversationMessages(conversationId, before: before, limit: 20);
+
+      if (messages.isNotEmpty) {
+        // 如果本地有更多消息，则合并到现有消息中
+        final updatedMessages =
+            Map<String, List<Message>>.from(state.messagesByConversation);
+        final existingMessages = updatedMessages[conversationId] ?? [];
+
+        // 合并消息并按时间排序
+        final mergedMessages = [...existingMessages, ...messages];
+        mergedMessages
+            .sort((a, b) => b.createdAt.compareTo(a.createdAt)); // 按时间降序排序
+
+        // 去除重复消息
+        final uniqueMessages = <Message>[];
+        final messageIds = <String>{};
+        for (final message in mergedMessages) {
+          if (!messageIds.contains(message.messageId)) {
+            uniqueMessages.add(message);
+            messageIds.add(message.messageId);
+          }
+        }
+
+        updatedMessages[conversationId] = uniqueMessages;
+
+        emit(state.copyWith(
+          messagesByConversation: updatedMessages,
+          isLoadingMoreMessages: false,
+        ));
+
+        _logger
+            .i('从本地加载更多历史消息成功，会话 $conversationId，新加载 ${messages.length} 条消息');
+        return;
+      }
+
+      // 如果本地没有更多消息，则从服务器获取
+      await loadHistoryMessagesFromServer(conversationId, before: before);
+    } catch (error) {
+      _logger.e('加载更多历史消息失败', error: error);
+      emit(state.copyWith(
+        isLoadingMoreMessages: false,
+        errorMessage: '加载更多历史消息失败: ${error.toString()}',
       ));
     }
   }
@@ -499,29 +723,28 @@ class HomeCubit extends Cubit<HomeState> {
   /// 初始化网络状态监听
   Future<void> _initNetworkMonitoring() async {
     _logger.i('初始化网络状态监听');
-    
+
     // 检查当前网络状态
     final connectivityResult = await _connectivity.checkConnectivity();
     _updateNetworkStatus(connectivityResult.first);
-    
+
     // 监听网络状态变化
-    _subscriptions['connectivity'] = _connectivity.onConnectivityChanged.listen(
-      (result) => _handleNetworkChange(result.first)
-    );
+    _subscriptions['connectivity'] = _connectivity.onConnectivityChanged
+        .listen((result) => _handleNetworkChange(result.first));
   }
-  
+
   /// 处理网络状态变化
   void _handleNetworkChange(ConnectivityResult result) {
     _logger.i('网络状态变化', extra: {'result': result.toString()});
     _updateNetworkStatus(result);
   }
-  
+
   /// 更新网络状态
   void _updateNetworkStatus(ConnectivityResult result) {
     NetworkStatus networkStatus;
     bool isConnected = false;
     String? errorMessage;
-    
+
     switch (result) {
       case ConnectivityResult.wifi:
       case ConnectivityResult.mobile:
@@ -540,29 +763,30 @@ class HomeCubit extends Cubit<HomeState> {
         isConnected = false;
         errorMessage = '网络连接异常';
     }
-    
+
     emit(state.copyWith(
       isConnected: isConnected,
       networkStatus: networkStatus,
-      lastConnectionTime: isConnected ? DateTime.now() : state.lastConnectionTime,
+      lastConnectionTime:
+          isConnected ? DateTime.now() : state.lastConnectionTime,
       connectionErrorMessage: errorMessage,
     ));
   }
-  
+
   /// 检查网络连接
   Future<void> checkNetworkConnection() async {
     _logger.i('检查网络连接');
-    
+
     try {
       // 先更新为连接中状态
       emit(state.copyWith(
         networkStatus: NetworkStatus.connecting,
       ));
-      
+
       // 检查当前网络状态
       final connectivityResult = await _connectivity.checkConnectivity();
       _updateNetworkStatus(connectivityResult.first);
-      
+
       // 如果连接上了，尝试加载数据
       if (state.isConnected) {
         await _loadConversations();
@@ -576,13 +800,13 @@ class HomeCubit extends Cubit<HomeState> {
       ));
     }
   }
-  
+
   /// 尝试重新连接
   Future<void> reconnect() async {
     _logger.i('尝试重新连接');
     await checkNetworkConnection();
   }
-  
+
   // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 个人资料相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 加载用户资料
@@ -786,18 +1010,19 @@ class HomeCubit extends Cubit<HomeState> {
       ));
     }
   }
-  
+
   /// 更新最后阅读的消息ID
-  Future<void> updateLastReadMessageId(String conversationId, String messageId) async {
-    _logger.i('更新最后阅读的消息ID', 
-      extra: {'conversationId': conversationId, 'messageId': messageId});
+  Future<void> updateLastReadMessageId(
+      String conversationId, String messageId) async {
+    _logger.i('更新最后阅读的消息ID',
+        extra: {'conversationId': conversationId, 'messageId': messageId});
     try {
       // 调用仓库方法更新最后阅读的消息ID
       await _chatRepository.updateLastReadMessageId(conversationId, messageId);
-      
+
       // 重新加载会话列表以更新状态
       await _loadConversations();
-      
+
       _logger.i('最后阅读的消息ID已更新: $messageId');
     } catch (error) {
       _logger.e('更新最后阅读的消息ID失败', error: error);
@@ -807,6 +1032,142 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
+  /// 搜索会话
+  ///
+  /// 根据搜索关键词过滤会话列表
+  /// 如果搜索关键词为空，则显示所有会话
+  void searchConversations(String query) {
+    _logger.d('搜索会话: $query');
+    
+    try {
+      // 更新搜索关键词
+      emit(state.copyWith(searchQuery: query));
+      
+      if (query.isEmpty) {
+        // 如果搜索关键词为空，则根据当前选中的标签过滤会话
+        _filterConversationsByTab(state.selectedTabIndex);
+        return;
+      }
+      
+      // 搜索会话和联系人数据
+      final lowercaseQuery = query.toLowerCase();
+      
+      // 根据联系人名称或会话内容搜索
+      final filteredList = state.conversations.where((conversation) {
+        // 查找会话对应的联系人
+        final contact = state.contacts.firstWhere(
+          (c) => c.userId == conversation.contactUserId,
+          orElse: () => User()..name = '',
+        );
+        
+        // 检查联系人名称、拼音和会话最后消息是否包含搜索关键词
+        return contact.name.toLowerCase().contains(lowercaseQuery) ||
+            (contact.pinyin?.toLowerCase().contains(lowercaseQuery) ?? false) ||
+            (conversation.lastMessagePreview
+                    ?.toLowerCase()
+                    .contains(lowercaseQuery) ??
+                false);
+      }).toList();
+      
+      // 更新过滤后的会话列表
+      emit(state.copyWith(filteredConversations: filteredList));
+      
+      _logger.i('搜索结果: ${filteredList.length} 个会话');
+    } catch (e) {
+      _logger.e('搜索会话出错', error: e);
+      // 出错时显示所有会话
+      _filterConversationsByTab(state.selectedTabIndex);
+    }
+  }
+  
+  /// 切换标签
+  ///
+  /// 切换标签并过滤会话列表
+  void switchTab(int tabIndex) {
+    _logger.d('切换标签: $tabIndex');
+    
+    // 更新选中的标签索引
+    emit(state.copyWith(selectedTabIndex: tabIndex));
+    
+    // 根据标签过滤会话
+    _filterConversationsByTab(tabIndex);
+  }
+  
+  /// 根据标签过滤会话
+  ///
+  /// 根据选中的标签类型过滤会话列表
+  void _filterConversationsByTab(int tabIndex) {
+    _logger.d('根据标签过滤会话: $tabIndex');
+    
+    // 根据标签类型过滤会话
+    List<Conversation> filteredList;
+    
+    switch (tabIndex) {
+      case 0: // All Chats
+        filteredList = state.conversations;
+      case 1: // 私密
+        filteredList = state.conversations
+            .where((c) => c.type == ConversationType.private)
+            .toList();
+      case 2: // 群组
+        filteredList = state.conversations
+            .where((c) => c.type == ConversationType.group)
+            .toList();
+      case 3: // 频道
+        filteredList = state.conversations
+            .where((c) => c.type == ConversationType.channel)
+            .toList();
+      case 4: // 未读
+        filteredList = state.conversations.where((c) => c.unreadCount > 0).toList();
+      default:
+        filteredList = state.conversations;
+    }
+    
+    // 分离置顶和非置顶会话
+    final pinnedConversations = filteredList.where((c) => c.isPinned).toList();
+    final unpinnedConversations = filteredList.where((c) => !c.isPinned).toList();
+    
+    // 按最后消息时间排序
+    _sortConversationsByTime(pinnedConversations);
+    _sortConversationsByTime(unpinnedConversations);
+    
+    // 重新组合会话列表，置顶会话在前面
+    filteredList = [...pinnedConversations, ...unpinnedConversations];
+    
+    // 更新过滤后的会话列表
+    emit(state.copyWith(filteredConversations: filteredList));
+  }
+  
+  /// 按最后消息时间排序会话列表
+  void _sortConversationsByTime(List<Conversation> conversations) {
+    conversations.sort((a, b) {
+      if (a.lastMessageTime == null && b.lastMessageTime == null) {
+        return b.createdAt.compareTo(a.createdAt); // 都没有lastMessageTime，按创建时间排序
+      } else if (a.lastMessageTime == null) {
+        return 1; // a没有lastMessageTime，排在后面
+      } else if (b.lastMessageTime == null) {
+        return -1; // b没有lastMessageTime，a排在前面
+      }
+      return b.lastMessageTime!
+          .compareTo(a.lastMessageTime!); // 都有lastMessageTime，按时间降序
+    });
+  }
+  
+  /// 初始化过滤的会话列表
+  ///
+  /// 在加载会话列表后调用，初始化过滤后的会话列表
+  void initFilteredConversations() {
+    _logger.d('初始化过滤的会话列表');
+    
+    // 如果有搜索关键词，则执行搜索
+    if (state.searchQuery.isNotEmpty) {
+      searchConversations(state.searchQuery);
+    } else {
+      // 否则根据当前选中的标签过滤会话
+      _filterConversationsByTab(state.selectedTabIndex);
+    }
+  }
+  
   @override
   Future<void> close() {
     _logger.i('关闭HomeCubit');

@@ -13,6 +13,7 @@ class ProtoEvents {
     'message:new': () => message.MessageProto(),
     'message:delivered': () => message.MessageProto(),
     'message:read': () => message.MessageProto(),
+    'messages:fetch:response': () => message.MessageCollection(),
 
     // 会话相关事件
     'conversation:update': () => conversation.ConversationProto(),
@@ -26,8 +27,8 @@ class ProtoEvents {
         conversation.ConversationSettingsUpdateRequest(),
     'conversation:settings:updated': () =>
         conversation.ConversationSettingsUpdateResponse(),
-    'conversation:join': () => conversation.ConversationJoinRequest(),
-    'conversation:leave': () => conversation.ConversationLeaveRequest(),
+    'conversation:join': () => conversation.ConversationJoinLeaveRequest(),
+    'conversation:leave': () => conversation.ConversationJoinLeaveRequest(),
     'conversation:create': () => conversation.ConversationCreateRequest(),
     'conversation:create:response': () =>
         conversation.ConversationCreateResponse(),

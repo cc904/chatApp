@@ -127,7 +127,7 @@ class _HomePageState extends State<HomePage>
             previous.homePageIsInitializing != current.homePageIsInitializing ||
             previous.hasError != current.hasError ||
             previous.currentUser != current.currentUser,
-            // TODO: 根据实际需求添加其他需要触发重建的条件，但不包括会话列表和联系人列表的变化
+        // TODO: 根据实际需求添加其他需要触发重建的条件，但不包括会话列表和联系人列表的变化
         builder: (context, state) {
           return Scaffold(
             body: state.homePageIsInitializing
@@ -141,7 +141,7 @@ class _HomePageState extends State<HomePage>
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () =>
-                                  _homeCubit!.retryInitialization(),
+                                  _homeCubit!.retryInitialization(), 
                               child: const Text('重试'),
                             ),
                           ],
@@ -155,7 +155,8 @@ class _HomePageState extends State<HomePage>
                             physics: const NeverScrollableScrollPhysics(),
                             children: const [
                               ChatsPage(key: PageStorageKey('chats_page')),
-                              ContactsPage(key: PageStorageKey('contacts_page')),
+                              ContactsPage(
+                                  key: PageStorageKey('contacts_page')),
                               ProfilePage(key: PageStorageKey('profile_page')),
                             ],
                           ),

@@ -1,6 +1,7 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
 /// 聊天仓库接口
 /// 定义了聊天功能所需的各种操作方法
@@ -83,6 +84,9 @@ abstract class ChatRepository {
 
   /// 监听会话列表变化
   Stream<void> watchConversations();
+  
+  /// 监听会话更新事件
+  Stream<ConversationUpdateEvent> get conversationUpdateStream;
 
   /// 监听特定会话中的消息变化
   Stream<void> watchConversationMessages(String conversationId);
@@ -99,6 +103,14 @@ abstract class ChatRepository {
   });
 
   /// 从指定日期开始获取会话消息（包括该日期当天的消息）
+  
+  /// 从服务器获取历史消息
+  /// 当本地数据库没有消息或需要加载更多历史消息时使用
+  /// [参数]
+  /// [conversationId] - 会话 ID
+  /// [before] - 可选，获取此时间之前的消息
+  /// [limit] - 可选，每次获取的消息数量限制，默认 20 条
+  Future<List<Message>> fetchHistoryMessages(String conversationId, {DateTime? before, int limit = 20});
   Future<List<Message>> getConversationMessagesFromDate(
     String conversationId,
     DateTime startDate, {

@@ -4,12 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
-import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
+import 'package:cc/features/home/presentation/widgets/conversation_item.dart';
 
 /// 消息页面
 ///
@@ -36,14 +34,7 @@ class _ChatsPageState extends State<ChatsPage>
   /// 是否处于搜索状态
   bool _isSearching = false;
 
-  /// 过滤后的会话列表数据
-  List<Conversation> _filteredConversations = [];
-
-  /// 动画列表的key
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
-
-  /// 当前选中的标签索引
-  int _selectedTabIndex = 0;
+  // 移除了动画列表的key，因为我们使用 SliverList 而非 AnimatedList
 
   /// 搜索会话
   ///
@@ -53,80 +44,19 @@ class _ChatsPageState extends State<ChatsPage>
   /// 参数:
   ///   - query: 搜索关键词
   void _searchConversations(String query) {
+    // 使用 HomeCubit 中的搜索方法
     final homeCubit = context.read<HomeCubit>();
-    final allConversations = homeCubit.state.conversations;
-    final allContacts = homeCubit.state.contacts;
-
-    if (query.isEmpty) {
-      setState(() {
-        _filteredConversations = allConversations;
-      });
-      return;
-    }
-
-    try {
-      // 搜索会话和联系人数据
-      final lowercaseQuery = query.toLowerCase();
-
-      // 根据联系人名称或会话内容搜索
-      final filteredList = allConversations.where((conversation) {
-        // 查找会话对应的联系人
-        final contact = allContacts.firstWhere(
-          (c) => c.userId == conversation.contactUserId,
-          orElse: () => User()..name = '',
-        );
-
-        // 检查联系人名称、拼音和会话最后消息是否包含搜索关键词
-        return contact.name.toLowerCase().contains(lowercaseQuery) ||
-            (contact.pinyin?.toLowerCase().contains(lowercaseQuery) ?? false) ||
-            (conversation.lastMessagePreview
-                    ?.toLowerCase()
-                    .contains(lowercaseQuery) ??
-                false);
-      }).toList();
-
-      setState(() {
-        _filteredConversations = filteredList;
-      });
-
-      _logger.i('搜索结果: ${filteredList.length} 个会话');
-    } catch (e) {
-      _logger.e('搜索会话出错', error: e);
-      setState(() {
-        _filteredConversations = allConversations;
-      });
-    }
+    homeCubit.searchConversations(query);
+    _logger.i('执行搜索: $query');
   }
 
-  /// 添加新会话时调用此方法
-  void _insertItem(int index) {
-    _listKey.currentState?.insertItem(index);
-  }
+  // 已移除 _handleRemovedConversations 方法，因为在使用 Cubit 后不再需要手动处理删除操作
+  
+  // 已移除 _handleUpdatedConversations 方法，因为在使用 Cubit 后不再需要手动处理更新操作
+  
+  // 移除了 _sortConversations 方法，因为这个逻辑已经移到 HomeCubit 中
 
-  /// 删除会话时调用此方法
-  void _removeItem(int index, Conversation conversation, User contact) {
-    _listKey.currentState?.removeItem(
-      index,
-      (context, animation) => SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(animation),
-        child: FadeTransition(
-          opacity: animation,
-          child: ListTile(
-            leading: UserAvatar(
-              avatarUrl: contact.avatar,
-              name: contact.name,
-              radius: 20,
-            ),
-            title: Text(contact.name),
-            subtitle: Text(conversation.lastMessagePreview ?? ''),
-          ),
-        ),
-      ),
-    );
-  }
+  // 已移除 _insertItem 和 _removeItem 方法，因为在使用 SliverList 后不再需要这些方法
 
   @override
   void dispose() {
@@ -143,15 +73,23 @@ class _ChatsPageState extends State<ChatsPage>
     super.build(context); // This is required by AutomaticKeepAliveClientMixin
     _logger.d('ChatsPage build');
     return BlocBuilder<HomeCubit, HomeState>(
-      buildWhen: (previous, current) =>
-          previous.conversations != current.conversations ||
-          previous.contacts != current.contacts,
+      buildWhen: (previous, current) {
+        // 优化buildWhen条件，减少不必要的重建
+        // 1. 会话数量变化
+        final conversationsChanged = previous.conversations.length != current.conversations.length;
+        
+        // 2. 有更新的会话ID
+        final hasUpdates = current.updatedConversationIds.isNotEmpty;
+        
+        // 3. 有删除的会话ID
+        final hasRemovals = current.removedConversationIds.isNotEmpty;
+        
+        // 4. 联系人列表变化
+        final contactsChanged = previous.contacts != current.contacts;
+        
+        return conversationsChanged || hasUpdates || hasRemovals || contactsChanged;
+      },
       builder: (context, state) {
-        // 更新过滤后的会话列表
-        if (!_isSearching) {
-          _filteredConversations =
-              _filterConversationsByTab(state.conversations);
-        }
 
         return Scaffold(
           // AppBar: 自定义导航栏,包含标题、编辑按钮和新建聊天按钮
@@ -193,67 +131,7 @@ class _ChatsPageState extends State<ChatsPage>
     );
   }
 
-  /// 根据选中的标签过滤会话
-  List<Conversation> _filterConversationsByTab(
-      List<Conversation> conversations) {
-    // 根据标签类型过滤会话
-    List<Conversation> filteredList;
-
-    switch (_selectedTabIndex) {
-      case 0: // All Chats
-        filteredList = conversations;
-      case 1: // 私密
-        filteredList = conversations
-            .where((c) => c.type == ConversationType.private)
-            .toList();
-      case 2: // 群组
-        filteredList = conversations
-            .where((c) => c.type == ConversationType.group)
-            .toList();
-      case 3: // 频道
-        filteredList = conversations
-            .where((c) => c.type == ConversationType.channel)
-            .toList();
-      case 4: // 未读
-        filteredList = conversations.where((c) => c.unreadCount > 0).toList();
-      default:
-        filteredList = conversations;
-    }
-
-    // 分离置顶会话和非置顶会话
-    final pinnedConversations = filteredList.where((c) => c.isPinned).toList();
-    final unpinnedConversations =
-        filteredList.where((c) => !c.isPinned).toList();
-
-    // 置顶会话按最后消息时间排序，没有lastMessageTime的放在最后
-    pinnedConversations.sort((a, b) {
-      if (a.lastMessageTime == null && b.lastMessageTime == null) {
-        return b.createdAt.compareTo(a.createdAt); // 都没有lastMessageTime，按创建时间排序
-      } else if (a.lastMessageTime == null) {
-        return 1; // a没有lastMessageTime，排在后面
-      } else if (b.lastMessageTime == null) {
-        return -1; // b没有lastMessageTime，a排在前面
-      }
-      return b.lastMessageTime!
-          .compareTo(a.lastMessageTime!); // 都有lastMessageTime，按时间降序
-    });
-
-    // 非置顶会话按最后消息时间排序，没有lastMessageTime的放在最后
-    unpinnedConversations.sort((a, b) {
-      if (a.lastMessageTime == null && b.lastMessageTime == null) {
-        return b.createdAt.compareTo(a.createdAt); // 都没有lastMessageTime，按创建时间排序
-      } else if (a.lastMessageTime == null) {
-        return 1; // a没有lastMessageTime，排在后面
-      } else if (b.lastMessageTime == null) {
-        return -1; // b没有lastMessageTime，a排在前面
-      }
-      return b.lastMessageTime!
-          .compareTo(a.lastMessageTime!); // 都有lastMessageTime，按时间降序
-    });
-
-    // 合并两个列表，置顶会话在前面
-    return [...pinnedConversations, ...unpinnedConversations];
-  }
+  // 移除了 _filterConversationsByTab 方法，因为这个逻辑已经移到 HomeCubit 中
 
   /// 构建标签栏
   Widget _buildTabBar() {
@@ -283,16 +161,13 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 构建单个标签项
   Widget _buildTabItem(String title, int index, int? count) {
-    final isSelected = _selectedTabIndex == index;
+    final homeCubit = context.read<HomeCubit>();
+    final isSelected = homeCubit.state.selectedTabIndex == index;
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedTabIndex = index;
-          // 切换标签后更新过滤的会话列表
-          _filteredConversations = _filterConversationsByTab(
-              context.read<HomeCubit>().state.conversations);
-        });
+        // 使用 HomeCubit 中的方法切换标签
+        homeCubit.switchTab(index);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -485,10 +360,13 @@ class _ChatsPageState extends State<ChatsPage>
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () {
+                          // 清除搜索框并重置搜索状态
+                          _searchController.clear();
                           setState(() {
-                            _searchController.clear();
                             _isSearching = false;
                           });
+                          // 清除搜索并重置过滤器
+                          context.read<HomeCubit>().searchConversations('');
                           // 清除后重新聚焦到搜索框
                           _searchFocusNode.requestFocus();
                         },
@@ -500,6 +378,8 @@ class _ChatsPageState extends State<ChatsPage>
                 setState(() {
                   _isSearching = value.isNotEmpty;
                 });
+                // 实时搜索
+                _searchConversations(value);
               },
               textInputAction: TextInputAction.search,
               onSubmitted: (value) {
@@ -521,7 +401,7 @@ class _ChatsPageState extends State<ChatsPage>
                   if (query.isNotEmpty) {
                     _searchConversations(query);
                   }
-                  // 收起键盘但保持焦点
+                  // 收起键盘但保持聚焦
                   FocusScope.of(context).unfocus();
                   Future.delayed(const Duration(milliseconds: 100), () {
                     if (mounted) {
@@ -592,7 +472,7 @@ class _ChatsPageState extends State<ChatsPage>
       );
     }
 
-    if (_filteredConversations.isEmpty) {
+    if (state.filteredConversations.isEmpty) {
       return SliverFillRemaining(
         child: Center(
           child: Column(
@@ -618,18 +498,12 @@ class _ChatsPageState extends State<ChatsPage>
       );
     }
 
-    // 分离置顶和非置顶会话
-    final pinnedConversations =
-        _filteredConversations.where((c) => c.isPinned).toList();
-    final unpinnedConversations =
-        _filteredConversations.where((c) => !c.isPinned).toList();
-
-    // 重新排序会话列表，置顶会话在前
-    _filteredConversations = [...pinnedConversations, ...unpinnedConversations];
-
     // 准备列表项
     final List<Widget> items = [];
 
+    // 获取置顶会话
+    final pinnedConversations = state.filteredConversations.where((c) => c.isPinned).toList();
+    
     // 如果有置顶会话，添加一个置顶标签
     if (pinnedConversations.isNotEmpty) {
       items.add(
@@ -652,408 +526,37 @@ class _ChatsPageState extends State<ChatsPage>
       );
     }
 
-    // 添加所有会话项
-    for (int i = 0; i < _filteredConversations.length; i++) {
-      final conversation = _filteredConversations[i];
-
-      // 查找对应的联系人
-      final contact = state.contacts.firstWhere(
-        (c) => c.userId == conversation.contactUserId,
-        orElse: () => User()
-          ..name = conversation.name ?? '未知联系人'
-          ..avatar = conversation.avatar,
-      );
-
-      items.add(_buildConversationItem(conversation, contact));
-    }
-
-    // 返回SliverList
+    // 使用 SliverList 而非 SliverAnimatedList
+    // 因为在使用 Cubit 后，我们依赖 BlocBuilder 来重建列表
+    // 这避免了与 AnimatedList 的状态不同步问题
     return SliverList(
-      delegate: SliverChildListDelegate(items),
-    );
-  }
-
-  /// 构建单个会话项
-  Widget _buildConversationItem(Conversation conversation, User contact) {
-    // _logger.d('创建会话Item: ${contact.name} ${contact.avatar}');
-    // 判断是否有静音图标
-    final bool isMuted = conversation.isMuted;
-
-    // 判断会话类型
-    final bool isGroup = conversation.type == ConversationType.group;
-    final bool isChannel = conversation.type == ConversationType.channel;
-
-    // 获取最后一条消息的发送者名称（群聊和频道）
-    String? senderName;
-    if (isGroup) {
-      // 优先使用lastMessageName，这是服务器直接提供的发送者名称
-      senderName = conversation.lastMessageName ?? '未知用户';
-    }
-
-    // 频道消息发送者处理
-    String? channelSenderInfo;
-    if (isChannel) {
-      // 优先使用lastMessageName，这是服务器直接提供的发送者名称
-      channelSenderInfo = conversation.lastMessageName ?? '频道管理员';
-    }
-
-    // 头像大小 - 与三行内容高度匹配
-    const double avatarSize = 60.0;
-
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent, // 使用透明背景
-          child: InkWell(
-            onTap: () {
-              // 使用HomeCubit加载会话消息
-              final homeCubit = context.read<HomeCubit>();
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BlocProvider.value(
-                    value: homeCubit,
-                    child: ChatDetailPage(
-                      conversationId: conversation.conversationId,
-                      contact: contact,
-                    ),
-                  ),
-                ),
-              );
-            },
-            splashColor: Colors.grey.withAlpha(26), // 添加水波纹效果
-            highlightColor: Colors.grey.withAlpha(13), // 按下时的高亮效果
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10.0),
-              width: double.infinity, // 确保宽度占满整行
-              // 为置顶会话添加浅色背景
-              color: conversation.isPinned
-                  ? Colors.blue.withAlpha(15)
-                  : Colors.transparent,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
-                children: [
-                  // 头像
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SizedBox(
-                      width: avatarSize,
-                      height: avatarSize,
-                      child: UserAvatar(
-                        avatarUrl: contact.avatar,
-                        name: contact.name,
-                        radius: avatarSize / 2,
-                        backgroundColor: Colors.cyan,
-                      ),
-                    ),
-                  ),
-
-                  // 中间内容区域
-                  Expanded(
-                    child: SizedBox(
-                      height: avatarSize + 1, // 与头像高度一致
-                      child: Builder(builder: (context) {
-                        // 根据会话类型选择不同的内容布局
-                        switch (conversation.type) {
-                          case ConversationType.private:
-                            // 私聊布局
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                // 第一行：会话名称和静音图标
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          // 置顶图标
-                                          if (conversation.isPinned)
-                                            const Padding(
-                                              padding:
-                                                  EdgeInsets.only(right: 4.0),
-                                              child: Icon(
-                                                Icons.push_pin,
-                                                size: 16,
-                                                color: Colors.blue,
-                                              ),
-                                            ),
-                                          Flexible(
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: Text(
-                                                contact.name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 16,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isMuted)
-                                            const Padding(
-                                              padding:
-                                                  EdgeInsets.only(left: 4.0),
-                                              child: Icon(Icons.volume_off,
-                                                  size: 16, color: Colors.grey),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                // 第二、三行：消息内容预览（始终保持两行高度）
-                                Container(
-                                  height: 36, // 固定高度，相当于两行文本的高度
-                                  alignment: Alignment.topLeft,
-                                  child: Text(
-                                    conversation.lastMessagePreview ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            );
-                          // 群聊布局
-                          case ConversationType.group:
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                // 第一行：会话名称和静音图标
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          // 置顶图标
-                                          if (conversation.isPinned)
-                                            const Padding(
-                                              padding:
-                                                  EdgeInsets.only(right: 4.0),
-                                              child: Icon(
-                                                Icons.push_pin,
-                                                size: 16,
-                                                color: Colors.blue,
-                                              ),
-                                            ),
-                                          Flexible(
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: Text(
-                                                conversation.name ?? '名称错误',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 16,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isMuted)
-                                            const Padding(
-                                              padding:
-                                                  EdgeInsets.only(left: 4.0),
-                                              child: Icon(Icons.volume_off,
-                                                  size: 16, color: Colors.grey),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                // 第二行：发送者名称
-                                Text(
-                                  senderName ?? '未知用户',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-
-                                // 第三行：消息内容
-                                Text(
-                                  conversation.lastMessagePreview ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            );
-                          // 频道布局
-                          case ConversationType.channel:
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                // 第一行：会话名称和静音图标
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          // 置顶图标
-                                          if (conversation.isPinned)
-                                            const Padding(
-                                              padding:
-                                                  EdgeInsets.only(right: 4.0),
-                                              child: Icon(
-                                                Icons.push_pin,
-                                                size: 16,
-                                                color: Colors.blue,
-                                              ),
-                                            ),
-                                          Flexible(
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: Text(
-                                                conversation.name ?? '名称错误',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 16,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isMuted)
-                                            const Padding(
-                                              padding:
-                                                  EdgeInsets.only(left: 4.0),
-                                              child: Icon(Icons.volume_off,
-                                                  size: 16, color: Colors.grey),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                // 第二行：发送者名称带图标
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.campaign,
-                                      size: 14,
-                                      color: Colors.blue,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        channelSenderInfo ?? '频道管理员',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.blue,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                // 第三行：消息内容
-                                Text(
-                                  conversation.lastMessagePreview ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            );
-                          // 所有的会话类型都已经处理过了，不需要默认情况
-                        }
-                      }),
-                    ),
-                  ),
-
-                  // 右侧时间和未读数
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-                    child: SizedBox(
-                      height: avatarSize, // 与头像高度一致
-                      child: Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceEvenly, // 均匀分布
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // 时间
-                          Text(
-                            _formatTime(conversation.lastMessageTime),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-
-                          // 未读数
-                          if (conversation.unreadCount > 0)
-                            Container(
-                              margin: const EdgeInsets.only(top: 16),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                // 根据 lastReadAt 和 lastMessageTime 比较决定颜色
-                                // 如果 lastReadAt < lastMessageTime 或 lastReadAt 为空，保持蓝色
-                                // 如果 lastReadAt > lastMessageTime，则使用灰色
-                                color: (conversation.lastReadAt == null ||
-                                        (conversation.lastMessageTime != null &&
-                                            conversation.lastReadAt!.isBefore(
-                                                conversation.lastMessageTime!)))
-                                    ? Colors.blue
-                                    : Colors.grey,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 20,
-                                minHeight: 20,
-                              ),
-                              child: Text(
-                                _formatUnreadCount(conversation.unreadCount),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-
-                          // 如果没有未读消息，添加一个空占位符以保持布局平衡
-                          if (conversation.unreadCount <= 0)
-                            const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        // 分割线 - 从头像右侧开始延伸
-        Padding(
-          padding: const EdgeInsets.only(left: 92.0),
-          child: Container(
-            height: 0.5,
-            color: Colors.grey.withAlpha(77),
-          ),
-        ),
-      ],
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          // 确保索引在有效范围内
+          if (index >= state.filteredConversations.length) {
+            return null;
+          }
+          
+          final conversation = state.filteredConversations[index];
+          
+          // 查找对应的联系人
+          final contact = state.contacts.firstWhere(
+            (c) => c.userId == conversation.contactUserId,
+            orElse: () => User()
+              ..name = conversation.name ?? '未知联系人'
+              ..avatar = conversation.avatar,
+          );
+          
+          return ConversationItem(
+            key: ValueKey(conversation.conversationId),
+            conversation: conversation,
+            contact: contact,
+            formatTimeCallback: _formatTime,
+            formatUnreadCountCallback: _formatUnreadCount,
+          );
+        },
+        childCount: state.filteredConversations.length,
+      ),
     );
   }
 

@@ -54,16 +54,14 @@ final $typed_data.Uint8List friendRequestProtoDescriptor = $convert.base64Decode
 const SyncContactsRequest$json = {
   '1': 'SyncContactsRequest',
   '2': [
-    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'token', '3': 2, '4': 1, '5': 9, '10': 'token'},
-    {'1': 'last_sync_time', '3': 3, '4': 1, '5': 3, '10': 'lastSyncTime'},
+    {'1': 'last_sync_time', '3': 1, '4': 1, '5': 3, '10': 'lastSyncTime'},
   ],
 };
 
 /// Descriptor for `SyncContactsRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List syncContactsRequestDescriptor = $convert.base64Decode(
-    'ChNTeW5jQ29udGFjdHNSZXF1ZXN0EhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIUCgV0b2tlbh'
-    'gCIAEoCVIFdG9rZW4SJAoObGFzdF9zeW5jX3RpbWUYAyABKANSDGxhc3RTeW5jVGltZQ==');
+    'ChNTeW5jQ29udGFjdHNSZXF1ZXN0EiQKDmxhc3Rfc3luY190aW1lGAEgASgDUgxsYXN0U3luY1'
+    'RpbWU=');
 
 @$core.Deprecated('Use syncContactsResponseDescriptor instead')
 const SyncContactsResponse$json = {

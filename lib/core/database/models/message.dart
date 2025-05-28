@@ -55,10 +55,9 @@ class Message {
   // 与会话的关系
   final conversation = IsarLink<Conversation>();
 
-  /// 从Protocol Buffer对象创建数据库对象
+  /// 从 Protocol Buffer对象创建数据库对象
   ///
   /// 直接从MessageProto对象创建Message实例
-  /// 简化了在仓库中的数据转换逻辑
   ///
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
@@ -97,6 +96,7 @@ class Message {
   ///
   /// 返回：转换后的Protocol Buffer对象
   proto.MessageProto toProto() {
+    // 将字符串类型转换为枚举类型
     final messageType = _stringToMessageType(type);
 
     return proto.MessageProto(

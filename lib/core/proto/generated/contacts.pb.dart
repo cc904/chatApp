@@ -170,19 +170,12 @@ class FriendRequestProto extends $pb.GeneratedMessage {
 
 /// 同步联系人请求消息
 /// 客户端请求同步联系人列表时使用
+/// 在服务端实现中，用户ID直接从 socket 中获取，不需要客户端提供
 class SyncContactsRequest extends $pb.GeneratedMessage {
   factory SyncContactsRequest({
-    $core.String? userId,
-    $core.String? token,
     $fixnum.Int64? lastSyncTime,
   }) {
     final $result = create();
-    if (userId != null) {
-      $result.userId = userId;
-    }
-    if (token != null) {
-      $result.token = token;
-    }
     if (lastSyncTime != null) {
       $result.lastSyncTime = lastSyncTime;
     }
@@ -193,9 +186,7 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   factory SyncContactsRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncContactsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOS(2, _omitFieldNames ? '' : 'token')
-    ..aInt64(3, _omitFieldNames ? '' : 'lastSyncTime')
+    ..aInt64(1, _omitFieldNames ? '' : 'lastSyncTime')
     ..hasRequiredFields = false
   ;
 
@@ -220,36 +211,16 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   static SyncContactsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SyncContactsRequest>(create);
   static SyncContactsRequest? _defaultInstance;
 
-  /// 用户ID
-  @$pb.TagNumber(1)
-  $core.String get userId => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set userId($core.String v) { $_setString(0, v); }
-  @$pb.TagNumber(1)
-  $core.bool hasUserId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearUserId() => $_clearField(1);
-
-  /// 用户令牌
-  @$pb.TagNumber(2)
-  $core.String get token => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set token($core.String v) { $_setString(1, v); }
-  @$pb.TagNumber(2)
-  $core.bool hasToken() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearToken() => $_clearField(2);
-
   /// 最后同步时间（毫秒时间戳）
   /// 用于增量同步，第一次同步时为0
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get lastSyncTime => $_getI64(2);
-  @$pb.TagNumber(3)
-  set lastSyncTime($fixnum.Int64 v) { $_setInt64(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasLastSyncTime() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearLastSyncTime() => $_clearField(3);
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get lastSyncTime => $_getI64(0);
+  @$pb.TagNumber(1)
+  set lastSyncTime($fixnum.Int64 v) { $_setInt64(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasLastSyncTime() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLastSyncTime() => $_clearField(1);
 }
 
 /// 同步联系人响应消息

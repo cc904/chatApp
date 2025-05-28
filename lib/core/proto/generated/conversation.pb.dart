@@ -753,17 +753,16 @@ class ConversationCollection extends $pb.GeneratedMessage {
 }
 
 /// 同步会话请求
+/// 客户端发送此请求以获取服务器上的最新会话数据
+/// 服务器会根据当前用户的会话返回所有最新数据
+/// 可以提供上次同步时间来实现增量同步，只获取新的或有更新的会话
 class SyncConversationsRequest extends $pb.GeneratedMessage {
   factory SyncConversationsRequest({
-    $core.Iterable<$core.String>? localConversationIds,
-    $core.String? userId,
+    $fixnum.Int64? lastSyncTime,
   }) {
     final $result = create();
-    if (localConversationIds != null) {
-      $result.localConversationIds.addAll(localConversationIds);
-    }
-    if (userId != null) {
-      $result.userId = userId;
+    if (lastSyncTime != null) {
+      $result.lastSyncTime = lastSyncTime;
     }
     return $result;
   }
@@ -772,8 +771,7 @@ class SyncConversationsRequest extends $pb.GeneratedMessage {
   factory SyncConversationsRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncConversationsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..pPS(1, _omitFieldNames ? '' : 'localConversationIds')
-    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aInt64(1, _omitFieldNames ? '' : 'lastSyncTime')
     ..hasRequiredFields = false
   ;
 
@@ -799,16 +797,13 @@ class SyncConversationsRequest extends $pb.GeneratedMessage {
   static SyncConversationsRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$core.String> get localConversationIds => $_getList(0);
-
-  @$pb.TagNumber(2)
-  $core.String get userId => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set userId($core.String v) { $_setString(1, v); }
-  @$pb.TagNumber(2)
-  $core.bool hasUserId() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearUserId() => $_clearField(2);
+  $fixnum.Int64 get lastSyncTime => $_getI64(0);
+  @$pb.TagNumber(1)
+  set lastSyncTime($fixnum.Int64 v) { $_setInt64(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasLastSyncTime() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLastSyncTime() => $_clearField(1);
 }
 
 /// 会话更新通知
@@ -1132,9 +1127,11 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
   void clearTimestamp() => $_clearField(5);
 }
 
-/// 新增：会话加入请求
-class ConversationJoinRequest extends $pb.GeneratedMessage {
-  factory ConversationJoinRequest({
+/// 会话加入/离开请求
+/// 用于处理用户加入或离开会话的请求
+/// 在服务端代码中，加入和离开操作使用相同的结构
+class ConversationJoinLeaveRequest extends $pb.GeneratedMessage {
+  factory ConversationJoinLeaveRequest({
     $core.String? conversationId,
     $core.String? userId,
   }) {
@@ -1147,11 +1144,11 @@ class ConversationJoinRequest extends $pb.GeneratedMessage {
     }
     return $result;
   }
-  ConversationJoinRequest._() : super();
-  factory ConversationJoinRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ConversationJoinRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  ConversationJoinLeaveRequest._() : super();
+  factory ConversationJoinLeaveRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationJoinLeaveRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationJoinRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationJoinLeaveRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
     ..aOS(2, _omitFieldNames ? '' : 'userId')
     ..hasRequiredFields = false
@@ -1161,87 +1158,22 @@ class ConversationJoinRequest extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  ConversationJoinRequest clone() => ConversationJoinRequest()..mergeFromMessage(this);
+  ConversationJoinLeaveRequest clone() => ConversationJoinLeaveRequest()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  ConversationJoinRequest copyWith(void Function(ConversationJoinRequest) updates) => super.copyWith((message) => updates(message as ConversationJoinRequest)) as ConversationJoinRequest;
+  ConversationJoinLeaveRequest copyWith(void Function(ConversationJoinLeaveRequest) updates) => super.copyWith((message) => updates(message as ConversationJoinLeaveRequest)) as ConversationJoinLeaveRequest;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ConversationJoinRequest create() => ConversationJoinRequest._();
-  ConversationJoinRequest createEmptyInstance() => create();
-  static $pb.PbList<ConversationJoinRequest> createRepeated() => $pb.PbList<ConversationJoinRequest>();
+  static ConversationJoinLeaveRequest create() => ConversationJoinLeaveRequest._();
+  ConversationJoinLeaveRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationJoinLeaveRequest> createRepeated() => $pb.PbList<ConversationJoinLeaveRequest>();
   @$core.pragma('dart2js:noInline')
-  static ConversationJoinRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationJoinRequest>(create);
-  static ConversationJoinRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get conversationId => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set conversationId($core.String v) { $_setString(0, v); }
-  @$pb.TagNumber(1)
-  $core.bool hasConversationId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearConversationId() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get userId => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set userId($core.String v) { $_setString(1, v); }
-  @$pb.TagNumber(2)
-  $core.bool hasUserId() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearUserId() => $_clearField(2);
-}
-
-/// 新增：会话离开请求
-class ConversationLeaveRequest extends $pb.GeneratedMessage {
-  factory ConversationLeaveRequest({
-    $core.String? conversationId,
-    $core.String? userId,
-  }) {
-    final $result = create();
-    if (conversationId != null) {
-      $result.conversationId = conversationId;
-    }
-    if (userId != null) {
-      $result.userId = userId;
-    }
-    return $result;
-  }
-  ConversationLeaveRequest._() : super();
-  factory ConversationLeaveRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ConversationLeaveRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationLeaveRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(2, _omitFieldNames ? '' : 'userId')
-    ..hasRequiredFields = false
-  ;
-
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  ConversationLeaveRequest clone() => ConversationLeaveRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  ConversationLeaveRequest copyWith(void Function(ConversationLeaveRequest) updates) => super.copyWith((message) => updates(message as ConversationLeaveRequest)) as ConversationLeaveRequest;
-
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ConversationLeaveRequest create() => ConversationLeaveRequest._();
-  ConversationLeaveRequest createEmptyInstance() => create();
-  static $pb.PbList<ConversationLeaveRequest> createRepeated() => $pb.PbList<ConversationLeaveRequest>();
-  @$core.pragma('dart2js:noInline')
-  static ConversationLeaveRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationLeaveRequest>(create);
-  static ConversationLeaveRequest? _defaultInstance;
+  static ConversationJoinLeaveRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationJoinLeaveRequest>(create);
+  static ConversationJoinLeaveRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);

@@ -165,15 +165,14 @@ final $typed_data.Uint8List conversationCollectionDescriptor = $convert.base64De
 const SyncConversationsRequest$json = {
   '1': 'SyncConversationsRequest',
   '2': [
-    {'1': 'local_conversation_ids', '3': 1, '4': 3, '5': 9, '10': 'localConversationIds'},
-    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'last_sync_time', '3': 1, '4': 1, '5': 3, '10': 'lastSyncTime'},
   ],
 };
 
 /// Descriptor for `SyncConversationsRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List syncConversationsRequestDescriptor = $convert.base64Decode(
-    'ChhTeW5jQ29udmVyc2F0aW9uc1JlcXVlc3QSNAoWbG9jYWxfY29udmVyc2F0aW9uX2lkcxgBIA'
-    'MoCVIUbG9jYWxDb252ZXJzYXRpb25JZHMSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
+    'ChhTeW5jQ29udmVyc2F0aW9uc1JlcXVlc3QSJAoObGFzdF9zeW5jX3RpbWUYASABKANSDGxhc3'
+    'RTeW5jVGltZQ==');
 
 @$core.Deprecated('Use conversationUpdateNotificationDescriptor instead')
 const ConversationUpdateNotification$json = {
@@ -241,33 +240,19 @@ final $typed_data.Uint8List conversationSettingsUpdateResponseDescriptor = $conv
     'ZBgDIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5uZWQYBCABKAhIAVIGcGlubmVkiAEBEhwKCXRpbW'
     'VzdGFtcBgFIAEoA1IJdGltZXN0YW1wQggKBl9tdXRlZEIJCgdfcGlubmVk');
 
-@$core.Deprecated('Use conversationJoinRequestDescriptor instead')
-const ConversationJoinRequest$json = {
-  '1': 'ConversationJoinRequest',
+@$core.Deprecated('Use conversationJoinLeaveRequestDescriptor instead')
+const ConversationJoinLeaveRequest$json = {
+  '1': 'ConversationJoinLeaveRequest',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
   ],
 };
 
-/// Descriptor for `ConversationJoinRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationJoinRequestDescriptor = $convert.base64Decode(
-    'ChdDb252ZXJzYXRpb25Kb2luUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbn'
-    'ZlcnNhdGlvbklkEhcKB3VzZXJfaWQYAiABKAlSBnVzZXJJZA==');
-
-@$core.Deprecated('Use conversationLeaveRequestDescriptor instead')
-const ConversationLeaveRequest$json = {
-  '1': 'ConversationLeaveRequest',
-  '2': [
-    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
-  ],
-};
-
-/// Descriptor for `ConversationLeaveRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationLeaveRequestDescriptor = $convert.base64Decode(
-    'ChhDb252ZXJzYXRpb25MZWF2ZVJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg5jb2'
-    '52ZXJzYXRpb25JZBIXCgd1c2VyX2lkGAIgASgJUgZ1c2VySWQ=');
+/// Descriptor for `ConversationJoinLeaveRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationJoinLeaveRequestDescriptor = $convert.base64Decode(
+    'ChxDb252ZXJzYXRpb25Kb2luTGVhdmVSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCV'
+    'IOY29udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
 
 @$core.Deprecated('Use conversationCreateRequestDescriptor instead')
 const ConversationCreateRequest$json = {

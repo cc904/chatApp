@@ -339,9 +339,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       if (_communicationService.isInitialized) {
         // 创建同步请求并填充数据
-        final syncRequest = SyncContactsRequest()
-          ..userId = _currentUser.userId
-          ..token = _currentUser.token;
+        final syncRequest = SyncContactsRequest();
 
         // 获取并添加上次同步时间（如果有）
         final lastSyncTime = await getLastSyncTime();
