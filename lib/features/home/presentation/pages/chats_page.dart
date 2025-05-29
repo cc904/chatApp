@@ -1,11 +1,14 @@
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+
 import 'search_page.dart';
 import 'scan_code_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-import 'package:cc/features/home/presentation/cubit/home_state.dart';
+// import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+// import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
 import 'package:cc/features/home/presentation/widgets/conversation_item.dart';
 import 'package:cc/core/database/models/conversation.dart';
@@ -46,9 +49,9 @@ class _ChatsPageState extends State<ChatsPage>
   /// 参数:
   ///   - query: 搜索关键词
   void _searchConversations(String query) {
-    // 使用 HomeCubit 中的搜索方法
-    final homeCubit = context.read<HomeCubit>();
-    homeCubit.searchConversations(query);
+    // 使用 ChatsCubit 中的搜索方法
+    final chatsCubit = context.read<ChatsCubit>();
+    chatsCubit.searchConversations(query);
     _logger.i('执行搜索: $query');
   }
 
@@ -75,35 +78,21 @@ class _ChatsPageState extends State<ChatsPage>
   Widget build(BuildContext context) {
     super.build(context); // This is required by AutomaticKeepAliveClientMixin
     _logger.d('ChatsPage build');
-    return BlocBuilder<HomeCubit, HomeState>(
+    return BlocBuilder<ChatsCubit, ChatsState>(
       buildWhen: (previous, current) {
         // 优化buildWhen条件，减少不必要的重建
         // 1. 会话数量变化
-        final conversationsChanged = previous.filteredConversations.length !=
-            current.filteredConversations.length;
+        final conversationsChanged =
+            previous.conversations.length != current.conversations.length;
 
-        // 2. 有更新的会话ID
-        final hasUpdates = current.updatedConversationIds.isNotEmpty;
-
-        // 3. 有删除的会话ID
-        final hasRemovals = current.removedConversationIds.isNotEmpty;
-
-        // 4. 联系人列表变化
-        final contactsChanged = previous.contacts != current.contacts;
-
-        // 5. 选中的标签变化
+        // 4. 选中的标签变化
         final tabChanged =
             previous.selectedTabIndex != current.selectedTabIndex;
 
-        // 6. 搜索查询变化
+        // 5. 搜索查询变化
         final searchChanged = previous.searchQuery != current.searchQuery;
 
-        return conversationsChanged ||
-            hasUpdates ||
-            hasRemovals ||
-            contactsChanged ||
-            tabChanged ||
-            searchChanged;
+        return conversationsChanged || tabChanged || searchChanged;
       },
       builder: (context, state) {
         return Scaffold(
@@ -177,13 +166,13 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 构建单个标签项
   Widget _buildTabItem(String title, int index, int? count) {
-    final homeCubit = context.read<HomeCubit>();
-    final isSelected = homeCubit.state.selectedTabIndex == index;
+    final chatsCubit = context.read<ChatsCubit>();
+    final isSelected = chatsCubit.state.selectedTabIndex == index;
 
     return GestureDetector(
       onTap: () {
-        // 使用 HomeCubit 中的方法切换标签
-        homeCubit.switchTab(index);
+        // 使用 ChatsCubit 中的方法切换标签
+        chatsCubit.switchTab(index);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -238,16 +227,16 @@ class _ChatsPageState extends State<ChatsPage>
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       // 中间标题
-      title: BlocBuilder<HomeCubit, HomeState>(
+      title: BlocBuilder<ChatsCubit, ChatsState>(
         buildWhen: (previous, current) =>
-            previous.networkStatus != current.networkStatus ||
+            previous.conversationSyncStatus != current.conversationSyncStatus ||
             previous.isLoadingMessages != current.isLoadingMessages,
         builder: (context, state) {
           return AppBarTitleWithNetworkStatus(
             title: 'Chats',
-            networkStatus: state.networkStatus,
+            networkStatus: state.conversationSyncStatus,
             isLoading: state.isLoadingMessages,
-            onRetry: () => context.read<HomeCubit>().reconnect(),
+            onRetry: () => context.read<ChatsCubit>().syncConversations(),
           );
         },
       ),
@@ -382,7 +371,7 @@ class _ChatsPageState extends State<ChatsPage>
                             _isSearching = false;
                           });
                           // 清除搜索并重置过滤器
-                          context.read<HomeCubit>().searchConversations('');
+                          context.read<ChatsCubit>().searchConversations('');
                           // 清除后重新聚焦到搜索框
                           _searchFocusNode.requestFocus();
                         },
@@ -450,7 +439,7 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 构建聊天列表的 Sliver 组件
   /// 返回多个 Sliver 组件组成的列表
-  List<Widget> _buildChatListSlivers(HomeState state) {
+  List<Widget> _buildChatListSlivers(ChatsState state) {
     if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
       return [
         SliverFillRemaining(
@@ -579,13 +568,19 @@ class _ChatsPageState extends State<ChatsPage>
   }
 
   /// 为会话查找对应的联系人
-  User _findContactForConversation(HomeState state, Conversation conversation) {
-    return state.contacts.firstWhere(
-      (c) => c.userId == conversation.contactUserId,
-      orElse: () => User()
-        ..name = conversation.name ?? '未知联系人'
-        ..avatar = conversation.avatar,
-    );
+  User _findContactForConversation(
+      ChatsState state, Conversation conversation) {
+    return User()
+      ..name = conversation.name ?? '未知联系人'
+      ..avatar = conversation.avatar;
+
+    // TODO:
+    // return state.contacts.firstWhere(
+    //   (c) => c.userId == conversation.contactUserId,
+    //   orElse: () => User()
+    //     ..name = conversation.name ?? '未知联系人'
+    //     ..avatar = conversation.avatar,
+    // );
   }
 
   /// 格式化消息时间

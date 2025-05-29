@@ -60,7 +60,7 @@ class _ContactsPageState extends State<ContactsPage>
     if (homeCubit.state.contacts.isEmpty &&
         !homeCubit.state.isLoadingContacts) {
       _logger.i('加载联系人数据');
-      homeCubit.loadContacts();
+      // TODO: homeCubit.loadContacts();
     } else {
       _updateGroupedContacts(homeCubit.state.contacts);
     }
@@ -239,8 +239,8 @@ class _ContactsPageState extends State<ContactsPage>
 
   /// 同步联系人
   Future<void> _syncContacts() async {
-    final homeCubit = context.read<HomeCubit>();
-    await homeCubit.syncContacts();
+    context.read<HomeCubit>();
+    // TODO: await homeCubit.syncContacts();
   }
 
   @override

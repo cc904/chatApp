@@ -49,7 +49,4 @@ abstract class ContactsRepository {
 
   /// 监听联系人列表变化
   Stream<void> watchContacts();
-
-  /// 获取最后同步时间
-  Future<DateTime?> getLastSyncTime();
 }

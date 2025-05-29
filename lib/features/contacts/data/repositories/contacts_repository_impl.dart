@@ -8,7 +8,6 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/contacts.pb.dart';
-import 'package:fixnum/fixnum.dart';
 
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
@@ -52,7 +51,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _logger.i('通信服务未初始化，无法设置Proto事件订阅');
       return;
     }
-    
+
     // 先取消所有现有的监听器，防止重复注册
     for (var subscription in _subscriptions) {
       subscription.cancel();
@@ -169,9 +168,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
             await _users.put(contact);
           }
         }
-
-        // 保存最后同步时间
-        await _saveLastSyncTime(DateTime.now());
       });
 
       // 通知同步成功
@@ -338,27 +334,16 @@ class ContactsRepositoryImpl implements ContactsRepository {
       }
 
       if (_communicationService.isInitialized) {
-        // 创建同步请求并填充数据
-        final syncRequest = SyncContactsRequest();
-
-        // 获取并添加上次同步时间（如果有）
-        final lastSyncTime = await getLastSyncTime();
-        if (lastSyncTime != null) {
-          // 使用Int64将毫秒时间戳转换为Int64类型
-          syncRequest.lastSyncTime = Int64(lastSyncTime.millisecondsSinceEpoch);
-          _logger
-              .d('添加上次同步时间', extra: {'lastSyncTime': lastSyncTime.toString()});
-        }
-
         // 发送请求
-        _communicationService.emitProto('contact:sync', syncRequest);
+        _communicationService.emitProto('contact:sync', SyncContactsRequest());
         _logger.i('联系人同步请求已发送');
 
         // 创建一个变量来跟踪同步状态
         bool isSyncComplete = false;
 
         // 添加一个临时监听器来检测同步状态变化
-        final syncSubscription = _syncContactsStatusController.stream.listen((status) {
+        final syncSubscription =
+            _syncContactsStatusController.stream.listen((status) {
           if (status != ContactsSyncStatus.syncing) {
             isSyncComplete = true;
           }
@@ -598,29 +583,6 @@ class ContactsRepositoryImpl implements ContactsRepository {
     } catch (error) {
       _logger.e('获取所有好友请求失败', error: error, stackTrace: StackTrace.current);
       return [];
-    }
-  }
-
-  /// 获取最后同步时间
-  @override
-  Future<DateTime?> getLastSyncTime() async {
-    try {
-      // 这里可以使用SharedPreferences或其他存储方式
-      // 简单起见，这里暂时返回null
-      return null;
-    } catch (e) {
-      _logger.e('获取最后同步时间失败', error: e);
-      return null;
-    }
-  }
-
-  /// 保存最后同步时间
-  Future<void> _saveLastSyncTime(DateTime time) async {
-    try {
-      // 这里可以使用SharedPreferences或其他存储方式
-      // 简单起见，这里暂时不实现
-    } catch (e) {
-      _logger.e('保存最后同步时间失败', error: e);
     }
   }
 

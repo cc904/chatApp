@@ -171,22 +171,14 @@ class FriendRequestProto extends $pb.GeneratedMessage {
 /// 同步联系人请求消息
 /// 客户端请求同步联系人列表时使用
 /// 在服务端实现中，用户ID直接从 socket 中获取，不需要客户端提供
+/// 采用全量同步策略，确保客户端和服务器数据一致性
 class SyncContactsRequest extends $pb.GeneratedMessage {
-  factory SyncContactsRequest({
-    $fixnum.Int64? lastSyncTime,
-  }) {
-    final $result = create();
-    if (lastSyncTime != null) {
-      $result.lastSyncTime = lastSyncTime;
-    }
-    return $result;
-  }
+  factory SyncContactsRequest() => create();
   SyncContactsRequest._() : super();
   factory SyncContactsRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
   factory SyncContactsRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncContactsRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..aInt64(1, _omitFieldNames ? '' : 'lastSyncTime')
     ..hasRequiredFields = false
   ;
 
@@ -210,17 +202,6 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
   @$core.pragma('dart2js:noInline')
   static SyncContactsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SyncContactsRequest>(create);
   static SyncContactsRequest? _defaultInstance;
-
-  /// 最后同步时间（毫秒时间戳）
-  /// 用于增量同步，第一次同步时为0
-  @$pb.TagNumber(1)
-  $fixnum.Int64 get lastSyncTime => $_getI64(0);
-  @$pb.TagNumber(1)
-  set lastSyncTime($fixnum.Int64 v) { $_setInt64(0, v); }
-  @$pb.TagNumber(1)
-  $core.bool hasLastSyncTime() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearLastSyncTime() => $_clearField(1);
 }
 
 /// 同步联系人响应消息

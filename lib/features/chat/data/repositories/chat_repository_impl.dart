@@ -13,7 +13,6 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
-import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
@@ -33,7 +32,7 @@ class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
   final FileUploadService _fileUploadService = FileUploadService();
-  final user_proto.CurrentUserProto _currentUser;
+  // final user_proto.CurrentUserProto _currentUser;
 
   // 活跃的会话ID，用于过滤事件
 
@@ -57,8 +56,7 @@ class ChatRepositoryImpl implements ChatRepository {
   Stream<Message> get messageStream => _newMessagesController.stream;
 
   // 构造函数
-  ChatRepositoryImpl({required user_proto.CurrentUserProto currentUserProto})
-      : _currentUser = currentUserProto {
+  ChatRepositoryImpl() {
     _logger.x('ChatRepositoryImpl 初始化');
   }
 
@@ -1028,20 +1026,20 @@ class ChatRepositoryImpl implements ChatRepository {
           }
 
           // 如果消息不是当前用户发送的，且用户不在会话页面中，增加未读计数
-          if (message.senderId != _currentUser.userId) {
-            // TODO: 检查用户是否在会话页面中（需要Socket.io房间信息）
-            // 暂时简单处理：如果最后阅读时间晚于消息时间，则不增加未读计数
-            final isUserInConversation = conversation.lastReadAt != null &&
-                conversation.lastReadAt!.isAfter(message.createdAt);
+          // if (message.senderId != _currentUser.userId) {
+          //   // TODO: 检查用户是否在会话页面中（需要Socket.io房间信息）
+          //   // 暂时简单处理：如果最后阅读时间晚于消息时间，则不增加未读计数
+          //   final isUserInConversation = conversation.lastReadAt != null &&
+          //       conversation.lastReadAt!.isAfter(message.createdAt);
 
-            if (!isUserInConversation) {
-              conversation.unreadCount += 1;
-              _logger.d('增加会话未读计数', extra: {
-                'conversationId': message.conversationId,
-                'unreadCount': conversation.unreadCount
-              });
-            }
-          }
+          //   if (!isUserInConversation) {
+          //     conversation.unreadCount += 1;
+          //     _logger.d('增加会话未读计数', extra: {
+          //       'conversationId': message.conversationId,
+          //       'unreadCount': conversation.unreadCount
+          //     });
+          //   }
+          // }
 
           // 保存更新后的会话
           await _conversations.put(conversation);
@@ -1479,9 +1477,9 @@ class ChatRepositoryImpl implements ChatRepository {
           }
 
           // 如果发送者不是当前用户，则增加未读消息计数
-          if (notification.senderId != _currentUser.userId) {
-            conversation.unreadCount = notification.unreadCount;
-          }
+          // if (notification.senderId != _currentUser.userId) {
+          //   conversation.unreadCount = notification.unreadCount;
+          // }
 
           // 保存更新后的会话
           await _conversations.put(conversation);
@@ -1756,7 +1754,6 @@ class ChatRepositoryImpl implements ChatRepository {
         // 创建会话标记已读请求
         final markReadRequest = conversation_proto.ConversationMarkReadRequest()
           ..conversationId = conversationId
-          ..userId = _currentUser.userId
           ..readAt = $fixnum.Int64(timestamp.millisecondsSinceEpoch);
 
         // 发送请求到服务器
@@ -1821,7 +1818,6 @@ class ChatRepositoryImpl implements ChatRepository {
         // 创建会话标记已读请求
         final markReadRequest = conversation_proto.ConversationMarkReadRequest()
           ..conversationId = conversationId
-          ..userId = _currentUser.userId
           ..messageId = messageId;
 
         // 发送请求到服务器
@@ -1867,8 +1863,7 @@ class ChatRepositoryImpl implements ChatRepository {
       if (_communicationService.isInitialized) {
         final joinRoomRequest =
             conversation_proto.ConversationJoinLeaveRequest()
-              ..conversationId = conversationId
-              ..userId = _currentUser.userId;
+              ..conversationId = conversationId;
 
         _communicationService.emitProto('conversation:join', joinRoomRequest);
         _logger.d('已发送加入会话房间请求');
@@ -1912,8 +1907,7 @@ class ChatRepositoryImpl implements ChatRepository {
       if (_communicationService.isInitialized) {
         final leaveRoomRequest =
             conversation_proto.ConversationJoinLeaveRequest()
-              ..conversationId = conversationId
-              ..userId = _currentUser.userId;
+              ..conversationId = conversationId;
 
         _communicationService.emitProto('conversation:leave', leaveRoomRequest);
         _logger.d('已发送离开会话房间请求');

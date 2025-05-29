@@ -1608,16 +1608,12 @@ class ConversationCreateResponse extends $pb.GeneratedMessage {
 class ConversationMarkReadRequest extends $pb.GeneratedMessage {
   factory ConversationMarkReadRequest({
     $core.String? conversationId,
-    $core.String? userId,
     $fixnum.Int64? readAt,
     $core.String? messageId,
   }) {
     final $result = create();
     if (conversationId != null) {
       $result.conversationId = conversationId;
-    }
-    if (userId != null) {
-      $result.userId = userId;
     }
     if (readAt != null) {
       $result.readAt = readAt;
@@ -1633,9 +1629,8 @@ class ConversationMarkReadRequest extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMarkReadRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(2, _omitFieldNames ? '' : 'userId')
-    ..aInt64(3, _omitFieldNames ? '' : 'readAt')
-    ..aOS(4, _omitFieldNames ? '' : 'messageId')
+    ..aInt64(2, _omitFieldNames ? '' : 'readAt')
+    ..aOS(3, _omitFieldNames ? '' : 'messageId')
     ..hasRequiredFields = false
   ;
 
@@ -1670,31 +1665,22 @@ class ConversationMarkReadRequest extends $pb.GeneratedMessage {
   void clearConversationId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get userId => $_getSZ(1);
+  $fixnum.Int64 get readAt => $_getI64(1);
   @$pb.TagNumber(2)
-  set userId($core.String v) { $_setString(1, v); }
+  set readAt($fixnum.Int64 v) { $_setInt64(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasUserId() => $_has(1);
+  $core.bool hasReadAt() => $_has(1);
   @$pb.TagNumber(2)
-  void clearUserId() => $_clearField(2);
+  void clearReadAt() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $fixnum.Int64 get readAt => $_getI64(2);
+  $core.String get messageId => $_getSZ(2);
   @$pb.TagNumber(3)
-  set readAt($fixnum.Int64 v) { $_setInt64(2, v); }
+  set messageId($core.String v) { $_setString(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasReadAt() => $_has(2);
+  $core.bool hasMessageId() => $_has(2);
   @$pb.TagNumber(3)
-  void clearReadAt() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get messageId => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set messageId($core.String v) { $_setString(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasMessageId() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearMessageId() => $_clearField(4);
+  void clearMessageId() => $_clearField(3);
 }
 
 /// 新增：会话已读标记响应

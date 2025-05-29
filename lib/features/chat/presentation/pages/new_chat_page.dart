@@ -3,7 +3,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 
 class NewChatPage extends StatefulWidget {
   const NewChatPage({super.key});
@@ -34,10 +34,10 @@ class _NewChatPageState extends State<NewChatPage> {
 
     try {
       // 从HomeCubit中加载联系人数据
-      final homeCubit = context.read<HomeCubit>();
-      await homeCubit.loadContacts();
+      final chatsCubit = context.read<ChatsCubit>();
+      await chatsCubit.loadContacts();
       setState(() {
-        _contacts = homeCubit.state.contacts;
+        _contacts = chatsCubit.state.contacts;
       });
     } catch (e) {
       setState(() {
