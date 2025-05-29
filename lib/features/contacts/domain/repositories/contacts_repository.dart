@@ -9,11 +9,7 @@ enum ContactsSyncStatus { idle, syncing, success, error }
 abstract class ContactsRepository {
   /// 联系人同步状态流
   Stream<ContactsSyncStatus> get syncStatusStream;
-
-  /// 注册事件处理器
-  /// 设置与通信服务的事件监听，用于接收和处理服务器发送的Proto消息
-  Future<void> registerEventHandlers();
-
+  
   /// 获取所有联系人
   Future<List<User>> getAllContacts();
 

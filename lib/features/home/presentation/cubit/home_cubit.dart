@@ -27,14 +27,12 @@ class HomeCubit extends Cubit<HomeState> {
       : _currentUser = currentUserProto,
         _homeRepository =
             HomeRepositoryImpl(currentUserProto: currentUserProto),
-        super(HomeState.initial()) {
-    initUserSession();
-  }
+        super(HomeState.initial());
 
   /// 初始化用户会话
   ///
   /// 初始化数据库和通信
-  Future<void> initUserSession() async {
+  Future<bool> initUserSession() async {
     try {
       _logger.i('开始初始化用户会话');
       emit(state.toInitializingState());
@@ -47,15 +45,17 @@ class HomeCubit extends Cubit<HomeState> {
       if (!homeRepositoryInitialized) {
         _logger.e('HomeRepository初始化失败');
         emit(state.toErrorState('HomeRepository初始化失败'));
-        return;
+        return false;
       }
 
       // 更新状态为已初始化
       emit(state.toInitializedState(currentUserProto: _currentUser));
       _logger.i('用户会话初始化完成');
+      return true;
     } catch (error) {
       _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
+      return false;
     }
   }
   // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 网络状态相关 💢💢💢💢💢💢💢💢💢💢💢💢💢💢

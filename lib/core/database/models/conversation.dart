@@ -125,16 +125,18 @@ class Conversation {
           : DateTime.now()
       ..unreadCount = proto.hasUnreadCount() ? proto.unreadCount : 0
       ..contactUserId = proto.hasContactUserId() ? proto.contactUserId : null
-      ..lastMessageId = proto.hasLastReadMessageId() ? proto.lastReadMessageId : null
+      ..lastMessageId =
+          proto.hasLastReadMessageId() ? proto.lastReadMessageId : null
       ..isMuted = proto.hasMuted() ? proto.muted : false
-      ..lastMessageName = proto.hasLastMessageName() ? proto.lastMessageName : null
+      ..lastMessageName =
+          proto.hasLastMessageName() ? proto.lastMessageName : null
       ..isPinned = proto.hasPinned() ? proto.pinned : false
       ..lastReadAt = proto.hasLastReadAt()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastReadAt.toInt())
           : null
       ..lastReadMessageId =
           proto.hasLastReadMessageId() ? proto.lastReadMessageId : null;
-          
+
     // 注意：这里不直接设置 participants，因为它是 IsarLinks 类型
     // 需要在仓库层处理，通过查询用户并建立关联
     // 例如：
@@ -146,7 +148,7 @@ class Conversation {
     //   }
     // }
     // await conversation.participants.save();
-    
+
     return conversation;
   }
 
@@ -203,5 +205,47 @@ class Conversation {
           lastReadAt != null ? Int64(lastReadAt!.millisecondsSinceEpoch) : null,
       lastReadMessageId: lastReadMessageId,
     );
+  }
+
+  /// 创建一个新的 Conversation 对象，复制当前对象的所有属性，并允许覆盖指定的属性
+  Conversation copyWith({
+    String? conversationId,
+    ConversationType? type,
+    String? name,
+    String? avatar,
+    DateTime? createdAt,
+    DateTime? lastMessageTime,
+    String? lastMessagePreview,
+    String? lastMessageId,
+    String? lastMessageName,
+    bool? muted,
+    bool? pinned,
+    DateTime? lastReadAt,
+    String? lastReadMessageId,
+    int? unreadCount,
+    String? contactUserId,
+  }) {
+    final conversation = Conversation()
+      ..id = id
+      ..conversationId = conversationId ?? this.conversationId
+      ..type = type ?? this.type
+      ..name = name ?? this.name
+      ..avatar = avatar ?? this.avatar
+      ..createdAt = createdAt ?? this.createdAt
+      ..lastMessageTime = lastMessageTime ?? this.lastMessageTime
+      ..lastMessagePreview = lastMessagePreview ?? this.lastMessagePreview
+      ..lastMessageId = lastMessageId ?? this.lastMessageId
+      ..lastMessageName = lastMessageName ?? this.lastMessageName
+      ..isMuted = muted ?? isMuted
+      ..isPinned = pinned ?? isPinned
+      ..lastReadAt = lastReadAt ?? this.lastReadAt
+      ..lastReadMessageId = lastReadMessageId ?? this.lastReadMessageId
+      ..unreadCount = unreadCount ?? this.unreadCount
+      ..contactUserId = contactUserId ?? this.contactUserId;
+
+    // 复制关联关系
+    conversation.participants.addAll(participants);
+
+    return conversation;
   }
 }

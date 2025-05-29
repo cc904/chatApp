@@ -44,61 +44,22 @@ class ContactsRepositoryImpl implements ContactsRepository {
     _logger.x('ContactsRepositoryImpl 初始化');
   }
 
-  /// 注册事件监听
-  @override
-  Future<void> registerEventHandlers() async {
-    if (!_communicationService.isInitialized) {
-      _logger.i('通信服务未初始化，无法设置Proto事件订阅');
-      return;
-    }
+  /// 获取通信服务实例
+  CommunicationService get communicationService => _communicationService;
 
-    // 先取消所有现有的监听器，防止重复注册
-    for (var subscription in _subscriptions) {
-      subscription.cancel();
-    }
-    _subscriptions.clear();
+  /// 更新用户在线状态
+  void updateUserOnlineStatus(String userId, bool isOnline) {
+    _updateUserOnlineStatus(userId, isOnline);
+  }
 
-    _logger.i('开始设置ContactsRepository Proto事件流 订阅');
+  /// 处理联系人同步事件
+  void handleContactsSyncedEvent(UserCollection data) {
+    _handleContactsSyncedEvent(data);
+  }
 
-    try {
-      // 使用链式调用方式添加订阅
-      _subscriptions
-        // 订阅用户在线状态事件
-        ..add(_communicationService
-            .onProto<UserStatusUpdate>('user:online')
-            .listen((data) {
-          if (data.hasUserId()) {
-            _updateUserOnlineStatus(data.userId, true);
-          }
-        }))
-
-        // 订阅用户离线状态事件
-        ..add(_communicationService
-            .onProto<UserStatusUpdate>('user:offline')
-            .listen((data) {
-          if (data.hasUserId()) {
-            _updateUserOnlineStatus(data.userId, false);
-          }
-        }))
-
-        // 订阅联系人同步事件
-        ..add(_communicationService
-            .onProto<UserCollection>('contact:synced')
-            .listen(_handleContactsSyncedEvent))
-
-        // 订阅联系人同步结果事件
-        ..add(_communicationService
-            .onProto<SyncContactsResponse>('contact:sync:response')
-            .listen((response) {
-          _logger.d('收到联系人同步结果', extra: {
-            'responseType': response.runtimeType.toString(),
-            'contactsCount': response.contacts.length
-          });
-          _handleContactsSyncResultProto(response);
-        }));
-    } catch (e, stack) {
-      _logger.e('设置Proto事件订阅失败', error: e, stackTrace: stack);
-    }
+  /// 处理联系人同步结果
+  void handleContactsSyncResultProto(SyncContactsResponse response) {
+    _handleContactsSyncResultProto(response);
   }
 
   /// 处理联系人同步完成事件

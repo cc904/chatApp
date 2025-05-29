@@ -1,15 +1,12 @@
+import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+import 'package:cc/features/home/presentation/pages/scan_code_page.dart';
+import 'package:cc/features/home/presentation/pages/search_page.dart';
 
-import 'search_page.dart';
-import 'scan_code_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/user.dart';
-// import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-// import 'package:cc/features/home/presentation/cubit/home_state.dart';
-import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
 import 'package:cc/features/home/presentation/widgets/conversation_item.dart';
 import 'package:cc/core/database/models/conversation.dart';
 
@@ -26,6 +23,9 @@ class ChatsPage extends StatefulWidget {
 
 class _ChatsPageState extends State<ChatsPage>
     with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   /// 搜索框控制器
   final TextEditingController _searchController = TextEditingController();
 
@@ -34,9 +34,6 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 日志服务实例
   final _logger = LogService.instance;
-
-  /// 是否处于搜索状态
-  bool _isSearching = false;
 
   /// 滚动控制器
   final ScrollController _scrollController = ScrollController();
@@ -54,14 +51,31 @@ class _ChatsPageState extends State<ChatsPage>
     chatsCubit.searchConversations(query);
     _logger.i('执行搜索: $query');
   }
+  
+  /// 当搜索框焦点变化时调用
+  void _onSearchFocusChanged() {
+    final chatsCubit = context.read<ChatsCubit>();
+    if (_searchFocusNode.hasFocus) {
+      // 获得焦点时开始搜索模式
+      chatsCubit.startSearch();
+    } else if (_searchController.text.isEmpty) {
+      // 失去焦点且搜索框为空时结束搜索模式
+      chatsCubit.endSearch();
+    }
+  }
+  
+  /// 当搜索框内容变化时调用
+  void _onSearchChanged() {
+    final query = _searchController.text;
+    _searchConversations(query);
+  }
 
-  // 已移除 _handleRemovedConversations 方法，因为在使用 Cubit 后不再需要手动处理删除操作
-
-  // 已移除 _handleUpdatedConversations 方法，因为在使用 Cubit 后不再需要手动处理更新操作
-
-  // 移除了 _sortConversations 方法，因为这个逻辑已经移到 HomeCubit 中
-
-  // 已移除 _insertItem 和 _removeItem 方法，因为在使用 SliverList 后不再需要这些方法
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
+  }
 
   @override
   void dispose() {
@@ -70,9 +84,6 @@ class _ChatsPageState extends State<ChatsPage>
     _scrollController.dispose();
     super.dispose();
   }
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
@@ -85,14 +96,17 @@ class _ChatsPageState extends State<ChatsPage>
         final conversationsChanged =
             previous.conversations.length != current.conversations.length;
 
-        // 4. 选中的标签变化
+        // 2. 选中的标签变化
         final tabChanged =
             previous.selectedTabIndex != current.selectedTabIndex;
 
-        // 5. 搜索查询变化
+        // 3. 搜索查询变化
         final searchChanged = previous.searchQuery != current.searchQuery;
+        
+        // 4. 搜索状态变化
+        final searchStateChanged = previous.isSearching != current.isSearching;
 
-        return conversationsChanged || tabChanged || searchChanged;
+        return conversationsChanged || tabChanged || searchChanged || searchStateChanged;
       },
       builder: (context, state) {
         return Scaffold(
@@ -136,8 +150,6 @@ class _ChatsPageState extends State<ChatsPage>
     );
   }
 
-  // 移除了 _filterConversationsByTab 方法，因为这个逻辑已经移到 HomeCubit 中
-
   /// 构建标签栏
   Widget _buildTabBar() {
     return Container(
@@ -172,7 +184,7 @@ class _ChatsPageState extends State<ChatsPage>
     return GestureDetector(
       onTap: () {
         // 使用 ChatsCubit 中的方法切换标签
-        chatsCubit.switchTab(index);
+        chatsCubit.setSelectedTabIndex(index);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -232,12 +244,13 @@ class _ChatsPageState extends State<ChatsPage>
             previous.conversationSyncStatus != current.conversationSyncStatus ||
             previous.isLoadingMessages != current.isLoadingMessages,
         builder: (context, state) {
-          return AppBarTitleWithNetworkStatus(
-            title: 'Chats',
-            networkStatus: state.conversationSyncStatus,
-            isLoading: state.isLoadingMessages,
-            onRetry: () => context.read<ChatsCubit>().syncConversations(),
-          );
+          return const Text('Chats');
+          // AppBarTitleWithNetworkStatus(
+          //   title: 'Chats',
+          //   networkStatus: state.conversationSyncStatus,
+          //   isLoading: state.isLoadingMessages,
+          //   onRetry: () => context.read<ChatsCubit>().syncConversations(),
+          // );
         },
       ),
       backgroundColor: Colors.grey[200],
@@ -358,8 +371,13 @@ class _ChatsPageState extends State<ChatsPage>
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
-                suffixIcon: _isSearching
-                    ? IconButton(
+                suffixIcon: BlocBuilder<ChatsCubit, ChatsState>(
+                  buildWhen: (previous, current) => 
+                    previous.isSearching != current.isSearching || 
+                    previous.searchQuery != current.searchQuery,
+                  builder: (context, state) {
+                    if (state.isSearching) {
+                      return IconButton(
                         icon: const Icon(Icons.clear,
                             color: Colors.grey, size: 18),
                         padding: EdgeInsets.zero,
@@ -367,22 +385,20 @@ class _ChatsPageState extends State<ChatsPage>
                         onPressed: () {
                           // 清除搜索框并重置搜索状态
                           _searchController.clear();
-                          setState(() {
-                            _isSearching = false;
-                          });
-                          // 清除搜索并重置过滤器
-                          context.read<ChatsCubit>().searchConversations('');
+                          // 结束搜索模式
+                          context.read<ChatsCubit>().endSearch();
                           // 清除后重新聚焦到搜索框
                           _searchFocusNode.requestFocus();
                         },
-                      )
-                    : null,
+                      );
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  },
+                ),
               ),
               style: const TextStyle(fontSize: 14),
               onChanged: (value) {
-                setState(() {
-                  _isSearching = value.isNotEmpty;
-                });
                 // 实时搜索
                 _searchConversations(value);
               },
@@ -397,41 +413,47 @@ class _ChatsPageState extends State<ChatsPage>
             ),
           ),
           // 当输入内容后显示搜索按钮
-          if (_isSearching)
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0),
-              child: ElevatedButton(
-                onPressed: () {
-                  final query = _searchController.text;
-                  if (query.isNotEmpty) {
-                    _searchConversations(query);
-                  }
-                  // 收起键盘但保持聚焦
-                  FocusScope.of(context).unfocus();
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    if (mounted) {
-                      _searchFocusNode.requestFocus();
-                    }
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  minimumSize: const Size(0, 36),
-                ),
-                child: const Text(
-                  '搜索',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
+          BlocBuilder<ChatsCubit, ChatsState>(
+            buildWhen: (previous, current) => previous.isSearching != current.isSearching,
+            builder: (context, state) {
+              return state.isSearching
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final query = _searchController.text;
+                        if (query.isNotEmpty) {
+                          _searchConversations(query);
+                        }
+                        // 收起键盘但保持聚焦
+                        FocusScope.of(context).unfocus();
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (mounted) {
+                            _searchFocusNode.requestFocus();
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        minimumSize: const Size(0, 36),
+                      ),
+                      child: const Text(
+                        '搜索',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  )
+                : const SizedBox.shrink();
+            },
+          ),
         ],
       ),
     );
@@ -457,7 +479,7 @@ class _ChatsPageState extends State<ChatsPage>
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    // TODO: context.read<HomeCubit>().loadConversations();
+                    context.read<ChatsCubit>().loadConversations();
                   },
                   child: const Text('重试'),
                 ),
@@ -482,14 +504,14 @@ class _ChatsPageState extends State<ChatsPage>
                   state.searchQuery.isNotEmpty ? '没有找到匹配的会话' : '没有会话',
                   style: const TextStyle(color: Colors.grey),
                 ),
-                const SizedBox(height: 16),
-                if (state.searchQuery.isEmpty)
-                  ElevatedButton(
-                    onPressed: () {
-                      _showNewChatOptions();
-                    },
-                    child: const Text('新建会话'),
-                  ),
+                // const SizedBox(height: 16),
+                // if (state.searchQuery.isEmpty)
+                //   ElevatedButton(
+                //     onPressed: () {
+                //       _showNewChatOptions();
+                //     },
+                //     child: const Text('新建会话'),
+                //   ),
               ],
             ),
           ),
@@ -638,7 +660,7 @@ class _ChatsPageState extends State<ChatsPage>
   }
 }
 
-// 修改_SliverTabBarDelegate类
+// 固定 SliverTabBar 宽度
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
 

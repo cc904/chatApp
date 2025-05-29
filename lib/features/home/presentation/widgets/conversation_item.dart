@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
+import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 
 /// 会话列表项组件

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/features/chat/presentation/pages/chat_detail_page.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 
 /// 联系人详情页面
 /// 显示联系人的详细信息，提供聊天、音视频通话等操作
@@ -299,24 +296,24 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
   void _openChatPage() async {
     _logger.i('打开与${widget.contact.name}的聊天');
 
-    final homeCubit = context.read<HomeCubit>();
-    final conversationId =
-        await homeCubit.getOrCreatePrivateConversation(widget.contact.userId);
+    // final homeCubit = context.read<HomeCubit>();
+    // final conversationId =
+    //     await homeCubit.getOrCreatePrivateConversation(widget.contact.userId);
 
-    if (conversationId != null && mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BlocProvider.value(
-            value: homeCubit,
-            child: ChatDetailPage(
-              contact: widget.contact,
-              conversationId: conversationId,
-            ),
-          ),
-        ),
-      );
-    }
+    // if (conversationId != null && mounted) {
+    //   Navigator.push(
+    //     context,
+    //     MaterialPageRoute(
+    //       builder: (context) => BlocProvider.value(
+    //         value: homeCubit,
+    //         child: ChatDetailPage(
+    //           contact: widget.contact,
+    //           conversationId: conversationId,
+    //         ),
+    //       ),
+    //     ),
+    //   );
+    // }
   }
 
   /// 发起通话

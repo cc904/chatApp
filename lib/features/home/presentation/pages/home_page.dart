@@ -1,14 +1,16 @@
+import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-import 'package:cc/features/home/presentation/pages/chats_page.dart';
-// 已移除 calls_page.dart 的引用
-import 'package:cc/features/home/presentation/pages/profile_page.dart';
-import 'package:cc/features/home/presentation/pages/contacts_page.dart';
+import 'package:cc/features/chat/presentation/pages/chats_page.dart';
+import 'package:cc/features/profile/presentation/pages/profile_page.dart';
+import 'package:cc/features/contacts/presentation/pages/contacts_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
+import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
+import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,12 +22,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   final _logger = LogService.instance;
-  late TabController _tabController;
-  int _currentIndex = 0;
   HomeCubit? _homeCubit;
   ChatsCubit? _chatsCubit;
-  final _secureStorage = SecureStorageService.instance;
+  ContactCubit? _contactCubit;
 
+  final _secureStorage = SecureStorageService.instance;
+  late TabController _tabController;
+  int _currentIndex = 0;
   @override
   void initState() {
     super.initState();
@@ -40,21 +43,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _init() async {
-    await _checkUserLoggedIn();
     await _initCubit();
-  }
-
-  // 检查用户是否已登录
-  Future<void> _checkUserLoggedIn() async {
-    final token = await _secureStorage.getToken();
-    if (token == null || token.isEmpty) {
-      _logger.w('用户未登录，返回登录页面');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthPage()),
-        );
-      });
-    }
   }
 
   Future<void> _initCubit() async {
@@ -62,8 +51,7 @@ class _HomePageState extends State<HomePage>
     if (_homeCubit != null) return;
 
     // 直接创建所需服务
-    final secureStorage = SecureStorageService.instance;
-    final currentUser = await secureStorage.getFullUserInfo();
+    final currentUser = await _secureStorage.getFullUserInfo();
 
     if (currentUser == null) {
       _logger.e('无法获取用户信息，返回登录页面');
@@ -76,10 +64,26 @@ class _HomePageState extends State<HomePage>
     }
 
     _homeCubit = HomeCubit(currentUserProto: currentUser);
-    _chatsCubit = ChatsCubit();
 
     // 初始化用户会话
-    await _homeCubit!.initUserSession();
+    final success = await _homeCubit!.initUserSession();
+    if (!success) {
+      _logger.e('用户会话初始化失败，返回登录页面');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AuthPage()),
+        );
+      });
+      return;
+    }
+
+    _chatsCubit = ChatsCubit(
+      chatRepository: ChatRepositoryImpl(),
+    );
+
+    _contactCubit = ContactCubit(
+      contactsRepository: ContactsRepositoryImpl(currentUserProto: currentUser),
+    );
 
     if (mounted) {
       setState(() {});
@@ -91,6 +95,7 @@ class _HomePageState extends State<HomePage>
     _tabController.dispose();
     _homeCubit?.close();
     _chatsCubit?.close();
+    _contactCubit?.close();
     super.dispose();
   }
 
@@ -99,7 +104,7 @@ class _HomePageState extends State<HomePage>
     _logger.d('HomePage build');
 
     // 如果HomeCubit还未初始化，显示加载指示器
-    if (_homeCubit == null) {
+    if (_homeCubit == null || _chatsCubit == null || _contactCubit == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -107,54 +112,54 @@ class _HomePageState extends State<HomePage>
       );
     }
 
-    // 使用稳定的key来避免BlocProvider重建
     return MultiBlocProvider(
-        providers: [
-          BlocProvider<HomeCubit>(create: (context) => _homeCubit!),
-          BlocProvider<ChatsCubit>(create: (context) => _chatsCubit!),
-          // BlocProvider<ContactsCubit>(create: (context) => ContactsCubit()),
-        ],
-        child: Scaffold(
-          body: PageStorage(
-            bucket: PageStorageBucket(),
-            child: RepaintBoundary(
-              child: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: const [
-                  ChatsPage(key: PageStorageKey('chats_page')),
-                  ContactsPage(key: PageStorageKey('contacts_page')),
-                  ProfilePage(key: PageStorageKey('profile_page')),
-                ],
-              ),
+      providers: [
+        BlocProvider<HomeCubit>.value(value: _homeCubit!),
+        BlocProvider<ChatsCubit>.value(value: _chatsCubit!),
+        BlocProvider<ContactCubit>.value(value: _contactCubit!),
+      ],
+      child: Scaffold(
+        body: PageStorage(
+          bucket: PageStorageBucket(),
+          child: RepaintBoundary(
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: const [
+                ChatsPage(key: PageStorageKey('chats_page')),
+                ContactsPage(key: PageStorageKey('contacts_page')),
+                ProfilePage(key: PageStorageKey('profile_page')),
+              ],
             ),
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            selectedItemColor: Colors.green,
-            unselectedItemColor: Colors.grey,
-            type: BottomNavigationBarType.fixed,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-                _tabController.animateTo(index);
-              });
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.chat),
-                label: '消息',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.contacts),
-                label: '联系人',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: '我的',
-              ),
-            ],
-          ),
-        ));
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          selectedItemColor: Colors.green,
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+              _tabController.animateTo(index);
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat),
+              label: '消息',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.contacts),
+              label: '联系人',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: '我的',
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

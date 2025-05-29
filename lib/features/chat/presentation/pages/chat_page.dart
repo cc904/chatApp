@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -13,7 +16,6 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 
-import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
 
@@ -38,8 +40,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
-  // 添加HomeCubit引用
-  late HomeCubit _homeCubit;
+  // 添加ChatsCubit引用
+  late ChatsCubit _chatsCubit;
 
   // 控制器声明
   late ScrollController _scrollController;
@@ -77,27 +79,27 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Future<void> _init() async {
     _logger.i('初始化会话');
     try {
-      final homeCubit = context.read<HomeCubit>();
+      _chatsCubit = context.read<ChatsCubit>();
 
       // 1. 进入会话（加入房间和注册事件处理器）
-      await homeCubit.enterConversation(widget.conversationId);
-      
+      // await chatsCubit.enterConversation(widget.conversationId);
+
       // 2. 获取当前会话和消息
-      final conversation = homeCubit.state.currentConversation;
-      final messages = homeCubit.state.currentMessages;
-      
+      // final conversation = chatsCubit.state.currentConversation;
+      // final messages = chatsCubit.state.currentMessages;
+
       // 3. 定位到上次阅读位置
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (conversation?.lastReadMessageId != null && messages.isNotEmpty) {
-          // 如果有上次阅读位置，则滚动到该位置
-          _scrollToMessage(conversation!.lastReadMessageId!);
-          _logger.i('滚动到上次阅读位置: ${conversation.lastReadMessageId}');
-        } else if (messages.isNotEmpty) {
-          // 如果没有上次阅读位置但有消息，则滚动到底部
-          _scrollToBottom();
-          _logger.i('没有上次阅读位置，滚动到底部');
-        }
-      });
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   if (conversation?.lastReadMessageId != null && messages.isNotEmpty) {
+      //     // 如果有上次阅读位置，则滚动到该位置
+      //     _scrollToMessage(conversation!.lastReadMessageId!);
+      //     _logger.i('滚动到上次阅读位置: ${conversation.lastReadMessageId}');
+      //   } else if (messages.isNotEmpty) {
+      //     // 如果没有上次阅读位置但有消息，则滚动到底部
+      //     _scrollToBottom();
+      //     _logger.i('没有上次阅读位置，滚动到底部');
+      //   }
+      // });
     } catch (error) {
       _logger.e('初始化会话失败: $error');
       UINotificationService().showError('初始化会话失败: $error');
@@ -108,8 +110,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // 保存HomeCubit引用，避免在dispose中查找
-    _homeCubit = context.read<HomeCubit>();
+    // 保存ChatsCubit引用，避免在dispose中查找
+    _chatsCubit = context.read<ChatsCubit>();
 
     // 确保数据仅被初始化一次
     if (!_dataInitialized) {
@@ -133,15 +135,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     // 清理录音计时器
     _recordingTimer?.cancel();
-    
+
     // 清理防抖定时器
     _debounceTimer?.cancel();
 
-    // 离开会话 - 使用已保存的HomeCubit引用
+    // 离开会话 - 使用已保存的ChatsCubit引用
     final conversationId = widget.conversationId;
     Future.microtask(() {
       try {
-        _homeCubit.leaveConversation(conversationId);
+        _chatsCubit.leaveConversation(conversationId);
       } catch (e) {
         // 忽略可能的错误
       }
@@ -184,36 +186,39 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           !_isLoadingMore) {
         _loadMoreMessages();
       }
-      
+
       // 更新最后阅读的消息ID
       _updateLastReadMessageIdFromScroll();
     }
   }
-  
+
   /// 从滚动位置更新最后阅读的消息ID
   void _updateLastReadMessageIdFromScroll() {
     // 防抖处理，避免频繁更新
-    if (!_scrollController.hasClients || (_debounceTimer != null && _debounceTimer!.isActive)) {
+    if (!_scrollController.hasClients ||
+        (_debounceTimer != null && _debounceTimer!.isActive)) {
       return;
     }
-    
+
     // 设置防抖定时器，500毫秒内只处理一次
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       // 获取当前所有消息
-      final homeCubit = context.read<HomeCubit>();
-      final messages = homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+      final chatsCubit = context.read<ChatsCubit>();
+      final messages =
+          chatsCubit.state.messagesByConversation[widget.conversationId] ?? [];
       if (messages.isEmpty) return;
-      
+
       // 计算当前可见的消息索引
       // 这里的计算方式是一个估算，假设每条消息高度约为80像素
       final scrollPosition = _scrollController.position.pixels;
       final estimatedIndex = (scrollPosition / 80.0).floor();
-      
+
       // 确保索引在有效范围内
-      final visibleIndex = math.max(0, math.min(estimatedIndex, messages.length - 1));
+      final visibleIndex =
+          math.max(0, math.min(estimatedIndex, messages.length - 1));
       final visibleMessage = messages[visibleIndex];
-      
+
       // 更新最后阅读的消息ID
       final messageId = visibleMessage.messageId;
       if (messageId.isNotEmpty) {
@@ -225,18 +230,19 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   // 加载更多历史消息
   Future<void> _loadMoreMessages() async {
     // 获取当前会话的消息
-    final homeCubit = context.read<HomeCubit>();
-    final messages = homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
-    
+    final chatsCubit = context.read<ChatsCubit>();
+    final messages =
+        chatsCubit.state.messagesByConversation[widget.conversationId] ?? [];
+
     // 如果没有消息，尝试从服务器获取历史消息
     if (messages.isEmpty) {
       setState(() {
         _isLoadingMore = true;
       });
-      
+
       try {
         // 从服务器获取历史消息
-        await homeCubit.loadHistoryMessagesFromServer(widget.conversationId);
+        await chatsCubit.loadHistoryMessagesFromServer(widget.conversationId);
         _logger.i('从服务器加载历史消息成功');
       } catch (error) {
         _logger.e('从服务器加载历史消息失败: $error');
@@ -256,10 +262,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     try {
       // 获取最早的消息时间作为加载更多的基准
-      final oldestMessage = messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
-      
-      // 通过HomeCubit加载更多历史消息
-      await homeCubit.loadMoreMessagesForConversation(widget.conversationId, oldestMessage.createdAt);
+      final oldestMessage =
+          messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
+
+      // 通过ChatsCubit加载更多历史消息
+      await chatsCubit.loadMoreMessagesForConversation(
+          widget.conversationId, oldestMessage.createdAt);
       _logger.i('加载更多历史消息成功');
     } catch (error) {
       _logger.e('加载更多消息失败: $error');
@@ -291,7 +299,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       ..text = message;
 
     // 发送消息
-    context.read<HomeCubit>().sendMessage(newMessage);
+    context.read<ChatsCubit>().sendMessage(newMessage);
 
     _messageController.clear();
 
@@ -345,7 +353,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<HomeCubit, HomeState>(
+    return BlocBuilder<ChatsCubit, ChatsState>(
       buildWhen: (previous, current) =>
           previous.messagesByConversation != current.messagesByConversation ||
           previous.currentConversationId != current.currentConversationId ||
@@ -362,16 +370,34 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           appBar: AppBar(
             title: GestureDetector(
               onTap: () => _openChatInfoPage(context),
-              child: BlocBuilder<HomeCubit, HomeState>(
-                buildWhen: (previous, current) => 
-                  previous.networkStatus != current.networkStatus ||
-                  previous.isLoadingMessages != current.isLoadingMessages,
+              child: BlocBuilder<ChatsCubit, ChatsState>(
+                buildWhen: (previous, current) =>
+                    previous.networkStatus != current.networkStatus ||
+                    previous.isLoadingMessages != current.isLoadingMessages,
                 builder: (context, state) {
+                  // 将字符串类型的networkStatus转换为枚举类型
+                  NetworkStatus status;
+                  switch (state.networkStatus) {
+                    case 'connecting':
+                      status = NetworkStatus.connecting;
+                      break;
+                    case 'disconnected':
+                      status = NetworkStatus.disconnected;
+                      break;
+                    case 'error':
+                      status = NetworkStatus.error;
+                      break;
+                    case 'connected':
+                    default:
+                      status = NetworkStatus.connected;
+                      break;
+                  }
+                  
                   return AppBarTitleWithNetworkStatus(
                     title: widget.contact.name,
-                    networkStatus: state.networkStatus,
+                    networkStatus: status,
                     isLoading: state.isLoadingMessages,
-                    onRetry: () => context.read<HomeCubit>().reconnect(),
+                    onRetry: () => context.read<ChatsCubit>().reconnect(),
                   );
                 },
               ),
@@ -683,9 +709,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   void _updateLastReadMessageId(String messageId) {
     _logger.i('更新最后阅读的消息ID: $messageId');
     try {
-      final homeCubit = context.read<HomeCubit>();
-      // 调用ChatRepository的方法更新最后阅读的消息ID
-      homeCubit.updateLastReadMessageId(widget.conversationId, messageId);
+      final chatsCubit = context.read<ChatsCubit>();
+      // 调用ChatsCubit的方法更新最后阅读的消息ID
+      chatsCubit.updateLastReadMessageId(widget.conversationId, messageId);
     } catch (error) {
       _logger.e('更新最后阅读的消息ID失败', error: error);
     }
@@ -696,9 +722,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     _logger.i('滚动到消息: $messageId');
 
     // 查找消息在列表中的位置
-    final homeCubit = context.read<HomeCubit>();
+    final chatsCubit = context.read<ChatsCubit>();
     final messages =
-        homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+        chatsCubit.state.messagesByConversation[widget.conversationId] ?? [];
 
     final messageIndex = messages.indexWhere((m) => m.messageId == messageId);
     if (messageIndex != -1) {

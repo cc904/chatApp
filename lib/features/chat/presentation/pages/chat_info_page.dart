@@ -1,9 +1,9 @@
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
@@ -59,8 +59,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 获取当前会话，初始化静音状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final homeCubit = context.read<HomeCubit>();
-        final conversation = homeCubit.state.conversations.firstWhere(
+        final chatsCubit = context.read<ChatsCubit>();
+        final conversation = chatsCubit.state.conversations.firstWhere(
           (c) => c.conversationId == widget.conversationId,
           orElse: () => Conversation(),
         );
@@ -109,13 +109,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     _logger.i('切换静音状态', extra: {'isMuted': _isMuted});
 
     // 更新数据库中的静音状态
-    final homeCubit = context.read<HomeCubit>();
-    homeCubit.updateConversationMuteStatus(widget.conversationId, _isMuted);
+    final chatsCubit = context.read<ChatsCubit>();
+    chatsCubit.updateConversationMuteStatus(widget.conversationId, _isMuted);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<HomeCubit, HomeState>(
+    return BlocBuilder<ChatsCubit, ChatsState>(
       builder: (context, state) {
         // 获取当前会话
         final conversation = state.conversations.firstWhere(
@@ -793,8 +793,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   // 显示退出确认对话框
   void _showLeaveConfirmation(BuildContext context, bool isGroup) {
     final conversationId = widget.conversationId;
-    final homeCubit = context.read<HomeCubit>();
-    homeCubit.state.conversations.firstWhere(
+    final chatsCubit = context.read<ChatsCubit>();
+    chatsCubit.state.conversations.firstWhere(
       (c) => c.conversationId == conversationId,
       orElse: () => Conversation(),
     );

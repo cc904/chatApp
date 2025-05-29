@@ -65,9 +65,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
   // 加载所有消息
   void _loadAllMessages() {
-    final homeCubit = context.read<HomeCubit>();
-    _allMessages =
-        homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+    context.read<HomeCubit>();
+    _allMessages = [];
+    // TODO: homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
 
     // 按时间倒序排序
     _allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));

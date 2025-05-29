@@ -1,5 +1,6 @@
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:equatable/equatable.dart';
 
@@ -15,10 +16,25 @@ class ChatsState extends Equatable {
   final Set<String> onlineUsers; // 在线用户ID集合
   final ConversationSyncStatus conversationSyncStatus; // 会话同步状态
   
+  // 网络相关状态
+  // 网络状态常量
+  static const String kNetworkStatusConnected = 'connected';
+  static const String kNetworkStatusConnecting = 'connecting';
+  static const String kNetworkStatusDisconnected = 'disconnected';
+  static const String kNetworkStatusError = 'error';
+  final String networkStatus; // 网络状态
+  final bool isConnected; // 是否连接到网络
+  final DateTime? lastConnectionTime; // 最后一次连接时间
+  final String? connectionErrorMessage; // 连接错误信息
+  
+  // 用户相关状态
+  final User? currentUser; // 当前用户
+  
   // 会话过滤相关状态
   final List<Conversation> filteredConversations; // 过滤后的会话列表
   final int selectedTabIndex; // 当前选中的标签索引
   final String searchQuery; // 当前搜索关键词
+  final bool isSearching; // 是否处于搜索状态
 
   // 错误信息
   final String? errorMessage;
@@ -34,10 +50,20 @@ class ChatsState extends Equatable {
     this.onlineUsers = const {},
     this.conversationSyncStatus = ConversationSyncStatus.idle,
     
+    // 网络相关状态
+    this.networkStatus = 'connected',
+    this.isConnected = true,
+    this.lastConnectionTime,
+    this.connectionErrorMessage,
+    
+    // 用户相关状态
+    this.currentUser,
+    
     // 会话过滤相关状态
     this.filteredConversations = const [],
     this.selectedTabIndex = 0,
     this.searchQuery = "",
+    this.isSearching = false,
     
     // 错误信息
     this.errorMessage,
@@ -60,10 +86,20 @@ class ChatsState extends Equatable {
     Set<String>? onlineUsers,
     ConversationSyncStatus? conversationSyncStatus,
     
+    // 网络相关状态
+    String? networkStatus,
+    bool? isConnected,
+    DateTime? lastConnectionTime,
+    String? connectionErrorMessage,
+    
+    // 用户相关状态
+    User? currentUser,
+    
     // 会话过滤相关状态
     List<Conversation>? filteredConversations,
     int? selectedTabIndex,
     String? searchQuery,
+    bool? isSearching,
     
     // 错误信息
     String? errorMessage,
@@ -79,10 +115,20 @@ class ChatsState extends Equatable {
       onlineUsers: onlineUsers ?? this.onlineUsers,
       conversationSyncStatus: conversationSyncStatus ?? this.conversationSyncStatus,
       
+      // 网络相关状态
+      networkStatus: networkStatus ?? this.networkStatus,
+      isConnected: isConnected ?? this.isConnected,
+      lastConnectionTime: lastConnectionTime ?? this.lastConnectionTime,
+      connectionErrorMessage: connectionErrorMessage ?? this.connectionErrorMessage,
+      
+      // 用户相关状态
+      currentUser: currentUser ?? this.currentUser,
+      
       // 会话过滤相关状态
       filteredConversations: filteredConversations ?? this.filteredConversations,
       selectedTabIndex: selectedTabIndex ?? this.selectedTabIndex,
       searchQuery: searchQuery ?? this.searchQuery,
+      isSearching: isSearching ?? this.isSearching,
       
       // 错误信息
       errorMessage: errorMessage ?? this.errorMessage,
@@ -99,12 +145,22 @@ class ChatsState extends Equatable {
         isLoadingMoreMessages,
         typingUsers,
         onlineUsers,
+        
+        // 网络相关状态
+        networkStatus,
+        isConnected,
+        lastConnectionTime,
+        connectionErrorMessage,
+        
+        // 用户相关状态
+        currentUser,
         conversationSyncStatus,
         
         // 会话过滤相关状态
         filteredConversations,
         selectedTabIndex,
         searchQuery,
+        isSearching,
         
         // 错误信息
         errorMessage,

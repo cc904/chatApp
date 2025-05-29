@@ -58,7 +58,6 @@ class DatabaseInitializer {
         _logger.i('数据库已经初始化,当前用户ID: ${_currentUser?.userId}');
         return;
       }
-
       // 如果已有其他用户的数据库实例打开，先关闭它
       if (_isar != null) {
         _logger.i('关闭之前打开的数据库实例，用户ID: ${_currentUser?.userId}');
