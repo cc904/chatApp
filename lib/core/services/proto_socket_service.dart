@@ -289,7 +289,8 @@ class ProtoSocketService {
 
     // 监听所有事件
     _socket?.onAny((event, data) {
-      _logger.i('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
+      // 调试 proto 事件
+      // _logger.i('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
     });
   }
 
@@ -337,10 +338,10 @@ class ProtoSocketService {
         // 创建并解析Protobuf消息
         final message = creator()..mergeFromBuffer(data);
 
-        _logger.d('接收到Protobuf事件: $eventName', extra: {
-          'messageType': message.runtimeType,
-          'dataType': data.runtimeType
-        });
+        // _logger.d('接收到Protobuf事件: $eventName', extra: {
+        //   'messageType': message.runtimeType,
+        //   'dataType': data.runtimeType
+        // });
 
         // 调用处理函数
         handler(message);
@@ -511,4 +512,3 @@ class UserStatus implements GeneratedMessage {
     throw UnimplementedError('${invocation.memberName} 未实现');
   }
 }
- 

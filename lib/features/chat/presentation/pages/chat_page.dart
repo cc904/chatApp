@@ -19,7 +19,6 @@ import 'package:cc/core/services/ui_notification_service.dart';
 
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
-import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -300,260 +299,251 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    // 获取仓库实例
-    final chatRepository = context.read<ChatRepository>();
+    // ChatCubit already provided by the parent, no need to create another one
+    return BlocBuilder<ChatCubit, ChatState>(
+      buildWhen: (previous, current) =>
+          previous.messages != current.messages ||
+          previous.isLoadingMessages != current.isLoadingMessages ||
+          previous.networkStatus != current.networkStatus,
+      builder: (context, state) {
+        // 获取当前会话的消息
+        final messages = state.messages;
 
-    return BlocProvider(
-      create: (context) => ChatCubit(
-        chatRepository: chatRepository,
-        conversationId: widget.conversationId,
-      ),
-      child: BlocBuilder<ChatCubit, ChatState>(
-        buildWhen: (previous, current) =>
-            previous.messages != current.messages ||
-            previous.isLoadingMessages != current.isLoadingMessages ||
-            previous.networkStatus != current.networkStatus,
-        builder: (context, state) {
-          // 获取当前会话的消息
-          final messages = state.messages;
+        // 获取当前用户ID (从ChatsCubit获取当前用户信息)
+        final currentUserId =
+            context.read<ChatsCubit>().state.currentUser?.userId ?? '';
 
-          // 获取当前用户ID (从ChatsCubit获取当前用户信息)
-          final currentUserId =
-              context.read<ChatsCubit>().state.currentUser?.userId ?? '';
+        return Scaffold(
+          appBar: AppBar(
+            title: GestureDetector(
+              onTap: () => _openChatInfoPage(context),
+              child: BlocBuilder<ChatCubit, ChatState>(
+                buildWhen: (previous, current) =>
+                    previous.networkStatus != current.networkStatus ||
+                    previous.isLoadingMessages != current.isLoadingMessages,
+                builder: (context, state) {
+                  // 将字符串类型的networkStatus转换为枚举类型
+                  NetworkStatus status;
+                  switch (state.networkStatus) {
+                    case 'connecting':
+                      status = NetworkStatus.connecting;
+                      break;
+                    case 'disconnected':
+                      status = NetworkStatus.disconnected;
+                      break;
+                    case 'error':
+                      status = NetworkStatus.error;
+                      break;
+                    case 'connected':
+                    default:
+                      status = NetworkStatus.connected;
+                      break;
+                  }
 
-          return Scaffold(
-            appBar: AppBar(
-              title: GestureDetector(
-                onTap: () => _openChatInfoPage(context),
-                child: BlocBuilder<ChatCubit, ChatState>(
-                  buildWhen: (previous, current) =>
-                      previous.networkStatus != current.networkStatus ||
-                      previous.isLoadingMessages != current.isLoadingMessages,
-                  builder: (context, state) {
-                    // 将字符串类型的networkStatus转换为枚举类型
-                    NetworkStatus status;
-                    switch (state.networkStatus) {
-                      case 'connecting':
-                        status = NetworkStatus.connecting;
-                        break;
-                      case 'disconnected':
-                        status = NetworkStatus.disconnected;
-                        break;
-                      case 'error':
-                        status = NetworkStatus.error;
-                        break;
-                      case 'connected':
-                      default:
-                        status = NetworkStatus.connected;
-                        break;
-                    }
-
-                    return AppBarTitleWithNetworkStatus(
-                      title: widget.contact.name,
-                      networkStatus: status,
-                      isLoading: state.isLoadingMessages,
-                      onRetry: () => context.read<ChatCubit>().reconnect(),
-                    );
-                  },
+                  return AppBarTitleWithNetworkStatus(
+                    title: widget.contact.name,
+                    networkStatus: status,
+                    isLoading: state.isLoadingMessages,
+                    onRetry: () => context.read<ChatCubit>().reconnect(),
+                  );
+                },
+              ),
+            ),
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            automaticallyImplyLeading: false,
+            leading: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Container(
+                padding: const EdgeInsets.only(left: 8.0),
+                alignment: Alignment.centerLeft,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    SizedBox(width: 2),
+                    Text(
+                      'Back',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              automaticallyImplyLeading: false,
-              leading: GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                },
+            ),
+            leadingWidth: 70,
+            actions: [
+              GestureDetector(
+                onTap: () => _openChatInfoPage(context),
                 child: Container(
-                  padding: const EdgeInsets.only(left: 8.0),
-                  alignment: Alignment.centerLeft,
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                      SizedBox(width: 2),
-                      Text(
-                        'Back',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.white,
-                          fontWeight: FontWeight.normal,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  margin: const EdgeInsets.only(right: 8.0),
+                  child: Hero(
+                    tag: 'avatar_${widget.conversationId}',
+                    child: UserAvatar(
+                      avatarUrl: widget.contact.avatar,
+                      name: widget.contact.name,
+                      radius: 22,
+                      backgroundColor: Colors.cyan,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              // 绿色渐变背景
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.green.shade300,
+                      Colors.green.shade100,
                     ],
                   ),
                 ),
               ),
-              leadingWidth: 70,
-              actions: [
-                GestureDetector(
-                  onTap: () => _openChatInfoPage(context),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8.0),
-                    child: Hero(
-                      tag: 'avatar_${widget.conversationId}',
-                      child: UserAvatar(
-                        avatarUrl: widget.contact.avatar,
-                        name: widget.contact.name,
-                        radius: 22,
-                        backgroundColor: Colors.cyan,
-                      ),
-                    ),
+
+              // SVG图案背景 - 使用提供的SVG文件
+              Positioned.fill(
+                child: _buildSvgBackground(),
+              ),
+
+              // 主要内容
+              Column(
+                children: [
+                  // 加载指示器
+                  if (state.isLoadingMessages) const LinearProgressIndicator(),
+
+                  // 消息列表
+                  Expanded(
+                    child: messages.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 48,
+                                  color: Colors.white.withAlpha(153),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '没有消息',
+                                  style: TextStyle(
+                                    color: Colors.white.withAlpha(153),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            reverse: true,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 8.0),
+                            itemCount: messages.length,
+                            itemBuilder: (context, index) {
+                              final message = messages[index];
+                              final isMe = message.senderId == currentUserId;
+
+                              // 检查是否需要显示日期分隔符
+                              final showDate = index == messages.length - 1 ||
+                                  !_isSameDay(message.createdAt,
+                                      messages[index + 1].createdAt);
+
+                              return Column(
+                                children: [
+                                  // 日期分隔符
+                                  if (showDate)
+                                    _buildDateSeparator(message.createdAt),
+
+                                  // 消息气泡
+                                  MessageBubble(
+                                    message: message,
+                                    isMe: isMe,
+                                    timeString:
+                                        _formatMessageTime(message.createdAt),
+                                    senderName:
+                                        isMe ? 'You' : widget.contact.name,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                   ),
-                ),
-              ],
-            ),
-            body: Stack(
-              children: [
-                // 绿色渐变背景
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.green.shade300,
-                        Colors.green.shade100,
+
+                  // 输入区域
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(26),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, -1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.attach_file),
+                          color: Colors.grey.shade600,
+                          onPressed: () {
+                            // TODO: 实现附件选择逻辑
+                          },
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(24.0),
+                            ),
+                            child: TextField(
+                              controller: _messageController,
+                              focusNode: _focusNode,
+                              decoration: const InputDecoration(
+                                hintText: 'Message',
+                                hintStyle: TextStyle(color: Colors.grey),
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (_) => _sendMessage(),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.send),
+                          color: Colors.green,
+                          onPressed: _sendMessage,
+                        ),
                       ],
                     ),
                   ),
-                ),
-
-                // SVG图案背景 - 使用提供的SVG文件
-                Positioned.fill(
-                  child: _buildSvgBackground(),
-                ),
-
-                // 主要内容
-                Column(
-                  children: [
-                    // 加载指示器
-                    if (state.isLoadingMessages)
-                      const LinearProgressIndicator(),
-
-                    // 消息列表
-                    Expanded(
-                      child: messages.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.chat_bubble_outline,
-                                    size: 48,
-                                    color: Colors.white.withAlpha(153),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    '没有消息',
-                                    style: TextStyle(
-                                      color: Colors.white.withAlpha(153),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              reverse: true,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0, vertical: 8.0),
-                              itemCount: messages.length,
-                              itemBuilder: (context, index) {
-                                final message = messages[index];
-                                final isMe = message.senderId == currentUserId;
-
-                                // 检查是否需要显示日期分隔符
-                                final showDate = index == messages.length - 1 ||
-                                    !_isSameDay(message.createdAt,
-                                        messages[index + 1].createdAt);
-
-                                return Column(
-                                  children: [
-                                    // 日期分隔符
-                                    if (showDate)
-                                      _buildDateSeparator(message.createdAt),
-
-                                    // 消息气泡
-                                    MessageBubble(
-                                      message: message,
-                                      isMe: isMe,
-                                      timeString:
-                                          _formatMessageTime(message.createdAt),
-                                      senderName:
-                                          isMe ? 'You' : widget.contact.name,
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                    ),
-
-                    // 输入区域
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0, vertical: 4.0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(26),
-                            spreadRadius: 1,
-                            blurRadius: 3,
-                            offset: const Offset(0, -1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.attach_file),
-                            color: Colors.grey.shade600,
-                            onPressed: () {
-                              // TODO: 实现附件选择逻辑
-                            },
-                          ),
-                          Expanded(
-                            child: Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(24.0),
-                              ),
-                              child: TextField(
-                                controller: _messageController,
-                                focusNode: _focusNode,
-                                decoration: const InputDecoration(
-                                  hintText: 'Message',
-                                  hintStyle: TextStyle(color: Colors.grey),
-                                  border: InputBorder.none,
-                                ),
-                                onSubmitted: (_) => _sendMessage(),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.send),
-                            color: Colors.green,
-                            onPressed: _sendMessage,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -672,7 +662,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       _logger.e('更新最后阅读的消息ID失败', error: error);
     }
   }
-
 }
 
 /// 消息气泡组件

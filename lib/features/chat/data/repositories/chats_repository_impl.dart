@@ -83,57 +83,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
       ..add(_communicationService
           .onProto<conversation_proto.UserLeftNotification>(
               'conversation:user:left')
-          .listen(_handleUserLeftNotification));
-  }
-
-  /// 处理会话同步响应事件
-  /// 将Proto格式的会话数据转换为数据库模型并更新本地数据
-  void _handleSyncResponseProto(
-      conversation_proto.ConversationCollection collection) async {
-    _logger.i('收到会话同步响应',
-        extra: {'conversations': collection.conversations.length});
-
-    // 标记同步开始
-    _conversationSyncController.add(ConversationSyncEvent(
-      type: ConversationSyncType.syncStarted,
-      conversations: null,
-    ));
-
-    try {
-      if (collection.conversations.isEmpty) {
-        _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
-        // 即使列表为空，也标记为同步成功
-        _conversationSyncController.add(ConversationSyncEvent(
-          type: ConversationSyncType.syncCompleted,
-          conversations: [],
-        ));
-        _logger.i('发送会话同步完成事件');
-        return;
-      }
-
-      // 转换为数据库对象 - 使用模型类提供的fromProto方法
-      final List<db.Conversation> dbConversations = collection.conversations
-          .map((conv) => db.Conversation.fromProto(conv))
-          .toList();
-
-      // 更新本地数据库
-      await _updateLocalConversations(dbConversations);
-
-      // 发送批量同步完成事件，通知Cubit重新加载数据
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncCompleted,
-        conversations: dbConversations,
-      ));
-      _logger.i('发送会话同步完成事件');
-    } catch (e, stack) {
-      _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
-      // 处理失败时标记同步错误
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncError,
-        conversations: null,
-      ));
-      _logger.i('发送会话同步错误事件');
-    }
+          .listen(_handleUserLeftNotification))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationDetailResponse>(
+              'conversation:detail:response')
+          .listen(_handleConversationDetailResponse));
   }
 
   /// 获取联系人信息
@@ -462,9 +416,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
     return _users.watchLazy();
   }
 
-  /// 同步会话列表
+  /// 请求同步会话列表
   /// 从服务器同步最新的会话数据
-  /// 该方法只发送同步请求，不返回会话列表
   /// 会话数据将通过事件通知并由状态管理系统更新UI
   @override
   Future<void> requestSyncConversations() async {
@@ -480,81 +433,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     } catch (error, stack) {
       _logger.e('同步会话失败', error: error, stackTrace: stack);
       rethrow;
-    }
-  }
-
-  /// 处理会话更新通知
-  /// 根据服务器推送的会话更新通知更新本地会话数据
-  /// [notification] - 会话更新通知数据
-  void _handleConversationUpdateNotification(
-      conversation_proto.ConversationUpdateNotification notification) {
-    try {
-      _logger.i('收到会话更新通知',
-          extra: {'conversationId': notification.conversationId});
-
-      // 更新本地会话数据
-      _isar.writeTxn(() async {
-        // 查找本地会话
-        final conversation = await _conversations
-            .filter()
-            .conversationIdEqualTo(notification.conversationId)
-            .findFirst();
-
-        if (conversation != null) {
-          // 更新会话信息
-          conversation.lastMessageName = notification.lastMessageName;
-          conversation.lastMessagePreview = notification.lastMessagePreview;
-          conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
-              notification.lastMessageTime.toInt());
-          conversation.unreadCount = notification.unreadCount;
-
-          // 保存更新后的会话
-          await _conversations.put(conversation);
-          _logger.d('已更新本地会话数据',
-              extra: {'conversationId': notification.conversationId});
-
-          // 发布会话更新事件
-          _conversationUpdateController.add(ConversationUpdateEvent(
-            conversationId: conversation.conversationId,
-            type: ConversationUpdateType.updated,
-            conversation: conversation,
-          ));
-        } else {
-          _logger.w('本地找不到对应的会话',
-              extra: {'conversationId': notification.conversationId});
-
-          // 创建新的会话对象，设置必需的字段
-          final conversation = db.Conversation()
-            ..conversationId = notification.conversationId
-            ..type = db.ConversationType.private // 设置默认类型为私聊
-            ..name = null // 会话名称暂时为空，后续可能通过其他方式获取
-            ..avatar = null // 头像暂时为空
-            ..createdAt = DateTime.now() // 设置创建时间为当前时间
-            ..lastMessageName = notification.lastMessageName
-            ..lastMessagePreview = notification.lastMessagePreview
-            ..lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
-                notification.lastMessageTime.toInt())
-            ..unreadCount = notification.unreadCount
-            ..isMuted = false // 默认不静音
-            ..isPinned = false // 默认不置顶
-            ..lastReadAt = null; // 最后阅读时间为空
-
-          await _conversations.put(conversation);
-
-          _logger.i('已创建新的会话对象', extra: {
-            'conversationId': conversation.conversationId,
-            'type': conversation.type.name,
-          });
-
-          _conversationUpdateController.add(ConversationUpdateEvent(
-            conversationId: conversation.conversationId,
-            type: ConversationUpdateType.added,
-            conversation: conversation,
-          ));
-        }
-      });
-    } catch (error, stackTrace) {
-      _logger.e('处理会话更新通知失败', error: error, stackTrace: stackTrace);
     }
   }
 
@@ -603,67 +481,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     } catch (error) {
       _logger.e('更新会话静音状态失败', error: error);
       throw Exception('更新会话静音状态失败: ${error.toString()}');
-    }
-  }
-
-  /// 处理会话设置更新响应
-  /// 监听服务器推送的会话设置变更（如静音、置顶状态）并更新本地数据库
-  /// 主要用于处理来自其他设备同步的设置变更
-  /// [response] - 会话设置更新响应数据
-  void _handleConversationSettingsUpdate(
-      conversation_proto.ConversationSettingsUpdateResponse response) {
-    try {
-      _logger.i('收到会话设置更新通知', extra: {
-        'conversationId': response.conversationId,
-        'success': response.success,
-        'muted': response.hasMuted() ? response.muted : '未变更',
-        'pinned': response.hasPinned() ? response.pinned : '未变更'
-      });
-
-      if (!response.success) {
-        _logger
-            .w('会话设置更新失败', extra: {'conversationId': response.conversationId});
-        return;
-      }
-
-      // 更新本地会话数据
-      _isar.writeTxn(() async {
-        // 查找本地会话
-        final conversation = await _conversations
-            .filter()
-            .conversationIdEqualTo(response.conversationId)
-            .findFirst();
-
-        if (conversation != null) {
-          // 更新静音状态
-          if (response.hasMuted()) {
-            conversation.isMuted = response.muted;
-            _logger.d('已更新会话静音状态', extra: {
-              'conversationId': response.conversationId,
-              'muted': response.muted
-            });
-          }
-
-          // 更新置顶状态
-          if (response.hasPinned()) {
-            conversation.isPinned = response.pinned;
-            _logger.d('已更新会话置顶状态', extra: {
-              'conversationId': response.conversationId,
-              'pinned': response.pinned
-            });
-          }
-
-          // 保存更新后的会话
-          await _conversations.put(conversation);
-          _logger.d('已更新本地会话设置',
-              extra: {'conversationId': response.conversationId});
-        } else {
-          _logger.w('本地找不到对应的会话',
-              extra: {'conversationId': response.conversationId});
-        }
-      });
-    } catch (error, stackTrace) {
-      _logger.e('处理会话设置更新响应失败', error: error, stackTrace: stackTrace);
     }
   }
 
@@ -853,45 +670,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 处理用户加入会话通知
-  /// 当其他用户加入会话时接收到的通知
-  /// [notification] - 用户加入通知数据
-  void _handleUserJoinedNotification(
-      conversation_proto.UserJoinedNotification notification) {
-    try {
-      _logger.i('收到用户加入会话通知', extra: {
-        'conversationId': notification.conversationId,
-        'userId': notification.userId,
-        'userName': notification.userName
-      });
-
-      // TODO: 更新会话参与者列表
-      // 需要获取用户信息并添加到会话参与者中
-    } catch (error, stackTrace) {
-      _logger.e('处理用户加入会话通知失败', error: error, stackTrace: stackTrace);
-    }
-  }
-
-  /// 处理用户离开会话通知
-  /// 当其他用户离开会话时接收到的通知
-  /// [notification] - 用户离开通知数据
-  void _handleUserLeftNotification(
-      conversation_proto.UserLeftNotification notification) {
-    try {
-      _logger.i('收到用户离开会话通知', extra: {
-        'conversationId': notification.conversationId,
-        'userId': notification.userId,
-        'userName': notification.userName,
-        'reason': notification.reason
-      });
-
-      // TODO: 更新会话参与者列表
-      // 需要从会话参与者中移除该用户
-    } catch (error, stackTrace) {
-      _logger.e('处理用户离开会话通知失败', error: error, stackTrace: stackTrace);
-    }
-  }
-
   /// 根据标签过滤会话
   ///
   /// 根据标签类型过滤会话列表
@@ -1031,6 +809,258 @@ class ChatsRepositoryImpl implements ChatsRepository {
     } catch (error) {
       _logger.e('更新会话设置失败', error: error, stackTrace: StackTrace.current);
       return false;
+    }
+  }
+
+  @override
+  Stream<List<String>> getOnlineStatusStream() {
+    // TODO: 实现获取联系人在线状态流
+    // 这里应该监听服务器推送的在线状态更新
+    return Stream.empty();
+  }
+
+  @override
+  Future<void> requestConversationDetail(String conversationId) async {
+    try {
+      _logger.i('从服务器获取会话详情', extra: {'conversationId': conversationId});
+
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法获取会话详情');
+        return;
+      }
+
+      // 创建获取会话详情请求
+      final detailRequest = conversation_proto.ConversationDetailRequest()
+        ..conversationId = conversationId;
+
+      // 发送请求到服务器
+      _communicationService.emitProto(
+          'conversation:detail:request', detailRequest);
+
+      return;
+    } catch (error, stackTrace) {
+      _logger.e('从服务器获取会话详情失败', error: error, stackTrace: stackTrace);
+      return;
+    }
+  }
+
+  /// 处理会话同步响应事件
+  /// 将Proto格式的会话数据转换为数据库模型并更新本地数据
+  void _handleSyncResponseProto(
+      conversation_proto.ConversationCollection collection) async {
+    _logger.i('收到会话同步响应',
+        extra: {'conversations': collection.conversations.length});
+
+    // 标记同步开始
+    _conversationSyncController.add(ConversationSyncEvent(
+      type: ConversationSyncType.syncStarted,
+      conversations: null,
+    ));
+
+    try {
+      if (collection.conversations.isEmpty) {
+        _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
+        // 即使列表为空，也标记为同步成功
+        _conversationSyncController.add(ConversationSyncEvent(
+          type: ConversationSyncType.syncCompleted,
+          conversations: [],
+        ));
+        _logger.i('发送会话同步完成事件');
+        return;
+      }
+
+      // 转换为数据库对象 - 使用模型类提供的fromProto方法
+      final List<db.Conversation> dbConversations = collection.conversations
+          .map((conv) => db.Conversation.fromProto(conv))
+          .toList();
+
+      // 更新本地数据库
+      await _updateLocalConversations(dbConversations);
+
+      // 发送批量同步完成事件，通知Cubit重新加载数据
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncCompleted,
+        conversations: dbConversations,
+      ));
+      _logger.i('发送会话同步完成事件');
+    } catch (e, stack) {
+      _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
+      // 处理失败时标记同步错误
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncError,
+        conversations: null,
+      ));
+      _logger.i('发送会话同步错误事件');
+    }
+  }
+
+  /// 处理会话更新通知
+  /// 根据服务器推送的会话更新通知更新本地会话数据
+  /// [notification] - 会话更新通知数据
+  void _handleConversationUpdateNotification(
+      conversation_proto.ConversationUpdateNotification notification) {
+    try {
+      _logger.i('收到会话更新通知',
+          extra: {'conversationId': notification.conversationId});
+
+      // 更新本地会话数据
+      _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(notification.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          // 更新会话信息
+          conversation.lastMessageName = notification.lastMessageName;
+          conversation.lastMessagePreview = notification.lastMessagePreview;
+          conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
+              notification.lastMessageTime.toInt());
+          conversation.unreadCount = notification.unreadCount;
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+          _logger.d('已更新本地会话数据',
+              extra: {'conversationId': notification.conversationId});
+
+          // 发布会话更新事件
+          _conversationUpdateController.add(ConversationUpdateEvent(
+            conversationId: conversation.conversationId,
+            type: ConversationUpdateType.updated,
+            conversation: conversation,
+          ));
+        } else {
+          _logger.w('本地找不到对应的会话',
+              extra: {'conversationId': notification.conversationId});
+
+          await requestConversationDetail(notification.conversationId);
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话更新通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理用户加入会话通知
+  /// 当其他用户加入会话时接收到的通知
+  /// [notification] - 用户加入通知数据
+  void _handleUserJoinedNotification(
+      conversation_proto.UserJoinedNotification notification) {
+    try {
+      _logger.i('收到用户加入会话通知', extra: {
+        'conversationId': notification.conversationId,
+        'userId': notification.userId,
+        'userName': notification.userName
+      });
+
+      // TODO: 更新会话参与者列表
+      // 需要获取用户信息并添加到会话参与者中
+    } catch (error, stackTrace) {
+      _logger.e('处理用户加入会话通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理用户离开会话通知
+  /// 当其他用户离开会话时接收到的通知
+  /// [notification] - 用户离开通知数据
+  void _handleUserLeftNotification(
+      conversation_proto.UserLeftNotification notification) {
+    try {
+      _logger.i('收到用户离开会话通知', extra: {
+        'conversationId': notification.conversationId,
+        'userId': notification.userId,
+        'userName': notification.userName,
+        'reason': notification.reason
+      });
+
+      // TODO: 更新会话参与者列表
+      // 需要从会话参与者中移除该用户
+    } catch (error, stackTrace) {
+      _logger.e('处理用户离开会话通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理会话设置更新响应
+  /// 监听服务器推送的会话设置变更（如静音、置顶状态）并更新本地数据库
+  /// 主要用于处理来自其他设备同步的设置变更
+  /// [response] - 会话设置更新响应数据
+  void _handleConversationSettingsUpdate(
+      conversation_proto.ConversationSettingsUpdateResponse response) {
+    try {
+      _logger.i('收到会话设置更新通知', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'muted': response.hasMuted() ? response.muted : '未变更',
+        'pinned': response.hasPinned() ? response.pinned : '未变更'
+      });
+
+      if (!response.success) {
+        _logger
+            .w('会话设置更新失败', extra: {'conversationId': response.conversationId});
+        return;
+      }
+
+      // 更新本地会话数据
+      _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(response.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          // 更新静音状态
+          if (response.hasMuted()) {
+            conversation.isMuted = response.muted;
+            _logger.d('已更新会话静音状态', extra: {
+              'conversationId': response.conversationId,
+              'muted': response.muted
+            });
+          }
+
+          // 更新置顶状态
+          if (response.hasPinned()) {
+            conversation.isPinned = response.pinned;
+            _logger.d('已更新会话置顶状态', extra: {
+              'conversationId': response.conversationId,
+              'pinned': response.pinned
+            });
+          }
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+          _logger.d('已更新本地会话设置',
+              extra: {'conversationId': response.conversationId});
+        } else {
+          _logger.w('本地找不到对应的会话',
+              extra: {'conversationId': response.conversationId});
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话设置更新响应失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  void _handleConversationDetailResponse(
+      conversation_proto.ConversationDetailResponse response) async {
+    if (response.success && response.hasConversation()) {
+      final conversation = db.Conversation.fromProto(response.conversation);
+      _logger.i('成功获取会话详情', extra: {
+        'conversationId': conversation.conversationId,
+        'conversationType': conversation.type.name
+      });
+      await _isar.writeTxn(() async {
+        await _conversations.put(conversation);
+      });
+
+      _logger.d('已将会话详情保存到本地数据库');
+
+      _conversationUpdateController.add(ConversationUpdateEvent(
+        conversationId: conversation.conversationId,
+        type: ConversationUpdateType.added,
+        conversation: conversation,
+      ));
     }
   }
 

@@ -83,4 +83,14 @@ abstract class ChatsRepository {
   /// 返回是否更新成功
   Future<bool> updateConversationSettings(String conversationId,
       {bool? muted, bool? pinned});
+
+  /// 获取联系人在线状态流
+  Stream<List<String>> getOnlineStatusStream();
+
+  /// 向服务器请求获取会话详情
+  ///
+  /// 当本地数据库中找不到会话时，向服务器请求完整的会话信息
+  /// 会话详情将通过事件回调方式处理
+  /// [conversationId] - 会话ID
+  Future<void> requestConversationDetail(String conversationId);
 }

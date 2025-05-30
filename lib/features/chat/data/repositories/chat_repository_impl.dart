@@ -58,10 +58,10 @@ class ChatRepositoryImpl implements ChatRepository {
           .onProto<message_proto.MessageReadProto>('message:read')
           .listen(_handleMessageRead))
       ..add(_communicationService
-          .onProto<message_proto.TypingProto>('typing')
+          .onProto<message_proto.TypingProto>('user:typing')
           .listen(_handleTypingStatus))
       ..add(_communicationService
-          .onProto<message_proto.TypingProto>('typing:stop')
+          .onProto<message_proto.TypingProto>('user:typing:stop')
           .listen(_handleTypingStop));
   }
 
@@ -83,8 +83,7 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       _typingStatusController.add({
         'conversationId': data.conversationId,
-        'userId': '',
-        'isTyping': true,
+        'isTyping': data.isTyping,
       });
     } catch (error) {
       _logger.e('处理打字状态事件失败', error: error, stackTrace: StackTrace.current);
@@ -96,8 +95,7 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       _typingStatusController.add({
         'conversationId': data.conversationId,
-        'userId': '',
-        'isTyping': false,
+        'isTyping': data.isTyping,
       });
     } catch (error) {
       _logger.e('处理停止打字事件失败', error: error, stackTrace: StackTrace.current);
@@ -744,19 +742,24 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥 获取输入状态流  🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
 
-  /// 发送输入状态
-  /// 通知其他用户当前用户正在输入或停止输入
+  /// 发送正在输入状态
+  /// 通知其他用户当前用户的输入状态
   /// [conversationId] - 会话ID
   /// [isTyping] - 是否正在输入
   @override
   Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
     if (_communicationService.isInitialized) {
-      final typingProto = message_proto.TypingProto()
-        ..conversationId = conversationId
-        ..isTyping = isTyping;
-      _communicationService.emitProto(
-          isTyping ? 'typing' : 'typing:stop', typingProto);
-      return;
+      try {
+        final typingProto = message_proto.TypingProto()
+          ..conversationId = conversationId
+          ..isTyping = isTyping;
+
+        _communicationService.emitProto(
+            isTyping ? 'user:typing' : 'user:typing:stop', typingProto);
+        return;
+      } catch (error) {
+        _logger.e('发送打字状态失败', error: error, stackTrace: StackTrace.current);
+      }
     }
 
     _logger.w('通信服务未初始化,无法发送输入状态');

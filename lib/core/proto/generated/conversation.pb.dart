@@ -2125,6 +2125,138 @@ class ConversationMembersRequest extends $pb.GeneratedMessage {
   void clearConversationId() => $_clearField(1);
 }
 
+/// 新增：获取单个会话详情请求
+class ConversationDetailRequest extends $pb.GeneratedMessage {
+  factory ConversationDetailRequest({
+    $core.String? conversationId,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    return $result;
+  }
+  ConversationDetailRequest._() : super();
+  factory ConversationDetailRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationDetailRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationDetailRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationDetailRequest clone() => ConversationDetailRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationDetailRequest copyWith(void Function(ConversationDetailRequest) updates) => super.copyWith((message) => updates(message as ConversationDetailRequest)) as ConversationDetailRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationDetailRequest create() => ConversationDetailRequest._();
+  ConversationDetailRequest createEmptyInstance() => create();
+  static $pb.PbList<ConversationDetailRequest> createRepeated() => $pb.PbList<ConversationDetailRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationDetailRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationDetailRequest>(create);
+  static ConversationDetailRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+}
+
+/// 新增：获取单个会话详情响应
+class ConversationDetailResponse extends $pb.GeneratedMessage {
+  factory ConversationDetailResponse({
+    $core.bool? success,
+    $core.String? message,
+    ConversationProto? conversation,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (conversation != null) {
+      $result.conversation = conversation;
+    }
+    return $result;
+  }
+  ConversationDetailResponse._() : super();
+  factory ConversationDetailResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationDetailResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationDetailResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOM<ConversationProto>(3, _omitFieldNames ? '' : 'conversation', subBuilder: ConversationProto.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationDetailResponse clone() => ConversationDetailResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationDetailResponse copyWith(void Function(ConversationDetailResponse) updates) => super.copyWith((message) => updates(message as ConversationDetailResponse)) as ConversationDetailResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationDetailResponse create() => ConversationDetailResponse._();
+  ConversationDetailResponse createEmptyInstance() => create();
+  static $pb.PbList<ConversationDetailResponse> createRepeated() => $pb.PbList<ConversationDetailResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationDetailResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationDetailResponse>(create);
+  static ConversationDetailResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  ConversationProto get conversation => $_getN(2);
+  @$pb.TagNumber(3)
+  set conversation(ConversationProto v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversation() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversation() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ConversationProto ensureConversation() => $_ensure(2);
+}
+
 
 const _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
 const _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');

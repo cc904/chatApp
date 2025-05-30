@@ -67,7 +67,8 @@ class ChatsCubit extends Cubit<ChatsState> {
   /// 按最后消息时间倒序排列，没有消息的会话按创建时间排序
   /// [conversations] - 要排序的会话列表
   void _sortConversations(List<Conversation> conversations) {
-    _logger.d('开始对会话进行排序', extra: {'会话数量': conversations.length});
+    // _logger.d('开始对会话进行排序',
+    //     extra: {'会话数量': conversations.length}, stackTrace: StackTrace.current);
 
     conversations.sort((a, b) {
       // 如果两个会话都没有最后消息时间，按创建时间倒序排序
@@ -86,7 +87,7 @@ class ChatsCubit extends Cubit<ChatsState> {
       return b.lastMessageTime!.compareTo(a.lastMessageTime!);
     });
 
-    _logger.d('会话排序完成');
+    // _logger.d('会话排序完成');
   }
 
   /// 统一的会话列表更新方法
@@ -97,10 +98,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     List<Conversation> conversations, {
     ChatsState Function(ChatsState)? additionalUpdates,
   }) {
-    // 对会话进行排序
-    _sortConversations(conversations);
-
-    // 应用当前的过滤器
+    // 直接应用当前的过滤器（过滤器中会进行排序）
     final filteredConversations = _filterConversations(
         conversations, state.searchQuery, state.selectedTabIndex);
 
@@ -180,10 +178,10 @@ class ChatsCubit extends Cubit<ChatsState> {
 
   /// 处理会话更新事件
   void _handleConversationUpdate(ConversationUpdateEvent event) {
-    _logger.i('处理会话更新事件', extra: {
-      'conversationId': event.conversationId,
-      'type': event.type.toString(),
-    });
+    // _logger.i('处理会话更新事件', extra: {
+    //   'conversationId': event.conversationId,
+    //   'type': event.type.toString(),
+    // });
 
     switch (event.type) {
       case ConversationUpdateType.added:
@@ -477,36 +475,37 @@ class ChatsCubit extends Cubit<ChatsState> {
         break;
     }
 
-    // 如果搜索关键词为空，则直接返回按标签过滤后的会话
+    List<Conversation> finalFilteredConversations;
+
+    // 如果搜索关键词为空，则直接使用按标签过滤后的会话
     if (query.isEmpty) {
-      // 对过滤后的会话进行排序
-      _sortConversations(tabFilteredConversations);
-      return tabFilteredConversations;
+      finalFilteredConversations = tabFilteredConversations;
+    } else {
+      // 将搜索关键词转换为小写以进行大小写不敏感的搜索
+      final String lowerCaseQuery = query.toLowerCase();
+
+      // 在标签过滤的基础上，按搜索关键词过滤
+      finalFilteredConversations =
+          tabFilteredConversations.where((conversation) {
+        // 搜索会话名称
+        final bool matchesName =
+            conversation.name?.toLowerCase().contains(lowerCaseQuery) ?? false;
+
+        // 搜索最后一条消息预览
+        final bool matchesLastMessage = conversation.lastMessagePreview
+                ?.toLowerCase()
+                .contains(lowerCaseQuery) ??
+            false;
+
+        // 返回匹配结果
+        return matchesName || matchesLastMessage;
+      }).toList();
     }
 
-    // 将搜索关键词转换为小写以进行大小写不敏感的搜索
-    final String lowerCaseQuery = query.toLowerCase();
+    // 统一在最后对过滤后的会话进行排序（避免重复排序）
+    _sortConversations(finalFilteredConversations);
 
-    // 在标签过滤的基础上，按搜索关键词过滤
-    final searchFilteredConversations =
-        tabFilteredConversations.where((conversation) {
-      // 搜索会话名称
-      final bool matchesName =
-          conversation.name?.toLowerCase().contains(lowerCaseQuery) ?? false;
-
-      // 搜索最后一条消息预览
-      final bool matchesLastMessage = conversation.lastMessagePreview
-              ?.toLowerCase()
-              .contains(lowerCaseQuery) ??
-          false;
-
-      // 返回匹配结果
-      return matchesName || matchesLastMessage;
-    }).toList();
-
-    // 对搜索过滤后的会话进行排序
-    _sortConversations(searchFilteredConversations);
-    return searchFilteredConversations;
+    return finalFilteredConversations;
   }
 
   /// 清理资源

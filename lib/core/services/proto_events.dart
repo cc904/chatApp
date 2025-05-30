@@ -42,11 +42,14 @@ class ProtoEvents {
         conversation.ConversationMemberChangeNotification(),
     'conversation:user:joined': () => conversation.UserJoinedNotification(),
     'conversation:user:left': () => conversation.UserLeftNotification(),
+    'conversation:detail:response': () =>
+        conversation.ConversationDetailResponse(),
 
     // 用户相关事件
     'user:online': () => user.UserStatusUpdate(),
     'user:offline': () => user.UserStatusUpdate(),
     'user:typing': () => user.UserTypingUpdate(),
+    'user:typing:stop': () => user.UserTypingUpdate(),
     'user:updated': () => user.UserProto(),
     'contact:synced': () => user.UserCollection(),
 

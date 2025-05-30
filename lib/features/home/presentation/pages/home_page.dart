@@ -1,4 +1,6 @@
 import 'package:cc/features/chat/data/repositories/chats_repository_impl.dart';
+import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,6 +27,7 @@ class _HomePageState extends State<HomePage>
   HomeCubit? _homeCubit;
   ChatsCubit? _chatsCubit;
   ContactCubit? _contactCubit;
+  ChatRepository? _chatRepository;
 
   final _secureStorage = SecureStorageService.instance;
   late TabController _tabController;
@@ -77,6 +80,9 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
+    // 创建全局共享的ChatRepository
+    _chatRepository = ChatRepositoryImpl();
+
     _chatsCubit = ChatsCubit(
       chatsRepository: ChatsRepositoryImpl(),
     );
@@ -96,6 +102,10 @@ class _HomePageState extends State<HomePage>
     _homeCubit?.close();
     _chatsCubit?.close();
     _contactCubit?.close();
+    // 清理ChatRepository资源
+    if (_chatRepository is ChatRepositoryImpl) {
+      (_chatRepository as ChatRepositoryImpl).dispose();
+    }
     super.dispose();
   }
 
@@ -112,8 +122,12 @@ class _HomePageState extends State<HomePage>
       );
     }
 
-    return MultiBlocProvider(
+    return MultiRepositoryProvider(
       providers: [
+        // Repository providers - 全局共享
+        RepositoryProvider<ChatRepository>.value(value: _chatRepository!),
+
+        // BLoC providers - 状态管理
         BlocProvider<HomeCubit>.value(value: _homeCubit!),
         BlocProvider<ChatsCubit>.value(value: _chatsCubit!),
         BlocProvider<ContactCubit>.value(value: _contactCubit!),

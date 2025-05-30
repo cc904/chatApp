@@ -4,7 +4,9 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 
 /// 会话列表项组件
 ///
@@ -311,17 +313,31 @@ Widget _buildUnreadBadge(Conversation conversation) {
 /// 打开聊天详情页
 void _openChatDetail(
     BuildContext context, Conversation conversation, User contact) {
-  // 使用HomeCubit加载会话消息
-  final homeCubit = context.read<HomeCubit>();
+  // 在导航前获取Repository和Cubit引用
+  final chatRepository = context.read<ChatRepository>();
+  final chatsCubit = context.read<ChatsCubit>();
 
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (context) => BlocProvider.value(
-        value: homeCubit,
-        child: ChatDetailPage(
-          conversationId: conversation.conversationId,
-          contact: contact,
+      builder: (context) => MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<ChatRepository>.value(value: chatRepository),
+        ],
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<ChatsCubit>.value(value: chatsCubit),
+            BlocProvider(
+              create: (context) => ChatCubit(
+                chatRepository: chatRepository,
+                conversationId: conversation.conversationId,
+              ),
+            ),
+          ],
+          child: ChatDetailPage(
+            conversationId: conversation.conversationId,
+            contact: contact,
+          ),
         ),
       ),
     ),
