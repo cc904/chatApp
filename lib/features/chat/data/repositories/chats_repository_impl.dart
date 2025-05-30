@@ -523,14 +523,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
           _logger.w('本地找不到对应的会话',
               extra: {'conversationId': notification.conversationId});
 
+          // 创建新的会话对象，设置必需的字段
           final conversation = db.Conversation()
             ..conversationId = notification.conversationId
+            ..type = db.ConversationType.private // 设置默认类型为私聊
+            ..name = null // 会话名称暂时为空，后续可能通过其他方式获取
+            ..avatar = null // 头像暂时为空
+            ..createdAt = DateTime.now() // 设置创建时间为当前时间
             ..lastMessageName = notification.lastMessageName
             ..lastMessagePreview = notification.lastMessagePreview
             ..lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
                 notification.lastMessageTime.toInt())
-            ..unreadCount = notification.unreadCount;
+            ..unreadCount = notification.unreadCount
+            ..isMuted = false // 默认不静音
+            ..isPinned = false // 默认不置顶
+            ..lastReadAt = null; // 最后阅读时间为空
+
           await _conversations.put(conversation);
+
+          _logger.i('已创建新的会话对象', extra: {
+            'conversationId': conversation.conversationId,
+            'type': conversation.type.name,
+          });
 
           _conversationUpdateController.add(ConversationUpdateEvent(
             conversationId: conversation.conversationId,

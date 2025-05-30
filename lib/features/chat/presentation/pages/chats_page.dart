@@ -211,32 +211,82 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 构建标签栏
   Widget _buildTabBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        border: const Border(
-          bottom: BorderSide(color: Colors.grey, width: 0.5),
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTabItem('All Chats', 0, null),
-            _buildTabItem('私密', 1, null),
-            _buildTabItem('群组', 2, 2),
-            _buildTabItem('频道', 3, 3),
-            _buildTabItem('未读', 4, 5),
-          ],
-        ),
-      ),
+    return BlocBuilder<ChatsCubit, ChatsState>(
+      buildWhen: (previous, current) =>
+          previous.conversations != current.conversations,
+      builder: (context, state) {
+        // 检查各分类下是否有新消息（lastReadAt < lastMessageTime）
+        final hasNewPrivateMessages = state.conversations
+            .where((c) => c.type == ConversationType.private)
+            .any((c) =>
+                c.lastReadAt != null &&
+                c.lastMessageTime != null &&
+                c.lastReadAt!.isBefore(c.lastMessageTime!));
+
+        final hasNewGroupMessages = state.conversations
+            .where((c) => c.type == ConversationType.group)
+            .any((c) =>
+                c.lastReadAt != null &&
+                c.lastMessageTime != null &&
+                c.lastReadAt!.isBefore(c.lastMessageTime!));
+
+        final hasNewChannelMessages = state.conversations
+            .where((c) => c.type == ConversationType.channel)
+            .any((c) =>
+                c.lastReadAt != null &&
+                c.lastMessageTime != null &&
+                c.lastReadAt!.isBefore(c.lastMessageTime!));
+
+        // 计算未读会话数量（除了All Chats）
+        final privateUnreadCount = state.conversations
+            .where(
+                (c) => c.type == ConversationType.private && c.unreadCount > 0)
+            .length;
+
+        final groupUnreadCount = state.conversations
+            .where((c) => c.type == ConversationType.group && c.unreadCount > 0)
+            .length;
+
+        final channelUnreadCount = state.conversations
+            .where(
+                (c) => c.type == ConversationType.channel && c.unreadCount > 0)
+            .length;
+
+        final unreadConversationsCount =
+            state.conversations.where((c) => c.unreadCount > 0).length;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            border: const Border(
+              bottom: BorderSide(color: Colors.grey, width: 0.5),
+            ),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTabItem('All Chats', 0, 0, false), // All Chats不显示数量
+                _buildTabItem(
+                    '私密', 1, privateUnreadCount, hasNewPrivateMessages),
+                _buildTabItem('群组', 2, groupUnreadCount, hasNewGroupMessages),
+                _buildTabItem(
+                    '频道', 3, channelUnreadCount, hasNewChannelMessages),
+                _buildTabItem('未读', 4, unreadConversationsCount,
+                    unreadConversationsCount > 0),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   /// 构建单个标签项
-  Widget _buildTabItem(String title, int index, int? count) {
+  Widget _buildTabItem(
+      String title, int index, int unreadCount, bool hasNewMessages) {
     final chatsCubit = context.read<ChatsCubit>();
     final isSelected = chatsCubit.state.selectedTabIndex == index;
 
@@ -272,20 +322,30 @@ class _ChatsPageState extends State<ChatsPage>
                 child: Text(title),
               ),
             ),
-            if (count != null)
+
+            // 未读数量徽章 - 只有当未读数量大于0时才显示
+            if (unreadCount > 0)
               Container(
-                margin: const EdgeInsets.only(left: 4),
+                margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.blue : Colors.grey,
+                  color: hasNewMessages
+                      ? Colors.blue
+                      : Colors.grey, // 根据是否有新消息决定颜色
                   borderRadius: BorderRadius.circular(10),
                 ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
                 child: Text(
-                  count.toString(),
+                  _formatUnreadCount(unreadCount),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
           ],

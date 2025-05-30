@@ -298,7 +298,7 @@ Widget _buildUnreadBadge(Conversation conversation) {
       minHeight: 20,
     ),
     child: Text(
-      conversation.unreadCount.toString(),
+      _formatUnreadCount(conversation.unreadCount),
       style: const TextStyle(
         color: Colors.white,
         fontSize: 12,
@@ -347,4 +347,14 @@ String _defaultFormatTime(DateTime? time) {
   else {
     return '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')}';
   }
+}
+
+/// 格式化未读数量
+/// 如果超过1000，则以k为单位显示，保留一位小数
+String _formatUnreadCount(int count) {
+  if (count >= 1000) {
+    final double countInK = count / 1000;
+    return '${countInK.toStringAsFixed(1)}k';
+  }
+  return count.toString();
 }
