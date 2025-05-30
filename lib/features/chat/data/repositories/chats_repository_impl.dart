@@ -1043,7 +1043,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-
   /// 释放资源
   /// 取消所有订阅并关闭流控制器
   void dispose() {

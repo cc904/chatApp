@@ -1,12 +1,10 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 
-
-/// 聊天仓库接口
-/// 定义了聊天功能所需的各种操作方法
+/// 聊天会话列表仓库接口
+/// 定义了会话列表管理所需的各种操作方法
 abstract class ChatsRepository {
   /// 注册事件处理器
   /// 设置与通信服务的事件监听，用于接收和处理服务器发送的Proto消息
@@ -32,24 +30,14 @@ abstract class ChatsRepository {
       String name, List<String> memberIds,
       {String? avatar});
 
-  /// 搜索消息
-  Future<List<Message>> searchMessages(String keyword,
-      {String? conversationId});
-
   /// 删除会话和会话中的所有消息
   Future<void> deleteConversation(String conversationId);
-
-  /// 清空会话中的所有消息但保留会话
-  Future<void> clearConversationMessages(String conversationId);
 
   /// 监听会话列表变化
   Stream<void> watchConversations();
 
   /// 监听会话更新事件
   Stream<ConversationUpdateEvent> get conversationUpdateStream;
-
-  /// 监听特定会话中的消息变化
-  Stream<void> watchConversationMessages(String conversationId);
 
   /// 监听联系人列表变化
   Stream<void> watchContacts();
@@ -66,7 +54,6 @@ abstract class ChatsRepository {
   /// 会话数据将通过事件通知并由状态管理系统更新UI
   Future<void> syncConversations();
 
-
   /// 更新会话的静音状态
   Future<void> updateConversationMuteStatus(
       String conversationId, bool isMuted);
@@ -80,12 +67,6 @@ abstract class ChatsRepository {
 
   /// 更新会话的最后阅读消息ID
   Future<void> updateLastReadMessageId(String conversationId, String messageId);
-
-  /// 用户进入会话页面，加入对应的Socket.io会话房间
-  Future<void> joinConversationRoom(String conversationId);
-
-  /// 用户离开会话页面，离开对应的Socket.io会话房间
-  Future<void> leaveConversationRoom(String conversationId);
 
   /// 根据标签过滤会话
   ///
