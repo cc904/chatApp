@@ -810,34 +810,26 @@ class SyncConversationsRequest extends $pb.GeneratedMessage {
 class ConversationUpdateNotification extends $pb.GeneratedMessage {
   factory ConversationUpdateNotification({
     $core.String? conversationId,
-    $core.String? lastMessagePreview,
     $fixnum.Int64? lastMessageTime,
+    $core.String? lastMessagePreview,
+    $core.String? lastMessageName,
     $core.int? unreadCount,
-    $core.String? senderId,
-    $core.String? senderName,
-    $core.String? messageType,
   }) {
     final $result = create();
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (lastMessagePreview != null) {
-      $result.lastMessagePreview = lastMessagePreview;
-    }
     if (lastMessageTime != null) {
       $result.lastMessageTime = lastMessageTime;
     }
+    if (lastMessagePreview != null) {
+      $result.lastMessagePreview = lastMessagePreview;
+    }
+    if (lastMessageName != null) {
+      $result.lastMessageName = lastMessageName;
+    }
     if (unreadCount != null) {
       $result.unreadCount = unreadCount;
-    }
-    if (senderId != null) {
-      $result.senderId = senderId;
-    }
-    if (senderName != null) {
-      $result.senderName = senderName;
-    }
-    if (messageType != null) {
-      $result.messageType = messageType;
     }
     return $result;
   }
@@ -847,12 +839,10 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationUpdateNotification', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(2, _omitFieldNames ? '' : 'lastMessagePreview')
-    ..aInt64(3, _omitFieldNames ? '' : 'lastMessageTime')
-    ..a<$core.int>(4, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
-    ..aOS(5, _omitFieldNames ? '' : 'senderId')
-    ..aOS(6, _omitFieldNames ? '' : 'senderName')
-    ..aOS(7, _omitFieldNames ? '' : 'messageType')
+    ..aInt64(2, _omitFieldNames ? '' : 'lastMessageTime')
+    ..aOS(3, _omitFieldNames ? '' : 'lastMessagePreview')
+    ..aOS(4, _omitFieldNames ? '' : 'lastMessageName')
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
     ..hasRequiredFields = false
   ;
 
@@ -887,58 +877,40 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   void clearConversationId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get lastMessagePreview => $_getSZ(1);
+  $fixnum.Int64 get lastMessageTime => $_getI64(1);
   @$pb.TagNumber(2)
-  set lastMessagePreview($core.String v) { $_setString(1, v); }
+  set lastMessageTime($fixnum.Int64 v) { $_setInt64(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasLastMessagePreview() => $_has(1);
+  $core.bool hasLastMessageTime() => $_has(1);
   @$pb.TagNumber(2)
-  void clearLastMessagePreview() => $_clearField(2);
+  void clearLastMessageTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $fixnum.Int64 get lastMessageTime => $_getI64(2);
+  $core.String get lastMessagePreview => $_getSZ(2);
   @$pb.TagNumber(3)
-  set lastMessageTime($fixnum.Int64 v) { $_setInt64(2, v); }
+  set lastMessagePreview($core.String v) { $_setString(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasLastMessageTime() => $_has(2);
+  $core.bool hasLastMessagePreview() => $_has(2);
   @$pb.TagNumber(3)
-  void clearLastMessageTime() => $_clearField(3);
+  void clearLastMessagePreview() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get unreadCount => $_getIZ(3);
+  $core.String get lastMessageName => $_getSZ(3);
   @$pb.TagNumber(4)
-  set unreadCount($core.int v) { $_setSignedInt32(3, v); }
+  set lastMessageName($core.String v) { $_setString(3, v); }
   @$pb.TagNumber(4)
-  $core.bool hasUnreadCount() => $_has(3);
+  $core.bool hasLastMessageName() => $_has(3);
   @$pb.TagNumber(4)
-  void clearUnreadCount() => $_clearField(4);
+  void clearLastMessageName() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get senderId => $_getSZ(4);
+  $core.int get unreadCount => $_getIZ(4);
   @$pb.TagNumber(5)
-  set senderId($core.String v) { $_setString(4, v); }
+  set unreadCount($core.int v) { $_setSignedInt32(4, v); }
   @$pb.TagNumber(5)
-  $core.bool hasSenderId() => $_has(4);
+  $core.bool hasUnreadCount() => $_has(4);
   @$pb.TagNumber(5)
-  void clearSenderId() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.String get senderName => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set senderName($core.String v) { $_setString(5, v); }
-  @$pb.TagNumber(6)
-  $core.bool hasSenderName() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearSenderName() => $_clearField(6);
-
-  @$pb.TagNumber(7)
-  $core.String get messageType => $_getSZ(6);
-  @$pb.TagNumber(7)
-  set messageType($core.String v) { $_setString(6, v); }
-  @$pb.TagNumber(7)
-  $core.bool hasMessageType() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearMessageType() => $_clearField(7);
+  void clearUnreadCount() => $_clearField(5);
 }
 
 /// 会话设置更新请求

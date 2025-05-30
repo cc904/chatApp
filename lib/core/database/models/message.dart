@@ -127,21 +127,21 @@ class Message {
   static proto.MessageType _stringToMessageType(String type) {
     switch (type.toLowerCase()) {
       case 'text':
-        return proto.MessageType.text;
+        return proto.MessageType.TEXT;
       case 'image':
-        return proto.MessageType.image;
+        return proto.MessageType.IMAGE;
       case 'voice':
-        return proto.MessageType.voice;
+        return proto.MessageType.VOICE;
       case 'video':
-        return proto.MessageType.video;
+        return proto.MessageType.VIDEO;
       case 'file':
-        return proto.MessageType.file;
+        return proto.MessageType.FILE;
       case 'location':
-        return proto.MessageType.location;
+        return proto.MessageType.LOCATION;
       case 'system':
-        return proto.MessageType.system;
+        return proto.MessageType.SYSTEM;
       default:
-        return proto.MessageType.text;
+        return proto.MessageType.TEXT;
     }
   }
 }

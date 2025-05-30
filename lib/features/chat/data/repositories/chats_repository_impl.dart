@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
+import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
@@ -20,13 +19,24 @@ class ChatsRepositoryImpl implements ChatsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
 
+  // 获取当前数据库实例，使用DatabaseInitializer
+  Isar get _isar => DatabaseInitializer.isar;
+  IsarCollection<User> get _users => _isar.users;
+  IsarCollection<db.Conversation> get _conversations => _isar.conversations;
+
   // 事件流控制器
-  final _onlineStatusController =
-      StreamController<Map<String, dynamic>>.broadcast();
-  final _syncConversationStatusController =
-      StreamController<ConversationSyncStatus>.broadcast();
+  final _conversationSyncController =
+      StreamController<ConversationSyncEvent>.broadcast();
   final _conversationUpdateController =
       StreamController<ConversationUpdateEvent>.broadcast();
+
+  @override
+  Stream<ConversationSyncEvent> get conversationSyncStream =>
+      _conversationSyncController.stream;
+
+  @override
+  Stream<ConversationUpdateEvent> get conversationUpdateStream =>
+      _conversationUpdateController.stream;
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -36,26 +46,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
     _logger.x('ChatsRepositoryImpl 初始化');
   }
 
-  /// 获取同步状态流
-  /// 返回数据同步状态变化的流
-  @override
-  Stream<ConversationSyncStatus> getSyncConversationStatusStream() {
-    return _syncConversationStatusController.stream;
-  }
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   Isar   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  // 获取当前数据库实例，使用DatabaseInitializer
-  Isar get _isar => DatabaseInitializer.isar;
-
-  // 获取用户集合
-  IsarCollection<User> get _users => _isar.users;
-
-  // 获取会话集合
-  IsarCollection<db.Conversation> get _conversations => _isar.conversations;
-
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  事件处理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
   /// 注册事件监听
   @override
   Future<void> registerEventHandlers() async {
@@ -63,6 +54,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       _logger.i('通信服务未初始化，无法注册事件处理器');
       return;
     }
+    _logger.i('注册事件处理器');
 
     // 先取消所有现有的监听器，防止重复注册
     for (var subscription in _subscriptions) {
@@ -75,7 +67,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       ..add(_communicationService
           .onProto<conversation_proto.ConversationCollection>(
               'conversation:sync:response')
-          .listen(_handleSyncResultProto))
+          .listen(_handleSyncResponseProto))
       ..add(_communicationService
           .onProto<conversation_proto.ConversationUpdateNotification>(
               'conversation:update:notification')
@@ -96,34 +88,51 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 处理会话同步响应事件
   /// 将Proto格式的会话数据转换为数据库模型并更新本地数据
-  void _handleSyncResultProto(
-      conversation_proto.ConversationCollection response) async {
-    _logger
-        .i('收到会话同步响应', extra: {'conversations': response.conversations.length});
+  void _handleSyncResponseProto(
+      conversation_proto.ConversationCollection collection) async {
+    _logger.i('收到会话同步响应',
+        extra: {'conversations': collection.conversations.length});
+
+    // 标记同步开始
+    _conversationSyncController.add(ConversationSyncEvent(
+      type: ConversationSyncType.syncStarted,
+      conversations: null,
+    ));
 
     try {
-      if (response.conversations.isEmpty) {
+      if (collection.conversations.isEmpty) {
         _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
         // 即使列表为空，也标记为同步成功
-        _syncConversationStatusController.add(ConversationSyncStatus.completed);
+        _conversationSyncController.add(ConversationSyncEvent(
+          type: ConversationSyncType.syncCompleted,
+          conversations: [],
+        ));
+        _logger.i('发送会话同步完成事件');
         return;
       }
 
       // 转换为数据库对象 - 使用模型类提供的fromProto方法
-      final List<db.Conversation> dbConversations = response.conversations
+      final List<db.Conversation> dbConversations = collection.conversations
           .map((conv) => db.Conversation.fromProto(conv))
           .toList();
 
       // 更新本地数据库
       await _updateLocalConversations(dbConversations);
 
-      // 处理完成后标记同步成功
-      _syncConversationStatusController.add(ConversationSyncStatus.completed);
-      _logger.i('设置会话同步状态为: completed');
+      // 发送批量同步完成事件，通知Cubit重新加载数据
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncCompleted,
+        conversations: dbConversations,
+      ));
+      _logger.i('发送会话同步完成事件');
     } catch (e, stack) {
       _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
       // 处理失败时标记同步错误
-      _syncConversationStatusController.add(ConversationSyncStatus.error);
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncError,
+        conversations: null,
+      ));
+      _logger.i('发送会话同步错误事件');
     }
   }
 
@@ -165,8 +174,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  会话相关  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
   /// 获取所有会话
   /// 从本地数据库获取所有会话
   /// 返回会话列表
@@ -176,26 +183,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
       _logger.i('开始从本地数据库获取所有会话');
 
       // 标记同步开始
-      _syncConversationStatusController.add(ConversationSyncStatus.syncing);
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncStarted,
+        conversations: null,
+      ));
 
       // 从数据库获取最新的会话列表
       final conversations = await _conversations.where().findAll();
 
-      // 手动按lastMessageTime降序排序,将null值排在最后
-      conversations.sort((a, b) {
-        if (a.lastMessageTime == null) return 1;
-        if (b.lastMessageTime == null) return -1;
-        return b.lastMessageTime!.compareTo(a.lastMessageTime!);
-      });
-
       // 标记同步完成
-      _syncConversationStatusController.add(ConversationSyncStatus.completed);
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncCompleted,
+        conversations: conversations,
+      ));
       return conversations;
     } catch (error, stack) {
       _logger.e('获取会话列表失败', error: error, stackTrace: stack);
 
       // 标记同步错误
-      _syncConversationStatusController.add(ConversationSyncStatus.error);
+      _conversationSyncController.add(ConversationSyncEvent(
+        type: ConversationSyncType.syncError,
+        conversations: null,
+      ));
       return [];
     }
   }
@@ -370,10 +379,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     return _conversations.watchLazy();
   }
 
-  @override
-  Stream<ConversationUpdateEvent> get conversationUpdateStream =>
-      _conversationUpdateController.stream;
-
   /// 删除会话
   /// 删除指定的会话及其所有消息和相关媒体文件
   /// [conversationId] - 会话ID
@@ -450,8 +455,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢     其他      💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
   /// 监听联系人变化
   /// 返回联系人列表变化的流
   @override
@@ -464,12 +467,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 该方法只发送同步请求，不返回会话列表
   /// 会话数据将通过事件通知并由状态管理系统更新UI
   @override
-  Future<void> syncConversations() async {
+  Future<void> requestSyncConversations() async {
     try {
-      // 通知开始同步
-      _syncConversationStatusController.add(ConversationSyncStatus.syncing);
-      _logger.i('请求同步会话');
-
       if (_communicationService.isInitialized) {
         // 发送无参数的同步请求，服务器会根据当前用户ID返回所有会话
         _communicationService.emitProto(
@@ -477,11 +476,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
         _logger.i('会话同步请求已发送');
       } else {
         _logger.e('通信服务未初始化，无法同步会话');
-        _syncConversationStatusController.add(ConversationSyncStatus.error);
       }
     } catch (error, stack) {
       _logger.e('同步会话失败', error: error, stackTrace: stack);
-      _syncConversationStatusController.add(ConversationSyncStatus.error);
       rethrow;
     }
   }
@@ -505,11 +502,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
         if (conversation != null) {
           // 更新会话信息
+          conversation.lastMessageName = notification.lastMessageName;
           conversation.lastMessagePreview = notification.lastMessagePreview;
-          if (notification.lastMessageTime > 0) {
-            conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
-                notification.lastMessageTime.toInt());
-          }
+          conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
+              notification.lastMessageTime.toInt());
+          conversation.unreadCount = notification.unreadCount;
 
           // 保存更新后的会话
           await _conversations.put(conversation);
@@ -525,45 +522,25 @@ class ChatsRepositoryImpl implements ChatsRepository {
         } else {
           _logger.w('本地找不到对应的会话',
               extra: {'conversationId': notification.conversationId});
-          // 如果本地没有该会话，可以考虑触发会话同步
-          await syncConversations();
+
+          final conversation = db.Conversation()
+            ..conversationId = notification.conversationId
+            ..lastMessageName = notification.lastMessageName
+            ..lastMessagePreview = notification.lastMessagePreview
+            ..lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
+                notification.lastMessageTime.toInt())
+            ..unreadCount = notification.unreadCount;
+          await _conversations.put(conversation);
+
+          _conversationUpdateController.add(ConversationUpdateEvent(
+            conversationId: conversation.conversationId,
+            type: ConversationUpdateType.added,
+            conversation: conversation,
+          ));
         }
       });
     } catch (error, stackTrace) {
       _logger.e('处理会话更新通知失败', error: error, stackTrace: stackTrace);
-    }
-  }
-
-  /// 测试会话更新通知功能
-  /// 仅用于开发和测试，模拟接收会话更新通知
-  /// [conversationId] - 会话ID
-  Future<void> testConversationUpdateNotification(String conversationId) async {
-    try {
-      _logger.i('测试会话更新通知功能', extra: {'conversationId': conversationId});
-
-      // 获取会话信息
-      final conversation = await getConversationById(conversationId);
-      if (conversation == null) {
-        _logger.w('找不到会话', extra: {'conversationId': conversationId});
-        return;
-      }
-
-      // 创建模拟的会话更新通知
-      final notification = conversation_proto.ConversationUpdateNotification()
-        ..conversationId = conversationId
-        ..lastMessagePreview = '这是一条测试消息'
-        ..lastMessageTime = $fixnum.Int64(DateTime.now().millisecondsSinceEpoch)
-        ..unreadCount = 1
-        ..senderId = 'test_user_id'
-        ..senderName = '测试用户'
-        ..messageType = 'text';
-
-      // 直接调用处理方法
-      _handleConversationUpdateNotification(notification);
-
-      _logger.i('测试会话更新通知已发送');
-    } catch (error) {
-      _logger.e('测试会话更新通知失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -1051,8 +1028,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _onlineStatusController.close();
-    _syncConversationStatusController.close();
     _conversationUpdateController.close();
   }
 }

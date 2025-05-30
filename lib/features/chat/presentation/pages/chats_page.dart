@@ -51,7 +51,7 @@ class _ChatsPageState extends State<ChatsPage>
     chatsCubit.searchConversations(query);
     _logger.i('执行搜索: $query');
   }
-  
+
   /// 当搜索框焦点变化时调用
   void _onSearchFocusChanged() {
     final chatsCubit = context.read<ChatsCubit>();
@@ -63,11 +63,18 @@ class _ChatsPageState extends State<ChatsPage>
       chatsCubit.endSearch();
     }
   }
-  
+
   /// 当搜索框内容变化时调用
   void _onSearchChanged() {
     final query = _searchController.text;
     _searchConversations(query);
+  }
+
+  /// 初始化
+  Future<void> _init() async {
+    final chatsCubit = context.read<ChatsCubit>();
+    await chatsCubit.loadConversations();
+    await chatsCubit.requestSyncConversations();
   }
 
   @override
@@ -75,6 +82,7 @@ class _ChatsPageState extends State<ChatsPage>
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _searchFocusNode.addListener(_onSearchFocusChanged);
+    _init();
   }
 
   @override
@@ -91,22 +99,73 @@ class _ChatsPageState extends State<ChatsPage>
     _logger.d('ChatsPage build');
     return BlocBuilder<ChatsCubit, ChatsState>(
       buildWhen: (previous, current) {
-        // 优化buildWhen条件，减少不必要的重建
-        // 1. 会话数量变化
-        final conversationsChanged =
+        // 只在以下情况才重建页面
+
+        // 1. 会话列表数量变化
+        final conversationsCountChanged =
             previous.conversations.length != current.conversations.length;
 
-        // 2. 选中的标签变化
+        // 2. 过滤后的会话列表数量变化
+        final filteredConversationsCountChanged =
+            previous.filteredConversations.length !=
+                current.filteredConversations.length;
+
+        // 3. 会话列表引用变化（当会话内容更新时，_updateConversationsWithFilter会创建新的列表）
+        final conversationsListChanged =
+            !identical(previous.conversations, current.conversations);
+
+        // 4. 过滤后会话列表引用变化
+        final filteredConversationsListChanged = !identical(
+            previous.filteredConversations, current.filteredConversations);
+
+        // 5. 搜索状态变化
+        final searchStateChanged =
+            previous.isSearching != current.isSearching ||
+                previous.searchQuery != current.searchQuery;
+
+        // 6. 选中标签变化
         final tabChanged =
             previous.selectedTabIndex != current.selectedTabIndex;
 
-        // 3. 搜索查询变化
-        final searchChanged = previous.searchQuery != current.searchQuery;
-        
-        // 4. 搜索状态变化
-        final searchStateChanged = previous.isSearching != current.isSearching;
+        // 7. 同步状态变化（影响AppBar显示）
+        final syncStatusChanged =
+            previous.conversationSyncStatus != current.conversationSyncStatus;
 
-        return conversationsChanged || tabChanged || searchChanged || searchStateChanged;
+        // 8. 错误信息变化
+        final errorChanged = previous.errorMessage != current.errorMessage;
+
+        // 9. 网络状态变化
+        final networkStatusChanged =
+            previous.isConnected != current.isConnected ||
+                previous.networkStatus != current.networkStatus;
+
+        final shouldRebuild = conversationsCountChanged ||
+            filteredConversationsCountChanged ||
+            conversationsListChanged ||
+            filteredConversationsListChanged ||
+            searchStateChanged ||
+            tabChanged ||
+            syncStatusChanged ||
+            errorChanged ||
+            networkStatusChanged;
+
+        // if (shouldRebuild) {
+        //   _logger.d('ChatsPage 需要重建', extra: {
+        //     'conversationsCountChanged': conversationsCountChanged,
+        //     'filteredConversationsCountChanged':
+        //         filteredConversationsCountChanged,
+        //     'conversationsListChanged': conversationsListChanged,
+        //     'filteredConversationsListChanged':
+        //         filteredConversationsListChanged,
+        //     'searchStateChanged': searchStateChanged,
+        //     'tabChanged': tabChanged,
+        //     'syncStatusChanged': syncStatusChanged,
+        //     'errorChanged': errorChanged,
+        //     'networkStatusChanged': networkStatusChanged,
+        //   });
+        // }
+
+        return shouldRebuild;
       },
       builder: (context, state) {
         return Scaffold(
@@ -241,8 +300,7 @@ class _ChatsPageState extends State<ChatsPage>
       // 中间标题
       title: BlocBuilder<ChatsCubit, ChatsState>(
         buildWhen: (previous, current) =>
-            previous.conversationSyncStatus != current.conversationSyncStatus ||
-            previous.isLoadingMessages != current.isLoadingMessages,
+            previous.conversationSyncStatus != current.conversationSyncStatus,
         builder: (context, state) {
           return const Text('Chats');
           // AppBarTitleWithNetworkStatus(
@@ -372,9 +430,9 @@ class _ChatsPageState extends State<ChatsPage>
                 filled: true,
                 fillColor: Colors.white,
                 suffixIcon: BlocBuilder<ChatsCubit, ChatsState>(
-                  buildWhen: (previous, current) => 
-                    previous.isSearching != current.isSearching || 
-                    previous.searchQuery != current.searchQuery,
+                  buildWhen: (previous, current) =>
+                      previous.isSearching != current.isSearching ||
+                      previous.searchQuery != current.searchQuery,
                   builder: (context, state) {
                     if (state.isSearching) {
                       return IconButton(
@@ -414,44 +472,44 @@ class _ChatsPageState extends State<ChatsPage>
           ),
           // 当输入内容后显示搜索按钮
           BlocBuilder<ChatsCubit, ChatsState>(
-            buildWhen: (previous, current) => previous.isSearching != current.isSearching,
+            buildWhen: (previous, current) =>
+                previous.isSearching != current.isSearching,
             builder: (context, state) {
               return state.isSearching
-                ? Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final query = _searchController.text;
-                        if (query.isNotEmpty) {
-                          _searchConversations(query);
-                        }
-                        // 收起键盘但保持聚焦
-                        FocusScope.of(context).unfocus();
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          if (mounted) {
-                            _searchFocusNode.requestFocus();
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final query = _searchController.text;
+                          if (query.isNotEmpty) {
+                            _searchConversations(query);
                           }
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          // 收起键盘但保持聚焦
+                          FocusScope.of(context).unfocus();
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            if (mounted) {
+                              _searchFocusNode.requestFocus();
+                            }
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 0),
+                          minimumSize: const Size(0, 36),
                         ),
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        minimumSize: const Size(0, 36),
-                      ),
-                      child: const Text(
-                        '搜索',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
+                        child: const Text(
+                          '搜索',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                    )
-                  )
-                : const SizedBox.shrink();
+                      ))
+                  : const SizedBox.shrink();
             },
           ),
         ],
@@ -463,6 +521,7 @@ class _ChatsPageState extends State<ChatsPage>
   /// 返回多个 Sliver 组件组成的列表
   List<Widget> _buildChatListSlivers(ChatsState state) {
     if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+      _logger.e('加载失败: ${state.errorMessage}');
       return [
         SliverFillRemaining(
           child: Center(
@@ -491,6 +550,7 @@ class _ChatsPageState extends State<ChatsPage>
     }
 
     if (state.filteredConversations.isEmpty) {
+      _logger.d('没有会话');
       return [
         SliverFillRemaining(
           child: Center(
@@ -530,6 +590,30 @@ class _ChatsPageState extends State<ChatsPage>
         unpinnedConversations.add(conversation);
       }
     }
+
+    // 按时间排序：置顶会话和非置顶会话分别排序
+    // 最新消息时间在前，null值排在最后
+    pinnedConversations.sort((a, b) {
+      if (a.lastMessageTime == null && b.lastMessageTime == null) {
+        return b.createdAt.compareTo(a.createdAt); // 都没有消息时按创建时间排序
+      } else if (a.lastMessageTime == null) {
+        return 1; // a 没有消息，排在后面
+      } else if (b.lastMessageTime == null) {
+        return -1; // b 没有消息，排在后面
+      }
+      return b.lastMessageTime!.compareTo(a.lastMessageTime!); // 按最后消息时间倒序
+    });
+
+    unpinnedConversations.sort((a, b) {
+      if (a.lastMessageTime == null && b.lastMessageTime == null) {
+        return b.createdAt.compareTo(a.createdAt); // 都没有消息时按创建时间排序
+      } else if (a.lastMessageTime == null) {
+        return 1; // a 没有消息，排在后面
+      } else if (b.lastMessageTime == null) {
+        return -1; // b 没有消息，排在后面
+      }
+      return b.lastMessageTime!.compareTo(a.lastMessageTime!); // 按最后消息时间倒序
+    });
 
     // 构建多个 Sliver 组件
     final List<Widget> slivers = [];
@@ -596,7 +680,7 @@ class _ChatsPageState extends State<ChatsPage>
       ..name = conversation.name ?? '未知联系人'
       ..avatar = conversation.avatar;
 
-    // TODO: 
+    // TODO:
     // return state.contacts.firstWhere(
     //   (c) => c.userId == conversation.contactUserId,
     //   orElse: () => User()

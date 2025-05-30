@@ -40,9 +40,6 @@ class ChatsState extends Equatable {
   /// 会话同步状态
   final ConversationSyncStatus conversationSyncStatus;
 
-  /// 是否正在加载消息
-  final bool isLoadingMessages;
-
   /// 网络状态
   final String networkStatus;
 
@@ -72,7 +69,6 @@ class ChatsState extends Equatable {
     required this.selectedTabIndex,
     required this.currentUser,
     required this.conversationSyncStatus,
-    required this.isLoadingMessages,
     required this.networkStatus,
     required this.isConnected,
     required this.onlineUsers,
@@ -92,7 +88,6 @@ class ChatsState extends Equatable {
       selectedTabIndex: 0,
       currentUser: null,
       conversationSyncStatus: ConversationSyncStatus.initial,
-      isLoadingMessages: false,
       networkStatus: kNetworkStatusConnected,
       isConnected: true,
       onlineUsers: {},
@@ -109,7 +104,6 @@ class ChatsState extends Equatable {
     int? selectedTabIndex,
     User? currentUser,
     ConversationSyncStatus? conversationSyncStatus,
-    bool? isLoadingMessages,
     String? networkStatus,
     bool? isConnected,
     DateTime? lastConnectionTime,
@@ -128,7 +122,6 @@ class ChatsState extends Equatable {
       currentUser: currentUser ?? this.currentUser,
       conversationSyncStatus:
           conversationSyncStatus ?? this.conversationSyncStatus,
-      isLoadingMessages: isLoadingMessages ?? this.isLoadingMessages,
       networkStatus: networkStatus ?? this.networkStatus,
       isConnected: isConnected ?? this.isConnected,
       lastConnectionTime: lastConnectionTime ?? this.lastConnectionTime,
@@ -155,7 +148,6 @@ class ChatsState extends Equatable {
         selectedTabIndex,
         currentUser,
         conversationSyncStatus,
-        isLoadingMessages,
         networkStatus,
         isConnected,
         lastConnectionTime,

@@ -9,6 +9,9 @@ part 'conversation.g.dart';
 /// 会话类型枚举
 enum ConversationType { private, group, channel }
 
+/// 成员角色枚举，匹配proto中的MemberRole
+enum MemberRole { member, admin, owner }
+
 @collection
 class Conversation {
   // Isar ID
@@ -47,6 +50,9 @@ class Conversation {
 
   // 私聊会话对应的联系人ID(仅私聊有效)
   String? contactUserId;
+
+  // 会话创建者ID
+  String? createdBy;
 
   // 会话参与者
   final participants = IsarLinks<User>();
@@ -91,9 +97,9 @@ class Conversation {
   ///
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
-  factory Conversation.fromProto(proto.ConversationProto proto) {
+  factory Conversation.fromProto(proto.ConversationProto protoConv) {
     // 确定会话类型
-    final protoType = proto.type;
+    final protoType = protoConv.type;
     ConversationType convType;
 
     switch (protoType.value) {
@@ -111,43 +117,35 @@ class Conversation {
     }
 
     final conversation = Conversation()
-      ..conversationId = proto.conversationId
+      ..conversationId = protoConv.conversationId
       ..type = convType
-      ..name = proto.hasName() ? proto.name : null
-      ..avatar = proto.hasAvatar() ? proto.avatar : null
-      ..lastMessagePreview =
-          proto.hasLastMessagePreview() ? proto.lastMessagePreview : null
-      ..lastMessageTime = proto.hasLastMessageTime()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.lastMessageTime.toInt())
+      ..name = protoConv.hasName() ? protoConv.name : null
+      ..avatar = protoConv.hasAvatar() ? protoConv.avatar : null
+      ..lastMessagePreview = protoConv.hasLastMessagePreview()
+          ? protoConv.lastMessagePreview
           : null
-      ..createdAt = proto.hasCreatedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
+      ..lastMessageTime = protoConv.hasLastMessageTime()
+          ? DateTime.fromMillisecondsSinceEpoch(
+              protoConv.lastMessageTime.toInt())
+          : null
+      ..createdAt = protoConv.hasCreatedAt()
+          ? DateTime.fromMillisecondsSinceEpoch(protoConv.createdAt.toInt())
           : DateTime.now()
-      ..unreadCount = proto.hasUnreadCount() ? proto.unreadCount : 0
-      ..contactUserId = proto.hasContactUserId() ? proto.contactUserId : null
+      ..unreadCount = protoConv.hasUnreadCount() ? protoConv.unreadCount : 0
+      ..contactUserId =
+          protoConv.hasContactUserId() ? protoConv.contactUserId : null
       ..lastMessageId =
-          proto.hasLastReadMessageId() ? proto.lastReadMessageId : null
-      ..isMuted = proto.hasMuted() ? proto.muted : false
+          protoConv.hasLastReadMessageId() ? protoConv.lastReadMessageId : null
+      ..isMuted = protoConv.hasMuted() ? protoConv.muted : false
       ..lastMessageName =
-          proto.hasLastMessageName() ? proto.lastMessageName : null
-      ..isPinned = proto.hasPinned() ? proto.pinned : false
-      ..lastReadAt = proto.hasLastReadAt()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.lastReadAt.toInt())
+          protoConv.hasLastMessageName() ? protoConv.lastMessageName : null
+      ..isPinned = protoConv.hasPinned() ? protoConv.pinned : false
+      ..lastReadAt = protoConv.hasLastReadAt()
+          ? DateTime.fromMillisecondsSinceEpoch(protoConv.lastReadAt.toInt())
           : null
       ..lastReadMessageId =
-          proto.hasLastReadMessageId() ? proto.lastReadMessageId : null;
-
-    // 注意：这里不直接设置 participants，因为它是 IsarLinks 类型
-    // 需要在仓库层处理，通过查询用户并建立关联
-    // 例如：
-    // for (final participantProto in proto.participants) {
-    //   // 查询用户并添加到 participants
-    //   final user = await userRepository.getUserById(participantProto.userId);
-    //   if (user != null) {
-    //     conversation.participants.add(user);
-    //   }
-    // }
-    // await conversation.participants.save();
+          protoConv.hasLastReadMessageId() ? protoConv.lastReadMessageId : null
+      ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null;
 
     return conversation;
   }
@@ -163,13 +161,13 @@ class Conversation {
 
     switch (type) {
       case ConversationType.private:
-        protoType = proto.ConversationType.private;
+        protoType = proto.ConversationType.PRIVATE;
         break;
       case ConversationType.group:
-        protoType = proto.ConversationType.group;
+        protoType = proto.ConversationType.GROUP;
         break;
       case ConversationType.channel:
-        protoType = proto.ConversationType.channel;
+        protoType = proto.ConversationType.CHANNEL;
         break;
     }
 
@@ -204,6 +202,7 @@ class Conversation {
       lastReadAt:
           lastReadAt != null ? Int64(lastReadAt!.millisecondsSinceEpoch) : null,
       lastReadMessageId: lastReadMessageId,
+      createdBy: createdBy,
     );
   }
 
@@ -224,6 +223,7 @@ class Conversation {
     String? lastReadMessageId,
     int? unreadCount,
     String? contactUserId,
+    String? createdBy,
   }) {
     final conversation = Conversation()
       ..id = id
@@ -241,7 +241,8 @@ class Conversation {
       ..lastReadAt = lastReadAt ?? this.lastReadAt
       ..lastReadMessageId = lastReadMessageId ?? this.lastReadMessageId
       ..unreadCount = unreadCount ?? this.unreadCount
-      ..contactUserId = contactUserId ?? this.contactUserId;
+      ..contactUserId = contactUserId ?? this.contactUserId
+      ..createdBy = createdBy ?? this.createdBy;
 
     // 复制关联关系
     conversation.participants.addAll(participants);

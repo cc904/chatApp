@@ -260,6 +260,38 @@ class _ContactsPageState extends State<ContactsPage>
     super.build(context);
     _logger.d('ContactsPage build');
     return BlocConsumer<ContactCubit, ContactState>(
+      buildWhen: (previous, current) {
+        // 只在以下情况才重建页面
+
+        // 1. 联系人列表数量变化
+        final contactsCountChanged =
+            previous.contacts.length != current.contacts.length;
+
+        // 2. 加载状态变化
+        final loadingStateChanged = previous.isLoading != current.isLoading;
+
+        // 3. 同步状态变化
+        final syncStatusChanged = previous.syncStatus != current.syncStatus;
+
+        // 4. 错误信息变化
+        final errorChanged = previous.errorMessage != current.errorMessage;
+
+        final shouldRebuild = contactsCountChanged ||
+            loadingStateChanged ||
+            syncStatusChanged ||
+            errorChanged;
+
+        if (shouldRebuild) {
+          _logger.d('ContactsPage 需要重建', extra: {
+            'contactsCountChanged': contactsCountChanged,
+            'loadingStateChanged': loadingStateChanged,
+            'syncStatusChanged': syncStatusChanged,
+            'errorChanged': errorChanged,
+          });
+        }
+
+        return shouldRebuild;
+      },
       listener: (context, state) {
         // 当联系人数据加载完成时，更新分组联系人
         if (!state.isLoading && state.contacts.isNotEmpty) {

@@ -6,7 +6,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
+import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 聊天模块的业务逻辑Cubit
@@ -23,11 +23,22 @@ class ChatsCubit extends Cubit<ChatsState> {
     this.contactsRepository,
   })  : _chatsRepository = chatsRepository,
         super(ChatsState.initial()) {
-    _setupSubscriptions();
+    _init();
+  }
+
+  /// 初始化
+  Future<void> _init() async {
+    _logger.i('初始化聊天模块');
+
+    // 注册事件处理器
+    await _chatsRepository.registerEventHandlers();
+
+    // 设置stream事件订阅
+    await _setupSubscriptions();
   }
 
   /// 设置stream事件订阅
-  void _setupSubscriptions() {
+  Future<void> _setupSubscriptions() async {
     _logger.i('设置聊天事件订阅');
 
     // 监听会话更新
@@ -44,6 +55,67 @@ class ChatsCubit extends Cubit<ChatsState> {
         _handleNewMessageFromEvent(event);
       }
     });
+
+    // 监听会话同步
+    _subscriptions['conversationSync'] =
+        _chatsRepository.conversationSyncStream.listen((event) {
+      _handleConversationSync(event);
+    });
+  }
+
+  /// 统一的会话排序方法
+  /// 按最后消息时间倒序排列，没有消息的会话按创建时间排序
+  /// [conversations] - 要排序的会话列表
+  void _sortConversations(List<Conversation> conversations) {
+    _logger.d('开始对会话进行排序', extra: {'会话数量': conversations.length});
+
+    conversations.sort((a, b) {
+      // 如果两个会话都没有最后消息时间，按创建时间倒序排序
+      if (a.lastMessageTime == null && b.lastMessageTime == null) {
+        return b.createdAt.compareTo(a.createdAt);
+      }
+      // 如果 a 没有最后消息时间，排在后面
+      if (a.lastMessageTime == null) {
+        return 1;
+      }
+      // 如果 b 没有最后消息时间，排在后面
+      if (b.lastMessageTime == null) {
+        return -1;
+      }
+      // 都有最后消息时间，按时间倒序排序（最新的在前）
+      return b.lastMessageTime!.compareTo(a.lastMessageTime!);
+    });
+
+    _logger.d('会话排序完成');
+  }
+
+  /// 统一的会话列表更新方法
+  /// 更新会话列表并应用当前的过滤器
+  /// [conversations] - 新的会话列表
+  /// [additionalUpdates] - 额外的状态更新
+  void _updateConversationsWithFilter(
+    List<Conversation> conversations, {
+    ChatsState Function(ChatsState)? additionalUpdates,
+  }) {
+    // 对会话进行排序
+    _sortConversations(conversations);
+
+    // 应用当前的过滤器
+    final filteredConversations = _filterConversations(
+        conversations, state.searchQuery, state.selectedTabIndex);
+
+    // 创建基础状态更新
+    ChatsState newState = state.copyWith(
+      conversations: conversations,
+      filteredConversations: filteredConversations,
+    );
+
+    // 应用额外的状态更新
+    if (additionalUpdates != null) {
+      newState = additionalUpdates(newState);
+    }
+
+    emit(newState);
   }
 
   /// 加载会话列表
@@ -53,15 +125,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     try {
       // 从本地数据库加载会话
       final conversations = await _chatsRepository.getAllConversations();
-
-      // 应用当前的搜索和标签过滤器
-      final List<Conversation> filtered = _filterConversations(
-          conversations, state.searchQuery, state.selectedTabIndex);
-
-      emit(state.copyWith(
-        conversations: conversations,
-        filteredConversations: filtered,
-      ));
+      _updateConversationsWithFilter(conversations);
     } catch (error) {
       _logger.e('加载会话列表失败', error: error);
       emit(state.copyWith(errorMessage: '加载会话列表失败: ${error.toString()}'));
@@ -70,23 +134,47 @@ class ChatsCubit extends Cubit<ChatsState> {
 
   /// 同步会话列表
   /// 从服务器同步最新的会话数据
-  Future<void> syncConversations() async {
+  Future<void> requestSyncConversations() async {
     _logger.i('同步会话列表');
     try {
       emit(state.copyWith(
           conversationSyncStatus: ConversationSyncStatus.syncing));
 
       // 调用仓库层的同步方法
-      await _chatsRepository.syncConversations();
-
-      // 注意：不在这里直接更新会话列表
-      // 会话数据将通过事件通知并由_handleConversationUpdate方法处理
+      await _chatsRepository.requestSyncConversations();
     } catch (error) {
       _logger.e('同步会话失败', error: error);
       emit(state.copyWith(
         conversationSyncStatus: ConversationSyncStatus.error,
         errorMessage: '同步会话失败: ${error.toString()}',
       ));
+    }
+  }
+
+  /// 处理会话同步事件
+  void _handleConversationSync(ConversationSyncEvent event) {
+    _logger.i('处理会话同步事件', extra: {
+      'type': event.type.toString(),
+    });
+
+    switch (event.type) {
+      case ConversationSyncType.syncStarted:
+        emit(state.copyWith(
+            conversationSyncStatus: ConversationSyncStatus.syncing,
+            errorMessage: null));
+        break;
+      case ConversationSyncType.syncCompleted:
+        final conversations = event.conversations ?? [];
+        _updateConversationsWithFilter(conversations,
+            additionalUpdates: (state) => state.copyWith(
+                conversationSyncStatus: ConversationSyncStatus.completed,
+                errorMessage: null));
+        break;
+      case ConversationSyncType.syncError:
+        emit(state.copyWith(
+            conversationSyncStatus: ConversationSyncStatus.error,
+            errorMessage: '同步会话失败'));
+        break;
     }
   }
 
@@ -132,13 +220,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     // 添加新会话
     currentConversations.add(event.conversation!);
 
-    // 按最后消息时间排序
-    currentConversations.sort((a, b) => (b.lastMessageTime ?? DateTime(1970))
-        .compareTo(a.lastMessageTime ?? DateTime(1970)));
-
-    emit(state.copyWith(
-      conversations: currentConversations,
-    ));
+    _updateConversationsWithFilter(currentConversations);
   }
 
   /// 处理会话更新事件
@@ -176,13 +258,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     // 替换会话
     currentConversations[conversationIndex] = updatedConversation;
 
-    // 按最后消息时间排序
-    currentConversations.sort((a, b) => (b.lastMessageTime ?? DateTime(1970))
-        .compareTo(a.lastMessageTime ?? DateTime(1970)));
-
-    emit(state.copyWith(
-      conversations: currentConversations,
-    ));
+    _updateConversationsWithFilter(currentConversations);
   }
 
   /// 处理会话删除事件
@@ -194,9 +270,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     currentConversations
         .removeWhere((c) => c.conversationId == event.conversationId);
 
-    emit(state.copyWith(
-      conversations: currentConversations,
-    ));
+    _updateConversationsWithFilter(currentConversations);
   }
 
   /// 处理从事件中获取的新消息
@@ -234,7 +308,7 @@ class ChatsCubit extends Cubit<ChatsState> {
         final updatedConversation = conversation.copyWith(muted: isMuted);
         currentConversations[conversationIndex] = updatedConversation;
 
-        emit(state.copyWith(conversations: currentConversations));
+        _updateConversationsWithFilter(currentConversations);
       }
     } catch (error) {
       _logger.e('更新会话静音状态失败', error: error);
@@ -307,14 +381,13 @@ class ChatsCubit extends Cubit<ChatsState> {
   void searchConversations(String query) {
     _logger.i('搜索会话', extra: {'query': query});
 
-    // 更新搜索关键词
-    final currentState = state;
-    final List<Conversation> filtered = _filterConversations(
-        currentState.conversations, query, currentState.selectedTabIndex);
+    // 应用搜索过滤器
+    final filteredConversations = _filterConversations(
+        state.conversations, query, state.selectedTabIndex);
 
-    emit(currentState.copyWith(
+    emit(state.copyWith(
       searchQuery: query,
-      filteredConversations: filtered,
+      filteredConversations: filteredConversations,
     ));
   }
 
@@ -329,11 +402,14 @@ class ChatsCubit extends Cubit<ChatsState> {
   /// 清除搜索关键词并重置搜索状态
   void endSearch() {
     _logger.i('结束搜索模式');
+
+    final filteredConversations =
+        _filterConversations(state.conversations, '', state.selectedTabIndex);
+
     emit(state.copyWith(
         isSearching: false,
         searchQuery: '',
-        filteredConversations: _filterConversations(
-            state.conversations, '', state.selectedTabIndex)));
+        filteredConversations: filteredConversations));
   }
 
   /// 设置选中的标签索引
@@ -344,26 +420,19 @@ class ChatsCubit extends Cubit<ChatsState> {
     _logger.i('设置选中的标签索引', extra: {'index': index});
 
     try {
-      // 获取当前状态
-      final currentState = state;
-
       // 如果标签没有变化，则不做任何操作
-      if (currentState.selectedTabIndex == index) {
+      if (state.selectedTabIndex == index) {
         return;
       }
 
-      // 更新标签索引
-      emit(currentState.copyWith(selectedTabIndex: index));
-
-      // 根据标签类型过滤会话
+      // 应用新的标签过滤器和当前的搜索过滤器
       final filteredConversations =
-          await _chatsRepository.filterConversationsByTab(index);
+          _filterConversations(state.conversations, state.searchQuery, index);
 
-      // 应用当前的搜索过滤器
-      final List<Conversation> filtered = _filterConversations(
-          filteredConversations, currentState.searchQuery, index);
-
-      emit(state.copyWith(filteredConversations: filtered));
+      emit(state.copyWith(
+        selectedTabIndex: index,
+        filteredConversations: filteredConversations,
+      ));
     } catch (error) {
       _logger.e('设置选中的标签索引失败', error: error);
       emit(state.copyWith(errorMessage: '设置选中的标签索引失败: ${error.toString()}'));
@@ -378,16 +447,49 @@ class ChatsCubit extends Cubit<ChatsState> {
   /// [tabIndex] - 标签索引
   List<Conversation> _filterConversations(
       List<Conversation> conversations, String query, int tabIndex) {
-    // 如果搜索关键词为空，则直接返回当前标签下的会话
+    // 首先按标签过滤会话
+    List<Conversation> tabFilteredConversations;
+    switch (tabIndex) {
+      case 0: // 全部会话
+        tabFilteredConversations = conversations;
+        break;
+      case 1: // 私聊
+        tabFilteredConversations = conversations
+            .where((c) => c.type == ConversationType.private)
+            .toList();
+        break;
+      case 2: // 群组
+        tabFilteredConversations = conversations
+            .where((c) => c.type == ConversationType.group)
+            .toList();
+        break;
+      case 3: // 频道
+        tabFilteredConversations = conversations
+            .where((c) => c.type == ConversationType.channel)
+            .toList();
+        break;
+      case 4: // 未读
+        tabFilteredConversations =
+            conversations.where((c) => c.unreadCount > 0).toList();
+        break;
+      default:
+        tabFilteredConversations = conversations;
+        break;
+    }
+
+    // 如果搜索关键词为空，则直接返回按标签过滤后的会话
     if (query.isEmpty) {
-      return conversations;
+      // 对过滤后的会话进行排序
+      _sortConversations(tabFilteredConversations);
+      return tabFilteredConversations;
     }
 
     // 将搜索关键词转换为小写以进行大小写不敏感的搜索
     final String lowerCaseQuery = query.toLowerCase();
 
-    // 过滤会话
-    return conversations.where((conversation) {
+    // 在标签过滤的基础上，按搜索关键词过滤
+    final searchFilteredConversations =
+        tabFilteredConversations.where((conversation) {
       // 搜索会话名称
       final bool matchesName =
           conversation.name?.toLowerCase().contains(lowerCaseQuery) ?? false;
@@ -401,6 +503,10 @@ class ChatsCubit extends Cubit<ChatsState> {
       // 返回匹配结果
       return matchesName || matchesLastMessage;
     }).toList();
+
+    // 对搜索过滤后的会话进行排序
+    _sortConversations(searchFilteredConversations);
+    return searchFilteredConversations;
   }
 
   /// 清理资源

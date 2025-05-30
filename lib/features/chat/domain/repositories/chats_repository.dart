@@ -1,7 +1,6 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
-import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 
 /// 聊天会话列表仓库接口
 /// 定义了会话列表管理所需的各种操作方法
@@ -39,20 +38,20 @@ abstract class ChatsRepository {
   /// 监听会话更新事件
   Stream<ConversationUpdateEvent> get conversationUpdateStream;
 
+  /// 监听会话同步事件
+  Stream<ConversationSyncEvent> get conversationSyncStream;
+
   /// 监听联系人列表变化
   Stream<void> watchContacts();
 
   /// 创建或获取与用户的对话
   Future<String?> createOrGetConversation(String userId);
 
-  /// 获取消息同步状态流
-  Stream<ConversationSyncStatus> getSyncConversationStatusStream();
-
   /// 同步会话列表
   /// 从服务器同步最新的会话数据
   /// 该方法只发送同步请求，不返回会话列表
   /// 会话数据将通过事件通知并由状态管理系统更新UI
-  Future<void> syncConversations();
+  Future<void> requestSyncConversations();
 
   /// 更新会话的静音状态
   Future<void> updateConversationMuteStatus(

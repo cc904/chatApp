@@ -42,64 +42,69 @@ const ConversationSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'hasUnread': PropertySchema(
+    r'createdBy': PropertySchema(
       id: 5,
+      name: r'createdBy',
+      type: IsarType.string,
+    ),
+    r'hasUnread': PropertySchema(
+      id: 6,
       name: r'hasUnread',
       type: IsarType.bool,
     ),
     r'isMuted': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'isMuted',
       type: IsarType.bool,
     ),
     r'isPinned': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'isPinned',
       type: IsarType.bool,
     ),
     r'lastMessageId': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'lastMessageId',
       type: IsarType.string,
     ),
     r'lastMessageName': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'lastMessageName',
       type: IsarType.string,
     ),
     r'lastMessagePreview': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'lastMessagePreview',
       type: IsarType.string,
     ),
     r'lastMessageTime': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'lastMessageTime',
       type: IsarType.dateTime,
     ),
     r'lastReadAt': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'lastReadAt',
       type: IsarType.dateTime,
     ),
     r'lastReadMessageId': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'lastReadMessageId',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'name',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'type',
       type: IsarType.string,
       enumMap: _ConversationtypeEnumValueMap,
     ),
     r'unreadCount': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'unreadCount',
       type: IsarType.long,
     )
@@ -153,6 +158,12 @@ int _conversationEstimateSize(
   }
   bytesCount += 3 + object.conversationId.length * 3;
   {
+    final value = object.createdBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.lastMessageId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -197,18 +208,19 @@ void _conversationSerialize(
   writer.writeString(offsets[2], object.contactUserId);
   writer.writeString(offsets[3], object.conversationId);
   writer.writeDateTime(offsets[4], object.createdAt);
-  writer.writeBool(offsets[5], object.hasUnread);
-  writer.writeBool(offsets[6], object.isMuted);
-  writer.writeBool(offsets[7], object.isPinned);
-  writer.writeString(offsets[8], object.lastMessageId);
-  writer.writeString(offsets[9], object.lastMessageName);
-  writer.writeString(offsets[10], object.lastMessagePreview);
-  writer.writeDateTime(offsets[11], object.lastMessageTime);
-  writer.writeDateTime(offsets[12], object.lastReadAt);
-  writer.writeString(offsets[13], object.lastReadMessageId);
-  writer.writeString(offsets[14], object.name);
-  writer.writeString(offsets[15], object.type.name);
-  writer.writeLong(offsets[16], object.unreadCount);
+  writer.writeString(offsets[5], object.createdBy);
+  writer.writeBool(offsets[6], object.hasUnread);
+  writer.writeBool(offsets[7], object.isMuted);
+  writer.writeBool(offsets[8], object.isPinned);
+  writer.writeString(offsets[9], object.lastMessageId);
+  writer.writeString(offsets[10], object.lastMessageName);
+  writer.writeString(offsets[11], object.lastMessagePreview);
+  writer.writeDateTime(offsets[12], object.lastMessageTime);
+  writer.writeDateTime(offsets[13], object.lastReadAt);
+  writer.writeString(offsets[14], object.lastReadMessageId);
+  writer.writeString(offsets[15], object.name);
+  writer.writeString(offsets[16], object.type.name);
+  writer.writeLong(offsets[17], object.unreadCount);
 }
 
 Conversation _conversationDeserialize(
@@ -222,20 +234,21 @@ Conversation _conversationDeserialize(
   object.contactUserId = reader.readStringOrNull(offsets[2]);
   object.conversationId = reader.readString(offsets[3]);
   object.createdAt = reader.readDateTime(offsets[4]);
+  object.createdBy = reader.readStringOrNull(offsets[5]);
   object.id = id;
-  object.isMuted = reader.readBool(offsets[6]);
-  object.isPinned = reader.readBool(offsets[7]);
-  object.lastMessageId = reader.readStringOrNull(offsets[8]);
-  object.lastMessageName = reader.readStringOrNull(offsets[9]);
-  object.lastMessagePreview = reader.readStringOrNull(offsets[10]);
-  object.lastMessageTime = reader.readDateTimeOrNull(offsets[11]);
-  object.lastReadAt = reader.readDateTimeOrNull(offsets[12]);
-  object.lastReadMessageId = reader.readStringOrNull(offsets[13]);
-  object.name = reader.readStringOrNull(offsets[14]);
+  object.isMuted = reader.readBool(offsets[7]);
+  object.isPinned = reader.readBool(offsets[8]);
+  object.lastMessageId = reader.readStringOrNull(offsets[9]);
+  object.lastMessageName = reader.readStringOrNull(offsets[10]);
+  object.lastMessagePreview = reader.readStringOrNull(offsets[11]);
+  object.lastMessageTime = reader.readDateTimeOrNull(offsets[12]);
+  object.lastReadAt = reader.readDateTimeOrNull(offsets[13]);
+  object.lastReadMessageId = reader.readStringOrNull(offsets[14]);
+  object.name = reader.readStringOrNull(offsets[15]);
   object.type =
-      _ConversationtypeValueEnumMap[reader.readStringOrNull(offsets[15])] ??
+      _ConversationtypeValueEnumMap[reader.readStringOrNull(offsets[16])] ??
           ConversationType.private;
-  object.unreadCount = reader.readLong(offsets[16]);
+  object.unreadCount = reader.readLong(offsets[17]);
   return object;
 }
 
@@ -257,29 +270,31 @@ P _conversationDeserializeProp<P>(
     case 4:
       return (reader.readDateTime(offset)) as P;
     case 5:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 6:
       return (reader.readBool(offset)) as P;
     case 7:
       return (reader.readBool(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 9:
       return (reader.readStringOrNull(offset)) as P;
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
       return (reader.readStringOrNull(offset)) as P;
     case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
       return (_ConversationtypeValueEnumMap[reader.readStringOrNull(offset)] ??
           ConversationType.private) as P;
-    case 16:
+    case 17:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1025,6 +1040,160 @@ extension ConversationQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'createdBy',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'createdBy',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'createdBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'createdBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'createdBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'createdBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterFilterCondition>
+      createdByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'createdBy',
+        value: '',
       ));
     });
   }
@@ -2412,6 +2581,18 @@ extension ConversationQuerySortBy
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByCreatedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByCreatedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdBy', Sort.desc);
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QAfterSortBy> sortByHasUnread() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'hasUnread', Sort.asc);
@@ -2634,6 +2815,18 @@ extension ConversationQuerySortThenBy
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByCreatedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByCreatedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdBy', Sort.desc);
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QAfterSortBy> thenByHasUnread() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'hasUnread', Sort.asc);
@@ -2840,6 +3033,13 @@ extension ConversationQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Conversation, Conversation, QDistinct> distinctByCreatedBy(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'createdBy', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Conversation, Conversation, QDistinct> distinctByHasUnread() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'hasUnread');
@@ -2961,6 +3161,12 @@ extension ConversationQueryProperty
   QueryBuilder<Conversation, DateTime, QQueryOperations> createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
+    });
+  }
+
+  QueryBuilder<Conversation, String?, QQueryOperations> createdByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'createdBy');
     });
   }
 
