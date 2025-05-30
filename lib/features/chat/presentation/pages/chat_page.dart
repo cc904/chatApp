@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/features/home/presentation/cubit/home_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +19,7 @@ import 'package:cc/core/services/ui_notification_service.dart';
 
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String conversationId;
@@ -39,9 +41,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   final MediaService _mediaService = MediaService();
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-
-  // 添加ChatsCubit引用
-  late ChatsCubit _chatsCubit;
 
   // 控制器声明
   late ScrollController _scrollController;
@@ -71,47 +70,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-
-    // 初始化数据
-    _init();
-  }
-
-  Future<void> _init() async {
-    _logger.i('初始化会话');
-    try {
-      _chatsCubit = context.read<ChatsCubit>();
-
-      // 1. 进入会话（加入房间和注册事件处理器）
-      // await chatsCubit.enterConversation(widget.conversationId);
-
-      // 2. 获取当前会话和消息
-      // final conversation = chatsCubit.state.currentConversation;
-      // final messages = chatsCubit.state.currentMessages;
-
-      // 3. 定位到上次阅读位置
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      //   if (conversation?.lastReadMessageId != null && messages.isNotEmpty) {
-      //     // 如果有上次阅读位置，则滚动到该位置
-      //     _scrollToMessage(conversation!.lastReadMessageId!);
-      //     _logger.i('滚动到上次阅读位置: ${conversation.lastReadMessageId}');
-      //   } else if (messages.isNotEmpty) {
-      //     // 如果没有上次阅读位置但有消息，则滚动到底部
-      //     _scrollToBottom();
-      //     _logger.i('没有上次阅读位置，滚动到底部');
-      //   }
-      // });
-    } catch (error) {
-      _logger.e('初始化会话失败: $error');
-      UINotificationService().showError('初始化会话失败: $error');
-    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // 保存ChatsCubit引用，避免在dispose中查找
-    _chatsCubit = context.read<ChatsCubit>();
 
     // 确保数据仅被初始化一次
     if (!_dataInitialized) {
@@ -139,15 +102,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     // 清理防抖定时器
     _debounceTimer?.cancel();
 
-    // 离开会话 - 使用已保存的ChatsCubit引用
-    final conversationId = widget.conversationId;
-    Future.microtask(() {
-      try {
-        _chatsCubit.leaveConversation(conversationId);
-      } catch (e) {
-        // 忽略可能的错误
-      }
-    });
+    // 离开会话由ChatCubit在其close方法中处理
 
     // 在微任务中安排媒体服务清理
     Future.microtask(() {
@@ -204,9 +159,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       // 获取当前所有消息
-      final chatsCubit = context.read<ChatsCubit>();
-      final messages =
-          chatsCubit.state.messagesByConversation[widget.conversationId] ?? [];
+      final chatCubit = context.read<ChatCubit>();
+      final messages = chatCubit.state.messages;
       if (messages.isEmpty) return;
 
       // 计算当前可见的消息索引
@@ -230,9 +184,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   // 加载更多历史消息
   Future<void> _loadMoreMessages() async {
     // 获取当前会话的消息
-    final chatsCubit = context.read<ChatsCubit>();
-    final messages =
-        chatsCubit.state.messagesByConversation[widget.conversationId] ?? [];
+    final chatCubit = context.read<ChatCubit>();
+    final messages = chatCubit.state.messages;
 
     // 如果没有消息，尝试从服务器获取历史消息
     if (messages.isEmpty) {
@@ -242,7 +195,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
       try {
         // 从服务器获取历史消息
-        await chatsCubit.loadHistoryMessagesFromServer(widget.conversationId);
+        await chatCubit.loadHistoryMessagesFromServer();
         _logger.i('从服务器加载历史消息成功');
       } catch (error) {
         _logger.e('从服务器加载历史消息失败: $error');
@@ -265,9 +218,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       final oldestMessage =
           messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
 
-      // 通过ChatsCubit加载更多历史消息
-      await chatsCubit.loadMoreMessagesForConversation(
-          widget.conversationId, oldestMessage.createdAt);
+      // 通过ChatCubit加载更多历史消息
+      await chatCubit.loadMoreMessages(oldestMessage.createdAt);
       _logger.i('加载更多历史消息成功');
     } catch (error) {
       _logger.e('加载更多消息失败: $error');
@@ -293,13 +245,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     // 否则发送文本消息
     if (message.isEmpty) return;
 
-    // 创建消息对象
-    final newMessage = Message()
-      ..conversationId = widget.conversationId
-      ..text = message;
-
-    // 发送消息
-    context.read<ChatsCubit>().sendMessage(newMessage);
+    // 调用ChatCubit发送文本消息
+    context.read<ChatCubit>().sendTextMessage(message);
 
     _messageController.clear();
 
@@ -317,8 +264,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     if (_selectedAttachment == null || _attachmentType == null) return;
 
     try {
-      // TODO: 实现通过HomeCubit发送附件的逻辑
-      // 暂时不支持发送附件，需要扩展HomeCubit以支持此功能
+      // TODO: 实现通过ChatCubit发送附件的逻辑
+      // 暂时不支持发送附件，需要扩展ChatCubit以支持此功能
       UINotificationService().showWarning('暂不支持发送附件');
 
       // 清除附件
@@ -353,250 +300,260 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ChatsCubit, ChatsState>(
-      buildWhen: (previous, current) =>
-          previous.messagesByConversation != current.messagesByConversation ||
-          previous.currentConversationId != current.currentConversationId ||
-          previous.isLoadingMessages != current.isLoadingMessages,
-      builder: (context, state) {
-        // 获取当前会话的消息
-        final messages =
-            state.messagesByConversation[widget.conversationId] ?? [];
+    // 获取仓库实例
+    final chatRepository = context.read<ChatRepository>();
 
-        // 获取当前用户ID
-        final currentUserId = state.currentUser?.userId ?? '';
+    return BlocProvider(
+      create: (context) => ChatCubit(
+        chatRepository: chatRepository,
+        conversationId: widget.conversationId,
+      ),
+      child: BlocBuilder<ChatCubit, ChatState>(
+        buildWhen: (previous, current) =>
+            previous.messages != current.messages ||
+            previous.isLoadingMessages != current.isLoadingMessages ||
+            previous.networkStatus != current.networkStatus,
+        builder: (context, state) {
+          // 获取当前会话的消息
+          final messages = state.messages;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: GestureDetector(
-              onTap: () => _openChatInfoPage(context),
-              child: BlocBuilder<ChatsCubit, ChatsState>(
-                buildWhen: (previous, current) =>
-                    previous.networkStatus != current.networkStatus ||
-                    previous.isLoadingMessages != current.isLoadingMessages,
-                builder: (context, state) {
-                  // 将字符串类型的networkStatus转换为枚举类型
-                  NetworkStatus status;
-                  switch (state.networkStatus) {
-                    case 'connecting':
-                      status = NetworkStatus.connecting;
-                      break;
-                    case 'disconnected':
-                      status = NetworkStatus.disconnected;
-                      break;
-                    case 'error':
-                      status = NetworkStatus.error;
-                      break;
-                    case 'connected':
-                    default:
-                      status = NetworkStatus.connected;
-                      break;
-                  }
-                  
-                  return AppBarTitleWithNetworkStatus(
-                    title: widget.contact.name,
-                    networkStatus: status,
-                    isLoading: state.isLoadingMessages,
-                    onRetry: () => context.read<ChatsCubit>().reconnect(),
-                  );
-                },
-              ),
-            ),
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            automaticallyImplyLeading: false,
-            leading: GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.only(left: 8.0),
-                alignment: Alignment.centerLeft,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.arrow_back_ios,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    SizedBox(width: 2),
-                    Text(
-                      'Back',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.white,
-                        fontWeight: FontWeight.normal,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            leadingWidth: 70,
-            actions: [
-              GestureDetector(
+          // 获取当前用户ID (从ChatsCubit获取当前用户信息)
+          final currentUserId =
+              context.read<ChatsCubit>().state.currentUser?.userId ?? '';
+
+          return Scaffold(
+            appBar: AppBar(
+              title: GestureDetector(
                 onTap: () => _openChatInfoPage(context),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8.0),
-                  child: Hero(
-                    tag: 'avatar_${widget.conversationId}',
-                    child: UserAvatar(
-                      avatarUrl: widget.contact.avatar,
-                      name: widget.contact.name,
-                      radius: 22,
-                      backgroundColor: Colors.cyan,
-                    ),
-                  ),
+                child: BlocBuilder<ChatCubit, ChatState>(
+                  buildWhen: (previous, current) =>
+                      previous.networkStatus != current.networkStatus ||
+                      previous.isLoadingMessages != current.isLoadingMessages,
+                  builder: (context, state) {
+                    // 将字符串类型的networkStatus转换为枚举类型
+                    NetworkStatus status;
+                    switch (state.networkStatus) {
+                      case 'connecting':
+                        status = NetworkStatus.connecting;
+                        break;
+                      case 'disconnected':
+                        status = NetworkStatus.disconnected;
+                        break;
+                      case 'error':
+                        status = NetworkStatus.error;
+                        break;
+                      case 'connected':
+                      default:
+                        status = NetworkStatus.connected;
+                        break;
+                    }
+
+                    return AppBarTitleWithNetworkStatus(
+                      title: widget.contact.name,
+                      networkStatus: status,
+                      isLoading: state.isLoadingMessages,
+                      onRetry: () => context.read<ChatCubit>().reconnect(),
+                    );
+                  },
                 ),
               ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              // 绿色渐变背景
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.green.shade300,
-                      Colors.green.shade100,
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              automaticallyImplyLeading: false,
+              leading: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  alignment: Alignment.centerLeft,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.arrow_back_ios,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      SizedBox(width: 2),
+                      Text(
+                        'Back',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
               ),
+              leadingWidth: 70,
+              actions: [
+                GestureDetector(
+                  onTap: () => _openChatInfoPage(context),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8.0),
+                    child: Hero(
+                      tag: 'avatar_${widget.conversationId}',
+                      child: UserAvatar(
+                        avatarUrl: widget.contact.avatar,
+                        name: widget.contact.name,
+                        radius: 22,
+                        backgroundColor: Colors.cyan,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            body: Stack(
+              children: [
+                // 绿色渐变背景
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.green.shade300,
+                        Colors.green.shade100,
+                      ],
+                    ),
+                  ),
+                ),
 
-              // SVG图案背景 - 使用提供的SVG文件
-              Positioned.fill(
-                child: _buildSvgBackground(),
-              ),
+                // SVG图案背景 - 使用提供的SVG文件
+                Positioned.fill(
+                  child: _buildSvgBackground(),
+                ),
 
-              // 主要内容
-              Column(
-                children: [
-                  // 加载指示器
-                  if (state.isLoadingMessages) const LinearProgressIndicator(),
+                // 主要内容
+                Column(
+                  children: [
+                    // 加载指示器
+                    if (state.isLoadingMessages)
+                      const LinearProgressIndicator(),
 
-                  // 消息列表
-                  Expanded(
-                    child: messages.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.chat_bubble_outline,
-                                  size: 48,
-                                  color: Colors.white.withAlpha(153),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '没有消息',
-                                  style: TextStyle(
-                                    color: Colors.white.withAlpha(153),
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            reverse: true,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0, vertical: 8.0),
-                            itemCount: messages.length,
-                            itemBuilder: (context, index) {
-                              final message = messages[index];
-                              final isMe = message.senderId == currentUserId;
-
-                              // 检查是否需要显示日期分隔符
-                              final showDate = index == messages.length - 1 ||
-                                  !_isSameDay(message.createdAt,
-                                      messages[index + 1].createdAt);
-
-                              return Column(
+                    // 消息列表
+                    Expanded(
+                      child: messages.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // 日期分隔符
-                                  if (showDate)
-                                    _buildDateSeparator(message.createdAt),
-
-                                  // 消息气泡
-                                  MessageBubble(
-                                    message: message,
-                                    isMe: isMe,
-                                    timeString:
-                                        _formatMessageTime(message.createdAt),
-                                    senderName:
-                                        isMe ? 'You' : widget.contact.name,
+                                  Icon(
+                                    Icons.chat_bubble_outline,
+                                    size: 48,
+                                    color: Colors.white.withAlpha(153),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    '没有消息',
+                                    style: TextStyle(
+                                      color: Colors.white.withAlpha(153),
+                                      fontSize: 16,
+                                    ),
                                   ),
                                 ],
-                              );
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: _scrollController,
+                              reverse: true,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0, vertical: 8.0),
+                              itemCount: messages.length,
+                              itemBuilder: (context, index) {
+                                final message = messages[index];
+                                final isMe = message.senderId == currentUserId;
+
+                                // 检查是否需要显示日期分隔符
+                                final showDate = index == messages.length - 1 ||
+                                    !_isSameDay(message.createdAt,
+                                        messages[index + 1].createdAt);
+
+                                return Column(
+                                  children: [
+                                    // 日期分隔符
+                                    if (showDate)
+                                      _buildDateSeparator(message.createdAt),
+
+                                    // 消息气泡
+                                    MessageBubble(
+                                      message: message,
+                                      isMe: isMe,
+                                      timeString:
+                                          _formatMessageTime(message.createdAt),
+                                      senderName:
+                                          isMe ? 'You' : widget.contact.name,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                    ),
+
+                    // 输入区域
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0, vertical: 4.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(26),
+                            spreadRadius: 1,
+                            blurRadius: 3,
+                            offset: const Offset(0, -1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.attach_file),
+                            color: Colors.grey.shade600,
+                            onPressed: () {
+                              // TODO: 实现附件选择逻辑
                             },
                           ),
-                  ),
-
-                  // 输入区域
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0, vertical: 4.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(26),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, -1),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.attach_file),
-                          color: Colors.grey.shade600,
-                          onPressed: () {
-                            // TODO: 实现附件选择逻辑
-                          },
-                        ),
-                        Expanded(
-                          child: Container(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(24.0),
-                            ),
-                            child: TextField(
-                              controller: _messageController,
-                              focusNode: _focusNode,
-                              decoration: const InputDecoration(
-                                hintText: 'Message',
-                                hintStyle: TextStyle(color: Colors.grey),
-                                border: InputBorder.none,
+                          Expanded(
+                            child: Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(24.0),
                               ),
-                              onSubmitted: (_) => _sendMessage(),
+                              child: TextField(
+                                controller: _messageController,
+                                focusNode: _focusNode,
+                                decoration: const InputDecoration(
+                                  hintText: 'Message',
+                                  hintStyle: TextStyle(color: Colors.grey),
+                                  border: InputBorder.none,
+                                ),
+                                onSubmitted: (_) => _sendMessage(),
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.send),
-                          color: Colors.green,
-                          onPressed: _sendMessage,
-                        ),
-                      ],
+                          IconButton(
+                            icon: const Icon(Icons.send),
+                            color: Colors.green,
+                            onPressed: _sendMessage,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -704,41 +661,18 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     );
   }
 
-  // 滚动到特定消息
   /// 更新最后阅读的消息ID
   void _updateLastReadMessageId(String messageId) {
     _logger.i('更新最后阅读的消息ID: $messageId');
     try {
-      final chatsCubit = context.read<ChatsCubit>();
-      // 调用ChatsCubit的方法更新最后阅读的消息ID
-      chatsCubit.updateLastReadMessageId(widget.conversationId, messageId);
+      final chatCubit = context.read<ChatCubit>();
+      // 调用ChatCubit的方法更新最后阅读的消息ID
+      chatCubit.updateLastReadMessageId(messageId);
     } catch (error) {
       _logger.e('更新最后阅读的消息ID失败', error: error);
     }
   }
 
-  /// 滚动到指定消息
-  void _scrollToMessage(String messageId) {
-    _logger.i('滚动到消息: $messageId');
-
-    // 查找消息在列表中的位置
-    final chatsCubit = context.read<ChatsCubit>();
-    final messages =
-        chatsCubit.state.messagesByConversation[widget.conversationId] ?? [];
-
-    final messageIndex = messages.indexWhere((m) => m.messageId == messageId);
-    if (messageIndex != -1) {
-      // 计算滚动位置
-      final scrollPosition = messageIndex * 80.0; // 假设每条消息高度约为80
-
-      // 滚动到指定位置
-      _scrollController.animateTo(
-        scrollPosition,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-  }
 }
 
 /// 消息气泡组件

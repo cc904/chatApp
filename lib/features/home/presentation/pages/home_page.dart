@@ -1,4 +1,4 @@
-import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
+import 'package:cc/features/chat/data/repositories/chats_repository_impl.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -78,7 +78,7 @@ class _HomePageState extends State<HomePage>
     }
 
     _chatsCubit = ChatsCubit(
-      chatRepository: ChatRepositoryImpl(),
+      chatsRepository: ChatsRepositoryImpl(),
     );
 
     _contactCubit = ContactCubit(
