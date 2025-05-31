@@ -81,7 +81,7 @@ class _HomePageState extends State<HomePage>
     }
 
     // 创建全局共享的ChatRepository
-    _chatRepository = ChatRepositoryImpl();
+    _chatRepository = ChatRepositoryImpl(currentUserProto: currentUser);
 
     _chatsCubit = ChatsCubit(
       chatsRepository: ChatsRepositoryImpl(),

@@ -1,4 +1,5 @@
 import 'package:cc/core/database/models/message.dart';
+import '../entities/message_timeline.dart';
 
 /// 单个聊天会话仓库接口
 /// 定义了单个聊天会话所需的各种操作方法
@@ -88,4 +89,49 @@ abstract class ChatRepository {
 
   /// 用户离开会话页面，离开对应的Socket.io会话房间
   Future<void> leaveConversationRoom(String conversationId);
+
+  // ==================== MessageTimeline 缓存方法 ====================
+
+  /// 获取缓存的MessageTimeline
+  ///
+  /// [conversationId] 会话ID
+  /// 返回缓存的MessageTimeline，如果没有缓存则返回null
+  MessageTimeline? getTimeline(String conversationId);
+
+  /// 存储MessageTimeline到缓存
+  ///
+  /// [conversationId] 会话ID
+  /// [timeline] 要缓存的MessageTimeline
+  void storeTimeline(String conversationId, MessageTimeline timeline);
+
+  /// 移除指定会话的Timeline缓存
+  ///
+  /// [conversationId] 会话ID
+  void removeTimeline(String conversationId);
+
+  /// 清空所有Timeline缓存
+  void clearTimelineCache();
+
+  /// 获取缓存状态信息
+  ///
+  /// 返回包含缓存统计信息的Map，用于调试和监控
+  Map<String, dynamic> getCacheStats();
+
+  /// 预加载指定会话的消息到Timeline
+  ///
+  /// [conversationId] 会话ID
+  /// [messageCount] 预加载的消息数量，默认为100
+  /// 返回是否预加载成功
+  Future<bool> preloadTimeline(String conversationId, {int messageCount = 100});
+
+  /// 获取用户上次查看状态
+  ///
+  /// [conversationId] 会话ID
+  /// 返回用户的ViewState，如果没有记录则返回null
+  Future<ViewState?> getUserLastViewState(String conversationId);
+
+  /// 保存用户查看状态
+  ///
+  /// [viewState] 要保存的查看状态
+  Future<void> saveUserViewState(ViewState viewState);
 }

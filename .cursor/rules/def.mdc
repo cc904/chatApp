@@ -17,3 +17,4 @@ Color withOpacity(double opacity)已经标为过时,请使用Color withAlpha(int
 
 isar数据库模型的路径 lib/core/database/models
 proto文件在 lib/core/proto/source 生成文件在 lib/core/proto/generated
+onproto()不要直接返回,而知创建一个handle,集中在EventHandlers中注册handle

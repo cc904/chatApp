@@ -52,6 +52,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Timer? _recordingTimer;
   Timer? _debounceTimer; // 防抖定时器，用于限制更新最后阅读消息ID的频率
 
+  // Timeline缓存相关状态
+  bool _isRestoringFromCache = false;
+  bool _hasRestoredFromCache = false;
+
   // 添加选择的附件状态
   File? _selectedAttachment;
   String? _attachmentType;
@@ -78,11 +82,73 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     // 确保数据仅被初始化一次
     if (!_dataInitialized) {
       _dataInitialized = true;
-      // 确保消息加载完成后滚动到底部
+
+      // 延迟执行，确保ChatCubit完全初始化
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
+        _initializeFromTimeline();
       });
     }
+  }
+
+  /// 从Timeline缓存初始化页面状态
+  Future<void> _initializeFromTimeline() async {
+    try {
+      final chatCubit = context.read<ChatCubit>();
+      final state = chatCubit.state;
+
+      // 检查是否有Timeline和滚动位置
+      if (state.timeline != null && state.currentScrollPosition != null) {
+        setState(() {
+          _isRestoringFromCache = true;
+        });
+
+        _logger.i('从Timeline缓存恢复页面状态', extra: {
+          'scrollPosition': state.currentScrollPosition,
+          'messageCount': state.timeline!.length,
+        });
+
+        // 等待UI构建完成后恢复滚动位置
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        if (_scrollController.hasClients && mounted) {
+          // 计算滚动位置（Timeline索引转换为像素位置）
+          final pixelPosition =
+              _calculateScrollPosition(state.currentScrollPosition!);
+          _scrollController.jumpTo(pixelPosition);
+
+          setState(() {
+            _hasRestoredFromCache = true;
+            _isRestoringFromCache = false;
+          });
+        }
+      } else {
+        // 没有缓存，滚动到底部
+        _scrollToBottom();
+      }
+    } catch (error) {
+      _logger.e('从Timeline缓存恢复失败', error: error);
+      setState(() {
+        _isRestoringFromCache = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  /// 计算滚动位置（Timeline索引转换为像素位置）
+  double _calculateScrollPosition(int timelineIndex) {
+    // 估算每条消息的高度（包括气泡、间距等）
+    const estimatedMessageHeight = 80.0;
+
+    // 由于ListView.reverse=true，需要进行位置转换
+    final chatCubit = context.read<ChatCubit>();
+    final totalMessages = chatCubit.state.messages.length;
+
+    if (totalMessages == 0) return 0.0;
+
+    // 计算从底部的距离
+    final distanceFromBottom =
+        (totalMessages - timelineIndex - 1) * estimatedMessageHeight;
+    return distanceFromBottom.clamp(0.0, double.maxFinite);
   }
 
   @override
@@ -141,9 +207,55 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         _loadMoreMessages();
       }
 
+      // 更新Timeline的滚动位置
+      _updateTimelineScrollPosition();
+
       // 更新最后阅读的消息ID
       _updateLastReadMessageIdFromScroll();
     }
+  }
+
+  /// 更新Timeline的滚动位置
+  void _updateTimelineScrollPosition() {
+    if (!_scrollController.hasClients || _isRestoringFromCache) return;
+
+    try {
+      final chatCubit = context.read<ChatCubit>();
+
+      // 只有当有Timeline时才更新
+      if (chatCubit.state.timeline != null) {
+        // 计算当前可见的Timeline索引
+        final timelineIndex = _calculateTimelineIndex();
+
+        // 防抖更新，避免频繁调用
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            chatCubit.updateScrollPosition(timelineIndex);
+          }
+        });
+      }
+    } catch (error) {
+      _logger.e('更新Timeline滚动位置失败', error: error);
+    }
+  }
+
+  /// 计算当前可见的Timeline索引
+  int _calculateTimelineIndex() {
+    if (!_scrollController.hasClients) return 0;
+
+    const estimatedMessageHeight = 80.0;
+    final scrollPosition = _scrollController.position.pixels;
+    final totalMessages = context.read<ChatCubit>().state.messages.length;
+
+    if (totalMessages == 0) return 0;
+
+    // 由于ListView.reverse=true，需要进行位置转换
+    final messageIndexFromBottom =
+        (scrollPosition / estimatedMessageHeight).floor();
+    final timelineIndex = totalMessages - messageIndexFromBottom - 1;
+
+    return timelineIndex.clamp(0, totalMessages - 1);
   }
 
   /// 从滚动位置更新最后阅读的消息ID
@@ -182,29 +294,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   // 加载更多历史消息
   Future<void> _loadMoreMessages() async {
-    // 获取当前会话的消息
     final chatCubit = context.read<ChatCubit>();
-    final messages = chatCubit.state.messages;
+    final state = chatCubit.state;
 
-    // 如果没有消息，尝试从服务器获取历史消息
-    if (messages.isEmpty) {
-      setState(() {
-        _isLoadingMore = true;
-      });
-
-      try {
-        // 从服务器获取历史消息
-        await chatCubit.loadHistoryMessagesFromServer();
-        _logger.i('从服务器加载历史消息成功');
-      } catch (error) {
-        _logger.e('从服务器加载历史消息失败: $error');
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoadingMore = false;
-          });
-        }
-      }
+    // 检查是否可以加载更多历史消息
+    if (!state.canLoadMoreHistory) {
+      _logger.i('没有更多历史消息可加载');
       return;
     }
 
@@ -213,15 +308,57 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     });
 
     try {
-      // 获取最早的消息时间作为加载更多的基准
-      final oldestMessage =
-          messages.reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
+      // 如果没有消息，首先尝试从服务器获取历史消息
+      if (state.messages.isEmpty) {
+        _logger.i('消息列表为空，从服务器加载历史消息');
+        await chatCubit.loadHistoryMessagesFromServer();
+      } else {
+        // 有消息时，使用Timeline的智能加载
+        _logger.i('使用Timeline智能加载更多历史消息');
 
-      // 通过ChatCubit加载更多历史消息
-      await chatCubit.loadMoreMessages(oldestMessage.createdAt);
+        // 获取最早的消息时间作为基准
+        final messages = state.messages;
+        final oldestMessage = messages
+            .reduce((a, b) => a.createdAt.isBefore(b.createdAt) ? a : b);
+
+        // 保存当前滚动位置
+        final currentScrollPosition = _scrollController.hasClients
+            ? _scrollController.position.pixels
+            : 0.0;
+
+        // 通过ChatCubit加载更多历史消息
+        await chatCubit.loadMoreMessages(oldestMessage.createdAt);
+
+        // 恢复滚动位置，考虑新增消息的影响
+        if (_scrollController.hasClients && mounted) {
+          // 计算新增消息的数量来调整滚动位置
+          final newMessageCount =
+              chatCubit.state.messages.length - messages.length;
+          if (newMessageCount > 0) {
+            const estimatedMessageHeight = 80.0;
+            final adjustedPosition = currentScrollPosition +
+                (newMessageCount * estimatedMessageHeight);
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients && mounted) {
+                _scrollController.jumpTo(adjustedPosition);
+              }
+            });
+          }
+        }
+      }
+
       _logger.i('加载更多历史消息成功');
     } catch (error) {
       _logger.e('加载更多消息失败: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('加载历史消息失败: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -304,7 +441,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       buildWhen: (previous, current) =>
           previous.messages != current.messages ||
           previous.isLoadingMessages != current.isLoadingMessages ||
-          previous.networkStatus != current.networkStatus,
+          previous.isPreloading != current.isPreloading ||
+          previous.networkStatus != current.networkStatus ||
+          previous.timeline != current.timeline ||
+          previous.currentScrollPosition != current.currentScrollPosition,
       builder: (context, state) {
         // 获取当前会话的消息
         final messages = state.messages;
@@ -320,7 +460,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               child: BlocBuilder<ChatCubit, ChatState>(
                 buildWhen: (previous, current) =>
                     previous.networkStatus != current.networkStatus ||
-                    previous.isLoadingMessages != current.isLoadingMessages,
+                    previous.isLoadingMessages != current.isLoadingMessages ||
+                    previous.isPreloading != current.isPreloading,
                 builder: (context, state) {
                   // 将字符串类型的networkStatus转换为枚举类型
                   NetworkStatus status;
@@ -343,7 +484,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   return AppBarTitleWithNetworkStatus(
                     title: widget.contact.name,
                     networkStatus: status,
-                    isLoading: state.isLoadingMessages,
+                    isLoading: state.isLoadingMessages || state.isPreloading,
                     onRetry: () => context.read<ChatCubit>().reconnect(),
                   );
                 },
@@ -383,6 +524,20 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
             leadingWidth: 70,
             actions: [
+              // Timeline缓存状态指示器
+              if (state.timeline != null)
+                Container(
+                  margin: const EdgeInsets.only(right: 8.0),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.cached,
+                      color: Colors.white.withAlpha(179),
+                      size: 20,
+                    ),
+                    onPressed: () => _showTimelineStats(context, state),
+                  ),
+                ),
+
               GestureDetector(
                 onTap: () => _openChatInfoPage(context),
                 child: Container(
@@ -425,7 +580,41 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               Column(
                 children: [
                   // 加载指示器
-                  if (state.isLoadingMessages) const LinearProgressIndicator(),
+                  if (state.isLoadingMessages || state.isPreloading)
+                    LinearProgressIndicator(
+                      backgroundColor: Colors.green.shade100,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.green.shade400),
+                    ),
+
+                  // Timeline缓存恢复指示器
+                  if (_isRestoringFromCache)
+                    Container(
+                      color: Colors.blue.shade50,
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.blue.shade400),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '正在从缓存恢复聊天记录...',
+                            style: TextStyle(
+                              color: Colors.blue.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   // 消息列表
                   Expanded(
@@ -441,48 +630,111 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  '没有消息',
+                                  state.isPreloading ? '正在加载消息...' : '没有消息',
                                   style: TextStyle(
                                     color: Colors.white.withAlpha(153),
                                     fontSize: 16,
                                   ),
                                 ),
+                                if (state.timeline != null &&
+                                    !state.isPreloading)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Text(
+                                      '使用Timeline缓存',
+                                      style: TextStyle(
+                                        color: Colors.white.withAlpha(128),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            reverse: true,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0, vertical: 8.0),
-                            itemCount: messages.length,
-                            itemBuilder: (context, index) {
-                              final message = messages[index];
-                              final isMe = message.senderId == currentUserId;
+                        : Stack(
+                            children: [
+                              ListView.builder(
+                                controller: _scrollController,
+                                reverse: true,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0, vertical: 8.0),
+                                itemCount: messages.length,
+                                itemBuilder: (context, index) {
+                                  final message = messages[index];
+                                  final isMe =
+                                      message.senderId == currentUserId;
 
-                              // 检查是否需要显示日期分隔符
-                              final showDate = index == messages.length - 1 ||
-                                  !_isSameDay(message.createdAt,
-                                      messages[index + 1].createdAt);
+                                  // 检查是否需要显示日期分隔符
+                                  final showDate =
+                                      index == messages.length - 1 ||
+                                          !_isSameDay(message.createdAt,
+                                              messages[index + 1].createdAt);
 
-                              return Column(
-                                children: [
-                                  // 日期分隔符
-                                  if (showDate)
-                                    _buildDateSeparator(message.createdAt),
+                                  return Column(
+                                    children: [
+                                      // 日期分隔符
+                                      if (showDate)
+                                        _buildDateSeparator(message.createdAt),
 
-                                  // 消息气泡
-                                  MessageBubble(
-                                    message: message,
-                                    isMe: isMe,
-                                    timeString:
-                                        _formatMessageTime(message.createdAt),
-                                    senderName:
-                                        isMe ? 'You' : widget.contact.name,
+                                      // 消息气泡
+                                      MessageBubble(
+                                        message: message,
+                                        isMe: isMe,
+                                        timeString: _formatMessageTime(
+                                            message.createdAt),
+                                        senderName:
+                                            isMe ? 'You' : widget.contact.name,
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+
+                              // 加载更多指示器（顶部）
+                              if (_isLoadingMore)
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0, vertical: 8.0),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withAlpha(128),
+                                          borderRadius:
+                                              BorderRadius.circular(16.0),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                        Color>(Colors.white),
+                                              ),
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              '加载历史消息...',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              );
-                            },
+                                ),
+                            ],
                           ),
                   ),
 
@@ -661,6 +913,57 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     } catch (error) {
       _logger.e('更新最后阅读的消息ID失败', error: error);
     }
+  }
+
+  /// 显示Timeline缓存统计信息
+  void _showTimelineStats(BuildContext context, ChatState state) {
+    if (state.timeline == null) return;
+
+    final stats = context.read<ChatCubit>().getCacheStats();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Timeline缓存状态'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('总消息数: ${state.timeline!.length}'),
+            Text('未读消息: ${state.unreadCount}'),
+            Text('滚动位置: ${state.currentScrollPosition ?? 'N/A'}'),
+            if (state.timeline!.hasMoreHistory) const Text('📚 有更多历史消息'),
+            if (state.timeline!.hasMoreRecent) const Text('📬 有更多新消息'),
+            const SizedBox(height: 16),
+            const Text('Repository缓存:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('缓存会话数: ${stats['repository']['cachedConversations']}'),
+            Text('总消息数: ${stats['repository']['totalMessages']}'),
+            Text('内存使用: ${stats['repository']['estimatedMemoryMB']} MB'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              context.read<ChatCubit>().refreshTimeline();
+              Navigator.of(context).pop();
+            },
+            child: const Text('刷新缓存'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<ChatCubit>().clearTimelineCache();
+              Navigator.of(context).pop();
+            },
+            child: const Text('清空缓存'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

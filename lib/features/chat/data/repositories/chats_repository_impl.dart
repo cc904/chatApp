@@ -816,7 +816,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   Stream<List<String>> getOnlineStatusStream() {
     // TODO: 实现获取联系人在线状态流
     // 这里应该监听服务器推送的在线状态更新
-    return Stream.empty();
+    return const Stream.empty();
   }
 
   @override

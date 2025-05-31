@@ -1,265 +1,153 @@
-# Protobuf 使用指南
+# Protocol Buffers 定义
 
-本项目使用Protocol Buffers (protobuf)作为Socket.IO通信的数据序列化格式。
+本目录包含项目中使用的 Protocol Buffers 定义文件。
 
 ## 目录结构
 
 ```
-lib/core/proto/
-├── generated/     # 生成的Dart代码
-├── source/        # .proto源文件的备份
-└── README.md      # 本文档
+proto/
+├── source/          # 原始 .proto 文件
+│   ├── message.proto    # 消息相关定义
+│   ├── user.proto       # 用户相关定义
+│   └── conversation.proto # 会话相关定义
+├── generated/       # 生成的 Dart 代码
+└── README.md       # 本文档
 ```
 
-项目根目录下的 `protos/` 文件夹包含原始的.proto定义文件。
+## 文件说明
 
-## 安装必要工具
+### message.proto
 
-1. 安装protoc编译器：
-   - macOS: `brew install protobuf`
-   - Ubuntu/Debian: `sudo apt install protobuf-compiler`
-   - Windows: 下载并安装[Protobuf发行版](https://github.com/protocolbuffers/protobuf/releases)
+定义了消息相关的数据结构，包括：
 
-2. 安装Dart插件：
-   ```bash
-   dart pub global activate protoc_plugin
-   ```
+#### 核心枚举
+- `MessageType` - 消息类型（文本、图片、语音、文件等）
+- `MessageStatus` - 消息状态（发送中、已发送、已送达、已读、失败）
 
-3. 确保`~/.pub-cache/bin`在你的PATH中（Dart全局包的bin目录）
+#### 主要消息结构
+- `MessageProto` - 基础消息结构，包含所有消息字段
+- `TextMessage` - 文本消息内容
+- `MediaMessage` - 媒体消息内容（图片、语音、文件、视频）
+- `LocationMessage` - 位置消息内容
+- `SystemMessage` - 系统消息内容
+- `StickerMessage` - 表情包消息
+- `ContactMessage` - 联系人名片消息
+- `PollMessage` - 投票消息
+- `LinkMessage` - 链接消息
 
-## 生成Dart代码
+#### 辅助结构
+- `LinkPreview` - 链接预览
+- `PollOption` - 投票选项
+- `MessageCollection` - 消息集合
+- `MessageResponse` - 消息响应
+- `TypingProto` - 输入状态
+- `MessageReadProto` - 消息已读状态
 
-项目提供了生成脚本,执行：
+### 设计特点
+
+#### 1. 本地优先设计
+- 所有结构都针对本地存储和处理优化
+- 移除了服务器端搜索和复杂查询接口
+- 专注于消息的基本传输和存储
+
+#### 2. 与数据库模型匹配
+- `MessageProto` 结构完全匹配 Isar 数据库的 `Message` 模型
+- 字段名称和类型保持一致，便于转换
+- 支持所有消息类型和扩展字段
+
+#### 3. 扩展性设计
+- 使用 `oneof` 支持不同类型的消息内容
+- 预留扩展字段支持未来功能
+- 支持消息反应、标签、优先级等高级功能
+
+#### 4. 简化的网络接口
+- 保留基本的消息传输接口
+- 移除复杂的搜索和分页接口
+- 专注于实时消息同步
+
+## 使用方式
+
+### 1. 生成 Dart 代码
 
 ```bash
-./scripts/generate_protos.sh
+# 在项目根目录执行
+protoc --dart_out=lib/core/proto/generated lib/core/proto/source/*.proto
 ```
 
-该脚本会：
-1. 编译所有.proto文件
-2. 将生成的代码放入`lib/core/proto/generated/`目录
-
-## 在代码中使用
-
-项目直接使用protoc生成的类型和方法，仅使用二进制模式进行数据传输。
+### 2. 在代码中使用
 
 ```dart
-import 'package:cc/core/proto/generated/message.pb.dart';
+import 'package:cc/core/proto/generated/message.pb.dart' as proto;
 
-// 创建一个消息protobuf对象
-final message = MessageProto()
-  ..messageId = '123'
-  ..text = 'Hello';
+// 创建消息
+final message = proto.MessageProto(
+  messageId: 'msg_123',
+  conversationId: 'conv_456',
+  senderId: 'user_789',
+  text: 'Hello World',
+  type: proto.MessageType.TEXT,
+);
 
-// 转换为二进制数据
-final bytes = message.writeToBuffer();
+// 转换为数据库模型
+final dbMessage = Message.fromProto(message);
 
-// 从二进制数据恢复
-final recoveredMessage = MessageProto.fromBuffer(bytes);
+// 从数据库模型转换
+final protoMessage = dbMessage.toProto();
 ```
 
-## 添加新的Proto定义
+### 3. 消息类型处理
 
-当添加新的proto消息类型后，需要进行以下更新：
+```dart
+// 处理不同类型的消息
+switch (message.type) {
+  case proto.MessageType.TEXT:
+    // 处理文本消息
+    break;
+  case proto.MessageType.IMAGE:
+    // 处理图片消息
+    break;
+  case proto.MessageType.VOICE:
+    // 处理语音消息
+    break;
+  // ... 其他类型
+}
+```
 
-1. 在`protos/`目录下创建或修改.proto文件
-2. 运行生成脚本生成Dart代码
-3. 在`lib/core/services/proto_events.dart`中注册新的事件和消息类型：
-   ```dart
-   static final Map<String, GeneratedMessage Function()> _eventTypeMap = {
-     // 添加新的事件映射
-     'new_event:name': () => NewMessageProto(),
-   };
-   ```
+## 版本历史
 
-4. 如果新消息需要持久化存储，在`lib/core/database/models/`目录下创建或更新对应的Isar模型类：
-   ```dart
-   @collection
-   class NewModel {
-     // 定义与Proto消息对应的字段
-     
-     // 添加fromProto方法
-     static NewModel fromProto(NewMessageProto proto) {
-       final model = NewModel();
-       // 转换逻辑
-       return model;
-     }
-     
-     // 添加toProto方法
-     NewMessageProto toProto() {
-       final proto = NewMessageProto();
-       // 转换逻辑
-       return proto;
-     }
-   }
-   ```
+### v2.0.0 (当前版本)
+- 移除服务器端搜索和获取接口
+- 简化为本地优先的消息结构
+- 保留核心消息传输功能
+- 优化与本地数据库的兼容性
 
-5. 在相应的Repository实现中添加处理新消息类型的逻辑
+### v1.0.0 (已废弃)
+- 包含完整的服务器端搜索接口
+- 复杂的分页和过滤功能
+- 服务器端聚合和统计
 
 ## 注意事项
 
-- SocketService已配置为仅使用二进制模式传输protobuf数据
-- 确保客户端和服务器的proto定义保持同步
-- 添加新字段时注意向后兼容性
-- 在更新现有proto定义时，遵循protobuf的[兼容性规则](https://developers.google.com/protocol-buffers/docs/proto3#updating)
+1. **本地搜索**：项目使用本地搜索方案，不需要服务器端搜索接口
+2. **数据库同步**：proto 结构与 Isar 数据库模型保持同步
+3. **向后兼容**：移除的接口不影响现有的消息传输功能
+4. **性能优化**：简化的结构提高了序列化/反序列化性能
 
-## 具体示例
+## 开发指南
 
-假设我们添加了一个新的通知消息类型，步骤如下：
+### 添加新的消息类型
 
-### 1. 创建 notification.proto 文件
+1. 在 `MessageType` 枚举中添加新类型
+2. 创建对应的消息内容结构
+3. 在 `MessageProto` 的 `oneof content` 中添加新字段
+4. 更新数据库模型的转换方法
+5. 重新生成 Dart 代码
 
-```protobuf
-syntax = "proto3";
+### 修改现有结构
 
-package notification;
+1. 确保修改不会破坏现有数据
+2. 考虑向后兼容性
+3. 更新相关的转换方法
+4. 测试数据库迁移
 
-message NotificationProto {
-  string id = 1;
-  string title = 2;
-  string body = 3;
-  string type = 4;
-  int64 created_at = 5;
-  bool is_read = 6;
-  map<string, string> data = 7;
-}
-
-message NotificationCollection {
-  repeated NotificationProto notifications = 1;
-}
-```
-
-### 2. 运行生成脚本
-
-```bash
-./scripts/generate_protos.sh
-```
-
-生成文件：
-- lib/core/proto/generated/notification.pb.dart
-- lib/core/proto/generated/notification.pbenum.dart
-- lib/core/proto/generated/notification.pbjson.dart
-- lib/core/proto/generated/notification.pbserver.dart
-
-### 3. 更新 proto_events.dart
-
-```dart
-import '../proto/generated/notification.pb.dart' as notification;
-
-static final Map<String, GeneratedMessage Function()> _eventTypeMap = {
-  // 现有事件...
-  
-  // 添加新的通知事件
-  'notification:new': () => notification.NotificationProto(),
-  'notification:update': () => notification.NotificationProto(),
-  'notification:sync': () => notification.NotificationCollection(),
-};
-```
-
-### 4. 创建数据库模型
-
-```dart
-// lib/core/database/models/notification.dart
-import 'package:isar/isar.dart';
-import '../../proto/generated/notification.pb.dart';
-
-part 'notification.g.dart';
-
-@collection
-class Notification {
-  Id id = Isar.autoIncrement;
-  
-  @Index(unique: true)
-  late String notificationId;
-  
-  late String title;
-  late String body;
-  late String type;
-  late DateTime createdAt;
-  late bool isRead;
-  
-  // 存储额外数据的JSON字符串
-  String? dataJson;
-  
-  // 从Proto转换
-  static Notification fromProto(NotificationProto proto) {
-    final notification = Notification()
-      ..notificationId = proto.id
-      ..title = proto.title
-      ..body = proto.body
-      ..type = proto.type
-      ..createdAt = DateTime.fromMillisecondsSinceEpoch(proto.createdAt)
-      ..isRead = proto.isRead
-      ..dataJson = jsonEncode(proto.data);
-    
-    return notification;
-  }
-  
-  // 转换为Proto
-  NotificationProto toProto() {
-    final proto = NotificationProto()
-      ..id = notificationId
-      ..title = title
-      ..body = body
-      ..type = type
-      ..createdAt = createdAt.millisecondsSinceEpoch
-      ..isRead = isRead;
-    
-    if (dataJson != null) {
-      final Map<String, dynamic> dataMap = jsonDecode(dataJson!);
-      dataMap.forEach((key, value) {
-        if (value is String) {
-          proto.data[key] = value;
-        }
-      });
-    }
-    
-    return proto;
-  }
-}
-```
-
-### 5. 创建或更新Repository
-
-```dart
-// lib/features/notifications/data/repositories/notification_repository_impl.dart
-import 'package:cc/core/database/models/notification.dart';
-import 'package:cc/core/proto/generated/notification.pb.dart';
-import 'package:cc/core/services/socket_service.dart';
-
-class NotificationRepositoryImpl implements NotificationRepository {
-  final SocketService _socketService;
-  final IsarService _isarService;
-  
-  NotificationRepositoryImpl(this._socketService, this._isarService);
-  
-  @override
-  Future<void> handleNewNotification(NotificationProto proto) async {
-    // 转换为数据库模型
-    final notification = Notification.fromProto(proto);
-    
-    // 保存到数据库
-    await _isarService.isar.writeTxn(() async {
-      await _isarService.isar.notifications.put(notification);
-    });
-    
-    // 触发UI更新等操作
-  }
-  
-  // 其他方法实现...
-}
-```
-
-### 6. 注册Socket监听器
-
-```dart
-// 在适当的初始化位置
-_socketService.on('notification:new', (data) async {
-  try {
-    final proto = NotificationProto.fromBuffer(data as List<int>);
-    await _notificationRepository.handleNewNotification(proto);
-  } catch (e) {
-    _logger.e('处理新通知失败', error: e);
-  }
-});
-``` 
+这个简化的 proto 结构专注于本地消息处理，提供了高效、简洁的消息定义，完全满足项目的本地搜索和消息管理需求。 

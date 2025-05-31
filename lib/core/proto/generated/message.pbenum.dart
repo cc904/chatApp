@@ -22,6 +22,11 @@ class MessageType extends $pb.ProtobufEnum {
   static const MessageType VIDEO = MessageType._(4, _omitEnumNames ? '' : 'VIDEO');
   static const MessageType LOCATION = MessageType._(5, _omitEnumNames ? '' : 'LOCATION');
   static const MessageType SYSTEM = MessageType._(6, _omitEnumNames ? '' : 'SYSTEM');
+  static const MessageType STICKER = MessageType._(7, _omitEnumNames ? '' : 'STICKER');
+  static const MessageType GIF = MessageType._(8, _omitEnumNames ? '' : 'GIF');
+  static const MessageType CONTACT = MessageType._(9, _omitEnumNames ? '' : 'CONTACT');
+  static const MessageType POLL = MessageType._(10, _omitEnumNames ? '' : 'POLL');
+  static const MessageType LINK = MessageType._(11, _omitEnumNames ? '' : 'LINK');
 
   static const $core.List<MessageType> values = <MessageType> [
     TEXT,
@@ -31,6 +36,11 @@ class MessageType extends $pb.ProtobufEnum {
     VIDEO,
     LOCATION,
     SYSTEM,
+    STICKER,
+    GIF,
+    CONTACT,
+    POLL,
+    LINK,
   ];
 
   static final $core.Map<$core.int, MessageType> _byValue = $pb.ProtobufEnum.initByValue(values);

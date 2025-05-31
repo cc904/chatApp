@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/entities/message_timeline.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
@@ -29,6 +30,11 @@ class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
   final FileUploadService _fileUploadService = FileUploadService();
+  final CurrentUserProto _currentUser;
+
+  // 获取当前数据库实例，使用DatabaseInitializer
+  Isar get _isar => DatabaseInitializer.isar;
+  IsarCollection<Message> get _messages => _isar.messages;
 
   // 事件流控制器
   final _typingStatusController =
@@ -39,8 +45,19 @@ class ChatRepositoryImpl implements ChatRepository {
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
+  // MessageTimeline 缓存相关字段
+  static const int maxCachedTimelines = 60; // 最多缓存60个Timeline
+  static const int maxPreloadConversations = 50; // 预加载50个会话
+  static const int preloadMessagesCount = 100; // 预加载时每个会话100条
+
+  // 时间线缓存池 - 使用LRU策略
+  final Map<String, MessageTimeline> _timelineCache =
+      <String, MessageTimeline>{};
+  final List<String> _lruOrder = <String>[]; // LRU 顺序追踪
+
   // 构造函数
-  ChatRepositoryImpl() {
+  ChatRepositoryImpl({required CurrentUserProto currentUserProto})
+      : _currentUser = currentUserProto {
     _logger.x('ChatRepositoryImpl 初始化');
     _setupEventHandlers();
   }
@@ -102,42 +119,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   Isar   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  // 获取当前数据库实例，使用DatabaseInitializer
-  Isar get _isar => DatabaseInitializer.isar;
-
-  // 获取用户集合
-
-  // 获取会话集合
-
-  // 获取消息集合
-  IsarCollection<Message> get _messages => _isar.messages;
-
-  /// 获取当前用户ID
-  /// 直接从数据库获取当前登录用户的ID
-  /// 返回用户ID,如未找到则抛出异常
-  Future<String> _getCurrentUserId() async {
-    try {
-      if (!DatabaseInitializer.isInitialized) {
-        throw Exception('数据库未初始化，请确保已登录');
-      }
-
-      final currentUsers =
-          await DatabaseInitializer.isar.currentUsers.where().findAll();
-
-      if (currentUsers.isEmpty) {
-        throw Exception('找不到当前用户信息，请确保已登录');
-      }
-
-      // 返回第一个用户的ID（通常只会有一个用户记录）
-      return currentUsers.first.userId;
-    } catch (e) {
-      throw Exception('获取当前用户ID失败: ${e.toString()}');
-    }
-  }
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   消息相关   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取会话消息
   /// 获取指定会话的消息列表,支持分页
@@ -175,9 +157,8 @@ class ChatRepositoryImpl implements ChatRepository {
       final message = Message();
       message.conversationId = conversationId;
       // 获取当前用户ID
-      final currentUserId = await _getCurrentUserId();
-      message.senderId = currentUserId;
-      message.senderName = '我';
+      message.senderId = _currentUser.userId;
+      message.senderName = _currentUser.name;
       message.type = type;
       message.text = text.isEmpty ? null : text;
       message.isRead = true; // 自己发送的消息默认已读
@@ -370,9 +351,8 @@ class ChatRepositoryImpl implements ChatRepository {
       final message = Message();
       message.conversationId = conversationId;
       // 获取当前用户ID
-      final currentUserId = await _getCurrentUserId();
-      message.senderId = currentUserId;
-      message.senderName = '我';
+      message.senderId = _currentUser.userId;
+      message.senderName = _currentUser.name;
       message.type = 'video';
       message.localPath = localPath;
       message.mediaUrl = mediaUrl;
@@ -740,7 +720,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥 获取输入状态流  🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  获取输入状态流  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 发送正在输入状态
   /// 通知其他用户当前用户的输入状态
@@ -779,7 +759,7 @@ class ChatRepositoryImpl implements ChatRepository {
     return _messageStatusController.stream;
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能     💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 标记会话为已读
   /// 调用markMessagesAsRead方法实现
@@ -985,7 +965,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢      TODo     💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢      ToDo      💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 模拟服务器处理视频缩略图
   /// 这是一个临时方法，实际应该由服务器完成
@@ -993,6 +973,241 @@ class ChatRepositoryImpl implements ChatRepository {
   void _simulateServerProcessing(Message message) {
     // 空实现，实际项目中应该由服务器处理
     _logger.d('模拟服务器处理视频缩略图', extra: {'messageId': message.messageId});
+  }
+
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 获取缓存的MessageTimeline
+  @override
+  MessageTimeline? getTimeline(String conversationId) {
+    final timeline = _timelineCache[conversationId];
+    if (timeline != null) {
+      // 更新LRU顺序
+      _updateLRUOrder(conversationId);
+      _logger.d('Timeline缓存命中', extra: {'conversationId': conversationId});
+    } else {
+      _logger.d('Timeline缓存未命中', extra: {'conversationId': conversationId});
+    }
+    return timeline;
+  }
+
+  /// 存储MessageTimeline到缓存
+  @override
+  void storeTimeline(String conversationId, MessageTimeline timeline) {
+    _timelineCache[conversationId] = timeline;
+    _updateLRUOrder(conversationId);
+    _manageCacheSize();
+
+    _logger.d('Timeline已缓存', extra: {
+      'conversationId': conversationId,
+      'messageCount': timeline.length,
+      'cacheSize': _timelineCache.length,
+    });
+  }
+
+  /// 移除指定会话的Timeline缓存
+  @override
+  void removeTimeline(String conversationId) {
+    _timelineCache.remove(conversationId);
+    _lruOrder.remove(conversationId);
+
+    _logger.d('Timeline已移除', extra: {
+      'conversationId': conversationId,
+      'remainingCacheSize': _timelineCache.length,
+    });
+  }
+
+  /// 清空所有Timeline缓存
+  @override
+  void clearTimelineCache() {
+    final previousSize = _timelineCache.length;
+    _timelineCache.clear();
+    _lruOrder.clear();
+
+    _logger.i('Timeline缓存已清空', extra: {
+      'previousSize': previousSize,
+    });
+  }
+
+  /// 获取缓存状态信息
+  @override
+  Map<String, dynamic> getCacheStats() {
+    int totalMessages = 0;
+    for (final timeline in _timelineCache.values) {
+      totalMessages += timeline.length;
+    }
+
+    // 估算内存使用（每条消息约2KB）
+    final estimatedMemoryMB = (totalMessages * 2 * 1024) / (1024 * 1024);
+
+    return {
+      'cachedConversations': _timelineCache.length,
+      'totalMessages': totalMessages,
+      'estimatedMemoryMB': estimatedMemoryMB.toStringAsFixed(1),
+      'averageMessagesPerConversation': _timelineCache.isNotEmpty
+          ? (totalMessages / _timelineCache.length).toStringAsFixed(1)
+          : '0',
+      'maxCacheSize': maxCachedTimelines,
+      'cacheUtilization':
+          '${(_timelineCache.length / maxCachedTimelines * 100).toStringAsFixed(1)}%',
+    };
+  }
+
+  /// 预加载指定会话的消息到Timeline
+  @override
+  Future<bool> preloadTimeline(String conversationId,
+      {int messageCount = 100}) async {
+    try {
+      // 检查是否已经缓存
+      if (_timelineCache.containsKey(conversationId)) {
+        _logger
+            .d('Timeline已存在，跳过预加载', extra: {'conversationId': conversationId});
+        return true;
+      }
+
+      _logger.d('开始预加载Timeline', extra: {
+        'conversationId': conversationId,
+        'messageCount': messageCount,
+      });
+
+      // 从数据库加载消息
+      final messages = await getConversationMessages(
+        conversationId,
+        limit: messageCount,
+      );
+
+      if (messages.isNotEmpty) {
+        // 创建Timeline并添加消息
+        final timeline = MessageTimeline(conversationId: conversationId);
+
+        // 消息按时间升序排列（来自数据库的是降序）
+        final sortedMessages = messages.reversed.toList();
+        timeline.appendNewMessages(sortedMessages);
+
+        // 计算未读消息信息
+        await _calculateUnreadInfo(timeline, conversationId);
+
+        // 存储到缓存
+        storeTimeline(conversationId, timeline);
+
+        _logger.d('Timeline预加载完成', extra: {
+          'conversationId': conversationId,
+          'loadedMessages': messages.length,
+          'unreadCount': timeline.unreadCount,
+        });
+
+        return true;
+      } else {
+        _logger
+            .d('会话暂无消息，创建空Timeline', extra: {'conversationId': conversationId});
+
+        // 创建空的Timeline
+        final timeline = MessageTimeline(conversationId: conversationId);
+        storeTimeline(conversationId, timeline);
+
+        return true;
+      }
+    } catch (error) {
+      _logger.e('Timeline预加载失败', error: error, extra: {
+        'conversationId': conversationId,
+      });
+      return false;
+    }
+  }
+
+  /// 获取用户上次查看状态
+  @override
+  Future<ViewState?> getUserLastViewState(String conversationId) async {
+    try {
+      // 这里可以从数据库或持久化存储中获取用户的查看状态
+      // 目前返回null，后续可以根据需要实现持久化
+      _logger.d('获取用户查看状态', extra: {'conversationId': conversationId});
+      return null;
+    } catch (error) {
+      _logger.e('获取用户查看状态失败', error: error, extra: {
+        'conversationId': conversationId,
+      });
+      return null;
+    }
+  }
+
+  /// 保存用户查看状态
+  @override
+  Future<void> saveUserViewState(ViewState viewState) async {
+    try {
+      // 这里可以将查看状态保存到数据库或持久化存储
+      // 目前只是记录日志，后续可以根据需要实现持久化
+      _logger.d('保存用户查看状态', extra: {
+        'conversationId': viewState.conversationId,
+        'scrollPosition': viewState.scrollPosition,
+        'lastViewTime': viewState.lastViewTime.toString(),
+      });
+    } catch (error) {
+      _logger.e('保存用户查看状态失败', error: error, extra: {
+        'conversationId': viewState.conversationId,
+      });
+    }
+  }
+
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 缓存管理私有方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 更新LRU顺序
+  void _updateLRUOrder(String conversationId) {
+    _lruOrder.remove(conversationId);
+    _lruOrder.add(conversationId);
+  }
+
+  /// 管理缓存大小，使用LRU策略淘汰
+  void _manageCacheSize() {
+    if (_timelineCache.length <= maxCachedTimelines) return;
+
+    // 计算需要淘汰的数量
+    final excess = _timelineCache.length - maxCachedTimelines;
+
+    _logger.d('缓存超出限制，准备淘汰', extra: {
+      'currentSize': _timelineCache.length,
+      'maxSize': maxCachedTimelines,
+      'toEvict': excess,
+    });
+
+    // 淘汰最久未使用的Timeline
+    for (int i = 0; i < excess && _lruOrder.isNotEmpty; i++) {
+      final oldestConversationId = _lruOrder.removeAt(0);
+      final evictedTimeline = _timelineCache.remove(oldestConversationId);
+
+      if (evictedTimeline != null) {
+        _logger.d('Timeline已被淘汰', extra: {
+          'conversationId': oldestConversationId,
+          'messageCount': evictedTimeline.length,
+        });
+      }
+    }
+  }
+
+  /// 计算Timeline的未读消息信息
+  Future<void> _calculateUnreadInfo(
+      MessageTimeline timeline, String conversationId) async {
+    try {
+      // 获取会话的最后阅读时间
+      // 这里需要从Conversation模型中获取lastReadAt
+      // 暂时使用简单的逻辑：所有消息都视为已读
+      final unreadMessages = timeline.getUnreadMessages();
+
+      if (unreadMessages.isNotEmpty) {
+        timeline.unreadCount = unreadMessages.length;
+        timeline.firstUnreadMessageId = unreadMessages.first.messageId;
+        timeline.lastUnreadMessageId = unreadMessages.last.messageId;
+
+        _logger.d('计算未读消息信息完成', extra: {
+          'conversationId': conversationId,
+          'unreadCount': timeline.unreadCount,
+        });
+      }
+    } catch (error) {
+      _logger.e('计算未读消息信息失败', error: error, extra: {
+        'conversationId': conversationId,
+      });
+    }
   }
 
   /// 释放资源
@@ -1005,5 +1220,8 @@ class ChatRepositoryImpl implements ChatRepository {
     _subscriptions.clear();
     _typingStatusController.close();
     _messageStatusController.close();
+
+    // 清空缓存
+    clearTimelineCache();
   }
 }
