@@ -15,6 +15,12 @@ class ProtoEvents {
     'message:read': () => message.MessageProto(),
     'messages:fetch:response': () => message.MessageCollection(),
 
+    // 消息同步相关事件
+    'message:sync:request': () => message.MessageSyncRequest(),
+    'message:sync:response': () => message.MessageSyncResponse(),
+    'message:sync:batch:request': () => message.BatchMessageSyncRequest(),
+    'message:sync:batch:response': () => message.BatchMessageSyncResponse(),
+
     // 会话相关事件
     'conversation:update': () => conversation.ConversationProto(),
     'conversation:created': () => conversation.ConversationProto(),
@@ -35,8 +41,7 @@ class ProtoEvents {
     'conversation:mark:read': () => conversation.ConversationMarkReadRequest(),
     'conversation:mark:read:response': () =>
         conversation.ConversationMarkReadResponse(),
-    'conversation:member:update': () =>
-        conversation.ConversationMemberRequest(),
+    'conversation:member:add': () => conversation.ConversationMemberRequest(),
     'conversation:members': () => conversation.ConversationMembersResponse(),
     'conversation:member:change': () =>
         conversation.ConversationMemberChangeNotification(),

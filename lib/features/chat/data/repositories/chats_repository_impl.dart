@@ -8,6 +8,8 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/core/proto/generated/message.pbenum.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
@@ -18,6 +20,7 @@ import 'package:cc/core/proto/generated/conversation.pb.dart'
 class ChatsRepositoryImpl implements ChatsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
+  final ChatRepository? _chatRepository; // 用于消息同步
 
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
@@ -41,15 +44,20 @@ class ChatsRepositoryImpl implements ChatsRepository {
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
+  // 消息同步相关配置
+  static const int maxConcurrentMessageSync = 3; // 最大并发消息同步数
+  static const int messageSyncDelayMs = 500; // 消息同步延迟（毫秒）
+
   // 构造函数
-  ChatsRepositoryImpl() {
+  ChatsRepositoryImpl({ChatRepository? chatRepository})
+      : _chatRepository = chatRepository {
     _logger.x('ChatsRepositoryImpl 初始化');
+    _registerEventHandlers();
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  事件处理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   /// 注册事件监听
-  @override
-  Future<void> registerEventHandlers() async {
+  Future<void> _registerEventHandlers() async {
     if (!_communicationService.isInitialized) {
       _logger.i('通信服务未初始化，无法注册事件处理器');
       return;
@@ -883,6 +891,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
         conversations: dbConversations,
       ));
       _logger.i('发送会话同步完成事件');
+
+      // 🔥 新增：会话同步完成后，触发消息同步
+      await _triggerMessageSyncAfterConversationSync(collection.conversations);
     } catch (e, stack) {
       _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
       // 处理失败时标记同步错误
@@ -891,6 +902,191 @@ class ChatsRepositoryImpl implements ChatsRepository {
         conversations: null,
       ));
       _logger.i('发送会话同步错误事件');
+    }
+  }
+
+  /// 会话同步完成后触发消息同步
+  ///
+  /// 根据每个会话的last_read_message_id和未读消息数量，
+  /// 制定合适的消息同步策略并执行同步
+  Future<void> _triggerMessageSyncAfterConversationSync(
+      List<conversation_proto.ConversationProto> conversations) async {
+    if (_chatRepository == null) {
+      _logger.w('ChatRepository未注入，跳过消息同步');
+      return;
+    }
+
+    _logger.i('开始为${conversations.length}个会话制定消息同步策略');
+
+    // 创建同步任务列表
+    final List<ConversationSyncTask> syncTasks = [];
+
+    for (final conversation in conversations) {
+      final syncTask = await _createMessageSyncTask(conversation);
+      if (syncTask != null) {
+        syncTasks.add(syncTask);
+      }
+    }
+
+    if (syncTasks.isEmpty) {
+      _logger.i('没有需要同步消息的会话');
+      return;
+    }
+
+    // 按优先级排序（未读消息优先）
+    syncTasks.sort((a, b) => a.priority.compareTo(b.priority));
+
+    _logger.d('开始批量消息同步', extra: {
+      'taskCount': syncTasks.length,
+      'tasks': syncTasks
+          .map((t) => {
+                'conversationId': t.conversationId,
+                'syncType': t.type.name,
+                'priority': t.priority,
+              })
+          .toList()
+    });
+
+    // 延迟执行，避免与会话同步冲突
+    Timer(const Duration(milliseconds: messageSyncDelayMs), () async {
+      try {
+        // 批量同步消息
+        final results = await _chatRepository!.batchSyncMessages(
+          syncTasks,
+          maxConcurrent: maxConcurrentMessageSync,
+        );
+
+        // 记录同步结果
+        _logMessageSyncResults(results, syncTasks);
+      } catch (error) {
+        _logger.e('批量消息同步失败', error: error);
+      }
+    });
+  }
+
+  /// 创建消息同步任务
+  /// 根据会话状态和本地数据情况创建合适的消息同步任务
+  /// [conversationId] - 会话ID
+  /// [lastReadMessageId] - 最后阅读的消息ID
+  /// [unreadCount] - 未读消息数量
+  /// 返回同步任务，如果不需要同步则返回null
+  Future<ConversationSyncTask?> _createMessageSyncTask(
+      conversation_proto.ConversationProto conversation) async {
+    final conversationId = conversation.conversationId;
+    final lastReadMessageId = conversation.hasLastReadMessageId()
+        ? conversation.lastReadMessageId
+        : null;
+    final unreadCount = conversation.unreadCount;
+
+    if (_chatRepository == null) {
+      _logger.w('ChatRepository未初始化，跳过消息同步');
+      return null;
+    }
+
+    _logger.d('创建消息同步任务', extra: {
+      'conversationId': conversationId,
+      'lastReadMessageId': lastReadMessageId,
+      'unreadCount': unreadCount,
+    });
+
+    // 获取本地消息时间范围
+    final localTimeRange =
+        await _chatRepository!.getLocalMessageTimeRange(conversationId);
+    final hasLocalData = localTimeRange != null;
+
+    _logger.d('本地数据分析', extra: {
+      'hasLocalData': hasLocalData,
+      'localStartTime': localTimeRange?.start.toIso8601String(),
+      'localEndTime': localTimeRange?.end.toIso8601String(),
+    });
+
+    MessageSyncType syncType;
+    String? anchorMessageId;
+    int priority = 0;
+
+    if (unreadCount > 0) {
+      // 🎯 策略1：有未读消息，优先同步未读消息
+      _logger.d('会话有$unreadCount条未读消息，使用未读消息同步策略');
+      syncType = MessageSyncType.UNREAD;
+      anchorMessageId = lastReadMessageId;
+      priority = 1; // 最高优先级
+    } else if (lastReadMessageId != null && lastReadMessageId.isNotEmpty) {
+      // 🎯 策略2：没有未读消息，但有last_read_message_id，使用日期同步
+      _logger.d('使用日期同步策略，以last_read_message_id为锚点');
+      syncType = MessageSyncType.RECENT;
+      anchorMessageId = lastReadMessageId;
+      priority = 2;
+
+      if (hasLocalData) {
+        // 检查是否真的需要同步
+        final lastReadTime = await _chatRepository!
+            .getMessageTimestamp(conversationId, lastReadMessageId);
+
+        if (lastReadTime != null &&
+            lastReadTime.isAfter(localTimeRange.start) &&
+            lastReadTime.isBefore(localTimeRange.end)) {
+          // last_read_message_id在本地时间范围内，可能不需要同步
+          final timeSinceLastMessage =
+              DateTime.now().difference(localTimeRange.end);
+
+          if (timeSinceLastMessage.inHours < 1) {
+            _logger.d('本地数据较新，跳过消息同步');
+            return null; // 不需要同步
+          }
+        }
+      }
+    } else {
+      // 🎯 策略3：没有last_read_message_id，使用未读同步获取最新消息
+      if (!hasLocalData) {
+        _logger.d('无last_read_message_id且本地无数据，同步未读消息');
+        syncType = MessageSyncType.UNREAD;
+        anchorMessageId = null;
+        priority = 3;
+      } else {
+        // 本地有数据但没有last_read_message_id，检查是否需要更新
+        final timeSinceLastMessage =
+            DateTime.now().difference(localTimeRange.end);
+
+        if (timeSinceLastMessage.inHours > 1) {
+          _logger.d('本地数据较旧，同步未读消息');
+          syncType = MessageSyncType.UNREAD;
+          anchorMessageId = null;
+          priority = 4;
+        } else {
+          _logger.d('本地数据较新，跳过消息同步');
+          return null; // 不需要同步
+        }
+      }
+    }
+
+    return ConversationSyncTask(
+      conversationId: conversationId,
+      type: syncType,
+      anchorMessageId: anchorMessageId,
+      priority: priority,
+    );
+  }
+
+  /// 记录消息同步结果
+  void _logMessageSyncResults(
+      List<bool> results, List<ConversationSyncTask> tasks) {
+    final successCount = results.where((r) => r).length;
+    final failureCount = results.length - successCount;
+
+    _logger.i('消息同步完成', extra: {
+      'totalConversations': results.length,
+      'successCount': successCount,
+      'failureCount': failureCount,
+    });
+
+    // 记录失败的同步
+    for (int i = 0; i < results.length; i++) {
+      if (!results[i]) {
+        _logger.w('会话消息同步失败', extra: {
+          'conversationId': tasks[i].conversationId,
+          'syncType': tasks[i].type.name,
+        });
+      }
     }
   }
 

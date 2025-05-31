@@ -129,6 +129,19 @@ const MessageSchema = CollectionSchema(
   deserializeProp: _messageDeserializeProp,
   idName: r'id',
   indexes: {
+    r'messageId': IndexSchema(
+      id: -635287409172016016,
+      name: r'messageId',
+      unique: true,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'messageId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'conversationId_createdAt': IndexSchema(
       id: -6415830084913696883,
       name: r'conversationId_createdAt',
@@ -378,6 +391,61 @@ void _messageAttach(IsarCollection<dynamic> col, Id id, Message object) {
       .attach(col, col.isar.collection<Conversation>(), r'conversation', id);
 }
 
+extension MessageByIndex on IsarCollection<Message> {
+  Future<Message?> getByMessageId(String messageId) {
+    return getByIndex(r'messageId', [messageId]);
+  }
+
+  Message? getByMessageIdSync(String messageId) {
+    return getByIndexSync(r'messageId', [messageId]);
+  }
+
+  Future<bool> deleteByMessageId(String messageId) {
+    return deleteByIndex(r'messageId', [messageId]);
+  }
+
+  bool deleteByMessageIdSync(String messageId) {
+    return deleteByIndexSync(r'messageId', [messageId]);
+  }
+
+  Future<List<Message?>> getAllByMessageId(List<String> messageIdValues) {
+    final values = messageIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'messageId', values);
+  }
+
+  List<Message?> getAllByMessageIdSync(List<String> messageIdValues) {
+    final values = messageIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'messageId', values);
+  }
+
+  Future<int> deleteAllByMessageId(List<String> messageIdValues) {
+    final values = messageIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'messageId', values);
+  }
+
+  int deleteAllByMessageIdSync(List<String> messageIdValues) {
+    final values = messageIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'messageId', values);
+  }
+
+  Future<Id> putByMessageId(Message object) {
+    return putByIndex(r'messageId', object);
+  }
+
+  Id putByMessageIdSync(Message object, {bool saveLinks = true}) {
+    return putByIndexSync(r'messageId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByMessageId(List<Message> objects) {
+    return putAllByIndex(r'messageId', objects);
+  }
+
+  List<Id> putAllByMessageIdSync(List<Message> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'messageId', objects, saveLinks: saveLinks);
+  }
+}
+
 extension MessageQueryWhereSort on QueryBuilder<Message, Message, QWhere> {
   QueryBuilder<Message, Message, QAfterWhere> anyId() {
     return QueryBuilder.apply(this, (query) {
@@ -457,6 +525,51 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
         upper: upperId,
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause> messageIdEqualTo(
+      String messageId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'messageId',
+        value: [messageId],
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause> messageIdNotEqualTo(
+      String messageId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'messageId',
+              lower: [],
+              upper: [messageId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'messageId',
+              lower: [messageId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'messageId',
+              lower: [messageId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'messageId',
+              lower: [],
+              upper: [messageId],
+              includeUpper: false,
+            ));
+      }
     });
   }
 

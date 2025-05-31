@@ -5,9 +5,6 @@ import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 /// 聊天会话列表仓库接口
 /// 定义了会话列表管理所需的各种操作方法
 abstract class ChatsRepository {
-  /// 注册事件处理器
-  /// 设置与通信服务的事件监听，用于接收和处理服务器发送的Proto消息
-  Future<void> registerEventHandlers();
 
   /// 获取单个联系人信息
   /// 注：此方法仅用于支持聊天功能,不应用于联系人管理

@@ -5,14 +5,70 @@ import 'package:cc/core/proto/generated/message.pb.dart' as proto;
 
 part 'message.g.dart';
 
+/*
+## 📊 Message数据库模型 - 索引优化说明
+
+### 🎯 索引设计理念
+
+在聊天应用中，消息查询的性能至关重要。Isar数据库中的数据并不是按时间顺序自动存储的，
+因此我们需要通过合理的索引设计来确保查询效率。
+
+### 🔍 索引配置
+
+1. **messageId**: `@Index(unique: true)`
+   - 唯一索引，确保消息ID不重复
+   - 用于快速查找特定消息
+
+2. **conversationId + createdAt**: `@Index(composite: [CompositeIndex('createdAt')])`
+   - 复合索引，优化最常见的查询模式
+   - 支持按会话ID查询并按时间排序
+   - 这是最关键的索引，支持以下查询：
+     * 获取会话的最新/最早消息
+     * 按时间范围查询消息
+     * 分页查询会话消息
+
+3. **textForSearch**: `@Index(type: IndexType.value, caseSensitive: false)`
+   - 全文搜索索引，支持消息内容搜索
+   - 不区分大小写
+
+### 🚀 性能优化效果
+
+```dart
+// ✅ 高效查询 - 利用复合索引
+final messages = await _messages
+    .filter()
+    .conversationIdEqualTo(conversationId)  // 使用索引过滤
+    .sortByCreatedAtDesc()                  // 使用索引排序
+    .limit(20)
+    .findAll();
+
+// ✅ 高效查询 - 获取时间范围
+final earliest = await _messages
+    .filter()
+    .conversationIdEqualTo(conversationId)
+    .sortByCreatedAt()                      // 索引排序
+    .limit(1)
+    .findFirst();
+```
+
+### 📈 查询复杂度
+
+- **无索引**: O(n) - 需要扫描所有消息
+- **有索引**: O(log n) - 利用B+树快速定位
+
+对于包含10万条消息的会话，索引可以将查询时间从几百毫秒降低到几毫秒。
+*/
+
 @collection
 class Message {
   // Isar ID
   Id id = Isar.autoIncrement;
 
   // 消息ID (来自服务器)
+  @Index(unique: true)
   String messageId = '';
 
+  // 会话ID和创建时间的复合索引 - 优化按会话查询和时间排序
   @Index(composite: [CompositeIndex('createdAt')])
   late String conversationId;
 
@@ -20,7 +76,9 @@ class Message {
   String? senderName;
   String? senderAvatar;
 
+  // 创建时间 - 用于时间排序
   DateTime createdAt = DateTime.now();
+
   bool isRead = false;
 
   // 消息发送状态：sending, sent, delivered, read, failed
@@ -72,7 +130,7 @@ class Message {
           ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
           : DateTime.now()
       ..isRead = proto.hasIsRead() ? proto.isRead : false
-      ..status = proto.hasStatus() ? proto.status : 'sent'
+      ..status = proto.hasStatus() ? proto.status.name : 'sent'
       ..type = proto.hasType() ? proto.type.name : 'text'
       ..text = proto.hasText() ? proto.text : null
       ..mediaUrl = proto.hasMediaUrl() ? proto.mediaUrl : null
@@ -98,6 +156,7 @@ class Message {
   proto.MessageProto toProto() {
     // 将字符串类型转换为枚举类型
     final messageType = _stringToMessageType(type);
+    final messageStatus = _stringToMessageStatus(status);
 
     return proto.MessageProto(
       messageId: messageId,
@@ -107,7 +166,7 @@ class Message {
       senderAvatar: senderAvatar,
       createdAt: Int64(createdAt.millisecondsSinceEpoch),
       isRead: isRead,
-      status: status,
+      status: messageStatus,
       type: messageType,
       text: text,
       mediaUrl: mediaUrl,
@@ -140,8 +199,36 @@ class Message {
         return proto.MessageType.LOCATION;
       case 'system':
         return proto.MessageType.SYSTEM;
+      case 'sticker':
+        return proto.MessageType.STICKER;
+      case 'gif':
+        return proto.MessageType.GIF;
+      case 'contact':
+        return proto.MessageType.CONTACT;
+      case 'poll':
+        return proto.MessageType.POLL;
+      case 'link':
+        return proto.MessageType.LINK;
       default:
         return proto.MessageType.TEXT;
+    }
+  }
+
+  /// 将字符串状态转换为Proto的枚举类型
+  static proto.MessageStatus _stringToMessageStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'sending':
+        return proto.MessageStatus.SENDING;
+      case 'sent':
+        return proto.MessageStatus.SENT;
+      case 'delivered':
+        return proto.MessageStatus.DELIVERED;
+      case 'read':
+        return proto.MessageStatus.READ;
+      case 'failed':
+        return proto.MessageStatus.FAILED;
+      default:
+        return proto.MessageStatus.SENT;
     }
   }
 }

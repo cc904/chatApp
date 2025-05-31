@@ -508,7 +508,6 @@ void main() {
 
       test('refreshTimeline应该重新加载Timeline并保持功能', () async {
         // 记录原始Timeline的消息数量
-        final originalMessageCount = cubit.state.timeline!.length;
 
         // 添加更多消息到repository模拟有新数据可用
         final newMessages = _createTestMessages(testConversationId, 5,

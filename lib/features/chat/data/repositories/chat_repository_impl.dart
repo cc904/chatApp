@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:collection';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -14,6 +15,35 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+
+/// 信号量类，用于控制并发数量
+class Semaphore {
+  final int maxCount;
+  int _currentCount;
+  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
+
+  Semaphore(this.maxCount) : _currentCount = maxCount;
+
+  Future<void> acquire() async {
+    if (_currentCount > 0) {
+      _currentCount--;
+      return;
+    }
+
+    final completer = Completer<void>();
+    _waitQueue.add(completer);
+    return completer.future;
+  }
+
+  void release() {
+    if (_waitQueue.isNotEmpty) {
+      final completer = _waitQueue.removeFirst();
+      completer.complete();
+    } else {
+      _currentCount++;
+    }
+  }
+}
 
 /// 消息异常
 class MessageException implements Exception {
@@ -59,11 +89,11 @@ class ChatRepositoryImpl implements ChatRepository {
   ChatRepositoryImpl({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
     _logger.x('ChatRepositoryImpl 初始化');
-    _setupEventHandlers();
+    _registerEventHandlers();
   }
 
   /// 设置事件处理器
-  void _setupEventHandlers() {
+  Future<void> _registerEventHandlers() async {
     if (!_communicationService.isInitialized) {
       _logger.i('通信服务未初始化，无法注册事件处理器');
       return;
@@ -79,7 +109,22 @@ class ChatRepositoryImpl implements ChatRepository {
           .listen(_handleTypingStatus))
       ..add(_communicationService
           .onProto<message_proto.TypingProto>('user:typing:stop')
-          .listen(_handleTypingStop));
+          .listen(_handleTypingStop))
+      ..add(_communicationService
+          .onProto<message_proto.MessageSyncResponse>(
+              'message:unread:sync:response')
+          .listen(_handleUnreadMessageSyncResponse))
+      ..add(_communicationService
+          .onProto<message_proto.MessageSyncResponse>('message:sync:response')
+          .listen(_handleMessageSyncResponse))
+      ..add(_communicationService
+          .onProto<message_proto.MessageSyncResponse>(
+              'message:smart:sync:response')
+          .listen(_handleSmartMessageSyncResponse))
+      ..add(_communicationService
+          .onProto<message_proto.BatchMessageSyncResponse>(
+              'message:batch:sync:response')
+          .listen(_handleBatchMessageSyncResponse));
   }
 
   /// 处理消息已读事件
@@ -119,6 +164,101 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 处理未读消息同步响应
+  void _handleUnreadMessageSyncResponse(
+      message_proto.MessageSyncResponse response) {
+    try {
+      _logger.i('收到未读消息同步响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'messageCount': response.messages.messages.length,
+      });
+
+      if (!response.success) {
+        _logger.e('未读消息同步失败');
+        return;
+      }
+
+      // 将消息保存到本地数据库
+      _saveMessagesToLocal(response.messages.messages);
+    } catch (error) {
+      _logger.e('处理未读消息同步响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理围绕最后阅读消息的同步响应
+  void _handleMessageSyncResponse(message_proto.MessageSyncResponse response) {
+    try {
+      _logger.i('收到消息同步响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'messageCount': response.messages.messages.length,
+      });
+
+      if (!response.success) {
+        _logger.e('消息同步失败');
+        return;
+      }
+
+      // 将消息保存到本地数据库
+      _saveMessagesToLocal(response.messages.messages);
+    } catch (error) {
+      _logger.e('处理消息同步响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理智能消息同步响应
+  void _handleSmartMessageSyncResponse(
+      message_proto.MessageSyncResponse response) {
+    try {
+      _logger.i('收到智能消息同步响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'messageCount': response.messages.messages.length,
+      });
+
+      if (!response.success) {
+        _logger.e('智能消息同步失败');
+        return;
+      }
+
+      // 将消息保存到本地数据库
+      _saveMessagesToLocal(response.messages.messages);
+    } catch (error) {
+      _logger.e('处理智能消息同步响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理批量消息同步响应
+  void _handleBatchMessageSyncResponse(
+      message_proto.BatchMessageSyncResponse response) {
+    try {
+      _logger.i('收到批量消息同步响应', extra: {
+        'successCount': response.successCount,
+        'failureCount': response.failureCount,
+        'responseCount': response.syncResponses.length,
+      });
+
+      // 处理每个会话的同步结果
+      for (final syncResponse in response.syncResponses) {
+        if (syncResponse.success) {
+          _saveMessagesToLocal(syncResponse.messages.messages);
+          _logger.d(
+              '会话 ${syncResponse.conversationId} 同步成功，消息数: ${syncResponse.messages.messages.length}');
+        } else {
+          _logger.e('会话 ${syncResponse.conversationId} 同步失败');
+        }
+      }
+
+      _logger.i('批量消息同步完成', extra: {
+        '成功': response.successCount,
+        '失败': response.failureCount,
+      });
+    } catch (error) {
+      _logger.e('处理批量消息同步响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取会话消息
@@ -131,13 +271,26 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<Message>> getConversationMessages(String conversationId,
       {int limit = 20, DateTime? before}) async {
     try {
+      _logger.d('获取会话消息', extra: {
+        'conversationId': conversationId,
+        'limit': limit,
+        'before': before?.toIso8601String(),
+      });
+
+      // 🔥 优化：利用复合索引 (conversationId + createdAt) 进行高效查询
       final query = _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .optional(before != null, (q) => q.createdAtLessThan(before!))
-          .sortByCreatedAtDesc();
+          .sortByCreatedAtDesc(); // 最新消息在前
 
       final messages = await query.limit(limit).findAll();
+
+      _logger.d('获取会话消息完成', extra: {
+        'conversationId': conversationId,
+        'foundMessages': messages.length,
+      });
+
       return messages;
     } catch (error) {
       _logger.e('获取会话消息失败', error: error, stackTrace: StackTrace.current);
@@ -1149,7 +1302,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 缓存管理私有方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 更新LRU顺序
   void _updateLRUOrder(String conversationId) {
@@ -1223,5 +1376,485 @@ class ChatRepositoryImpl implements ChatRepository {
 
     // 清空缓存
     clearTimelineCache();
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   消息同步方法   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 同步会话消息
+  @override
+  Future<bool> syncConversationMessages(
+    String conversationId,
+    message_proto.MessageSyncType syncType, {
+    String? anchorMessageId,
+  }) async {
+    try {
+      _logger.i('开始同步会话消息', extra: {
+        'conversationId': conversationId,
+        'syncType': syncType.name,
+        'anchorMessageId': anchorMessageId,
+      });
+
+      switch (syncType) {
+        case message_proto.MessageSyncType.RECENT:
+          if (anchorMessageId == null) {
+            _logger.w('RECENT同步需要anchorMessageId');
+            return false;
+          }
+          return await syncRecentMessages(conversationId, anchorMessageId);
+
+        case message_proto.MessageSyncType.UNREAD:
+          return await syncUnreadMessages(
+            conversationId,
+            lastReadMessageId: anchorMessageId,
+          );
+
+        default:
+          _logger.w('未知的同步类型', extra: {'syncType': syncType});
+          return false;
+      }
+    } catch (error) {
+      _logger.e('同步会话消息失败', error: error);
+      return false;
+    }
+  }
+
+  /// 日期同步消息
+  @override
+  Future<bool> syncRecentMessages(
+    String conversationId,
+    String anchorMessageId,
+  ) async {
+    try {
+      _logger.i('日期同步消息', extra: {
+        'conversationId': conversationId,
+        'anchorMessageId': anchorMessageId,
+      });
+
+      // 1. 获取本地最旧和最新消息ID
+      final oldestMessageId = await getLocalOldestMessageId(conversationId);
+      final newestMessageId = await getLocalNewestMessageId(conversationId);
+
+      // 2. 计算锚点消息到最旧和最新消息之间的数量
+      int messagesBeforeAnchor = 0;
+      int messagesAfterAnchor = 0;
+
+      if (oldestMessageId != null) {
+        messagesBeforeAnchor = await getMessageCountBetween(
+          conversationId,
+          anchorMessageId,
+          oldestMessageId,
+        );
+      }
+
+      if (newestMessageId != null) {
+        messagesAfterAnchor = await getMessageCountBetween(
+          conversationId,
+          anchorMessageId,
+          newestMessageId,
+        );
+      }
+
+      // 3. 计算前后15天每天的消息数量
+      final dailyCounts = await calculateDailyMessageCounts(
+        conversationId,
+        anchorMessageId,
+      );
+
+      // 4. 创建同步请求
+      final syncRequest = message_proto.MessageSyncRequest()
+        ..syncType = message_proto.MessageSyncType.RECENT
+        ..conversationId = conversationId
+        ..anchorMessageId = anchorMessageId;
+
+      // 5. 设置本地消息ID和数量信息
+      if (oldestMessageId != null) {
+        syncRequest.localOldestMessageId = oldestMessageId;
+        syncRequest.messagesBeforeAnchor = messagesBeforeAnchor;
+      }
+
+      if (newestMessageId != null) {
+        syncRequest.localNewestMessageId = newestMessageId;
+        syncRequest.messagesAfterAnchor = messagesAfterAnchor;
+      }
+
+      // 6. 添加每日消息统计
+      for (final entry in dailyCounts.entries) {
+        final dailyCount = message_proto.DailyMessageCount()
+          ..date = entry.key
+          ..count = entry.value;
+        syncRequest.dailyCounts.add(dailyCount);
+      }
+
+      _logger.d('日期同步请求参数', extra: {
+        'oldestMessageId': oldestMessageId,
+        'newestMessageId': newestMessageId,
+        'messagesBeforeAnchor': messagesBeforeAnchor,
+        'messagesAfterAnchor': messagesAfterAnchor,
+        'dailyCountsSize': dailyCounts.length,
+      });
+
+      // 7. 发送同步请求
+      _communicationService.emitProto('message:sync:request', syncRequest);
+
+      return true;
+    } catch (error) {
+      _logger.e('日期同步消息失败', error: error);
+      return false;
+    }
+  }
+
+  /// 同步未读消息
+  @override
+  Future<bool> syncUnreadMessages(
+    String conversationId, {
+    String? lastReadMessageId,
+  }) async {
+    try {
+      _logger.i('同步未读消息', extra: {
+        'conversationId': conversationId,
+        'lastReadMessageId': lastReadMessageId,
+      });
+
+      // 获取本地最旧和最新消息ID
+      final oldestMessageId = await getLocalOldestMessageId(conversationId);
+      final newestMessageId = await getLocalNewestMessageId(conversationId);
+
+      final syncRequest = message_proto.MessageSyncRequest()
+        ..syncType = message_proto.MessageSyncType.UNREAD
+        ..conversationId = conversationId
+        ..anchorMessageId = lastReadMessageId ?? '';
+
+      // 设置本地消息ID信息
+      if (oldestMessageId != null) {
+        syncRequest.localOldestMessageId = oldestMessageId;
+      }
+
+      if (newestMessageId != null) {
+        syncRequest.localNewestMessageId = newestMessageId;
+      }
+
+      // 发送请求
+      _communicationService.emitProto(
+          'message:unread:sync:request', syncRequest);
+
+      return true;
+    } catch (error) {
+      _logger.e('同步未读消息失败', error: error);
+      return false;
+    }
+  }
+
+  /// 计算锚点消息前后15天每天的消息数量
+  @override
+  Future<Map<String, int>> calculateDailyMessageCounts(
+    String conversationId,
+    String anchorMessageId,
+  ) async {
+    try {
+      _logger.d('计算每日消息数量', extra: {
+        'conversationId': conversationId,
+        'anchorMessageId': anchorMessageId,
+      });
+
+      // 获取锚点消息的时间戳
+      final anchorTime =
+          await getMessageTimestamp(conversationId, anchorMessageId);
+      if (anchorTime == null) {
+        _logger.w('锚点消息不存在', extra: {'anchorMessageId': anchorMessageId});
+        return {};
+      }
+
+      final dailyCounts = <String, int>{};
+
+      // 计算前后15天，共31天的数据
+      for (int i = -15; i <= 15; i++) {
+        final targetDate = anchorTime.add(Duration(days: i));
+        final dateKey = _formatDateKey(targetDate);
+        final count = await getMessageCountByDate(conversationId, targetDate);
+        dailyCounts[dateKey] = count;
+      }
+
+      _logger.d('每日消息统计完成', extra: {
+        'totalDays': dailyCounts.length,
+        'totalMessages':
+            dailyCounts.values.fold(0, (sum, count) => sum + count),
+      });
+
+      return dailyCounts;
+    } catch (error) {
+      _logger.e('计算每日消息数量失败', error: error);
+      return {};
+    }
+  }
+
+  /// 获取指定日期的消息数量
+  @override
+  Future<int> getMessageCountByDate(
+      String conversationId, DateTime date) async {
+    try {
+      // 计算当天的开始和结束时间
+      final dayStart = DateTime(date.year, date.month, date.day, 0, 0, 0);
+      final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+
+      // 🔥 使用复合索引高效查询指定日期的消息数量
+      final count = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .createdAtBetween(dayStart, dayEnd)
+          .count();
+
+      return count;
+    } catch (error) {
+      _logger.e('获取指定日期消息数量失败', error: error);
+      return 0;
+    }
+  }
+
+  /// 格式化日期为字符串键
+  String _formatDateKey(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 获取消息在时间线中的位置
+  @override
+  Future<DateTime?> getMessageTimestamp(
+      String conversationId, String messageId) async {
+    try {
+      final message = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .messageIdEqualTo(messageId)
+          .findFirst();
+
+      return message?.createdAt;
+    } catch (error) {
+      _logger.e('获取消息时间戳失败', error: error);
+      return null;
+    }
+  }
+
+  /// 检查消息是否存在于本地
+  @override
+  Future<bool> isMessageExistsLocally(
+      String conversationId, String messageId) async {
+    try {
+      final message = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .messageIdEqualTo(messageId)
+          .findFirst();
+
+      return message != null;
+    } catch (error) {
+      _logger.e('检查消息是否存在失败', error: error);
+      return false;
+    }
+  }
+
+  /// 获取本地最旧消息ID
+  Future<String?> getLocalOldestMessageId(String conversationId) async {
+    try {
+      final oldestMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .sortByCreatedAt()
+          .limit(1)
+          .findFirst();
+
+      return oldestMessage?.messageId;
+    } catch (error) {
+      _logger.e('获取本地最旧消息ID失败', error: error);
+      return null;
+    }
+  }
+
+  /// 获取本地最新消息ID
+  Future<String?> getLocalNewestMessageId(String conversationId) async {
+    try {
+      final newestMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .sortByCreatedAtDesc()
+          .limit(1)
+          .findFirst();
+
+      return newestMessage?.messageId;
+    } catch (error) {
+      _logger.e('获取本地最新消息ID失败', error: error);
+      return null;
+    }
+  }
+
+  /// 计算锚点消息到指定消息之间的消息数量
+  Future<int> getMessageCountBetween(
+    String conversationId,
+    String fromMessageId,
+    String toMessageId,
+  ) async {
+    try {
+      // 获取两个消息的时间戳
+      final fromMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .messageIdEqualTo(fromMessageId)
+          .findFirst();
+
+      final toMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .messageIdEqualTo(toMessageId)
+          .findFirst();
+
+      if (fromMessage == null || toMessage == null) {
+        return 0;
+      }
+
+      // 确保时间顺序正确
+      final startTime = fromMessage.createdAt.isBefore(toMessage.createdAt)
+          ? fromMessage.createdAt
+          : toMessage.createdAt;
+      final endTime = fromMessage.createdAt.isAfter(toMessage.createdAt)
+          ? fromMessage.createdAt
+          : toMessage.createdAt;
+
+      // 计算两个时间点之间的消息数量（不包括边界消息）
+      final count = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .createdAtGreaterThan(startTime)
+          .and()
+          .createdAtLessThan(endTime)
+          .count();
+
+      return count;
+    } catch (error) {
+      _logger.e('计算消息数量失败', error: error);
+      return 0;
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   私有辅助方法   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 保存消息到本地数据库
+  Future<int> _saveMessagesToLocal(
+      List<message_proto.MessageProto> protoMessages) async {
+    if (protoMessages.isEmpty) return 0;
+
+    try {
+      int savedCount = 0;
+
+      await _isar.writeTxn(() async {
+        for (final protoMsg in protoMessages) {
+          // 检查消息是否已存在
+          final existing = await _messages
+              .filter()
+              .messageIdEqualTo(protoMsg.messageId)
+              .findFirst();
+
+          if (existing == null) {
+            // 转换Proto消息为数据库模型
+            final message = Message.fromProto(protoMsg);
+            await _messages.put(message);
+            savedCount++;
+          }
+        }
+      });
+
+      _logger.d('保存消息到本地数据库', extra: {
+        'totalReceived': protoMessages.length,
+        'savedCount': savedCount,
+      });
+
+      return savedCount;
+    } catch (error) {
+      _logger.e('保存消息到本地数据库失败', error: error);
+      return 0;
+    }
+  }
+
+  /// 批量同步多个会话的消息
+  @override
+  Future<List<bool>> batchSyncMessages(
+    List<ConversationSyncTask> syncTasks, {
+    int maxConcurrent = 3,
+  }) async {
+    _logger.i('批量同步消息', extra: {
+      'taskCount': syncTasks.length,
+      'maxConcurrent': maxConcurrent,
+    });
+
+    final results = <bool>[];
+    final semaphore = Semaphore(maxConcurrent);
+
+    // 并发执行同步任务
+    final futures = syncTasks.map((task) async {
+      await semaphore.acquire();
+      try {
+        final result = await syncConversationMessages(
+          task.conversationId,
+          task.type,
+          anchorMessageId: task.anchorMessageId,
+        );
+        return result;
+      } finally {
+        semaphore.release();
+      }
+    });
+
+    results.addAll(await Future.wait(futures));
+    return results;
+  }
+
+  /// 获取本地消息的时间范围
+  @override
+  Future<DateTimeRange?> getLocalMessageTimeRange(String conversationId) async {
+    try {
+      // 🔥 优化：使用索引高效查询最早和最新消息
+      // 由于有复合索引 conversationId + createdAt，这些查询会很快
+
+      // 获取最早的消息 - 使用索引排序
+      final earliestMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .sortByCreatedAt()
+          .limit(1)
+          .findFirst();
+
+      // 获取最新的消息 - 使用索引排序
+      final latestMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .sortByCreatedAtDesc()
+          .limit(1)
+          .findFirst();
+
+      if (earliestMessage == null || latestMessage == null) {
+        _logger.d('会话中没有消息', extra: {'conversationId': conversationId});
+        return null;
+      }
+
+      final timeRange = DateTimeRange(
+        start: earliestMessage.createdAt,
+        end: latestMessage.createdAt,
+      );
+
+      _logger.d('获取本地消息时间范围', extra: {
+        'conversationId': conversationId,
+        'startTime': timeRange.start.toIso8601String(),
+        'endTime': timeRange.end.toIso8601String(),
+        'duration': timeRange.duration.toString(),
+      });
+
+      return timeRange;
+    } catch (error) {
+      _logger.e('获取本地消息时间范围失败', error: error);
+      return null;
+    }
   }
 }

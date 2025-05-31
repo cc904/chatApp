@@ -4,6 +4,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/entities/message_timeline.dart';
+import 'package:cc/core/proto/generated/message.pbenum.dart';
 
 /// 测试用的ChatRepository实现
 class TestChatRepository implements ChatRepository {
@@ -308,6 +309,117 @@ class TestChatRepository implements ChatRepository {
   Future<void> saveUserViewState(ViewState viewState) async {
     if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
     // 模拟保存用户查看状态
+  }
+
+  // 新增的消息同步方法实现
+  @override
+  Future<bool> syncConversationMessages(
+    String conversationId,
+    MessageSyncType syncType, {
+    String? anchorMessageId,
+  }) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return true;
+  }
+
+  @override
+  Future<bool> syncUnreadMessages(
+    String conversationId, {
+    String? lastReadMessageId,
+  }) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return true;
+  }
+
+  @override
+  Future<bool> syncRecentMessages(
+    String conversationId,
+    String anchorMessageId,
+  ) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return true;
+  }
+
+  @override
+  Future<List<bool>> batchSyncMessages(
+    List<ConversationSyncTask> syncTasks, {
+    int maxConcurrent = 3,
+  }) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return syncTasks.map((task) => true).toList();
+  }
+
+  @override
+  Future<DateTime?> getMessageTimestamp(
+      String conversationId, String messageId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    final message = _messages.firstWhere(
+      (m) => m.conversationId == conversationId && m.messageId == messageId,
+      orElse: () => Message(),
+    );
+    return message.messageId.isNotEmpty ? message.createdAt : null;
+  }
+
+  @override
+  Future<bool> isMessageExistsLocally(
+      String conversationId, String messageId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return _messages.any(
+      (m) => m.conversationId == conversationId && m.messageId == messageId,
+    );
+  }
+
+  @override
+  Future<DateTimeRange?> getLocalMessageTimeRange(String conversationId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    final conversationMessages =
+        _messages.where((m) => m.conversationId == conversationId).toList();
+
+    if (conversationMessages.isEmpty) return null;
+
+    conversationMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return DateTimeRange(
+      start: conversationMessages.first.createdAt,
+      end: conversationMessages.last.createdAt,
+    );
+  }
+
+  @override
+  Future<Map<String, int>> calculateDailyMessageCounts(
+    String conversationId,
+    String anchorMessageId,
+  ) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+
+    // 模拟返回前后15天的数据
+    final dailyCounts = <String, int>{};
+    final now = DateTime.now();
+
+    for (int i = -15; i <= 15; i++) {
+      final date = now.add(Duration(days: i));
+      final dateKey =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      dailyCounts[dateKey] = i.abs() + 1; // 模拟数据
+    }
+
+    return dailyCounts;
+  }
+
+  @override
+  Future<int> getMessageCountByDate(
+      String conversationId, DateTime date) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+
+    // 计算当天的开始和结束时间
+    final dayStart = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+
+    return _messages
+        .where((m) =>
+            m.conversationId == conversationId &&
+            m.createdAt.isAfter(dayStart) &&
+            m.createdAt.isBefore(dayEnd))
+        .length;
   }
 }
 

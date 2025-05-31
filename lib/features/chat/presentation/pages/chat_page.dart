@@ -54,7 +54,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   // Timeline缓存相关状态
   bool _isRestoringFromCache = false;
-  bool _hasRestoredFromCache = false;
 
   // 添加选择的附件状态
   File? _selectedAttachment;
@@ -117,7 +116,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           _scrollController.jumpTo(pixelPosition);
 
           setState(() {
-            _hasRestoredFromCache = true;
             _isRestoringFromCache = false;
           });
         }

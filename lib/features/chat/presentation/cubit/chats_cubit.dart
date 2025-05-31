@@ -30,9 +30,6 @@ class ChatsCubit extends Cubit<ChatsState> {
   Future<void> _init() async {
     _logger.i('初始化聊天模块');
 
-    // 注册事件处理器
-    await _chatsRepository.registerEventHandlers();
-
     // 设置stream事件订阅
     await _setupSubscriptions();
   }

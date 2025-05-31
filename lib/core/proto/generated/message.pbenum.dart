@@ -13,7 +13,7 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-/// 消息类型枚举 - 与数据库模型完全匹配
+/// 消息类型枚举
 class MessageType extends $pb.ProtobufEnum {
   static const MessageType TEXT = MessageType._(0, _omitEnumNames ? '' : 'TEXT');
   static const MessageType IMAGE = MessageType._(1, _omitEnumNames ? '' : 'IMAGE');
@@ -69,6 +69,22 @@ class MessageStatus extends $pb.ProtobufEnum {
   static MessageStatus? valueOf($core.int value) => _byValue[value];
 
   const MessageStatus._(super.v, super.n);
+}
+
+/// 消息同步策略枚举
+class MessageSyncType extends $pb.ProtobufEnum {
+  static const MessageSyncType RECENT = MessageSyncType._(0, _omitEnumNames ? '' : 'RECENT');
+  static const MessageSyncType UNREAD = MessageSyncType._(1, _omitEnumNames ? '' : 'UNREAD');
+
+  static const $core.List<MessageSyncType> values = <MessageSyncType> [
+    RECENT,
+    UNREAD,
+  ];
+
+  static final $core.Map<$core.int, MessageSyncType> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static MessageSyncType? valueOf($core.int value) => _byValue[value];
+
+  const MessageSyncType._(super.v, super.n);
 }
 
 

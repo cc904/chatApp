@@ -1,5 +1,19 @@
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/proto/generated/message.pbenum.dart';
 import '../entities/message_timeline.dart';
+
+/// 日期时间范围类
+class DateTimeRange {
+  final DateTime start;
+  final DateTime end;
+
+  const DateTimeRange({
+    required this.start,
+    required this.end,
+  });
+
+  Duration get duration => end.difference(start);
+}
 
 /// 单个聊天会话仓库接口
 /// 定义了单个聊天会话所需的各种操作方法
@@ -134,4 +148,98 @@ abstract class ChatRepository {
   ///
   /// [viewState] 要保存的查看状态
   Future<void> saveUserViewState(ViewState viewState);
+
+  // ==================== 消息同步方法 ====================
+
+  /// 同步会话消息
+  ///
+  /// 根据同步类型同步指定会话的消息到本地数据库
+  /// [conversationId] 会话ID
+  /// [syncType] 同步类型（RECENT或UNREAD）
+  /// [anchorMessageId] 锚点消息ID（日期同步时使用，未读同步时可选）
+  /// 返回同步是否成功
+  Future<bool> syncConversationMessages(
+    String conversationId,
+    MessageSyncType syncType, {
+    String? anchorMessageId,
+  });
+
+  /// 同步未读消息
+  ///
+  /// 获取并保存所有未读消息到本地数据库
+  /// [conversationId] 会话ID
+  /// [lastReadMessageId] 最后阅读的消息ID
+  /// 返回同步是否成功
+  Future<bool> syncUnreadMessages(
+    String conversationId, {
+    String? lastReadMessageId,
+  });
+
+  /// 日期同步消息
+  ///
+  /// 以指定消息为锚点，计算前后15天每天的消息数量发送给服务器
+  /// [conversationId] 会话ID
+  /// [anchorMessageId] 锚点消息ID
+  /// 返回同步是否成功
+  Future<bool> syncRecentMessages(
+    String conversationId,
+    String anchorMessageId,
+  );
+
+  /// 批量同步多个会话的消息
+  ///
+  /// 按优先级批量同步多个会话的消息，避免同时发起过多请求
+  /// [syncTasks] 同步任务列表，包含会话ID和同步配置
+  /// [maxConcurrent] 最大并发数量
+  /// 返回所有同步是否成功
+  Future<List<bool>> batchSyncMessages(
+    List<ConversationSyncTask> syncTasks, {
+    int maxConcurrent = 3,
+  });
+
+  /// 获取消息在时间线中的位置
+  Future<DateTime?> getMessageTimestamp(
+      String conversationId, String messageId);
+
+  /// 检查消息是否存在于本地
+  Future<bool> isMessageExistsLocally(String conversationId, String messageId);
+
+  /// 获取本地消息的时间范围
+  Future<DateTimeRange?> getLocalMessageTimeRange(String conversationId);
+
+  /// 计算锚点消息前后15天每天的消息数量
+  ///
+  /// 以指定消息为锚点，统计前后15天每天的消息数量
+  /// [conversationId] 会话ID
+  /// [anchorMessageId] 锚点消息ID
+  /// 返回每日消息统计数据（共31天）
+  Future<Map<String, int>> calculateDailyMessageCounts(
+    String conversationId,
+    String anchorMessageId,
+  );
+
+  /// 获取指定日期的消息数量
+  Future<int> getMessageCountByDate(String conversationId, DateTime date);
+}
+
+/// 会话同步任务
+class ConversationSyncTask {
+  /// 会话ID
+  final String conversationId;
+
+  /// 同步类型
+  final MessageSyncType type;
+
+  /// 锚点消息ID（日期同步时必需，未读同步时可选）
+  final String? anchorMessageId;
+
+  /// 任务优先级（数字越小优先级越高）
+  final int priority;
+
+  const ConversationSyncTask({
+    required this.conversationId,
+    required this.type,
+    this.anchorMessageId,
+    this.priority = 0,
+  });
 }

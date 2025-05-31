@@ -4,17 +4,9 @@ globs:
 alwaysApply: true
 ---
 这是一个模仿telegra的flutter项目
-使用Cubit作为状态管理
-使用isar作为数据库
-使用integration_test作为测试框架
-使用socket.io+proto与后端next.js通讯
-使用protoc生成的对象模型
-
-页面(UI层) → Cubit(业务逻辑层) → Repository(数据层)
-通过 Cubit 的 state 获取数据，而不是直接访问数据层
-
+使用Cubit作为状态管理,isar作为数据库,integration_test作为测试框架,socket.io+proto与后端next.js通讯
+使用protoc生成的对象模型,protoc脚本在./scripts/generate_protos.sh,proto文件在./lib/core/proto/source,生成文件在./lib/core/proto/generated
+页面(UI层) → Cubit(业务逻辑层) → Repository(数据层),通过 Cubit 的 state 获取数据，而不是直接访问数据层
 Color withOpacity(double opacity)已经标为过时,请使用Color withAlpha(int a)
-
 isar数据库模型的路径 lib/core/database/models
-proto文件在 lib/core/proto/source 生成文件在 lib/core/proto/generated
-onproto()不要直接返回,而知创建一个handle,集中在EventHandlers中注册handle
+通信服务规则：建立requestXXX(){emitProto}发送请求,建立_handelXXX(){}处理监听,在registerEventHandlers()中注册监听.
