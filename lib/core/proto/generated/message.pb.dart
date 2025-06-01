@@ -42,7 +42,6 @@ class MessageProto extends $pb.GeneratedMessage {
     $core.String? senderAvatar,
     $fixnum.Int64? createdAt,
     $fixnum.Int64? updatedAt,
-    $core.bool? isRead,
     MessageType? type,
     MessageStatus? status,
     $core.String? text,
@@ -102,9 +101,6 @@ class MessageProto extends $pb.GeneratedMessage {
     }
     if (updatedAt != null) {
       $result.updatedAt = updatedAt;
-    }
-    if (isRead != null) {
-      $result.isRead = isRead;
     }
     if (type != null) {
       $result.type = type;
@@ -224,18 +220,18 @@ class MessageProto extends $pb.GeneratedMessage {
   factory MessageProto.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static const $core.Map<$core.int, MessageProto_Content> _MessageProto_ContentByTag = {
-    38 : MessageProto_Content.textMessage,
-    39 : MessageProto_Content.mediaMessage,
-    40 : MessageProto_Content.locationMessage,
-    41 : MessageProto_Content.systemMessage,
-    42 : MessageProto_Content.stickerMessage,
-    43 : MessageProto_Content.contactMessage,
-    44 : MessageProto_Content.pollMessage,
-    45 : MessageProto_Content.linkMessage,
+    37 : MessageProto_Content.textMessage,
+    38 : MessageProto_Content.mediaMessage,
+    39 : MessageProto_Content.locationMessage,
+    40 : MessageProto_Content.systemMessage,
+    41 : MessageProto_Content.stickerMessage,
+    42 : MessageProto_Content.contactMessage,
+    43 : MessageProto_Content.pollMessage,
+    44 : MessageProto_Content.linkMessage,
     0 : MessageProto_Content.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..oo(0, [38, 39, 40, 41, 42, 43, 44, 45])
+    ..oo(0, [37, 38, 39, 40, 41, 42, 43, 44])
     ..aOS(1, _omitFieldNames ? '' : 'messageId')
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
     ..aOS(3, _omitFieldNames ? '' : 'senderId')
@@ -243,44 +239,43 @@ class MessageProto extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'senderAvatar')
     ..aInt64(6, _omitFieldNames ? '' : 'createdAt')
     ..aInt64(7, _omitFieldNames ? '' : 'updatedAt')
-    ..aOB(8, _omitFieldNames ? '' : 'isRead')
-    ..e<MessageType>(9, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: MessageType.TEXT, valueOf: MessageType.valueOf, enumValues: MessageType.values)
-    ..e<MessageStatus>(10, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: MessageStatus.SENDING, valueOf: MessageStatus.valueOf, enumValues: MessageStatus.values)
-    ..aOS(11, _omitFieldNames ? '' : 'text')
-    ..aOS(12, _omitFieldNames ? '' : 'mediaUrl')
-    ..aOS(13, _omitFieldNames ? '' : 'localPath')
-    ..a<$core.int>(14, _omitFieldNames ? '' : 'duration', $pb.PbFieldType.O3)
-    ..a<$core.double>(15, _omitFieldNames ? '' : 'fileSize', $pb.PbFieldType.OD)
-    ..aOS(16, _omitFieldNames ? '' : 'fileName')
-    ..aOS(17, _omitFieldNames ? '' : 'thumbnailUrl')
-    ..a<$core.double>(18, _omitFieldNames ? '' : 'latitude', $pb.PbFieldType.OD)
-    ..a<$core.double>(19, _omitFieldNames ? '' : 'longitude', $pb.PbFieldType.OD)
-    ..aOS(20, _omitFieldNames ? '' : 'locationAddress')
-    ..aOS(21, _omitFieldNames ? '' : 'quotedMessageId')
-    ..aOB(22, _omitFieldNames ? '' : 'isDeleted')
-    ..aOB(23, _omitFieldNames ? '' : 'isRevoked')
-    ..aOB(24, _omitFieldNames ? '' : 'isEdited')
-    ..aInt64(25, _omitFieldNames ? '' : 'editedAt')
-    ..aInt64(26, _omitFieldNames ? '' : 'revokedAt')
-    ..aOS(27, _omitFieldNames ? '' : 'originalText')
-    ..aOS(28, _omitFieldNames ? '' : 'quotedMessageText')
-    ..aOS(29, _omitFieldNames ? '' : 'quotedMessageSenderName')
-    ..aOS(30, _omitFieldNames ? '' : 'quotedMessageType')
-    ..aOS(31, _omitFieldNames ? '' : 'repliedToMessageId')
-    ..aOS(32, _omitFieldNames ? '' : 'forwardedFromConversationId')
-    ..aOS(33, _omitFieldNames ? '' : 'forwardedFromMessageId')
-    ..m<$core.String, $core.int>(34, _omitFieldNames ? '' : 'reactions', entryClassName: 'MessageProto.ReactionsEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.O3, packageName: const $pb.PackageName('cc'))
-    ..aOS(35, _omitFieldNames ? '' : 'priority')
-    ..pPS(36, _omitFieldNames ? '' : 'tags')
-    ..aOB(37, _omitFieldNames ? '' : 'isPinned')
-    ..aOM<TextMessage>(38, _omitFieldNames ? '' : 'textMessage', subBuilder: TextMessage.create)
-    ..aOM<MediaMessage>(39, _omitFieldNames ? '' : 'mediaMessage', subBuilder: MediaMessage.create)
-    ..aOM<LocationMessage>(40, _omitFieldNames ? '' : 'locationMessage', subBuilder: LocationMessage.create)
-    ..aOM<SystemMessage>(41, _omitFieldNames ? '' : 'systemMessage', subBuilder: SystemMessage.create)
-    ..aOM<StickerMessage>(42, _omitFieldNames ? '' : 'stickerMessage', subBuilder: StickerMessage.create)
-    ..aOM<ContactMessage>(43, _omitFieldNames ? '' : 'contactMessage', subBuilder: ContactMessage.create)
-    ..aOM<PollMessage>(44, _omitFieldNames ? '' : 'pollMessage', subBuilder: PollMessage.create)
-    ..aOM<LinkMessage>(45, _omitFieldNames ? '' : 'linkMessage', subBuilder: LinkMessage.create)
+    ..e<MessageType>(8, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: MessageType.TEXT, valueOf: MessageType.valueOf, enumValues: MessageType.values)
+    ..e<MessageStatus>(9, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: MessageStatus.SENDING, valueOf: MessageStatus.valueOf, enumValues: MessageStatus.values)
+    ..aOS(10, _omitFieldNames ? '' : 'text')
+    ..aOS(11, _omitFieldNames ? '' : 'mediaUrl')
+    ..aOS(12, _omitFieldNames ? '' : 'localPath')
+    ..a<$core.int>(13, _omitFieldNames ? '' : 'duration', $pb.PbFieldType.O3)
+    ..a<$core.double>(14, _omitFieldNames ? '' : 'fileSize', $pb.PbFieldType.OD)
+    ..aOS(15, _omitFieldNames ? '' : 'fileName')
+    ..aOS(16, _omitFieldNames ? '' : 'thumbnailUrl')
+    ..a<$core.double>(17, _omitFieldNames ? '' : 'latitude', $pb.PbFieldType.OD)
+    ..a<$core.double>(18, _omitFieldNames ? '' : 'longitude', $pb.PbFieldType.OD)
+    ..aOS(19, _omitFieldNames ? '' : 'locationAddress')
+    ..aOS(20, _omitFieldNames ? '' : 'quotedMessageId')
+    ..aOB(21, _omitFieldNames ? '' : 'isDeleted')
+    ..aOB(22, _omitFieldNames ? '' : 'isRevoked')
+    ..aOB(23, _omitFieldNames ? '' : 'isEdited')
+    ..aInt64(24, _omitFieldNames ? '' : 'editedAt')
+    ..aInt64(25, _omitFieldNames ? '' : 'revokedAt')
+    ..aOS(26, _omitFieldNames ? '' : 'originalText')
+    ..aOS(27, _omitFieldNames ? '' : 'quotedMessageText')
+    ..aOS(28, _omitFieldNames ? '' : 'quotedMessageSenderName')
+    ..aOS(29, _omitFieldNames ? '' : 'quotedMessageType')
+    ..aOS(30, _omitFieldNames ? '' : 'repliedToMessageId')
+    ..aOS(31, _omitFieldNames ? '' : 'forwardedFromConversationId')
+    ..aOS(32, _omitFieldNames ? '' : 'forwardedFromMessageId')
+    ..m<$core.String, $core.int>(33, _omitFieldNames ? '' : 'reactions', entryClassName: 'MessageProto.ReactionsEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.O3, packageName: const $pb.PackageName('cc'))
+    ..aOS(34, _omitFieldNames ? '' : 'priority')
+    ..pPS(35, _omitFieldNames ? '' : 'tags')
+    ..aOB(36, _omitFieldNames ? '' : 'isPinned')
+    ..aOM<TextMessage>(37, _omitFieldNames ? '' : 'textMessage', subBuilder: TextMessage.create)
+    ..aOM<MediaMessage>(38, _omitFieldNames ? '' : 'mediaMessage', subBuilder: MediaMessage.create)
+    ..aOM<LocationMessage>(39, _omitFieldNames ? '' : 'locationMessage', subBuilder: LocationMessage.create)
+    ..aOM<SystemMessage>(40, _omitFieldNames ? '' : 'systemMessage', subBuilder: SystemMessage.create)
+    ..aOM<StickerMessage>(41, _omitFieldNames ? '' : 'stickerMessage', subBuilder: StickerMessage.create)
+    ..aOM<ContactMessage>(42, _omitFieldNames ? '' : 'contactMessage', subBuilder: ContactMessage.create)
+    ..aOM<PollMessage>(43, _omitFieldNames ? '' : 'pollMessage', subBuilder: PollMessage.create)
+    ..aOM<LinkMessage>(44, _omitFieldNames ? '' : 'linkMessage', subBuilder: LinkMessage.create)
     ..hasRequiredFields = false
   ;
 
@@ -372,360 +367,352 @@ class MessageProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearUpdatedAt() => $_clearField(7);
 
+  /// 消息状态字段
   @$pb.TagNumber(8)
-  $core.bool get isRead => $_getBF(7);
+  MessageType get type => $_getN(7);
   @$pb.TagNumber(8)
-  set isRead($core.bool v) { $_setBool(7, v); }
+  set type(MessageType v) { $_setField(8, v); }
   @$pb.TagNumber(8)
-  $core.bool hasIsRead() => $_has(7);
+  $core.bool hasType() => $_has(7);
   @$pb.TagNumber(8)
-  void clearIsRead() => $_clearField(8);
+  void clearType() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  MessageType get type => $_getN(8);
+  MessageStatus get status => $_getN(8);
   @$pb.TagNumber(9)
-  set type(MessageType v) { $_setField(9, v); }
+  set status(MessageStatus v) { $_setField(9, v); }
   @$pb.TagNumber(9)
-  $core.bool hasType() => $_has(8);
+  $core.bool hasStatus() => $_has(8);
   @$pb.TagNumber(9)
-  void clearType() => $_clearField(9);
-
-  @$pb.TagNumber(10)
-  MessageStatus get status => $_getN(9);
-  @$pb.TagNumber(10)
-  set status(MessageStatus v) { $_setField(10, v); }
-  @$pb.TagNumber(10)
-  $core.bool hasStatus() => $_has(9);
-  @$pb.TagNumber(10)
-  void clearStatus() => $_clearField(10);
+  void clearStatus() => $_clearField(9);
 
   /// 消息内容
-  @$pb.TagNumber(11)
-  $core.String get text => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set text($core.String v) { $_setString(10, v); }
-  @$pb.TagNumber(11)
-  $core.bool hasText() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearText() => $_clearField(11);
+  @$pb.TagNumber(10)
+  $core.String get text => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set text($core.String v) { $_setString(9, v); }
+  @$pb.TagNumber(10)
+  $core.bool hasText() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearText() => $_clearField(10);
 
   /// 媒体消息相关字段
+  @$pb.TagNumber(11)
+  $core.String get mediaUrl => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set mediaUrl($core.String v) { $_setString(10, v); }
+  @$pb.TagNumber(11)
+  $core.bool hasMediaUrl() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearMediaUrl() => $_clearField(11);
+
   @$pb.TagNumber(12)
-  $core.String get mediaUrl => $_getSZ(11);
+  $core.String get localPath => $_getSZ(11);
   @$pb.TagNumber(12)
-  set mediaUrl($core.String v) { $_setString(11, v); }
+  set localPath($core.String v) { $_setString(11, v); }
   @$pb.TagNumber(12)
-  $core.bool hasMediaUrl() => $_has(11);
+  $core.bool hasLocalPath() => $_has(11);
   @$pb.TagNumber(12)
-  void clearMediaUrl() => $_clearField(12);
+  void clearLocalPath() => $_clearField(12);
 
   @$pb.TagNumber(13)
-  $core.String get localPath => $_getSZ(12);
+  $core.int get duration => $_getIZ(12);
   @$pb.TagNumber(13)
-  set localPath($core.String v) { $_setString(12, v); }
+  set duration($core.int v) { $_setSignedInt32(12, v); }
   @$pb.TagNumber(13)
-  $core.bool hasLocalPath() => $_has(12);
+  $core.bool hasDuration() => $_has(12);
   @$pb.TagNumber(13)
-  void clearLocalPath() => $_clearField(13);
+  void clearDuration() => $_clearField(13);
 
   @$pb.TagNumber(14)
-  $core.int get duration => $_getIZ(13);
+  $core.double get fileSize => $_getN(13);
   @$pb.TagNumber(14)
-  set duration($core.int v) { $_setSignedInt32(13, v); }
+  set fileSize($core.double v) { $_setDouble(13, v); }
   @$pb.TagNumber(14)
-  $core.bool hasDuration() => $_has(13);
+  $core.bool hasFileSize() => $_has(13);
   @$pb.TagNumber(14)
-  void clearDuration() => $_clearField(14);
+  void clearFileSize() => $_clearField(14);
 
   @$pb.TagNumber(15)
-  $core.double get fileSize => $_getN(14);
+  $core.String get fileName => $_getSZ(14);
   @$pb.TagNumber(15)
-  set fileSize($core.double v) { $_setDouble(14, v); }
+  set fileName($core.String v) { $_setString(14, v); }
   @$pb.TagNumber(15)
-  $core.bool hasFileSize() => $_has(14);
+  $core.bool hasFileName() => $_has(14);
   @$pb.TagNumber(15)
-  void clearFileSize() => $_clearField(15);
+  void clearFileName() => $_clearField(15);
 
   @$pb.TagNumber(16)
-  $core.String get fileName => $_getSZ(15);
+  $core.String get thumbnailUrl => $_getSZ(15);
   @$pb.TagNumber(16)
-  set fileName($core.String v) { $_setString(15, v); }
+  set thumbnailUrl($core.String v) { $_setString(15, v); }
   @$pb.TagNumber(16)
-  $core.bool hasFileName() => $_has(15);
+  $core.bool hasThumbnailUrl() => $_has(15);
   @$pb.TagNumber(16)
-  void clearFileName() => $_clearField(16);
-
-  @$pb.TagNumber(17)
-  $core.String get thumbnailUrl => $_getSZ(16);
-  @$pb.TagNumber(17)
-  set thumbnailUrl($core.String v) { $_setString(16, v); }
-  @$pb.TagNumber(17)
-  $core.bool hasThumbnailUrl() => $_has(16);
-  @$pb.TagNumber(17)
-  void clearThumbnailUrl() => $_clearField(17);
+  void clearThumbnailUrl() => $_clearField(16);
 
   /// 位置消息
+  @$pb.TagNumber(17)
+  $core.double get latitude => $_getN(16);
+  @$pb.TagNumber(17)
+  set latitude($core.double v) { $_setDouble(16, v); }
+  @$pb.TagNumber(17)
+  $core.bool hasLatitude() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearLatitude() => $_clearField(17);
+
   @$pb.TagNumber(18)
-  $core.double get latitude => $_getN(17);
+  $core.double get longitude => $_getN(17);
   @$pb.TagNumber(18)
-  set latitude($core.double v) { $_setDouble(17, v); }
+  set longitude($core.double v) { $_setDouble(17, v); }
   @$pb.TagNumber(18)
-  $core.bool hasLatitude() => $_has(17);
+  $core.bool hasLongitude() => $_has(17);
   @$pb.TagNumber(18)
-  void clearLatitude() => $_clearField(18);
+  void clearLongitude() => $_clearField(18);
 
   @$pb.TagNumber(19)
-  $core.double get longitude => $_getN(18);
+  $core.String get locationAddress => $_getSZ(18);
   @$pb.TagNumber(19)
-  set longitude($core.double v) { $_setDouble(18, v); }
+  set locationAddress($core.String v) { $_setString(18, v); }
   @$pb.TagNumber(19)
-  $core.bool hasLongitude() => $_has(18);
+  $core.bool hasLocationAddress() => $_has(18);
   @$pb.TagNumber(19)
-  void clearLongitude() => $_clearField(19);
-
-  @$pb.TagNumber(20)
-  $core.String get locationAddress => $_getSZ(19);
-  @$pb.TagNumber(20)
-  set locationAddress($core.String v) { $_setString(19, v); }
-  @$pb.TagNumber(20)
-  $core.bool hasLocationAddress() => $_has(19);
-  @$pb.TagNumber(20)
-  void clearLocationAddress() => $_clearField(20);
+  void clearLocationAddress() => $_clearField(19);
 
   /// 引用消息
-  @$pb.TagNumber(21)
-  $core.String get quotedMessageId => $_getSZ(20);
-  @$pb.TagNumber(21)
-  set quotedMessageId($core.String v) { $_setString(20, v); }
-  @$pb.TagNumber(21)
-  $core.bool hasQuotedMessageId() => $_has(20);
-  @$pb.TagNumber(21)
-  void clearQuotedMessageId() => $_clearField(21);
+  @$pb.TagNumber(20)
+  $core.String get quotedMessageId => $_getSZ(19);
+  @$pb.TagNumber(20)
+  set quotedMessageId($core.String v) { $_setString(19, v); }
+  @$pb.TagNumber(20)
+  $core.bool hasQuotedMessageId() => $_has(19);
+  @$pb.TagNumber(20)
+  void clearQuotedMessageId() => $_clearField(20);
 
   /// 扩展字段
+  @$pb.TagNumber(21)
+  $core.bool get isDeleted => $_getBF(20);
+  @$pb.TagNumber(21)
+  set isDeleted($core.bool v) { $_setBool(20, v); }
+  @$pb.TagNumber(21)
+  $core.bool hasIsDeleted() => $_has(20);
+  @$pb.TagNumber(21)
+  void clearIsDeleted() => $_clearField(21);
+
   @$pb.TagNumber(22)
-  $core.bool get isDeleted => $_getBF(21);
+  $core.bool get isRevoked => $_getBF(21);
   @$pb.TagNumber(22)
-  set isDeleted($core.bool v) { $_setBool(21, v); }
+  set isRevoked($core.bool v) { $_setBool(21, v); }
   @$pb.TagNumber(22)
-  $core.bool hasIsDeleted() => $_has(21);
+  $core.bool hasIsRevoked() => $_has(21);
   @$pb.TagNumber(22)
-  void clearIsDeleted() => $_clearField(22);
+  void clearIsRevoked() => $_clearField(22);
 
   @$pb.TagNumber(23)
-  $core.bool get isRevoked => $_getBF(22);
+  $core.bool get isEdited => $_getBF(22);
   @$pb.TagNumber(23)
-  set isRevoked($core.bool v) { $_setBool(22, v); }
+  set isEdited($core.bool v) { $_setBool(22, v); }
   @$pb.TagNumber(23)
-  $core.bool hasIsRevoked() => $_has(22);
+  $core.bool hasIsEdited() => $_has(22);
   @$pb.TagNumber(23)
-  void clearIsRevoked() => $_clearField(23);
+  void clearIsEdited() => $_clearField(23);
 
   @$pb.TagNumber(24)
-  $core.bool get isEdited => $_getBF(23);
+  $fixnum.Int64 get editedAt => $_getI64(23);
   @$pb.TagNumber(24)
-  set isEdited($core.bool v) { $_setBool(23, v); }
+  set editedAt($fixnum.Int64 v) { $_setInt64(23, v); }
   @$pb.TagNumber(24)
-  $core.bool hasIsEdited() => $_has(23);
+  $core.bool hasEditedAt() => $_has(23);
   @$pb.TagNumber(24)
-  void clearIsEdited() => $_clearField(24);
+  void clearEditedAt() => $_clearField(24);
 
   @$pb.TagNumber(25)
-  $fixnum.Int64 get editedAt => $_getI64(24);
+  $fixnum.Int64 get revokedAt => $_getI64(24);
   @$pb.TagNumber(25)
-  set editedAt($fixnum.Int64 v) { $_setInt64(24, v); }
+  set revokedAt($fixnum.Int64 v) { $_setInt64(24, v); }
   @$pb.TagNumber(25)
-  $core.bool hasEditedAt() => $_has(24);
+  $core.bool hasRevokedAt() => $_has(24);
   @$pb.TagNumber(25)
-  void clearEditedAt() => $_clearField(25);
+  void clearRevokedAt() => $_clearField(25);
 
   @$pb.TagNumber(26)
-  $fixnum.Int64 get revokedAt => $_getI64(25);
+  $core.String get originalText => $_getSZ(25);
   @$pb.TagNumber(26)
-  set revokedAt($fixnum.Int64 v) { $_setInt64(25, v); }
+  set originalText($core.String v) { $_setString(25, v); }
   @$pb.TagNumber(26)
-  $core.bool hasRevokedAt() => $_has(25);
+  $core.bool hasOriginalText() => $_has(25);
   @$pb.TagNumber(26)
-  void clearRevokedAt() => $_clearField(26);
-
-  @$pb.TagNumber(27)
-  $core.String get originalText => $_getSZ(26);
-  @$pb.TagNumber(27)
-  set originalText($core.String v) { $_setString(26, v); }
-  @$pb.TagNumber(27)
-  $core.bool hasOriginalText() => $_has(26);
-  @$pb.TagNumber(27)
-  void clearOriginalText() => $_clearField(27);
+  void clearOriginalText() => $_clearField(26);
 
   /// 引用消息详细信息（缓存）
+  @$pb.TagNumber(27)
+  $core.String get quotedMessageText => $_getSZ(26);
+  @$pb.TagNumber(27)
+  set quotedMessageText($core.String v) { $_setString(26, v); }
+  @$pb.TagNumber(27)
+  $core.bool hasQuotedMessageText() => $_has(26);
+  @$pb.TagNumber(27)
+  void clearQuotedMessageText() => $_clearField(27);
+
   @$pb.TagNumber(28)
-  $core.String get quotedMessageText => $_getSZ(27);
+  $core.String get quotedMessageSenderName => $_getSZ(27);
   @$pb.TagNumber(28)
-  set quotedMessageText($core.String v) { $_setString(27, v); }
+  set quotedMessageSenderName($core.String v) { $_setString(27, v); }
   @$pb.TagNumber(28)
-  $core.bool hasQuotedMessageText() => $_has(27);
+  $core.bool hasQuotedMessageSenderName() => $_has(27);
   @$pb.TagNumber(28)
-  void clearQuotedMessageText() => $_clearField(28);
+  void clearQuotedMessageSenderName() => $_clearField(28);
 
   @$pb.TagNumber(29)
-  $core.String get quotedMessageSenderName => $_getSZ(28);
+  $core.String get quotedMessageType => $_getSZ(28);
   @$pb.TagNumber(29)
-  set quotedMessageSenderName($core.String v) { $_setString(28, v); }
+  set quotedMessageType($core.String v) { $_setString(28, v); }
   @$pb.TagNumber(29)
-  $core.bool hasQuotedMessageSenderName() => $_has(28);
+  $core.bool hasQuotedMessageType() => $_has(28);
   @$pb.TagNumber(29)
-  void clearQuotedMessageSenderName() => $_clearField(29);
-
-  @$pb.TagNumber(30)
-  $core.String get quotedMessageType => $_getSZ(29);
-  @$pb.TagNumber(30)
-  set quotedMessageType($core.String v) { $_setString(29, v); }
-  @$pb.TagNumber(30)
-  $core.bool hasQuotedMessageType() => $_has(29);
-  @$pb.TagNumber(30)
-  void clearQuotedMessageType() => $_clearField(30);
+  void clearQuotedMessageType() => $_clearField(29);
 
   /// 回复和转发
+  @$pb.TagNumber(30)
+  $core.String get repliedToMessageId => $_getSZ(29);
+  @$pb.TagNumber(30)
+  set repliedToMessageId($core.String v) { $_setString(29, v); }
+  @$pb.TagNumber(30)
+  $core.bool hasRepliedToMessageId() => $_has(29);
+  @$pb.TagNumber(30)
+  void clearRepliedToMessageId() => $_clearField(30);
+
   @$pb.TagNumber(31)
-  $core.String get repliedToMessageId => $_getSZ(30);
+  $core.String get forwardedFromConversationId => $_getSZ(30);
   @$pb.TagNumber(31)
-  set repliedToMessageId($core.String v) { $_setString(30, v); }
+  set forwardedFromConversationId($core.String v) { $_setString(30, v); }
   @$pb.TagNumber(31)
-  $core.bool hasRepliedToMessageId() => $_has(30);
+  $core.bool hasForwardedFromConversationId() => $_has(30);
   @$pb.TagNumber(31)
-  void clearRepliedToMessageId() => $_clearField(31);
+  void clearForwardedFromConversationId() => $_clearField(31);
 
   @$pb.TagNumber(32)
-  $core.String get forwardedFromConversationId => $_getSZ(31);
+  $core.String get forwardedFromMessageId => $_getSZ(31);
   @$pb.TagNumber(32)
-  set forwardedFromConversationId($core.String v) { $_setString(31, v); }
+  set forwardedFromMessageId($core.String v) { $_setString(31, v); }
   @$pb.TagNumber(32)
-  $core.bool hasForwardedFromConversationId() => $_has(31);
+  $core.bool hasForwardedFromMessageId() => $_has(31);
   @$pb.TagNumber(32)
-  void clearForwardedFromConversationId() => $_clearField(32);
-
-  @$pb.TagNumber(33)
-  $core.String get forwardedFromMessageId => $_getSZ(32);
-  @$pb.TagNumber(33)
-  set forwardedFromMessageId($core.String v) { $_setString(32, v); }
-  @$pb.TagNumber(33)
-  $core.bool hasForwardedFromMessageId() => $_has(32);
-  @$pb.TagNumber(33)
-  void clearForwardedFromMessageId() => $_clearField(33);
+  void clearForwardedFromMessageId() => $_clearField(32);
 
   /// 消息反应（点赞、表情等）
-  @$pb.TagNumber(34)
-  $pb.PbMap<$core.String, $core.int> get reactions => $_getMap(33);
+  @$pb.TagNumber(33)
+  $pb.PbMap<$core.String, $core.int> get reactions => $_getMap(32);
 
   /// 消息优先级和标记
+  @$pb.TagNumber(34)
+  $core.String get priority => $_getSZ(33);
+  @$pb.TagNumber(34)
+  set priority($core.String v) { $_setString(33, v); }
+  @$pb.TagNumber(34)
+  $core.bool hasPriority() => $_has(33);
+  @$pb.TagNumber(34)
+  void clearPriority() => $_clearField(34);
+
   @$pb.TagNumber(35)
-  $core.String get priority => $_getSZ(34);
-  @$pb.TagNumber(35)
-  set priority($core.String v) { $_setString(34, v); }
-  @$pb.TagNumber(35)
-  $core.bool hasPriority() => $_has(34);
-  @$pb.TagNumber(35)
-  void clearPriority() => $_clearField(35);
+  $pb.PbList<$core.String> get tags => $_getList(34);
 
   @$pb.TagNumber(36)
-  $pb.PbList<$core.String> get tags => $_getList(35);
+  $core.bool get isPinned => $_getBF(35);
+  @$pb.TagNumber(36)
+  set isPinned($core.bool v) { $_setBool(35, v); }
+  @$pb.TagNumber(36)
+  $core.bool hasIsPinned() => $_has(35);
+  @$pb.TagNumber(36)
+  void clearIsPinned() => $_clearField(36);
 
   @$pb.TagNumber(37)
-  $core.bool get isPinned => $_getBF(36);
+  TextMessage get textMessage => $_getN(36);
   @$pb.TagNumber(37)
-  set isPinned($core.bool v) { $_setBool(36, v); }
+  set textMessage(TextMessage v) { $_setField(37, v); }
   @$pb.TagNumber(37)
-  $core.bool hasIsPinned() => $_has(36);
+  $core.bool hasTextMessage() => $_has(36);
   @$pb.TagNumber(37)
-  void clearIsPinned() => $_clearField(37);
+  void clearTextMessage() => $_clearField(37);
+  @$pb.TagNumber(37)
+  TextMessage ensureTextMessage() => $_ensure(36);
 
   @$pb.TagNumber(38)
-  TextMessage get textMessage => $_getN(37);
+  MediaMessage get mediaMessage => $_getN(37);
   @$pb.TagNumber(38)
-  set textMessage(TextMessage v) { $_setField(38, v); }
+  set mediaMessage(MediaMessage v) { $_setField(38, v); }
   @$pb.TagNumber(38)
-  $core.bool hasTextMessage() => $_has(37);
+  $core.bool hasMediaMessage() => $_has(37);
   @$pb.TagNumber(38)
-  void clearTextMessage() => $_clearField(38);
+  void clearMediaMessage() => $_clearField(38);
   @$pb.TagNumber(38)
-  TextMessage ensureTextMessage() => $_ensure(37);
+  MediaMessage ensureMediaMessage() => $_ensure(37);
 
   @$pb.TagNumber(39)
-  MediaMessage get mediaMessage => $_getN(38);
+  LocationMessage get locationMessage => $_getN(38);
   @$pb.TagNumber(39)
-  set mediaMessage(MediaMessage v) { $_setField(39, v); }
+  set locationMessage(LocationMessage v) { $_setField(39, v); }
   @$pb.TagNumber(39)
-  $core.bool hasMediaMessage() => $_has(38);
+  $core.bool hasLocationMessage() => $_has(38);
   @$pb.TagNumber(39)
-  void clearMediaMessage() => $_clearField(39);
+  void clearLocationMessage() => $_clearField(39);
   @$pb.TagNumber(39)
-  MediaMessage ensureMediaMessage() => $_ensure(38);
+  LocationMessage ensureLocationMessage() => $_ensure(38);
 
   @$pb.TagNumber(40)
-  LocationMessage get locationMessage => $_getN(39);
+  SystemMessage get systemMessage => $_getN(39);
   @$pb.TagNumber(40)
-  set locationMessage(LocationMessage v) { $_setField(40, v); }
+  set systemMessage(SystemMessage v) { $_setField(40, v); }
   @$pb.TagNumber(40)
-  $core.bool hasLocationMessage() => $_has(39);
+  $core.bool hasSystemMessage() => $_has(39);
   @$pb.TagNumber(40)
-  void clearLocationMessage() => $_clearField(40);
+  void clearSystemMessage() => $_clearField(40);
   @$pb.TagNumber(40)
-  LocationMessage ensureLocationMessage() => $_ensure(39);
+  SystemMessage ensureSystemMessage() => $_ensure(39);
 
   @$pb.TagNumber(41)
-  SystemMessage get systemMessage => $_getN(40);
+  StickerMessage get stickerMessage => $_getN(40);
   @$pb.TagNumber(41)
-  set systemMessage(SystemMessage v) { $_setField(41, v); }
+  set stickerMessage(StickerMessage v) { $_setField(41, v); }
   @$pb.TagNumber(41)
-  $core.bool hasSystemMessage() => $_has(40);
+  $core.bool hasStickerMessage() => $_has(40);
   @$pb.TagNumber(41)
-  void clearSystemMessage() => $_clearField(41);
+  void clearStickerMessage() => $_clearField(41);
   @$pb.TagNumber(41)
-  SystemMessage ensureSystemMessage() => $_ensure(40);
+  StickerMessage ensureStickerMessage() => $_ensure(40);
 
   @$pb.TagNumber(42)
-  StickerMessage get stickerMessage => $_getN(41);
+  ContactMessage get contactMessage => $_getN(41);
   @$pb.TagNumber(42)
-  set stickerMessage(StickerMessage v) { $_setField(42, v); }
+  set contactMessage(ContactMessage v) { $_setField(42, v); }
   @$pb.TagNumber(42)
-  $core.bool hasStickerMessage() => $_has(41);
+  $core.bool hasContactMessage() => $_has(41);
   @$pb.TagNumber(42)
-  void clearStickerMessage() => $_clearField(42);
+  void clearContactMessage() => $_clearField(42);
   @$pb.TagNumber(42)
-  StickerMessage ensureStickerMessage() => $_ensure(41);
+  ContactMessage ensureContactMessage() => $_ensure(41);
 
   @$pb.TagNumber(43)
-  ContactMessage get contactMessage => $_getN(42);
+  PollMessage get pollMessage => $_getN(42);
   @$pb.TagNumber(43)
-  set contactMessage(ContactMessage v) { $_setField(43, v); }
+  set pollMessage(PollMessage v) { $_setField(43, v); }
   @$pb.TagNumber(43)
-  $core.bool hasContactMessage() => $_has(42);
+  $core.bool hasPollMessage() => $_has(42);
   @$pb.TagNumber(43)
-  void clearContactMessage() => $_clearField(43);
+  void clearPollMessage() => $_clearField(43);
   @$pb.TagNumber(43)
-  ContactMessage ensureContactMessage() => $_ensure(42);
+  PollMessage ensurePollMessage() => $_ensure(42);
 
   @$pb.TagNumber(44)
-  PollMessage get pollMessage => $_getN(43);
+  LinkMessage get linkMessage => $_getN(43);
   @$pb.TagNumber(44)
-  set pollMessage(PollMessage v) { $_setField(44, v); }
+  set linkMessage(LinkMessage v) { $_setField(44, v); }
   @$pb.TagNumber(44)
-  $core.bool hasPollMessage() => $_has(43);
+  $core.bool hasLinkMessage() => $_has(43);
   @$pb.TagNumber(44)
-  void clearPollMessage() => $_clearField(44);
+  void clearLinkMessage() => $_clearField(44);
   @$pb.TagNumber(44)
-  PollMessage ensurePollMessage() => $_ensure(43);
-
-  @$pb.TagNumber(45)
-  LinkMessage get linkMessage => $_getN(44);
-  @$pb.TagNumber(45)
-  set linkMessage(LinkMessage v) { $_setField(45, v); }
-  @$pb.TagNumber(45)
-  $core.bool hasLinkMessage() => $_has(44);
-  @$pb.TagNumber(45)
-  void clearLinkMessage() => $_clearField(45);
-  @$pb.TagNumber(45)
-  LinkMessage ensureLinkMessage() => $_ensure(44);
+  LinkMessage ensureLinkMessage() => $_ensure(43);
 }
 
 /// 文本消息内容
@@ -1844,6 +1831,7 @@ class MessageResponse extends $pb.GeneratedMessage {
     $core.String? message,
     $core.String? messageId,
     $fixnum.Int64? timestamp,
+    $core.String? tempId,
   }) {
     final $result = create();
     if (success != null) {
@@ -1858,6 +1846,9 @@ class MessageResponse extends $pb.GeneratedMessage {
     if (timestamp != null) {
       $result.timestamp = timestamp;
     }
+    if (tempId != null) {
+      $result.tempId = tempId;
+    }
     return $result;
   }
   MessageResponse._() : super();
@@ -1869,6 +1860,7 @@ class MessageResponse extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'message')
     ..aOS(3, _omitFieldNames ? '' : 'messageId')
     ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
+    ..aOS(5, _omitFieldNames ? '' : 'tempId')
     ..hasRequiredFields = false
   ;
 
@@ -1928,6 +1920,15 @@ class MessageResponse extends $pb.GeneratedMessage {
   $core.bool hasTimestamp() => $_has(3);
   @$pb.TagNumber(4)
   void clearTimestamp() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get tempId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set tempId($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTempId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTempId() => $_clearField(5);
 }
 
 /// 输入状态
@@ -2174,10 +2175,6 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
     MessageSyncType? syncType,
     $core.String? conversationId,
     $core.String? anchorMessageId,
-    $core.String? localOldestMessageId,
-    $core.String? localNewestMessageId,
-    $core.int? messagesBeforeAnchor,
-    $core.int? messagesAfterAnchor,
     $core.Iterable<DailyMessageCount>? dailyCounts,
   }) {
     final $result = create();
@@ -2189,18 +2186,6 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
     }
     if (anchorMessageId != null) {
       $result.anchorMessageId = anchorMessageId;
-    }
-    if (localOldestMessageId != null) {
-      $result.localOldestMessageId = localOldestMessageId;
-    }
-    if (localNewestMessageId != null) {
-      $result.localNewestMessageId = localNewestMessageId;
-    }
-    if (messagesBeforeAnchor != null) {
-      $result.messagesBeforeAnchor = messagesBeforeAnchor;
-    }
-    if (messagesAfterAnchor != null) {
-      $result.messagesAfterAnchor = messagesAfterAnchor;
     }
     if (dailyCounts != null) {
       $result.dailyCounts.addAll(dailyCounts);
@@ -2215,11 +2200,7 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
     ..e<MessageSyncType>(1, _omitFieldNames ? '' : 'syncType', $pb.PbFieldType.OE, defaultOrMaker: MessageSyncType.RECENT, valueOf: MessageSyncType.valueOf, enumValues: MessageSyncType.values)
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
     ..aOS(3, _omitFieldNames ? '' : 'anchorMessageId')
-    ..aOS(4, _omitFieldNames ? '' : 'localOldestMessageId')
-    ..aOS(5, _omitFieldNames ? '' : 'localNewestMessageId')
-    ..a<$core.int>(6, _omitFieldNames ? '' : 'messagesBeforeAnchor', $pb.PbFieldType.O3)
-    ..a<$core.int>(7, _omitFieldNames ? '' : 'messagesAfterAnchor', $pb.PbFieldType.O3)
-    ..pc<DailyMessageCount>(8, _omitFieldNames ? '' : 'dailyCounts', $pb.PbFieldType.PM, subBuilder: DailyMessageCount.create)
+    ..pc<DailyMessageCount>(4, _omitFieldNames ? '' : 'dailyCounts', $pb.PbFieldType.PM, subBuilder: DailyMessageCount.create)
     ..hasRequiredFields = false
   ;
 
@@ -2272,43 +2253,7 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
   void clearAnchorMessageId() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get localOldestMessageId => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set localOldestMessageId($core.String v) { $_setString(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasLocalOldestMessageId() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearLocalOldestMessageId() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get localNewestMessageId => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set localNewestMessageId($core.String v) { $_setString(4, v); }
-  @$pb.TagNumber(5)
-  $core.bool hasLocalNewestMessageId() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearLocalNewestMessageId() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.int get messagesBeforeAnchor => $_getIZ(5);
-  @$pb.TagNumber(6)
-  set messagesBeforeAnchor($core.int v) { $_setSignedInt32(5, v); }
-  @$pb.TagNumber(6)
-  $core.bool hasMessagesBeforeAnchor() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearMessagesBeforeAnchor() => $_clearField(6);
-
-  @$pb.TagNumber(7)
-  $core.int get messagesAfterAnchor => $_getIZ(6);
-  @$pb.TagNumber(7)
-  set messagesAfterAnchor($core.int v) { $_setSignedInt32(6, v); }
-  @$pb.TagNumber(7)
-  $core.bool hasMessagesAfterAnchor() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearMessagesAfterAnchor() => $_clearField(7);
-
-  @$pb.TagNumber(8)
-  $pb.PbList<DailyMessageCount> get dailyCounts => $_getList(7);
+  $pb.PbList<DailyMessageCount> get dailyCounts => $_getList(3);
 }
 
 /// 消息同步响应

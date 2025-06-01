@@ -77,9 +77,6 @@ class DatabaseInitializer {
         await Isar.getInstance(dbName)?.close();
       }
 
-      // 清理旧的数据库文件
-      await _cleanupDatabaseFiles(dir.path, currentUser.userId);
-
       // 打开数据库
       final schemas = [
         UserSchema,
@@ -243,39 +240,6 @@ class DatabaseInitializer {
     } catch (error) {
       _logger.e('清空数据库失败', error: error, stackTrace: StackTrace.current);
       rethrow;
-    }
-  }
-
-  /// 清理数据库文件
-  ///
-  /// 删除旧的数据库文件，确保从干净的状态开始
-  static Future<void> _cleanupDatabaseFiles(
-      String dirPath, String userId) async {
-    try {
-      // 检查所有可能的文件名格式
-      final possibleFileNames = [
-        '$userId.isar', // 正确的文件名
-        '$userId.isar.isar', // 重复后缀的文件名
-        userId, // 无后缀的文件名
-      ];
-
-      // 检查并删除所有可能的文件
-      for (var baseName in possibleFileNames) {
-        final dbFile = File('$dirPath/$baseName');
-        final lockFile = File('$dirPath/$baseName.lock');
-
-        if (await dbFile.exists()) {
-          await dbFile.delete();
-          _logger.i('删除旧数据库文件: ${dbFile.path}');
-        }
-
-        if (await lockFile.exists()) {
-          await lockFile.delete();
-          _logger.i('删除旧数据库锁文件: ${lockFile.path}');
-        }
-      }
-    } catch (e) {
-      _logger.e('清理数据库文件时出错', error: e);
     }
   }
 }

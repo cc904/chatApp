@@ -98,7 +98,7 @@ class CommunicationService {
 
     // 配置Proto消息转换和处理
     _socketService.onProto(eventName, creator, (message) {
-      _logger.d('收到Proto消息: $eventName',
+      _logger.d('📨 收到Proto消息: $eventName',
           extra: {'messageType': message.runtimeType});
 
       // 添加try-catch以捕获可能的错误
@@ -116,8 +116,7 @@ class CommunicationService {
   /// [message] - Protobuf消息对象
   Future<void> emitProto<T extends GeneratedMessage>(
       String eventName, T message) async {
-    // _logger.d('发送Proto消息: $eventName [${message.runtimeType}]',
-    //     stackTrace: StackTrace.current);
+    _logger.d('📤 发送Proto消息: $eventName [${message.runtimeType}]');
 
     // 验证事件类型是否匹配
     final expectedCreator = ProtoEvents.getEventCreator(eventName);
@@ -139,7 +138,8 @@ class CommunicationService {
   /// 返回类型安全的数据流
   /// [eventName] - 事件名称
   Stream<T> onProto<T extends GeneratedMessage>(String eventName) {
-    _logger.d('订阅Proto事件流: $eventName [${T.toString()}]');
+    _logger.d('订阅Proto事件流: $eventName [${T.toString()}]',
+        stackTrace: StackTrace.current);
 
     if (!_eventControllers.containsKey(eventName)) {
       _setupProtoEventChannel(eventName);

@@ -54,6 +54,26 @@ abstract class ChatRepository {
   /// 删除消息
   Future<void> deleteMessage(String messageId);
 
+  /// 重新发送失败的消息
+  Future<String> resendMessage(String messageId);
+
+  /// 创建临时消息（用于发送前显示）
+  Future<Message> createTempMessage(
+      String conversationId, String content, String type);
+
+  /// 发送消息（带超时机制，不等待响应）
+  Future<void> sendMessageWithTimeout(Message message,
+      {Duration timeout = const Duration(seconds: 3)});
+
+  /// 标记消息为失败状态
+  Future<void> markMessageAsFailed(String messageId, String errorReason);
+
+  /// 根据消息ID获取消息
+  Future<Message?> getMessageById(String messageId);
+
+  /// 更新消息状态
+  Future<void> updateMessageStatus(String messageId, String status);
+
   /// 清空会话中的所有消息但保留会话
   Future<void> clearConversationMessages(String conversationId);
 
@@ -197,15 +217,8 @@ abstract class ChatRepository {
     int maxConcurrent = 3,
   });
 
-  /// 获取消息在时间线中的位置
-  Future<DateTime?> getMessageTimestamp(
-      String conversationId, String messageId);
-
   /// 检查消息是否存在于本地
   Future<bool> isMessageExistsLocally(String conversationId, String messageId);
-
-  /// 获取本地消息的时间范围
-  Future<DateTimeRange?> getLocalMessageTimeRange(String conversationId);
 
   /// 计算锚点消息前后15天每天的消息数量
   ///
@@ -220,6 +233,15 @@ abstract class ChatRepository {
 
   /// 获取指定日期的消息数量
   Future<int> getMessageCountByDate(String conversationId, DateTime date);
+
+  /// 清理重复消息数据
+  /// 用于修复数据库中的重复消息问题
+  Future<int> cleanupDuplicateMessages(String conversationId);
+
+  /// 验证消息数据一致性
+  /// 检查消息数据的完整性和一致性
+  Future<Map<String, dynamic>> validateMessageConsistency(
+      String conversationId);
 }
 
 /// 会话同步任务
@@ -227,7 +249,7 @@ class ConversationSyncTask {
   /// 会话ID
   final String conversationId;
 
-  /// 同步类型
+  /// 同步类型cleanupDuplicateMessages
   final MessageSyncType type;
 
   /// 锚点消息ID（日期同步时必需，未读同步时可选）

@@ -96,23 +96,38 @@ class _MessageBubbleEnhancedState extends State<MessageBubbleEnhanced>
   void didUpdateWidget(MessageBubbleEnhanced oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 处理高亮状态变化
-    if (widget.isHighlighted != oldWidget.isHighlighted) {
-      if (widget.isHighlighted) {
-        _highlightController.forward().then((_) {
-          _highlightController.reverse();
-        });
+    // 只有在关键属性发生变化时才处理动画
+    if (_shouldRebuild(oldWidget)) {
+      // 处理高亮状态变化
+      if (widget.isHighlighted != oldWidget.isHighlighted) {
+        if (widget.isHighlighted) {
+          _highlightController.forward().then((_) {
+            _highlightController.reverse();
+          });
+        }
       }
-    }
 
-    // 处理选择状态变化
-    if (widget.isSelected != oldWidget.isSelected) {
-      if (widget.isSelected) {
-        _selectionController.forward();
-      } else {
-        _selectionController.reverse();
+      // 处理选择状态变化
+      if (widget.isSelected != oldWidget.isSelected) {
+        if (widget.isSelected) {
+          _selectionController.forward();
+        } else {
+          _selectionController.reverse();
+        }
       }
     }
+  }
+
+  /// 检查是否需要重建组件
+  bool _shouldRebuild(MessageBubbleEnhanced oldWidget) {
+    return widget.message.messageId != oldWidget.message.messageId ||
+        widget.message.status != oldWidget.message.status ||
+        widget.message.isRead != oldWidget.message.isRead ||
+        widget.message.isDelivered != oldWidget.message.isDelivered ||
+        widget.isHighlighted != oldWidget.isHighlighted ||
+        widget.isSelected != oldWidget.isSelected ||
+        widget.showTimestamp != oldWidget.showTimestamp ||
+        widget.showSenderInfo != oldWidget.showSenderInfo;
   }
 
   @override
@@ -652,6 +667,14 @@ class _MessageBubbleEnhancedState extends State<MessageBubbleEnhanced>
   }
 
   Widget _buildStatusIcon() {
+    // 优先根据isRead和isDelivered字段判断状态
+    if (widget.message.isRead) {
+      return const Icon(Icons.done_all, size: 14, color: Colors.blue);
+    } else if (widget.message.isDelivered) {
+      return Icon(Icons.done_all, size: 14, color: Colors.grey[500]);
+    }
+
+    // 回退到status字段判断
     switch (widget.message.status) {
       case 'sending':
         return SizedBox(

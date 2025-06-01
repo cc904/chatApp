@@ -45,7 +45,8 @@ class TestChatRepository implements ChatRepository {
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
       ..status = 'sent'
-      ..isRead = true;
+      ..isRead = true
+      ..isDelivered = true;
 
     _messages.add(message);
     return message;
@@ -66,7 +67,8 @@ class TestChatRepository implements ChatRepository {
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
       ..status = 'sent'
-      ..isRead = true;
+      ..isRead = true
+      ..isDelivered = true;
 
     _messages.add(message);
     return message;
@@ -89,7 +91,8 @@ class TestChatRepository implements ChatRepository {
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
       ..status = 'sent'
-      ..isRead = true;
+      ..isRead = true
+      ..isDelivered = true;
 
     _messages.add(message);
     return message;
@@ -113,7 +116,8 @@ class TestChatRepository implements ChatRepository {
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
       ..status = 'sent'
-      ..isRead = true;
+      ..isRead = true
+      ..isDelivered = true;
 
     _messages.add(message);
     return message;
@@ -139,7 +143,8 @@ class TestChatRepository implements ChatRepository {
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
       ..status = isServerProcessed ? 'processing' : 'sent'
-      ..isRead = true;
+      ..isRead = true
+      ..isDelivered = true;
 
     _messages.add(message);
     return message;
@@ -386,40 +391,30 @@ class TestChatRepository implements ChatRepository {
 
   @override
   Future<Map<String, int>> calculateDailyMessageCounts(
-    String conversationId,
-    String anchorMessageId,
-  ) async {
-    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
-
-    // 模拟返回前后15天的数据
-    final dailyCounts = <String, int>{};
-    final now = DateTime.now();
-
-    for (int i = -15; i <= 15; i++) {
-      final date = now.add(Duration(days: i));
-      final dateKey =
-          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      dailyCounts[dateKey] = i.abs() + 1; // 模拟数据
-    }
-
-    return dailyCounts;
+      String conversationId, String anchorMessageId) async {
+    return {};
   }
 
   @override
   Future<int> getMessageCountByDate(
       String conversationId, DateTime date) async {
-    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return 0;
+  }
 
-    // 计算当天的开始和结束时间
-    final dayStart = DateTime(date.year, date.month, date.day, 0, 0, 0);
-    final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+  @override
+  Future<int> cleanupDuplicateMessages(String conversationId) async {
+    return 0;
+  }
 
-    return _messages
-        .where((m) =>
-            m.conversationId == conversationId &&
-            m.createdAt.isAfter(dayStart) &&
-            m.createdAt.isBefore(dayEnd))
-        .length;
+  @override
+  Future<Map<String, dynamic>> validateMessageConsistency(
+      String conversationId) async {
+    return {
+      'totalMessages': 0,
+      'duplicateMessageIds': 0,
+      'emptyMessageIds': 0,
+      'timeOrderIssues': 0,
+    };
   }
 }
 

@@ -966,9 +966,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 创建消息同步任务
   /// 根据会话状态和本地数据情况创建合适的消息同步任务
-  /// [conversationId] - 会话ID
-  /// [lastReadMessageId] - 最后阅读的消息ID
-  /// [unreadCount] - 未读消息数量
+  /// 新策略：
+  /// 1. 有last_read_message_id → 日期同步（包含未读消息）
+  /// 2. 没有last_read_message_id但有未读 → 未读同步
+  /// 3. 两个都没有 → 不同步
+  /// [conversation] - 会话Proto对象
   /// 返回同步任务，如果不需要同步则返回null
   Future<ConversationSyncTask?> _createMessageSyncTask(
       conversation_proto.ConversationProto conversation) async {
@@ -989,74 +991,26 @@ class ChatsRepositoryImpl implements ChatsRepository {
       'unreadCount': unreadCount,
     });
 
-    // 获取本地消息时间范围
-    final localTimeRange =
-        await _chatRepository!.getLocalMessageTimeRange(conversationId);
-    final hasLocalData = localTimeRange != null;
-
-    _logger.d('本地数据分析', extra: {
-      'hasLocalData': hasLocalData,
-      'localStartTime': localTimeRange?.start.toIso8601String(),
-      'localEndTime': localTimeRange?.end.toIso8601String(),
-    });
-
     MessageSyncType syncType;
     String? anchorMessageId;
     int priority = 0;
 
-    if (unreadCount > 0) {
-      // 🎯 策略1：有未读消息，优先同步未读消息
-      _logger.d('会话有$unreadCount条未读消息，使用未读消息同步策略');
-      syncType = MessageSyncType.UNREAD;
-      anchorMessageId = lastReadMessageId;
-      priority = 1; // 最高优先级
-    } else if (lastReadMessageId != null && lastReadMessageId.isNotEmpty) {
-      // 🎯 策略2：没有未读消息，但有last_read_message_id，使用日期同步
-      _logger.d('使用日期同步策略，以last_read_message_id为锚点');
+    if (lastReadMessageId != null && lastReadMessageId.isNotEmpty) {
+      // 🎯 策略1：有last_read_message_id，使用日期同步（包含未读消息）
+      _logger.d('使用日期同步策略，以last_read_message_id为锚点（包含未读消息）');
       syncType = MessageSyncType.RECENT;
       anchorMessageId = lastReadMessageId;
-      priority = 2;
-
-      if (hasLocalData) {
-        // 检查是否真的需要同步
-        final lastReadTime = await _chatRepository!
-            .getMessageTimestamp(conversationId, lastReadMessageId);
-
-        if (lastReadTime != null &&
-            lastReadTime.isAfter(localTimeRange.start) &&
-            lastReadTime.isBefore(localTimeRange.end)) {
-          // last_read_message_id在本地时间范围内，可能不需要同步
-          final timeSinceLastMessage =
-              DateTime.now().difference(localTimeRange.end);
-
-          if (timeSinceLastMessage.inHours < 1) {
-            _logger.d('本地数据较新，跳过消息同步');
-            return null; // 不需要同步
-          }
-        }
-      }
+      priority = 1; // 最高优先级
+    } else if (unreadCount > 0) {
+      // 🎯 策略2：没有last_read_message_id但有未读消息，使用未读同步
+      _logger.d('没有last_read_message_id，但有$unreadCount条未读消息，使用未读消息同步策略');
+      syncType = MessageSyncType.UNREAD;
+      anchorMessageId = null; // 未读同步不需要锚点
+      priority = 2; // 次优先级
     } else {
-      // 🎯 策略3：没有last_read_message_id，使用未读同步获取最新消息
-      if (!hasLocalData) {
-        _logger.d('无last_read_message_id且本地无数据，同步未读消息');
-        syncType = MessageSyncType.UNREAD;
-        anchorMessageId = null;
-        priority = 3;
-      } else {
-        // 本地有数据但没有last_read_message_id，检查是否需要更新
-        final timeSinceLastMessage =
-            DateTime.now().difference(localTimeRange.end);
-
-        if (timeSinceLastMessage.inHours > 1) {
-          _logger.d('本地数据较旧，同步未读消息');
-          syncType = MessageSyncType.UNREAD;
-          anchorMessageId = null;
-          priority = 4;
-        } else {
-          _logger.d('本地数据较新，跳过消息同步');
-          return null; // 不需要同步
-        }
-      }
+      // 🎯 策略3：两个都没有，不同步
+      _logger.d('没有last_read_message_id且没有未读消息，跳过消息同步');
+      return null;
     }
 
     return ConversationSyncTask(

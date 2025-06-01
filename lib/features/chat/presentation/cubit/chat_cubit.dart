@@ -18,9 +18,9 @@ class ChatCubit extends Cubit<ChatState> {
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
 
-  // Timeline缓存相关
-static const int visibleMessagesCount = 50; // 可见消息数量
-static const int preloadBuffer = 20;       // 预加载缓冲区
+  // 简化的配置参数
+  static const int defaultPageSize = 30; // 每页消息数量
+  static const int visibleMessagesCount = 50; // 可见消息数量
 
   ChatCubit({
     required ChatRepository chatRepository,
@@ -39,10 +39,10 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
           .i('ChatCubit初始化开始', extra: {'conversationId': state.conversationId});
 
       // 设置事件监听
-      _setupSubscriptions();
+     await _setupSubscriptions();
 
-      // 检查是否已有缓存的Timeline
-      await _initializeTimeline();
+      // 简化初始化：直接加载消息
+      await _loadInitialMessages();
 
       // 加入会话房间
       await joinConversation();
@@ -54,145 +54,111 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
     }
   }
 
-  /// 初始化Timeline缓存
-  Future<void> _initializeTimeline() async {
+  /// 加载初始消息
+  Future<void> _loadInitialMessages() async {
     try {
-      // 检查Repository中是否已有缓存的Timeline
+      // 检查Cubit是否已关闭
+      if (isClosed) {
+        _logger.w('Cubit已关闭，取消加载初始消息');
+        return;
+      }
+
+      emit(state.copyWith(isLoadingMessages: true));
+
+      // 检查是否有缓存的Timeline
       final cachedTimeline = _chatRepository.getTimeline(state.conversationId);
 
-      if (cachedTimeline != null) {
-        _logger.i('发现缓存的Timeline', extra: {
+      if (cachedTimeline != null && cachedTimeline.isNotEmpty) {
+        _logger.i('从Timeline缓存加载消息', extra: {
           'conversationId': state.conversationId,
           'messageCount': cachedTimeline.length,
-          'unreadCount': cachedTimeline.unreadCount,
         });
 
-        // 从缓存恢复Timeline
-        await _restoreFromTimeline(cachedTimeline);
-      } else {
-        _logger.i('未发现缓存，开始预加载Timeline');
+        // 从Timeline获取最新的消息
+        final messages = cachedTimeline.getAllMessages();
 
-        // 预加载Timeline
-        await _preloadTimeline();
-      }
-    } catch (error) {
-      _logger.e('初始化Timeline失败', error: error);
-      // 如果Timeline初始化失败，回退到传统方式
-      await _fallbackLoadMessages();
-    }
-  }
+        // 按时间升序排序（最新的在下方）
+        final sortedMessages = List<Message>.from(messages)
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-  /// 从Timeline缓存恢复状态
-  Future<void> _restoreFromTimeline(MessageTimeline timeline) async {
-    try {
-      // 获取可见消息 - 使用已有的方法
-      final visibleMessages =
-          _getVisibleMessagesFromTimeline(timeline, timeline.lastVisibleIndex);
-
-      // 获取总消息数和滚动位置
-      final totalMessages = timeline.length;
-      final scrollPosition = timeline.lastVisibleIndex;
-
-      emit(state.copyWith(
-        messages: visibleMessages,
-        timeline: timeline,
-        hasMoreHistory: timeline.hasMoreHistory,
-        hasMoreRecent: timeline.hasMoreRecent,
-        unreadCount: timeline.unreadCount,
-        firstUnreadMessageId: timeline.firstUnreadMessageId,
-        currentScrollPosition: scrollPosition,
-        isLoadingMessages: false,
-        isPreloading: false,
-      ));
-
-      _logger.i('从Timeline缓存恢复成功', extra: {
-        'visibleMessages': visibleMessages.length,
-        'totalMessages': totalMessages,
-        'scrollPosition': scrollPosition,
-      });
-    } catch (error) {
-      _logger.e('从Timeline缓存恢复失败', error: error);
-      rethrow;
-    }
-  }
-
-  /// 预加载Timeline
-  Future<void> _preloadTimeline() async {
-    try {
-      emit(state.copyWith(isPreloading: true));
-
-      // 调用Repository预加载
-      final success = await _chatRepository.preloadTimeline(
-        state.conversationId,
-        messageCount: visibleMessagesCount + preloadBuffer,
-      );
-
-      if (success) {
-        // 获取预加载的Timeline
-        final timeline = _chatRepository.getTimeline(state.conversationId);
-
-        if (timeline != null) {
-          await _restoreFromTimeline(timeline);
-        } else {
-          throw Exception('预加载成功但无法获取Timeline');
+        // 再次检查Cubit是否已关闭
+        if (!isClosed) {
+          emit(state.copyWith(
+            messages: sortedMessages,
+            timeline: cachedTimeline,
+            hasMoreHistory: cachedTimeline.hasMoreHistory,
+            hasMoreRecent: cachedTimeline.hasMoreRecent,
+            unreadCount: cachedTimeline.unreadCount,
+            firstUnreadMessageId: cachedTimeline.firstUnreadMessageId,
+            isLoadingMessages: false,
+          ));
         }
       } else {
-        throw Exception('Timeline预加载失败');
+        // 没有缓存，从数据库加载
+        await _loadMessagesFromDatabase();
       }
-
-      emit(state.copyWith(isPreloading: false));
     } catch (error) {
-      _logger.e('预加载Timeline失败', error: error);
-      emit(state.copyWith(isPreloading: false));
+      _logger.e('加载初始消息失败', error: error);
 
-      // 回退到传统方式
-      await _fallbackLoadMessages();
+      // 检查Cubit是否已关闭
+      if (!isClosed) {
+        emit(state.copyWith(
+          isLoadingMessages: false,
+          errorMessage: '加载消息失败: ${error.toString()}',
+        ));
+      }
     }
   }
 
-  /// 回退到传统消息加载方式
-  Future<void> _fallbackLoadMessages() async {
-    _logger.w('回退到传统消息加载方式');
+  /// 从数据库加载消息
+  Future<void> _loadMessagesFromDatabase() async {
     try {
-      emit(state.copyWith(isLoadingMessages: true));
+      // 检查Cubit是否已关闭
+      if (isClosed) {
+        _logger.w('Cubit已关闭，取消加载消息');
+        return;
+      }
 
       final messages = await _chatRepository.getConversationMessages(
         state.conversationId,
         limit: visibleMessagesCount,
       );
 
-      emit(state.copyWith(
-        messages: messages,
-        isLoadingMessages: false,
-        hasMoreHistory: messages.length == visibleMessagesCount,
-      ));
+      // 按时间升序排序（最新的在下方）
+      final sortedMessages = List<Message>.from(messages)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-      _logger.i('传统方式加载消息成功', extra: {'count': messages.length});
+      // 创建新的Timeline
+      final timeline = MessageTimeline(conversationId: state.conversationId);
+      if (messages.isNotEmpty) {
+        // Timeline内部按时间升序存储
+        final timelineMessages = List<Message>.from(messages)
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        timeline.appendNewMessages(timelineMessages);
+
+        // 缓存Timeline
+        _chatRepository.storeTimeline(state.conversationId, timeline);
+      }
+
+      // 再次检查Cubit是否已关闭
+      if (!isClosed) {
+        emit(state.copyWith(
+          messages: sortedMessages,
+          timeline: timeline,
+          hasMoreHistory: messages.length == visibleMessagesCount,
+          isLoadingMessages: false,
+        ));
+      }
+
+      _logger.i('从数据库加载消息成功', extra: {'count': sortedMessages.length});
     } catch (error) {
-      _logger.e('传统方式加载消息失败', error: error);
-      emit(state.copyWith(
-        isLoadingMessages: false,
-        errorMessage: '加载消息失败: ${error.toString()}',
-      ));
+      _logger.e('从数据库加载消息失败', error: error);
+      rethrow;
     }
-  }
-
-  /// 从Timeline获取可见消息
-  List<Message> _getVisibleMessagesFromTimeline(
-      MessageTimeline timeline, int scrollPosition) {
-    if (timeline.isEmpty) {
-      return [];
-    }
-
-    final startIndex = scrollPosition.clamp(0, timeline.length - 1);
-    final endIndex = (startIndex + visibleMessagesCount)
-        .clamp(startIndex, timeline.length);
-
-    return timeline.getRange(startIndex, endIndex);
   }
 
   /// 设置stream事件订阅
-  void _setupSubscriptions() {
+  Future<void> _setupSubscriptions() async {
     _logger.i('设置聊天事件订阅');
 
     // 监听打字状态
@@ -239,95 +205,73 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
 
   /// 处理消息状态事件
   void _handleMessageStatus(Map<String, dynamic> data) {
+    // 检查Cubit是否已关闭
+    if (isClosed) {
+      _logger.w('Cubit已关闭，忽略消息状态更新');
+      return;
+    }
+
     final String messageId = data['messageId'] as String;
     final String status = data['status'] as String;
+    final String? errorMessage = data['errorMessage'] as String?;
+
+    _logger.d('收到消息状态更新', extra: {
+      'messageId': messageId,
+      'status': status,
+      'errorMessage': errorMessage,
+    });
 
     // 查找并更新消息状态
     final messages = List<Message>.from(state.messages);
     final messageIndex = messages.indexWhere((m) => m.messageId == messageId);
 
     if (messageIndex != -1) {
-      // 找到消息，更新状态
+      // 找到消息，直接更新状态
       final message = messages[messageIndex];
-      Message updatedMessage;
+      message.status = status;
 
-      if (status == 'delivered') {
-        // 更新已送达状态
-        updatedMessage = Message()
-          ..id = message.id
-          ..messageId = message.messageId
-          ..conversationId = message.conversationId
-          ..senderId = message.senderId
-          ..senderName = message.senderName
-          ..senderAvatar = message.senderAvatar
-          ..createdAt = message.createdAt
-          ..status = 'delivered'
-          ..isRead = message.isRead
-          ..type = message.type
-          ..text = message.text
-          ..mediaUrl = message.mediaUrl
-          ..localPath = message.localPath
-          ..duration = message.duration
-          ..fileSize = message.fileSize
-          ..fileName = message.fileName
-          ..thumbnailUrl = message.thumbnailUrl
-          ..latitude = message.latitude
-          ..longitude = message.longitude
-          ..locationAddress = message.locationAddress
-          ..quotedMessageId = message.quotedMessageId;
-      } else if (status == 'read') {
-        // 更新已读状态
-        updatedMessage = Message()
-          ..id = message.id
-          ..messageId = message.messageId
-          ..conversationId = message.conversationId
-          ..senderId = message.senderId
-          ..senderName = message.senderName
-          ..senderAvatar = message.senderAvatar
-          ..createdAt = message.createdAt
-          ..status = message.status
-          ..isRead = true
-          ..type = message.type
-          ..text = message.text
-          ..mediaUrl = message.mediaUrl
-          ..localPath = message.localPath
-          ..duration = message.duration
-          ..fileSize = message.fileSize
-          ..fileName = message.fileName
-          ..thumbnailUrl = message.thumbnailUrl
-          ..latitude = message.latitude
-          ..longitude = message.longitude
-          ..locationAddress = message.locationAddress
-          ..quotedMessageId = message.quotedMessageId;
-      } else {
-        // 其他状态，直接更新状态字段
-        updatedMessage = Message()
-          ..id = message.id
-          ..messageId = message.messageId
-          ..conversationId = message.conversationId
-          ..senderId = message.senderId
-          ..senderName = message.senderName
-          ..senderAvatar = message.senderAvatar
-          ..createdAt = message.createdAt
-          ..status = status
-          ..isRead = message.isRead
-          ..type = message.type
-          ..text = message.text
-          ..mediaUrl = message.mediaUrl
-          ..localPath = message.localPath
-          ..duration = message.duration
-          ..fileSize = message.fileSize
-          ..fileName = message.fileName
-          ..thumbnailUrl = message.thumbnailUrl
-          ..latitude = message.latitude
-          ..longitude = message.longitude
-          ..locationAddress = message.locationAddress
-          ..quotedMessageId = message.quotedMessageId;
+      // 如果有错误信息，也更新错误信息
+      if (errorMessage != null) {
+        message.errorMessage = errorMessage;
       }
 
       // 替换消息
-      messages[messageIndex] = updatedMessage;
-      emit(state.copyWith(messages: messages));
+      messages[messageIndex] = message;
+
+      // 同时更新Timeline缓存
+      if (state.timeline != null) {
+        final timelineMessages = state.timeline!.getAllMessages();
+        final timelineIndex =
+            timelineMessages.indexWhere((m) => m.messageId == messageId);
+        if (timelineIndex != -1) {
+          timelineMessages[timelineIndex].status = status;
+          if (errorMessage != null) {
+            timelineMessages[timelineIndex].errorMessage = errorMessage;
+          }
+          // 更新Timeline缓存
+          _chatRepository.storeTimeline(state.conversationId, state.timeline!);
+        }
+      }
+
+      // 再次检查Cubit是否已关闭
+      if (!isClosed) {
+        emit(state.copyWith(messages: messages));
+      }
+
+      _logger.d('消息状态已更新', extra: {
+        'messageId': messageId,
+        'newStatus': status,
+      });
+    } else {
+      _logger.w('未找到要更新状态的消息', extra: {'messageId': messageId});
+
+      // 如果在当前消息列表中找不到，可能需要重新加载消息
+      if (status == 'failed' && !isClosed) {
+        _logger.d('消息发送失败，重新加载消息以确保UI同步');
+        _loadMessagesFromDatabase().catchError((error) {
+          _logger.e('重新加载消息失败', error: error);
+        });
+      }
     }
   }
 
@@ -335,17 +279,8 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
   Future<void> loadMessages() async {
     _logger.i('加载会话消息', extra: {'conversationId': state.conversationId});
 
-    // 如果已有Timeline，直接从缓存获取
-    if (state.timeline != null) {
-      _logger.d('使用Timeline缓存');
-      final visibleMessages =
-          _getVisibleMessagesFromTimeline(state.timeline!, 0);
-      emit(state.copyWith(messages: visibleMessages));
-      return;
-    }
-
-    // 否则重新初始化Timeline
-    await _initializeTimeline();
+    // 直接重新加载初始消息
+    await _loadInitialMessages();
   }
 
   /// 从服务器加载历史消息
@@ -358,29 +293,24 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
       final messages =
           await _chatRepository.fetchHistoryMessages(state.conversationId);
 
+      // 按时间升序排序（最新的在下方）
+      final sortedMessages = List<Message>.from(messages)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      // 更新Timeline缓存
       if (state.timeline != null) {
-        // 将新消息添加到Timeline
-        state.timeline!.insertHistoryMessages(messages);
-
-        // 更新缓存
+        // Timeline内部按时间升序存储
+        final timelineMessages = List<Message>.from(messages)
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        state.timeline!.insertHistoryMessages(timelineMessages);
         _chatRepository.storeTimeline(state.conversationId, state.timeline!);
-
-        // 更新可见消息
-        final visibleMessages = _getVisibleMessagesFromTimeline(
-            state.timeline!, state.currentScrollPosition ?? 0);
-
-        emit(state.copyWith(
-          messages: visibleMessages,
-          isLoadingMessages: false,
-          hasMoreHistory: state.timeline!.hasMoreHistory,
-        ));
-      } else {
-        // 回退到传统方式
-        emit(state.copyWith(
-          messages: messages,
-          isLoadingMessages: false,
-        ));
       }
+
+      emit(state.copyWith(
+        messages: sortedMessages,
+        isLoadingMessages: false,
+        hasMoreHistory: messages.isNotEmpty,
+      ));
 
       _logger.i('加载历史消息成功', extra: {'count': messages.length});
     } catch (error) {
@@ -392,26 +322,74 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
     }
   }
 
-  /// 加载更多消息
+  /// 加载更多消息（简化版本）
   /// 用于滚动到顶部时加载更早的消息
-  /// [before] - 加载此时间之前的消息
-  Future<void> loadMoreMessages(DateTime before) async {
+  Future<void> loadMoreMessages() async {
     _logger.i('加载更多消息', extra: {'conversationId': state.conversationId});
 
     try {
       // 避免重复加载
-      if (state.isLoadingMoreMessages) {
+      if (state.isLoadingMoreMessages || !state.hasMoreHistory) {
         return;
       }
 
       emit(state.copyWith(isLoadingMoreMessages: true));
 
-      if (state.timeline != null) {
-        // 使用Timeline缓存
-        await _loadMoreMessagesWithTimeline(before);
+      // 获取当前最早的消息时间
+      DateTime? beforeTime;
+      if (state.messages.isNotEmpty) {
+        // 找到最早的消息（因为messages是升序排列，所以第一个是最早的）
+        beforeTime = state.messages.first.createdAt;
+      }
+
+      // 从数据库获取更早的消息
+      final olderMessages = await _chatRepository.getConversationMessages(
+        state.conversationId,
+        before: beforeTime,
+        limit: defaultPageSize,
+      );
+
+      if (olderMessages.isNotEmpty) {
+        // 合并消息并去重
+        final allMessages = [...olderMessages, ...state.messages];
+
+        // 使用Map进行去重
+        final uniqueMessagesMap = <String, Message>{};
+        for (final message in allMessages) {
+          if (message.messageId.isNotEmpty) {
+            uniqueMessagesMap[message.messageId] = message;
+          }
+        }
+
+        // 按时间升序排序（最新的在下方）
+        final sortedMessages = uniqueMessagesMap.values.toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+        // 更新Timeline缓存
+        if (state.timeline != null) {
+          // Timeline内部按时间升序存储
+          final timelineMessages = List<Message>.from(olderMessages)
+            ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          state.timeline!.insertHistoryMessages(timelineMessages);
+          _chatRepository.storeTimeline(state.conversationId, state.timeline!);
+        }
+
+        emit(state.copyWith(
+          messages: sortedMessages,
+          isLoadingMoreMessages: false,
+          hasMoreHistory: olderMessages.length == defaultPageSize,
+        ));
+
+        _logger.i('加载更多消息成功', extra: {
+          'newMessages': olderMessages.length,
+          'totalMessages': sortedMessages.length,
+        });
       } else {
-        // 传统方式加载
-        await _loadMoreMessagesTraditional(before);
+        // 没有更多历史消息
+        emit(state.copyWith(
+          isLoadingMoreMessages: false,
+          hasMoreHistory: false,
+        ));
       }
     } catch (error) {
       _logger.e('加载更多消息失败', error: error);
@@ -422,95 +400,6 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
     }
   }
 
-  /// 使用Timeline缓存加载更多消息
-  Future<void> _loadMoreMessagesWithTimeline(DateTime before) async {
-    try {
-      // 检查Timeline是否还有历史消息
-      if (!state.timeline!.hasMoreHistory) {
-        emit(state.copyWith(isLoadingMoreMessages: false));
-        return;
-      }
-
-      // 从数据库或服务器获取更早的消息
-      final olderMessages = await _chatRepository.getConversationMessages(
-        state.conversationId,
-        before: before,
-        limit: preloadBuffer,
-      );
-
-      if (olderMessages.isNotEmpty) {
-        // 添加到Timeline
-        state.timeline!.insertHistoryMessages(olderMessages);
-
-        // 更新缓存
-        _chatRepository.storeTimeline(state.conversationId, state.timeline!);
-
-        // 更新可见消息（保持当前滚动位置）
-        final visibleMessages = _getVisibleMessagesFromTimeline(
-            state.timeline!, state.currentScrollPosition ?? 0);
-
-        emit(state.copyWith(
-          messages: visibleMessages,
-          isLoadingMoreMessages: false,
-          hasMoreHistory: state.timeline!.hasMoreHistory,
-        ));
-
-        _logger.i('Timeline加载更多消息成功', extra: {
-          'newMessages': olderMessages.length,
-          'totalInTimeline': state.timeline!.length,
-        });
-      } else {
-        // 没有更多历史消息
-        state.timeline!.hasMoreHistory = false;
-        emit(state.copyWith(
-          isLoadingMoreMessages: false,
-          hasMoreHistory: false,
-        ));
-      }
-    } catch (error) {
-      _logger.e('Timeline加载更多消息失败', error: error);
-      rethrow;
-    }
-  }
-
-  /// 传统方式加载更多消息
-  Future<void> _loadMoreMessagesTraditional(DateTime before) async {
-    try {
-      // 获取更早的消息
-      final olderMessages = await _chatRepository.getConversationMessages(
-        state.conversationId,
-        before: before,
-      );
-
-      _logger.i('传统方式加载更多消息成功', extra: {'count': olderMessages.length});
-
-      // 如果没有更多消息，直接返回
-      if (olderMessages.isEmpty) {
-        emit(state.copyWith(isLoadingMoreMessages: false));
-        return;
-      }
-
-      // 合并消息列表
-      final currentMessages = state.messages;
-
-      // 确保不重复添加消息
-      final existingIds = currentMessages.map((m) => m.messageId).toSet();
-      final newMessages = olderMessages
-          .where((m) => !existingIds.contains(m.messageId))
-          .toList();
-
-      final mergedMessages = [...newMessages, ...currentMessages];
-
-      emit(state.copyWith(
-        messages: mergedMessages,
-        isLoadingMoreMessages: false,
-      ));
-    } catch (error) {
-      _logger.e('传统方式加载更多消息失败', error: error);
-      rethrow;
-    }
-  }
-
   /// 发送文本消息
   Future<void> sendTextMessage(String text) async {
     _logger.i('发送文本消息', extra: {
@@ -518,33 +407,138 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
       'textLength': text.length,
     });
 
+    Message? tempMessage;
+
+    try {
+      // 检查Cubit是否已关闭
+      if (isClosed) {
+        _logger.w('Cubit已关闭，取消发送消息');
+        return;
+      }
+
+      emit(state.copyWith(isSending: true));
+
+      // 1. 创建带临时ID的消息
+      tempMessage = await _chatRepository.createTempMessage(
+        state.conversationId,
+        text,
+        'text',
+      );
+
+      // 2. 立即添加到UI显示（状态为sending）
+      final updatedMessages = [...state.messages, tempMessage];
+
+      // 更新Timeline缓存
+      if (state.timeline != null) {
+        state.timeline!.appendNewMessages([tempMessage]);
+        _chatRepository.storeTimeline(state.conversationId, state.timeline!);
+      }
+
+      // 再次检查Cubit是否已关闭
+      if (isClosed) {
+        _logger.w('Cubit已关闭，取消状态更新');
+        return;
+      }
+
+      emit(state.copyWith(
+        messages: updatedMessages,
+        isSending: false,
+      ));
+
+      // 3. 发送消息（不等待响应）
+      await _chatRepository.sendMessageWithTimeout(
+        tempMessage,
+        timeout: const Duration(seconds: 3),
+      );
+
+      _logger.i('文本消息发送请求已发出', extra: {
+        'tempMessageId': tempMessage.messageId,
+      });
+    } catch (error) {
+      _logger.e('发送文本消息失败', error: error);
+
+      // 如果是超时错误，标记消息为失败状态
+      if (error.toString().contains('timeout') ||
+          error.toString().contains('超时')) {
+        await _markMessageAsFailed(tempMessage?.messageId, '发送超时');
+      } else {
+        // 检查Cubit是否已关闭再发射状态
+        if (!isClosed) {
+          emit(state.copyWith(
+            errorMessage: '发送消息失败: ${error.toString()}',
+            isSending: false,
+          ));
+        }
+      }
+    }
+  }
+
+  /// 标记消息为失败状态
+  Future<void> _markMessageAsFailed(
+      String? messageId, String errorReason) async {
+    if (messageId == null || isClosed) return;
+
+    try {
+      await _chatRepository.markMessageAsFailed(messageId, errorReason);
+
+      // 重新加载消息以更新UI
+      if (!isClosed) {
+        await _loadMessagesFromDatabase();
+      }
+
+      _logger.w('消息标记为失败', extra: {
+        'messageId': messageId,
+        'reason': errorReason,
+      });
+    } catch (error) {
+      _logger.e('标记消息失败状态时出错', error: error);
+    }
+  }
+
+  /// 重新发送失败的消息
+  Future<void> resendMessage(String messageId) async {
+    _logger.i('重新发送消息', extra: {
+      'messageId': messageId,
+      'conversationId': state.conversationId,
+    });
+
     try {
       emit(state.copyWith(isSending: true));
 
-      final message = await _chatRepository.sendTextMessage(
-        state.conversationId,
-        text,
-      );
-
-      // 将新消息添加到Timeline
-      if (state.timeline != null) {
-        state.timeline!.appendNewMessages([message]);
-        emit(state.copyWith(
-          timeline: state.timeline,
-          isSending: false,
-        ));
-      } else {
-        // 如果没有Timeline，重新加载消息
-        await _fallbackLoadMessages();
+      // 1. 获取失败的消息
+      final failedMessage = await _chatRepository.getMessageById(messageId);
+      if (failedMessage == null) {
+        throw Exception('找不到要重发的消息');
       }
 
-      _logger.i('文本消息发送成功');
+      // 2. 重置消息状态为sending
+      await _chatRepository.updateMessageStatus(messageId, 'sending');
+      await _loadMessagesFromDatabase(); // 更新UI
+
+      // 3. 重新发送（不等待响应）
+      await _chatRepository.sendMessageWithTimeout(
+        failedMessage,
+        timeout: const Duration(seconds: 3),
+      );
+
+      emit(state.copyWith(isSending: false));
+
+      _logger.i('消息重发请求已发出', extra: {
+        'messageId': messageId,
+      });
     } catch (error) {
-      _logger.e('发送文本消息失败', error: error);
-      emit(state.copyWith(
-        errorMessage: '发送消息失败: ${error.toString()}',
-        isSending: false,
-      ));
+      _logger.e('重发消息失败', error: error);
+
+      // 如果是超时错误，重新标记为失败
+      if (error.toString().contains('timeout') ||
+          error.toString().contains('超时')) {
+        await _markMessageAsFailed(messageId, '重发超时');
+      } else {
+        emit(state.copyWith(
+          errorMessage: '重发消息失败: ${error.toString()}',
+          isSending: false,
+        ));
+      }
     }
   }
 
@@ -565,17 +559,19 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
         mediaUrl: mediaUrl,
       );
 
-      // 将新消息添加到Timeline
+      // 将新消息添加到列表末尾（因为是升序排列，新消息在底部）
+      final updatedMessages = [...state.messages, message];
+
+      // 更新Timeline缓存
       if (state.timeline != null) {
         state.timeline!.appendNewMessages([message]);
-        emit(state.copyWith(
-          timeline: state.timeline,
-          isSending: false,
-        ));
-      } else {
-        // 如果没有Timeline，重新加载消息
-        await _fallbackLoadMessages();
+        _chatRepository.storeTimeline(state.conversationId, state.timeline!);
       }
+
+      emit(state.copyWith(
+        messages: updatedMessages,
+        isSending: false,
+      ));
 
       _logger.i('图片消息发送成功');
     } catch (error) {
@@ -607,17 +603,19 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
         mediaUrl: mediaUrl,
       );
 
-      // 将新消息添加到Timeline
+      // 将新消息添加到列表末尾（因为是升序排列，新消息在底部）
+      final updatedMessages = [...state.messages, message];
+
+      // 更新Timeline缓存
       if (state.timeline != null) {
         state.timeline!.appendNewMessages([message]);
-        emit(state.copyWith(
-          timeline: state.timeline,
-          isSending: false,
-        ));
-      } else {
-        // 如果没有Timeline，重新加载消息
-        await _fallbackLoadMessages();
+        _chatRepository.storeTimeline(state.conversationId, state.timeline!);
       }
+
+      emit(state.copyWith(
+        messages: updatedMessages,
+        isSending: false,
+      ));
 
       _logger.i('语音消息发送成功');
     } catch (error) {
@@ -658,17 +656,19 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
         isServerProcessed: isServerProcessed,
       );
 
-      // 将新消息添加到Timeline
+      // 将新消息添加到列表末尾（因为是升序排列，新消息在底部）
+      final updatedMessages = [...state.messages, message];
+
+      // 更新Timeline缓存
       if (state.timeline != null) {
         state.timeline!.appendNewMessages([message]);
-        emit(state.copyWith(
-          timeline: state.timeline,
-          isSending: false,
-        ));
-      } else {
-        // 如果没有Timeline，重新加载消息
-        await _fallbackLoadMessages();
+        _chatRepository.storeTimeline(state.conversationId, state.timeline!);
       }
+
+      emit(state.copyWith(
+        messages: updatedMessages,
+        isSending: false,
+      ));
 
       _logger.i('视频消息发送成功');
     } catch (error) {
@@ -706,17 +706,19 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
         mediaUrl: mediaUrl,
       );
 
-      // 将新消息添加到Timeline
+      // 将新消息添加到列表末尾（因为是升序排列，新消息在底部）
+      final updatedMessages = [...state.messages, message];
+
+      // 更新Timeline缓存
       if (state.timeline != null) {
         state.timeline!.appendNewMessages([message]);
-        emit(state.copyWith(
-          timeline: state.timeline,
-          isSending: false,
-        ));
-      } else {
-        // 如果没有Timeline，重新加载消息
-        await _fallbackLoadMessages();
+        _chatRepository.storeTimeline(state.conversationId, state.timeline!);
       }
+
+      emit(state.copyWith(
+        messages: updatedMessages,
+        isSending: false,
+      ));
 
       _logger.i('文件消息发送成功');
     } catch (error) {
@@ -792,24 +794,18 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
     }
   }
 
-  /// 更新最后阅读的消息ID
-  ///
-  /// [messageId] - 消息ID
-  Future<void> updateLastReadMessageId(String messageId) async {
-    _logger.i('更新最后阅读的消息ID', extra: {
-      'conversationId': state.conversationId,
-      'messageId': messageId
+  /// 更新最后阅读的消息ID（简化版本）
+  void updateLastReadMessageId(String messageId) {
+    _logger.d('更新最后阅读的消息ID', extra: {'messageId': messageId});
+
+    emit(state.copyWith(lastReadMessageId: messageId));
+
+    // 异步更新到Repository
+    _chatRepository
+        .updateLastReadMessageId(state.conversationId, messageId)
+        .catchError((error) {
+      _logger.e('更新最后阅读消息ID到Repository失败', error: error);
     });
-
-    try {
-      await _chatRepository.updateLastReadMessageId(
-          state.conversationId, messageId);
-
-      emit(state.copyWith(lastReadMessageId: messageId));
-    } catch (error) {
-      _logger.e('更新最后阅读的消息ID失败', error: error);
-      emit(state.copyWith(errorMessage: '更新最后阅读的消息ID失败: ${error.toString()}'));
-    }
   }
 
   /// 重新连接
@@ -846,12 +842,7 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
   Future<void> joinConversation() async {
     try {
       _logger.i('用户进入会话', extra: {'conversationId': state.conversationId});
-
-      // 通知服务器用户加入会话房间
       await _chatRepository.joinConversationRoom(state.conversationId);
-
-      // 标记会话为已读
-      await _chatRepository.markConversationAsRead(state.conversationId);
     } catch (error) {
       _logger.e('进入会话失败', error: error);
       emit(state.copyWith(errorMessage: '进入会话失败: ${error.toString()}'));
@@ -902,34 +893,13 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
     }
   }
 
-  /// 更新滚动位置
+  /// 更新滚动位置（简化版本）
   /// [scrollPosition] - 新的滚动位置
   void updateScrollPosition(int scrollPosition) {
-    if (state.timeline == null) return;
+    _logger.d('更新滚动位置', extra: {'scrollPosition': scrollPosition});
 
-    try {
-      // 更新Timeline的最后可见位置
-      state.timeline!.updateLastVisibleIndex(scrollPosition);
-
-      // 获取新的可见消息
-      final visibleMessages =
-          _getVisibleMessagesFromTimeline(state.timeline!, scrollPosition);
-
-      emit(state.copyWith(
-        messages: visibleMessages,
-        currentScrollPosition: scrollPosition,
-      ));
-
-      // 保存用户查看状态
-      _saveUserViewState(scrollPosition);
-
-      _logger.d('滚动位置已更新', extra: {
-        'scrollPosition': scrollPosition,
-        'visibleMessages': visibleMessages.length,
-      });
-    } catch (error) {
-      _logger.e('更新滚动位置失败', error: error);
-    }
+    // 保存用户查看状态
+    _saveUserViewState(scrollPosition);
   }
 
   /// 保存用户查看状态
@@ -986,7 +956,6 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
 
     emit(state.copyWith(
       timeline: ChatState.nullTimeline,
-      currentScrollPosition: ChatState.nullScrollPosition,
     ));
   }
 
@@ -998,8 +967,8 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
       // 清空当前缓存
       clearTimelineCache();
 
-      // 重新预加载
-      await _preloadTimeline();
+      // 重新加载初始消息
+      await _loadInitialMessages();
 
       _logger.i('Timeline刷新完成');
     } catch (error) {
@@ -1023,6 +992,56 @@ static const int preloadBuffer = 20;       // 预加载缓冲区
   /// 发送输入状态
   Future<void> sendTypingStatus(bool isTyping) async {
     await _chatRepository.sendTypingStatus(state.conversationId, isTyping);
+  }
+
+  /// 清理重复消息数据
+  /// 用于修复数据库中的重复消息问题
+  Future<void> cleanupDuplicateMessages() async {
+    try {
+      _logger.i('开始清理重复消息', extra: {
+        'conversationId': state.conversationId,
+      });
+
+      // 清理数据库中的重复消息
+      final removedCount = await _chatRepository.cleanupDuplicateMessages(
+        state.conversationId,
+      );
+
+      if (removedCount > 0) {
+        _logger.i('清理重复消息完成', extra: {
+          'conversationId': state.conversationId,
+          'removedCount': removedCount,
+        });
+
+        // 重新加载消息以反映清理结果
+        await _loadInitialMessages();
+      } else {
+        _logger.i('没有发现重复消息');
+      }
+    } catch (error) {
+      _logger.e('清理重复消息失败', error: error);
+    }
+  }
+
+  /// 验证消息数据一致性
+  /// 检查消息数据的完整性和一致性
+  Future<Map<String, dynamic>> validateMessageConsistency() async {
+    try {
+      _logger.i('验证消息数据一致性', extra: {
+        'conversationId': state.conversationId,
+      });
+
+      final stats = await _chatRepository.validateMessageConsistency(
+        state.conversationId,
+      );
+
+      _logger.i('消息数据一致性验证完成', extra: stats);
+
+      return stats;
+    } catch (error) {
+      _logger.e('验证消息数据一致性失败', error: error);
+      return {'error': error.toString()};
+    }
   }
 
   /// 清理资源

@@ -14,12 +14,12 @@ class ProtoEvents {
     'message:delivered': () => message.MessageProto(),
     'message:read': () => message.MessageProto(),
     'messages:fetch:response': () => message.MessageCollection(),
+    'message:send': () => message.MessageProto(),
+    'message:send:response': () => message.MessageResponse(),
 
     // 消息同步相关事件
-    'message:sync:request': () => message.MessageSyncRequest(),
+    'message:sync': () => message.MessageSyncRequest(),
     'message:sync:response': () => message.MessageSyncResponse(),
-    'message:sync:batch:request': () => message.BatchMessageSyncRequest(),
-    'message:sync:batch:response': () => message.BatchMessageSyncResponse(),
 
     // 会话相关事件
     'conversation:update': () => conversation.ConversationProto(),

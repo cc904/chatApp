@@ -32,93 +32,103 @@ const MessageSchema = CollectionSchema(
       name: r'duration',
       type: IsarType.long,
     ),
-    r'fileName': PropertySchema(
+    r'errorMessage': PropertySchema(
       id: 3,
+      name: r'errorMessage',
+      type: IsarType.string,
+    ),
+    r'fileName': PropertySchema(
+      id: 4,
       name: r'fileName',
       type: IsarType.string,
     ),
     r'fileSize': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'fileSize',
       type: IsarType.double,
     ),
+    r'isDelivered': PropertySchema(
+      id: 6,
+      name: r'isDelivered',
+      type: IsarType.bool,
+    ),
     r'isRead': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'isRead',
       type: IsarType.bool,
     ),
     r'latitude': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'latitude',
       type: IsarType.double,
     ),
     r'localPath': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'localPath',
       type: IsarType.string,
     ),
     r'locationAddress': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'locationAddress',
       type: IsarType.string,
     ),
     r'longitude': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'longitude',
       type: IsarType.double,
     ),
     r'mediaUrl': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'mediaUrl',
       type: IsarType.string,
     ),
     r'messageId': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'messageId',
       type: IsarType.string,
     ),
     r'quotedMessageId': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'senderAvatar': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'senderAvatar',
       type: IsarType.string,
     ),
     r'senderId': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'senderId',
       type: IsarType.string,
     ),
     r'senderName': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'status',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'text',
       type: IsarType.string,
     ),
     r'textForSearch': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'textForSearch',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'type',
       type: IsarType.string,
     )
@@ -133,7 +143,7 @@ const MessageSchema = CollectionSchema(
       id: -635287409172016016,
       name: r'messageId',
       unique: true,
-      replace: false,
+      replace: true,
       properties: [
         IndexPropertySchema(
           name: r'messageId',
@@ -196,6 +206,12 @@ int _messageEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.conversationId.length * 3;
+  {
+    final value = object.errorMessage;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.fileName;
     if (value != null) {
@@ -272,24 +288,26 @@ void _messageSerialize(
   writer.writeString(offsets[0], object.conversationId);
   writer.writeDateTime(offsets[1], object.createdAt);
   writer.writeLong(offsets[2], object.duration);
-  writer.writeString(offsets[3], object.fileName);
-  writer.writeDouble(offsets[4], object.fileSize);
-  writer.writeBool(offsets[5], object.isRead);
-  writer.writeDouble(offsets[6], object.latitude);
-  writer.writeString(offsets[7], object.localPath);
-  writer.writeString(offsets[8], object.locationAddress);
-  writer.writeDouble(offsets[9], object.longitude);
-  writer.writeString(offsets[10], object.mediaUrl);
-  writer.writeString(offsets[11], object.messageId);
-  writer.writeString(offsets[12], object.quotedMessageId);
-  writer.writeString(offsets[13], object.senderAvatar);
-  writer.writeString(offsets[14], object.senderId);
-  writer.writeString(offsets[15], object.senderName);
-  writer.writeString(offsets[16], object.status);
-  writer.writeString(offsets[17], object.text);
-  writer.writeString(offsets[18], object.textForSearch);
-  writer.writeString(offsets[19], object.thumbnailUrl);
-  writer.writeString(offsets[20], object.type);
+  writer.writeString(offsets[3], object.errorMessage);
+  writer.writeString(offsets[4], object.fileName);
+  writer.writeDouble(offsets[5], object.fileSize);
+  writer.writeBool(offsets[6], object.isDelivered);
+  writer.writeBool(offsets[7], object.isRead);
+  writer.writeDouble(offsets[8], object.latitude);
+  writer.writeString(offsets[9], object.localPath);
+  writer.writeString(offsets[10], object.locationAddress);
+  writer.writeDouble(offsets[11], object.longitude);
+  writer.writeString(offsets[12], object.mediaUrl);
+  writer.writeString(offsets[13], object.messageId);
+  writer.writeString(offsets[14], object.quotedMessageId);
+  writer.writeString(offsets[15], object.senderAvatar);
+  writer.writeString(offsets[16], object.senderId);
+  writer.writeString(offsets[17], object.senderName);
+  writer.writeString(offsets[18], object.status);
+  writer.writeString(offsets[19], object.text);
+  writer.writeString(offsets[20], object.textForSearch);
+  writer.writeString(offsets[21], object.thumbnailUrl);
+  writer.writeString(offsets[22], object.type);
 }
 
 Message _messageDeserialize(
@@ -302,24 +320,26 @@ Message _messageDeserialize(
   object.conversationId = reader.readString(offsets[0]);
   object.createdAt = reader.readDateTime(offsets[1]);
   object.duration = reader.readLongOrNull(offsets[2]);
-  object.fileName = reader.readStringOrNull(offsets[3]);
-  object.fileSize = reader.readDoubleOrNull(offsets[4]);
+  object.errorMessage = reader.readStringOrNull(offsets[3]);
+  object.fileName = reader.readStringOrNull(offsets[4]);
+  object.fileSize = reader.readDoubleOrNull(offsets[5]);
   object.id = id;
-  object.isRead = reader.readBool(offsets[5]);
-  object.latitude = reader.readDoubleOrNull(offsets[6]);
-  object.localPath = reader.readStringOrNull(offsets[7]);
-  object.locationAddress = reader.readStringOrNull(offsets[8]);
-  object.longitude = reader.readDoubleOrNull(offsets[9]);
-  object.mediaUrl = reader.readStringOrNull(offsets[10]);
-  object.messageId = reader.readString(offsets[11]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[12]);
-  object.senderAvatar = reader.readStringOrNull(offsets[13]);
-  object.senderId = reader.readString(offsets[14]);
-  object.senderName = reader.readStringOrNull(offsets[15]);
-  object.status = reader.readString(offsets[16]);
-  object.text = reader.readStringOrNull(offsets[17]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
-  object.type = reader.readString(offsets[20]);
+  object.isDelivered = reader.readBool(offsets[6]);
+  object.isRead = reader.readBool(offsets[7]);
+  object.latitude = reader.readDoubleOrNull(offsets[8]);
+  object.localPath = reader.readStringOrNull(offsets[9]);
+  object.locationAddress = reader.readStringOrNull(offsets[10]);
+  object.longitude = reader.readDoubleOrNull(offsets[11]);
+  object.mediaUrl = reader.readStringOrNull(offsets[12]);
+  object.messageId = reader.readString(offsets[13]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[14]);
+  object.senderAvatar = reader.readStringOrNull(offsets[15]);
+  object.senderId = reader.readString(offsets[16]);
+  object.senderName = reader.readStringOrNull(offsets[17]);
+  object.status = reader.readString(offsets[18]);
+  object.text = reader.readStringOrNull(offsets[19]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[21]);
+  object.type = reader.readString(offsets[22]);
   return object;
 }
 
@@ -339,27 +359,27 @@ P _messageDeserializeProp<P>(
     case 3:
       return (reader.readStringOrNull(offset)) as P;
     case 4:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
-    case 9:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 9:
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readString(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 12:
       return (reader.readStringOrNull(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
-    case 14:
       return (reader.readString(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
@@ -367,10 +387,14 @@ P _messageDeserializeProp<P>(
     case 17:
       return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 19:
       return (reader.readStringOrNull(offset)) as P;
     case 20:
+      return (reader.readStringOrNull(offset)) as P;
+    case 21:
+      return (reader.readStringOrNull(offset)) as P;
+    case 22:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1131,6 +1155,154 @@ extension MessageQueryFilter
     });
   }
 
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'errorMessage',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      errorMessageIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'errorMessage',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'errorMessage',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'errorMessage',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'errorMessage',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'errorMessage',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'errorMessage',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'errorMessage',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'errorMessage',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'errorMessage',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> errorMessageIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'errorMessage',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      errorMessageIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'errorMessage',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterFilterCondition> fileNameIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1403,6 +1575,16 @@ extension MessageQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> isDeliveredEqualTo(
+      bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isDelivered',
+        value: value,
       ));
     });
   }
@@ -3483,6 +3665,18 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> sortByErrorMessage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'errorMessage', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByErrorMessageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'errorMessage', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> sortByFileName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fileName', Sort.asc);
@@ -3504,6 +3698,18 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
   QueryBuilder<Message, Message, QAfterSortBy> sortByFileSizeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fileSize', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByIsDelivered() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDelivered', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByIsDeliveredDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDelivered', Sort.desc);
     });
   }
 
@@ -3738,6 +3944,18 @@ extension MessageQuerySortThenBy
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> thenByErrorMessage() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'errorMessage', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByErrorMessageDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'errorMessage', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> thenByFileName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'fileName', Sort.asc);
@@ -3771,6 +3989,18 @@ extension MessageQuerySortThenBy
   QueryBuilder<Message, Message, QAfterSortBy> thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByIsDelivered() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDelivered', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByIsDeliveredDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isDelivered', Sort.desc);
     });
   }
 
@@ -3989,6 +4219,13 @@ extension MessageQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Message, Message, QDistinct> distinctByErrorMessage(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'errorMessage', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Message, Message, QDistinct> distinctByFileName(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3999,6 +4236,12 @@ extension MessageQueryWhereDistinct
   QueryBuilder<Message, Message, QDistinct> distinctByFileSize() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'fileSize');
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByIsDelivered() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isDelivered');
     });
   }
 
@@ -4141,6 +4384,12 @@ extension MessageQueryProperty
     });
   }
 
+  QueryBuilder<Message, String?, QQueryOperations> errorMessageProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'errorMessage');
+    });
+  }
+
   QueryBuilder<Message, String?, QQueryOperations> fileNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fileName');
@@ -4150,6 +4399,12 @@ extension MessageQueryProperty
   QueryBuilder<Message, double?, QQueryOperations> fileSizeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'fileSize');
+    });
+  }
+
+  QueryBuilder<Message, bool, QQueryOperations> isDeliveredProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isDelivered');
     });
   }
 

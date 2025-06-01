@@ -2,6 +2,7 @@ import 'package:isar/isar.dart';
 import 'package:fixnum/fixnum.dart';
 import 'conversation.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as proto;
+import 'package:cc/core/proto/generated/message.pbenum.dart';
 
 part 'message.g.dart';
 
@@ -65,7 +66,7 @@ class Message {
   Id id = Isar.autoIncrement;
 
   // 消息ID (来自服务器)
-  @Index(unique: true)
+  @Index(unique: true, replace: true)
   String messageId = '';
 
   // 会话ID和创建时间的复合索引 - 优化按会话查询和时间排序
@@ -80,9 +81,13 @@ class Message {
   DateTime createdAt = DateTime.now();
 
   bool isRead = false;
+  bool isDelivered = false;
 
   // 消息发送状态：sending, sent, delivered, read, failed
   String status = 'sent';
+
+  // 错误信息（发送失败时使用）
+  String? errorMessage;
 
   // 消息类型: text, image, voice, file, video, location, system
   late String type;
@@ -120,7 +125,7 @@ class Message {
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
   static Message fromProto(proto.MessageProto proto) {
-    return Message()
+    final message = Message()
       ..messageId = proto.messageId
       ..conversationId = proto.conversationId
       ..senderId = proto.senderId
@@ -129,9 +134,8 @@ class Message {
       ..createdAt = proto.hasCreatedAt()
           ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
           : DateTime.now()
-      ..isRead = proto.hasIsRead() ? proto.isRead : false
-      ..status = proto.hasStatus() ? proto.status.name : 'sent'
-      ..type = proto.hasType() ? proto.type.name : 'text'
+      ..status = proto.hasStatus() ? proto.status.name.toLowerCase() : 'sent'
+      ..type = proto.hasType() ? proto.type.name.toLowerCase() : 'text'
       ..text = proto.hasText() ? proto.text : null
       ..mediaUrl = proto.hasMediaUrl() ? proto.mediaUrl : null
       ..localPath = proto.hasLocalPath() ? proto.localPath : null
@@ -145,6 +149,29 @@ class Message {
           proto.hasLocationAddress() ? proto.locationAddress : null
       ..quotedMessageId =
           proto.hasQuotedMessageId() ? proto.quotedMessageId : null;
+
+    // 根据status设置isRead和isDelivered字段
+    if (proto.hasStatus()) {
+      switch (proto.status) {
+        case MessageStatus.READ:
+          message.isRead = true;
+          message.isDelivered = true;
+          break;
+        case MessageStatus.DELIVERED:
+          message.isRead = false;
+          message.isDelivered = true;
+          break;
+        case MessageStatus.SENT:
+        case MessageStatus.SENDING:
+        case MessageStatus.FAILED:
+        default:
+          message.isRead = false;
+          message.isDelivered = false;
+          break;
+      }
+    }
+
+    return message;
   }
 
   /// 将数据库对象转换为Protocol Buffer对象
@@ -165,7 +192,6 @@ class Message {
       senderName: senderName,
       senderAvatar: senderAvatar,
       createdAt: Int64(createdAt.millisecondsSinceEpoch),
-      isRead: isRead,
       status: messageStatus,
       type: messageType,
       text: text,

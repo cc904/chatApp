@@ -382,7 +382,7 @@ class ProtoSocketService {
     }
 
     try {
-      _logger.i('📤 发送Socket消息: $eventName, 类型: ${message.runtimeType}');
+      // _logger.i('📤 发送Socket消息: $eventName, 类型: ${message.runtimeType}');
       _socket?.emit(eventName, message.writeToBuffer());
       return true;
     } catch (e) {

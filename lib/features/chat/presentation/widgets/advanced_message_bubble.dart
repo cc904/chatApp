@@ -790,6 +790,14 @@ class _AdvancedMessageBubbleState extends State<AdvancedMessageBubble>
   }
 
   Widget _buildStatusIcon() {
+    // 优先根据isRead和isDelivered字段判断状态
+    if (widget.message.isRead) {
+      return const Icon(Icons.done_all, size: 14, color: Colors.blue);
+    } else if (widget.message.isDelivered) {
+      return const Icon(Icons.done_all, size: 14, color: Colors.grey);
+    }
+
+    // 回退到status字段判断
     switch (widget.message.status) {
       case 'sending':
         return SizedBox(
