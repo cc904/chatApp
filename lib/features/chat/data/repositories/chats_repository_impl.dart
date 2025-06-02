@@ -596,7 +596,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
           if (response.success) {
             _logger.i('服务器已更新会话最后阅读时间', extra: {
               'conversationId': response.conversationId,
-              'remainingUnread': response.remainingUnread
             });
           } else {
             _logger.w('服务器更新会话最后阅读时间失败',
@@ -660,7 +659,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
           if (response.success) {
             _logger.i('服务器已更新会话最后阅读消息ID', extra: {
               'conversationId': response.conversationId,
-              'remainingUnread': response.remainingUnread
             });
           } else {
             _logger.w('服务器更新会话最后阅读消息ID失败',

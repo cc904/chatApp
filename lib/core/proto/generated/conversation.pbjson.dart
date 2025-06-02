@@ -347,7 +347,7 @@ const ConversationMarkReadResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'remaining_unread', '3': 3, '4': 1, '5': 5, '10': 'remainingUnread'},
+    {'1': 'message_id', '3': 3, '4': 1, '5': 9, '10': 'messageId'},
     {'1': 'read_at', '3': 4, '4': 1, '5': 3, '10': 'readAt'},
   ],
 };
@@ -355,8 +355,8 @@ const ConversationMarkReadResponse$json = {
 /// Descriptor for `ConversationMarkReadResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List conversationMarkReadResponseDescriptor = $convert.base64Decode(
     'ChxDb252ZXJzYXRpb25NYXJrUmVhZFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3'
-    'MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIpChByZW1haW5pbmdf'
-    'dW5yZWFkGAMgASgFUg9yZW1haW5pbmdVbnJlYWQSFwoHcmVhZF9hdBgEIAEoA1IGcmVhZEF0');
+    'MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIdCgptZXNzYWdlX2lk'
+    'GAMgASgJUgltZXNzYWdlSWQSFwoHcmVhZF9hdBgEIAEoA1IGcmVhZEF0');
 
 @$core.Deprecated('Use conversationUpdateRequestDescriptor instead')
 const ConversationUpdateRequest$json = {

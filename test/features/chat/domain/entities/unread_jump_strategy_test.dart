@@ -20,12 +20,14 @@ void main() {
 
       return List.generate(count, (index) {
         final message = Message()
-          ..messageId = 'msg_$index'
-          ..conversationId = 'test_conversation'
-          ..senderId = 'sender_$index'
-          ..createdAt = startTime!.add(interval! * index)
-          ..text = 'Test message $index'
-          ..isRead = false;
+          ..messageId = 'test_msg_001'
+          ..conversationId = 'test_conv_001'
+          ..senderId = 'sender_123'
+          ..senderName = 'Test Sender'
+          ..createdAt = DateTime.now()
+          ..status = 'unread'
+          ..type = 'text'
+          ..text = 'Test unread message';
         return message;
       });
     }

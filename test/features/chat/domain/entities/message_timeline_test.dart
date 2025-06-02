@@ -192,28 +192,28 @@ void main() {
 
     group('未读消息功能', () {
       test('应该正确计算未读消息', () {
-        final messages = testMessages.take(5).toList();
-        // 设置前3条为未读
-        for (int i = 0; i < 3; i++) {
-          messages[i].isRead = false;
+        final messages = testMessages.take(10).toList();
+        // 设置前半部分为未读
+        for (int i = 0; i < 5; i++) {
+          messages[i].status = 'unread';
         }
-        // 后2条为已读
-        for (int i = 3; i < 5; i++) {
-          messages[i].isRead = true;
+        // 设置后半部分为已读
+        for (int i = 5; i < 10; i++) {
+          messages[i].status = 'read';
         }
 
         timeline.appendNewMessages(messages);
 
         final unreadMessages = timeline.getUnreadMessages();
-        expect(unreadMessages.length, equals(3));
-        expect(unreadMessages.every((msg) => !msg.isRead), isTrue);
+        expect(unreadMessages.length, equals(5));
+        expect(unreadMessages.every((msg) => msg.status != 'read'), isTrue);
       });
 
       test('markMessagesAsRead 应该正确标记消息为已读', () {
         final messages = testMessages.take(5).toList();
         // 所有消息都设为未读
         for (final msg in messages) {
-          msg.isRead = false;
+          msg.status = 'unread';
         }
 
         timeline.appendNewMessages(messages);
@@ -229,17 +229,17 @@ void main() {
         // 验证前3条已读，后2条未读
         final allMessages = timeline.getAllMessages();
         for (int i = 0; i < 3; i++) {
-          expect(allMessages[i].isRead, isTrue);
+          expect(allMessages[i].status, equals('read'));
         }
         for (int i = 3; i < 5; i++) {
-          expect(allMessages[i].isRead, isFalse);
+          expect(allMessages[i].status, equals('unread'));
         }
       });
 
       test('应该正确获取第一条和最后一条未读消息', () {
         final messages = testMessages.take(5).toList();
         for (final msg in messages) {
-          msg.isRead = false;
+          msg.status = 'unread';
         }
 
         timeline.appendNewMessages(messages);
@@ -318,7 +318,6 @@ Message _createMessage(String messageId, DateTime createdAt) {
     ..senderId = 'user_${messageId.hashCode % 3}' // 模拟不同发送者
     ..senderName = 'User ${messageId.hashCode % 3}'
     ..createdAt = createdAt
-    ..isRead = false
     ..status = 'sent'
     ..type = 'text'
     ..text = 'Test message content for $messageId';

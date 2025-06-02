@@ -324,8 +324,6 @@ Message _messageDeserialize(
   object.fileName = reader.readStringOrNull(offsets[4]);
   object.fileSize = reader.readDoubleOrNull(offsets[5]);
   object.id = id;
-  object.isDelivered = reader.readBool(offsets[6]);
-  object.isRead = reader.readBool(offsets[7]);
   object.latitude = reader.readDoubleOrNull(offsets[8]);
   object.localPath = reader.readStringOrNull(offsets[9]);
   object.locationAddress = reader.readStringOrNull(offsets[10]);

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
-import 'package:cc/features/chat/domain/entities/message_timeline.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 
@@ -36,13 +35,11 @@ class TestChatRepositoryImpl extends ChatRepositoryImpl {
 }
 
 void main() {
-  group('ChatRepositoryImpl Timeline Cache Tests', () {
+  group('ChatRepositoryImpl Message Cache Tests', () {
     late TestChatRepositoryImpl repository;
-    late List<Message> testMessages;
 
     setUp(() {
       repository = TestChatRepositoryImpl();
-      testMessages = _createTestMessages();
     });
 
     tearDown(() {
@@ -50,69 +47,71 @@ void main() {
     });
 
     group('基础缓存功能', () {
-      test('getTimeline 应该在没有缓存时返回null', () {
-        final timeline = repository.getTimeline('test_conversation');
-        expect(timeline, isNull);
+      test('getCachedMessages 应该在没有缓存时返回null', () {
+        final messages = repository.getCachedMessages('test_conversation');
+        expect(messages, isNull);
       });
 
-      test('storeTimeline 和 getTimeline 应该正确工作', () {
-        final timeline = MessageTimeline(conversationId: 'test_conversation');
-        timeline.appendNewMessages(testMessages.take(5).toList());
+      test('cacheMessages 和 getCachedMessages 应该正确工作', () {
+        final testMessages = _createTestMessages().take(5).toList();
 
-        // 存储Timeline
-        repository.storeTimeline('test_conversation', timeline);
+        // 缓存消息
+        repository.cacheMessages('test_conversation', testMessages);
 
-        // 获取Timeline
-        final retrievedTimeline = repository.getTimeline('test_conversation');
+        // 获取缓存的消息
+        final cachedMessages =
+            repository.getCachedMessages('test_conversation');
 
-        expect(retrievedTimeline, isNotNull);
-        expect(retrievedTimeline!.conversationId, equals('test_conversation'));
-        expect(retrievedTimeline.length, equals(5));
+        expect(cachedMessages, isNotNull);
+        expect(cachedMessages!.length, equals(5));
+        expect(
+            cachedMessages.first.conversationId, equals('test_conversation'));
       });
 
-      test('removeTimeline 应该正确移除缓存', () {
-        final timeline = MessageTimeline(conversationId: 'test_conversation');
-        repository.storeTimeline('test_conversation', timeline);
+      test('removeCachedMessages 应该正确移除缓存', () {
+        final testMessages = _createTestMessages().take(5).toList();
+        repository.cacheMessages('test_conversation', testMessages);
 
         // 确认缓存存在
-        expect(repository.getTimeline('test_conversation'), isNotNull);
+        expect(repository.getCachedMessages('test_conversation'), isNotNull);
 
         // 移除缓存
-        repository.removeTimeline('test_conversation');
+        repository.removeCachedMessages('test_conversation');
 
         // 确认缓存已移除
-        expect(repository.getTimeline('test_conversation'), isNull);
+        expect(repository.getCachedMessages('test_conversation'), isNull);
       });
 
-      test('clearTimelineCache 应该清空所有缓存', () {
-        // 添加多个Timeline
+      test('clearMessageCache 应该清空所有缓存', () {
+        final testMessages = _createTestMessages().take(5).toList();
+
+        // 添加多个会话的缓存
         for (int i = 0; i < 3; i++) {
-          final timeline = MessageTimeline(conversationId: 'conversation_$i');
-          repository.storeTimeline('conversation_$i', timeline);
+          repository.cacheMessages('conversation_$i', testMessages);
         }
 
         // 确认缓存存在
-        expect(repository.getTimeline('conversation_0'), isNotNull);
-        expect(repository.getTimeline('conversation_1'), isNotNull);
-        expect(repository.getTimeline('conversation_2'), isNotNull);
+        expect(repository.getCachedMessages('conversation_0'), isNotNull);
+        expect(repository.getCachedMessages('conversation_1'), isNotNull);
+        expect(repository.getCachedMessages('conversation_2'), isNotNull);
 
         // 清空缓存
-        repository.clearTimelineCache();
+        repository.clearMessageCache();
 
         // 确认所有缓存已清空
-        expect(repository.getTimeline('conversation_0'), isNull);
-        expect(repository.getTimeline('conversation_1'), isNull);
-        expect(repository.getTimeline('conversation_2'), isNull);
+        expect(repository.getCachedMessages('conversation_0'), isNull);
+        expect(repository.getCachedMessages('conversation_1'), isNull);
+        expect(repository.getCachedMessages('conversation_2'), isNull);
       });
     });
 
     group('缓存统计功能', () {
       test('getCacheStats 应该返回正确的统计信息', () {
-        // 添加一些Timeline
+        final testMessages = _createTestMessages().take(5).toList();
+
+        // 添加一些消息缓存
         for (int i = 0; i < 3; i++) {
-          final timeline = MessageTimeline(conversationId: 'conversation_$i');
-          timeline.appendNewMessages(testMessages.take(5).toList());
-          repository.storeTimeline('conversation_$i', timeline);
+          repository.cacheMessages('conversation_$i', testMessages);
         }
 
         final stats = repository.getCacheStats();
@@ -120,7 +119,7 @@ void main() {
         expect(stats['cachedConversations'], equals(3));
         expect(stats['totalMessages'], equals(15)); // 3 * 5
         expect(stats['averageMessagesPerConversation'], equals('5.0'));
-        expect(stats['maxCacheSize'], equals(60)); // MAX_CACHED_TIMELINES
+        expect(stats['maxCacheSize'], equals(60)); // maxCachedConversations
         expect(stats.containsKey('estimatedMemoryMB'), isTrue);
         expect(stats.containsKey('cacheUtilization'), isTrue);
       });
@@ -136,134 +135,46 @@ void main() {
       });
     });
 
-    group('预加载功能', () {
-      test('preloadTimeline 应该正确预加载空会话', () async {
-        // 不添加任何mock消息，模拟空会话
-        final result = await repository.preloadTimeline('empty_conversation');
-
-        expect(result, isTrue);
-
-        final timeline = repository.getTimeline('empty_conversation');
-        expect(timeline, isNotNull);
-        expect(timeline!.length, equals(0));
-        expect(timeline.conversationId, equals('empty_conversation'));
-      });
-
-      test('preloadTimeline 应该正确预加载有消息的会话', () async {
-        // 添加mock消息
-        for (final message in testMessages.take(10)) {
-          repository.addMockMessage(message);
-        }
-
-        final result = await repository.preloadTimeline('test_conversation',
-            messageCount: 5);
-
-        expect(result, isTrue);
-
-        final timeline = repository.getTimeline('test_conversation');
-        expect(timeline, isNotNull);
-        expect(timeline!.length, equals(5));
-        expect(timeline.conversationId, equals('test_conversation'));
-      });
-
-      test('preloadTimeline 应该跳过已存在的缓存', () async {
-        // 先手动创建Timeline
-        final existingTimeline =
-            MessageTimeline(conversationId: 'test_conversation');
-        existingTimeline.appendNewMessages(testMessages.take(3).toList());
-        repository.storeTimeline('test_conversation', existingTimeline);
-
-        // 尝试预加载
-        final result = await repository.preloadTimeline('test_conversation');
-
-        expect(result, isTrue);
-
-        // 确认Timeline没有变化
-        final timeline = repository.getTimeline('test_conversation');
-        expect(timeline!.length, equals(3)); // 仍然是原来的3条消息
-      });
-    });
-
     group('LRU缓存淘汰', () {
       test('应该正确实现LRU淘汰策略', () {
-        // 为了测试LRU，我们需要使用反射或者创建一个特殊的测试版本
-        // 这里我们测试基本的存储和获取顺序
+        final testMessages = _createTestMessages().take(5).toList();
 
-        // 添加多个Timeline
+        // 添加多个会话的缓存
         for (int i = 0; i < 5; i++) {
-          final timeline = MessageTimeline(conversationId: 'conversation_$i');
-          repository.storeTimeline('conversation_$i', timeline);
+          repository.cacheMessages('conversation_$i', testMessages);
         }
 
-        // 访问某些Timeline来改变LRU顺序
-        repository.getTimeline('conversation_0');
-        repository.getTimeline('conversation_2');
+        // 访问某些缓存来改变LRU顺序
+        repository.getCachedMessages('conversation_0');
+        repository.getCachedMessages('conversation_2');
 
-        // 验证所有Timeline仍然存在（因为还没超过限制）
-        for (int i = 0; i < 5; i++) {
-          expect(repository.getTimeline('conversation_$i'), isNotNull);
-        }
-      });
-    });
-
-    group('查看状态管理', () {
-      test('getUserLastViewState 应该正确处理不存在的状态', () async {
-        final viewState =
-            await repository.getUserLastViewState('test_conversation');
-        expect(viewState, isNull);
-      });
-
-      test('saveUserViewState 应该正确处理保存请求', () async {
-        final viewState = ViewState(
-          scrollPosition: 10,
-          conversationId: 'test_conversation',
-          lastViewTime: DateTime.now(),
-        );
-
-        // 这个方法不会抛出异常就算成功
-        await expectLater(
-          repository.saveUserViewState(viewState),
-          completes,
-        );
-      });
-    });
-
-    group('错误处理', () {
-      test('preloadTimeline 应该正确处理异常情况', () async {
-        // 创建一个会抛出异常的repository版本来测试错误处理
-        final errorRepository = TestChatRepositoryImpl();
-
-        // 重写方法使其抛出异常
-        errorRepository.clearMockMessages();
-
-        final result =
-            await errorRepository.preloadTimeline('error_conversation');
-
-        // 即使出错，也应该返回false而不是抛出异常
-        expect(result, isTrue); // 因为我们的实现对空消息情况返回true
+        // 验证缓存仍然存在
+        expect(repository.getCachedMessages('conversation_0'), isNotNull);
+        expect(repository.getCachedMessages('conversation_2'), isNotNull);
+        expect(repository.getCachedMessages('conversation_4'), isNotNull);
       });
     });
   });
 }
 
-/// 创建测试消息列表
+/// 创建测试消息
 List<Message> _createTestMessages() {
-  return List.generate(20, (index) {
-    final baseTime = DateTime.now().subtract(Duration(hours: 20 - index));
-    return _createMessage('msg_$index', baseTime);
-  });
-}
+  final messages = <Message>[];
+  final baseTime = DateTime.now().subtract(const Duration(hours: 1));
 
-/// 创建单个测试消息
-Message _createMessage(String messageId, DateTime createdAt) {
-  return Message()
-    ..messageId = messageId
-    ..conversationId = 'test_conversation'
-    ..senderId = 'user_${messageId.hashCode % 3}'
-    ..senderName = 'User ${messageId.hashCode % 3}'
-    ..createdAt = createdAt
-    ..isRead = false
-    ..status = 'sent'
-    ..type = 'text'
-    ..text = 'Test message content for $messageId';
+  for (int i = 0; i < 20; i++) {
+    final message = Message()
+      ..messageId = 'msg_$i'
+      ..conversationId = 'test_conversation'
+      ..senderId = 'user_${i % 2}' // 交替发送者
+      ..senderName = 'User ${i % 2}'
+      ..type = 'text'
+      ..text = 'Test message $i'
+      ..createdAt = baseTime.add(Duration(minutes: i))
+      ..status = 'sent';
+
+    messages.add(message);
+  }
+
+  return messages;
 }

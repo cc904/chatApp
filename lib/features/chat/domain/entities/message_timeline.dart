@@ -108,9 +108,9 @@ class MessageTimeline {
     return null;
   }
 
-  /// 获取所有未读消息
+  /// 获取未读消息列表
   List<Message> getUnreadMessages() {
-    return _messages.where((msg) => !msg.isRead).toList();
+    return _messages.where((msg) => msg.status != 'read').toList();
   }
 
   /// 获取第一条未读消息
@@ -143,7 +143,7 @@ class MessageTimeline {
   void markMessagesAsRead(List<String> messageIds) {
     for (final message in _messages) {
       if (messageIds.contains(message.messageId)) {
-        message.isRead = true;
+        message.status = 'read';
       }
     }
 

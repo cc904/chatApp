@@ -352,7 +352,7 @@ class LocalMessageSearchService {
       // 注意：当前Message模型没有isDeleted字段，所以暂时跳过
 
       // 只搜索未读消息
-      if (options.onlyUnread && message.isRead) {
+      if (options.onlyUnread && message.status == 'read') {
         return false;
       }
 
@@ -383,7 +383,7 @@ class LocalMessageSearchService {
           case LocalSearchMode.fuzzy:
             return _fuzzyMatch(fieldText, query, options.caseSensitive);
           case LocalSearchMode.contains:
-          return _containsMatch(fieldText, query, options.caseSensitive);
+            return _containsMatch(fieldText, query, options.caseSensitive);
         }
       });
     }).toList();
@@ -687,12 +687,12 @@ class LocalSearchOptions {
         onlyUnread,
         limit,
       );
-      
-        @override
-        bool operator ==(Object other) {
-          // TODO: implement ==
-          return super == other;
-        }
+
+  @override
+  bool operator ==(Object other) {
+    // TODO: implement ==
+    return super == other;
+  }
 }
 
 /// 本地搜索模式

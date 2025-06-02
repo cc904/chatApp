@@ -2,7 +2,6 @@ import 'package:isar/isar.dart';
 import 'package:fixnum/fixnum.dart';
 import 'conversation.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as proto;
-import 'package:cc/core/proto/generated/message.pbenum.dart';
 
 part 'message.g.dart';
 
@@ -80,9 +79,6 @@ class Message {
   // 创建时间 - 用于时间排序
   DateTime createdAt = DateTime.now();
 
-  bool isRead = false;
-  bool isDelivered = false;
-
   // 消息发送状态：sending, sent, delivered, read, failed
   String status = 'sent';
 
@@ -114,6 +110,12 @@ class Message {
   // 索引文本内容用于搜索
   @Index(type: IndexType.value, caseSensitive: false)
   String? get textForSearch => text;
+
+  // 辅助方法：判断消息是否已读
+  bool get isRead => status == 'read';
+
+  // 辅助方法：判断消息是否已送达
+  bool get isDelivered => status == 'delivered' || status == 'read';
 
   // 与会话的关系
   final conversation = IsarLink<Conversation>();
@@ -149,27 +151,6 @@ class Message {
           proto.hasLocationAddress() ? proto.locationAddress : null
       ..quotedMessageId =
           proto.hasQuotedMessageId() ? proto.quotedMessageId : null;
-
-    // 根据status设置isRead和isDelivered字段
-    if (proto.hasStatus()) {
-      switch (proto.status) {
-        case MessageStatus.READ:
-          message.isRead = true;
-          message.isDelivered = true;
-          break;
-        case MessageStatus.DELIVERED:
-          message.isRead = false;
-          message.isDelivered = true;
-          break;
-        case MessageStatus.SENT:
-        case MessageStatus.SENDING:
-        case MessageStatus.FAILED:
-        default:
-          message.isRead = false;
-          message.isDelivered = false;
-          break;
-      }
-    }
 
     return message;
   }

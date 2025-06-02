@@ -782,43 +782,22 @@ class _AdvancedMessageBubbleState extends State<AdvancedMessageBubble>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 消息状态图标
-          _buildStatusIcon(),
+          // 根据status字段判断状态
+          if (widget.message.status == 'read')
+            Icon(
+              Icons.done_all,
+              size: 14.0,
+              color: Colors.blue.shade200,
+            ),
+          if (widget.message.status == 'delivered')
+            const Icon(
+              Icons.done_all,
+              size: 14.0,
+              color: Colors.grey,
+            ),
         ],
       ),
     );
-  }
-
-  Widget _buildStatusIcon() {
-    // 优先根据isRead和isDelivered字段判断状态
-    if (widget.message.isRead) {
-      return const Icon(Icons.done_all, size: 14, color: Colors.blue);
-    } else if (widget.message.isDelivered) {
-      return const Icon(Icons.done_all, size: 14, color: Colors.grey);
-    }
-
-    // 回退到status字段判断
-    switch (widget.message.status) {
-      case 'sending':
-        return SizedBox(
-          width: 12,
-          height: 12,
-          child: CircularProgressIndicator(
-            strokeWidth: 1,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[500]!),
-          ),
-        );
-      case 'sent':
-        return const Icon(Icons.check, size: 14, color: Colors.grey);
-      case 'delivered':
-        return const Icon(Icons.done_all, size: 14, color: Colors.grey);
-      case 'read':
-        return const Icon(Icons.done_all, size: 14, color: Colors.blue);
-      case 'failed':
-        return const Icon(Icons.error_outline, size: 14, color: Colors.red);
-      default:
-        return const SizedBox.shrink();
-    }
   }
 
   // 发送者信息

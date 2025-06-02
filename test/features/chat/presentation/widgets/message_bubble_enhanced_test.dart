@@ -15,7 +15,6 @@ void main() {
         ..senderId = 'sender_123'
         ..senderName = 'Test Sender'
         ..createdAt = DateTime.now()
-        ..isRead = true
         ..status = 'sent'
         ..type = 'text'
         ..text = 'Hello, this is a test message!';

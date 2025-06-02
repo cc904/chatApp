@@ -61,7 +61,6 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   // 页面覆盖层相关
   BuildContext? _pageOverlayContext;
-  final LayerLink _layerLink = LayerLink();
 
   @override
   void initState() {
@@ -87,6 +86,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         }
       };
 
+    // 添加调试日志检查初始状态
+    _logger.d('🏗️ ChatScrollObserver初始化完成', extra: {
+      'isShrinkWrap': _chatObserver.isShrinkWrap,
+      'fixedPositionOffset': _chatObserver.fixedPositionOffset,
+    });
+
     _voiceAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -98,8 +103,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     // 初始化完成后滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _logger.d('🔄 initState: PostFrameCallback执行，初始滚动到底部');
-      _scrollToBottom();
+      _logger.d('🔄 initState: PostFrameCallback执行，恢复滚动位置');
+      // 不要每次都滚动到底部，而是恢复上次的位置
+      // _scrollToBottom();
+      _restoreScrollPosition();
       _addUnreadTipView();
     });
 
@@ -144,10 +151,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     _logger.d('⌨️ didChangeMetrics: 屏幕尺寸变化', extra: {
       'viewInsetsBottom': viewInsets,
       'isKeyboardVisible': viewInsets > 0,
+      'shrinkWrapBefore': _chatObserver.isShrinkWrap,
     });
 
     // 键盘弹出或收起时更新shrinkWrap
     _chatObserver.observeSwitchShrinkWrap();
+
+    _logger.d('⌨️ didChangeMetrics: shrinkWrap状态更新', extra: {
+      'shrinkWrapAfter': _chatObserver.isShrinkWrap,
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -187,8 +199,44 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         .then((_) {
       _logger.d('🔄 _scrollToBottom: 滚动动画完成', extra: {
         'finalPosition': _scrollController.position.pixels,
+        'maxScrollExtent': _scrollController.position.maxScrollExtent,
       });
     });
+  }
+
+  /// 恢复滚动位置
+  void _restoreScrollPosition() {
+    try {
+      final chatCubit = context.read<ChatCubit>();
+      final state = chatCubit.state;
+
+      // 如果有消息缓存且有保存的滚动位置，恢复到该位置
+      if (state.messages.isNotEmpty) {
+        // 如果有未读消息，设置未读消息计数但保持当前位置
+        if (state.unreadCount > 0) {
+          _logger.d('🔄 _restoreScrollPosition: 有未读消息，保持位置并显示未读提示', extra: {
+            'unreadCount': state.unreadCount,
+          });
+          _unreadMsgCount.value = state.unreadCount;
+          return;
+        }
+      }
+
+      // 如果没有特殊位置需要恢复，检查是否是新会话
+      if (state.messages.isEmpty) {
+        _logger.d('🔄 _restoreScrollPosition: 新会话，无需滚动');
+        return;
+      }
+
+      // 默认情况：保持当前位置，不自动滚动
+      _logger.d('🔄 _restoreScrollPosition: 保持当前位置', extra: {
+        'currentPosition': _scrollController.position.pixels,
+        'messagesCount': state.messages.length,
+      });
+    } catch (error) {
+      _logger.e('恢复滚动位置失败', error: error);
+      // 如果恢复失败，保持当前位置
+    }
   }
 
   // 简化的滚动监听器
@@ -197,22 +245,25 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     final position = _scrollController.position;
 
-    // 只在滚动位置有明显变化时打印日志
-    // final currentPosition = position.pixels;
+    // 添加详细的滚动调试日志
+    final currentPosition = position.pixels;
 
-    // if (_lastLoggedPosition == null ||
-    //     (currentPosition - _lastLoggedPosition!).abs() > 50) {
-    //   _logger.d('📜 滚动监听器: 位置变化', extra: {
-    //     'pixels': currentPosition,
-    //     'minScrollExtent': position.minScrollExtent, // reverse=true时这是底部(0.0)
-    //     'maxScrollExtent': position.maxScrollExtent, // reverse=true时这是顶部
-    //     'viewportDimension': position.viewportDimension,
-    //     'atTop':
-    //         currentPosition >= position.maxScrollExtent - 200, // 接近顶部(历史消息)
-    //     'atBottom': currentPosition <= 50, // 接近底部(最新消息)
-    //   });
-    //   _lastLoggedPosition = currentPosition;
-    // }
+    if (_lastLoggedPosition == null ||
+        (currentPosition - _lastLoggedPosition!).abs() > 50) {
+      _logger.d('📜 滚动监听器: 位置变化', extra: {
+        'pixels': currentPosition,
+        'minScrollExtent': position.minScrollExtent, // reverse=true时这是底部(0.0)
+        'maxScrollExtent': position.maxScrollExtent, // reverse=true时这是顶部
+        'viewportDimension': position.viewportDimension,
+        'atTop':
+            currentPosition >= position.maxScrollExtent - 200, // 接近顶部(历史消息)
+        'atBottom': currentPosition <= 50, // 接近底部(最新消息)
+        'physics': position.physics.toString(),
+        'shrinkWrap': _chatObserver.isShrinkWrap,
+        'canScroll': position.maxScrollExtent > 0,
+      });
+      _lastLoggedPosition = currentPosition;
+    }
 
     // 检测是否接近顶部（加载更多历史消息）
     if (position.pixels >= position.maxScrollExtent - 200 && !_isLoadingMore) {
@@ -366,12 +417,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         'needsScroll': beforePosition > 50, // 如果距离底部超过50像素才滚动
       });
 
-      // 如果已经在底部附近，就不需要滚动了
-      if (beforePosition <= 50) {
-        _logger.d('🔄 发送消息后滚动: 已在底部附近，跳过滚动');
-        return;
-      }
-
+      // 发送消息后总是滚动到底部，因为这是用户主动操作
       _scrollController
           .animateTo(
         0.0, // reverse=true时，滚动到0.0是底部
@@ -435,13 +481,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       buildWhen: (previous, current) {
         // 优化重建条件，减少不必要的重建
         // 只有在消息数量变化或重要状态变化时才重建
-        final shouldRebuild =
+        bool shouldRebuild =
             previous.messages.length != current.messages.length ||
-                previous.isLoadingMessages != current.isLoadingMessages ||
-                previous.networkStatus != current.networkStatus ||
+          previous.isLoadingMessages != current.isLoadingMessages ||
+          previous.networkStatus != current.networkStatus ||
                 previous.isSending != current.isSending ||
-                (previous.timeline?.conversationId !=
-                    current.timeline?.conversationId);
+                (previous.conversationId != current.conversationId);
 
         if (shouldRebuild) {
           _logger.d('🔄 BlocBuilder: 触发重建', extra: {
@@ -454,8 +499,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             'networkStatusChanged':
                 previous.networkStatus != current.networkStatus,
             'isSendingChanged': previous.isSending != current.isSending,
-            'timelineChanged': previous.timeline?.conversationId !=
-                current.timeline?.conversationId,
+            'conversationChanged':
+                previous.conversationId != current.conversationId,
           });
 
           // 如果消息数量增加了，说明有新消息，需要滚动到底部
@@ -472,7 +517,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   _logger.d('🔄 BlocBuilder: 用户在底部附近，自动滚动到新消息');
                   _scrollToBottom();
                 } else {
-                  _logger.d('🔄 BlocBuilder: 用户不在底部，不自动滚动', extra: {
+                  _logger.d('🔄 BlocBuilder: 用户不在底部，显示未读消息提示', extra: {
                     'currentPosition': position.pixels,
                     'maxScrollExtent': position.maxScrollExtent,
                     'distanceFromBottom':
@@ -567,8 +612,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
             leadingWidth: 70,
             actions: [
-              // Timeline缓存状态指示器
-              if (state.timeline != null)
+              // 消息缓存状态指示器
+              if (state.messages.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(right: 8.0),
                   child: IconButton(
@@ -577,7 +622,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       color: Colors.white.withAlpha(179),
                       size: 20,
                     ),
-                    onPressed: () => _showTimelineStats(context, state),
+                    onPressed: () => _showCacheStats(context, state),
                   ),
                 ),
 
@@ -656,62 +701,57 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         FocusScope.of(context).unfocus();
       },
       child: Column(
-        children: [
-          // 加载指示器
-          if (state.isLoadingMessages)
-            LinearProgressIndicator(
-              backgroundColor: Colors.green.shade100,
+                children: [
+                  // 加载指示器
+                  if (state.isLoadingMessages)
+                    LinearProgressIndicator(
+                      backgroundColor: Colors.green.shade100,
               valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade400),
-            ),
-
-          // 消息列表
-          Expanded(
-            child: messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 48,
-                          color: Colors.white.withAlpha(153),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          state.isLoadingMessages ? '正在加载消息...' : '没有消息',
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(153),
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (state.timeline != null && !state.isLoadingMessages)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              '使用Timeline缓存',
-                              style: TextStyle(
-                                color: Colors.white.withAlpha(128),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                      ],
                     ),
-                  )
-                : _buildMessageList(messages, currentUserId),
-          ),
 
-          // 输入区域锚点
-          CompositedTransformTarget(
-            link: _layerLink,
-            child: Container(),
-          ),
+                  // 消息列表
+                  Expanded(
+                    child: messages.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 48,
+                                  color: Colors.white.withAlpha(153),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                          state.isLoadingMessages ? '正在加载消息...' : '没有消息',
+                                  style: TextStyle(
+                                    color: Colors.white.withAlpha(153),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                        if (state.messages.isNotEmpty &&
+                                    !state.isLoadingMessages)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Text(
+                              '使用消息缓存',
+                                      style: TextStyle(
+                                        color: Colors.white.withAlpha(128),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : _buildMessageList(messages, currentUserId),
+                  ),
 
-          // 输入区域
-          _buildInputArea(),
-        ],
-      ),
-    );
+                  // 输入区域
+                  _buildInputArea(),
+            ],
+          ),
+        );
 
     return resultWidget;
   }
@@ -820,24 +860,22 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     );
   }
 
-  /// 显示Timeline缓存统计信息
-  void _showTimelineStats(BuildContext context, ChatState state) {
-    if (state.timeline == null) return;
-
+  /// 显示消息缓存统计信息
+  void _showCacheStats(BuildContext context, ChatState state) {
     final stats = context.read<ChatCubit>().getCacheStats();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Timeline缓存状态'),
+        title: const Text('消息缓存状态'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('总消息数: ${state.timeline!.length}'),
+            Text('当前消息数: ${state.messages.length}'),
             Text('未读消息: ${state.unreadCount}'),
-            if (state.timeline!.hasMoreHistory) const Text('📚 有更多历史消息'),
-            if (state.timeline!.hasMoreRecent) const Text('📬 有更多新消息'),
+            if (state.hasMoreHistory) const Text('📚 有更多历史消息'),
+            if (state.hasMoreRecent) const Text('📬 有更多新消息'),
             const SizedBox(height: 16),
             const Text('Repository缓存:',
                 style: TextStyle(fontWeight: FontWeight.bold)),
@@ -849,14 +887,14 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         actions: [
           TextButton(
             onPressed: () {
-              context.read<ChatCubit>().refreshTimeline();
+              context.read<ChatCubit>().forceRefresh();
               Navigator.of(context).pop();
             },
             child: const Text('刷新缓存'),
           ),
           TextButton(
             onPressed: () {
-              context.read<ChatCubit>().clearTimelineCache();
+              context.read<ChatCubit>().clearMessageCache();
               Navigator.of(context).pop();
             },
             child: const Text('清空缓存'),
@@ -875,16 +913,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     if (_pageOverlayContext == null) return;
 
     Overlay.of(_pageOverlayContext!).insert(OverlayEntry(
-      builder: (BuildContext context) => UnconstrainedBox(
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          followerAnchor: Alignment.bottomRight,
-          targetAnchor: Alignment.topRight,
-          offset: const Offset(-20, 0),
-          child: Material(
-            type: MaterialType.transparency,
-            child: _buildUnreadTipView(),
-          ),
+      builder: (BuildContext context) => Positioned(
+        bottom: 80, // 在输入框上方
+        right: 16, // 右下角
+        child: Material(
+          type: MaterialType.transparency,
+          child: _buildUnreadTipView(),
         ),
       ),
     ));
@@ -926,27 +960,51 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   Widget _buildMessageList(List<Message> messages, String currentUserId) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        // 添加调试日志
+        _logger.d('🏗️ _buildMessageList: 构建消息列表', extra: {
+          'messagesCount': messages.length,
+          'isShrinkWrap': _chatObserver.isShrinkWrap,
+          'constraintsMaxHeight': constraints.maxHeight,
+          'constraintsMaxWidth': constraints.maxWidth,
+        });
+
+        // 智能判断是否真的需要shrinkWrap
+        // 只有在键盘弹出且内容高度小于可用高度时才使用shrinkWrap
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        final isKeyboardVisible = keyboardHeight > 0;
+        final shouldUseShrinkWrap =
+            isKeyboardVisible && _chatObserver.isShrinkWrap;
+
+        _logger.d('🏗️ _buildMessageList: 智能shrinkWrap判断', extra: {
+          'keyboardHeight': keyboardHeight,
+          'isKeyboardVisible': isKeyboardVisible,
+          'observerShrinkWrap': _chatObserver.isShrinkWrap,
+          'shouldUseShrinkWrap': shouldUseShrinkWrap,
+        });
+
         Widget resultWidget = ListView.builder(
           key: const ValueKey('chat_message_list'),
-          physics: _chatObserver.isShrinkWrap
-              ? const NeverScrollableScrollPhysics()
-              : ChatObserverClampingScrollPhysics(observer: _chatObserver),
+          // 智能选择滚动物理效果：即使在shrinkWrap模式下也保持滚动能力
+          physics: shouldUseShrinkWrap
+              ? const ClampingScrollPhysics() // 在shrinkWrap模式下使用Clamping物理效果
+              : const AlwaysScrollableScrollPhysics(), // 正常模式下使用Always物理效果
           padding: const EdgeInsets.only(
             left: 10,
             right: 10,
             top: 15,
             bottom: 15,
           ),
-          shrinkWrap: _chatObserver.isShrinkWrap,
+          // 智能使用shrinkWrap
+          shrinkWrap: shouldUseShrinkWrap,
           reverse: true, // 反向滚动，最新消息在底部
           controller: _scrollController,
           itemBuilder: (context, index) {
             // 因为是reverse=true，所以需要反转索引
             final reversedIndex = messages.length - 1 - index;
             final message = messages[reversedIndex];
-            final isMe = message.senderId == currentUserId;
+              final isMe = message.senderId == currentUserId;
 
-            // 检查是否需要显示日期分隔符
+              // 检查是否需要显示日期分隔符
             final showDate = reversedIndex == 0 ||
                 !_isSameDay(
                     message.createdAt, messages[reversedIndex - 1].createdAt);
@@ -955,45 +1013,48 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             final isLastInSequence = _isLastMessageInSequence(
                 messages, reversedIndex, currentUserId);
 
-            return Padding(
-              padding:
+              return Padding(
+                padding:
                   const EdgeInsets.symmetric(horizontal: 6.0, vertical: 1.0),
-              child: Column(
+                child: Column(
                 key: ValueKey('${message.messageId}_$reversedIndex'),
-                children: [
-                  // 日期分隔符
-                  if (showDate) _buildDateSeparator(message.createdAt),
+                  children: [
+                    // 日期分隔符
+                    if (showDate) _buildDateSeparator(message.createdAt),
 
-                  // 消息气泡
-                  MessageBubble(
+                    // 消息气泡
+                    MessageBubble(
                     key: ValueKey(message.messageId),
-                    message: message,
-                    isMe: isMe,
-                    timeString: _formatMessageTime(message.createdAt),
-                    senderName: isMe ? 'You' : widget.contact.name,
+                      message: message,
+                      isMe: isMe,
+                      timeString: _formatMessageTime(message.createdAt),
+                      senderName: isMe ? 'You' : widget.contact.name,
                     showTail: isLastInSequence,
                     onRemove: () {
                       // TODO: 实现消息删除逻辑
                     },
-                  ),
-                ],
-              ),
-            );
-          },
+                    ),
+                  ],
+                ),
+              );
+            },
           itemCount: messages.length,
         );
 
-        // 如果需要shrinkWrap模式，包装在SingleChildScrollView中
-        if (_chatObserver.isShrinkWrap) {
+        // 只在真正需要时使用SingleChildScrollView包装
+        if (shouldUseShrinkWrap) {
+          _logger.d('🏗️ _buildMessageList: 使用shrinkWrap模式，但保持滚动能力');
           resultWidget = SingleChildScrollView(
             reverse: true,
-            physics: ChatObserverClampingScrollPhysics(observer: _chatObserver),
+            physics: const ClampingScrollPhysics(), // 确保可以滚动
             child: Container(
               alignment: Alignment.topCenter,
               height: constraints.maxHeight + 0.001,
               child: resultWidget,
             ),
           );
+        } else {
+          _logger.d('🏗️ _buildMessageList: 使用正常ListView模式');
         }
 
         // 包装在ListViewObserver中
@@ -1105,36 +1166,44 @@ class ChatUnreadTipView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (unreadMsgCount == 0) return const SizedBox.shrink();
 
-    Widget resultWidget = Stack(
-      children: [
-        const Icon(
-          Icons.mode_comment,
-          size: 50,
-          color: Colors.white,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16, right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade600,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(51),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        Container(
-          margin: const EdgeInsets.only(top: 12),
-          width: 50,
-          child: Center(
-            child: Text(
-              '$unreadMsgCount',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.keyboard_arrow_down,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$unreadMsgCount 条新消息',
               style: const TextStyle(
-                color: Colors.blue,
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
-
-    resultWidget = GestureDetector(
-      onTap: onTap,
-      child: resultWidget,
-    );
-
-    return resultWidget;
   }
 }
 
@@ -1185,28 +1254,28 @@ class MessageBubble extends StatelessWidget {
             child: GestureDetector(
               onTap: () => _handleMessageTap(context),
               child: Container(
-                constraints: BoxConstraints(
+            constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.75,
                   minWidth: 60.0, // 最小宽度确保时间显示
-                ),
-                decoration: BoxDecoration(
+            ),
+            decoration: BoxDecoration(
                   color: _getMessageBubbleColor(),
                   borderRadius: _getBorderRadius(),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(13),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(13),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: [
+              children: [
                     // 消息内容
                     if (message.text?.isNotEmpty == true)
                       Text(
@@ -1220,17 +1289,17 @@ class MessageBubble extends StatelessWidget {
                     // 错误信息（仅失败消息显示）
                     if (message.status == 'failed' &&
                         message.errorMessage != null)
-                      Padding(
+                  Padding(
                         padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
+                    child: Text(
                           message.errorMessage!,
-                          style: TextStyle(
-                            fontSize: 12.0,
+                      style: TextStyle(
+                        fontSize: 12.0,
                             color: Colors.red.shade300,
                             fontStyle: FontStyle.italic,
-                          ),
-                        ),
                       ),
+                    ),
+                  ),
 
                     // 时间和状态显示在气泡内部右下角
                     const SizedBox(height: 4.0),
@@ -1239,9 +1308,9 @@ class MessageBubble extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         const Spacer(),
-                        Text(
+                Text(
                           timeString,
-                          style: TextStyle(
+                  style: TextStyle(
                             fontSize: 11.0,
                             color: _getTimeTextColor(),
                           ),
@@ -1255,9 +1324,9 @@ class MessageBubble extends StatelessWidget {
                     ),
                   ],
                 ),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1372,7 +1441,7 @@ class MessageBubble extends StatelessWidget {
           color: Colors.blue.shade200,
         );
       default:
-        if (message.isRead) {
+        if (message.status == 'read') {
           return Icon(
             Icons.done_all,
             size: 14.0,

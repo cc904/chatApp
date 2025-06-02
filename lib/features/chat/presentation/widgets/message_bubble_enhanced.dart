@@ -121,11 +121,9 @@ class _MessageBubbleEnhancedState extends State<MessageBubbleEnhanced>
   /// 检查是否需要重建组件
   bool _shouldRebuild(MessageBubbleEnhanced oldWidget) {
     return widget.message.messageId != oldWidget.message.messageId ||
+        widget.message.text != oldWidget.message.text ||
         widget.message.status != oldWidget.message.status ||
-        widget.message.isRead != oldWidget.message.isRead ||
-        widget.message.isDelivered != oldWidget.message.isDelivered ||
-        widget.isHighlighted != oldWidget.isHighlighted ||
-        widget.isSelected != oldWidget.isSelected ||
+        widget.isMe != oldWidget.isMe ||
         widget.showTimestamp != oldWidget.showTimestamp ||
         widget.showSenderInfo != oldWidget.showSenderInfo;
   }
@@ -667,10 +665,14 @@ class _MessageBubbleEnhancedState extends State<MessageBubbleEnhanced>
   }
 
   Widget _buildStatusIcon() {
-    // 优先根据isRead和isDelivered字段判断状态
-    if (widget.message.isRead) {
-      return const Icon(Icons.done_all, size: 14, color: Colors.blue);
-    } else if (widget.message.isDelivered) {
+    // 根据status字段判断状态
+    if (widget.message.status == 'read') {
+      return Icon(
+        Icons.done_all,
+        size: 14.0,
+        color: Colors.blue.shade200,
+      );
+    } else if (widget.message.status == 'delivered') {
       return Icon(Icons.done_all, size: 14, color: Colors.grey[500]);
     }
 
@@ -687,10 +689,6 @@ class _MessageBubbleEnhancedState extends State<MessageBubbleEnhanced>
         );
       case 'sent':
         return Icon(Icons.check, size: 14, color: Colors.grey[500]);
-      case 'delivered':
-        return Icon(Icons.done_all, size: 14, color: Colors.grey[500]);
-      case 'read':
-        return const Icon(Icons.done_all, size: 14, color: Colors.blue);
       case 'failed':
         return const Icon(Icons.error_outline, size: 14, color: Colors.red);
       default:

@@ -1,15 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/features/chat/domain/entities/message_timeline.dart';
 import 'package:cc/core/proto/generated/message.pbenum.dart';
 
 /// 测试用的ChatRepository实现
 class TestChatRepository implements ChatRepository {
   final List<Message> _messages = [];
-  final Map<String, MessageTimeline> _timelines = {};
+  final Map<String, List<Message>> _messageCache = {};
 
   bool shouldThrowError = false;
   String? errorMessage;
@@ -44,9 +42,7 @@ class TestChatRepository implements ChatRepository {
       ..senderId = 'test_user'
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
-      ..status = 'sent'
-      ..isRead = true
-      ..isDelivered = true;
+      ..status = 'sent';
 
     _messages.add(message);
     return message;
@@ -66,9 +62,7 @@ class TestChatRepository implements ChatRepository {
       ..senderId = 'test_user'
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
-      ..status = 'sent'
-      ..isRead = true
-      ..isDelivered = true;
+      ..status = 'sent';
 
     _messages.add(message);
     return message;
@@ -90,9 +84,7 @@ class TestChatRepository implements ChatRepository {
       ..senderId = 'test_user'
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
-      ..status = 'sent'
-      ..isRead = true
-      ..isDelivered = true;
+      ..status = 'sent';
 
     _messages.add(message);
     return message;
@@ -115,9 +107,7 @@ class TestChatRepository implements ChatRepository {
       ..senderId = 'test_user'
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
-      ..status = 'sent'
-      ..isRead = true
-      ..isDelivered = true;
+      ..status = 'sent';
 
     _messages.add(message);
     return message;
@@ -142,9 +132,7 @@ class TestChatRepository implements ChatRepository {
       ..senderId = 'test_user'
       ..senderName = '测试用户'
       ..createdAt = DateTime.now()
-      ..status = isServerProcessed ? 'processing' : 'sent'
-      ..isRead = true
-      ..isDelivered = true;
+      ..status = isServerProcessed ? 'processing' : 'sent';
 
     _messages.add(message);
     return message;
@@ -254,69 +242,39 @@ class TestChatRepository implements ChatRepository {
     // 模拟离开房间
   }
 
-  // Timeline相关方法
+  // 消息缓存方法
   @override
-  MessageTimeline? getTimeline(String conversationId) {
-    return _timelines[conversationId];
+  List<Message>? getCachedMessages(String conversationId) {
+    return _messageCache[conversationId];
   }
 
   @override
-  void storeTimeline(String conversationId, MessageTimeline timeline) {
-    _timelines[conversationId] = timeline;
+  void cacheMessages(String conversationId, List<Message> messages) {
+    _messageCache[conversationId] = List<Message>.from(messages);
   }
 
   @override
-  void removeTimeline(String conversationId) {
-    _timelines.remove(conversationId);
+  void removeCachedMessages(String conversationId) {
+    _messageCache.remove(conversationId);
   }
 
   @override
-  void clearTimelineCache() {
-    _timelines.clear();
+  void clearMessageCache() {
+    _messageCache.clear();
   }
 
   @override
   Map<String, dynamic> getCacheStats() {
     return {
-      'timelineCount': _timelines.length,
+      'timelineCount': 0,
       'messageCount': _messages.length,
+      'cachedConversations': _messageCache.length,
+      'totalMessages': _messageCache.values
+          .fold(0, (sum, messages) => sum + messages.length),
+      'estimatedMemoryMB': '0.1',
     };
   }
 
-  @override
-  Future<bool> preloadTimeline(String conversationId,
-      {int messageCount = 100}) async {
-    if (shouldThrowError) return false;
-
-    // 模拟预加载
-    final messages =
-        await getConversationMessages(conversationId, limit: messageCount);
-    final timeline =
-        MessageTimeline(conversationId: conversationId, maxSize: 200);
-    timeline.appendNewMessages(messages);
-    _timelines[conversationId] = timeline;
-
-    return true;
-  }
-
-  @override
-  Future<ViewState?> getUserLastViewState(String conversationId) async {
-    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
-    // 模拟获取用户查看状态
-    return ViewState(
-      scrollPosition: 0,
-      conversationId: conversationId,
-      lastViewTime: DateTime.now(),
-    );
-  }
-
-  @override
-  Future<void> saveUserViewState(ViewState viewState) async {
-    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
-    // 模拟保存用户查看状态
-  }
-
-  // 新增的消息同步方法实现
   @override
   Future<bool> syncConversationMessages(
     String conversationId,
@@ -354,7 +312,6 @@ class TestChatRepository implements ChatRepository {
     return syncTasks.map((task) => true).toList();
   }
 
-  @override
   Future<DateTime?> getMessageTimestamp(
       String conversationId, String messageId) async {
     if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
@@ -374,7 +331,6 @@ class TestChatRepository implements ChatRepository {
     );
   }
 
-  @override
   Future<DateTimeRange?> getLocalMessageTimeRange(String conversationId) async {
     if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
     final conversationMessages =
@@ -415,6 +371,89 @@ class TestChatRepository implements ChatRepository {
       'emptyMessageIds': 0,
       'timeOrderIssues': 0,
     };
+  }
+
+  @override
+  Future<void> markMessagesAsRead(
+      String conversationId, String messageId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    // 模拟标记消息为已读
+  }
+
+  @override
+  Future<Message> createTempMessage(
+      String conversationId, String content, String type) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    return Message()
+      ..messageId = 'temp_${DateTime.now().millisecondsSinceEpoch}'
+      ..conversationId = conversationId
+      ..type = type
+      ..text = content
+      ..senderId = 'test_user'
+      ..senderName = '测试用户'
+      ..createdAt = DateTime.now()
+      ..status = 'sending';
+  }
+
+  @override
+  Future<Message?> getMessageById(String messageId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    try {
+      return _messages.firstWhere((m) => m.messageId == messageId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> markMessageAsFailed(String messageId, String errorReason) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    final message = _messages.firstWhere((m) => m.messageId == messageId);
+    message.status = 'failed';
+    message.errorMessage = errorReason;
+  }
+
+  @override
+  Future<String> resendMessage(String messageId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    final message = _messages.firstWhere((m) => m.messageId == messageId);
+    message.status = 'sent';
+    message.errorMessage = null;
+    return messageId;
+  }
+
+  @override
+  Future<void> sendMessageWithTimeout(Message message,
+      {Duration timeout = const Duration(seconds: 3)}) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    message.status = 'sent';
+    _messages.add(message);
+  }
+
+  @override
+  Future<void> updateMessageStatus(String messageId, String status) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    final message = _messages.firstWhere((m) => m.messageId == messageId);
+    message.status = status;
+  }
+
+  @override
+  Future<bool> preloadTimeline(String conversationId,
+      {int messageCount = 100}) async {
+    if (shouldThrowError) return false;
+
+    // 模拟预加载
+    final messages =
+        await getConversationMessages(conversationId, limit: messageCount);
+    return true;
+  }
+
+  @override
+  Future<void> markCurrentViewMessagesAsRead(
+      String conversationId, String latestVisibleMessageId) async {
+    if (shouldThrowError) throw Exception(errorMessage ?? '测试错误');
+    // 模拟标记当前查看消息为已读
+    return;
   }
 }
 
@@ -617,28 +656,18 @@ void main() {
       });
     });
 
-    group('Timeline集成测试', () {
-      test('应该将新消息添加到Timeline', () async {
+    group('消息集成测试', () {
+      test('应该将新消息添加到消息列表', () async {
         // Arrange
-        final timeline =
-            MessageTimeline(conversationId: testConversationId, maxSize: 200);
-        final initialState = ChatState.initial(testConversationId).copyWith(
-          timeline: timeline,
-        );
-
-        // 手动设置状态
-        chatCubit.emit(initialState);
-
         const localPath = '/test/image.jpg';
 
         // Act
         await chatCubit.sendImageMessage(localPath);
 
         // Assert
-        expect(chatCubit.state.timeline, isNotNull);
-        expect(chatCubit.state.timeline!.length, equals(1));
-        expect(chatCubit.state.timeline!.getRange(0, 1).first.type,
-            equals('image'));
+        expect(chatCubit.state.messages, isNotEmpty);
+        expect(chatCubit.state.messages.length, equals(1));
+        expect(chatCubit.state.messages.first.type, equals('image'));
       });
     });
   });

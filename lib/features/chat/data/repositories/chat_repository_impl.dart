@@ -85,6 +85,112 @@ class ChatRepositoryImpl implements ChatRepository {
       <String, MessageTimeline>{};
   final List<String> _lruOrder = <String>[]; // LRU 顺序追踪
 
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  消息缓存方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  // 消息缓存池 - 使用LRU策略
+  final Map<String, List<Message>> _messageCache = <String, List<Message>>{};
+  final List<String> _messageCacheLRU = <String>[]; // LRU 顺序追踪
+  static const int maxCachedConversations = 60; // 最多缓存60个会话
+  static const int maxMessagesPerConversation = 200; // 每个会话最多200条消息
+
+  // 跟踪用户当前活跃的会话
+  final Set<String> _activeConversations = <String>{};
+
+  /// 获取缓存的消息列表
+  @override
+  List<Message>? getCachedMessages(String conversationId) {
+    final messages = _messageCache[conversationId];
+    if (messages != null) {
+      // 更新LRU顺序
+      _updateMessageCacheLRU(conversationId);
+      _logger.d('消息缓存命中', extra: {
+        'conversationId': conversationId,
+        'messageCount': messages.length,
+      });
+    } else {
+      _logger.d('消息缓存未命中', extra: {'conversationId': conversationId});
+    }
+    return messages;
+  }
+
+  /// 缓存消息列表
+  @override
+  void cacheMessages(String conversationId, List<Message> messages) {
+    // 限制每个会话的消息数量
+    final limitedMessages = messages.length > maxMessagesPerConversation
+        ? messages.take(maxMessagesPerConversation).toList()
+        : List<Message>.from(messages);
+
+    _messageCache[conversationId] = limitedMessages;
+    _updateMessageCacheLRU(conversationId);
+    _manageMessageCacheSize();
+
+    _logger.d('消息已缓存', extra: {
+      'conversationId': conversationId,
+      'messageCount': limitedMessages.length,
+      'cacheSize': _messageCache.length,
+    });
+  }
+
+  /// 移除指定会话的消息缓存
+  @override
+  void removeCachedMessages(String conversationId) {
+    _messageCache.remove(conversationId);
+    _messageCacheLRU.remove(conversationId);
+
+    _logger.d('消息缓存已移除', extra: {
+      'conversationId': conversationId,
+      'remainingCacheSize': _messageCache.length,
+    });
+  }
+
+  /// 清空所有消息缓存
+  @override
+  void clearMessageCache() {
+    final previousSize = _messageCache.length;
+    _messageCache.clear();
+    _messageCacheLRU.clear();
+
+    _logger.i('消息缓存已清空', extra: {
+      'previousSize': previousSize,
+    });
+  }
+
+  /// 更新消息缓存LRU顺序
+  void _updateMessageCacheLRU(String conversationId) {
+    _messageCacheLRU.remove(conversationId);
+    _messageCacheLRU.add(conversationId);
+  }
+
+  /// 管理消息缓存大小，使用LRU策略淘汰
+  void _manageMessageCacheSize() {
+    if (_messageCache.length <= maxCachedConversations) return;
+
+    // 计算需要淘汰的数量
+    final excess = _messageCache.length - maxCachedConversations;
+
+    _logger.d('消息缓存超出限制，准备淘汰', extra: {
+      'currentSize': _messageCache.length,
+      'maxSize': maxCachedConversations,
+      'toEvict': excess,
+    });
+
+    // 淘汰最久未使用的消息缓存
+    for (int i = 0; i < excess && _messageCacheLRU.isNotEmpty; i++) {
+      final oldestConversationId = _messageCacheLRU.removeAt(0);
+      final evictedMessages = _messageCache.remove(oldestConversationId);
+
+      if (evictedMessages != null) {
+        _logger.d('消息缓存已被淘汰', extra: {
+          'conversationId': oldestConversationId,
+          'messageCount': evictedMessages.length,
+        });
+      }
+    }
+  }
+
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
   // 构造函数
   ChatRepositoryImpl({required CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
@@ -154,29 +260,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 处理未读消息同步响应
-  void _handleUnreadMessageSyncResponse(
-      message_proto.MessageSyncResponse response) {
-    try {
-      _logger.i('收到未读消息同步响应', extra: {
-        'conversationId': response.conversationId,
-        'success': response.success,
-        'messageCount': response.messages.messages.length,
-      });
-
-      if (!response.success) {
-        _logger.e('未读消息同步失败');
-        return;
-      }
-
-      // 将消息保存到本地数据库
-      _saveMessagesToLocal(response.messages.messages);
-    } catch (error) {
-      _logger.e('处理未读消息同步响应失败', error: error, stackTrace: StackTrace.current);
-    }
-  }
-
-  /// 处理围绕最后阅读消息的同步响应
+  /// 处理消息同步响应
   void _handleMessageSyncResponse(message_proto.MessageSyncResponse response) {
     try {
       _logger.i('收到消息同步响应', extra: {
@@ -192,60 +276,74 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 将消息保存到本地数据库
       _saveMessagesToLocal(response.messages.messages);
+
+      // 🔥 检查用户是否当前在该会话中
+      // 如果不在会话中且有新消息，需要将会话标记为未读
+      if (response.messages.messages.isNotEmpty) {
+        _handleNewMessagesForConversationReadStatus(
+          response.conversationId,
+          response.messages.messages,
+        );
+      }
     } catch (error) {
       _logger.e('处理消息同步响应失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
-  /// 处理智能消息同步响应
-  void _handleSmartMessageSyncResponse(
-      message_proto.MessageSyncResponse response) {
+  /// 处理新消息对会话已读状态的影响
+  /// 如果用户不在会话中且收到新消息，会话应该变为未读状态
+  void _handleNewMessagesForConversationReadStatus(
+    String conversationId,
+    List<message_proto.MessageProto> newMessages,
+  ) {
     try {
-      _logger.i('收到智能消息同步响应', extra: {
-        'conversationId': response.conversationId,
-        'success': response.success,
-        'messageCount': response.messages.messages.length,
-      });
+      // TODO: 这里需要跟踪用户当前是否在该会话中
+      // 可以维护一个当前活跃会话的集合
+      // 如果用户不在该会话中，且收到的消息不是自己发送的，则标记会话为未读
 
-      if (!response.success) {
-        _logger.e('智能消息同步失败');
-        return;
+      bool userIsInConversation =
+          _isUserCurrentlyInConversation(conversationId);
+      bool hasMessagesFromOthers =
+          newMessages.any((msg) => msg.senderId != _currentUser.userId);
+
+      if (!userIsInConversation && hasMessagesFromOthers) {
+        _logger.d('用户不在会话中且收到新消息，会话应标记为未读', extra: {
+          'conversationId': conversationId,
+          'newMessageCount': newMessages.length,
+        });
+
+        // 通知服务器会话变为未读状态
+        // TODO: 可以发送一个会话未读状态更新请求
+        _notifyConversationUnread(conversationId);
       }
-
-      // 将消息保存到本地数据库
-      _saveMessagesToLocal(response.messages.messages);
     } catch (error) {
-      _logger.e('处理智能消息同步响应失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('处理新消息对会话已读状态的影响失败', error: error);
     }
   }
 
-  /// 处理批量消息同步响应
-  void _handleBatchMessageSyncResponse(
-      message_proto.BatchMessageSyncResponse response) {
+  /// 检查用户是否当前在指定会话中
+  bool _isUserCurrentlyInConversation(String conversationId) {
+    // TODO: 这里应该维护一个当前活跃会话的状态
+    // 目前简单返回false，表示用户可能不在会话中
+    // 在实际实现中，可以在joinConversationRoom时设置为true
+    // 在leaveConversationRoom时设置为false
+    return _activeConversations.contains(conversationId);
+  }
+
+  /// 通知服务器会话变为未读状态
+  void _notifyConversationUnread(String conversationId) {
     try {
-      _logger.i('收到批量消息同步响应', extra: {
-        'successCount': response.successCount,
-        'failureCount': response.failureCount,
-        'responseCount': response.syncResponses.length,
-      });
+      if (_communicationService.isInitialized) {
+        // TODO: 根据实际的proto定义发送会话未读通知
+        _logger.d('通知服务器会话变为未读', extra: {
+          'conversationId': conversationId,
+        });
 
-      // 处理每个会话的同步结果
-      for (final syncResponse in response.syncResponses) {
-        if (syncResponse.success) {
-          _saveMessagesToLocal(syncResponse.messages.messages);
-          _logger.d(
-              '会话 ${syncResponse.conversationId} 同步成功，消息数: ${syncResponse.messages.messages.length}');
-        } else {
-          _logger.e('会话 ${syncResponse.conversationId} 同步失败');
-        }
+        // 这里可以发送一个自定义的事件来标记会话为未读
+        // 例如：_communicationService.emitProto('conversation:mark:unread', request);
       }
-
-      _logger.i('批量消息同步完成', extra: {
-        '成功': response.successCount,
-        '失败': response.failureCount,
-      });
     } catch (error) {
-      _logger.e('处理批量消息同步响应失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('通知服务器会话变为未读失败', error: error);
     }
   }
 
@@ -354,19 +452,40 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 将消息标记为已读
-  /// 更新指定会话中所有未读消息的状态为已读
+  /// 根据消息ID标记该消息及之前的消息为已读
   /// [conversationId] - 会话ID
-  Future<void> markMessagesAsRead(String conversationId) async {
+  /// [messageId] - 消息ID
+  @override
+  Future<void> markMessagesAsRead(
+      String conversationId, String messageId) async {
     try {
       await _isar.writeTxn(() async {
+        // 首先获取指定消息的时间戳
+        final targetMessage = await _messages
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .and()
+            .messageIdEqualTo(messageId)
+            .findFirst();
+
+        if (targetMessage == null) {
+          _logger.w('目标消息不存在', extra: {'messageId': messageId});
+          return;
+        }
+
+        // 标记该消息及之前的所有未读消息为已读
         final unreadMessages = await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
+            .and()
+            .createdAtLessThan(
+                targetMessage.createdAt.add(const Duration(seconds: 1)))
             .and()
             .statusEqualTo('sent')
             .or()
             .statusEqualTo('delivered')
             .findAll();
+
         for (final message in unreadMessages) {
           message.status = 'read';
           await _messages.put(message);
@@ -885,7 +1004,6 @@ class ChatRepositoryImpl implements ChatRepository {
               DateTime.fromMillisecondsSinceEpoch(msg.createdAt.toInt())
           ..text = msg.text
           ..type = msg.type.toString()
-          ..isRead = false
           ..status = 'received';
 
         // 处理媒体消息的特殊字段
@@ -965,7 +1083,6 @@ class ChatRepositoryImpl implements ChatRepository {
               DateTime.fromMillisecondsSinceEpoch(msg.createdAt.toInt())
           ..text = msg.text
           ..type = msg.type.toString()
-          ..isRead = false
           ..status = 'received';
 
         // 保存消息到本地数据库
@@ -1026,22 +1143,49 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 标记会话为已读
-  /// 调用markMessagesAsRead方法实现
+  /// 仅更新会话的最后阅读时间，不强制标记所有消息为已读
+  /// 会话已读和消息已读是分开的两个逻辑
   /// [conversationId] - 会话ID
   @override
   Future<void> markConversationAsRead(String conversationId) async {
     try {
-      // 更新最后阅读时间
+      _logger.i('标记会话为已读', extra: {'conversationId': conversationId});
+
+      // 🔥 只更新会话的最后阅读时间，表示用户已查看了会话
+      // 这与具体的消息已读状态是分开的逻辑
       await updateLastReadAt(conversationId, DateTime.now());
 
-      // 标记消息为已读
-      await markMessagesAsRead(conversationId);
-
-      _logger.d('会话已标记为已读',
-          extra: {'conversationId': conversationId},
-          stackTrace: StackTrace.current);
+      _logger.d('会话已标记为已读（仅更新最后阅读时间）', extra: {
+        'conversationId': conversationId,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
     } catch (error) {
       _logger.e('标记会话为已读失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 标记当前查看的消息为已读
+  /// 这是与会话已读分离的独立逻辑，用于具体的消息已读状态管理
+  /// [conversationId] - 会话ID
+  /// [latestVisibleMessageId] - 当前用户看到的最新消息ID
+  Future<void> markCurrentViewMessagesAsRead(
+      String conversationId, String latestVisibleMessageId) async {
+    try {
+      _logger.i('标记当前查看消息为已读', extra: {
+        'conversationId': conversationId,
+        'latestVisibleMessageId': latestVisibleMessageId,
+      });
+
+      // 🔥 标记指定消息及之前的消息为已读
+      // 这是消息已读逻辑，与会话已读状态分开管理
+      await markMessagesAsRead(conversationId, latestVisibleMessageId);
+
+      _logger.d('当前查看消息已标记为已读', extra: {
+        'conversationId': conversationId,
+        'latestVisibleMessageId': latestVisibleMessageId,
+      });
+    } catch (error) {
+      _logger.e('标记当前查看消息为已读失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -1120,7 +1264,6 @@ class ChatRepositoryImpl implements ChatRepository {
           if (response.success) {
             _logger.i('服务器已更新会话最后阅读时间', extra: {
               'conversationId': response.conversationId,
-              'remainingUnread': response.remainingUnread
             });
           } else {
             _logger.w('服务器更新会话最后阅读时间失败',
@@ -1167,7 +1310,6 @@ class ChatRepositoryImpl implements ChatRepository {
           if (response.success) {
             _logger.i('服务器已更新会话最后阅读消息ID', extra: {
               'conversationId': response.conversationId,
-              'remainingUnread': response.remainingUnread
             });
           } else {
             _logger.w('服务器更新会话最后阅读消息ID失败',
@@ -1186,12 +1328,18 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 用户进入会话页面
-  /// 将用户加入对应的Socket.io会话房间，但不重置未读消息计数
+  /// 将用户加入对应的Socket.io会话房间，并自动标记会话为已读
   /// [conversationId] - 会话ID
   @override
   Future<void> joinConversationRoom(String conversationId) async {
     try {
       _logger.i('用户进入会话页面', extra: {'conversationId': conversationId});
+
+      // 🔥 将会话加入活跃会话集合
+      _activeConversations.add(conversationId);
+
+      // 🔥 进入会话时自动标记会话为已读
+      await markConversationAsRead(conversationId);
 
       // 通知服务器用户加入会话房间
       if (_communicationService.isInitialized) {
@@ -1202,7 +1350,7 @@ class ChatRepositoryImpl implements ChatRepository {
         _communicationService.emitProto('conversation:join', joinRoomRequest);
         _logger.d('已发送加入会话房间请求');
       } else {
-        _logger.w('通信服务未初始化，无法同步会话最后阅读消息ID到服务器');
+        _logger.w('通信服务未初始化，无法发送加入会话房间请求');
       }
     } catch (error) {
       _logger.e('加入会话房间失败', error: error, stackTrace: StackTrace.current);
@@ -1216,6 +1364,9 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<void> leaveConversationRoom(String conversationId) async {
     try {
       _logger.i('用户离开会话页面', extra: {'conversationId': conversationId});
+
+      // 🔥 将会话从活跃会话集合中移除
+      _activeConversations.remove(conversationId);
 
       // 通知服务器用户离开会话房间
       if (_communicationService.isInitialized) {
@@ -1244,7 +1395,6 @@ class ChatRepositoryImpl implements ChatRepository {
   // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取缓存的MessageTimeline
-  @override
   MessageTimeline? getTimeline(String conversationId) {
     final timeline = _timelineCache[conversationId];
     if (timeline != null) {
@@ -1258,7 +1408,6 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 存储MessageTimeline到缓存
-  @override
   void storeTimeline(String conversationId, MessageTimeline timeline) {
     _timelineCache[conversationId] = timeline;
     _updateLRUOrder(conversationId);
@@ -1272,7 +1421,6 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 移除指定会话的Timeline缓存
-  @override
   void removeTimeline(String conversationId) {
     _timelineCache.remove(conversationId);
     _lruOrder.remove(conversationId);
@@ -1284,7 +1432,6 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 清空所有Timeline缓存
-  @override
   void clearTimelineCache() {
     final previousSize = _timelineCache.length;
     _timelineCache.clear();
@@ -1320,7 +1467,6 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 预加载指定会话的消息到Timeline
-  @override
   Future<bool> preloadTimeline(String conversationId,
       {int messageCount = 100}) async {
     try {
@@ -1398,7 +1544,6 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 保存用户查看状态
-  @override
   Future<void> saveUserViewState(ViewState viewState) async {
     try {
       // 这里可以将查看状态保存到数据库或持久化存储
