@@ -5,7 +5,6 @@ import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 /// 聊天会话列表仓库接口
 /// 定义了会话列表管理所需的各种操作方法
 abstract class ChatsRepository {
-
   /// 获取单个联系人信息
   /// 注：此方法仅用于支持聊天功能,不应用于联系人管理
   Future<User?> getContactById(String userId);
@@ -58,12 +57,6 @@ abstract class ChatsRepository {
   Future<void> updateConversationPinStatus(
       String conversationId, bool isPinned);
 
-  /// 更新会话的最后阅读时间
-  Future<void> updateLastReadAt(String conversationId, DateTime timestamp);
-
-  /// 更新会话的最后阅读消息ID
-  Future<void> updateLastReadMessageId(String conversationId, String messageId);
-
   /// 根据标签过滤会话
   ///
   /// 根据标签类型过滤会话列表
@@ -90,4 +83,18 @@ abstract class ChatsRepository {
   /// 会话详情将通过事件回调方式处理
   /// [conversationId] - 会话ID
   Future<void> requestConversationDetail(String conversationId);
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话阅读状态管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 更新会话最后阅读时间
+  /// [conversationId] - 会话ID
+  /// [timestamp] - 阅读时间戳
+  /// [syncToServer] - 是否同步到服务器，默认false
+  Future<void> updateLastReadAt(String conversationId, DateTime timestamp,
+      {bool syncToServer = false});
+
+  /// 更新会话最后阅读消息ID
+  /// [conversationId] - 会话ID
+  /// [messageId] - 最后阅读的消息ID
+  Future<void> updateLastReadMessageId(String conversationId, String messageId);
 }

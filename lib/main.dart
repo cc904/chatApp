@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
@@ -8,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -22,6 +24,9 @@ void main() async {
   logger.x('应用配置加载完成', extra: {'serverUrl': appConfig.serverUrl});
 
   try {
+    // 初始化日期格式化的本地化数据
+    await initializeDateFormatting('zh_CN', null);
+
     // 初始化timeago中文本地化
     timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
     timeago.setDefaultLocale('zh');
@@ -170,6 +175,17 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
+      // 添加本地化配置
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('zh', 'CN'), // 中文简体
+        Locale('en', 'US'), // 英文
+      ],
+      locale: const Locale('zh', 'CN'), // 默认使用中文
       scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
       home: const AuthPage(),
     );

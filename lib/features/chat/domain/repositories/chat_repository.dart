@@ -1,5 +1,6 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
+import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 
 /// 日期时间范围类
 class DateTimeRange {
@@ -12,6 +13,47 @@ class DateTimeRange {
   });
 
   Duration get duration => end.difference(start);
+}
+
+/// 滚动位置信息类
+/// 包含滚动位置相关的数据和计算结果
+class ScrollPositionInfo {
+  final String conversationId;
+  final double scrollPosition;
+  final double viewportHeight;
+  final String? visibleMessageId;
+  final int? visibleMessageIndex;
+  final DateTime timestamp;
+
+  const ScrollPositionInfo({
+    required this.conversationId,
+    required this.scrollPosition,
+    required this.viewportHeight,
+    this.visibleMessageId,
+    this.visibleMessageIndex,
+    required this.timestamp,
+  });
+
+  @override
+  String toString() {
+    return 'ScrollPositionInfo{conversationId: $conversationId, scrollPosition: $scrollPosition, visibleMessageId: $visibleMessageId, visibleMessageIndex: $visibleMessageIndex}';
+  }
+}
+
+/// 会话信息类
+/// 包含会话的基本元数据信息
+class ConversationInfo {
+  final String conversationId;
+  final String? lastReadMessageId;
+  final DateTime? lastReadAt;
+  final int unreadCount;
+
+  const ConversationInfo({
+    required this.conversationId,
+    this.lastReadMessageId,
+    this.lastReadAt,
+    required this.unreadCount,
+  });
 }
 
 /// 聊天Repository接口
@@ -75,6 +117,7 @@ abstract class ChatRepository {
   Future<List<Message>> fetchMessagesFromServer(String conversationId,
       {int limit = 20, DateTime? before});
 
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  输入状态相关  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 发送正在输入状态
@@ -86,54 +129,22 @@ abstract class ChatRepository {
   /// 获取消息状态流
   Stream<Map<String, dynamic>> getMessageStatusStream();
 
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 标记会话消息为已读
-  Future<void> markConversationAsRead(String conversationId);
-
-  /// 标记消息为已读
-  /// 根据消息ID标记该消息及之前的消息为已读
-  Future<void> markMessagesAsRead(String conversationId, String messageId);
 
   /// 标记当前查看的消息为已读
   /// 这是与会话已读分离的独立逻辑，用于具体的消息已读状态管理
   Future<void> markCurrentViewMessagesAsRead(
       String conversationId, String latestVisibleMessageId);
 
-  /// 监听会话消息变化
-  Stream<void> watchConversationMessages(String conversationId);
-
   /// 清空会话消息
   Future<void> clearConversationMessages(String conversationId);
-
-  /// 更新最后阅读时间
-  Future<void> updateLastReadAt(String conversationId, DateTime timestamp);
-
-  /// 更新最后阅读消息ID
-  Future<void> updateLastReadMessageId(String conversationId, String messageId);
 
   /// 用户进入会话页面
   Future<void> joinConversationRoom(String conversationId);
 
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  消息缓存管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 获取缓存的消息列表
-  List<Message>? getCachedMessages(String conversationId);
-
-  /// 缓存消息列表
-  void cacheMessages(String conversationId, List<Message> messages);
-
-  /// 移除指定会话的消息缓存
-  void removeCachedMessages(String conversationId);
-
-  /// 清空所有消息缓存
-  void clearMessageCache();
-
-  /// 获取缓存统计信息
-  Map<String, dynamic> getCacheStats();
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   消息同步方法   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -200,6 +211,42 @@ abstract class ChatRepository {
   /// 验证消息数据一致性
   Future<Map<String, dynamic>> validateMessageConsistency(
       String conversationId);
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  状态快照管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 保存会话状态快照
+  /// [conversationId] - 会话ID
+  /// [messages] - 消息列表
+  /// [lastReadMessageId] - 最后已读消息ID
+  /// [unreadCount] - 未读消息数量
+  /// [scrollPosition] - 滚动位置
+  /// [visibleMessageId] - 当前可见的消息ID
+  /// [hasMoreHistory] - 是否有更多历史消息
+  /// [hasMoreRecent] - 是否有更多新消息
+  Future<void> saveStateSnapshot({
+    required String conversationId,
+    required List<Message> messages,
+    String? lastReadMessageId,
+    required int unreadCount,
+    double? scrollPosition,
+    String? visibleMessageId,
+    bool hasMoreHistory = true,
+    bool hasMoreRecent = false,
+  });
+
+  /// 获取会话状态快照
+  /// [conversationId] - 会话ID
+  /// 返回状态快照，如果不存在或已过期则返回null
+  Future<ChatStateSnapshot?> getStateSnapshot(String conversationId);
+
+  /// 清除指定会话的状态快照
+  /// [conversationId] - 会话ID
+  Future<void> clearStateSnapshot(String conversationId);
+
+  /// 清除所有过期的状态快照
+  Future<void> cleanupExpiredSnapshots();
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢��💢💢💢💢💢💢💢💢💢
 }
 
 /// 会话同步任务

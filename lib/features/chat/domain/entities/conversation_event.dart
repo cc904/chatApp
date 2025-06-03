@@ -10,6 +10,9 @@ enum ConversationUpdateType {
 
   /// 删除会话
   removed,
+
+  /// 阅读状态更新
+  readStatusUpdated,
 }
 
 /// 会话更新事件
@@ -44,6 +47,12 @@ class ConversationUpdateEvent {
   /// 是否是置顶状态
   final bool? isPinned;
 
+  /// 最后阅读时间（用于阅读状态更新）
+  final DateTime? lastReadAt;
+
+  /// 最后阅读的消息ID（用于阅读状态更新）
+  final String? lastReadMessageId;
+
   /// 构造函数
   ConversationUpdateEvent({
     required this.conversationId,
@@ -56,6 +65,8 @@ class ConversationUpdateEvent {
     this.senderName,
     this.isMuted,
     this.isPinned,
+    this.lastReadAt,
+    this.lastReadMessageId,
   });
 
   @override

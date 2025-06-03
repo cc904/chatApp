@@ -7,6 +7,7 @@ import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
+import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 
 /// 会话列表项组件
 ///
@@ -315,6 +316,7 @@ void _openChatDetail(
     BuildContext context, Conversation conversation, User contact) {
   // 在导航前获取Repository和Cubit引用
   final chatRepository = context.read<ChatRepository>();
+  final chatsRepository = context.read<ChatsRepository>();
   final chatsCubit = context.read<ChatsCubit>();
 
   Navigator.push(
@@ -323,19 +325,22 @@ void _openChatDetail(
       builder: (context) => MultiRepositoryProvider(
         providers: [
           RepositoryProvider<ChatRepository>.value(value: chatRepository),
+          RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
         ],
         child: MultiBlocProvider(
           providers: [
             BlocProvider<ChatsCubit>.value(value: chatsCubit),
-            BlocProvider(
+            // 直接创建ChatCubit实例
+            BlocProvider<ChatCubit>(
               create: (context) => ChatCubit(
                 chatRepository: chatRepository,
+                chatsRepository: chatsRepository,
                 conversationId: conversation.conversationId,
               ),
             ),
           ],
-          child: ChatDetailPage(
-            conversationId: conversation.conversationId,
+          child: ChatPage(
+            conversation: conversation,
             contact: contact,
           ),
         ),

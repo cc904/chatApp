@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:collection';
-import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -9,12 +8,13 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/features/chat/domain/entities/message_timeline.dart';
+import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
 
 /// 信号量类，用于控制并发数量
 class Semaphore {
@@ -60,7 +60,7 @@ class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
   final FileUploadService _fileUploadService = FileUploadService();
-  final CurrentUserProto _currentUser;
+  final user_proto.CurrentUserProto _currentUser;
 
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
@@ -71,132 +71,140 @@ class ChatRepositoryImpl implements ChatRepository {
       StreamController<Map<String, dynamic>>.broadcast();
   final _messageStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _scrollPositionController =
+      StreamController<ScrollPositionInfo>.broadcast();
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
-  // MessageTimeline 缓存相关字段
-  static const int maxCachedTimelines = 60; // 最多缓存60个Timeline
-  static const int maxPreloadConversations = 50; // 预加载50个会话
-  static const int preloadMessagesCount = 100; // 预加载时每个会话100条
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  状态快照管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  // 时间线缓存池 - 使用LRU策略
-  final Map<String, MessageTimeline> _timelineCache =
-      <String, MessageTimeline>{};
-  final List<String> _lruOrder = <String>[]; // LRU 顺序追踪
+  // 状态快照缓存
+  final Map<String, ChatStateSnapshot> _stateSnapshots =
+      <String, ChatStateSnapshot>{};
 
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  消息缓存方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 保存会话状态快照
+  @override
+  Future<void> saveStateSnapshot({
+    required String conversationId,
+    required List<Message> messages,
+    String? lastReadMessageId,
+    required int unreadCount,
+    double? scrollPosition,
+    String? visibleMessageId,
+    bool hasMoreHistory = true,
+    bool hasMoreRecent = false,
+  }) async {
+    try {
+      final snapshot = ChatStateSnapshot(
+        conversationId: conversationId,
+        messages: List<Message>.from(messages), // 深拷贝消息列表
+        lastReadMessageId: lastReadMessageId,
+        unreadCount: unreadCount,
+        scrollPosition: scrollPosition,
+        visibleMessageId: visibleMessageId,
+        timestamp: DateTime.now(),
+        hasMoreHistory: hasMoreHistory,
+        hasMoreRecent: hasMoreRecent,
+      );
 
-  // 消息缓存池 - 使用LRU策略
-  final Map<String, List<Message>> _messageCache = <String, List<Message>>{};
-  final List<String> _messageCacheLRU = <String>[]; // LRU 顺序追踪
-  static const int maxCachedConversations = 60; // 最多缓存60个会话
-  static const int maxMessagesPerConversation = 200; // 每个会话最多200条消息
+      _stateSnapshots[conversationId] = snapshot;
+
+      _logger.d('💾 保存会话状态快照', extra: {
+        'conversationId': conversationId,
+        'messageCount': messages.length,
+        'scrollPosition': scrollPosition,
+        'visibleMessageId': visibleMessageId,
+        'unreadCount': unreadCount,
+      });
+    } catch (error) {
+      _logger.e('保存状态快照失败', error: error);
+    }
+  }
+
+  /// 获取会话状态快照
+  @override
+  Future<ChatStateSnapshot?> getStateSnapshot(String conversationId) async {
+    try {
+      final snapshot = _stateSnapshots[conversationId];
+
+      if (snapshot != null && snapshot.isValid) {
+        _logger.d('📖 获取会话状态快照', extra: {
+          'conversationId': conversationId,
+          'messageCount': snapshot.messages.length,
+          'age': snapshot.ageInSeconds,
+        });
+        return snapshot;
+      } else if (snapshot != null) {
+        // 快照过期，清除
+        _stateSnapshots.remove(conversationId);
+        _logger.d('🗑️ 会话状态快照已过期', extra: {
+          'conversationId': conversationId,
+          'age': snapshot.ageInSeconds,
+        });
+      }
+
+      return null;
+    } catch (error) {
+      _logger.e('获取状态快照失败', error: error);
+      return null;
+    }
+  }
+
+  /// 清除指定会话的状态快照
+  @override
+  Future<void> clearStateSnapshot(String conversationId) async {
+    try {
+      final removed = _stateSnapshots.remove(conversationId);
+      if (removed != null) {
+        _logger.d('🗑️ 清除会话状态快照', extra: {
+          'conversationId': conversationId,
+          'remainingSnapshots': _stateSnapshots.length,
+        });
+      }
+    } catch (error) {
+      _logger.e('清除状态快照失败', error: error);
+    }
+  }
+
+  /// 清除所有过期的状态快照
+  @override
+  Future<void> cleanupExpiredSnapshots() async {
+    try {
+      final expiredKeys = _stateSnapshots.entries
+          .where((entry) => !entry.value.isValid)
+          .map((entry) => entry.key)
+          .toList();
+
+      for (final key in expiredKeys) {
+        _stateSnapshots.remove(key);
+      }
+
+      if (expiredKeys.isNotEmpty) {
+        _logger.d('🗑️ 清理过期状态快照', extra: {
+          'cleanedCount': expiredKeys.length,
+          'remainingCount': _stateSnapshots.length,
+        });
+      }
+    } catch (error) {
+      _logger.e('清理过期状态快照失败', error: error);
+    }
+  }
+
+  /// 获取当前状态快照数量（用于监控和调试）
+  int get stateSnapshotCount => _stateSnapshots.length;
 
   // 跟踪用户当前活跃的会话
   final Set<String> _activeConversations = <String>{};
 
-  /// 获取缓存的消息列表
-  @override
-  List<Message>? getCachedMessages(String conversationId) {
-    final messages = _messageCache[conversationId];
-    if (messages != null) {
-      // 更新LRU顺序
-      _updateMessageCacheLRU(conversationId);
-      _logger.d('消息缓存命中', extra: {
-        'conversationId': conversationId,
-        'messageCount': messages.length,
-      });
-    } else {
-      _logger.d('消息缓存未命中', extra: {'conversationId': conversationId});
-    }
-    return messages;
-  }
-
-  /// 缓存消息列表
-  @override
-  void cacheMessages(String conversationId, List<Message> messages) {
-    // 限制每个会话的消息数量
-    final limitedMessages = messages.length > maxMessagesPerConversation
-        ? messages.take(maxMessagesPerConversation).toList()
-        : List<Message>.from(messages);
-
-    _messageCache[conversationId] = limitedMessages;
-    _updateMessageCacheLRU(conversationId);
-    _manageMessageCacheSize();
-
-    _logger.d('消息已缓存', extra: {
-      'conversationId': conversationId,
-      'messageCount': limitedMessages.length,
-      'cacheSize': _messageCache.length,
-    });
-  }
-
-  /// 移除指定会话的消息缓存
-  @override
-  void removeCachedMessages(String conversationId) {
-    _messageCache.remove(conversationId);
-    _messageCacheLRU.remove(conversationId);
-
-    _logger.d('消息缓存已移除', extra: {
-      'conversationId': conversationId,
-      'remainingCacheSize': _messageCache.length,
-    });
-  }
-
-  /// 清空所有消息缓存
-  @override
-  void clearMessageCache() {
-    final previousSize = _messageCache.length;
-    _messageCache.clear();
-    _messageCacheLRU.clear();
-
-    _logger.i('消息缓存已清空', extra: {
-      'previousSize': previousSize,
-    });
-  }
-
-  /// 更新消息缓存LRU顺序
-  void _updateMessageCacheLRU(String conversationId) {
-    _messageCacheLRU.remove(conversationId);
-    _messageCacheLRU.add(conversationId);
-  }
-
-  /// 管理消息缓存大小，使用LRU策略淘汰
-  void _manageMessageCacheSize() {
-    if (_messageCache.length <= maxCachedConversations) return;
-
-    // 计算需要淘汰的数量
-    final excess = _messageCache.length - maxCachedConversations;
-
-    _logger.d('消息缓存超出限制，准备淘汰', extra: {
-      'currentSize': _messageCache.length,
-      'maxSize': maxCachedConversations,
-      'toEvict': excess,
-    });
-
-    // 淘汰最久未使用的消息缓存
-    for (int i = 0; i < excess && _messageCacheLRU.isNotEmpty; i++) {
-      final oldestConversationId = _messageCacheLRU.removeAt(0);
-      final evictedMessages = _messageCache.remove(oldestConversationId);
-
-      if (evictedMessages != null) {
-        _logger.d('消息缓存已被淘汰', extra: {
-          'conversationId': oldestConversationId,
-          'messageCount': evictedMessages.length,
-        });
-      }
-    }
-  }
-
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
   // 构造函数
-  ChatRepositoryImpl({required CurrentUserProto currentUserProto})
+  ChatRepositoryImpl({required user_proto.CurrentUserProto currentUserProto})
       : _currentUser = currentUserProto {
     _logger.x('ChatRepositoryImpl 初始化');
     _registerEventHandlers();
   }
+
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢     Handler    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 设置事件处理器
   Future<void> _registerEventHandlers() async {
@@ -276,78 +284,64 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 将消息保存到本地数据库
       _saveMessagesToLocal(response.messages.messages);
-
-      // 🔥 检查用户是否当前在该会话中
-      // 如果不在会话中且有新消息，需要将会话标记为未读
-      if (response.messages.messages.isNotEmpty) {
-        _handleNewMessagesForConversationReadStatus(
-          response.conversationId,
-          response.messages.messages,
-        );
-      }
     } catch (error) {
       _logger.e('处理消息同步响应失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
-  /// 处理新消息对会话已读状态的影响
-  /// 如果用户不在会话中且收到新消息，会话应该变为未读状态
-  void _handleNewMessagesForConversationReadStatus(
-    String conversationId,
-    List<message_proto.MessageProto> newMessages,
-  ) {
+  /// 处理消息发送响应
+  void _handleMessageSendResponse(
+      message_proto.MessageResponse response) async {
     try {
-      // TODO: 这里需要跟踪用户当前是否在该会话中
-      // 可以维护一个当前活跃会话的集合
-      // 如果用户不在该会话中，且收到的消息不是自己发送的，则标记会话为未读
+      _logger.d('收到消息发送响应', extra: {
+        'success': response.success,
+        'tempId': response.tempId,
+        'serverMessageId': response.messageId,
+        'message': response.message,
+      });
 
-      bool userIsInConversation =
-          _isUserCurrentlyInConversation(conversationId);
-      bool hasMessagesFromOthers =
-          newMessages.any((msg) => msg.senderId != _currentUser.userId);
+      if (response.tempId.isEmpty) {
+        _logger.w('消息发送响应缺少临时ID，无法匹配本地消息');
+        return;
+      }
 
-      if (!userIsInConversation && hasMessagesFromOthers) {
-        _logger.d('用户不在会话中且收到新消息，会话应标记为未读', extra: {
-          'conversationId': conversationId,
-          'newMessageCount': newMessages.length,
+      // 查找对应的临时消息
+      final tempMessage = await getMessageById(response.tempId);
+      if (tempMessage == null) {
+        _logger.w('找不到对应的临时消息', extra: {'tempId': response.tempId});
+        return;
+      }
+
+      if (response.success) {
+        // 发送成功，更新消息ID和状态
+        await _isar.writeTxn(() async {
+          tempMessage.messageId = response.messageId;
+          tempMessage.status = 'sent';
+          tempMessage.errorMessage = null;
+          await _messages.put(tempMessage);
         });
 
-        // 通知服务器会话变为未读状态
-        // TODO: 可以发送一个会话未读状态更新请求
-        _notifyConversationUnread(conversationId);
+        _logger.i('消息发送成功，已更新本地消息', extra: {
+          'tempId': response.tempId,
+          'serverMessageId': response.messageId,
+        });
+      } else {
+        // 发送失败，标记为失败状态
+        final errorMessage =
+            response.message.isNotEmpty ? response.message : '服务器处理失败';
+        await markMessageAsFailed(response.tempId, errorMessage);
+
+        _logger.w('消息发送失败', extra: {
+          'tempId': response.tempId,
+          'errorMessage': errorMessage,
+        });
       }
     } catch (error) {
-      _logger.e('处理新消息对会话已读状态的影响失败', error: error);
+      _logger.e('处理消息发送响应失败', error: error);
     }
   }
 
-  /// 检查用户是否当前在指定会话中
-  bool _isUserCurrentlyInConversation(String conversationId) {
-    // TODO: 这里应该维护一个当前活跃会话的状态
-    // 目前简单返回false，表示用户可能不在会话中
-    // 在实际实现中，可以在joinConversationRoom时设置为true
-    // 在leaveConversationRoom时设置为false
-    return _activeConversations.contains(conversationId);
-  }
-
-  /// 通知服务器会话变为未读状态
-  void _notifyConversationUnread(String conversationId) {
-    try {
-      if (_communicationService.isInitialized) {
-        // TODO: 根据实际的proto定义发送会话未读通知
-        _logger.d('通知服务器会话变为未读', extra: {
-          'conversationId': conversationId,
-        });
-
-        // 这里可以发送一个自定义的事件来标记会话为未读
-        // 例如：_communicationService.emitProto('conversation:mark:unread', request);
-      }
-    } catch (error) {
-      _logger.e('通知服务器会话变为未读失败', error: error);
-    }
-  }
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    Request    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取会话消息
   /// 获取指定会话的消息列表,支持分页
@@ -359,18 +353,20 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<Message>> getConversationMessages(String conversationId,
       {int limit = 20, DateTime? before}) async {
     try {
-      _logger.d('获取会话消息', extra: {
-        'conversationId': conversationId,
-        'limit': limit,
-        'before': before?.toIso8601String(),
-      });
+      _logger.d('获取会话消息',
+          extra: {
+            'conversationId': conversationId,
+            'limit': limit,
+            'before': before?.toIso8601String(),
+          },
+          stackTrace: StackTrace.current);
 
       // 🔥 优化：利用复合索引 (conversationId + createdAt) 进行高效查询
       final query = _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .optional(before != null, (q) => q.createdAtLessThan(before!))
-          .sortByCreatedAtDesc(); // 最新消息在前
+          .sortByCreatedAt(); // 最新消息在后
 
       final messages = await query.limit(limit).findAll();
 
@@ -419,80 +415,6 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (error) {
       _logger.e('创建消息失败', error: error, stackTrace: StackTrace.current);
       rethrow;
-    }
-  }
-
-  /// 搜索消息
-  /// 根据关键词搜索消息
-  /// [keyword] - 搜索关键词
-  /// [conversationId] - 可选的会话ID,限定搜索范围
-  /// 返回匹配的消息列表
-  @override
-  Future<List<Message>> searchMessages(String keyword,
-      {String? conversationId}) async {
-    try {
-      if (keyword.isEmpty) {
-        return [];
-      }
-
-      final query = _messages
-          .filter()
-          .optional(conversationId != null,
-              (q) => q.conversationIdEqualTo(conversationId!))
-          .and()
-          .optional(keyword.isNotEmpty,
-              (q) => q.textContains(keyword, caseSensitive: false));
-
-      final messages = await query.sortByCreatedAtDesc().findAll();
-      return messages;
-    } catch (error) {
-      _logger.e('搜索消息失败', error: error, stackTrace: StackTrace.current);
-      return [];
-    }
-  }
-
-  /// 将消息标记为已读
-  /// 根据消息ID标记该消息及之前的消息为已读
-  /// [conversationId] - 会话ID
-  /// [messageId] - 消息ID
-  @override
-  Future<void> markMessagesAsRead(
-      String conversationId, String messageId) async {
-    try {
-      await _isar.writeTxn(() async {
-        // 首先获取指定消息的时间戳
-        final targetMessage = await _messages
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .and()
-            .messageIdEqualTo(messageId)
-            .findFirst();
-
-        if (targetMessage == null) {
-          _logger.w('目标消息不存在', extra: {'messageId': messageId});
-          return;
-        }
-
-        // 标记该消息及之前的所有未读消息为已读
-        final unreadMessages = await _messages
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .and()
-            .createdAtLessThan(
-                targetMessage.createdAt.add(const Duration(seconds: 1)))
-            .and()
-            .statusEqualTo('sent')
-            .or()
-            .statusEqualTo('delivered')
-            .findAll();
-
-        for (final message in unreadMessages) {
-          message.status = 'read';
-          await _messages.put(message);
-        }
-      });
-    } catch (error) {
-      _logger.e('标记消息为已读失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -774,6 +696,80 @@ class ChatRepositoryImpl implements ChatRepository {
     }
 
     return null;
+  }
+
+  /// 搜索消息
+  /// 根据关键词搜索消息
+  /// [keyword] - 搜索关键词
+  /// [conversationId] - 可选的会话ID,限定搜索范围
+  /// 返回匹配的消息列表
+  @override
+  Future<List<Message>> searchMessages(String keyword,
+      {String? conversationId}) async {
+    try {
+      if (keyword.isEmpty) {
+        return [];
+      }
+
+      final query = _messages
+          .filter()
+          .optional(conversationId != null,
+              (q) => q.conversationIdEqualTo(conversationId!))
+          .and()
+          .optional(keyword.isNotEmpty,
+              (q) => q.textContains(keyword, caseSensitive: false));
+
+      final messages = await query.sortByCreatedAtDesc().findAll();
+      return messages;
+    } catch (error) {
+      _logger.e('搜索消息失败', error: error, stackTrace: StackTrace.current);
+      return [];
+    }
+  }
+
+  /// 将消息标记为已读
+  /// 根据消息ID标记该消息及之前的消息为已读
+  /// [conversationId] - 会话ID
+  /// [messageId] - 消息ID
+  @override
+  Future<void> markMessagesAsRead(
+      String conversationId, String messageId) async {
+    try {
+      await _isar.writeTxn(() async {
+        // 首先获取指定消息的时间戳
+        final targetMessage = await _messages
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .and()
+            .messageIdEqualTo(messageId)
+            .findFirst();
+
+        if (targetMessage == null) {
+          _logger.w('目标消息不存在', extra: {'messageId': messageId});
+          return;
+        }
+
+        // 标记该消息及之前的所有未读消息为已读
+        final unreadMessages = await _messages
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .and()
+            .createdAtLessThan(
+                targetMessage.createdAt.add(const Duration(seconds: 1)))
+            .and()
+            .statusEqualTo('sent')
+            .or()
+            .statusEqualTo('delivered')
+            .findAll();
+
+        for (final message in unreadMessages) {
+          message.status = 'read';
+          await _messages.put(message);
+        }
+      });
+    } catch (error) {
+      _logger.e('标记消息为已读失败', error: error, stackTrace: StackTrace.current);
+    }
   }
 
   /// 标记消息发送失败
@@ -1142,32 +1138,11 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 标记会话为已读
-  /// 仅更新会话的最后阅读时间，不强制标记所有消息为已读
-  /// 会话已读和消息已读是分开的两个逻辑
-  /// [conversationId] - 会话ID
-  @override
-  Future<void> markConversationAsRead(String conversationId) async {
-    try {
-      _logger.i('标记会话为已读', extra: {'conversationId': conversationId});
-
-      // 🔥 只更新会话的最后阅读时间，表示用户已查看了会话
-      // 这与具体的消息已读状态是分开的逻辑
-      await updateLastReadAt(conversationId, DateTime.now());
-
-      _logger.d('会话已标记为已读（仅更新最后阅读时间）', extra: {
-        'conversationId': conversationId,
-        'timestamp': DateTime.now().toIso8601String(),
-      });
-    } catch (error) {
-      _logger.e('标记会话为已读失败', error: error, stackTrace: StackTrace.current);
-    }
-  }
-
   /// 标记当前查看的消息为已读
   /// 这是与会话已读分离的独立逻辑，用于具体的消息已读状态管理
   /// [conversationId] - 会话ID
   /// [latestVisibleMessageId] - 当前用户看到的最新消息ID
+  @override
   Future<void> markCurrentViewMessagesAsRead(
       String conversationId, String latestVisibleMessageId) async {
     try {
@@ -1187,15 +1162,6 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (error) {
       _logger.e('标记当前查看消息为已读失败', error: error, stackTrace: StackTrace.current);
     }
-  }
-
-  /// 监听会话消息变化
-  /// 监听指定会话中消息的变化
-  /// [conversationId] - 会话ID
-  /// 返回消息变化的流
-  @override
-  Stream<void> watchConversationMessages(String conversationId) {
-    return _messages.filter().conversationIdEqualTo(conversationId).watchLazy();
   }
 
   /// 清空会话消息
@@ -1233,100 +1199,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  @override
-  Future<void> updateLastReadAt(
-      String conversationId, DateTime timestamp) async {
-    _logger.i('更新会话最后阅读时间', extra: {
-      'conversationId': conversationId,
-      'timestamp': timestamp.toString()
-    });
-
-    try {
-      // 同步到服务器
-      if (_communicationService.isInitialized) {
-        _logger.i('开始同步会话最后阅读时间到服务器');
-
-        // 创建会话标记已读请求
-        final markReadRequest = conversation_proto.ConversationMarkReadRequest()
-          ..conversationId = conversationId
-          ..readAt = $fixnum.Int64(timestamp.millisecondsSinceEpoch);
-
-        // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:mark:read', markReadRequest);
-
-        // 监听服务器响应
-        _communicationService
-            .onProto<conversation_proto.ConversationMarkReadResponse>(
-                'conversation:mark:read:response')
-            .first
-            .then((response) {
-          if (response.success) {
-            _logger.i('服务器已更新会话最后阅读时间', extra: {
-              'conversationId': response.conversationId,
-            });
-          } else {
-            _logger.w('服务器更新会话最后阅读时间失败',
-                extra: {'conversationId': response.conversationId});
-          }
-        }).catchError((error) {
-          _logger.e('接收服务器最后阅读时间更新响应时出错', error: error);
-        });
-      } else {
-        _logger.w('通信服务未初始化，无法同步会话最后阅读时间到服务器');
-      }
-    } catch (error) {
-      _logger.e('更新会话最后阅读时间失败', error: error);
-      throw Exception('更新会话最后阅读时间失败: ${error.toString()}');
-    }
-  }
-
-  @override
-  Future<void> updateLastReadMessageId(
-      String conversationId, String messageId) async {
-    _logger.i('更新会话最后阅读消息ID',
-        extra: {'conversationId': conversationId, 'messageId': messageId});
-
-    try {
-      // 同步到服务器
-      if (_communicationService.isInitialized) {
-        _logger.i('开始同步会话最后阅读消息ID到服务器');
-
-        // 创建会话标记已读请求
-        final markReadRequest = conversation_proto.ConversationMarkReadRequest()
-          ..conversationId = conversationId
-          ..messageId = messageId;
-
-        // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:mark:read', markReadRequest);
-
-        // 监听服务器响应
-        _communicationService
-            .onProto<conversation_proto.ConversationMarkReadResponse>(
-                'conversation:mark:read:response')
-            .first
-            .then((response) {
-          if (response.success) {
-            _logger.i('服务器已更新会话最后阅读消息ID', extra: {
-              'conversationId': response.conversationId,
-            });
-          } else {
-            _logger.w('服务器更新会话最后阅读消息ID失败',
-                extra: {'conversationId': response.conversationId});
-          }
-        }).catchError((error) {
-          _logger.e('接收服务器最后阅读消息ID更新响应时出错', error: error);
-        });
-      } else {
-        _logger.w('通信服务未初始化，无法同步会话最后阅读消息ID到服务器');
-      }
-    } catch (error) {
-      _logger.e('更新会话最后阅读消息ID失败', error: error);
-      throw Exception('更新会话最后阅读消息ID失败: ${error.toString()}');
-    }
-  }
-
   /// 用户进入会话页面
   /// 将用户加入对应的Socket.io会话房间，并自动标记会话为已读
   /// [conversationId] - 会话ID
@@ -1338,8 +1210,9 @@ class ChatRepositoryImpl implements ChatRepository {
       // 🔥 将会话加入活跃会话集合
       _activeConversations.add(conversationId);
 
-      // 🔥 进入会话时自动标记会话为已读
-      await markConversationAsRead(conversationId);
+      // 🔥 进入会话时自动更新最后阅读时间（不同步到服务器，仅更新本地）
+      // TODO: 需要通过ChatsRepository来更新
+      _logger.d('用户进入会话页面，需要更新最后阅读时间');
 
       // 通知服务器用户加入会话房间
       if (_communicationService.isInitialized) {
@@ -1358,7 +1231,7 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 用户离开会话页面
-  /// 将用户从对应的Socket.io会话房间中移除
+  /// 将用户从对应的Socket.io会话房间中移除，并同步阅读状态到服务器
   /// [conversationId] - 会话ID
   @override
   Future<void> leaveConversationRoom(String conversationId) async {
@@ -1367,6 +1240,10 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 🔥 将会话从活跃会话集合中移除
       _activeConversations.remove(conversationId);
+
+      // 🔥 退出会话时，同步最后阅读时间到服务器
+      // TODO: 需要通过ChatsRepository来更新
+      _logger.d('用户离开会话页面，需要同步阅读状态到服务器');
 
       // 通知服务器用户离开会话房间
       if (_communicationService.isInitialized) {
@@ -1392,235 +1269,6 @@ class ChatRepositoryImpl implements ChatRepository {
     _logger.d('模拟服务器处理视频缩略图', extra: {'messageId': message.messageId});
   }
 
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 获取缓存的MessageTimeline
-  MessageTimeline? getTimeline(String conversationId) {
-    final timeline = _timelineCache[conversationId];
-    if (timeline != null) {
-      // 更新LRU顺序
-      _updateLRUOrder(conversationId);
-      _logger.d('Timeline缓存命中', extra: {'conversationId': conversationId});
-    } else {
-      _logger.d('Timeline缓存未命中', extra: {'conversationId': conversationId});
-    }
-    return timeline;
-  }
-
-  /// 存储MessageTimeline到缓存
-  void storeTimeline(String conversationId, MessageTimeline timeline) {
-    _timelineCache[conversationId] = timeline;
-    _updateLRUOrder(conversationId);
-    _manageCacheSize();
-
-    _logger.d('Timeline已缓存', extra: {
-      'conversationId': conversationId,
-      'messageCount': timeline.length,
-      'cacheSize': _timelineCache.length,
-    });
-  }
-
-  /// 移除指定会话的Timeline缓存
-  void removeTimeline(String conversationId) {
-    _timelineCache.remove(conversationId);
-    _lruOrder.remove(conversationId);
-
-    _logger.d('Timeline已移除', extra: {
-      'conversationId': conversationId,
-      'remainingCacheSize': _timelineCache.length,
-    });
-  }
-
-  /// 清空所有Timeline缓存
-  void clearTimelineCache() {
-    final previousSize = _timelineCache.length;
-    _timelineCache.clear();
-    _lruOrder.clear();
-
-    _logger.i('Timeline缓存已清空', extra: {
-      'previousSize': previousSize,
-    });
-  }
-
-  /// 获取缓存状态信息
-  @override
-  Map<String, dynamic> getCacheStats() {
-    int totalMessages = 0;
-    for (final timeline in _timelineCache.values) {
-      totalMessages += timeline.length;
-    }
-
-    // 估算内存使用（每条消息约2KB）
-    final estimatedMemoryMB = (totalMessages * 2 * 1024) / (1024 * 1024);
-
-    return {
-      'cachedConversations': _timelineCache.length,
-      'totalMessages': totalMessages,
-      'estimatedMemoryMB': estimatedMemoryMB.toStringAsFixed(1),
-      'averageMessagesPerConversation': _timelineCache.isNotEmpty
-          ? (totalMessages / _timelineCache.length).toStringAsFixed(1)
-          : '0',
-      'maxCacheSize': maxCachedTimelines,
-      'cacheUtilization':
-          '${(_timelineCache.length / maxCachedTimelines * 100).toStringAsFixed(1)}%',
-    };
-  }
-
-  /// 预加载指定会话的消息到Timeline
-  Future<bool> preloadTimeline(String conversationId,
-      {int messageCount = 100}) async {
-    try {
-      // 检查是否已经缓存
-      if (_timelineCache.containsKey(conversationId)) {
-        _logger
-            .d('Timeline已存在，跳过预加载', extra: {'conversationId': conversationId});
-        return true;
-      }
-
-      _logger.d('开始预加载Timeline', extra: {
-        'conversationId': conversationId,
-        'messageCount': messageCount,
-      });
-
-      // 从数据库加载消息
-      final messages = await getConversationMessages(
-        conversationId,
-        limit: messageCount,
-      );
-
-      if (messages.isNotEmpty) {
-        // 创建Timeline并添加消息
-        final timeline = MessageTimeline(conversationId: conversationId);
-
-        // 消息按时间升序排列（来自数据库的是降序）
-        final sortedMessages = messages.reversed.toList();
-        timeline.appendNewMessages(sortedMessages);
-
-        // 计算未读消息信息
-        await _calculateUnreadInfo(timeline, conversationId);
-
-        // 存储到缓存
-        storeTimeline(conversationId, timeline);
-
-        _logger.d('Timeline预加载完成', extra: {
-          'conversationId': conversationId,
-          'loadedMessages': messages.length,
-          'unreadCount': timeline.unreadCount,
-        });
-
-        return true;
-      } else {
-        _logger
-            .d('会话暂无消息，创建空Timeline', extra: {'conversationId': conversationId});
-
-        // 创建空的Timeline
-        final timeline = MessageTimeline(conversationId: conversationId);
-        storeTimeline(conversationId, timeline);
-
-        return true;
-      }
-    } catch (error) {
-      _logger.e('Timeline预加载失败', error: error, extra: {
-        'conversationId': conversationId,
-      });
-      return false;
-    }
-  }
-
-  /// 获取用户上次查看状态
-  @override
-  Future<ViewState?> getUserLastViewState(String conversationId) async {
-    try {
-      // 这里可以从数据库或持久化存储中获取用户的查看状态
-      // 目前返回null，后续可以根据需要实现持久化
-      _logger.d('获取用户查看状态', extra: {'conversationId': conversationId});
-      return null;
-    } catch (error) {
-      _logger.e('获取用户查看状态失败', error: error, extra: {
-        'conversationId': conversationId,
-      });
-      return null;
-    }
-  }
-
-  /// 保存用户查看状态
-  Future<void> saveUserViewState(ViewState viewState) async {
-    try {
-      // 这里可以将查看状态保存到数据库或持久化存储
-      // 目前只是记录日志，后续可以根据需要实现持久化
-      _logger.d('保存用户查看状态', extra: {
-        'conversationId': viewState.conversationId,
-        'scrollPosition': viewState.scrollPosition,
-        'lastViewTime': viewState.lastViewTime.toString(),
-      });
-    } catch (error) {
-      _logger.e('保存用户查看状态失败', error: error, extra: {
-        'conversationId': viewState.conversationId,
-      });
-    }
-  }
-
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  缓存管理私有方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 更新LRU顺序
-  void _updateLRUOrder(String conversationId) {
-    _lruOrder.remove(conversationId);
-    _lruOrder.add(conversationId);
-  }
-
-  /// 管理缓存大小，使用LRU策略淘汰
-  void _manageCacheSize() {
-    if (_timelineCache.length <= maxCachedTimelines) return;
-
-    // 计算需要淘汰的数量
-    final excess = _timelineCache.length - maxCachedTimelines;
-
-    _logger.d('缓存超出限制，准备淘汰', extra: {
-      'currentSize': _timelineCache.length,
-      'maxSize': maxCachedTimelines,
-      'toEvict': excess,
-    });
-
-    // 淘汰最久未使用的Timeline
-    for (int i = 0; i < excess && _lruOrder.isNotEmpty; i++) {
-      final oldestConversationId = _lruOrder.removeAt(0);
-      final evictedTimeline = _timelineCache.remove(oldestConversationId);
-
-      if (evictedTimeline != null) {
-        _logger.d('Timeline已被淘汰', extra: {
-          'conversationId': oldestConversationId,
-          'messageCount': evictedTimeline.length,
-        });
-      }
-    }
-  }
-
-  /// 计算Timeline的未读消息信息
-  Future<void> _calculateUnreadInfo(
-      MessageTimeline timeline, String conversationId) async {
-    try {
-      // 获取会话的最后阅读时间
-      // 这里需要从Conversation模型中获取lastReadAt
-      // 暂时使用简单的逻辑：所有消息都视为已读
-      final unreadMessages = timeline.getUnreadMessages();
-
-      if (unreadMessages.isNotEmpty) {
-        timeline.unreadCount = unreadMessages.length;
-        timeline.firstUnreadMessageId = unreadMessages.first.messageId;
-        timeline.lastUnreadMessageId = unreadMessages.last.messageId;
-
-        _logger.d('计算未读消息信息完成', extra: {
-          'conversationId': conversationId,
-          'unreadCount': timeline.unreadCount,
-        });
-      }
-    } catch (error) {
-      _logger.e('计算未读消息信息失败', error: error, extra: {
-        'conversationId': conversationId,
-      });
-    }
-  }
-
   /// 释放资源
   /// 取消所有订阅并关闭流控制器
   void dispose() {
@@ -1631,9 +1279,7 @@ class ChatRepositoryImpl implements ChatRepository {
     _subscriptions.clear();
     _typingStatusController.close();
     _messageStatusController.close();
-
-    // 清空缓存
-    clearTimelineCache();
+    _scrollPositionController.close();
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   消息同步方法   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
@@ -2241,58 +1887,6 @@ class ChatRepositoryImpl implements ChatRepository {
         'conversationId': conversationId,
         'validationTime': DateTime.now().toIso8601String(),
       };
-    }
-  }
-
-  /// 处理消息发送响应
-  void _handleMessageSendResponse(
-      message_proto.MessageResponse response) async {
-    try {
-      _logger.d('收到消息发送响应', extra: {
-        'success': response.success,
-        'tempId': response.tempId,
-        'serverMessageId': response.messageId,
-        'message': response.message,
-      });
-
-      if (response.tempId.isEmpty) {
-        _logger.w('消息发送响应缺少临时ID，无法匹配本地消息');
-        return;
-      }
-
-      // 查找对应的临时消息
-      final tempMessage = await getMessageById(response.tempId);
-      if (tempMessage == null) {
-        _logger.w('找不到对应的临时消息', extra: {'tempId': response.tempId});
-        return;
-      }
-
-      if (response.success) {
-        // 发送成功，更新消息ID和状态
-        await _isar.writeTxn(() async {
-          tempMessage.messageId = response.messageId;
-          tempMessage.status = 'sent';
-          tempMessage.errorMessage = null;
-          await _messages.put(tempMessage);
-        });
-
-        _logger.i('消息发送成功，已更新本地消息', extra: {
-          'tempId': response.tempId,
-          'serverMessageId': response.messageId,
-        });
-      } else {
-        // 发送失败，标记为失败状态
-        final errorMessage =
-            response.message.isNotEmpty ? response.message : '服务器处理失败';
-        await markMessageAsFailed(response.tempId, errorMessage);
-
-        _logger.w('消息发送失败', extra: {
-          'tempId': response.tempId,
-          'errorMessage': errorMessage,
-        });
-      }
-    } catch (error) {
-      _logger.e('处理消息发送响应失败', error: error);
     }
   }
 }

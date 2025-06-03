@@ -190,6 +190,9 @@ class ChatsCubit extends Cubit<ChatsState> {
       case ConversationUpdateType.removed:
         _handleConversationRemoved(event);
         break;
+      case ConversationUpdateType.readStatusUpdated:
+        _handleConversationReadStatusUpdated(event);
+        break;
     }
   }
 
@@ -266,6 +269,29 @@ class ChatsCubit extends Cubit<ChatsState> {
         .removeWhere((c) => c.conversationId == event.conversationId);
 
     _updateConversationsWithFilter(currentConversations);
+  }
+
+  /// 处理会话阅读状态更新事件
+  void _handleConversationReadStatusUpdated(ConversationUpdateEvent event) {
+    _logger.i('处理会话阅读状态更新事件', extra: {
+      'conversationId': event.conversationId,
+      'type': event.type.toString(),
+    });
+
+    // 更新会话阅读状态
+    final currentConversations = List<Conversation>.from(state.conversations);
+    final conversationIndex = currentConversations
+        .indexWhere((c) => c.conversationId == event.conversationId);
+
+    if (conversationIndex != -1) {
+      // 找到会话，更新阅读状态
+      final conversation = currentConversations[conversationIndex];
+      final updatedConversation =
+          conversation.copyWith(lastReadMessageId: event.lastReadMessageId);
+      currentConversations[conversationIndex] = updatedConversation;
+
+      _updateConversationsWithFilter(currentConversations);
+    }
   }
 
   /// 处理从事件中获取的新消息

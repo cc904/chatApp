@@ -1,12 +1,97 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/conversation.dart';
 import 'package:equatable/equatable.dart';
+
+/// 当前滚动位置信息
+/// 用于保存和恢复用户的查看位置
+class CurrentScrollPosition extends Equatable {
+  /// 锚点消息ID
+  final String? messageId;
+
+  /// 锚点消息在列表中的索引
+  final int? messageIndex;
+
+  /// 消息在屏幕中的相对位置 (0.0 - 1.0)
+  /// 0.0 表示消息顶部对齐屏幕顶部，1.0 表示消息底部对齐屏幕底部
+  final double? relativePosition;
+
+  /// 精确的滚动位置（像素）
+  final double? scrollOffset;
+
+  /// 位置保存时间戳
+  final DateTime? timestamp;
+
+  /// 是否是有效的位置信息
+  bool get isValid => messageId != null && messageIndex != null;
+
+  const CurrentScrollPosition({
+    this.messageId,
+    this.messageIndex,
+    this.relativePosition,
+    this.scrollOffset,
+    this.timestamp,
+  });
+
+  /// 创建空的滚动位置
+  const CurrentScrollPosition.empty()
+      : messageId = null,
+        messageIndex = null,
+        relativePosition = null,
+        scrollOffset = null,
+        timestamp = null;
+
+  /// 从锚点消息创建位置信息
+  factory CurrentScrollPosition.fromAnchor({
+    required String messageId,
+    required int messageIndex,
+    double? relativePosition,
+    double? scrollOffset,
+  }) {
+    return CurrentScrollPosition(
+      messageId: messageId,
+      messageIndex: messageIndex,
+      relativePosition: relativePosition ?? 0.0,
+      scrollOffset: scrollOffset,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  CurrentScrollPosition copyWith({
+    String? messageId,
+    int? messageIndex,
+    double? relativePosition,
+    double? scrollOffset,
+    DateTime? timestamp,
+  }) {
+    return CurrentScrollPosition(
+      messageId: messageId ?? this.messageId,
+      messageIndex: messageIndex ?? this.messageIndex,
+      relativePosition: relativePosition ?? this.relativePosition,
+      scrollOffset: scrollOffset ?? this.scrollOffset,
+      timestamp: timestamp ?? this.timestamp,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        messageId,
+        messageIndex,
+        relativePosition,
+        scrollOffset,
+        timestamp,
+      ];
+
+  @override
+  String toString() {
+    return 'CurrentScrollPosition(messageId: $messageId, index: $messageIndex, '
+        'relativePos: $relativePosition, offset: $scrollOffset, '
+        'timestamp: $timestamp)';
+  }
+}
 
 /// 单个聊天会话的状态
 class ChatState extends Equatable {
-  /// 当前会话ID
-  final String conversationId;
-
   /// 当前会话中的消息（按时间升序排列，最新的在底部）
   final List<Message> messages;
 
@@ -49,9 +134,12 @@ class ChatState extends Equatable {
   /// 第一条未读消息ID
   final String? firstUnreadMessageId;
 
+  /// 当前滚动位置信息
+  /// 用于保存和恢复用户的查看位置
+  final CurrentScrollPosition currentScrollPosition;
+
   /// 构造函数
   const ChatState({
-    required this.conversationId,
     required this.messages,
     required this.typingUsers,
     required this.isLoadingMessages,
@@ -66,14 +154,14 @@ class ChatState extends Equatable {
     required this.hasMoreRecent,
     required this.unreadCount,
     this.firstUnreadMessageId,
+    required this.currentScrollPosition,
   });
 
   /// 初始状态
-  factory ChatState.initial(String conversationId) {
-    return ChatState(
-      conversationId: conversationId,
-      messages: const [],
-      typingUsers: const [],
+  factory ChatState.initial(Conversation conversation) {
+    return const ChatState(
+      messages: [],
+      typingUsers: [],
       isLoadingMessages: false,
       isLoadingMoreMessages: false,
       isSending: false,
@@ -82,12 +170,13 @@ class ChatState extends Equatable {
       hasMoreHistory: true,
       hasMoreRecent: false,
       unreadCount: 0,
+      currentScrollPosition: CurrentScrollPosition.empty(),
     );
   }
 
   /// 复制方法
   ChatState copyWith({
-    String? conversationId,
+    Conversation? conversation,
     List<Message>? messages,
     List<String>? typingUsers,
     bool? isLoadingMessages,
@@ -102,9 +191,9 @@ class ChatState extends Equatable {
     bool? hasMoreRecent,
     int? unreadCount,
     String? firstUnreadMessageId,
+    CurrentScrollPosition? currentScrollPosition,
   }) {
     return ChatState(
-      conversationId: conversationId ?? this.conversationId,
       messages: messages ?? this.messages,
       typingUsers: typingUsers ?? this.typingUsers,
       isLoadingMessages: isLoadingMessages ?? this.isLoadingMessages,
@@ -120,6 +209,8 @@ class ChatState extends Equatable {
       hasMoreRecent: hasMoreRecent ?? this.hasMoreRecent,
       unreadCount: unreadCount ?? this.unreadCount,
       firstUnreadMessageId: firstUnreadMessageId ?? this.firstUnreadMessageId,
+      currentScrollPosition:
+          currentScrollPosition ?? this.currentScrollPosition,
     );
   }
 
@@ -153,7 +244,6 @@ class ChatState extends Equatable {
 
   @override
   List<Object?> get props => [
-        conversationId,
         messages,
         typingUsers,
         isLoadingMessages,
@@ -168,5 +258,6 @@ class ChatState extends Equatable {
         hasMoreRecent,
         unreadCount,
         firstUnreadMessageId,
+        currentScrollPosition,
       ];
 }

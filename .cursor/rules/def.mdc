@@ -3,7 +3,8 @@ description:
 globs: 
 alwaysApply: true
 ---
-这是一个模仿telegra的flutter项目
+这是一个模仿telegram的flutter项目
+项目严格遵守DDD模式
 使用Cubit作为状态管理,isar作为数据库,integration_test作为测试框架,socket.io+proto与后端next.js通讯
 使用protoc生成的对象模型,protoc脚本在./scripts/generate_protos.sh,proto文件在./lib/core/proto/source,生成文件在./lib/core/proto/generated
 页面(UI层) → Cubit(业务逻辑层) → Repository(数据层),通过 Cubit 的 state 获取数据，而不是直接访问数据层

@@ -1,6 +1,7 @@
 import 'package:cc/features/chat/data/repositories/chats_repository_impl.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +14,7 @@ import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,6 +30,8 @@ class _HomePageState extends State<HomePage>
   ChatsCubit? _chatsCubit;
   ContactCubit? _contactCubit;
   ChatRepository? _chatRepository;
+  ChatsRepository? _chatsRepository;
+  Timer? _cleanupTimer;
 
   final _secureStorage = SecureStorageService.instance;
   late TabController _tabController;
@@ -83,8 +87,11 @@ class _HomePageState extends State<HomePage>
     // 创建全局共享的ChatRepository
     _chatRepository = ChatRepositoryImpl(currentUserProto: currentUser);
 
+    // 创建ChatsRepository
+    _chatsRepository = ChatsRepositoryImpl(chatRepository: _chatRepository);
+
     _chatsCubit = ChatsCubit(
-      chatsRepository: ChatsRepositoryImpl(chatRepository: _chatRepository),
+      chatsRepository: _chatsRepository!,
     );
 
     _contactCubit = ContactCubit(
@@ -102,19 +109,27 @@ class _HomePageState extends State<HomePage>
     _homeCubit?.close();
     _chatsCubit?.close();
     _contactCubit?.close();
-    // 清理ChatRepository资源
+    // 清理Repository资源
     if (_chatRepository is ChatRepositoryImpl) {
       (_chatRepository as ChatRepositoryImpl).dispose();
     }
+    if (_chatsRepository is ChatsRepositoryImpl) {
+      (_chatsRepository as ChatsRepositoryImpl).dispose();
+    }
+    _cleanupTimer?.cancel();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
     _logger.d('HomePage build');
 
     // 如果HomeCubit还未初始化，显示加载指示器
-    if (_homeCubit == null || _chatsCubit == null || _contactCubit == null) {
+    if (_homeCubit == null ||
+        _chatsCubit == null ||
+        _contactCubit == null ||
+        _chatsRepository == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -126,6 +141,7 @@ class _HomePageState extends State<HomePage>
       providers: [
         // Repository providers - 全局共享
         RepositoryProvider<ChatRepository>.value(value: _chatRepository!),
+        RepositoryProvider<ChatsRepository>.value(value: _chatsRepository!),
 
         // BLoC providers - 状态管理
         BlocProvider<HomeCubit>.value(value: _homeCubit!),
