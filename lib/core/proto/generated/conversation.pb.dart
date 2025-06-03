@@ -1660,7 +1660,7 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
   factory ConversationMarkReadResponse({
     $core.bool? success,
     $core.String? conversationId,
-    $core.String? messageId,
+    $core.int? remainingUnread,
     $fixnum.Int64? readAt,
   }) {
     final $result = create();
@@ -1670,8 +1670,8 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (messageId != null) {
-      $result.messageId = messageId;
+    if (remainingUnread != null) {
+      $result.remainingUnread = remainingUnread;
     }
     if (readAt != null) {
       $result.readAt = readAt;
@@ -1685,7 +1685,7 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMarkReadResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(3, _omitFieldNames ? '' : 'messageId')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'remainingUnread', $pb.PbFieldType.O3)
     ..aInt64(4, _omitFieldNames ? '' : 'readAt')
     ..hasRequiredFields = false
   ;
@@ -1730,13 +1730,13 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
   void clearConversationId() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get messageId => $_getSZ(2);
+  $core.int get remainingUnread => $_getIZ(2);
   @$pb.TagNumber(3)
-  set messageId($core.String v) { $_setString(2, v); }
+  set remainingUnread($core.int v) { $_setSignedInt32(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasMessageId() => $_has(2);
+  $core.bool hasRemainingUnread() => $_has(2);
   @$pb.TagNumber(3)
-  void clearMessageId() => $_clearField(3);
+  void clearRemainingUnread() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $fixnum.Int64 get readAt => $_getI64(3);

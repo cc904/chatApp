@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:collection';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -9,7 +8,6 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
@@ -77,123 +75,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
-
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  状态快照管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  // 状态快照缓存
-  final Map<String, ChatStateSnapshot> _stateSnapshots =
-      <String, ChatStateSnapshot>{};
-
-  /// 保存会话状态快照
-  @override
-  Future<void> saveStateSnapshot({
-    required String conversationId,
-    required List<Message> messages,
-    String? lastReadMessageId,
-    required int unreadCount,
-    CurrentScrollPosition? currentScrollPosition,
-    String? visibleMessageId,
-    bool hasMoreHistory = true,
-    bool hasMoreRecent = false,
-  }) async {
-    try {
-      final snapshot = ChatStateSnapshot(
-        conversationId: conversationId,
-        messages: List<Message>.from(messages), // 深拷贝消息列表
-        lastReadMessageId: lastReadMessageId,
-        unreadCount: unreadCount,
-        currentScrollPosition: currentScrollPosition,
-        visibleMessageId: visibleMessageId,
-        timestamp: DateTime.now(),
-        hasMoreHistory: hasMoreHistory,
-        hasMoreRecent: hasMoreRecent,
-      );
-
-      _stateSnapshots[conversationId] = snapshot;
-
-      _logger.d('💾 保存会话状态快照', extra: {
-        'conversationId': conversationId,
-        'messageCount': messages.length,
-        'currentScrollPosition': currentScrollPosition,
-        'visibleMessageId': visibleMessageId,
-        'unreadCount': unreadCount,
-      });
-    } catch (error) {
-      _logger.e('保存状态快照失败', error: error);
-    }
-  }
-
-  /// 获取会话状态快照
-  @override
-  Future<ChatStateSnapshot?> getStateSnapshot(String conversationId) async {
-    try {
-      final snapshot = _stateSnapshots[conversationId];
-
-      if (snapshot != null && snapshot.isValid) {
-        _logger.d('📖 获取会话状态快照', extra: {
-          'conversationId': conversationId,
-          'messageCount': snapshot.messages.length,
-          'age': snapshot.ageInSeconds,
-        });
-        return snapshot;
-      } else if (snapshot != null) {
-        // 快照过期，清除
-        _stateSnapshots.remove(conversationId);
-        _logger.d('🗑️ 会话状态快照已过期', extra: {
-          'conversationId': conversationId,
-          'age': snapshot.ageInSeconds,
-        });
-      }
-
-      return null;
-    } catch (error) {
-      _logger.e('获取状态快照失败', error: error);
-      return null;
-    }
-  }
-
-  /// 清除指定会话的状态快照
-  @override
-  Future<void> clearStateSnapshot(String conversationId) async {
-    try {
-      final removed = _stateSnapshots.remove(conversationId);
-      if (removed != null) {
-        _logger.d('🗑️ 清除会话状态快照', extra: {
-          'conversationId': conversationId,
-          'remainingSnapshots': _stateSnapshots.length,
-        });
-      }
-    } catch (error) {
-      _logger.e('清除状态快照失败', error: error);
-    }
-  }
-
-  /// 清除所有过期的状态快照
-  @override
-  Future<void> cleanupExpiredSnapshots() async {
-    try {
-      final expiredKeys = _stateSnapshots.entries
-          .where((entry) => !entry.value.isValid)
-          .map((entry) => entry.key)
-          .toList();
-
-      for (final key in expiredKeys) {
-        _stateSnapshots.remove(key);
-      }
-
-      if (expiredKeys.isNotEmpty) {
-        _logger.d('🗑️ 清理过期状态快照', extra: {
-          'cleanedCount': expiredKeys.length,
-          'remainingCount': _stateSnapshots.length,
-        });
-      }
-    } catch (error) {
-      _logger.e('清理过期状态快照失败', error: error);
-    }
-  }
-
-  /// 获取当前状态快照数量（用于监控和调试）
-  int get stateSnapshotCount => _stateSnapshots.length;
 
   // 跟踪用户当前活跃的会话
   final Set<String> _activeConversations = <String>{};

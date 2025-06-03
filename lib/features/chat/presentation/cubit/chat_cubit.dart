@@ -87,7 +87,7 @@ class ChatCubit extends Cubit<ChatState> {
       _logger.i('ChatCubit初始化开始', extra: {'conversationId': _conversationId});
 
       // 首先尝试从状态快照恢复
-      final snapshot = await _chatRepository.getStateSnapshot(_conversationId);
+      final snapshot = await _chatsRepository.getStateSnapshot(_conversationId);
       if (snapshot != null) {
         _logger.i('从状态快照恢复会话', extra: {
           'conversationId': _conversationId,
@@ -494,14 +494,14 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 用户离开会话
+  /// 离开会话 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Future<void> leaveConversation() async {
     try {
       _logger.i('用户离开会话', extra: {'conversationId': _conversationId});
 
       // 离开会话时保存状态快照
       if (state.messages.isNotEmpty) {
-        await _chatRepository.saveStateSnapshot(
+        await _chatsRepository.saveStateSnapshot(
           conversationId: _conversationId,
           messages: state.messages,
           lastReadMessageId: state.lastReadMessageId,

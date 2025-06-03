@@ -6,7 +6,6 @@ import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 
 /// 会话列表项组件
@@ -317,36 +316,35 @@ void _openChatDetail(
   // 在导航前获取Repository和Cubit引用
   final chatRepository = context.read<ChatRepository>();
   final chatsRepository = context.read<ChatsRepository>();
-  final chatsCubit = context.read<ChatsCubit>();
+  final navigator = Navigator.of(context);
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => MultiRepositoryProvider(
-        providers: [
-          RepositoryProvider<ChatRepository>.value(value: chatRepository),
-          RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
-        ],
-        child: MultiBlocProvider(
-          providers: [
-            BlocProvider<ChatsCubit>.value(value: chatsCubit),
-            // 直接创建ChatCubit实例
-            BlocProvider<ChatCubit>(
+  // 异步清理过期快照，不阻塞UI
+  chatsRepository.cleanupExpiredSnapshots().then((_) {
+    if (context.mounted) {
+      navigator.push(
+        MaterialPageRoute(
+          builder: (context) => MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<ChatRepository>.value(value: chatRepository),
+              RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+            ],
+            child: BlocProvider<ChatCubit>(
               create: (context) => ChatCubit(
-                chatRepository: chatRepository,
-                chatsRepository: chatsRepository,
+                // 使用context.read<>()从Provider中获取Repository，避免重复传参
+                chatRepository: context.read<ChatRepository>(),
+                chatsRepository: context.read<ChatsRepository>(),
                 conversationId: conversation.conversationId,
               ),
+              child: ChatPage(
+                conversation: conversation,
+                contact: contact,
+              ),
             ),
-          ],
-          child: ChatPage(
-            conversation: conversation,
-            contact: contact,
           ),
         ),
-      ),
-    ),
-  );
+      );
+    }
+  });
 }
 
 /// 默认的时间格式化函数

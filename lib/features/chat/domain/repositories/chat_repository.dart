@@ -1,6 +1,5 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
-import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 /// 日期时间范围类
@@ -96,10 +95,12 @@ abstract class ChatRepository {
   Future<void> deleteMessage(String messageId);
 
   /// 标记当前查看的消息为已读
-  Future<void> markMessagesAsReadBySelf(String conversationId, String messageId);
+  Future<void> markMessagesAsReadBySelf(
+      String conversationId, String messageId);
 
   /// 标记当前查看的消息为已读
-  Future<void> markMessagesAsReadByOther(String conversationId, String messageId);
+  Future<void> markMessagesAsReadByOther(
+      String conversationId, String messageId);
 
   /// 按日期范围获取消息
   Future<List<Message>> getMessagesByDateRange(
@@ -124,7 +125,6 @@ abstract class ChatRepository {
   Future<List<Message>> fetchMessagesFromServer(String conversationId,
       {int limit = 20, DateTime? before});
 
-
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  输入状态相关  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 发送正在输入状态
@@ -135,7 +135,6 @@ abstract class ChatRepository {
 
   /// 获取消息状态流
   Stream<Map<String, dynamic>> getMessageStatusStream();
-
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -213,42 +212,6 @@ abstract class ChatRepository {
   /// 验证消息数据一致性
   Future<Map<String, dynamic>> validateMessageConsistency(
       String conversationId);
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  状态快照管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 保存会话状态快照
-  /// [conversationId] - 会话ID
-  /// [messages] - 消息列表
-  /// [lastReadMessageId] - 最后已读消息ID
-  /// [unreadCount] - 未读消息数量
-  /// [currentScrollPosition] - 滚动位置
-  /// [visibleMessageId] - 当前可见的消息ID
-  /// [hasMoreHistory] - 是否有更多历史消息
-  /// [hasMoreRecent] - 是否有更多新消息
-  Future<void> saveStateSnapshot({
-    required String conversationId,
-    required List<Message> messages,
-    String? lastReadMessageId,
-    required int unreadCount,
-    CurrentScrollPosition? currentScrollPosition,
-    String? visibleMessageId,
-    bool hasMoreHistory = true,
-    bool hasMoreRecent = false,
-  });
-
-  /// 获取会话状态快照
-  /// [conversationId] - 会话ID
-  /// 返回状态快照，如果不存在或已过期则返回null
-  Future<ChatStateSnapshot?> getStateSnapshot(String conversationId);
-
-  /// 清除指定会话的状态快照
-  /// [conversationId] - 会话ID
-  Future<void> clearStateSnapshot(String conversationId);
-
-  /// 清除所有过期的状态快照
-  Future<void> cleanupExpiredSnapshots();
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢��💢💢💢💢💢💢💢💢💢
 }
 
 /// 会话同步任务

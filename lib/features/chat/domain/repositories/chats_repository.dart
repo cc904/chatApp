@@ -1,6 +1,9 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/domain/entities/conversation_event.dart';
+import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
+import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 /// 聊天会话列表仓库接口
 /// 定义了会话列表管理所需的各种操作方法
@@ -97,4 +100,30 @@ abstract class ChatsRepository {
   /// [conversationId] - 会话ID
   /// [messageId] - 最后阅读的消息ID
   Future<void> updateLastReadMessageId(String conversationId, String messageId);
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 保存会话状态快照
+  Future<void> saveStateSnapshot({
+    required String conversationId,
+    required List<Message> messages,
+    String? lastReadMessageId,
+    required int unreadCount,
+    CurrentScrollPosition? currentScrollPosition,
+    String? visibleMessageId,
+    bool hasMoreHistory = true,
+    bool hasMoreRecent = false,
+  });
+
+  /// 获取会话状态快照
+  Future<ChatStateSnapshot?> getStateSnapshot(String conversationId);
+
+  /// 清除指定会话的状态快照
+  Future<void> clearStateSnapshot(String conversationId);
+
+  /// 清除所有过期的状态快照
+  Future<void> cleanupExpiredSnapshots();
+
+  /// 获取当前状态快照数量（用于监控和调试）
+  int get stateSnapshotCount;
 }
