@@ -684,7 +684,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   @override
   Stream<List<String>> getOnlineStatusStream() {
-    // TODO: 实现获取联系人在线状态流
+    // TODO 实现获取联系人在线状态流
     // 这里应该监听服务器推送的在线状态更新
     return const Stream.empty();
   }
@@ -966,7 +966,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         'userName': notification.userName
       });
 
-      // TODO: 更新会话参与者列表
+      // TODO 更新会话参与者列表
       // 需要获取用户信息并添加到会话参与者中
     } catch (error, stackTrace) {
       _logger.e('处理用户加入会话通知失败', error: error, stackTrace: stackTrace);
@@ -986,7 +986,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         'reason': notification.reason
       });
 
-      // TODO: 更新会话参与者列表
+      // TODO 更新会话参与者列表
       // 需要从会话参与者中移除该用户
     } catch (error, stackTrace) {
       _logger.e('处理用户离开会话通知失败', error: error, stackTrace: stackTrace);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -8,20 +10,6 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/presentation/widgets/message_item.dart';
-
-/// 位置保持信息
-/// 用于在加载新消息时保持用户的查看位置
-class _ScrollPositionInfo {
-  final String messageId;
-  final int messageIndex;
-  final double relativePosition; // 0.0 - 1.0，消息在屏幕中的相对位置
-
-  _ScrollPositionInfo({
-    required this.messageId,
-    required this.messageIndex,
-    required this.relativePosition,
-  });
-}
 
 /// 聊天页面
 ///
@@ -43,6 +31,7 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   static final _logger = LogService.instance;
+  Timer? _scrollDebounceTimer;
 
   /// 滚动控制器 - 用于控制列表滚动位置
   final ItemScrollController _itemScrollController = ItemScrollController();
@@ -63,26 +52,38 @@ class _ChatPageState extends State<ChatPage> {
 
     // 监听滚动位置变化
     _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
+
+    _init();
+  }
+
+  Future<void> _init() async {
+    // await context.read<ChatCubit>().init();
+    // _restoreToScrollPositionByState();
   }
 
   @override
   void dispose() {
     _textController.dispose();
     _focusNode.dispose();
+    _scrollDebounceTimer?.cancel();
     super.dispose();
   }
 
-  /// 滚动位置变化监听
+  /// 💢💢💢 滚动位置变化监听
   void _onScrollPositionChanged() {
     final positions = _itemPositionsListener.itemPositions.value;
     if (positions.isNotEmpty) {
       // 更新当前滚动位置到状态中
-      _updateCurrentScrollPosition();
+
+      _scrollDebounceTimer?.cancel();
+      _scrollDebounceTimer = Timer(const Duration(milliseconds: 200), () {
+        _updateCurrentScrollPosition();
+      });
 
       // 检查是否需要加载更多历史消息
       final firstVisibleIndex = positions.first.index;
       if (firstVisibleIndex <= 5) {
-        _logger.i('滚动位置变化监听', extra: {
+        _logger.i('检查是否需要加载更多历史消息', extra: {
           'firstVisibleIndex': firstVisibleIndex,
         });
         _loadMoreHistoryWithPositionMaintenance();
@@ -90,34 +91,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// 获取当前滚动位置信息
-  _ScrollPositionInfo? _getCurrentScrollPosition() {
-    final positions = _itemPositionsListener.itemPositions.value;
-    final state = context.read<ChatCubit>().state;
-
-    if (positions.isEmpty || state.messages.isEmpty) {
-      return null;
-    }
-
-    // 选择屏幕中央的消息作为锚点
-    final centerPosition = positions.firstWhere(
-      (pos) => pos.itemLeadingEdge <= 0.5 && pos.itemTrailingEdge >= 0.5,
-      orElse: () => positions.first,
-    );
-
-    if (centerPosition.index < state.messages.length) {
-      final message = state.messages[centerPosition.index];
-      return _ScrollPositionInfo(
-        messageId: message.messageId,
-        messageIndex: centerPosition.index,
-        relativePosition: centerPosition.itemLeadingEdge,
-      );
-    }
-
-    return null;
-  }
-
-  /// 更新ChatState中的当前滚动位置 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢 更新ChatState中的当前滚动位置
   void _updateCurrentScrollPosition() {
     final positions = _itemPositionsListener.itemPositions.value;
     final state = context.read<ChatCubit>().state;
@@ -129,56 +103,7 @@ class _ChatPageState extends State<ChatPage> {
     context.read<ChatCubit>().updateCurrentScrollPosition(positions);
   }
 
-  /// 获取屏幕边界消息信息（使用新的API）
-  Map<String, dynamic> getScreenBoundaryMessages() {
-    final positions = _itemPositionsListener.itemPositions.value;
-    final state = context.read<ChatCubit>().state;
-
-    if (positions.isEmpty || state.messages.isEmpty) {
-      return {
-        'firstMessage': null,
-        'lastMessage': null,
-        'totalVisibleCount': 0,
-        'currentScrollPosition': state.currentScrollPosition,
-      };
-    }
-
-    // 获取所有可见位置并按索引排序
-    final sortedPositions = positions.toList()
-      ..sort((a, b) => a.index.compareTo(b.index));
-
-    // 第一条可见消息（索引最小）
-    final firstPosition = sortedPositions.first;
-    final firstMessage = firstPosition.index < state.messages.length
-        ? state.messages[firstPosition.index]
-        : null;
-
-    // 最后一条可见消息（索引最大）
-    final lastPosition = sortedPositions.last;
-    final lastMessage = lastPosition.index < state.messages.length
-        ? state.messages[lastPosition.index]
-        : null;
-
-    return {
-      'firstMessage': {
-        'message': firstMessage,
-        'index': firstPosition.index,
-        'leadingEdge': firstPosition.itemLeadingEdge,
-        'trailingEdge': firstPosition.itemTrailingEdge,
-      },
-      'lastMessage': {
-        'message': lastMessage,
-        'index': lastPosition.index,
-        'leadingEdge': lastPosition.itemLeadingEdge,
-        'trailingEdge': lastPosition.itemTrailingEdge,
-      },
-      'totalVisibleCount': positions.length,
-      'visibleRange': '${firstPosition.index} - ${lastPosition.index}',
-      'currentScrollPosition': state.currentScrollPosition,
-    };
-  }
-
-  /// 加载更多历史消息并保持位置
+  /// TODO 加载更多历史消息并保持位置
   void _loadMoreHistoryWithPositionMaintenance() async {
     final state = context.read<ChatCubit>().state;
     if (!state.canLoadMoreHistory || state.isLoadingMoreMessages) {
@@ -186,14 +111,7 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     // 记录当前精确的滚动位置
-    final positionInfo = _getCurrentScrollPosition();
-
-    if (positionInfo == null) {
-      _logger.w('无法获取当前滚动位置，使用简单模式');
-      // ignore: use_build_context_synchronously
-      context.read<ChatCubit>().loadMoreMessages();
-      return;
-    }
+    final positionInfo = state.currentScrollPosition;
 
     _logger.i('开始加载更多历史消息（精确位置模式）', extra: {
       'anchorMessageId': positionInfo.messageId,
@@ -218,8 +136,15 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// 恢复到保存的滚动位置
+  Future<void> _restoreToScrollPositionByState() async {
+    final currentScrollPosition =
+        context.read<ChatCubit>().state.currentScrollPosition;
+    _restoreToScrollPosition(currentScrollPosition);
+  }
+
+  /// 恢复到保存的滚动位置
   Future<void> _restoreToScrollPosition(
-      _ScrollPositionInfo positionInfo) async {
+      CurrentScrollPosition positionInfo) async {
     for (int attempt = 0; attempt < 5; attempt++) {
       await Future.delayed(Duration(milliseconds: 100 + (attempt * 50)));
 
@@ -234,8 +159,8 @@ class _ChatPageState extends State<ChatPage> {
           'messageId': positionInfo.messageId,
           'originalIndex': positionInfo.messageIndex,
           'newIndex': messageIndex,
-          'indexOffset': messageIndex - positionInfo.messageIndex,
-          'relativePosition': positionInfo.relativePosition,
+          'indexOffset': messageIndex - (positionInfo.messageIndex ?? 0),
+          'relativePosition': positionInfo.relativePosition ?? 0.0,
           'attempt': attempt + 1,
         });
 
@@ -245,7 +170,7 @@ class _ChatPageState extends State<ChatPage> {
             index: messageIndex,
             duration: const Duration(milliseconds: 1), // 极短动画，几乎看不出来
             curve: Curves.linear,
-            alignment: positionInfo.relativePosition,
+            alignment: positionInfo.relativePosition ?? 0.0,
           );
 
           break;
@@ -260,7 +185,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// 从ChatState恢复滚动位置
+  /// 从ChatState恢复滚动位置 300ms 后恢复
   Future<void> _restoreScrollPositionFromState() async {
     final state = context.read<ChatCubit>().state;
     final scrollPosition = state.currentScrollPosition;
@@ -402,19 +327,19 @@ class _ChatPageState extends State<ChatPage> {
         IconButton(
           icon: const Icon(Icons.call),
           onPressed: () {
-            // TODO: 实现语音通话
+            // TODO 实现语音通话
           },
         ),
         IconButton(
           icon: const Icon(Icons.videocam),
           onPressed: () {
-            // TODO: 实现视频通话
+            // TODO 实现视频通话
           },
         ),
         IconButton(
           icon: const Icon(Icons.more_vert),
           onPressed: () {
-            // TODO: 显示更多选项
+            // TODO 显示更多选项
           },
         ),
       ],
@@ -468,6 +393,10 @@ class _ChatPageState extends State<ChatPage> {
                 },
                 itemScrollController: _itemScrollController,
                 itemPositionsListener: _itemPositionsListener,
+                initialScrollIndex:
+                    state.currentScrollPosition.messageIndex ?? 0,
+                initialAlignment:
+                    state.currentScrollPosition.relativePosition ?? 0.0,
                 reverse: false, // 不反转，正常顺序显示
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16.0,
@@ -499,7 +428,7 @@ class _ChatPageState extends State<ChatPage> {
           IconButton(
             icon: const Icon(Icons.attach_file),
             onPressed: () {
-              // TODO: 实现文件附件功能
+              // TODO 实现文件附件功能
             },
           ),
           Expanded(
@@ -549,12 +478,12 @@ class _ChatPageState extends State<ChatPage> {
       return message.senderId == state.currentUser!.userId;
     }
     // 临时逻辑：假设senderId等于当前用户ID
-    return false; // TODO: 根据实际逻辑判断
+    return false; // TODO 根据实际逻辑判断
   }
 
   /// 消息点击事件
   void _onMessageTap(Message message) {
-    // TODO: 实现消息点击逻辑，如显示消息详情、复制等
+    // TODO 实现消息点击逻辑，如显示消息详情、复制等
   }
 
   /// 获取最后在线时间文本

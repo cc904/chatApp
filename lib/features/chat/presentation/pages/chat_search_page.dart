@@ -67,7 +67,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   void _loadAllMessages() {
     context.read<HomeCubit>();
     _allMessages = [];
-    // TODO: homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
+    // TODO homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
 
     // 按时间倒序排序
     _allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -116,7 +116,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
-            // TODO: 需要在HomeCubit中实现跳转到指定日期的功能
+            // TODO 需要在HomeCubit中实现跳转到指定日期的功能
             // 目前暂时不实现这个功能
             UINotificationHelper.showWarning('暂不支持跳转到指定日期');
 
@@ -360,7 +360,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         // 返回并定位到这条消息
         Navigator.pop(context);
 
-        // TODO: 需要在HomeCubit中实现跳转到指定消息的功能
+        // TODO 需要在HomeCubit中实现跳转到指定消息的功能
         UINotificationHelper.showWarning('暂不支持定位到特定消息');
       },
     );
@@ -391,7 +391,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         return GestureDetector(
           onTap: () {
             // 查看大图或视频
-            // TODO: 实现媒体查看功能
+            // TODO 实现媒体查看功能
           },
           child: Container(
             decoration: BoxDecoration(

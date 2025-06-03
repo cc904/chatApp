@@ -1,4 +1,5 @@
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 /// 会话状态快照
 ///
@@ -18,7 +19,7 @@ class ChatStateSnapshot {
   final int unreadCount;
 
   /// 滚动位置（像素）
-  final double? scrollPosition;
+  final CurrentScrollPosition? currentScrollPosition;
 
   /// 当前可见的消息ID
   final String? visibleMessageId;
@@ -37,7 +38,7 @@ class ChatStateSnapshot {
     required this.messages,
     this.lastReadMessageId,
     required this.unreadCount,
-    this.scrollPosition,
+    this.currentScrollPosition,
     this.visibleMessageId,
     required this.timestamp,
     this.hasMoreHistory = true,
@@ -60,7 +61,7 @@ class ChatStateSnapshot {
     List<Message>? messages,
     String? lastReadMessageId,
     int? unreadCount,
-    double? scrollPosition,
+    CurrentScrollPosition? currentScrollPosition,
     String? visibleMessageId,
     DateTime? timestamp,
     bool? hasMoreHistory,
@@ -71,7 +72,7 @@ class ChatStateSnapshot {
       messages: messages ?? this.messages,
       lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
       unreadCount: unreadCount ?? this.unreadCount,
-      scrollPosition: scrollPosition ?? this.scrollPosition,
+      currentScrollPosition: currentScrollPosition ?? this.currentScrollPosition,
       visibleMessageId: visibleMessageId ?? this.visibleMessageId,
       timestamp: timestamp ?? this.timestamp,
       hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
@@ -81,6 +82,6 @@ class ChatStateSnapshot {
 
   @override
   String toString() {
-    return 'ChatStateSnapshot{conversationId: $conversationId, messageCount: ${messages.length}, scrollPosition: $scrollPosition, age: ${ageInSeconds}s}';
+    return 'ChatStateSnapshot{conversationId: $conversationId, messageCount: ${messages.length}, currentScrollPosition: $currentScrollPosition, age: ${ageInSeconds}s}';
   }
 }

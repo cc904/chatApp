@@ -92,7 +92,7 @@ class ChatCubit extends Cubit<ChatState> {
         _logger.i('从状态快照恢复会话', extra: {
           'conversationId': _conversationId,
           'messageCount': snapshot.messages.length,
-          'scrollPosition': snapshot.scrollPosition,
+          'currentScrollPosition': snapshot.currentScrollPosition,
         });
 
         // 设置恢复状态标记
@@ -103,13 +103,11 @@ class ChatCubit extends Cubit<ChatState> {
           messages: snapshot.messages,
           lastReadMessageId: snapshot.lastReadMessageId,
           unreadCount: snapshot.unreadCount,
+          currentScrollPosition: snapshot.currentScrollPosition,
           isLoadingMessages: false,
           hasMoreHistory: snapshot.hasMoreHistory,
           hasMoreRecent: snapshot.hasMoreRecent,
         ));
-
-        // 延迟设置监听，避免立即触发消息变化事件
-        await Future.delayed(const Duration(milliseconds: 150));
 
         // 先加入会话房间
         await joinConversation();
@@ -223,15 +221,43 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 设置事件订阅
+  /// 设置事件订阅 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   void _setupSubscriptions() {
     try {
       _logger.i('设置事件监听', extra: {'conversationId': _conversationId});
+      _subscriptions['messageStatus'] = _chatRepository
+          .getMessageStatusStream()
+          .where((event) => event['conversationId'] == _conversationId)
+          .listen(
+        _handleMessageStatusUpdate,
+        onError: (error) {
+          _logger.e('消息状态流监听出错', error: error);
+        },
+      );
       _logger.d('事件监听设置完成');
     } catch (error) {
       _logger.e('设置事件监听失败', error: error);
     }
   }
+
+  /// 处理消息状态更新事件
+  void _handleMessageStatusUpdate(Map<String, dynamic> event) {
+    _logger.d('处理消息状态更新', extra: {'event': event});
+
+    final eventType = event['type'] as String?;
+    final conversationId = event['conversationId'] as String?;
+
+    if (conversationId != _conversationId) {
+      return;
+    }
+
+    switch (eventType) {
+      case 'messages_read_by_other':
+        break;
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 加载会话消息
   Future<void> loadMessages() async {
@@ -479,6 +505,7 @@ class ChatCubit extends Cubit<ChatState> {
           conversationId: _conversationId,
           messages: state.messages,
           lastReadMessageId: state.lastReadMessageId,
+          currentScrollPosition: state.currentScrollPosition,
           unreadCount: state.unreadCount,
           hasMoreHistory: state.hasMoreHistory,
           hasMoreRecent: state.hasMoreRecent,
@@ -498,25 +525,25 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   /// 保存当前状态快照
-  Future<void> saveStateSnapshot({
-    double? scrollPosition,
-    String? visibleMessageId,
-  }) async {
-    try {
-      await _chatRepository.saveStateSnapshot(
-        conversationId: _conversationId,
-        messages: state.messages,
-        lastReadMessageId: state.lastReadMessageId,
-        unreadCount: state.unreadCount,
-        scrollPosition: scrollPosition,
-        visibleMessageId: visibleMessageId,
-        hasMoreHistory: state.hasMoreHistory,
-        hasMoreRecent: state.hasMoreRecent,
-      );
-    } catch (error) {
-      _logger.e('保存状态快照失败', error: error);
-    }
-  }
+  // Future<void> saveStateSnapshot({
+  //   CurrentScrollPosition? currentScrollPosition,
+  //   String? visibleMessageId,
+  // }) async {
+  //   try {
+  //     await _chatRepository.saveStateSnapshot(
+  //       conversationId: _conversationId,
+  //       messages: state.messages,
+  //       lastReadMessageId: state.lastReadMessageId,
+  //       unreadCount: state.unreadCount,
+  //       currentScrollPosition: state.currentScrollPosition,
+  //       visibleMessageId: visibleMessageId,
+  //       hasMoreHistory: state.hasMoreHistory,
+  //       hasMoreRecent: state.hasMoreRecent,
+  //     );
+  //   } catch (error) {
+  //     _logger.e('保存状态快照失败', error: error);
+  //   }
+  // }
 
   /// 更新当前滚动位置 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   /// 用于保存用户当前的查看位置
@@ -543,7 +570,11 @@ class ChatCubit extends Cubit<ChatState> {
           messageIndex: centerPosition.index,
           relativePosition: centerPosition.itemLeadingEdge,
         );
-
+        _logger.d('更新当前滚动位置', extra: {
+          'messageId': message.messageId,
+          'messageIndex': centerPosition.index,
+          'relativePosition': centerPosition.itemLeadingEdge,
+        });
         emit(state.copyWith(currentScrollPosition: currentScrollPosition));
       }
 
@@ -553,13 +584,30 @@ class ChatCubit extends Cubit<ChatState> {
           ? state.messages[lastPosition.index]
           : null;
 
-      if (lastMessage != null) {
-        _chatRepository.markCurrentViewMessagesAsRead(
+      if (lastMessage != null &&
+          state.lastReadMessageId != lastMessage.messageId) {
+        _chatRepository.markMessagesAsReadBySelf(
           _conversationId,
           lastMessage.messageId,
         );
 
-        emit(state.copyWith(lastReadMessageId: lastMessage.messageId));
+        // 标记消息为已读
+        final newMessages = state.messages.map((message) {
+          if ((message.createdAt.isBefore(lastMessage.createdAt) &&
+                  message.status != 'read') ||
+              message.messageId == lastMessage.messageId) {
+            message.status = 'read';
+            return message;
+          }
+          return message;
+        }).toList();
+
+        _logger.d('标记 lastMessageId', extra: {
+          'lastMessageId': lastMessage.messageId,
+        });
+
+        emit(state.copyWith(
+            messages: newMessages, lastReadMessageId: lastMessage.messageId));
       }
     }
   }

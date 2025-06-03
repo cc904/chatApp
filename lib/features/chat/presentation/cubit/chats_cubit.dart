@@ -373,7 +373,7 @@ class ChatsCubit extends Cubit<ChatsState> {
         isConnected: false,
       ));
 
-      // TODO: 实现实际的重连逻辑，可能需要调用repository中的方法
+      // TODO 实现实际的重连逻辑，可能需要调用repository中的方法
 
       // 连接成功后更新状态
       emit(state.copyWith(

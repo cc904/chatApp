@@ -47,13 +47,14 @@ class CurrentScrollPosition extends Equatable {
     required int messageIndex,
     double? relativePosition,
     double? scrollOffset,
+    bool includeTimestamp = false,
   }) {
     return CurrentScrollPosition(
       messageId: messageId,
       messageIndex: messageIndex,
       relativePosition: relativePosition ?? 0.0,
       scrollOffset: scrollOffset,
-      timestamp: DateTime.now(),
+      timestamp: includeTimestamp ? DateTime.now() : null,
     );
   }
 
@@ -79,7 +80,6 @@ class CurrentScrollPosition extends Equatable {
         messageIndex,
         relativePosition,
         scrollOffset,
-        timestamp,
       ];
 
   @override

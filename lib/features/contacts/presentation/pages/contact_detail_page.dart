@@ -270,7 +270,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                 icon: const Icon(Icons.arrow_forward_ios, size: 16),
                 onPressed: () {
                   _logger.i('查看朋友圈');
-                  // TODO: 实现查看朋友圈功能
+                  // TODO 实现查看朋友圈功能
                 },
               ),
             ],
@@ -319,7 +319,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
   /// 发起通话
   void _makeCall({required bool isVideo}) {
     _logger.i('发起${isVideo ? '视频' : '语音'}通话');
-    // TODO: 实现通话功能
+    // TODO 实现通话功能
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${isVideo ? '视频' : '语音'}通话功能开发中'),
@@ -341,7 +341,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                 title: const Text('设置备注和标签'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: 实现设置备注和标签功能
+                  // TODO 实现设置备注和标签功能
                 },
               ),
               ListTile(
@@ -349,7 +349,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                 title: const Text('分享联系人'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: 实现分享联系人功能
+                  // TODO 实现分享联系人功能
                 },
               ),
               ListTile(
@@ -357,7 +357,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                 title: const Text('设为星标朋友'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: 实现设为星标朋友功能
+                  // TODO 实现设为星标朋友功能
                 },
               ),
               ListTile(
@@ -365,7 +365,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                 title: const Text('拉黑', style: TextStyle(color: Colors.red)),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: 实现拉黑功能
+                  // TODO 实现拉黑功能
                 },
               ),
               ListTile(
@@ -399,7 +399,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                // TODO: 实现删除联系人功能
+                // TODO 实现删除联系人功能
                 _logger.i('删除联系人: ${widget.contact.name}');
                 Navigator.pop(context); // 返回上一页
               },

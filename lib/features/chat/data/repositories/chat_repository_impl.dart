@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:collection';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -90,7 +91,7 @@ class ChatRepositoryImpl implements ChatRepository {
     required List<Message> messages,
     String? lastReadMessageId,
     required int unreadCount,
-    double? scrollPosition,
+    CurrentScrollPosition? currentScrollPosition,
     String? visibleMessageId,
     bool hasMoreHistory = true,
     bool hasMoreRecent = false,
@@ -101,7 +102,7 @@ class ChatRepositoryImpl implements ChatRepository {
         messages: List<Message>.from(messages), // 深拷贝消息列表
         lastReadMessageId: lastReadMessageId,
         unreadCount: unreadCount,
-        scrollPosition: scrollPosition,
+        currentScrollPosition: currentScrollPosition,
         visibleMessageId: visibleMessageId,
         timestamp: DateTime.now(),
         hasMoreHistory: hasMoreHistory,
@@ -113,7 +114,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.d('💾 保存会话状态快照', extra: {
         'conversationId': conversationId,
         'messageCount': messages.length,
-        'scrollPosition': scrollPosition,
+        'currentScrollPosition': currentScrollPosition,
         'visibleMessageId': visibleMessageId,
         'unreadCount': unreadCount,
       });
@@ -727,14 +728,16 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 将消息标记为已读
-  /// 根据消息ID标记该消息及之前的消息为已读
+  /// 根据消息ID标记该消息及之前的非自己的消息为已读
   /// [conversationId] - 会话ID
   /// [messageId] - 消息ID
+  /// 返回void
   @override
-  Future<void> markMessagesAsRead(
+  Future<void> markMessagesAsReadBySelf(
       String conversationId, String messageId) async {
     try {
+      final List<String> updatedMessageIds = [];
+
       await _isar.writeTxn(() async {
         // 首先获取指定消息的时间戳
         final targetMessage = await _messages
@@ -749,7 +752,7 @@ class ChatRepositoryImpl implements ChatRepository {
           return;
         }
 
-        // 标记该消息及之前的所有未读消息为已读
+        // 标记该消息及之前的所有非自己的未读消息为已读
         final unreadMessages = await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
@@ -757,18 +760,84 @@ class ChatRepositoryImpl implements ChatRepository {
             .createdAtLessThan(
                 targetMessage.createdAt.add(const Duration(seconds: 1)))
             .and()
-            .statusEqualTo('sent')
-            .or()
-            .statusEqualTo('delivered')
+            .not()
+            .senderIdEqualTo(_currentUser.userId) // 排除当前用户发送的消息
+            .and()
+            .group(
+                (q) => q.statusEqualTo('sent').or().statusEqualTo('delivered'))
             .findAll();
 
         for (final message in unreadMessages) {
           message.status = 'read';
           await _messages.put(message);
+          updatedMessageIds.add(message.messageId);
         }
+
+        _logger.i('标记非自己的消息为已读', extra: {
+          'conversationId': conversationId,
+          'targetMessageId': messageId,
+          'currentUserId': _currentUser.userId,
+          'updatedCount': updatedMessageIds.length,
+        });
       });
     } catch (error) {
       _logger.e('标记消息为已读失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 根据消息ID标记该消息及之前的消息为其他用户已读
+  /// [conversationId] - 会话ID
+  /// [messageId] - 消息ID
+  /// 返回void
+  @override
+  Future<void> markMessagesAsReadByOther(
+      String conversationId, String messageId) async {
+    try {
+      final List<String> updatedMessageIds = [];
+
+      await _isar.writeTxn(() async {
+        // 首先获取指定消息的时间戳
+        final targetMessage = await _messages
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .and()
+            .messageIdEqualTo(messageId)
+            .findFirst();
+
+        if (targetMessage == null) {
+          _logger.w('目标消息不存在', extra: {'messageId': messageId});
+          return;
+        }
+
+        // 标记该消息及之前的当前用户发送的消息为已读（表示其他用户已读）
+        final messagesToUpdate = await _messages
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .and()
+            .createdAtLessThan(
+                targetMessage.createdAt.add(const Duration(seconds: 1)))
+            .and()
+            .senderIdEqualTo(_currentUser.userId) // 只处理当前用户发送的消息
+            .and()
+            .group(
+                (q) => q.statusEqualTo('sent').or().statusEqualTo('delivered'))
+            .findAll();
+
+        for (final message in messagesToUpdate) {
+          message.status = 'read';
+          await _messages.put(message);
+          updatedMessageIds.add(message.messageId);
+        }
+
+        _logger.i('标记自己的消息为其他用户已读', extra: {
+          'conversationId': conversationId,
+          'targetMessageId': messageId,
+          'currentUserId': _currentUser.userId,
+          'updatedCount': updatedMessageIds.length,
+        });
+      });
+    } catch (error) {
+      _logger.e('标记消息为其他用户已读失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -1138,32 +1207,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 标记当前查看的消息为已读
-  /// 这是与会话已读分离的独立逻辑，用于具体的消息已读状态管理
-  /// [conversationId] - 会话ID
-  /// [latestVisibleMessageId] - 当前用户看到的最新消息ID
-  @override
-  Future<void> markCurrentViewMessagesAsRead(
-      String conversationId, String latestVisibleMessageId) async {
-    try {
-      _logger.i('标记当前查看消息为已读', extra: {
-        'conversationId': conversationId,
-        'latestVisibleMessageId': latestVisibleMessageId,
-      });
-
-      // 🔥 标记指定消息及之前的消息为已读
-      // 这是消息已读逻辑，与会话已读状态分开管理
-      await markMessagesAsRead(conversationId, latestVisibleMessageId);
-
-      _logger.d('当前查看消息已标记为已读', extra: {
-        'conversationId': conversationId,
-        'latestVisibleMessageId': latestVisibleMessageId,
-      });
-    } catch (error) {
-      _logger.e('标记当前查看消息为已读失败', error: error, stackTrace: StackTrace.current);
-    }
-  }
-
   /// 清空会话消息
   /// 删除指定会话中的所有消息和相关媒体文件,但保留会话本身
   /// [conversationId] - 会话ID
@@ -1211,7 +1254,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _activeConversations.add(conversationId);
 
       // 🔥 进入会话时自动更新最后阅读时间（不同步到服务器，仅更新本地）
-      // TODO: 需要通过ChatsRepository来更新
+      // TODO 需要通过ChatsRepository来更新
       _logger.d('用户进入会话页面，需要更新最后阅读时间');
 
       // 通知服务器用户加入会话房间
@@ -1242,7 +1285,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _activeConversations.remove(conversationId);
 
       // 🔥 退出会话时，同步最后阅读时间到服务器
-      // TODO: 需要通过ChatsRepository来更新
+      // TODO 需要通过ChatsRepository来更新
       _logger.d('用户离开会话页面，需要同步阅读状态到服务器');
 
       // 通知服务器用户离开会话房间

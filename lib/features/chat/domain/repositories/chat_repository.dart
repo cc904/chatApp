@@ -1,6 +1,7 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 /// 日期时间范围类
 class DateTimeRange {
@@ -19,7 +20,7 @@ class DateTimeRange {
 /// 包含滚动位置相关的数据和计算结果
 class ScrollPositionInfo {
   final String conversationId;
-  final double scrollPosition;
+  final CurrentScrollPosition currentScrollPosition;
   final double viewportHeight;
   final String? visibleMessageId;
   final int? visibleMessageIndex;
@@ -27,7 +28,7 @@ class ScrollPositionInfo {
 
   const ScrollPositionInfo({
     required this.conversationId,
-    required this.scrollPosition,
+    required this.currentScrollPosition,
     required this.viewportHeight,
     this.visibleMessageId,
     this.visibleMessageIndex,
@@ -36,7 +37,7 @@ class ScrollPositionInfo {
 
   @override
   String toString() {
-    return 'ScrollPositionInfo{conversationId: $conversationId, scrollPosition: $scrollPosition, visibleMessageId: $visibleMessageId, visibleMessageIndex: $visibleMessageIndex}';
+    return 'ScrollPositionInfo{conversationId: $conversationId, currentScrollPosition: $currentScrollPosition, visibleMessageId: $visibleMessageId, visibleMessageIndex: $visibleMessageIndex}';
   }
 }
 
@@ -94,6 +95,12 @@ abstract class ChatRepository {
   /// 删除消息
   Future<void> deleteMessage(String messageId);
 
+  /// 标记当前查看的消息为已读
+  Future<void> markMessagesAsReadBySelf(String conversationId, String messageId);
+
+  /// 标记当前查看的消息为已读
+  Future<void> markMessagesAsReadByOther(String conversationId, String messageId);
+
   /// 按日期范围获取消息
   Future<List<Message>> getMessagesByDateRange(
     String conversationId,
@@ -132,11 +139,6 @@ abstract class ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 标记当前查看的消息为已读
-  /// 这是与会话已读分离的独立逻辑，用于具体的消息已读状态管理
-  Future<void> markCurrentViewMessagesAsRead(
-      String conversationId, String latestVisibleMessageId);
-
   /// 清空会话消息
   Future<void> clearConversationMessages(String conversationId);
 
@@ -146,7 +148,7 @@ abstract class ChatRepository {
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   消息同步方法   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   网络请求   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 同步会话消息
   Future<bool> syncConversationMessages(
@@ -219,7 +221,7 @@ abstract class ChatRepository {
   /// [messages] - 消息列表
   /// [lastReadMessageId] - 最后已读消息ID
   /// [unreadCount] - 未读消息数量
-  /// [scrollPosition] - 滚动位置
+  /// [currentScrollPosition] - 滚动位置
   /// [visibleMessageId] - 当前可见的消息ID
   /// [hasMoreHistory] - 是否有更多历史消息
   /// [hasMoreRecent] - 是否有更多新消息
@@ -228,7 +230,7 @@ abstract class ChatRepository {
     required List<Message> messages,
     String? lastReadMessageId,
     required int unreadCount,
-    double? scrollPosition,
+    CurrentScrollPosition? currentScrollPosition,
     String? visibleMessageId,
     bool hasMoreHistory = true,
     bool hasMoreRecent = false,

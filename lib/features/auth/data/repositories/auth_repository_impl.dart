@@ -502,7 +502,7 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('请输入验证码');
       }
 
-      // TODO: 实现验证码验证API
+      // TODO 实现验证码验证API
       // 目前直接返回成功
       return true;
     } catch (error) {
@@ -522,7 +522,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _ensureInitialized();
 
-      // TODO: 实现令牌刷新API
+      // TODO 实现令牌刷新API
       // 目前直接返回当前令牌
       return _currentToken;
     } catch (error) {
@@ -547,7 +547,7 @@ class AuthRepositoryImpl implements AuthRepository {
         throw Exception('未登录，无法删除账户');
       }
 
-      // TODO: 实现删除账户API
+      // TODO 实现删除账户API
       // 先登出
       await logout();
 

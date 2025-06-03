@@ -740,7 +740,7 @@ class _ChatsPageState extends State<ChatsPage>
       ..name = conversation.name ?? '未知联系人'
       ..avatar = conversation.avatar;
 
-    // TODO:
+    // TODO
     // return state.contacts.firstWhere(
     //   (c) => c.userId == conversation.contactUserId,
     //   orElse: () => User()

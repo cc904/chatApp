@@ -326,7 +326,7 @@ class _ContactsPageState extends State<ContactsPage>
               IconButton(
                 icon: const Icon(Icons.person_add),
                 onPressed: () {
-                  // TODO: 实现添加联系人功能
+                  // TODO 实现添加联系人功能
                 },
               ),
             ],

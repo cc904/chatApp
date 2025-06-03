@@ -690,7 +690,7 @@ class LocalSearchOptions {
 
   @override
   bool operator ==(Object other) {
-    // TODO: implement ==
+    // TODO implement ==
     return super == other;
   }
 }

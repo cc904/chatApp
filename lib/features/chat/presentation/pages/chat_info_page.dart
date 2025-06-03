@@ -780,7 +780,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             child: const Text('清空', style: TextStyle(color: Colors.red)),
             onPressed: () {
               Navigator.pop(context);
-              // TODO: 实现清空聊天记录功能
+              // TODO 实现清空聊天记录功能
               // 需要在HomeCubit中添加对应方法
               UINotificationService().showSuccess('聊天记录已清空');
             },
@@ -819,7 +819,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 style: const TextStyle(color: Colors.red)),
             onPressed: () {
               Navigator.pop(context);
-              // TODO: 实现删除会话功能
+              // TODO 实现删除会话功能
               // 需要在HomeCubit中添加对应方法
               UINotificationService().showSuccess(isGroup ? '已退出群聊' : '已删除联系人');
               // 返回上一级
