@@ -318,13 +318,11 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<void> getConversationMessages(String conversationId,
       {int limit = 50, DateTime? before}) async {
     try {
-      _logger.d('获取会话消息',
-          extra: {
-            'conversationId': conversationId,
-            'limit': limit,
-            'before': before?.toIso8601String(),
-          },
-          stackTrace: StackTrace.current);
+      _logger.i('获取会话消息', extra: {
+        'conversationId': conversationId,
+        'limit': limit,
+        'before': before?.toIso8601String(),
+      });
 
       // 🔥 优化：利用复合索引 (conversationId + createdAt) 进行高效查询
       final query = _messages
@@ -338,14 +336,14 @@ class ChatRepositoryImpl implements ChatRepository {
 
       final hasMoreHistory = messages.length == limit;
 
-      _logger.d('从数据库获取会话消息完成', extra: {
-        'conversationId': conversationId,
-        'foundMessages': messages.length,
-      });
+      // _logger.d('从数据库获取会话消息完成', extra: {
+      //   'conversationId': conversationId,
+      //   'foundMessages': messages.length,
+      // });
 
       if (messages.length < limit) {
         if (messages.isNotEmpty) {
-          before = messages.first.createdAt;
+          before = messages.last.createdAt;
         }
         _logger.w('从数据库获取会话消息不足', extra: {
           'conversationId': conversationId,

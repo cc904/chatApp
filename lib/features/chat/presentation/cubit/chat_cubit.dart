@@ -265,9 +265,8 @@ class ChatCubit extends Cubit<ChatState> {
 
     // 按时间顺序
     final sortedMessages = List<Message>.from(messages)
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    final newMessages = [...sortedMessages, ...state.messages];
+      ..sort((a, b) => b.createdAt.compareTo(b.createdAt));
+    final newMessages = [...state.messages, ...sortedMessages];
 
     if (!isClosed) {
       emit(state.copyWith(
@@ -360,21 +359,20 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送文本消息
   Future<void> sendTextMessage(String text) async {
-    _logger.i('发送文本消息', extra: {
-      'conversationId': _conversationId,
-      'textLength': text.length,
-    });
+    _logger.d('发送文本消息',
+        extra: {
+          'conversationId': _conversationId,
+          'textLength': text.length,
+        },
+        stackTrace: StackTrace.current);
 
     Message? tempMessage;
 
     try {
       // 检查Cubit是否已关闭
-      if (isClosed) {
-        _logger.w('Cubit已关闭，取消发送消息');
-        return;
+      if (!isClosed) {
+        emit(state.copyWith(isSending: true));
       }
-
-      emit(state.copyWith(isSending: true));
 
       // 1. 创建带临时ID的消息
       tempMessage = await _chatRepository.createTempMessage(
@@ -384,18 +382,18 @@ class ChatCubit extends Cubit<ChatState> {
       );
 
       // 2. 立即添加到UI显示（状态为sending）
-      final updatedMessages = [...state.messages, tempMessage];
+      final updatedMessages = [
+        ...[tempMessage],
+        ...state.messages
+      ];
 
       // 再次检查Cubit是否已关闭
-      if (isClosed) {
-        _logger.w('Cubit已关闭，取消状态更新');
-        return;
+      if (!isClosed) {
+        emit(state.copyWith(
+          messages: updatedMessages,
+          isSending: false,
+        ));
       }
-
-      emit(state.copyWith(
-        messages: updatedMessages,
-        isSending: false,
-      ));
 
       // 3. 发送消息（不等待响应）
       await _chatRepository.sendMessageWithTimeout(
@@ -408,20 +406,6 @@ class ChatCubit extends Cubit<ChatState> {
       });
     } catch (error) {
       _logger.e('发送文本消息失败', error: error);
-
-      // 如果是超时错误，标记消息为失败状态
-      if (error.toString().contains('timeout') ||
-          error.toString().contains('超时')) {
-        await _markMessageAsFailed(tempMessage?.messageId, '发送超时');
-      } else {
-        // 检查Cubit是否已关闭再发射状态
-        if (!isClosed) {
-          emit(state.copyWith(
-            errorMessage: '发送消息失败: ${error.toString()}',
-            isSending: false,
-          ));
-        }
-      }
     }
   }
 
@@ -488,27 +472,6 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 保存当前状态快照
-  // Future<void> saveStateSnapshot({
-  //   CurrentScrollPosition? currentScrollPosition,
-  //   String? visibleMessageId,
-  // }) async {
-  //   try {
-  //     await _chatRepository.saveStateSnapshot(
-  //       conversationId: _conversationId,
-  //       messages: state.messages,
-  //       lastReadMessageId: state.lastReadMessageId,
-  //       unreadCount: state.unreadCount,
-  //       currentScrollPosition: state.currentScrollPosition,
-  //       visibleMessageId: visibleMessageId,
-  //       hasMoreHistory: state.hasMoreHistory,
-  //       hasMoreRecent: state.hasMoreRecent,
-  //     );
-  //   } catch (error) {
-  //     _logger.e('保存状态快照失败', error: error);
-  //   }
-  // }
-
   /// 更新当前滚动位置 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   /// 用于保存用户当前的查看位置
   void updateCurrentScrollPosition(Iterable<ItemPosition> positions) {
@@ -534,14 +497,16 @@ class ChatCubit extends Cubit<ChatState> {
           messageIndex: centerPosition.index,
           relativePosition: centerPosition.itemLeadingEdge,
         );
-        _logger.d('更新当前滚动位置',
+        _logger.i('更新当前滚动位置',
             extra: {
               'messageId': message.messageId,
               'messageIndex': centerPosition.index,
               'relativePosition': centerPosition.itemLeadingEdge,
             },
             stackTrace: StackTrace.current);
-        emit(state.copyWith(currentScrollPosition: currentScrollPosition));
+        if (!isClosed) {
+          emit(state.copyWith(currentScrollPosition: currentScrollPosition));
+        }
       }
 
       // 最后一条可见消息（索引最大）

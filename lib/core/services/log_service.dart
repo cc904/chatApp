@@ -191,7 +191,8 @@ class LogService {
   }
 
   /// 记录信息
-  void i(String message, {Map<String, dynamic>? extra}) {
+  void i(String message,
+      {Map<String, dynamic>? extra, StackTrace? stackTrace}) {
     _logger.i(_formatMessage(message, extra: extra));
   }
 

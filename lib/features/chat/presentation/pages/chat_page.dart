@@ -102,6 +102,11 @@ class _ChatPageState extends State<ChatPage> {
   void _updateCurrentScrollPosition() {
     final positions = _itemPositionsListener.itemPositions.value;
     final state = context.read<ChatCubit>().state;
+    _logger.w('更新当前滚动位置', extra: {
+      'positions': positions.map((e) => e.index).toList(),
+      'lastVisibleIndex': positions.last.index,
+      'messageCount': state.messages.length,
+    });
 
     if (positions.isEmpty || state.messages.isEmpty) {
       return;
@@ -110,7 +115,7 @@ class _ChatPageState extends State<ChatPage> {
     context.read<ChatCubit>().updateCurrentScrollPosition(positions);
   }
 
-  /// 💢💢💢 加载更多历史消息并保持位置 💢💢💢 调用前已防抖
+  /// 💢💢💢 加载更多历史消息 💢💢💢 调用前已防抖
   void _loadMoreHistoryWithPositionMaintenance() async {
     final state = context.read<ChatCubit>().state;
     if (!state.canLoadMoreHistory || state.isLoadingMoreMessages) {
@@ -245,11 +250,6 @@ class _ChatPageState extends State<ChatPage> {
     if (text.isNotEmpty) {
       context.read<ChatCubit>().sendTextMessage(text);
       _textController.clear();
-
-      // 发送后自动滚动到底部
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _scrollToBottom();
-      });
     }
   }
 
@@ -329,7 +329,11 @@ class _ChatPageState extends State<ChatPage> {
   /// 构建消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Widget _buildMessagesList() {
     return BlocBuilder<ChatCubit, ChatState>(
+      buildWhen: (previous, current) {
+        return previous.messages.length != current.messages.length;
+      },
       builder: (context, state) {
+        _logger.i('💢💢💢💢 BlocBuilder 重绘');
         if (state.isLoadingMessages && state.messages.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(),
@@ -375,9 +379,9 @@ class _ChatPageState extends State<ChatPage> {
                 itemScrollController: _itemScrollController,
                 itemPositionsListener: _itemPositionsListener,
                 initialScrollIndex:
-                    initialScrollPosition(state).messageIndex ?? 0,
+                    state.currentScrollPosition.messageIndex ?? 0,
                 initialAlignment:
-                    initialScrollPosition(state).relativePosition ?? 0.0,
+                    state.currentScrollPosition.relativePosition ?? 0.0,
                 reverse: true,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16.0,
@@ -392,19 +396,24 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// 💢💢💢
-  CurrentScrollPosition initialScrollPosition(ChatState state) {
-    final positions = _itemPositionsListener.itemPositions.value;
-    final position = state.currentScrollPosition;
+  // CurrentScrollPosition initialScrollPosition(ChatState state) {
+  //   final positions = _itemPositionsListener.itemPositions.value;
+  //   final position = state.currentScrollPosition;
 
-    if (positions.length >= state.messages.length || !position.isValid) {
-      return const CurrentScrollPosition(
-        messageId: '',
-        messageIndex: 0,
-        relativePosition: 0.0,
-      );
-    }
-    return position;
-  }
+  //   if (positions.length >= state.messages.length || !position.isValid) {
+  //     return const CurrentScrollPosition(
+  //       messageId: '',
+  //       messageIndex: 0,
+  //       relativePosition: 0.0,
+  //     );
+  //   }
+  //   _logger.i('初始滚动位置', extra: {
+  //     'positions': positions.map((e) => e.index).toList(),
+  //     'lastVisibleIndex': positions.last.index,
+  //     'messageCount': state.messages.length,
+  //   });
+  //   return position;
+  // }
 
   /// 构建输入区域
   Widget _buildInputArea() {
