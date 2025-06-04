@@ -138,7 +138,7 @@ class CommunicationService {
   /// 返回类型安全的数据流
   /// [eventName] - 事件名称
   Stream<T> onProto<T extends GeneratedMessage>(String eventName) {
-    _logger.d('订阅Proto事件流: $eventName [${T.toString()}]',
+    _logger.i('订阅Proto事件流: $eventName [${T.toString()}]',
         stackTrace: StackTrace.current);
 
     if (!_eventControllers.containsKey(eventName)) {

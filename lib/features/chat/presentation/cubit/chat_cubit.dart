@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:bloc/bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
@@ -9,6 +9,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
 
 /// 滚动恢复类型
 enum ScrollRestoreType {
@@ -265,15 +266,14 @@ class ChatCubit extends Cubit<ChatState> {
 
     // 按时间顺序
     final sortedMessages = List<Message>.from(messages)
-      ..sort((a, b) => b.createdAt.compareTo(b.createdAt));
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final newMessages = [...state.messages, ...sortedMessages];
 
     if (!isClosed) {
-      emit(state.copyWith(
-        messages: newMessages,
-        isLoadingMoreMessages: false,
+      _updateMessagesInState(
+        newMessages,
         hasMoreHistory: event['hasMoreHistory'] ?? true,
-      ));
+      );
     }
   }
 
@@ -389,10 +389,8 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 再次检查Cubit是否已关闭
       if (!isClosed) {
-        emit(state.copyWith(
-          messages: updatedMessages,
-          isSending: false,
-        ));
+        _updateMessagesInState(updatedMessages);
+        emit(state.copyWith(isSending: false));
       }
 
       // 3. 发送消息（不等待响应）
@@ -509,37 +507,44 @@ class ChatCubit extends Cubit<ChatState> {
         }
       }
 
-      // 最后一条可见消息（索引最大）
-      final lastPosition = sortedPositions.last;
-      final lastMessage = lastPosition.index < state.messages.length
-          ? state.messages[lastPosition.index]
+      // 第一条可见消息（索引最小）
+      final firstPosition = sortedPositions.first;
+      final firstMessage = firstPosition.index < state.messages.length
+          ? state.messages[firstPosition.index]
           : null;
 
-      if (lastMessage != null &&
-          state.lastReadMessageId != lastMessage.messageId &&
-          lastMessage.status != 'read') {
+      if (firstMessage != null &&
+          state.lastReadMessageId != firstMessage.messageId &&
+          firstMessage.status != 'read') {
         _chatRepository.markMessagesAsReadBySelf(
           _conversationId,
-          lastMessage.messageId,
+          firstMessage.messageId,
         );
 
         // 标记消息为已读
         final newMessages = state.messages.map((message) {
-          if ((message.createdAt.isBefore(lastMessage.createdAt) &&
+          if ((message.createdAt.isBefore(firstMessage.createdAt) &&
                   message.status != 'read') ||
-              message.messageId == lastMessage.messageId) {
+              message.messageId == firstMessage.messageId) {
             message.status = 'read';
             return message;
           }
           return message;
         }).toList();
 
-        _logger.d('标记 lastMessageId', extra: {
-          'lastMessageId': lastMessage.messageId,
+        _logger.d('标记 firstMessageId', extra: {
+          'firstMessageId': firstMessage.messageId,
         });
 
-        emit(state.copyWith(
-            messages: newMessages, lastReadMessageId: lastMessage.messageId));
+        // 使用_updateMessagesInState来更新消息状态，同时更新未读消息相关状态
+        _updateMessagesInState(
+          newMessages,
+          hasMoreHistory: state.hasMoreHistory,
+          hasMoreRecent: state.hasMoreRecent,
+        );
+
+        // 单独更新lastReadMessageId
+        emit(state.copyWith(lastReadMessageId: firstMessage.messageId));
       }
     }
   }
@@ -558,6 +563,52 @@ class ChatCubit extends Cubit<ChatState> {
   CurrentScrollPosition? getValidScrollPosition() {
     final position = state.currentScrollPosition;
     return position.isValid ? position : null;
+  }
+
+  /// 更新状态中的消息列表
+  void _updateMessagesInState(List<Message> newMessages,
+      {bool hasMoreHistory = true, bool hasMoreRecent = false}) {
+    if (isClosed) return;
+
+    _logger.d('更新状态中的消息列表', extra: {
+      'newMessageCount': newMessages.length,
+      'hasMoreHistory': hasMoreHistory,
+      'hasMoreRecent': hasMoreRecent,
+    });
+
+    // 获取当前用户ID
+    final currentUserId = state.currentUser?.userId ?? '';
+
+    // 使用MessageListProcessor计算未读消息相关数据
+    final unreadCount = MessageListProcessor.calculateUnreadCount(
+      messages: newMessages,
+      currentUserId: currentUserId,
+      lastReadMessageId: state.lastReadMessageId,
+    );
+
+    final firstUnreadMessageId = MessageListProcessor.findFirstUnreadMessageId(
+      messages: newMessages,
+      currentUserId: currentUserId,
+      lastReadMessageId: state.lastReadMessageId,
+    );
+
+    emit(state.copyWith(
+      messages: newMessages,
+      isLoadingMessages: false,
+      isLoadingMoreMessages: false,
+      hasMoreHistory: hasMoreHistory,
+      hasMoreRecent: hasMoreRecent,
+      unreadCount: unreadCount,
+      firstUnreadMessageId: firstUnreadMessageId,
+    ));
+
+    _logger.d('消息状态更新完成', extra: {
+      'totalMessages': newMessages.length,
+      'unreadCount': unreadCount,
+      'firstUnreadMessageId': firstUnreadMessageId,
+      'hasMoreHistory': hasMoreHistory,
+      'hasMoreRecent': hasMoreRecent,
+    });
   }
 
   @override

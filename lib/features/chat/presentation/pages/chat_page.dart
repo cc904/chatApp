@@ -1,15 +1,19 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/presentation/widgets/message_item.dart';
+import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
+import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
 
 /// 聊天页面
 ///
@@ -46,9 +50,25 @@ class _ChatPageState extends State<ChatPage> {
   /// 焦点控制器
   final FocusNode _focusNode = FocusNode();
 
+  /// 随机数生成器 - 用于随机选择SVG背景图案
+  final Random _random = Random();
+
+  /// SVG背景图案列表
+  final List<String> _svgPatterns = [
+    'assets/images/pattern-19.svg',
+    'assets/images/pattern-13.svg',
+    'assets/images/pattern-15.svg',
+  ];
+
+  /// 当前选择的SVG图案
+  late String _selectedSvgPattern;
+
   @override
   void initState() {
     super.initState();
+
+    // 随机选择一个SVG图案
+    _selectedSvgPattern = _svgPatterns[_random.nextInt(_svgPatterns.length)];
 
     // 监听滚动位置变化
     _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
@@ -326,11 +346,24 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 构建消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 构建SVG背景图案
+  Widget _buildSvgBackground() {
+    return SvgPicture.asset(
+      _selectedSvgPattern,
+      fit: BoxFit.cover,
+      colorFilter: ColorFilter.mode(
+        Colors.white.withAlpha(26), // 非常淡的白色，让图案不那么明显
+        BlendMode.modulate,
+      ),
+    );
+  }
+
+  /// 构建消息列表
   Widget _buildMessagesList() {
     return BlocBuilder<ChatCubit, ChatState>(
       buildWhen: (previous, current) {
-        return previous.messages.length != current.messages.length;
+        return previous.messages.length != current.messages.length ||
+            previous.firstUnreadMessageId != current.firstUnreadMessageId;
       },
       builder: (context, state) {
         _logger.i('💢💢💢💢 BlocBuilder 重绘');
@@ -341,53 +374,126 @@ class _ChatPageState extends State<ChatPage> {
         }
 
         if (state.messages.isEmpty) {
-          return const Center(
-            child: Text(
-              '还没有消息\n发送第一条消息开始聊天吧！',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
+          return Stack(
+            children: [
+              // 绿色渐变背景
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.green.shade300,
+                      Colors.green.shade100,
+                    ],
+                  ),
+                ),
               ),
-            ),
+
+              // SVG图案背景 - 使用提供的SVG文件
+              Positioned.fill(
+                child: _buildSvgBackground(),
+              ),
+
+              // 空状态文字
+              const Center(
+                child: Text(
+                  '还没有消息\n发送第一条消息开始聊天吧！',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
           );
         }
 
-        return Column(
+        // 处理消息列表，添加分隔符
+        final currentUserId = state.currentUser?.userId ?? '';
+        final processedItems = MessageListProcessor.processMessages(
+          messages: state.messages,
+          currentUserId: currentUserId,
+          firstUnreadMessageId: state.firstUnreadMessageId,
+        );
+
+        return Stack(
           children: [
-            // 加载更多历史消息指示器
-            if (state.isLoadingMoreMessages)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
-
-            // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-            Expanded(
-              child: ScrollablePositionedList.builder(
-                itemCount: state.messages.length,
-                itemBuilder: (context, index) {
-                  final message = state.messages[index];
-                  return MessageItem(
-                    key: ValueKey(message.messageId),
-                    message: message,
-                    isCurrentUser: _isCurrentUserMessage(message, state),
-                    onTap: () => _onMessageTap(message),
-                  );
-                },
-                itemScrollController: _itemScrollController,
-                itemPositionsListener: _itemPositionsListener,
-                initialScrollIndex:
-                    state.currentScrollPosition.messageIndex ?? 0,
-                initialAlignment:
-                    state.currentScrollPosition.relativePosition ?? 0.0,
-                reverse: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
+            // 绿色渐变背景
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.green.shade300,
+                    Colors.green.shade100,
+                  ],
                 ),
               ),
+            ),
+
+            // SVG图案背景 - 使用提供的SVG文件
+            Positioned.fill(
+              child: _buildSvgBackground(),
+            ),
+
+            // 消息列表内容
+            Column(
+              children: [
+                // 加载更多历史消息指示器
+                if (state.isLoadingMoreMessages)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ),
+
+                // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+                Expanded(
+                  child: ScrollablePositionedList.builder(
+                    itemCount: processedItems.length,
+                    itemBuilder: (context, index) {
+                      final item = processedItems[index];
+
+                      // 根据类型渲染不同的组件
+                      if (item is MessageListItemData) {
+                        final message = item.message as Message;
+                        return MessageItem(
+                          key: ValueKey(message.messageId),
+                          message: message,
+                          isCurrentUser: item.isCurrentUser,
+                          onTap: () => _onMessageTap(message),
+                        );
+                      } else if (item is MessageListItemDateSeparator) {
+                        return DateSeparator(
+                          key: ValueKey(
+                              'date_${item.date.millisecondsSinceEpoch}'),
+                          date: item.date,
+                        );
+                      } else if (item is MessageListItemUnreadSeparator) {
+                        return const UnreadMessageSeparator(
+                          key: ValueKey('unread_separator'),
+                        );
+                      } else {
+                        // 未知类型，返回空容器
+                        return const SizedBox.shrink();
+                      }
+                    },
+                    itemScrollController: _itemScrollController,
+                    itemPositionsListener: _itemPositionsListener,
+                    initialScrollIndex:
+                        state.currentScrollPosition.messageIndex ?? 0,
+                    initialAlignment:
+                        state.currentScrollPosition.relativePosition ?? 0.0,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );

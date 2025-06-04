@@ -164,8 +164,6 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       _logger.i('收到历史消息响应', extra: {
         'conversationId': response.conversationId,
-        'success': response.success,
-        'hasMessagesCollection': response.hasMessagesCollection(),
         'messageCount': response.hasMessagesCollection()
             ? response.messagesCollection.messages.length
             : 0,
