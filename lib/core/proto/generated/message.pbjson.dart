@@ -514,3 +514,132 @@ final $typed_data.Uint8List batchMessageSyncResponseDescriptor = $convert.base64
     '5NZXNzYWdlU3luY1Jlc3BvbnNlUg1zeW5jUmVzcG9uc2VzEiMKDXN1Y2Nlc3NfY291bnQYAiAB'
     'KAVSDHN1Y2Nlc3NDb3VudBIjCg1mYWlsdXJlX2NvdW50GAMgASgFUgxmYWlsdXJlQ291bnQ=');
 
+@$core.Deprecated('Use historyMessagesRequestDescriptor instead')
+const HistoryMessagesRequest$json = {
+  '1': 'HistoryMessagesRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'before_timestamp', '3': 2, '4': 1, '5': 3, '10': 'beforeTimestamp'},
+    {'1': 'before_message_id', '3': 3, '4': 1, '5': 9, '10': 'beforeMessageId'},
+    {'1': 'limit', '3': 4, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'include_deleted', '3': 5, '4': 1, '5': 8, '10': 'includeDeleted'},
+  ],
+};
+
+/// Descriptor for `HistoryMessagesRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List historyMessagesRequestDescriptor = $convert.base64Decode(
+    'ChZIaXN0b3J5TWVzc2FnZXNSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY29udm'
+    'Vyc2F0aW9uSWQSKQoQYmVmb3JlX3RpbWVzdGFtcBgCIAEoA1IPYmVmb3JlVGltZXN0YW1wEioK'
+    'EWJlZm9yZV9tZXNzYWdlX2lkGAMgASgJUg9iZWZvcmVNZXNzYWdlSWQSFAoFbGltaXQYBCABKA'
+    'VSBWxpbWl0EicKD2luY2x1ZGVfZGVsZXRlZBgFIAEoCFIOaW5jbHVkZURlbGV0ZWQ=');
+
+@$core.Deprecated('Use historyMessagesResponseDescriptor instead')
+const HistoryMessagesResponse$json = {
+  '1': 'HistoryMessagesResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'messagesCollection', '3': 4, '4': 1, '5': 11, '6': '.cc.MessageCollection', '10': 'messagesCollection'},
+    {'1': 'has_more_history', '3': 5, '4': 1, '5': 8, '10': 'hasMoreHistory'},
+    {'1': 'oldest_timestamp', '3': 6, '4': 1, '5': 3, '10': 'oldestTimestamp'},
+    {'1': 'oldest_message_id', '3': 7, '4': 1, '5': 9, '10': 'oldestMessageId'},
+  ],
+};
+
+/// Descriptor for `HistoryMessagesResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List historyMessagesResponseDescriptor = $convert.base64Decode(
+    'ChdIaXN0b3J5TWVzc2FnZXNSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEhgKB2'
+    '1lc3NhZ2UYAiABKAlSB21lc3NhZ2USJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5jb252ZXJz'
+    'YXRpb25JZBJFChJtZXNzYWdlc0NvbGxlY3Rpb24YBCABKAsyFS5jYy5NZXNzYWdlQ29sbGVjdG'
+    'lvblISbWVzc2FnZXNDb2xsZWN0aW9uEigKEGhhc19tb3JlX2hpc3RvcnkYBSABKAhSDmhhc01v'
+    'cmVIaXN0b3J5EikKEG9sZGVzdF90aW1lc3RhbXAYBiABKANSD29sZGVzdFRpbWVzdGFtcBIqCh'
+    'FvbGRlc3RfbWVzc2FnZV9pZBgHIAEoCVIPb2xkZXN0TWVzc2FnZUlk');
+
+@$core.Deprecated('Use messageRangeRequestDescriptor instead')
+const MessageRangeRequest$json = {
+  '1': 'MessageRangeRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'start_timestamp', '3': 2, '4': 1, '5': 3, '10': 'startTimestamp'},
+    {'1': 'end_timestamp', '3': 3, '4': 1, '5': 3, '10': 'endTimestamp'},
+    {'1': 'limit', '3': 4, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'offset', '3': 5, '4': 1, '5': 5, '10': 'offset'},
+    {'1': 'order', '3': 6, '4': 1, '5': 9, '10': 'order'},
+  ],
+};
+
+/// Descriptor for `MessageRangeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageRangeRequestDescriptor = $convert.base64Decode(
+    'ChNNZXNzYWdlUmFuZ2VSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY29udmVyc2'
+    'F0aW9uSWQSJwoPc3RhcnRfdGltZXN0YW1wGAIgASgDUg5zdGFydFRpbWVzdGFtcBIjCg1lbmRf'
+    'dGltZXN0YW1wGAMgASgDUgxlbmRUaW1lc3RhbXASFAoFbGltaXQYBCABKAVSBWxpbWl0EhYKBm'
+    '9mZnNldBgFIAEoBVIGb2Zmc2V0EhQKBW9yZGVyGAYgASgJUgVvcmRlcg==');
+
+@$core.Deprecated('Use messageRangeResponseDescriptor instead')
+const MessageRangeResponse$json = {
+  '1': 'MessageRangeResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'messagesCollection', '3': 4, '4': 1, '5': 11, '6': '.cc.MessageCollection', '10': 'messagesCollection'},
+    {'1': 'total_count', '3': 5, '4': 1, '5': 5, '10': 'totalCount'},
+    {'1': 'has_more', '3': 6, '4': 1, '5': 8, '10': 'hasMore'},
+  ],
+};
+
+/// Descriptor for `MessageRangeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageRangeResponseDescriptor = $convert.base64Decode(
+    'ChRNZXNzYWdlUmFuZ2VSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEhgKB21lc3'
+    'NhZ2UYAiABKAlSB21lc3NhZ2USJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5jb252ZXJzYXRp'
+    'b25JZBJFChJtZXNzYWdlc0NvbGxlY3Rpb24YBCABKAsyFS5jYy5NZXNzYWdlQ29sbGVjdGlvbl'
+    'ISbWVzc2FnZXNDb2xsZWN0aW9uEh8KC3RvdGFsX2NvdW50GAUgASgFUgp0b3RhbENvdW50EhkK'
+    'CGhhc19tb3JlGAYgASgIUgdoYXNNb3Jl');
+
+@$core.Deprecated('Use surroundingMessagesRequestDescriptor instead')
+const SurroundingMessagesRequest$json = {
+  '1': 'SurroundingMessagesRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'anchor_message_id', '3': 2, '4': 1, '5': 9, '10': 'anchorMessageId'},
+    {'1': 'before_count', '3': 3, '4': 1, '5': 5, '10': 'beforeCount'},
+    {'1': 'after_count', '3': 4, '4': 1, '5': 5, '10': 'afterCount'},
+    {'1': 'include_anchor', '3': 5, '4': 1, '5': 8, '10': 'includeAnchor'},
+  ],
+};
+
+/// Descriptor for `SurroundingMessagesRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List surroundingMessagesRequestDescriptor = $convert.base64Decode(
+    'ChpTdXJyb3VuZGluZ01lc3NhZ2VzUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDm'
+    'NvbnZlcnNhdGlvbklkEioKEWFuY2hvcl9tZXNzYWdlX2lkGAIgASgJUg9hbmNob3JNZXNzYWdl'
+    'SWQSIQoMYmVmb3JlX2NvdW50GAMgASgFUgtiZWZvcmVDb3VudBIfCgthZnRlcl9jb3VudBgEIA'
+    'EoBVIKYWZ0ZXJDb3VudBIlCg5pbmNsdWRlX2FuY2hvchgFIAEoCFINaW5jbHVkZUFuY2hvcg==');
+
+@$core.Deprecated('Use surroundingMessagesResponseDescriptor instead')
+const SurroundingMessagesResponse$json = {
+  '1': 'SurroundingMessagesResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'anchor_message_id', '3': 4, '4': 1, '5': 9, '10': 'anchorMessageId'},
+    {'1': 'before_messages', '3': 5, '4': 3, '5': 11, '6': '.cc.MessageProto', '10': 'beforeMessages'},
+    {'1': 'anchor_message', '3': 6, '4': 1, '5': 11, '6': '.cc.MessageProto', '10': 'anchorMessage'},
+    {'1': 'after_messages', '3': 7, '4': 3, '5': 11, '6': '.cc.MessageProto', '10': 'afterMessages'},
+    {'1': 'has_more_before', '3': 8, '4': 1, '5': 8, '10': 'hasMoreBefore'},
+    {'1': 'has_more_after', '3': 9, '4': 1, '5': 8, '10': 'hasMoreAfter'},
+  ],
+};
+
+/// Descriptor for `SurroundingMessagesResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List surroundingMessagesResponseDescriptor = $convert.base64Decode(
+    'ChtTdXJyb3VuZGluZ01lc3NhZ2VzUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2Vzcx'
+    'IYCgdtZXNzYWdlGAIgASgJUgdtZXNzYWdlEicKD2NvbnZlcnNhdGlvbl9pZBgDIAEoCVIOY29u'
+    'dmVyc2F0aW9uSWQSKgoRYW5jaG9yX21lc3NhZ2VfaWQYBCABKAlSD2FuY2hvck1lc3NhZ2VJZB'
+    'I5Cg9iZWZvcmVfbWVzc2FnZXMYBSADKAsyEC5jYy5NZXNzYWdlUHJvdG9SDmJlZm9yZU1lc3Nh'
+    'Z2VzEjcKDmFuY2hvcl9tZXNzYWdlGAYgASgLMhAuY2MuTWVzc2FnZVByb3RvUg1hbmNob3JNZX'
+    'NzYWdlEjcKDmFmdGVyX21lc3NhZ2VzGAcgAygLMhAuY2MuTWVzc2FnZVByb3RvUg1hZnRlck1l'
+    'c3NhZ2VzEiYKD2hhc19tb3JlX2JlZm9yZRgIIAEoCFINaGFzTW9yZUJlZm9yZRIkCg5oYXNfbW'
+    '9yZV9hZnRlchgJIAEoCFIMaGFzTW9yZUFmdGVy');
+

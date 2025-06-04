@@ -57,8 +57,11 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _init() async {
-    // await context.read<ChatCubit>().init();
-    // _restoreToScrollPositionByState();
+    // final currentScrollPosition =
+    //     context.read<ChatCubit>().state.currentScrollPosition;
+    // if (!currentScrollPosition.isValid) {
+    //   _restoreToScrollPosition(currentScrollPosition);
+    // }
   }
 
   @override
@@ -73,21 +76,25 @@ class _ChatPageState extends State<ChatPage> {
   void _onScrollPositionChanged() {
     final positions = _itemPositionsListener.itemPositions.value;
     if (positions.isNotEmpty) {
-      // 更新当前滚动位置到状态中
-
       _scrollDebounceTimer?.cancel();
       _scrollDebounceTimer = Timer(const Duration(milliseconds: 200), () {
         _updateCurrentScrollPosition();
-      });
 
-      // 检查是否需要加载更多历史消息
-      final firstVisibleIndex = positions.first.index;
-      if (firstVisibleIndex <= 5) {
-        _logger.i('检查是否需要加载更多历史消息', extra: {
-          'firstVisibleIndex': firstVisibleIndex,
-        });
-        _loadMoreHistoryWithPositionMaintenance();
-      }
+        // 检查是否需要加载更多历史消息
+        final state = context.read<ChatCubit>().state;
+        final lastVisibleIndex = positions.last.index;
+        // _logger.i('检查是否需要加载更多历史消息', extra: {
+        //   'messagesLength': state.messages.length,
+        //   'lastVisibleIndex': lastVisibleIndex,
+        // });
+        if (lastVisibleIndex >= state.messages.length - 10 &&
+            state.hasMoreHistory) {
+          _logger.i('检查是否需要加载更多历史消息', extra: {
+            'lastVisibleIndex': lastVisibleIndex,
+          });
+          _loadMoreHistoryWithPositionMaintenance();
+        }
+      });
     }
   }
 
@@ -103,43 +110,16 @@ class _ChatPageState extends State<ChatPage> {
     context.read<ChatCubit>().updateCurrentScrollPosition(positions);
   }
 
-  /// TODO 加载更多历史消息并保持位置
+  /// 💢💢💢 加载更多历史消息并保持位置 💢💢💢 调用前已防抖
   void _loadMoreHistoryWithPositionMaintenance() async {
     final state = context.read<ChatCubit>().state;
     if (!state.canLoadMoreHistory || state.isLoadingMoreMessages) {
       return;
     }
-
-    // 记录当前精确的滚动位置
-    final positionInfo = state.currentScrollPosition;
-
-    _logger.i('开始加载更多历史消息（精确位置模式）', extra: {
-      'anchorMessageId': positionInfo.messageId,
-      'anchorIndex': positionInfo.messageIndex,
-      'relativePosition': positionInfo.relativePosition,
+    _logger.i('加载更多历史消息', extra: {
+      'conversationId': widget.conversation.id,
     });
-
-    // 使用带回调的加载方法
-    // ignore: use_build_context_synchronously
-    final success =
-        await context.read<ChatCubit>().loadMoreMessagesWithCallback(
-              anchorMessageId: positionInfo.messageId,
-              onLoadComplete: () {
-                // 加载完成后恢复到精确位置
-                _restoreToScrollPosition(positionInfo);
-              },
-            );
-
-    if (!success) {
-      _logger.w('加载更多历史消息失败');
-    }
-  }
-
-  /// 恢复到保存的滚动位置
-  Future<void> _restoreToScrollPositionByState() async {
-    final currentScrollPosition =
-        context.read<ChatCubit>().state.currentScrollPosition;
-    _restoreToScrollPosition(currentScrollPosition);
+    context.read<ChatCubit>().loadMoreMessages();
   }
 
   /// 恢复到保存的滚动位置
@@ -379,6 +359,7 @@ class _ChatPageState extends State<ChatPage> {
               ),
 
             // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
             Expanded(
               child: ScrollablePositionedList.builder(
                 itemCount: state.messages.length,
@@ -394,10 +375,10 @@ class _ChatPageState extends State<ChatPage> {
                 itemScrollController: _itemScrollController,
                 itemPositionsListener: _itemPositionsListener,
                 initialScrollIndex:
-                    state.currentScrollPosition.messageIndex ?? 0,
+                    initialScrollPosition(state).messageIndex ?? 0,
                 initialAlignment:
-                    state.currentScrollPosition.relativePosition ?? 0.0,
-                reverse: false, // 不反转，正常顺序显示
+                    initialScrollPosition(state).relativePosition ?? 0.0,
+                reverse: true,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16.0,
                   vertical: 8.0,
@@ -408,6 +389,21 @@ class _ChatPageState extends State<ChatPage> {
         );
       },
     );
+  }
+
+  /// 💢💢💢
+  CurrentScrollPosition initialScrollPosition(ChatState state) {
+    final positions = _itemPositionsListener.itemPositions.value;
+    final position = state.currentScrollPosition;
+
+    if (positions.length >= state.messages.length || !position.isValid) {
+      return const CurrentScrollPosition(
+        messageId: '',
+        messageIndex: 0,
+        relativePosition: 0.0,
+      );
+    }
+    return position;
   }
 
   /// 构建输入区域

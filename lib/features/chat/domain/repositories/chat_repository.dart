@@ -62,7 +62,7 @@ abstract class ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取会话消息
-  Future<List<Message>> getConversationMessages(String conversationId,
+  Future<void> getConversationMessages(String conversationId,
       {int limit = 20, DateTime? before});
 
   /// 搜索消息

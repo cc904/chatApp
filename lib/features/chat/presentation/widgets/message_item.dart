@@ -58,7 +58,9 @@ class MessageItem extends StatelessWidget {
           : null,
       child: message.senderAvatar == null
           ? Text(
-              message.senderName?.substring(0, 1).toUpperCase() ?? 'U',
+              message.senderName?.isNotEmpty == true
+                  ? message.senderName![0].toUpperCase()
+                  : 'X',
               style: const TextStyle(
                 fontSize: 12.0,
                 fontWeight: FontWeight.bold,

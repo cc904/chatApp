@@ -2469,6 +2469,754 @@ class BatchMessageSyncResponse extends $pb.GeneratedMessage {
   void clearFailureCount() => $_clearField(3);
 }
 
+/// 历史消息获取请求
+class HistoryMessagesRequest extends $pb.GeneratedMessage {
+  factory HistoryMessagesRequest({
+    $core.String? conversationId,
+    $fixnum.Int64? beforeTimestamp,
+    $core.String? beforeMessageId,
+    $core.int? limit,
+    $core.bool? includeDeleted,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (beforeTimestamp != null) {
+      $result.beforeTimestamp = beforeTimestamp;
+    }
+    if (beforeMessageId != null) {
+      $result.beforeMessageId = beforeMessageId;
+    }
+    if (limit != null) {
+      $result.limit = limit;
+    }
+    if (includeDeleted != null) {
+      $result.includeDeleted = includeDeleted;
+    }
+    return $result;
+  }
+  HistoryMessagesRequest._() : super();
+  factory HistoryMessagesRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory HistoryMessagesRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'HistoryMessagesRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aInt64(2, _omitFieldNames ? '' : 'beforeTimestamp')
+    ..aOS(3, _omitFieldNames ? '' : 'beforeMessageId')
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
+    ..aOB(5, _omitFieldNames ? '' : 'includeDeleted')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  HistoryMessagesRequest clone() => HistoryMessagesRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  HistoryMessagesRequest copyWith(void Function(HistoryMessagesRequest) updates) => super.copyWith((message) => updates(message as HistoryMessagesRequest)) as HistoryMessagesRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static HistoryMessagesRequest create() => HistoryMessagesRequest._();
+  HistoryMessagesRequest createEmptyInstance() => create();
+  static $pb.PbList<HistoryMessagesRequest> createRepeated() => $pb.PbList<HistoryMessagesRequest>();
+  @$core.pragma('dart2js:noInline')
+  static HistoryMessagesRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<HistoryMessagesRequest>(create);
+  static HistoryMessagesRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get beforeTimestamp => $_getI64(1);
+  @$pb.TagNumber(2)
+  set beforeTimestamp($fixnum.Int64 v) { $_setInt64(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasBeforeTimestamp() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearBeforeTimestamp() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get beforeMessageId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set beforeMessageId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasBeforeMessageId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBeforeMessageId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get limit => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set limit($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasLimit() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLimit() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get includeDeleted => $_getBF(4);
+  @$pb.TagNumber(5)
+  set includeDeleted($core.bool v) { $_setBool(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasIncludeDeleted() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIncludeDeleted() => $_clearField(5);
+}
+
+/// 历史消息获取响应
+class HistoryMessagesResponse extends $pb.GeneratedMessage {
+  factory HistoryMessagesResponse({
+    $core.bool? success,
+    $core.String? message,
+    $core.String? conversationId,
+    MessageCollection? messagesCollection,
+    $core.bool? hasMoreHistory,
+    $fixnum.Int64? oldestTimestamp,
+    $core.String? oldestMessageId,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (messagesCollection != null) {
+      $result.messagesCollection = messagesCollection;
+    }
+    if (hasMoreHistory != null) {
+      $result.hasMoreHistory = hasMoreHistory;
+    }
+    if (oldestTimestamp != null) {
+      $result.oldestTimestamp = oldestTimestamp;
+    }
+    if (oldestMessageId != null) {
+      $result.oldestMessageId = oldestMessageId;
+    }
+    return $result;
+  }
+  HistoryMessagesResponse._() : super();
+  factory HistoryMessagesResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory HistoryMessagesResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'HistoryMessagesResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOS(3, _omitFieldNames ? '' : 'conversationId')
+    ..aOM<MessageCollection>(4, _omitFieldNames ? '' : 'messagesCollection', protoName: 'messagesCollection', subBuilder: MessageCollection.create)
+    ..aOB(5, _omitFieldNames ? '' : 'hasMoreHistory')
+    ..aInt64(6, _omitFieldNames ? '' : 'oldestTimestamp')
+    ..aOS(7, _omitFieldNames ? '' : 'oldestMessageId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  HistoryMessagesResponse clone() => HistoryMessagesResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  HistoryMessagesResponse copyWith(void Function(HistoryMessagesResponse) updates) => super.copyWith((message) => updates(message as HistoryMessagesResponse)) as HistoryMessagesResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static HistoryMessagesResponse create() => HistoryMessagesResponse._();
+  HistoryMessagesResponse createEmptyInstance() => create();
+  static $pb.PbList<HistoryMessagesResponse> createRepeated() => $pb.PbList<HistoryMessagesResponse>();
+  @$core.pragma('dart2js:noInline')
+  static HistoryMessagesResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<HistoryMessagesResponse>(create);
+  static HistoryMessagesResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get conversationId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set conversationId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversationId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversationId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  MessageCollection get messagesCollection => $_getN(3);
+  @$pb.TagNumber(4)
+  set messagesCollection(MessageCollection v) { $_setField(4, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasMessagesCollection() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMessagesCollection() => $_clearField(4);
+  @$pb.TagNumber(4)
+  MessageCollection ensureMessagesCollection() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $core.bool get hasMoreHistory => $_getBF(4);
+  @$pb.TagNumber(5)
+  set hasMoreHistory($core.bool v) { $_setBool(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasHasMoreHistory() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearHasMoreHistory() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get oldestTimestamp => $_getI64(5);
+  @$pb.TagNumber(6)
+  set oldestTimestamp($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasOldestTimestamp() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearOldestTimestamp() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get oldestMessageId => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set oldestMessageId($core.String v) { $_setString(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasOldestMessageId() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearOldestMessageId() => $_clearField(7);
+}
+
+/// 消息范围查询请求（根据时间范围）
+class MessageRangeRequest extends $pb.GeneratedMessage {
+  factory MessageRangeRequest({
+    $core.String? conversationId,
+    $fixnum.Int64? startTimestamp,
+    $fixnum.Int64? endTimestamp,
+    $core.int? limit,
+    $core.int? offset,
+    $core.String? order,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (startTimestamp != null) {
+      $result.startTimestamp = startTimestamp;
+    }
+    if (endTimestamp != null) {
+      $result.endTimestamp = endTimestamp;
+    }
+    if (limit != null) {
+      $result.limit = limit;
+    }
+    if (offset != null) {
+      $result.offset = offset;
+    }
+    if (order != null) {
+      $result.order = order;
+    }
+    return $result;
+  }
+  MessageRangeRequest._() : super();
+  factory MessageRangeRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageRangeRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageRangeRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aInt64(2, _omitFieldNames ? '' : 'startTimestamp')
+    ..aInt64(3, _omitFieldNames ? '' : 'endTimestamp')
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'offset', $pb.PbFieldType.O3)
+    ..aOS(6, _omitFieldNames ? '' : 'order')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageRangeRequest clone() => MessageRangeRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageRangeRequest copyWith(void Function(MessageRangeRequest) updates) => super.copyWith((message) => updates(message as MessageRangeRequest)) as MessageRangeRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageRangeRequest create() => MessageRangeRequest._();
+  MessageRangeRequest createEmptyInstance() => create();
+  static $pb.PbList<MessageRangeRequest> createRepeated() => $pb.PbList<MessageRangeRequest>();
+  @$core.pragma('dart2js:noInline')
+  static MessageRangeRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageRangeRequest>(create);
+  static MessageRangeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get startTimestamp => $_getI64(1);
+  @$pb.TagNumber(2)
+  set startTimestamp($fixnum.Int64 v) { $_setInt64(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasStartTimestamp() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStartTimestamp() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get endTimestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set endTimestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasEndTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEndTimestamp() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get limit => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set limit($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasLimit() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLimit() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get offset => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set offset($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasOffset() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearOffset() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get order => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set order($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasOrder() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearOrder() => $_clearField(6);
+}
+
+/// 消息范围查询响应
+class MessageRangeResponse extends $pb.GeneratedMessage {
+  factory MessageRangeResponse({
+    $core.bool? success,
+    $core.String? message,
+    $core.String? conversationId,
+    MessageCollection? messagesCollection,
+    $core.int? totalCount,
+    $core.bool? hasMore,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (messagesCollection != null) {
+      $result.messagesCollection = messagesCollection;
+    }
+    if (totalCount != null) {
+      $result.totalCount = totalCount;
+    }
+    if (hasMore != null) {
+      $result.hasMore = hasMore;
+    }
+    return $result;
+  }
+  MessageRangeResponse._() : super();
+  factory MessageRangeResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageRangeResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageRangeResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOS(3, _omitFieldNames ? '' : 'conversationId')
+    ..aOM<MessageCollection>(4, _omitFieldNames ? '' : 'messagesCollection', protoName: 'messagesCollection', subBuilder: MessageCollection.create)
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'totalCount', $pb.PbFieldType.O3)
+    ..aOB(6, _omitFieldNames ? '' : 'hasMore')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageRangeResponse clone() => MessageRangeResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageRangeResponse copyWith(void Function(MessageRangeResponse) updates) => super.copyWith((message) => updates(message as MessageRangeResponse)) as MessageRangeResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageRangeResponse create() => MessageRangeResponse._();
+  MessageRangeResponse createEmptyInstance() => create();
+  static $pb.PbList<MessageRangeResponse> createRepeated() => $pb.PbList<MessageRangeResponse>();
+  @$core.pragma('dart2js:noInline')
+  static MessageRangeResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageRangeResponse>(create);
+  static MessageRangeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get conversationId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set conversationId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversationId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversationId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  MessageCollection get messagesCollection => $_getN(3);
+  @$pb.TagNumber(4)
+  set messagesCollection(MessageCollection v) { $_setField(4, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasMessagesCollection() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMessagesCollection() => $_clearField(4);
+  @$pb.TagNumber(4)
+  MessageCollection ensureMessagesCollection() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $core.int get totalCount => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set totalCount($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTotalCount() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTotalCount() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get hasMore => $_getBF(5);
+  @$pb.TagNumber(6)
+  set hasMore($core.bool v) { $_setBool(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasHasMore() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearHasMore() => $_clearField(6);
+}
+
+/// 周围消息获取请求（获取指定消息前后的消息）
+class SurroundingMessagesRequest extends $pb.GeneratedMessage {
+  factory SurroundingMessagesRequest({
+    $core.String? conversationId,
+    $core.String? anchorMessageId,
+    $core.int? beforeCount,
+    $core.int? afterCount,
+    $core.bool? includeAnchor,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (anchorMessageId != null) {
+      $result.anchorMessageId = anchorMessageId;
+    }
+    if (beforeCount != null) {
+      $result.beforeCount = beforeCount;
+    }
+    if (afterCount != null) {
+      $result.afterCount = afterCount;
+    }
+    if (includeAnchor != null) {
+      $result.includeAnchor = includeAnchor;
+    }
+    return $result;
+  }
+  SurroundingMessagesRequest._() : super();
+  factory SurroundingMessagesRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SurroundingMessagesRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SurroundingMessagesRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'anchorMessageId')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'beforeCount', $pb.PbFieldType.O3)
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'afterCount', $pb.PbFieldType.O3)
+    ..aOB(5, _omitFieldNames ? '' : 'includeAnchor')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SurroundingMessagesRequest clone() => SurroundingMessagesRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SurroundingMessagesRequest copyWith(void Function(SurroundingMessagesRequest) updates) => super.copyWith((message) => updates(message as SurroundingMessagesRequest)) as SurroundingMessagesRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SurroundingMessagesRequest create() => SurroundingMessagesRequest._();
+  SurroundingMessagesRequest createEmptyInstance() => create();
+  static $pb.PbList<SurroundingMessagesRequest> createRepeated() => $pb.PbList<SurroundingMessagesRequest>();
+  @$core.pragma('dart2js:noInline')
+  static SurroundingMessagesRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SurroundingMessagesRequest>(create);
+  static SurroundingMessagesRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get anchorMessageId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set anchorMessageId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasAnchorMessageId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAnchorMessageId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get beforeCount => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set beforeCount($core.int v) { $_setSignedInt32(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasBeforeCount() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBeforeCount() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get afterCount => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set afterCount($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasAfterCount() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAfterCount() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get includeAnchor => $_getBF(4);
+  @$pb.TagNumber(5)
+  set includeAnchor($core.bool v) { $_setBool(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasIncludeAnchor() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIncludeAnchor() => $_clearField(5);
+}
+
+/// 周围消息获取响应
+class SurroundingMessagesResponse extends $pb.GeneratedMessage {
+  factory SurroundingMessagesResponse({
+    $core.bool? success,
+    $core.String? message,
+    $core.String? conversationId,
+    $core.String? anchorMessageId,
+    $core.Iterable<MessageProto>? beforeMessages,
+    MessageProto? anchorMessage,
+    $core.Iterable<MessageProto>? afterMessages,
+    $core.bool? hasMoreBefore,
+    $core.bool? hasMoreAfter,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (anchorMessageId != null) {
+      $result.anchorMessageId = anchorMessageId;
+    }
+    if (beforeMessages != null) {
+      $result.beforeMessages.addAll(beforeMessages);
+    }
+    if (anchorMessage != null) {
+      $result.anchorMessage = anchorMessage;
+    }
+    if (afterMessages != null) {
+      $result.afterMessages.addAll(afterMessages);
+    }
+    if (hasMoreBefore != null) {
+      $result.hasMoreBefore = hasMoreBefore;
+    }
+    if (hasMoreAfter != null) {
+      $result.hasMoreAfter = hasMoreAfter;
+    }
+    return $result;
+  }
+  SurroundingMessagesResponse._() : super();
+  factory SurroundingMessagesResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SurroundingMessagesResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SurroundingMessagesResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOS(3, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(4, _omitFieldNames ? '' : 'anchorMessageId')
+    ..pc<MessageProto>(5, _omitFieldNames ? '' : 'beforeMessages', $pb.PbFieldType.PM, subBuilder: MessageProto.create)
+    ..aOM<MessageProto>(6, _omitFieldNames ? '' : 'anchorMessage', subBuilder: MessageProto.create)
+    ..pc<MessageProto>(7, _omitFieldNames ? '' : 'afterMessages', $pb.PbFieldType.PM, subBuilder: MessageProto.create)
+    ..aOB(8, _omitFieldNames ? '' : 'hasMoreBefore')
+    ..aOB(9, _omitFieldNames ? '' : 'hasMoreAfter')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SurroundingMessagesResponse clone() => SurroundingMessagesResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SurroundingMessagesResponse copyWith(void Function(SurroundingMessagesResponse) updates) => super.copyWith((message) => updates(message as SurroundingMessagesResponse)) as SurroundingMessagesResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SurroundingMessagesResponse create() => SurroundingMessagesResponse._();
+  SurroundingMessagesResponse createEmptyInstance() => create();
+  static $pb.PbList<SurroundingMessagesResponse> createRepeated() => $pb.PbList<SurroundingMessagesResponse>();
+  @$core.pragma('dart2js:noInline')
+  static SurroundingMessagesResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SurroundingMessagesResponse>(create);
+  static SurroundingMessagesResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get conversationId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set conversationId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversationId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversationId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get anchorMessageId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set anchorMessageId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasAnchorMessageId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAnchorMessageId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<MessageProto> get beforeMessages => $_getList(4);
+
+  @$pb.TagNumber(6)
+  MessageProto get anchorMessage => $_getN(5);
+  @$pb.TagNumber(6)
+  set anchorMessage(MessageProto v) { $_setField(6, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasAnchorMessage() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearAnchorMessage() => $_clearField(6);
+  @$pb.TagNumber(6)
+  MessageProto ensureAnchorMessage() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  $pb.PbList<MessageProto> get afterMessages => $_getList(6);
+
+  @$pb.TagNumber(8)
+  $core.bool get hasMoreBefore => $_getBF(7);
+  @$pb.TagNumber(8)
+  set hasMoreBefore($core.bool v) { $_setBool(7, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasHasMoreBefore() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearHasMoreBefore() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get hasMoreAfter => $_getBF(8);
+  @$pb.TagNumber(9)
+  set hasMoreAfter($core.bool v) { $_setBool(8, v); }
+  @$pb.TagNumber(9)
+  $core.bool hasHasMoreAfter() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearHasMoreAfter() => $_clearField(9);
+}
+
 
 const _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
 const _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');

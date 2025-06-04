@@ -312,14 +312,20 @@ Widget _buildUnreadBadge(Conversation conversation) {
 
 /// 打开聊天详情页
 void _openChatDetail(
-    BuildContext context, Conversation conversation, User contact) {
+    BuildContext context, Conversation conversation, User contact) async {
   // 在导航前获取Repository和Cubit引用
   final chatRepository = context.read<ChatRepository>();
   final chatsRepository = context.read<ChatsRepository>();
   final navigator = Navigator.of(context);
 
-  // 异步清理过期快照，不阻塞UI
-  chatsRepository.cleanupExpiredSnapshots().then((_) {
+  try {
+    // 先清理过期快照
+    await chatsRepository.cleanupExpiredSnapshots();
+
+    // 获取状态快照（如果存在）
+    final snapshot =
+        await chatsRepository.getStateSnapshot(conversation.conversationId);
+
     if (context.mounted) {
       navigator.push(
         MaterialPageRoute(
@@ -334,6 +340,7 @@ void _openChatDetail(
                 chatRepository: context.read<ChatRepository>(),
                 chatsRepository: context.read<ChatsRepository>(),
                 conversationId: conversation.conversationId,
+                initialSnapshot: snapshot, // 传入预获取的快照
               ),
               child: ChatPage(
                 conversation: conversation,
@@ -344,7 +351,33 @@ void _openChatDetail(
         ),
       );
     }
-  });
+  } catch (error) {
+    // 如果获取快照失败，仍然正常创建ChatCubit，但不传入快照
+    if (context.mounted) {
+      navigator.push(
+        MaterialPageRoute(
+          builder: (context) => MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<ChatRepository>.value(value: chatRepository),
+              RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+            ],
+            child: BlocProvider<ChatCubit>(
+              create: (context) => ChatCubit(
+                chatRepository: context.read<ChatRepository>(),
+                chatsRepository: context.read<ChatsRepository>(),
+                conversationId: conversation.conversationId,
+                // 出错时不传入快照，让ChatCubit自行处理
+              ),
+              child: ChatPage(
+                conversation: conversation,
+                contact: contact,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
 }
 
 /// 默认的时间格式化函数

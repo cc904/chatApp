@@ -103,11 +103,19 @@ class ChatRepositoryImpl implements ChatRepository {
             .onProto<message_proto.TypingProto>('user:typing:stop')
             .listen(_handleTypingStop))
         ..add(_communicationService
-            .onProto<message_proto.MessageSyncResponse>('message:sync:response')
+            .onProto<message_proto.MessageSyncResponse>(
+                'messages:sync:response')
             .listen(_handleMessageSyncResponse))
+        ..add(_communicationService
+            .onProto<message_proto.HistoryMessagesResponse>(
+                'messages:history:response')
+            .listen(_handleHistoryMessagesResponse))
         ..add(_communicationService
             .onProto<message_proto.MessageResponse>('message:send:response')
             .listen(_handleMessageSendResponse));
+
+      // 添加通用监听器用于调试
+      _logger.i('已注册历史消息事件监听器: messages:history:response');
     } else {
       _logger.i('通信服务未初始化，无法注册事件处理器');
     }
@@ -147,6 +155,50 @@ class ChatRepositoryImpl implements ChatRepository {
       });
     } catch (error) {
       _logger.e('处理停止打字事件失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理历史消息响应
+  void _handleHistoryMessagesResponse(
+      message_proto.HistoryMessagesResponse response) {
+    try {
+      _logger.i('收到历史消息响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'hasMessagesCollection': response.hasMessagesCollection(),
+        'messageCount': response.hasMessagesCollection()
+            ? response.messagesCollection.messages.length
+            : 0,
+        'hasMoreHistory': response.hasMoreHistory,
+      });
+
+      if (!response.success) {
+        _logger.e('历史消息获取失败: ${response.message}');
+        return;
+      }
+
+      if (!response.hasMessagesCollection()) {
+        _logger.w('历史消息响应中没有消息集合');
+        return;
+      }
+
+      // 将消息保存到本地数据库
+      _saveMessagesToLocal(response.messagesCollection.messages);
+
+      // 将消息集合转换为List<Message>
+      final messages = response.messagesCollection.messages
+          .map((e) => Message.fromProto(e))
+          .toList();
+
+      // 将消息通过Stream发送出去
+      _messageStatusController.add({
+        'type': 'loadMore',
+        'conversationId': response.conversationId,
+        'messages': messages,
+        'hasMoreHistory': response.hasMoreHistory,
+      });
+    } catch (error) {
+      _logger.e('处理历史消息响应失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -225,6 +277,37 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    Request    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
+  Future<void> _requestMoreMessages(
+      String conversationId, int limit, DateTime? before) async {
+    _logger.i('请求服务器获取更多历史消息', extra: {
+      'conversationId': conversationId,
+      'limit': limit,
+      'before': before?.toIso8601String(),
+      'beforeTimestamp': before?.millisecondsSinceEpoch,
+    });
+
+    // 创建请求对象
+    final request = message_proto.HistoryMessagesRequest()
+      ..conversationId = conversationId
+      ..limit = limit
+      ..beforeTimestamp = $fixnum.Int64(before?.millisecondsSinceEpoch ?? 0)
+      ..beforeMessageId = '';
+
+    _logger.d('发送历史消息请求', extra: {
+      'event': 'messages:history',
+      'conversationId': request.conversationId,
+      'limit': request.limit,
+      'beforeTimestamp': request.beforeTimestamp.toString(),
+    });
+
+    // 发送请求到服务器
+    await _communicationService.emitProto('messages:history', request);
+
+    _logger.d('历史消息请求已发送');
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  Get4Database  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
   /// 获取会话消息
   /// 获取指定会话的消息列表,支持分页
   /// [conversationId] - 会话ID
@@ -232,8 +315,8 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [before] - 可选的时间点,获取此时间之前的消息
   /// 返回消息列表
   @override
-  Future<List<Message>> getConversationMessages(String conversationId,
-      {int limit = 20, DateTime? before}) async {
+  Future<void> getConversationMessages(String conversationId,
+      {int limit = 50, DateTime? before}) async {
     try {
       _logger.d('获取会话消息',
           extra: {
@@ -251,18 +334,40 @@ class ChatRepositoryImpl implements ChatRepository {
           .sortByCreatedAt(); // 最新消息在后
 
       final messages = await query.limit(limit).findAll();
+      messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      _logger.d('获取会话消息完成', extra: {
+      final hasMoreHistory = messages.length == limit;
+
+      _logger.d('从数据库获取会话消息完成', extra: {
         'conversationId': conversationId,
         'foundMessages': messages.length,
       });
 
-      return messages;
+      if (messages.length < limit) {
+        if (messages.isNotEmpty) {
+          before = messages.first.createdAt;
+        }
+        _logger.w('从数据库获取会话消息不足', extra: {
+          'conversationId': conversationId,
+          'foundMessages': messages.length,
+          'limit': limit,
+        });
+        _requestMoreMessages(conversationId, limit, before);
+      }
+
+      // 将获取的messages 通过Stream 发送出去
+      _messageStatusController.add({
+        'type': 'loadMore',
+        'conversationId': conversationId,
+        'messages': messages,
+        'hasMoreHistory': hasMoreHistory,
+      });
     } catch (error) {
       _logger.e('获取会话消息失败', error: error, stackTrace: StackTrace.current);
-      return [];
     }
   }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  ---  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 创建消息通用方法
   /// 创建基本的消息对象,设置共同属性
@@ -609,7 +714,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 根据消息ID标记该消息及之前的非自己的消息为已读
+  /// 💢💢💢 根据消息ID标记该消息及之前的非自己的消息为已读
   /// [conversationId] - 会话ID
   /// [messageId] - 消息ID
   /// 返回void
@@ -654,19 +759,21 @@ class ChatRepositoryImpl implements ChatRepository {
           updatedMessageIds.add(message.messageId);
         }
 
-        _logger.i('标记非自己的消息为已读', extra: {
-          'conversationId': conversationId,
-          'targetMessageId': messageId,
-          'currentUserId': _currentUser.userId,
-          'updatedCount': updatedMessageIds.length,
-        });
+        _logger.d('标记非自己的消息为已读',
+            extra: {
+              'conversationId': conversationId,
+              'targetMessageId': messageId,
+              'currentUserId': _currentUser.userId,
+              'updatedCount': updatedMessageIds.length,
+            },
+            stackTrace: StackTrace.current);
       });
     } catch (error) {
       _logger.e('标记消息为已读失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
-  /// 根据消息ID标记该消息及之前的消息为其他用户已读
+  /// 💢💢💢 根据消息ID标记该消息及之前的消息为其他用户已读
   /// [conversationId] - 会话ID
   /// [messageId] - 消息ID
   /// 返回void
@@ -860,7 +967,7 @@ class ChatRepositoryImpl implements ChatRepository {
           .filter()
           .conversationIdEqualTo(conversationId)
           .createdAtBetween(safeStartDate, safeEndDate)
-          .sortByCreatedAt() // 按时间正序排序
+          .sortByCreatedAtDesc() // 按时间降序排序
           .limit(limit)
           .findAll();
 
@@ -895,7 +1002,7 @@ class ChatRepositoryImpl implements ChatRepository {
           .conversationIdEqualTo(conversationId)
           .createdAtGreaterThan(
               dayStart.subtract(const Duration(seconds: 1))) // 大于等于指定日期
-          .sortByCreatedAt() // 按时间正序排序,确保最早的消息在前
+          .sortByCreatedAtDesc() // 按时间降序排序,确保最旧的消息在前
           .limit(limit)
           .findAll();
 
@@ -907,7 +1014,7 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 从服务器获取历史消息
+  /// 💢 从服务器获取历史消息
   /// 当本地数据库没有消息或需要加载更多历史消息时使用
   /// [conversationId] - 会话 ID
   /// [before] - 可选，获取此时间之前的消息
@@ -1279,7 +1386,7 @@ class ChatRepositoryImpl implements ChatRepository {
         'dailyCountsSize': dailyCounts.length,
       });
 
-      _communicationService.emitProto('message:sync', syncRequest);
+      _communicationService.emitProto('messages:sync', syncRequest);
 
       return true;
     } catch (error) {
@@ -1306,7 +1413,7 @@ class ChatRepositoryImpl implements ChatRepository {
         ..anchorMessageId = lastReadMessageId ?? '';
 
       // 发送请求
-      _communicationService.emitProto('message:sync', syncRequest);
+      _communicationService.emitProto('messages:syncs', syncRequest);
 
       return true;
     } catch (error) {
@@ -1448,7 +1555,13 @@ class ChatRepositoryImpl implements ChatRepository {
             await _messages.put(message);
             savedCount++;
           }
-          // 如果消息已存在，跳过保存
+          // 如果消息已存在，覆盖保存
+          else {
+            final message = Message.fromProto(protoMsg);
+            message.id = existing.id;
+            await _messages.put(message);
+            savedCount++;
+          }
         }
       });
 

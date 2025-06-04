@@ -1,14 +1,12 @@
 import 'dart:async';
 
-// ignore: depend_on_referenced_packages
 import 'package:bloc/bloc.dart';
-import 'package:flutter/material.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -57,6 +55,7 @@ class ChatCubit extends Cubit<ChatState> {
   final ChatsRepository _chatsRepository;
   final LogService _logger = LogService.instance;
   final String _conversationId;
+  final ChatStateSnapshot? _initialSnapshot;
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
@@ -72,13 +71,35 @@ class ChatCubit extends Cubit<ChatState> {
     required ChatRepository chatRepository,
     required ChatsRepository chatsRepository,
     required String conversationId,
+    ChatStateSnapshot? initialSnapshot,
     ContactsRepository? contactsRepository,
   })  : _chatRepository = chatRepository,
         _chatsRepository = chatsRepository,
         _conversationId = conversationId,
-        super(ChatState.initial(
-            Conversation()..conversationId = conversationId)) {
+        _initialSnapshot = initialSnapshot,
+        super(_createInitialState(conversationId, initialSnapshot)) {
     _init();
+  }
+
+  /// 创建初始状态
+  /// 如果有快照，直接使用快照数据初始化；否则使用默认初始状态
+  static ChatState _createInitialState(
+      String conversationId, ChatStateSnapshot? snapshot) {
+    if (snapshot != null && snapshot.isValid) {
+      // 使用快照数据创建初始状态
+      return ChatState.initial().copyWith(
+        messages: snapshot.messages,
+        lastReadMessageId: snapshot.lastReadMessageId,
+        unreadCount: snapshot.unreadCount,
+        currentScrollPosition: snapshot.currentScrollPosition,
+        isLoadingMessages: false,
+        hasMoreHistory: snapshot.hasMoreHistory,
+        hasMoreRecent: snapshot.hasMoreRecent,
+      );
+    } else {
+      // 使用默认初始状态
+      return ChatState.initial();
+    }
   }
 
   /// 初始化 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
@@ -86,10 +107,34 @@ class ChatCubit extends Cubit<ChatState> {
     try {
       _logger.i('ChatCubit初始化开始', extra: {'conversationId': _conversationId});
 
-      // 首先尝试从状态快照恢复
+      // 如果构造函数中已传入快照，直接使用，无需再次获取
+      if (_initialSnapshot != null && _initialSnapshot!.isValid) {
+        _logger.i('使用构造函数传入的快照初始化', extra: {
+          'conversationId': _conversationId,
+          'messageCount': _initialSnapshot!.messages.length,
+          'currentScrollPosition': _initialSnapshot!.currentScrollPosition,
+        });
+
+        // 设置恢复状态标记
+        _isRestoring = true;
+
+        // 先加入会话房间
+        await joinConversation();
+
+        // 然后设置事件监听
+        _setupSubscriptions();
+
+        // 清除恢复状态标记
+        _isRestoring = false;
+
+        _logger.i('ChatCubit从传入快照初始化完成');
+        return;
+      }
+
+      // 如果没有传入快照，尝试从ChatsRepository获取快照
       final snapshot = await _chatsRepository.getStateSnapshot(_conversationId);
       if (snapshot != null) {
-        _logger.i('从状态快照恢复会话', extra: {
+        _logger.i('从ChatsRepository获取快照恢复会话', extra: {
           'conversationId': _conversationId,
           'messageCount': snapshot.messages.length,
           'currentScrollPosition': snapshot.currentScrollPosition,
@@ -118,7 +163,7 @@ class ChatCubit extends Cubit<ChatState> {
         // 清除恢复状态标记
         _isRestoring = false;
 
-        _logger.i('ChatCubit从快照恢复完成');
+        _logger.i('ChatCubit从ChatsRepository快照恢复完成');
         return;
       } else {
         _logger.i('没有状态快照，执行正常初始化流程');
@@ -160,7 +205,7 @@ class ChatCubit extends Cubit<ChatState> {
       emit(state.copyWith(isLoadingMessages: true));
 
       // 从数据库加载消息
-      await _loadMessagesFromDatabase();
+      await loadMoreMessages();
     } catch (error) {
       _logger.e('加载初始消息失败', error: error);
 
@@ -174,90 +219,66 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 从数据库加载消息
-  Future<void> _loadMessagesFromDatabase() async {
-    try {
-      // 检查Cubit是否已关闭
-      if (isClosed) {
-        _logger.w('Cubit已关闭，取消加载消息');
-        return;
-      }
-
-      final messages = await _chatRepository.getConversationMessages(
-        _conversationId,
-        limit: 50,
-      );
-
-      _logger.i('从数据库获取消息', extra: {
-        'conversationId': _conversationId,
-        'messageCount': messages.length,
-      });
-
-      // 处理加载的消息
-      await _processLoadedMessages(messages);
-    } catch (error) {
-      _logger.e('从数据库加载消息失败', error: error);
-      rethrow;
-    }
-  }
-
-  /// 处理加载的消息
-  Future<void> _processLoadedMessages(List<Message> messages) async {
-    try {
-      // 按时间升序排序（最新的在下方）
-      final sortedMessages = List<Message>.from(messages)
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-      // 检查Cubit是否已关闭
-      if (!isClosed) {
-        emit(state.copyWith(
-          messages: sortedMessages,
-          isLoadingMessages: false,
-          hasMoreHistory: messages.length >= 50,
-        ));
-      }
-    } catch (error) {
-      _logger.e('处理加载的消息失败', error: error);
-    }
-  }
-
-  /// 设置事件订阅 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   设置事件订阅   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   void _setupSubscriptions() {
     try {
       _logger.i('设置事件监听', extra: {'conversationId': _conversationId});
       _subscriptions['messageStatus'] = _chatRepository
           .getMessageStatusStream()
-          .where((event) => event['conversationId'] == _conversationId)
+          .where((event) => event['type'] == 'loadMore')
           .listen(
-        _handleMessageStatusUpdate,
+        _handleLoadMoreMessageStatusUpdate,
         onError: (error) {
           _logger.e('消息状态流监听出错', error: error);
         },
       );
+
       _logger.d('事件监听设置完成');
     } catch (error) {
       _logger.e('设置事件监听失败', error: error);
     }
   }
 
-  /// 处理消息状态更新事件
-  void _handleMessageStatusUpdate(Map<String, dynamic> event) {
-    _logger.d('处理消息状态更新', extra: {'event': event});
+  /// 💢💢💢 处理加载更多消息状态更新事件
+  void _handleLoadMoreMessageStatusUpdate(Map<String, dynamic> event) {
+    _logger.d('处理加载更多消息状态更新',
+        extra: {
+          'messageCount': event['messages'].length,
+          'hasMoreHistory': event['hasMoreHistory'],
+        },
+        stackTrace: StackTrace.current);
 
-    final eventType = event['type'] as String?;
     final conversationId = event['conversationId'] as String?;
+    final messages = event['messages'] as List<Message>?;
 
-    if (conversationId != _conversationId) {
+    if (conversationId != _conversationId || messages == null) {
       return;
     }
 
-    switch (eventType) {
-      case 'messages_read_by_other':
-        break;
+    if (messages.isEmpty) {
+      if (!isClosed) {
+        emit(state.copyWith(
+            isLoadingMoreMessages: false, hasMoreHistory: false));
+      }
+      return;
+    }
+
+    // 按时间顺序
+    final sortedMessages = List<Message>.from(messages)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final newMessages = [...sortedMessages, ...state.messages];
+
+    if (!isClosed) {
+      emit(state.copyWith(
+        messages: newMessages,
+        isLoadingMoreMessages: false,
+        hasMoreHistory: event['hasMoreHistory'] ?? true,
+      ));
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢                💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 加载会话消息
   Future<void> loadMessages() async {
@@ -273,7 +294,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
 
       emit(state.copyWith(isLoadingMessages: true));
-      await _loadMessagesFromDatabase();
+      await loadMoreMessages();
     } catch (error) {
       _logger.e('加载消息失败', error: error);
 
@@ -287,9 +308,13 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 加载更多消息（改进版本）
+  /// 💢💢💢 加载更多消息
   /// 用于滚动到顶部时加载更早的消息，同时保持用户当前查看位置
-  Future<void> loadMoreMessages({String? anchorMessageId}) async {
+  Future<void> loadMoreMessages() async {
+    _logger.i('加载更多消息', extra: {
+      'conversationId': _conversationId,
+      'hasMoreHistory': state.hasMoreHistory,
+    });
     try {
       // 检查Cubit是否已关闭
       if (isClosed) {
@@ -300,65 +325,26 @@ class ChatCubit extends Cubit<ChatState> {
       if (state.isLoadingMoreMessages || !state.hasMoreHistory) {
         _logger.d('跳过加载更多消息', extra: {
           'isLoading': state.isLoadingMoreMessages,
-          'hasMore': state.hasMoreHistory,
+          'hasMoreHistory': state.hasMoreHistory,
         });
         return;
       }
-
-      // 记录当前消息数量，用于计算位置偏移
-      final currentMessageCount = state.messages.length;
-
-      // 如果没有提供锚点消息ID，使用当前第一条消息作为锚点
-      final actualAnchorMessageId = anchorMessageId ??
-          (state.messages.isNotEmpty ? state.messages.first.messageId : null);
 
       emit(state.copyWith(isLoadingMoreMessages: true));
 
       // 获取最早的消息时间作为before参数
       DateTime? before;
       if (state.messages.isNotEmpty) {
-        before = state.messages.first.createdAt;
+        before = state.messages.last.createdAt;
       }
 
-      final moreMessages = await _chatRepository.getConversationMessages(
+      await _chatRepository.getConversationMessages(
         _conversationId,
         limit: defaultPageSize,
         before: before,
       );
 
-      if (moreMessages.isNotEmpty) {
-        // 合并消息（新消息在前）
-        final allMessages = [...moreMessages, ...state.messages];
-
-        // 按时间升序排序
-        allMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-        // 再次检查Cubit是否已关闭
-        if (!isClosed) {
-          emit(state.copyWith(
-            messages: allMessages,
-            hasMoreHistory: moreMessages.length == defaultPageSize,
-            isLoadingMoreMessages: false,
-          ));
-        }
-
-        _logger.i('加载更多消息成功', extra: {
-          'newCount': moreMessages.length,
-          'totalCount': allMessages.length,
-          'anchorMessageId': actualAnchorMessageId,
-          'previousMessageCount': currentMessageCount,
-        });
-      } else {
-        // 没有更多消息
-        if (!isClosed) {
-          emit(state.copyWith(
-            hasMoreHistory: false,
-            isLoadingMoreMessages: false,
-          ));
-        }
-
-        _logger.i('没有更多历史消息');
-      }
+      emit(state.copyWith(isLoadingMoreMessages: false));
     } catch (error) {
       _logger.e('加载更多消息失败', error: error);
 
@@ -369,28 +355,6 @@ class ChatCubit extends Cubit<ChatState> {
           errorMessage: '加载更多消息失败: ${error.toString()}',
         ));
       }
-    }
-  }
-
-  /// 带回调的加载更多消息方法
-  /// 支持加载完成后执行回调，用于位置恢复等操作
-  Future<bool> loadMoreMessagesWithCallback({
-    String? anchorMessageId,
-    VoidCallback? onLoadComplete,
-  }) async {
-    try {
-      await loadMoreMessages(anchorMessageId: anchorMessageId);
-
-      // 加载完成后执行回调
-      if (onLoadComplete != null) {
-        // 延迟一点执行回调，确保UI已经更新
-        Future.delayed(const Duration(milliseconds: 100), onLoadComplete);
-      }
-
-      return true;
-    } catch (error) {
-      _logger.e('带回调的加载更多消息失败', error: error);
-      return false;
     }
   }
 
@@ -471,7 +435,7 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 重新加载消息以更新UI
       if (!isClosed) {
-        await _loadMessagesFromDatabase();
+        await loadMoreMessages();
       }
 
       _logger.w('消息标记为失败', extra: {
@@ -555,7 +519,7 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 获取所有可见位置并按索引排序
       final sortedPositions = positions.toList()
-        ..sort((a, b) => a.index.compareTo(b.index));
+        ..sort((a, b) => b.index.compareTo(a.index));
 
       // 选择屏幕中央的消息作为锚点
       final centerPosition = sortedPositions.firstWhere(
@@ -570,11 +534,13 @@ class ChatCubit extends Cubit<ChatState> {
           messageIndex: centerPosition.index,
           relativePosition: centerPosition.itemLeadingEdge,
         );
-        _logger.d('更新当前滚动位置', extra: {
-          'messageId': message.messageId,
-          'messageIndex': centerPosition.index,
-          'relativePosition': centerPosition.itemLeadingEdge,
-        });
+        _logger.d('更新当前滚动位置',
+            extra: {
+              'messageId': message.messageId,
+              'messageIndex': centerPosition.index,
+              'relativePosition': centerPosition.itemLeadingEdge,
+            },
+            stackTrace: StackTrace.current);
         emit(state.copyWith(currentScrollPosition: currentScrollPosition));
       }
 
@@ -585,7 +551,8 @@ class ChatCubit extends Cubit<ChatState> {
           : null;
 
       if (lastMessage != null &&
-          state.lastReadMessageId != lastMessage.messageId) {
+          state.lastReadMessageId != lastMessage.messageId &&
+          lastMessage.status != 'read') {
         _chatRepository.markMessagesAsReadBySelf(
           _conversationId,
           lastMessage.messageId,

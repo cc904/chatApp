@@ -92,7 +92,7 @@ class CurrentScrollPosition extends Equatable {
 
 /// 单个聊天会话的状态
 class ChatState extends Equatable {
-  /// 当前会话中的消息（按时间升序排列，最新的在底部）
+  /// 当前会话中的消息（按时间降序排列，最旧的在顶部）
   final List<Message> messages;
 
   /// 当前正在输入的用户列表
@@ -158,7 +158,7 @@ class ChatState extends Equatable {
   });
 
   /// 初始状态
-  factory ChatState.initial(Conversation conversation) {
+  factory ChatState.initial() {
     return const ChatState(
       messages: [],
       typingUsers: [],
