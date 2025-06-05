@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:collection';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -13,7 +14,6 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
 
 /// 信号量类，用于控制并发数量
 class Semaphore {
@@ -59,7 +59,7 @@ class ChatRepositoryImpl implements ChatRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
   final FileUploadService _fileUploadService = FileUploadService();
-  final user_proto.CurrentUserProto _currentUser;
+  final CurrentUser _currentUser;
 
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
@@ -80,8 +80,8 @@ class ChatRepositoryImpl implements ChatRepository {
   final Set<String> _activeConversations = <String>{};
 
   // 构造函数
-  ChatRepositoryImpl({required user_proto.CurrentUserProto currentUserProto})
-      : _currentUser = currentUserProto {
+  ChatRepositoryImpl({required CurrentUser currentUser})
+      : _currentUser = currentUser {
     _logger.x('ChatRepositoryImpl 初始化');
     _registerEventHandlers();
   }

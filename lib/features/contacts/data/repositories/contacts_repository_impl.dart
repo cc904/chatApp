@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:isar/isar.dart';
 import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/user.dart' as db_user;
 import 'package:cc/core/database/models/friend_request.dart'
     as db_friend_request;
@@ -16,7 +17,7 @@ import 'package:cc/features/contacts/domain/repositories/contacts_repository.dar
 class ContactsRepositoryImpl implements ContactsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
-  final CurrentUserProto _currentUser;
+  final CurrentUser _currentUser;
 
   // 获取数据库实例
   Isar get _isar => DatabaseInitializer.isar;
@@ -39,8 +40,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _syncContactsStatusController.stream;
 
   // 构造函数
-  ContactsRepositoryImpl({required CurrentUserProto currentUserProto})
-      : _currentUser = currentUserProto {
+  ContactsRepositoryImpl({required CurrentUser currentUser})
+      : _currentUser = currentUser {
     _logger.x('ContactsRepositoryImpl 初始化');
   }
 

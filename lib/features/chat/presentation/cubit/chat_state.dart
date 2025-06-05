@@ -1,6 +1,6 @@
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:equatable/equatable.dart';
 
 /// 当前滚动位置信息
@@ -92,11 +92,11 @@ class CurrentScrollPosition extends Equatable {
 
 /// 单个聊天会话的状态
 class ChatState extends Equatable {
+  /// 当前会话
+  final Conversation conversation;
+
   /// 当前会话中的消息（按时间降序排列，最旧的在顶部）
   final List<Message> messages;
-
-  /// 当前正在输入的用户列表
-  final List<String> typingUsers;
 
   /// 是否正在加载消息
   final bool isLoadingMessages;
@@ -113,11 +113,8 @@ class ChatState extends Equatable {
   /// 错误信息
   final String? errorMessage;
 
-  /// 联系人信息
-  final User? contact;
-
   /// 当前用户信息
-  final User? currentUser;
+  final CurrentUser? currentUser;
 
   /// 最后阅读的消息ID
   final String? lastReadMessageId;
@@ -140,14 +137,13 @@ class ChatState extends Equatable {
 
   /// 构造函数
   const ChatState({
+    required this.conversation,
     required this.messages,
-    required this.typingUsers,
     required this.isLoadingMessages,
     required this.isLoadingMoreMessages,
     required this.isSending,
     required this.networkStatus,
     this.errorMessage,
-    this.contact,
     this.currentUser,
     this.lastReadMessageId,
     required this.hasMoreHistory,
@@ -158,10 +154,10 @@ class ChatState extends Equatable {
   });
 
   /// 初始状态
-  factory ChatState.initial() {
-    return const ChatState(
-      messages: [],
-      typingUsers: [],
+  factory ChatState.initial(CurrentUser currentUser) {
+    return ChatState(
+      conversation: Conversation(),
+      messages: const [],
       isLoadingMessages: false,
       isLoadingMoreMessages: false,
       isSending: false,
@@ -170,22 +166,21 @@ class ChatState extends Equatable {
       hasMoreHistory: true,
       hasMoreRecent: false,
       unreadCount: 0,
-      currentScrollPosition: CurrentScrollPosition.empty(),
+      currentScrollPosition: const CurrentScrollPosition.empty(),
+      currentUser: currentUser,
     );
   }
 
   /// 复制方法
   ChatState copyWith({
     Conversation? conversation,
+    CurrentUser? currentUser,
     List<Message>? messages,
-    List<String>? typingUsers,
     bool? isLoadingMessages,
     bool? isLoadingMoreMessages,
     bool? isSending,
     String? networkStatus,
     String? errorMessage,
-    User? contact,
-    User? currentUser,
     String? lastReadMessageId,
     bool? hasMoreHistory,
     bool? hasMoreRecent,
@@ -194,16 +189,15 @@ class ChatState extends Equatable {
     CurrentScrollPosition? currentScrollPosition,
   }) {
     return ChatState(
+      conversation: conversation ?? this.conversation,
+      currentUser: currentUser ?? this.currentUser,
       messages: messages ?? this.messages,
-      typingUsers: typingUsers ?? this.typingUsers,
       isLoadingMessages: isLoadingMessages ?? this.isLoadingMessages,
       isLoadingMoreMessages:
           isLoadingMoreMessages ?? this.isLoadingMoreMessages,
       isSending: isSending ?? this.isSending,
       networkStatus: networkStatus ?? this.networkStatus,
       errorMessage: errorMessage ?? this.errorMessage,
-      contact: contact ?? this.contact,
-      currentUser: currentUser ?? this.currentUser,
       lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
       hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
       hasMoreRecent: hasMoreRecent ?? this.hasMoreRecent,
@@ -244,14 +238,14 @@ class ChatState extends Equatable {
 
   @override
   List<Object?> get props => [
+        conversation,
+        currentUser,
         messages,
-        typingUsers,
         isLoadingMessages,
         isLoadingMoreMessages,
         isSending,
         networkStatus,
         errorMessage,
-        contact,
         currentUser,
         lastReadMessageId,
         hasMoreHistory,

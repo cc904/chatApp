@@ -1,7 +1,7 @@
 import 'dart:async';
 
-// ignore: depend_on_referenced_packages
 import 'package:bloc/bloc.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
@@ -20,9 +20,10 @@ class ChatsCubit extends Cubit<ChatsState> {
 
   ChatsCubit({
     required ChatsRepository chatsRepository,
+    required CurrentUser currentUser,
     this.contactsRepository,
   })  : _chatsRepository = chatsRepository,
-        super(ChatsState.initial()) {
+        super(ChatsState.initial(currentUser)) {
     _init();
   }
 

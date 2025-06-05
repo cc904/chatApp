@@ -2,44 +2,44 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 
 /// 消息列表处理器
-/// 负责将原始消息列表转换为包含日期分隔符和未读消息分隔符的混合列表
+/// 负责将原始消息列表转换为包含日期分隔符的混合列表
+/// 并处理消息分组显示逻辑
 class MessageListProcessor {
-  /// 处理消息列表，插入日期分隔符和未读消息分隔符
+  /// 处理消息列表，插入日期分隔符并设置分组显示属性
   ///
   /// [messages] - 原始消息列表（按时间降序排列，最新的在前）
   /// [currentUserId] - 当前用户ID，用于判断消息是否为当前用户发送
-  /// [firstUnreadMessageId] - 第一条未读消息ID，用于插入未读消息分隔符
+  /// [isPrivateChat] - 是否为私聊
   ///
   /// 返回处理后的混合列表，包含消息和分隔符
   static List<MessageListItem> processMessages({
     required List<Message> messages,
     required String currentUserId,
-    String? firstUnreadMessageId,
+    bool isPrivateChat = false,
   }) {
     if (messages.isEmpty) {
       return [];
     }
 
     final List<MessageListItem> result = [];
-    bool unreadSeparatorAdded = false;
 
     // 遍历消息列表（注意：消息列表是按时间降序排列的，最新的在前）
     for (int i = 0; i < messages.length; i++) {
       final message = messages[i];
       final isCurrentUser = message.senderId == currentUserId;
 
-      // 检查是否需要插入未读消息分隔符
-      if (!unreadSeparatorAdded &&
-          firstUnreadMessageId != null &&
-          message.messageId == firstUnreadMessageId) {
-        result.add(const MessageListItemUnreadSeparator());
-        unreadSeparatorAdded = true;
-      }
+      // 判断是否显示头像和小尾巴
+      final shouldShowAvatar =
+          _shouldShowAvatar(messages, i, currentUserId, isPrivateChat);
+      final shouldShowTail = _shouldShowTail(messages, i, currentUserId);
 
       // 添加消息本身
       result.add(MessageListItemData(
         message: message,
         isCurrentUser: isCurrentUser,
+        showAvatar: shouldShowAvatar,
+        showTail: shouldShowTail,
+        isPrivateChat: isPrivateChat,
       ));
 
       // 检查是否需要在消息之后插入日期分隔符
@@ -122,42 +122,72 @@ class MessageListProcessor {
     return unreadCount;
   }
 
-  /// 查找第一条未读消息ID
-  ///
-  /// [messages] - 消息列表（按时间降序排列）
-  /// [currentUserId] - 当前用户ID
-  /// [lastReadMessageId] - 最后已读消息ID
-  ///
-  /// 返回第一条未读消息的ID，如果没有未读消息则返回null
-  static String? findFirstUnreadMessageId({
-    required List<Message> messages,
-    required String currentUserId,
-    String? lastReadMessageId,
-  }) {
-    if (lastReadMessageId == null || messages.isEmpty) {
-      // 如果没有已读消息ID，则第一条非当前用户发送的消息就是第一条未读消息
-      final firstUnreadMessage = messages.lastWhere(
-        (msg) => msg.senderId != currentUserId,
-        orElse: () => messages.last,
-      );
-      return firstUnreadMessage.messageId;
+  /// 判断是否应该显示头像
+  /// 在反向列表中，只有连续消息的第一条（最新的）才显示头像
+  static bool _shouldShowAvatar(List<Message> messages, int currentIndex,
+      String currentUserId, bool isPrivateChat) {
+    if (isPrivateChat) {
+      return false; // 私聊不显示头像
     }
 
-    // 找到最后已读消息的索引
-    final lastReadIndex = findMessageIndex(messages, lastReadMessageId);
-    if (lastReadIndex == -1) {
-      return null;
+    final currentMessage = messages[currentIndex];
+    final isCurrentUser = currentMessage.senderId == currentUserId;
+
+    if (isCurrentUser) {
+      return false; // 自己的消息不显示头像
     }
 
-    // 从最后已读消息之后开始查找第一条未读消息
-    // 由于列表是降序排列的，我们需要从后往前找
-    for (int i = lastReadIndex - 1; i >= 0; i--) {
-      final message = messages[i];
-      if (message.senderId != currentUserId) {
-        return message.messageId;
+    // 在反向列表中，检查前一条更新的消息（currentIndex - 1）
+    if (currentIndex - 1 >= 0) {
+      final previousMessage = messages[currentIndex - 1];
+      final previousIsCurrentUser = previousMessage.senderId == currentUserId;
+
+      // 如果前一条消息是不同的发送者，或者是自己发送的，则显示头像
+      if (previousIsCurrentUser ||
+          previousMessage.senderId != currentMessage.senderId) {
+        return true;
       }
+
+      // 如果时间间隔超过5分钟，也显示头像
+      final timeDiff =
+          previousMessage.createdAt.difference(currentMessage.createdAt);
+      if (timeDiff.inMinutes >= 5) {
+        return true;
+      }
+
+      return false;
     }
 
-    return null;
+    // 这是第一条消息（最新的），显示头像
+    return true;
+  }
+
+  /// 判断是否应该显示小尾巴
+  /// 在反向列表中，连续消息的第一条（最新的）才显示小尾巴
+  static bool _shouldShowTail(
+      List<Message> messages, int currentIndex, String currentUserId) {
+    final currentMessage = messages[currentIndex];
+
+    // 在反向列表中，检查前一条更新的消息（currentIndex - 1）
+    if (currentIndex - 1 >= 0) {
+      final previousMessage = messages[currentIndex - 1];
+
+      // 如果前一条消息是不同的发送者，则显示尾巴
+      if (previousMessage.senderId != currentMessage.senderId) {
+        return true;
+      }
+
+      // 如果时间间隔超过5分钟，也显示尾巴
+      final timeDiff =
+          previousMessage.createdAt.difference(currentMessage.createdAt);
+      if (timeDiff.inMinutes >= 5) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // 这是第一条消息（最新的），显示尾巴
+    return true;
   }
 }

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/database/models/current_user.dart';
 
 /// 网络状态枚举
 enum NetworkStatus {
@@ -22,7 +22,7 @@ class HomeState extends Equatable {
   final bool homePageIsInitializing;
   final bool homePageIsInitialized;
   final String? errorMessage;
-  final CurrentUserProto? currentUser;
+  final CurrentUser? currentUser;
 
   // 网络相关状态
   final bool isConnected; // 是否连接到网络
@@ -61,12 +61,12 @@ class HomeState extends Equatable {
   }
 
   /// 初始化成功状态
-  HomeState toInitializedState({required CurrentUserProto currentUserProto}) {
+  HomeState toInitializedState({required CurrentUser currentUser}) {
     return copyWith(
       homePageIsInitializing: false,
       homePageIsInitialized: true,
       errorMessage: null,
-      currentUser: currentUserProto,
+      currentUser: currentUser,
     );
   }
 
@@ -84,7 +84,7 @@ class HomeState extends Equatable {
     bool? homePageIsInitializing,
     bool? homePageIsInitialized,
     String? errorMessage,
-    CurrentUserProto? currentUser,
+    CurrentUser? currentUser,
 
     // 网络相关状态
     bool? isConnected,

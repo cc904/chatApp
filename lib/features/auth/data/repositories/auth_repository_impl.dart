@@ -12,6 +12,7 @@ import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 // import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 // import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:isar/isar.dart';
 
 /// AuthRepository的实现类
 /// 负责auth相关的业务逻辑,包括登录、注册、重置密码等功能
@@ -71,21 +72,33 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// 保存用户凭证到安全存储
+  /// 保存用户凭证到数据库和安全存储
   ///
   /// 参数:
-  /// - user: 用户信息
+  /// - userProto: 用户信息Proto对象
   ///
   /// 返回:
   /// - 保存成功返回true，失败返回false
-  Future<bool> saveUserCredentials(CurrentUserProto user) async {
+  Future<bool> saveUserCredentialsFromProto(CurrentUserProto userProto) async {
     try {
-      // 保存到安全存储
-      await _secureStorage.saveUserCredentials(
-        user,
-        expireTime: DateTime.now().add(const Duration(days: 30)), // 假设令牌有效期为30天
-      );
-      _logger.i('用户凭证保存到安全存储成功', extra: {'userId': user.userId});
+      // 转换为CurrentUser模型
+      final currentUser = CurrentUser.fromProto(userProto);
+
+      // 1. 保存到数据库
+      if (DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.isar.writeTxn(() async {
+          // 清除旧数据
+          await DatabaseInitializer.isar.currentUsers.clear();
+          // 保存新用户数据
+          await DatabaseInitializer.isar.currentUsers.put(currentUser);
+        });
+        _logger.d('用户信息保存到数据库成功', extra: {'userId': currentUser.userId});
+      }
+
+      // 2. 保存到安全存储 - 现在使用CurrentUser
+      await _secureStorage.saveUserCredentials(currentUser);
+
+      _logger.i('用户凭证保存成功', extra: {'userId': currentUser.userId});
       return true;
     } catch (error) {
       _logger.e('保存用户凭证失败', error: error, stackTrace: StackTrace.current);
@@ -93,30 +106,46 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// 获取用户信息
+  /// 获取当前用户信息
   ///
-  /// 从安全存储获取用户信息
+  /// 优先从数据库获取用户信息，如果数据库中没有则从安全存储获取
   ///
   /// 返回:
-  /// - 用户信息（CurrentUserProto），不存在则返回null
-  Future<CurrentUserProto?> getUserInfo() async {
+  /// - 用户信息（CurrentUser），不存在则返回null
+  @override
+  Future<CurrentUser?> getCurrentUser() async {
     try {
-      // 从安全存储获取用户信息
-      final userId = await _secureStorage.getUserId();
-      final token = await _secureStorage.getToken();
-
-      if (userId == null || token == null) {
-        _logger.d('安全存储中未找到用户信息', stackTrace: StackTrace.current);
-        return null;
+      // 1. 优先从数据库获取完整用户信息
+      if (DatabaseInitializer.isInitialized) {
+        // 直接获取所有CurrentUser记录
+        final collection = DatabaseInitializer.isar.currentUsers;
+        final allUsers = await collection.where().findAll();
+        if (allUsers.isNotEmpty) {
+          final user = allUsers.first;
+          _logger.d('从数据库获取用户信息成功', extra: {'userId': user.userId});
+          return user;
+        }
       }
 
-      // 创建 CurrentUserProto 对象
-      return CurrentUserProto(
-        userId: userId,
-        token: token,
-      );
+      // 2. 如果数据库中没有，从安全存储获取基本信息
+      final fullUserInfo = await _secureStorage.getFullUserInfo();
+      if (fullUserInfo != null) {
+        _logger.d('从安全存储获取用户信息成功', extra: {'userId': fullUserInfo.userId});
+
+        // 同时保存到数据库中以备下次使用
+        if (DatabaseInitializer.isInitialized) {
+          await DatabaseInitializer.isar.writeTxn(() async {
+            await DatabaseInitializer.isar.currentUsers.put(fullUserInfo);
+          });
+        }
+
+        return fullUserInfo;
+      }
+
+      _logger.d('未找到用户信息', stackTrace: StackTrace.current);
+      return null;
     } catch (error) {
-      _logger.e('从安全存储获取用户信息失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('获取用户信息失败', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -160,7 +189,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存用户凭证
-      await saveUserCredentials(response.currentUser!);
+      await saveUserCredentialsFromProto(response.currentUser!);
 
       return response;
     } catch (error) {
@@ -206,7 +235,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存用户凭证
-      await saveUserCredentials(response.currentUser!);
+      await saveUserCredentialsFromProto(response.currentUser!);
 
       return response;
     } catch (error) {
@@ -311,7 +340,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存用户凭证
-      await saveUserCredentials(response.currentUser!);
+      await saveUserCredentialsFromProto(response.currentUser!);
 
       // 返回成功响应
       return response;
@@ -359,40 +388,6 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (error) {
       _logger.e('登出失败', error: error, stackTrace: StackTrace.current);
       return false;
-    }
-  }
-
-  /// 获取当前用户
-  ///
-  /// 获取当前登录用户信息
-  ///
-  /// 返回:
-  /// - 当前用户信息，未登录返回null
-  @override
-  Future<CurrentUser?> getCurrentUser() async {
-    try {
-      // 如果还没初始化，先尝试安全地初始化，但不递归调用
-      if (!_isInitialized) {
-        // 只是简单地获取用户信息，不进行完整的初始化流程
-        final userInfo = await getUserInfo();
-        if (userInfo != null) {
-          return CurrentUser.fromProto(userInfo);
-        }
-        return null;
-      }
-
-      // 正常流程：获取用户信息
-      final userProto = await getUserInfo();
-
-      if (userProto == null) {
-        return null;
-      }
-
-      // 将 CurrentUserProto 转换为 CurrentUser
-      return CurrentUser.fromProto(userProto);
-    } catch (error) {
-      _logger.e('获取当前用户失败', error: error, stackTrace: StackTrace.current);
-      return null;
     }
   }
 

@@ -5,7 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/features/home/data/repositories/home_repository_impl.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/database/models/current_user.dart';
 
 import 'home_state.dart';
 
@@ -15,7 +15,7 @@ import 'home_state.dart';
 class HomeCubit extends Cubit<HomeState> {
   final HomeRepository _homeRepository;
   final LogService _logger = LogService.instance;
-  final CurrentUserProto _currentUser;
+  final CurrentUser _currentUser;
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
@@ -23,10 +23,9 @@ class HomeCubit extends Cubit<HomeState> {
   // 网络连接实例
   final Connectivity _connectivity = Connectivity();
 
-  HomeCubit({required CurrentUserProto currentUserProto})
-      : _currentUser = currentUserProto,
-        _homeRepository =
-            HomeRepositoryImpl(currentUserProto: currentUserProto),
+  HomeCubit({required CurrentUser currentUser})
+      : _currentUser = currentUser,
+        _homeRepository = HomeRepositoryImpl(currentUser: currentUser),
         super(HomeState.initial());
 
   /// 初始化用户会话
@@ -49,7 +48,7 @@ class HomeCubit extends Cubit<HomeState> {
       }
 
       // 更新状态为已初始化
-      emit(state.toInitializedState(currentUserProto: _currentUser));
+      emit(state.toInitializedState(currentUser: _currentUser));
       _logger.i('用户会话初始化完成');
       return true;
     } catch (error) {

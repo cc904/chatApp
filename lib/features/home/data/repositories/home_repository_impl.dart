@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 
@@ -12,11 +12,11 @@ import 'package:cc/core/database/database_initializer.dart';
 /// 负责用户会话初始化相关的业务逻辑
 class HomeRepositoryImpl implements HomeRepository {
   final LogService _logger = LogService.instance;
-  final CurrentUserProto _currentUser;
+  final CurrentUser _currentUser;
 
   /// 构造函数
-  HomeRepositoryImpl({required CurrentUserProto currentUserProto})
-      : _currentUser = currentUserProto {
+  HomeRepositoryImpl({required CurrentUser currentUser})
+      : _currentUser = currentUser {
     _logger.x('HomeRepositoryImpl 初始化');
   }
 

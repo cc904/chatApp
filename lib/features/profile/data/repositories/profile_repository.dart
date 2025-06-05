@@ -4,7 +4,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/database_initializer.dart';
 
 /// 个人资料仓库
@@ -32,12 +31,12 @@ class ProfileRepository {
 
   /// 获取当前登录用户信息
   ///
-  /// 从DatabaseInitializer的Isar实例中读取CurrentUser记录并转换为CurrentUserProto对象
+  /// 从DatabaseInitializer的Isar实例中读取CurrentUser记录
   /// 如果没有用户记录，返回null
   ///
   /// 返回值:
-  ///   - CurrentUserProto?: 当前登录用户信息，如果未登录则为null
-  Future<CurrentUserProto?> getCurrentUser() async {
+  ///   - CurrentUser?: 当前登录用户信息，如果未登录则为null
+  Future<CurrentUser?> getCurrentUser() async {
     try {
       if (!DatabaseInitializer.isInitialized) {
         _logger.w('数据库未初始化，无法获取用户信息');
@@ -50,9 +49,9 @@ class ProfileRepository {
         return null;
       }
 
-      // 转换为 CurrentUserProto
+      // 直接返回 CurrentUser
       final user = users.first;
-      return user.toProto();
+      return user;
     } catch (e) {
       _logger.e('获取用户信息失败', error: e);
       return null;
@@ -61,12 +60,12 @@ class ProfileRepository {
 
   /// 保存用户信息
   ///
-  /// 将CurrentUserProto对象转换为CurrentUser并保存到数据库
+  /// 直接保存CurrentUser对象到数据库
   /// 在保存前会清除所有现有用户数据
   ///
   /// 参数:
-  ///   - user: 需要保存的用户信息(CurrentUserProto格式)
-  Future<void> saveUser(CurrentUserProto user) async {
+  ///   - user: 需要保存的用户信息(CurrentUser类型)
+  Future<void> saveUser(CurrentUser user) async {
     try {
       if (!DatabaseInitializer.isInitialized) {
         throw Exception('数据库未初始化，无法保存用户信息');
@@ -74,10 +73,7 @@ class ProfileRepository {
 
       await DatabaseInitializer.isar.writeTxn(() async {
         await DatabaseInitializer.isar.currentUsers.clear(); // 清除旧数据
-
-        // 创建 CurrentUser 对象并保存
-        final currentUser = CurrentUser.fromProto(user);
-        await DatabaseInitializer.isar.currentUsers.put(currentUser); // 保存新数据
+        await DatabaseInitializer.isar.currentUsers.put(user); // 保存新数据
       });
       _logger.i('用户信息保存成功', extra: {'userId': user.userId});
     } catch (e) {
@@ -109,17 +105,17 @@ class ProfileRepository {
         throw Exception('用户未登录');
       }
 
-      final updatedUser = CurrentUserProto(
-        userId: currentUser.userId,
-        token: currentUser.token,
-        name: nickname ?? currentUser.name,
-        avatar: avatar ?? currentUser.avatar,
-        phone: currentUser.phone,
-        email: currentUser.email,
-        tokenExpireTime: currentUser.tokenExpireTime,
-        lastLoginTime: currentUser.lastLoginTime,
-        status: status ?? currentUser.status,
-      );
+      // 创建更新后的用户对象
+      final updatedUser = CurrentUser()
+        ..userId = currentUser.userId
+        ..token = currentUser.token
+        ..name = nickname ?? currentUser.name
+        ..avatar = avatar ?? currentUser.avatar
+        ..phone = currentUser.phone
+        ..email = currentUser.email
+        ..tokenExpireTime = currentUser.tokenExpireTime
+        ..lastLoginTime = currentUser.lastLoginTime
+        ..status = status ?? currentUser.status;
 
       await saveUser(updatedUser);
       _logger.i('用户信息更新成功', extra: {'userId': currentUser.userId});

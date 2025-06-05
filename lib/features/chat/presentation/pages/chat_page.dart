@@ -102,12 +102,13 @@ class _ChatPageState extends State<ChatPage> {
 
         // 检查是否需要加载更多历史消息
         final state = context.read<ChatCubit>().state;
-        final lastVisibleIndex = positions.last.index;
+        final lastVisibleIndex = positions.lastOrNull?.index;
         // _logger.i('检查是否需要加载更多历史消息', extra: {
         //   'messagesLength': state.messages.length,
         //   'lastVisibleIndex': lastVisibleIndex,
         // });
-        if (lastVisibleIndex >= state.messages.length - 10 &&
+        if (lastVisibleIndex != null &&
+            lastVisibleIndex >= state.messages.length - 10 &&
             state.hasMoreHistory) {
           _logger.i('检查是否需要加载更多历史消息', extra: {
             'lastVisibleIndex': lastVisibleIndex,
@@ -124,7 +125,7 @@ class _ChatPageState extends State<ChatPage> {
     final state = context.read<ChatCubit>().state;
     _logger.w('更新当前滚动位置', extra: {
       'positions': positions.map((e) => e.index).toList(),
-      'lastVisibleIndex': positions.last.index,
+      'lastVisibleIndex': positions.lastOrNull?.index,
       'messageCount': state.messages.length,
     });
 
@@ -303,15 +304,15 @@ class _ChatPageState extends State<ChatPage> {
           ),
           BlocBuilder<ChatCubit, ChatState>(
             builder: (context, state) {
-              if (state.typingUsers.isNotEmpty) {
-                return Text(
-                  '正在输入...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                );
-              }
+              // TODO if (state.typingUsers.isNotEmpty) {
+              //   return Text(
+              //     '正在输入...',
+              //     style: TextStyle(
+              //       fontSize: 12,
+              //       color: Colors.grey[600],
+              //     ),
+              //   );
+              // }
               return Text(
                 _getLastSeenText(state),
                 style: TextStyle(
@@ -358,15 +359,14 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 构建消息列表
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   构建消息列表   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Widget _buildMessagesList() {
     return BlocBuilder<ChatCubit, ChatState>(
       buildWhen: (previous, current) {
-        return previous.messages.length != current.messages.length ||
-            previous.firstUnreadMessageId != current.firstUnreadMessageId;
+        return previous.messages.length != current.messages.length;
       },
       builder: (context, state) {
-        _logger.i('💢💢💢💢 BlocBuilder 重绘');
+        _logger.i('💢 BlocBuilder 重绘');
         if (state.isLoadingMessages && state.messages.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(),
@@ -412,10 +412,12 @@ class _ChatPageState extends State<ChatPage> {
 
         // 处理消息列表，添加分隔符
         final currentUserId = state.currentUser?.userId ?? '';
+        final isPrivateChat =
+            widget.conversation.type == ConversationType.private;
         final processedItems = MessageListProcessor.processMessages(
           messages: state.messages,
           currentUserId: currentUserId,
-          firstUnreadMessageId: state.firstUnreadMessageId,
+          isPrivateChat: isPrivateChat,
         );
 
         return Stack(
@@ -463,6 +465,9 @@ class _ChatPageState extends State<ChatPage> {
                           key: ValueKey(message.messageId),
                           message: message,
                           isCurrentUser: item.isCurrentUser,
+                          showAvatar: item.showAvatar,
+                          showTail: item.showTail,
+                          isPrivateChat: item.isPrivateChat,
                           onTap: () => _onMessageTap(message),
                         );
                       } else if (item is MessageListItemDateSeparator) {
@@ -470,10 +475,6 @@ class _ChatPageState extends State<ChatPage> {
                           key: ValueKey(
                               'date_${item.date.millisecondsSinceEpoch}'),
                           date: item.date,
-                        );
-                      } else if (item is MessageListItemUnreadSeparator) {
-                        return const UnreadMessageSeparator(
-                          key: ValueKey('unread_separator'),
                         );
                       } else {
                         // 未知类型，返回空容器
@@ -488,7 +489,7 @@ class _ChatPageState extends State<ChatPage> {
                         state.currentScrollPosition.relativePosition ?? 0.0,
                     reverse: true,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
+                      horizontal: 4.0,
                       vertical: 8.0,
                     ),
                   ),

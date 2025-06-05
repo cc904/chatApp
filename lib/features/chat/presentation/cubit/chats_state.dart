@@ -1,5 +1,5 @@
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:equatable/equatable.dart';
 
 /// 会话同步状态
@@ -35,7 +35,7 @@ class ChatsState extends Equatable {
   final int selectedTabIndex;
 
   /// 当前用户
-  final User? currentUser;
+  final CurrentUser? currentUser;
 
   /// 会话同步状态
   final ConversationSyncStatus conversationSyncStatus;
@@ -52,11 +52,6 @@ class ChatsState extends Equatable {
   /// 连接错误信息
   final String? connectionErrorMessage;
 
-  /// 在线用户集合
-  final Set<String> onlineUsers;
-
-  /// 打字用户映射
-  final Map<String, List<String>> typingUsers;
 
   /// 错误信息
   final String? errorMessage;
@@ -71,27 +66,23 @@ class ChatsState extends Equatable {
     required this.conversationSyncStatus,
     required this.networkStatus,
     required this.isConnected,
-    required this.onlineUsers,
-    required this.typingUsers,
     this.lastConnectionTime,
     this.connectionErrorMessage,
     this.errorMessage,
   });
 
   /// 初始状态
-  factory ChatsState.initial() {
-    return const ChatsState(
-      conversations: [],
-      filteredConversations: [],
+  factory ChatsState.initial(CurrentUser currentUser) {
+    return ChatsState(
+      conversations: const [],
+      filteredConversations: const [],
       searchQuery: '',
       isSearching: false,
       selectedTabIndex: 0,
-      currentUser: null,
+      currentUser: currentUser,
       conversationSyncStatus: ConversationSyncStatus.initial,
       networkStatus: kNetworkStatusConnected,
       isConnected: true,
-      onlineUsers: {},
-      typingUsers: {},
     );
   }
 
@@ -102,14 +93,12 @@ class ChatsState extends Equatable {
     String? searchQuery,
     bool? isSearching,
     int? selectedTabIndex,
-    User? currentUser,
+    CurrentUser? currentUser,
     ConversationSyncStatus? conversationSyncStatus,
     String? networkStatus,
     bool? isConnected,
     DateTime? lastConnectionTime,
     String? connectionErrorMessage,
-    Set<String>? onlineUsers,
-    Map<String, List<String>>? typingUsers,
     String? errorMessage,
   }) {
     return ChatsState(
@@ -127,8 +116,6 @@ class ChatsState extends Equatable {
       lastConnectionTime: lastConnectionTime ?? this.lastConnectionTime,
       connectionErrorMessage:
           connectionErrorMessage ?? this.connectionErrorMessage,
-      onlineUsers: onlineUsers ?? this.onlineUsers,
-      typingUsers: typingUsers ?? this.typingUsers,
       errorMessage: errorMessage,
     );
   }
@@ -152,8 +139,6 @@ class ChatsState extends Equatable {
         isConnected,
         lastConnectionTime,
         connectionErrorMessage,
-        onlineUsers,
-        typingUsers,
         errorMessage,
       ];
 }

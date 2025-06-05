@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
-import 'package:fixnum/fixnum.dart';
+import 'package:cc/core/database/models/current_user.dart';
 
 /// 安全存储服务
 ///
@@ -291,65 +290,61 @@ class SecureStorageService {
   /// 将用户信息保存到安全存储中
   ///
   /// 参数:
-  /// - user: 用户信息对象
-  /// - expireTime: 令牌过期时间（可选）
-  Future<void> saveUserCredentials(CurrentUserProto user,
-      {DateTime? expireTime}) async {
+  /// - currentUser: 用户信息对象
+  Future<void> saveUserCredentials(CurrentUser currentUser) async {
     try {
       // 保存基本凭证
-      await write(keyUserId, user.userId);
-      await write(keyToken, user.token);
+      await write(keyUserId, currentUser.userId);
+      await write(keyToken, currentUser.token);
 
       // 保存过期时间
-      if (expireTime != null) {
-        await write(
-            keyTokenExpireTime, expireTime.millisecondsSinceEpoch.toString());
-      } else if (user.hasTokenExpireTime()) {
-        // 如果用户对象包含令牌过期时间，使用该值
-        await write(
-            keyTokenExpireTime, user.tokenExpireTime.toInt().toString());
+      if (currentUser.tokenExpireTime != null) {
+        await write(keyTokenExpireTime,
+            currentUser.tokenExpireTime!.millisecondsSinceEpoch.toString());
       }
 
       // 保存用户信息详情
       final userInfo = {
-        'userId': user.userId,
-        'token': user.token,
+        'userId': currentUser.userId,
+        'token': currentUser.token,
       };
 
       // 添加可选字段
-      if (user.hasName()) {
-        userInfo['name'] = user.name;
-        await write('userName', user.name);
+      if (currentUser.name.isNotEmpty) {
+        userInfo['name'] = currentUser.name;
+        await write('userName', currentUser.name);
       }
 
-      if (user.hasAvatar()) {
-        userInfo['avatar'] = user.avatar;
-        await write('userAvatar', user.avatar);
+      if (currentUser.avatar != null && currentUser.avatar!.isNotEmpty) {
+        userInfo['avatar'] = currentUser.avatar!;
+        await write('userAvatar', currentUser.avatar!);
       }
 
-      if (user.hasPhone()) {
-        userInfo['phone'] = user.phone;
-        await write('userPhone', user.phone);
+      if (currentUser.phone != null && currentUser.phone!.isNotEmpty) {
+        userInfo['phone'] = currentUser.phone!;
+        await write('userPhone', currentUser.phone!);
       }
 
-      if (user.hasEmail()) {
-        userInfo['email'] = user.email;
-        await write('userEmail', user.email);
+      if (currentUser.email != null && currentUser.email!.isNotEmpty) {
+        userInfo['email'] = currentUser.email!;
+        await write('userEmail', currentUser.email!);
       }
 
-      if (user.hasStatus()) {
-        userInfo['status'] = user.status.toString();
-        await write('userStatus', user.status.toString());
+      if (currentUser.status != null && currentUser.status!.isNotEmpty) {
+        userInfo['status'] = currentUser.status!;
+        await write('userStatus', currentUser.status!);
       }
 
-      if (user.hasLastLoginTime()) {
-        userInfo['lastLoginTime'] = user.lastLoginTime.toInt().toString();
-        await write('lastLoginTime', user.lastLoginTime.toInt().toString());
+      if (currentUser.lastLoginTime != null) {
+        userInfo['lastLoginTime'] =
+            currentUser.lastLoginTime!.millisecondsSinceEpoch.toString();
+        await write('lastLoginTime',
+            currentUser.lastLoginTime!.millisecondsSinceEpoch.toString());
       }
 
       await writeObject(keyUserInfo, userInfo);
 
-      _logger.i('用户凭证保存成功', extra: {'userId': user.userId});
+      _logger.i('用户凭证保存成功', extra: {'userId': currentUser.userId});
     } catch (e) {
       _logger.e('保存用户凭证失败', error: e, stackTrace: StackTrace.current);
       rethrow;
@@ -362,7 +357,7 @@ class SecureStorageService {
   ///
   /// 返回:
   /// - 完整的用户信息对象，如果不存在则返回null
-  Future<CurrentUserProto?> getFullUserInfo() async {
+  Future<CurrentUser?> getFullUserInfo() async {
     try {
       // 获取基本凭证
       final userId = await getUserId();
@@ -374,47 +369,44 @@ class SecureStorageService {
       }
 
       // 创建用户对象
-      final user = CurrentUserProto(
-        userId: userId,
-        token: token,
-      );
+      final user = CurrentUser()
+        ..userId = userId
+        ..token = token;
 
       // 获取可选字段
       final name = await read('userName');
-      if (name != null) {
+      if (name != null && name.isNotEmpty) {
         user.name = name;
+      } else {
+        user.name = ''; // 确保name不为null
       }
 
       final avatar = await read('userAvatar');
-      if (avatar != null) {
+      if (avatar != null && avatar.isNotEmpty) {
         user.avatar = avatar;
       }
 
       final phone = await read('userPhone');
-      if (phone != null) {
+      if (phone != null && phone.isNotEmpty) {
         user.phone = phone;
       }
 
       final email = await read('userEmail');
-      if (email != null) {
+      if (email != null && email.isNotEmpty) {
         user.email = email;
       }
 
       final statusStr = await read('userStatus');
-      if (statusStr != null) {
-        try {
-          // status 是字符串，不需要解析
-          user.status = statusStr;
-        } catch (e) {
-          _logger.w('设置status失败', extra: {'error': e.toString()});
-        }
+      if (statusStr != null && statusStr.isNotEmpty) {
+        user.status = statusStr;
       }
 
       final lastLoginTimeStr = await read('lastLoginTime');
       if (lastLoginTimeStr != null) {
         try {
           final lastLoginTime = int.parse(lastLoginTimeStr);
-          user.lastLoginTime = Int64(lastLoginTime);
+          user.lastLoginTime =
+              DateTime.fromMillisecondsSinceEpoch(lastLoginTime);
         } catch (e) {
           _logger.w('解析lastLoginTime失败', extra: {'error': e.toString()});
         }
@@ -423,7 +415,7 @@ class SecureStorageService {
       // 获取令牌过期时间
       final expireTime = await getTokenExpireTime();
       if (expireTime != null) {
-        user.tokenExpireTime = Int64(expireTime.millisecondsSinceEpoch);
+        user.tokenExpireTime = expireTime;
       }
 
       _logger.i('从安全存储获取完整用户信息成功', extra: {'userId': userId});

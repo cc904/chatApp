@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
@@ -95,7 +95,7 @@ enum ProfileStatus {
 
 class ProfileState extends Equatable {
   final ProfileStatus status;
-  final CurrentUserProto? user;
+  final CurrentUser? user;
   final String? error;
   final String? serverUrl;
 
@@ -112,7 +112,7 @@ class ProfileState extends Equatable {
 
   ProfileState copyWith({
     ProfileStatus? status,
-    CurrentUserProto? user,
+    CurrentUser? user,
     String? error,
     String? serverUrl,
   }) {

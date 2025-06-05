@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -56,6 +58,7 @@ class ChatCubit extends Cubit<ChatState> {
   final ChatsRepository _chatsRepository;
   final LogService _logger = LogService.instance;
   final String _conversationId;
+  // final User _currentUser;
   final ChatStateSnapshot? _initialSnapshot;
 
   // 保存订阅，以便在dispose时取消
@@ -71,24 +74,26 @@ class ChatCubit extends Cubit<ChatState> {
   ChatCubit({
     required ChatRepository chatRepository,
     required ChatsRepository chatsRepository,
-    required String conversationId,
+    required Conversation conversation,
+    required CurrentUser currentUser,
     ChatStateSnapshot? initialSnapshot,
     ContactsRepository? contactsRepository,
   })  : _chatRepository = chatRepository,
         _chatsRepository = chatsRepository,
-        _conversationId = conversationId,
+        _conversationId = conversation.conversationId,
         _initialSnapshot = initialSnapshot,
-        super(_createInitialState(conversationId, initialSnapshot)) {
+        // _currentUser = currentUser,
+        super(_createInitialState(conversation, currentUser, initialSnapshot)) {
     _init();
   }
 
   /// 创建初始状态
   /// 如果有快照，直接使用快照数据初始化；否则使用默认初始状态
-  static ChatState _createInitialState(
-      String conversationId, ChatStateSnapshot? snapshot) {
+  static ChatState _createInitialState(Conversation conversation,
+      CurrentUser currentUser, ChatStateSnapshot? snapshot) {
     if (snapshot != null && snapshot.isValid) {
       // 使用快照数据创建初始状态
-      return ChatState.initial().copyWith(
+      return ChatState.initial(currentUser).copyWith(
         messages: snapshot.messages,
         lastReadMessageId: snapshot.lastReadMessageId,
         unreadCount: snapshot.unreadCount,
@@ -96,10 +101,11 @@ class ChatCubit extends Cubit<ChatState> {
         isLoadingMessages: false,
         hasMoreHistory: snapshot.hasMoreHistory,
         hasMoreRecent: snapshot.hasMoreRecent,
+        conversation: conversation,
       );
     } else {
       // 使用默认初始状态
-      return ChatState.initial();
+      return ChatState.initial(currentUser);
     }
   }
 
@@ -366,44 +372,83 @@ class ChatCubit extends Cubit<ChatState> {
         },
         stackTrace: StackTrace.current);
 
+    if (isClosed) return;
+
     Message? tempMessage;
-
     try {
-      // 检查Cubit是否已关闭
-      if (!isClosed) {
-        emit(state.copyWith(isSending: true));
-      }
+      // 1. 设置发送状态
+      _setLoadingState(true);
 
-      // 1. 创建带临时ID的消息
-      tempMessage = await _chatRepository.createTempMessage(
-        _conversationId,
-        text,
-        'text',
-      );
+      // 2. 创建临时消息
+      tempMessage = await _createTempMessage(text);
 
-      // 2. 立即添加到UI显示（状态为sending）
-      final updatedMessages = [
-        ...[tempMessage],
-        ...state.messages
-      ];
+      // 3. 更新UI显示
+      await _addMessageToUI(tempMessage);
 
-      // 再次检查Cubit是否已关闭
-      if (!isClosed) {
-        _updateMessagesInState(updatedMessages);
-        emit(state.copyWith(isSending: false));
-      }
-
-      // 3. 发送消息（不等待响应）
-      await _chatRepository.sendMessageWithTimeout(
-        tempMessage,
-        timeout: const Duration(seconds: 3),
-      );
+      // 4. 发送消息到服务器
+      await _sendMessageToServer(tempMessage);
 
       _logger.i('文本消息发送请求已发出', extra: {
         'tempMessageId': tempMessage.messageId,
       });
     } catch (error) {
       _logger.e('发送文本消息失败', error: error);
+
+      // 处理发送失败
+      await _handleSendFailure(tempMessage?.messageId, error.toString());
+    } finally {
+      // 重置发送状态
+      _setLoadingState(false);
+    }
+  }
+
+  /// 设置加载状态
+  void _setLoadingState(bool isLoading) {
+    if (!isClosed) {
+      emit(state.copyWith(isSending: isLoading));
+    }
+  }
+
+  /// 创建临时消息
+  Future<Message> _createTempMessage(String text) async {
+    return await _chatRepository.createTempMessage(
+      _conversationId,
+      text,
+      'text',
+    );
+  }
+
+  /// 添加消息到UI
+  Future<void> _addMessageToUI(Message message) async {
+    if (isClosed) return;
+
+    final updatedMessages = [message, ...state.messages];
+    _updateMessagesInState(updatedMessages);
+  }
+
+  /// 发送消息到服务器
+  Future<void> _sendMessageToServer(Message message) async {
+    await _chatRepository.sendMessageWithTimeout(
+      message,
+      timeout: const Duration(seconds: 3),
+    );
+  }
+
+  /// 处理发送失败
+  Future<void> _handleSendFailure(String? messageId, String errorReason) async {
+    if (messageId == null || isClosed) return;
+
+    try {
+      // 标记消息为失败状态
+      await _chatRepository.markMessageAsFailed(messageId, errorReason);
+
+      // 重新加载消息以更新UI
+      await loadMoreMessages();
+
+      // 设置错误消息给用户
+      emit(state.copyWith(errorMessage: '消息发送失败: $errorReason'));
+    } catch (error) {
+      _logger.e('处理发送失败时出错', error: error);
     }
   }
 
@@ -428,6 +473,8 @@ class ChatCubit extends Cubit<ChatState> {
       _logger.e('标记消息失败状态时出错', error: error);
     }
   }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢                💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 用户进入会话
   Future<void> joinConversation() async {
@@ -586,12 +633,6 @@ class ChatCubit extends Cubit<ChatState> {
       lastReadMessageId: state.lastReadMessageId,
     );
 
-    final firstUnreadMessageId = MessageListProcessor.findFirstUnreadMessageId(
-      messages: newMessages,
-      currentUserId: currentUserId,
-      lastReadMessageId: state.lastReadMessageId,
-    );
-
     emit(state.copyWith(
       messages: newMessages,
       isLoadingMessages: false,
@@ -599,13 +640,11 @@ class ChatCubit extends Cubit<ChatState> {
       hasMoreHistory: hasMoreHistory,
       hasMoreRecent: hasMoreRecent,
       unreadCount: unreadCount,
-      firstUnreadMessageId: firstUnreadMessageId,
     ));
 
     _logger.d('消息状态更新完成', extra: {
       'totalMessages': newMessages.length,
       'unreadCount': unreadCount,
-      'firstUnreadMessageId': firstUnreadMessageId,
       'hasMoreHistory': hasMoreHistory,
       'hasMoreRecent': hasMoreRecent,
     });

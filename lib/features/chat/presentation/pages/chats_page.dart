@@ -694,6 +694,7 @@ class _ChatsPageState extends State<ChatsPage>
                 key: ValueKey('pinned_${conversation.conversationId}'),
                 conversation: conversation,
                 contact: contact,
+                currentUser: state.currentUser!,
                 formatTimeCallback: _formatTime,
                 formatUnreadCountCallback: _formatUnreadCount,
               );
@@ -719,6 +720,7 @@ class _ChatsPageState extends State<ChatsPage>
                 key: ValueKey(conversation.conversationId),
                 conversation: conversation,
                 contact: contact,
+                currentUser: state.currentUser!,
                 formatTimeCallback: _formatTime,
                 formatUnreadCountCallback: _formatUnreadCount,
               );

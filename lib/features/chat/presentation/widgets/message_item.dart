@@ -5,15 +5,22 @@ import 'package:intl/intl.dart';
 /// 消息项组件
 ///
 /// 用于显示单条消息，支持不同消息类型和发送状态
+/// 支持消息分组显示：同一人连续消息只在最后一条显示头像和尾巴
 class MessageItem extends StatelessWidget {
   final Message message;
   final bool isCurrentUser;
+  final bool showAvatar; // 是否显示头像
+  final bool showTail; // 是否显示小尾巴
+  final bool isPrivateChat; // 是否为私聊
   final VoidCallback? onTap;
 
   const MessageItem({
     super.key,
     required this.message,
     required this.isCurrentUser,
+    this.showAvatar = true,
+    this.showTail = true,
+    this.isPrivateChat = false,
     this.onTap,
   });
 
@@ -23,8 +30,8 @@ class MessageItem extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          vertical: 4.0,
-          horizontal: 8.0,
+          vertical: 2.0, // 减小垂直间距以支持消息分组
+          horizontal: 4.0, // 减少水平内边距，配合列表内边距调整
         ),
         child: Row(
           mainAxisAlignment:
@@ -32,7 +39,11 @@ class MessageItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (!isCurrentUser) ...[
-              _buildAvatar(),
+              // 只有在非私聊且需要显示头像时才显示
+              if (!isPrivateChat && showAvatar)
+                _buildAvatar()
+              else if (!isPrivateChat)
+                const SizedBox(width: 32.0), // 占位符保持对齐
               const SizedBox(width: 8.0),
             ],
             Flexible(
@@ -83,13 +94,26 @@ class MessageItem extends StatelessWidget {
       decoration: BoxDecoration(
         color:
             isCurrentUser ? Theme.of(context).primaryColor : Colors.grey[200],
-        borderRadius: BorderRadius.circular(18.0),
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(18.0),
+          topRight: const Radius.circular(18.0),
+          bottomLeft: isCurrentUser
+              ? const Radius.circular(18.0)
+              : showTail
+                  ? const Radius.circular(2.0) // 更明显的小尾巴
+                  : const Radius.circular(18.0),
+          bottomRight: isCurrentUser
+              ? showTail
+                  ? const Radius.circular(2.0) // 更明显的小尾巴
+                  : const Radius.circular(18.0)
+              : const Radius.circular(18.0),
+        ),
       ),
       child: Column(
         crossAxisAlignment:
             isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isCurrentUser && message.senderName != null)
+          if (!isCurrentUser && message.senderName != null && !isPrivateChat)
             Padding(
               padding: const EdgeInsets.only(bottom: 4.0),
               child: Text(
@@ -130,52 +154,85 @@ class MessageItem extends StatelessWidget {
         );
 
       case 'image':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 200.0,
-              height: 150.0,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: message.mediaUrl != null
-                  ? ClipRRect(
+        return IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth:
+                      MediaQuery.of(context).size.width * 0.6, // 最大宽度为屏幕的60%
+                  maxHeight:
+                      MediaQuery.of(context).size.height * 0.4, // 最大高度为屏幕的40%
+                  minWidth: 120.0, // 最小宽度
+                  minHeight: 80.0, // 最小高度
+                ),
+                child: AspectRatio(
+                  aspectRatio: _calculateImageAspectRatio(), // 计算合适的宽高比
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(8.0),
-                      child: Image.network(
-                        message.mediaUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
+                    ),
+                    child: message.mediaUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: Image.network(
+                              message.mediaUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                    size: 40.0,
+                                  ),
+                                );
+                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes !=
+                                            null
+                                        ? loadingProgress
+                                                .cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : const Center(
                             child: Icon(
-                              Icons.broken_image,
+                              Icons.image,
                               color: Colors.grey,
                               size: 40.0,
                             ),
-                          );
-                        },
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(
-                        Icons.image,
-                        color: Colors.grey,
-                        size: 40.0,
-                      ),
-                    ),
-            ),
-            if (message.text?.isNotEmpty == true) ...[
-              const SizedBox(height: 4.0),
-              Text(
-                message.text!,
-                style: TextStyle(
-                  fontSize: 14.0,
-                  color: isCurrentUser ? Colors.white : Colors.black87,
+                          ),
+                  ),
                 ),
               ),
+              if (message.text?.isNotEmpty == true) ...[
+                const SizedBox(height: 4.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Text(
+                    message.text!,
+                    style: TextStyle(
+                      fontSize: 14.0,
+                      color: isCurrentUser ? Colors.white : Colors.black87,
+                    ),
+                    maxLines: 3, // 限制最大行数避免文字过长
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         );
 
       case 'voice':
@@ -327,5 +384,34 @@ class MessageItem extends StatelessWidget {
       final sizeInMB = sizeInKB / 1024;
       return '${sizeInMB.toStringAsFixed(1)} MB';
     }
+  }
+
+  /// 计算图片的宽高比
+  double _calculateImageAspectRatio() {
+    // 如果没有尺寸信息，根据图片类型或URL判断可能的宽高比
+    if (message.mediaUrl != null) {
+      final url = message.mediaUrl!.toLowerCase();
+
+      // 根据文件名或URL推测可能的宽高比
+      if (url.contains('portrait') || url.contains('vertical')) {
+        return 0.75; // 3:4 竖图比例
+      } else if (url.contains('landscape') || url.contains('horizontal')) {
+        return 1.5; // 3:2 横图比例
+      } else if (url.contains('square')) {
+        return 1.0; // 1:1 正方形
+      }
+
+      // 根据文件扩展名推测可能的宽高比
+      if (url.contains('.jpg') || url.contains('.jpeg')) {
+        return 1.3; // JPEG 通常是相机拍摄，4:3 比例较常见
+      } else if (url.contains('.png')) {
+        return 1.0; // PNG 通常是图标或截图，接近正方形
+      } else if (url.contains('.gif')) {
+        return 1.2; // GIF 通常是动图，略微横向
+      }
+    }
+
+    // 默认使用略微横向的比例，适合大多数照片
+    return 1.3; // 4:3 比例，接近手机拍照的默认比例
   }
 }

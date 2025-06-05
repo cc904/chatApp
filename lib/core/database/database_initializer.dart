@@ -7,7 +7,6 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
 
 /// 数据库初始化器
 ///
@@ -20,7 +19,7 @@ import 'package:cc/core/proto/generated/user.pb.dart';
 class DatabaseInitializer {
   static final _logger = LogService.instance;
   static Isar? _isar;
-  static CurrentUserProto? _currentUser;
+  static CurrentUser? _currentUser;
 
   /// 数据库是否已初始化
   static bool get isInitialized => _isar != null;
@@ -28,7 +27,7 @@ class DatabaseInitializer {
   /// 当前用户ID
   ///
   /// 可用于创建资源库实例和关联用户数据
-  static CurrentUserProto? get currentUser => _currentUser;
+  static CurrentUser? get currentUser => _currentUser;
 
   /// 获取数据库实例
   ///
@@ -51,7 +50,7 @@ class DatabaseInitializer {
   ///
   /// 异常:
   /// - 如果初始化失败，会抛出异常并记录错误信息
-  static Future<void> init({required CurrentUserProto currentUser}) async {
+  static Future<void> init({required CurrentUser currentUser}) async {
     try {
       // 如果数据库已经初始化,且用户ID相同,则直接返回
       if (_isar != null && _currentUser?.userId == currentUser.userId) {

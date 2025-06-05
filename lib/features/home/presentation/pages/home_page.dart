@@ -70,7 +70,7 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
-    _homeCubit = HomeCubit(currentUserProto: currentUser);
+    _homeCubit = HomeCubit(currentUser: currentUser);
 
     // 初始化用户会话
     final success = await _homeCubit!.initUserSession();
@@ -85,17 +85,18 @@ class _HomePageState extends State<HomePage>
     }
 
     // 创建全局共享的ChatRepository
-    _chatRepository = ChatRepositoryImpl(currentUserProto: currentUser);
+    _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
 
     // 创建ChatsRepository
     _chatsRepository = ChatsRepositoryImpl(chatRepository: _chatRepository);
 
     _chatsCubit = ChatsCubit(
       chatsRepository: _chatsRepository!,
+      currentUser: currentUser,
     );
 
     _contactCubit = ContactCubit(
-      contactsRepository: ContactsRepositoryImpl(currentUserProto: currentUser),
+      contactsRepository: ContactsRepositoryImpl(currentUser: currentUser),
     );
 
     if (mounted) {
@@ -119,7 +120,6 @@ class _HomePageState extends State<HomePage>
     _cleanupTimer?.cancel();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {

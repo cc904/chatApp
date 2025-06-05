@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
@@ -15,6 +16,9 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 class ConversationItem extends StatelessWidget {
   /// 会话信息
   final Conversation conversation;
+
+  /// 当前用户信息
+  final CurrentUser currentUser;
 
   /// 联系人信息
   final User contact;
@@ -32,6 +36,7 @@ class ConversationItem extends StatelessWidget {
   const ConversationItem({
     super.key,
     required this.conversation,
+    required this.currentUser,
     required this.contact,
     this.formatTimeCallback,
     required this.formatUnreadCountCallback,
@@ -67,7 +72,8 @@ class ConversationItem extends StatelessWidget {
         Material(
           color: Colors.transparent, // 使用透明背景
           child: InkWell(
-            onTap: () => _openChatDetail(context, conversation, contact),
+            onTap: () => _openChatDetail(
+                context, conversation, contact, currentUser),
             splashColor: Colors.grey.withAlpha(26), // 添加水波纹效果
             highlightColor: Colors.grey.withAlpha(13), // 按下时的高亮效果
             child: Container(
@@ -312,7 +318,10 @@ Widget _buildUnreadBadge(Conversation conversation) {
 
 /// 打开聊天详情页
 void _openChatDetail(
-    BuildContext context, Conversation conversation, User contact) async {
+    BuildContext context,
+    Conversation conversation,
+    User contact,
+    CurrentUser currentUser) async {
   // 在导航前获取Repository和Cubit引用
   final chatRepository = context.read<ChatRepository>();
   final chatsRepository = context.read<ChatsRepository>();
@@ -339,14 +348,15 @@ void _openChatDetail(
                 // 使用context.read<>()从Provider中获取Repository，避免重复传参
                 chatRepository: context.read<ChatRepository>(),
                 chatsRepository: context.read<ChatsRepository>(),
-                conversationId: conversation.conversationId,
+                conversation: conversation,
+                currentUser: currentUser,
                 initialSnapshot: snapshot, // 传入预获取的快照
               ),
               child: ChatPage(
                 conversation: conversation,
                 contact: contact,
               ),
-            ),
+            ),  
           ),
         ),
       );
@@ -365,7 +375,9 @@ void _openChatDetail(
               create: (context) => ChatCubit(
                 chatRepository: context.read<ChatRepository>(),
                 chatsRepository: context.read<ChatsRepository>(),
-                conversationId: conversation.conversationId,
+                conversation: conversation,
+                currentUser: currentUser,
+
                 // 出错时不传入快照，让ChatCubit自行处理
               ),
               child: ChatPage(
