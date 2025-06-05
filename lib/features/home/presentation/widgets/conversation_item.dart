@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
@@ -20,9 +19,6 @@ class ConversationItem extends StatelessWidget {
   /// 当前用户信息
   final CurrentUser currentUser;
 
-  /// 联系人信息
-  final User contact;
-
   /// 格式化时间的回调函数
   final String Function(DateTime?)? formatTimeCallback;
 
@@ -37,7 +33,6 @@ class ConversationItem extends StatelessWidget {
     super.key,
     required this.conversation,
     required this.currentUser,
-    required this.contact,
     this.formatTimeCallback,
     required this.formatUnreadCountCallback,
   });
@@ -72,8 +67,7 @@ class ConversationItem extends StatelessWidget {
         Material(
           color: Colors.transparent, // 使用透明背景
           child: InkWell(
-            onTap: () => _openChatDetail(
-                context, conversation, contact, currentUser),
+            onTap: () => _openChatDetail(context, conversation, currentUser),
             splashColor: Colors.grey.withAlpha(26), // 添加水波纹效果
             highlightColor: Colors.grey.withAlpha(13), // 按下时的高亮效果
             child: Container(
@@ -87,13 +81,13 @@ class ConversationItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
                 children: [
                   // 头像
-                  _buildAvatar(contact),
+                  _buildAvatar(conversation),
 
                   // 中间内容区域
                   Expanded(
                     child: SizedBox(
                       height: avatarSize + 1, // 与头像高度一致
-                      child: _buildContent(conversation, contact),
+                      child: _buildContent(conversation),
                     ),
                   ),
 
@@ -119,15 +113,15 @@ class ConversationItem extends StatelessWidget {
 }
 
 /// 构建头像部分
-Widget _buildAvatar(User contact) {
+Widget _buildAvatar(Conversation conversation) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16.0),
     child: SizedBox(
       width: 60,
       height: 60,
       child: UserAvatar(
-        avatarUrl: contact.avatar,
-        name: contact.name,
+        avatarUrl: conversation.avatar,
+        name: conversation.name ?? '未知联系人',
         radius: 60 / 2,
         backgroundColor: Colors.cyan,
       ),
@@ -137,7 +131,7 @@ Widget _buildAvatar(User contact) {
 
 /// 构建会话内容
 /// 根据会话类型显示不同的内容格式
-Widget _buildContent(Conversation conversation, User contact) {
+Widget _buildContent(Conversation conversation) {
   // 判断会话类型
   final bool isGroup = conversation.type == ConversationType.group;
   final bool isChannel = conversation.type == ConversationType.channel;
@@ -188,7 +182,7 @@ Widget _buildContent(Conversation conversation, User contact) {
                   child: Text(
                     isGroup || isChannel
                         ? (conversation.name ?? (isGroup ? '群聊' : '频道'))
-                        : contact.name,
+                        : conversation.name ?? '未知联系人',
                     style: const TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 16,
@@ -317,10 +311,7 @@ Widget _buildUnreadBadge(Conversation conversation) {
 }
 
 /// 打开聊天详情页
-void _openChatDetail(
-    BuildContext context,
-    Conversation conversation,
-    User contact,
+void _openChatDetail(BuildContext context, Conversation conversation,
     CurrentUser currentUser) async {
   // 在导航前获取Repository和Cubit引用
   final chatRepository = context.read<ChatRepository>();
@@ -345,18 +336,14 @@ void _openChatDetail(
             ],
             child: BlocProvider<ChatCubit>(
               create: (context) => ChatCubit(
-                // 使用context.read<>()从Provider中获取Repository，避免重复传参
                 chatRepository: context.read<ChatRepository>(),
                 chatsRepository: context.read<ChatsRepository>(),
                 conversation: conversation,
                 currentUser: currentUser,
                 initialSnapshot: snapshot, // 传入预获取的快照
               ),
-              child: ChatPage(
-                conversation: conversation,
-                contact: contact,
-              ),
-            ),  
+              child: const ChatPage(),
+            ),
           ),
         ),
       );
@@ -377,13 +364,8 @@ void _openChatDetail(
                 chatsRepository: context.read<ChatsRepository>(),
                 conversation: conversation,
                 currentUser: currentUser,
-
-                // 出错时不传入快照，让ChatCubit自行处理
               ),
-              child: ChatPage(
-                conversation: conversation,
-                contact: contact,
-              ),
+              child: const ChatPage(),
             ),
           ),
         ),

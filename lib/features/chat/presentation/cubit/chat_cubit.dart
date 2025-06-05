@@ -12,6 +12,7 @@ import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
+import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 
 /// 滚动恢复类型
 enum ScrollRestoreType {
@@ -104,8 +105,10 @@ class ChatCubit extends Cubit<ChatState> {
         conversation: conversation,
       );
     } else {
-      // 使用默认初始状态
-      return ChatState.initial(currentUser);
+      // 使用传入的 conversation 对象创建初始状态
+      return ChatState.initial(currentUser).copyWith(
+        conversation: conversation,
+      );
     }
   }
 
@@ -135,42 +138,6 @@ class ChatCubit extends Cubit<ChatState> {
         _isRestoring = false;
 
         _logger.i('ChatCubit从传入快照初始化完成');
-        return;
-      }
-
-      // 如果没有传入快照，尝试从ChatsRepository获取快照
-      final snapshot = await _chatsRepository.getStateSnapshot(_conversationId);
-      if (snapshot != null) {
-        _logger.i('从ChatsRepository获取快照恢复会话', extra: {
-          'conversationId': _conversationId,
-          'messageCount': snapshot.messages.length,
-          'currentScrollPosition': snapshot.currentScrollPosition,
-        });
-
-        // 设置恢复状态标记
-        _isRestoring = true;
-
-        // 从快照恢复状态
-        emit(state.copyWith(
-          messages: snapshot.messages,
-          lastReadMessageId: snapshot.lastReadMessageId,
-          unreadCount: snapshot.unreadCount,
-          currentScrollPosition: snapshot.currentScrollPosition,
-          isLoadingMessages: false,
-          hasMoreHistory: snapshot.hasMoreHistory,
-          hasMoreRecent: snapshot.hasMoreRecent,
-        ));
-
-        // 先加入会话房间
-        await joinConversation();
-
-        // 然后设置事件监听
-        _setupSubscriptions();
-
-        // 清除恢复状态标记
-        _isRestoring = false;
-
-        _logger.i('ChatCubit从ChatsRepository快照恢复完成');
         return;
       } else {
         _logger.i('没有状态快照，执行正常初始化流程');
@@ -230,6 +197,8 @@ class ChatCubit extends Cubit<ChatState> {
   void _setupSubscriptions() {
     try {
       _logger.i('设置事件监听', extra: {'conversationId': _conversationId});
+
+      // 监听消息状态更新
       _subscriptions['messageStatus'] = _chatRepository
           .getMessageStatusStream()
           .where((event) => event['type'] == 'loadMore')
@@ -237,6 +206,17 @@ class ChatCubit extends Cubit<ChatState> {
         _handleLoadMoreMessageStatusUpdate,
         onError: (error) {
           _logger.e('消息状态流监听出错', error: error);
+        },
+      );
+
+      // 监听会话更新事件（从 ChatsRepository）
+      _subscriptions['conversationUpdate'] = _chatsRepository
+          .conversationUpdateStream
+          .where((event) => event.conversationId == _conversationId)
+          .listen(
+        _handleConversationUpdate,
+        onError: (error) {
+          _logger.e('会话更新流监听出错', error: error);
         },
       );
 
@@ -280,6 +260,41 @@ class ChatCubit extends Cubit<ChatState> {
         newMessages,
         hasMoreHistory: event['hasMoreHistory'] ?? true,
       );
+    }
+  }
+
+  /// 💢💢💢 处理会话更新事件
+  /// 监听 ChatsCubit 中的会话状态变化，保持 ChatPage 中会话信息的同步
+  void _handleConversationUpdate(ConversationUpdateEvent event) {
+    _logger.d('处理会话更新事件', extra: {
+      'conversationId': event.conversationId,
+      'updateType': event.type.toString(),
+    });
+
+    if (isClosed) return;
+
+    // 根据更新类型处理不同的事件
+    switch (event.type) {
+      case ConversationUpdateType.updated:
+        // 会话信息更新（如静音状态、置顶状态等）
+        _logger.i('会话信息已更新', extra: {
+          'conversationId': event.conversationId,
+          'isMuted': event.isMuted,
+          'isPinned': event.isPinned,
+        });
+        // 这里可以更新 ChatPage 中显示的会话状态
+        // 例如 AppBar 中的会话名称、头像等
+        break;
+      case ConversationUpdateType.readStatusUpdated:
+        // 阅读状态更新
+        emit(state.copyWith(
+          unreadCount: event.unreadCount ?? state.unreadCount,
+        ));
+        break;
+      case ConversationUpdateType.added:
+      case ConversationUpdateType.removed:
+        // 这些事件通常不会影响当前打开的聊天页面
+        break;
     }
   }
 
@@ -648,6 +663,181 @@ class ChatCubit extends Cubit<ChatState> {
       'hasMoreHistory': hasMoreHistory,
       'hasMoreRecent': hasMoreRecent,
     });
+  }
+
+  /// 💢💢💢💢💢��💢💢💢💢💢💢💢💢   搜索功能   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 进入搜索模式
+  void enterSearchMode() {
+    if (!isClosed) {
+      emit(state.copyWith(
+        isSearchMode: true,
+        searchQuery: '',
+        searchResults: [],
+        isSearching: false,
+        searchDateFilter: null,
+      ));
+      _logger.i('进入搜索模式');
+    }
+  }
+
+  /// 退出搜索模式
+  void exitSearchMode() {
+    if (!isClosed) {
+      emit(state.copyWith(
+        isSearchMode: false,
+        searchQuery: '',
+        searchResults: [],
+        isSearching: false,
+        searchDateFilter: null,
+      ));
+      _logger.i('退出搜索模式');
+    }
+  }
+
+  /// 执行搜索
+  Future<void> performSearch(String query) async {
+    if (isClosed) return;
+
+    _logger.i('执行搜索', extra: {'query': query});
+
+    try {
+      emit(state.copyWith(
+        searchQuery: query,
+        isSearching: true,
+      ));
+
+      if (query.trim().isEmpty) {
+        emit(state.copyWith(
+          searchResults: [],
+          isSearching: false,
+        ));
+        return;
+      }
+
+      // 在本地消息中搜索
+      final searchResults = _searchInMessages(query, state.messages);
+
+      emit(state.copyWith(
+        searchResults: searchResults,
+        isSearching: false,
+      ));
+
+      _logger.i('搜索完成', extra: {'resultCount': searchResults.length});
+    } catch (error) {
+      _logger.e('搜索失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          isSearching: false,
+          errorMessage: '搜索失败: ${error.toString()}',
+        ));
+      }
+    }
+  }
+
+  /// 获取当前显示的消息列表（搜索模式下返回搜索结果，正常模式返回所有消息）
+  List<Message> getCurrentDisplayMessages() {
+    if (state.isSearchMode && state.searchQuery.trim().isNotEmpty) {
+      return _searchInMessages(state.searchQuery, state.messages);
+    }
+    return state.messages;
+  }
+
+  /// 设置搜索日期过滤器
+  void setSearchDateFilter(DateTime? dateFilter) {
+    if (!isClosed) {
+      emit(state.copyWith(searchDateFilter: dateFilter));
+
+      // 如果有搜索关键词，重新执行搜索
+      if (state.searchQuery.isNotEmpty) {
+        performSearch(state.searchQuery);
+      }
+
+      _logger.i('设置搜索日期过滤器', extra: {'dateFilter': dateFilter});
+    }
+  }
+
+  /// 在消息列表中搜索
+  List<Message> _searchInMessages(String query, List<Message> messages) {
+    final searchQuery = query.toLowerCase().trim();
+    final dateFilter = state.searchDateFilter;
+
+    return messages.where((message) {
+      // 日期过滤
+      if (dateFilter != null) {
+        final messageDate = DateTime(
+          message.createdAt.year,
+          message.createdAt.month,
+          message.createdAt.day,
+        );
+        final filterDate = DateTime(
+          dateFilter.year,
+          dateFilter.month,
+          dateFilter.day,
+        );
+        if (!messageDate.isAtSameMomentAs(filterDate)) {
+          return false;
+        }
+      }
+
+      // 内容搜索
+      final content = message.text?.toLowerCase() ?? '';
+      return content.contains(searchQuery);
+    }).toList();
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话设置管理   💢💢💢💢��💢💢💢💢💢💢💢💢💢
+
+  /// 更新会话静音状态
+  Future<void> updateConversationMuteStatus(bool isMuted) async {
+    try {
+      _logger.i('更新会话静音状态', extra: {
+        'conversationId': _conversationId,
+        'isMuted': isMuted,
+      });
+
+      // 通过 ChatsRepository 更新静音状态
+      await _chatsRepository.updateConversationMuteStatus(
+          _conversationId, isMuted);
+
+      _logger.i('会话静音状态更新成功');
+    } catch (error) {
+      _logger.e('更新会话静音状态失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '更新静音状态失败: ${error.toString()}'));
+      }
+    }
+  }
+
+  /// 更新会话置顶状态
+  Future<void> updateConversationPinStatus(bool isPinned) async {
+    try {
+      _logger.i('更新会话置顶状态', extra: {
+        'conversationId': _conversationId,
+        'isPinned': isPinned,
+      });
+
+      // 通过 ChatsRepository 更新置顶状态
+      await _chatsRepository.updateConversationPinStatus(
+          _conversationId, isPinned);
+
+      _logger.i('会话置顶状态更新成功');
+    } catch (error) {
+      _logger.e('更新会话置顶状态失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '更新置顶状态失败: ${error.toString()}'));
+      }
+    }
+  }
+
+  /// 获取当前会话信息
+  Future<Conversation?> getCurrentConversation() async {
+    try {
+      return await _chatsRepository.getConversationById(_conversationId);
+    } catch (error) {
+      _logger.e('获取会话信息失败', error: error);
+      return null;
+    }
   }
 
   @override

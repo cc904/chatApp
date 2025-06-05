@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -20,13 +20,13 @@ import 'package:cc/features/chat/presentation/utils/message_list_processor.dart'
 /// 使用scrollable_positioned_list来实现高性能的消息列表滚动
 /// 支持滚动到指定消息位置，适合处理大量历史消息
 class ChatPage extends StatefulWidget {
-  final Conversation conversation;
-  final User contact;
+  // final Conversation conversation;
+  // final User contact;
 
   const ChatPage({
     super.key,
-    required this.conversation,
-    required this.contact,
+    // required this.conversation,
+    // required this.contact,
   });
 
   @override
@@ -76,13 +76,7 @@ class _ChatPageState extends State<ChatPage> {
     _init();
   }
 
-  Future<void> _init() async {
-    // final currentScrollPosition =
-    //     context.read<ChatCubit>().state.currentScrollPosition;
-    // if (!currentScrollPosition.isValid) {
-    //   _restoreToScrollPosition(currentScrollPosition);
-    // }
-  }
+  Future<void> _init() async {}
 
   @override
   void dispose() {
@@ -143,7 +137,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     _logger.i('加载更多历史消息', extra: {
-      'conversationId': widget.conversation.id,
+      'conversationId': state.conversation.id,
     });
     context.read<ChatCubit>().loadMoreMessages();
   }
@@ -276,48 +270,59 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          Expanded(
-            child: _buildMessagesList(),
+    return BlocBuilder<ChatCubit, ChatState>(
+      builder: (context, state) {
+        return Scaffold(
+          appBar: state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(),
+          body: Column(
+            children: [
+              Expanded(
+                child: _buildMessagesList(),
+              ),
+              state.isSearchMode ? _buildSearchBottomBar() : _buildInputArea(),
+            ],
           ),
-          _buildInputArea(),
-        ],
-      ),
+        );
+      },
     );
   }
 
   /// 构建应用栏
   PreferredSizeWidget _buildAppBar() {
+    final state = context.read<ChatCubit>().state;
     return AppBar(
       title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.conversation.name ?? '未知联系人',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+          Hero(
+            tag: 'chat_title_${state.conversation.conversationId}',
+            child: Material(
+              color: Colors.transparent,
+              child: Text(
+                state.conversation.name ?? '未知联系人',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
           BlocBuilder<ChatCubit, ChatState>(
             builder: (context, state) {
-              // TODO if (state.typingUsers.isNotEmpty) {
-              //   return Text(
-              //     '正在输入...',
-              //     style: TextStyle(
-              //       fontSize: 12,
-              //       color: Colors.grey[600],
-              //     ),
-              //   );
-              // }
-              return Text(
-                _getLastSeenText(state),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+              return Hero(
+                tag: 'chat_subtitle_${state.conversation.conversationId}',
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    _getLastSeenText(state),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               );
             },
@@ -325,23 +330,44 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.call),
-          onPressed: () {
-            // TODO 实现语音通话
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.videocam),
-          onPressed: () {
-            // TODO 实现视频通话
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.more_vert),
-          onPressed: () {
-            // TODO 显示更多选项
-          },
+        // 会话头像
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: GestureDetector(
+            onTap: () {
+              final chatCubit = context.read<ChatCubit>();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BlocProvider<ChatCubit>.value(
+                    value: chatCubit,
+                    child: const ChatInfoPage(),
+                  ),
+                ),
+              );
+            },
+            child: Hero(
+              tag: 'chat_avatar_${state.conversation.conversationId}',
+              child: CircleAvatar(
+                radius: 18.0,
+                backgroundColor: Colors.grey[300],
+                backgroundImage: state.conversation.avatar != null
+                    ? NetworkImage(state.conversation.avatar!)
+                    : null,
+                child: state.conversation.avatar == null
+                    ? Text(
+                        state.conversation.name?.isNotEmpty == true
+                            ? state.conversation.name![0].toUpperCase()
+                            : 'X',
+                        style: const TextStyle(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -363,142 +389,176 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildMessagesList() {
     return BlocBuilder<ChatCubit, ChatState>(
       buildWhen: (previous, current) {
-        return previous.messages.length != current.messages.length;
+        return previous.messages.length != current.messages.length ||
+            previous.isSearchMode != current.isSearchMode ||
+            previous.isSearching != current.isSearching ||
+            previous.searchQuery != current.searchQuery;
       },
       builder: (context, state) {
         _logger.i('💢 BlocBuilder 重绘');
-        if (state.isLoadingMessages && state.messages.isEmpty) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
 
-        if (state.messages.isEmpty) {
-          return Stack(
-            children: [
-              // 绿色渐变背景
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.green.shade300,
-                      Colors.green.shade100,
-                    ],
-                  ),
-                ),
-              ),
+        // 获取当前应该显示的消息列表
+        final displayMessages =
+            context.read<ChatCubit>().getCurrentDisplayMessages();
 
-              // SVG图案背景 - 使用提供的SVG文件
-              Positioned.fill(
-                child: _buildSvgBackground(),
-              ),
-
-              // 空状态文字
-              const Center(
-                child: Text(
-                  '还没有消息\n发送第一条消息开始聊天吧！',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        // 处理消息列表，添加分隔符
-        final currentUserId = state.currentUser?.userId ?? '';
-        final isPrivateChat =
-            widget.conversation.type == ConversationType.private;
-        final processedItems = MessageListProcessor.processMessages(
-          messages: state.messages,
-          currentUserId: currentUserId,
-          isPrivateChat: isPrivateChat,
-        );
-
-        return Stack(
-          children: [
-            // 绿色渐变背景
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.green.shade300,
-                    Colors.green.shade100,
-                  ],
-                ),
-              ),
-            ),
-
-            // SVG图案背景 - 使用提供的SVG文件
-            Positioned.fill(
-              child: _buildSvgBackground(),
-            ),
-
-            // 消息列表内容
-            Column(
+        // 搜索模式下的特殊状态处理
+        if (state.isSearchMode) {
+          if (state.isSearching) {
+            return Stack(
               children: [
-                // 加载更多历史消息指示器
-                if (state.isLoadingMoreMessages)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(),
+                _buildBackground(),
+                const Center(child: CircularProgressIndicator()),
+              ],
+            );
+          }
+
+          if (state.searchQuery.trim().isNotEmpty && displayMessages.isEmpty) {
+            return Stack(
+              children: [
+                _buildBackground(),
+                const Center(
+                  child: Text(
+                    '没有找到匹配的消息',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
                   ),
+                ),
+              ],
+            );
+          }
+        }
 
-                // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-                Expanded(
-                  child: ScrollablePositionedList.builder(
-                    itemCount: processedItems.length,
-                    itemBuilder: (context, index) {
-                      final item = processedItems[index];
+        // 正常模式下的状态处理
+        if (!state.isSearchMode) {
+          if (state.isLoadingMessages && state.messages.isEmpty) {
+            return Stack(
+              children: [
+                _buildBackground(),
+                const Center(child: CircularProgressIndicator()),
+              ],
+            );
+          }
 
-                      // 根据类型渲染不同的组件
-                      if (item is MessageListItemData) {
-                        final message = item.message as Message;
-                        return MessageItem(
-                          key: ValueKey(message.messageId),
-                          message: message,
-                          isCurrentUser: item.isCurrentUser,
-                          showAvatar: item.showAvatar,
-                          showTail: item.showTail,
-                          isPrivateChat: item.isPrivateChat,
-                          onTap: () => _onMessageTap(message),
-                        );
-                      } else if (item is MessageListItemDateSeparator) {
-                        return DateSeparator(
-                          key: ValueKey(
-                              'date_${item.date.millisecondsSinceEpoch}'),
-                          date: item.date,
-                        );
-                      } else {
-                        // 未知类型，返回空容器
-                        return const SizedBox.shrink();
-                      }
-                    },
-                    itemScrollController: _itemScrollController,
-                    itemPositionsListener: _itemPositionsListener,
-                    initialScrollIndex:
-                        state.currentScrollPosition.messageIndex ?? 0,
-                    initialAlignment:
-                        state.currentScrollPosition.relativePosition ?? 0.0,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4.0,
-                      vertical: 8.0,
+          if (state.messages.isEmpty) {
+            return Stack(
+              children: [
+                _buildBackground(),
+                const Center(
+                  child: Text(
+                    '还没有消息\n发送第一条消息开始聊天吧！',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 16,
                     ),
                   ),
                 ),
               ],
+            );
+          }
+        }
+
+        // 显示消息列表内容
+        return _buildMessagesContent(displayMessages, state);
+      },
+    );
+  }
+
+  /// 构建背景
+  Widget _buildBackground() {
+    return Stack(
+      children: [
+        // 绿色渐变背景
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.green.shade300,
+                Colors.green.shade100,
+              ],
+            ),
+          ),
+        ),
+        // SVG图案背景
+        Positioned.fill(
+          child: _buildSvgBackground(),
+        ),
+      ],
+    );
+  }
+
+  /// 构建消息内容
+  Widget _buildMessagesContent(List<Message> messages, ChatState state) {
+    // 处理消息列表，添加分隔符
+    final currentUserId = state.currentUser?.userId ?? '';
+    final isPrivateChat = state.conversation.conversationId.isNotEmpty
+        ? state.conversation.type == ConversationType.private
+        : true; // 默认值，当会话还未初始化时
+    final processedItems = MessageListProcessor.processMessages(
+      messages: messages,
+      currentUserId: currentUserId,
+      isPrivateChat: isPrivateChat,
+    );
+
+    return Stack(
+      children: [
+        _buildBackground(),
+        // 消息列表内容
+        Column(
+          children: [
+            // 加载更多历史消息指示器 (仅在非搜索模式下显示)
+            if (!state.isSearchMode && state.isLoadingMoreMessages)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+
+            // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+            Expanded(
+              child: ScrollablePositionedList.builder(
+                itemCount: processedItems.length,
+                itemBuilder: (context, index) {
+                  final item = processedItems[index];
+
+                  // 根据类型渲染不同的组件
+                  if (item is MessageListItemData) {
+                    final message = item.message as Message;
+                    return MessageItem(
+                      key: ValueKey(message.messageId),
+                      message: message,
+                      isCurrentUser: item.isCurrentUser,
+                      showAvatar: item.showAvatar,
+                      showTail: item.showTail,
+                      isPrivateChat: item.isPrivateChat,
+                      onTap: () => _onMessageTap(message),
+                    );
+                  } else if (item is MessageListItemDateSeparator) {
+                    return DateSeparator(
+                      key: ValueKey('date_${item.date.millisecondsSinceEpoch}'),
+                      date: item.date,
+                    );
+                  } else {
+                    // 未知类型，返回空容器
+                    return const SizedBox.shrink();
+                  }
+                },
+                itemScrollController: _itemScrollController,
+                itemPositionsListener: _itemPositionsListener,
+                initialScrollIndex:
+                    state.currentScrollPosition.messageIndex ?? 0,
+                initialAlignment:
+                    state.currentScrollPosition.relativePosition ?? 0.0,
+                reverse: true,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4.0,
+                  vertical: 8.0,
+                ),
+              ),
             ),
           ],
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -606,6 +666,109 @@ class _ChatPageState extends State<ChatPage> {
       return '连接中...';
     } else {
       return '离线';
+    }
+  }
+
+  /// 构建搜索模式的应用栏
+  PreferredSizeWidget _buildSearchAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 1,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        onPressed: () {
+          context.read<ChatCubit>().exitSearchMode();
+        },
+      ),
+      title: TextField(
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: '搜索消息...',
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: Colors.grey),
+        ),
+        style: const TextStyle(color: Colors.black, fontSize: 16),
+        onChanged: (query) {
+          context.read<ChatCubit>().performSearch(query);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            context.read<ChatCubit>().exitSearchMode();
+          },
+          child: const Text(
+            '取消',
+            style: TextStyle(color: Colors.blue, fontSize: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建搜索模式的底部栏
+  Widget _buildSearchBottomBar() {
+    return BlocBuilder<ChatCubit, ChatState>(
+      builder: (context, state) {
+        return Container(
+          padding: const EdgeInsets.all(8.0),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              top: BorderSide(
+                color: Colors.grey.withAlpha(51),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // 日期过滤按钮
+              IconButton(
+                icon: Icon(
+                  Icons.calendar_today,
+                  color: state.searchDateFilter != null
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey,
+                ),
+                onPressed: () {
+                  _showDateFilterPicker(context);
+                },
+              ),
+              // 显示当前过滤的日期
+              if (state.searchDateFilter != null) ...[
+                const SizedBox(width: 8),
+                Chip(
+                  label: Text(
+                    '${state.searchDateFilter!.month}/${state.searchDateFilter!.day}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () {
+                    context.read<ChatCubit>().setSearchDateFilter(null);
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 显示日期选择器
+  Future<void> _showDateFilterPicker(BuildContext context) async {
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (selectedDate != null && mounted) {
+      // ignore: use_build_context_synchronously
+      context.read<ChatCubit>().setSearchDateFilter(selectedDate);
     }
   }
 }

@@ -1,5 +1,5 @@
-import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
-import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,13 +9,8 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 
 class ChatInfoPage extends StatefulWidget {
-  final String conversationId;
-  final dynamic contact;
-
   const ChatInfoPage({
     super.key,
-    required this.conversationId,
-    this.contact,
   });
 
   @override
@@ -59,11 +54,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 获取当前会话，初始化静音状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final chatsCubit = context.read<ChatsCubit>();
-        final conversation = chatsCubit.state.conversations.firstWhere(
-          (c) => c.conversationId == widget.conversationId,
-          orElse: () => Conversation(),
-        );
+        final chatCubit = context.read<ChatCubit>();
+        final conversation = chatCubit.state.conversation;
 
         setState(() {
           _isMuted = conversation.isMuted;
@@ -73,17 +65,6 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         });
       }
     });
-
-    // 初始化文本编辑控制器
-    if (widget.contact != null) {
-      final nameParts = widget.contact.name.split(' ');
-      if (nameParts.isNotEmpty) {
-        _firstNameController.text = nameParts.first;
-        if (nameParts.length > 1) {
-          _lastNameController.text = nameParts.sublist(1).join(' ');
-        }
-      }
-    }
   }
 
   @override
@@ -108,20 +89,17 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     UINotificationService().showSuccess(_isMuted ? '已开启静音' : '已关闭静音');
     _logger.i('切换静音状态', extra: {'isMuted': _isMuted});
 
-    // 更新数据库中的静音状态
-    final chatsCubit = context.read<ChatsCubit>();
-    chatsCubit.updateConversationMuteStatus(widget.conversationId, _isMuted);
+    // 通过 ChatCubit 更新静音状态（遵循 DDD 架构）
+    final chatCubit = context.read<ChatCubit>();
+    chatCubit.updateConversationMuteStatus(_isMuted);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ChatsCubit, ChatsState>(
+    return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
-        // 获取当前会话
-        final conversation = state.conversations.firstWhere(
-          (c) => c.conversationId == widget.conversationId,
-          orElse: () => Conversation()..name = '未知会话',
-        );
+        // 从 ChatCubit 获取当前会话信息
+        final conversation = state.conversation;
 
         // 判断是否为群聊
         final isGroup = conversation.type == ConversationType.group;
@@ -142,8 +120,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   setState(() {
                     _isEditMode = false;
                     // 重新初始化文本控制器
-                    if (widget.contact != null) {
-                      final nameParts = widget.contact.name.split(' ');
+                    if (state.conversation.name != null) {
+                      final nameParts = state.conversation.name!.split(' ');
                       if (nameParts.isNotEmpty) {
                         _firstNameController.text = nameParts.first;
                         if (nameParts.length > 1) {
@@ -238,6 +216,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 编辑模式下的内容
   Widget _buildEditModeContent(Conversation conversation) {
+    final state = context.read<ChatCubit>().state;
+    final conversation = state.conversation;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -248,11 +228,14 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             child: Column(
               children: [
                 // 头像
-                UserAvatar(
-                  avatarUrl: widget.contact?.avatar,
-                  name: widget.contact?.name ?? '?',
-                  radius: 50,
-                  backgroundColor: Colors.cyan,
+                Hero(
+                  tag: 'chat_avatar_${conversation.conversationId}',
+                  child: UserAvatar(
+                    avatarUrl: conversation.avatar,
+                    name: conversation.name ?? '?',
+                    radius: 50,
+                    backgroundColor: Colors.cyan,
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -360,16 +343,17 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 头像和名称区域 - 移除白色背景
   Widget _buildProfileHeader(Conversation conversation) {
+    final state = context.read<ChatCubit>().state;
     return Padding(
       padding: const EdgeInsets.only(top: 30, bottom: 10),
       child: Column(
         children: [
           // 头像
           Hero(
-            tag: 'avatar_${widget.conversationId}',
+            tag: 'chat_avatar_${state.conversation.conversationId}',
             child: UserAvatar(
-              avatarUrl: widget.contact?.avatar,
-              name: widget.contact?.name ?? '?',
+              avatarUrl: state.conversation.avatar,
+              name: state.conversation.name ?? '?',
               radius: 50,
               backgroundColor: Colors.cyan,
             ),
@@ -377,11 +361,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           const SizedBox(height: 16),
           // 名称
           Hero(
-            tag: 'name_${widget.conversationId}',
+            tag: 'chat_title_${state.conversation.conversationId}',
             child: Material(
               color: Colors.transparent,
               child: Text(
-                widget.contact?.name ?? conversation.name ?? '未知联系人',
+                state.conversation.name ?? '未知联系人',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -391,11 +375,17 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           ),
           const SizedBox(height: 4),
           // 状态
-          const Text(
-            'last seen a long time ago',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
+          Hero(
+            tag: 'chat_subtitle_${state.conversation.conversationId}',
+            child: const Material(
+              color: Colors.transparent,
+              child: Text(
+                'last seen a long time ago',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
             ),
           ),
         ],
@@ -524,8 +514,15 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
-              _logger.i('点击了操作按钮', extra: {'action': label});
-              UINotificationService().showInfo('$label 功能开发中');
+              if (label == 'search') {
+                // 搜索按钮特殊处理：返回到 ChatPage 并启动搜索模式
+                final chatCubit = context.read<ChatCubit>();
+                chatCubit.enterSearchMode();
+                Navigator.pop(context); // 返回到 ChatPage
+              } else {
+                _logger.i('点击了操作按钮', extra: {'action': label});
+                UINotificationService().showInfo('$label 功能开发中');
+              }
             },
             child: Container(
               width: buttonWidth,
@@ -659,8 +656,29 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     }
   }
 
-  // 手机号码区域 - 修改为显示用户ID
+  // 用户ID/群组ID区域
   Widget _buildPhoneSection() {
+    final state = context.read<ChatCubit>().state;
+    final conversation = state.conversation;
+    final isGroup = conversation.type == ConversationType.group;
+
+    // 根据会话类型确定要显示的ID和标签
+    String displayId;
+    String labelText;
+    String successMessage;
+
+    if (isGroup) {
+      // 群聊显示群组ID
+      displayId = conversation.conversationId;
+      labelText = 'group ID';
+      successMessage = '已复制群组ID';
+    } else {
+      // 私聊显示对方用户ID
+      displayId = conversation.contactUserId ?? conversation.conversationId;
+      labelText = 'user ID';
+      successMessage = '已复制用户ID';
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -674,11 +692,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 16, top: 3),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 3),
                     child: Text(
-                      'user ID',
-                      style: TextStyle(
+                      labelText,
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
                       ),
@@ -693,7 +711,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                           child: Row(
                             children: [
                               Text(
-                                '@${widget.conversationId}',
+                                '@$displayId',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   color: Colors.blue,
@@ -702,14 +720,15 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                               const SizedBox(width: 8),
                               InkWell(
                                 onTap: () {
-                                  // 复制用户ID到剪贴板
-                                  final idToCopy = widget.conversationId;
+                                  // 复制ID到剪贴板
                                   Clipboard.setData(
-                                      ClipboardData(text: idToCopy));
-                                  _logger
-                                      .i('复制用户ID到剪贴板', extra: {'id': idToCopy});
+                                      ClipboardData(text: displayId));
+                                  _logger.i('复制ID到剪贴板', extra: {
+                                    'id': displayId,
+                                    'type': isGroup ? 'group' : 'user'
+                                  });
                                   UINotificationService()
-                                      .showSuccess('已复制用户ID');
+                                      .showSuccess(successMessage);
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
@@ -751,8 +770,12 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   size: 28,
                 ),
                 onPressed: () {
-                  _logger.i('显示用户二维码');
-                  UINotificationService().showInfo('显示用户二维码功能开发中');
+                  _logger.i('显示二维码', extra: {
+                    'type': isGroup ? 'group' : 'user',
+                    'id': displayId
+                  });
+                  UINotificationService()
+                      .showInfo('显示${isGroup ? "群组" : "用户"}二维码功能开发中');
                 },
               ),
             ),
@@ -792,12 +815,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 显示退出确认对话框
   void _showLeaveConfirmation(BuildContext context, bool isGroup) {
-    final conversationId = widget.conversationId;
-    final chatsCubit = context.read<ChatsCubit>();
-    chatsCubit.state.conversations.firstWhere(
-      (c) => c.conversationId == conversationId,
-      orElse: () => Conversation(),
-    );
+    // final chatCubit = context.read<ChatCubit>();
+    // final conversation = chatCubit.state.conversation;
 
     final title = isGroup ? '删除并退出' : '删除联系人';
     final content = isGroup ? '退出后,将不再接收此群聊信息' : '删除后,将不再接收此联系人的消息';

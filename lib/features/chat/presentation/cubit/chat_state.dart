@@ -135,6 +135,21 @@ class ChatState extends Equatable {
   /// 用于保存和恢复用户的查看位置
   final CurrentScrollPosition currentScrollPosition;
 
+  /// 是否处于搜索模式
+  final bool isSearchMode;
+
+  /// 搜索关键词
+  final String searchQuery;
+
+  /// 搜索结果列表
+  final List<Message> searchResults;
+
+  /// 是否正在搜索
+  final bool isSearching;
+
+  /// 搜索日期过滤器
+  final DateTime? searchDateFilter;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -151,12 +166,25 @@ class ChatState extends Equatable {
     required this.unreadCount,
     this.firstUnreadMessageId,
     required this.currentScrollPosition,
+    this.isSearchMode = false,
+    this.searchQuery = '',
+    this.searchResults = const [],
+    this.isSearching = false,
+    this.searchDateFilter,
   });
 
   /// 初始状态
   factory ChatState.initial(CurrentUser currentUser) {
+    // 创建一个基础的初始状态模板
+    // 真正的 conversation 对象会通过 copyWith 方法传入
+    final emptyConversation = Conversation()
+      ..conversationId = ''
+      ..type = ConversationType.private
+      ..name = ''
+      ..createdAt = DateTime.now();
+
     return ChatState(
-      conversation: Conversation(),
+      conversation: emptyConversation, // 这只是一个占位符，会被 copyWith 替换
       messages: const [],
       isLoadingMessages: false,
       isLoadingMoreMessages: false,
@@ -187,6 +215,11 @@ class ChatState extends Equatable {
     int? unreadCount,
     String? firstUnreadMessageId,
     CurrentScrollPosition? currentScrollPosition,
+    bool? isSearchMode,
+    String? searchQuery,
+    List<Message>? searchResults,
+    bool? isSearching,
+    DateTime? searchDateFilter,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -205,6 +238,11 @@ class ChatState extends Equatable {
       firstUnreadMessageId: firstUnreadMessageId ?? this.firstUnreadMessageId,
       currentScrollPosition:
           currentScrollPosition ?? this.currentScrollPosition,
+      isSearchMode: isSearchMode ?? this.isSearchMode,
+      searchQuery: searchQuery ?? this.searchQuery,
+      searchResults: searchResults ?? this.searchResults,
+      isSearching: isSearching ?? this.isSearching,
+      searchDateFilter: searchDateFilter ?? this.searchDateFilter,
     );
   }
 
@@ -253,5 +291,10 @@ class ChatState extends Equatable {
         unreadCount,
         firstUnreadMessageId,
         currentScrollPosition,
+        isSearchMode,
+        searchQuery,
+        searchResults,
+        isSearching,
+        searchDateFilter,
       ];
 }

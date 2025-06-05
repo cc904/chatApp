@@ -1,4 +1,3 @@
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/features/home/presentation/pages/scan_code_page.dart';
@@ -687,13 +686,9 @@ class _ChatsPageState extends State<ChatsPage>
             (context, index) {
               final conversation = pinnedConversations[index];
 
-              // 查找对应的联系人
-              final contact = _findContactForConversation(state, conversation);
-
               return ConversationItem(
                 key: ValueKey('pinned_${conversation.conversationId}'),
                 conversation: conversation,
-                contact: contact,
                 currentUser: state.currentUser!,
                 formatTimeCallback: _formatTime,
                 formatUnreadCountCallback: _formatUnreadCount,
@@ -713,13 +708,9 @@ class _ChatsPageState extends State<ChatsPage>
             (context, index) {
               final conversation = unpinnedConversations[index];
 
-              // 查找对应的联系人
-              final contact = _findContactForConversation(state, conversation);
-
               return ConversationItem(
                 key: ValueKey(conversation.conversationId),
                 conversation: conversation,
-                contact: contact,
                 currentUser: state.currentUser!,
                 formatTimeCallback: _formatTime,
                 formatUnreadCountCallback: _formatUnreadCount,
@@ -733,22 +724,6 @@ class _ChatsPageState extends State<ChatsPage>
 
     // 直接返回 sliver 数组
     return slivers;
-  }
-
-  /// 为会话查找对应的联系人
-  User _findContactForConversation(
-      ChatsState state, Conversation conversation) {
-    return User()
-      ..name = conversation.name ?? '未知联系人'
-      ..avatar = conversation.avatar;
-
-    // TODO
-    // return state.contacts.firstWhere(
-    //   (c) => c.userId == conversation.contactUserId,
-    //   orElse: () => User()
-    //     ..name = conversation.name ?? '未知联系人'
-    //     ..avatar = conversation.avatar,
-    // );
   }
 
   /// 格式化消息时间
