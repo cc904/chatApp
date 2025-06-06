@@ -455,7 +455,6 @@ const MessageSyncRequest$json = {
   '2': [
     {'1': 'sync_type', '3': 1, '4': 1, '5': 14, '6': '.cc.MessageSyncType', '10': 'syncType'},
     {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'anchor_message_id', '3': 3, '4': 1, '5': 9, '10': 'anchorMessageId'},
     {'1': 'daily_counts', '3': 4, '4': 3, '5': 11, '6': '.cc.DailyMessageCount', '10': 'dailyCounts'},
   ],
 };
@@ -464,8 +463,8 @@ const MessageSyncRequest$json = {
 final $typed_data.Uint8List messageSyncRequestDescriptor = $convert.base64Decode(
     'ChJNZXNzYWdlU3luY1JlcXVlc3QSMAoJc3luY190eXBlGAEgASgOMhMuY2MuTWVzc2FnZVN5bm'
     'NUeXBlUghzeW5jVHlwZRInCg9jb252ZXJzYXRpb25faWQYAiABKAlSDmNvbnZlcnNhdGlvbklk'
-    'EioKEWFuY2hvcl9tZXNzYWdlX2lkGAMgASgJUg9hbmNob3JNZXNzYWdlSWQSOAoMZGFpbHlfY2'
-    '91bnRzGAQgAygLMhUuY2MuRGFpbHlNZXNzYWdlQ291bnRSC2RhaWx5Q291bnRz');
+    'EjgKDGRhaWx5X2NvdW50cxgEIAMoCzIVLmNjLkRhaWx5TWVzc2FnZUNvdW50UgtkYWlseUNvdW'
+    '50cw==');
 
 @$core.Deprecated('Use messageSyncResponseDescriptor instead')
 const MessageSyncResponse$json = {

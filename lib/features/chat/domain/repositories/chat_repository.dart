@@ -212,22 +212,21 @@ abstract class ChatRepository {
     String? anchorMessageId,
   });
 
-  /// 日期同步消息
+  /// 日期同步消息（最近消息）
   Future<bool> syncRecentMessages(
-    String conversationId,
-    String anchorMessageId,
-  );
+    String conversationId, [
+    DateTime? anchorMessageTime, // 💢💢💢 保留参数以兼容旧接口，但不再使用
+  ]);
 
   /// 同步未读消息
   Future<bool> syncUnreadMessages(
-    String conversationId, {
-    String? lastReadMessageId,
-  });
+    String conversationId, [
+    String? lastReadMessageId, // 💢💢💢 保留参数以兼容旧接口，但不再使用
+  ]);
 
-  /// 计算锚点消息前后15天每天的消息数量
+  /// 计算最近15天每天的消息数量（简化版）
   Future<Map<String, int>> calculateDailyMessageCounts(
     String conversationId,
-    String anchorMessageId,
   );
 
   /// 获取指定日期的消息数量

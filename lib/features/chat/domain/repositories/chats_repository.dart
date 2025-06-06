@@ -2,8 +2,6 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
-import 'package:cc/core/database/models/message.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 /// 聊天会话列表仓库接口
 /// 定义了会话列表管理所需的各种操作方法
@@ -33,6 +31,12 @@ abstract class ChatsRepository {
 
   /// 监听会话列表变化
   Stream<void> watchConversations();
+
+  /// 💢💢💢 新增：监听单个会话变化
+  /// 用于 ChatCubit 监听特定会话的状态变化
+  /// [conversationId] - 会话ID
+  /// 返回该会话的变化流
+  Stream<Conversation?> watchConversation(String conversationId);
 
   /// 监听会话更新事件
   Stream<ConversationUpdateEvent> get conversationUpdateStream;
@@ -104,16 +108,7 @@ abstract class ChatsRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 保存会话状态快照
-  Future<void> saveStateSnapshot({
-    required String conversationId,
-    required List<Message> messages,
-    String? lastReadMessageId,
-    required int unreadCount,
-    CurrentScrollPosition? currentScrollPosition,
-    String? visibleMessageId,
-    bool hasMoreHistory = true,
-    bool hasMoreRecent = false,
-  });
+  Future<void> saveStateSnapshot(ChatStateSnapshot snapshot);
 
   /// 获取会话状态快照
   Future<ChatStateSnapshot?> getStateSnapshot(String conversationId);

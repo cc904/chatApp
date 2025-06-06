@@ -338,11 +338,14 @@ void _openChatDetail(BuildContext context, Conversation conversation,
               create: (context) => ChatCubit(
                 chatRepository: context.read<ChatRepository>(),
                 chatsRepository: context.read<ChatsRepository>(),
-                conversation: conversation,
                 currentUser: currentUser,
                 initialSnapshot: snapshot, // 传入预获取的快照
+                initialConversation: conversation, // 💢💢💢 传入初始会话信息
               ),
-              child: const ChatPage(),
+              child: ChatPage(
+                conversationId: conversation.conversationId,
+                initialConversation: conversation, // 💢💢💢 传入初始会话信息
+              ),
             ),
           ),
         ),
@@ -362,10 +365,13 @@ void _openChatDetail(BuildContext context, Conversation conversation,
               create: (context) => ChatCubit(
                 chatRepository: context.read<ChatRepository>(),
                 chatsRepository: context.read<ChatsRepository>(),
-                conversation: conversation,
                 currentUser: currentUser,
+                initialConversation: conversation, // 💢💢💢 传入初始会话信息
               ),
-              child: const ChatPage(),
+              child: ChatPage(
+                conversationId: conversation.conversationId,
+                initialConversation: conversation, // 💢💢💢 传入初始会话信息
+              ),
             ),
           ),
         ),

@@ -2174,7 +2174,6 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
   factory MessageSyncRequest({
     MessageSyncType? syncType,
     $core.String? conversationId,
-    $core.String? anchorMessageId,
     $core.Iterable<DailyMessageCount>? dailyCounts,
   }) {
     final $result = create();
@@ -2183,9 +2182,6 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
     }
     if (conversationId != null) {
       $result.conversationId = conversationId;
-    }
-    if (anchorMessageId != null) {
-      $result.anchorMessageId = anchorMessageId;
     }
     if (dailyCounts != null) {
       $result.dailyCounts.addAll(dailyCounts);
@@ -2199,7 +2195,6 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageSyncRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..e<MessageSyncType>(1, _omitFieldNames ? '' : 'syncType', $pb.PbFieldType.OE, defaultOrMaker: MessageSyncType.RECENT, valueOf: MessageSyncType.valueOf, enumValues: MessageSyncType.values)
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(3, _omitFieldNames ? '' : 'anchorMessageId')
     ..pc<DailyMessageCount>(4, _omitFieldNames ? '' : 'dailyCounts', $pb.PbFieldType.PM, subBuilder: DailyMessageCount.create)
     ..hasRequiredFields = false
   ;
@@ -2243,17 +2238,8 @@ class MessageSyncRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearConversationId() => $_clearField(2);
 
-  @$pb.TagNumber(3)
-  $core.String get anchorMessageId => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set anchorMessageId($core.String v) { $_setString(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasAnchorMessageId() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearAnchorMessageId() => $_clearField(3);
-
   @$pb.TagNumber(4)
-  $pb.PbList<DailyMessageCount> get dailyCounts => $_getList(3);
+  $pb.PbList<DailyMessageCount> get dailyCounts => $_getList(2);
 }
 
 /// 消息同步响应

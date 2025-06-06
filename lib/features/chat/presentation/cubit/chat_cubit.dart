@@ -57,9 +57,9 @@ class ScrollRestoreInfo {
 class ChatCubit extends Cubit<ChatState> {
   final ChatRepository _chatRepository;
   final ChatsRepository _chatsRepository;
-  final LogService _logger = LogService.instance;
   final String _conversationId;
-  // final User _currentUser;
+
+  final LogService _logger = LogService.instance;
   final ChatStateSnapshot? _initialSnapshot;
 
   // 保存订阅，以便在dispose时取消
@@ -75,28 +75,27 @@ class ChatCubit extends Cubit<ChatState> {
   ChatCubit({
     required ChatRepository chatRepository,
     required ChatsRepository chatsRepository,
-    required Conversation conversation,
+    required Conversation initialConversation,
     required CurrentUser currentUser,
     ChatStateSnapshot? initialSnapshot,
     ContactsRepository? contactsRepository,
   })  : _chatRepository = chatRepository,
         _chatsRepository = chatsRepository,
-        _conversationId = conversation.conversationId,
         _initialSnapshot = initialSnapshot,
-        // _currentUser = currentUser,
-        super(_createInitialState(conversation, currentUser, initialSnapshot)) {
+        _conversationId = initialConversation.conversationId,
+        super(_createInitialState(
+            currentUser, initialSnapshot, initialConversation)) {
     _init();
   }
 
   /// 创建初始状态
   /// 如果有快照，直接使用快照数据初始化；否则使用默认初始状态
-  static ChatState _createInitialState(Conversation conversation,
-      CurrentUser currentUser, ChatStateSnapshot? snapshot) {
+  static ChatState _createInitialState(CurrentUser currentUser,
+      ChatStateSnapshot? snapshot, Conversation? conversation) {
     if (snapshot != null && snapshot.isValid) {
       // 使用快照数据创建初始状态
       return ChatState.initial(currentUser).copyWith(
         messages: snapshot.messages,
-        lastReadMessageId: snapshot.lastReadMessageId,
         unreadCount: snapshot.unreadCount,
         currentScrollPosition: snapshot.currentScrollPosition,
         isLoadingMessages: false,
@@ -106,9 +105,8 @@ class ChatCubit extends Cubit<ChatState> {
       );
     } else {
       // 使用传入的 conversation 对象创建初始状态
-      return ChatState.initial(currentUser).copyWith(
-        conversation: conversation,
-      );
+      return ChatState.initial(currentUser)
+          .copyWith(conversation: conversation);
     }
   }
 
@@ -145,12 +143,6 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 没有快照，执行正常初始化流程
       _setupSubscriptions();
-
-      final conversation =
-          await _chatsRepository.getConversationById(_conversationId);
-      emit(state.copyWith(
-          lastReadMessageId: conversation?.lastReadMessageId,
-          unreadCount: conversation?.unreadCount ?? 0));
 
       // 加载消息
       await _loadInitialMessages();
@@ -209,6 +201,15 @@ class ChatCubit extends Cubit<ChatState> {
         },
       );
 
+      // 💢💢💢 新增：监听单个会话的变化
+      _subscriptions['conversationWatch'] =
+          _chatsRepository.watchConversation(_conversationId).listen(
+        _handleConversationDataUpdate,
+        onError: (error) {
+          _logger.e('会话数据流监听出错', error: error);
+        },
+      );
+
       // 监听会话更新事件（从 ChatsRepository）
       _subscriptions['conversationUpdate'] = _chatsRepository
           .conversationUpdateStream
@@ -260,6 +261,28 @@ class ChatCubit extends Cubit<ChatState> {
         newMessages,
         hasMoreHistory: event['hasMoreHistory'] ?? true,
       );
+    }
+  }
+
+  /// 💢💢💢 新增：处理会话数据更新（来自数据库监听）
+  void _handleConversationDataUpdate(Conversation? conversation) {
+    if (isClosed) return;
+
+    if (conversation != null) {
+      _logger.d('收到会话数据更新', extra: {
+        'conversationId': conversation.conversationId,
+        'name': conversation.name,
+        'isMuted': conversation.isMuted,
+        'isPinned': conversation.isPinned,
+        'unreadCount': conversation.unreadCount,
+      });
+
+      // 更新 ChatState 中的会话信息
+      emit(state.copyWith(conversation: conversation));
+    } else {
+      _logger.w('会话数据为空，可能已被删除', extra: {
+        'conversationId': _conversationId,
+      });
     }
   }
 
@@ -509,15 +532,19 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 离开会话时保存状态快照
       if (state.messages.isNotEmpty) {
-        await _chatsRepository.saveStateSnapshot(
-          conversationId: _conversationId,
+        final snapshot = ChatStateSnapshot(
+          conversation: state.conversation,
           messages: state.messages,
           lastReadMessageId: state.lastReadMessageId,
-          currentScrollPosition: state.currentScrollPosition,
           unreadCount: state.unreadCount,
+          currentScrollPosition: state.currentScrollPosition,
+          visibleMessageId: null, // 离开时不需要记录可见消息
+          timestamp: DateTime.now(),
           hasMoreHistory: state.hasMoreHistory,
           hasMoreRecent: state.hasMoreRecent,
         );
+
+        await _chatsRepository.saveStateSnapshot(snapshot);
 
         _logger.d('离开会话时保存状态快照', extra: {
           'conversationId': _conversationId,
@@ -877,11 +904,16 @@ class ChatCubit extends Cubit<ChatState> {
         'isMuted': isMuted,
       });
 
-      // 通过 ChatsRepository 更新静音状态
+      // 💢💢💢 统一通过 ChatsRepository 更新会话状态
+      // 不再需要通过 ChatRepository 更新，避免重复操作
       await _chatsRepository.updateConversationMuteStatus(
           _conversationId, isMuted);
 
-      _logger.i('会话静音状态更新成功');
+      // 💢💢💢 移除本地状态更新，由数据库监听自动处理
+      // 当数据库更新后，watchConversation 会自动触发 _handleConversationDataUpdate
+      // 从而更新 ChatCubit 的状态，实现自动同步
+
+      _logger.i('会话静音状态更新请求已发送，等待数据库监听器自动同步状态');
     } catch (error) {
       _logger.e('更新会话静音状态失败', error: error);
       if (!isClosed) {
@@ -898,11 +930,12 @@ class ChatCubit extends Cubit<ChatState> {
         'isPinned': isPinned,
       });
 
-      // 通过 ChatsRepository 更新置顶状态
+      // 💢💢💢 统一通过 ChatsRepository 更新置顶状态
       await _chatsRepository.updateConversationPinStatus(
           _conversationId, isPinned);
 
-      _logger.i('会话置顶状态更新成功');
+      // 💢💢💢 由数据库监听自动处理状态同步
+      _logger.i('会话置顶状态更新请求已发送，等待数据库监听器自动同步状态');
     } catch (error) {
       _logger.e('更新会话置顶状态失败', error: error);
       if (!isClosed) {

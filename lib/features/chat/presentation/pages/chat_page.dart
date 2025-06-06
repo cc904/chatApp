@@ -20,13 +20,17 @@ import 'package:cc/features/chat/presentation/utils/message_list_processor.dart'
 /// 使用scrollable_positioned_list来实现高性能的消息列表滚动
 /// 支持滚动到指定消息位置，适合处理大量历史消息
 class ChatPage extends StatefulWidget {
-  // final Conversation conversation;
-  // final User contact;
+  /// 会话ID
+  final String conversationId;
+
+  /// 💢💢💢 初始会话信息（可选）
+  /// 从 ChatsPage 传入，避免重复加载
+  final Conversation? initialConversation;
 
   const ChatPage({
     super.key,
-    // required this.conversation,
-    // required this.contact,
+    required this.conversationId,
+    this.initialConversation,
   });
 
   @override
@@ -76,11 +80,7 @@ class _ChatPageState extends State<ChatPage> {
 
     // 监听滚动位置变化
     _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
-
-    _init();
   }
-
-  Future<void> _init() async {}
 
   @override
   void dispose() {
@@ -160,107 +160,6 @@ class _ChatPageState extends State<ChatPage> {
       'conversationId': state.conversation.id,
     });
     context.read<ChatCubit>().loadMoreMessages();
-  }
-
-  /// 恢复到保存的滚动位置
-  Future<void> _restoreToScrollPosition(
-      CurrentScrollPosition positionInfo) async {
-    for (int attempt = 0; attempt < 5; attempt++) {
-      await Future.delayed(Duration(milliseconds: 100 + (attempt * 50)));
-
-      // ignore: use_build_context_synchronously
-      final state = context.read<ChatCubit>().state;
-      final messageIndex = state.messages.indexWhere(
-        (message) => message.messageId == positionInfo.messageId,
-      );
-
-      if (messageIndex != -1) {
-        _logger.i('恢复到精确位置', extra: {
-          'messageId': positionInfo.messageId,
-          'originalIndex': positionInfo.messageIndex,
-          'newIndex': messageIndex,
-          'indexOffset': messageIndex - (positionInfo.messageIndex ?? 0),
-          'relativePosition': positionInfo.relativePosition ?? 0.0,
-          'attempt': attempt + 1,
-        });
-
-        try {
-          // 滚动到消息，保持相对位置
-          await _itemScrollController.scrollTo(
-            index: messageIndex,
-            duration: const Duration(milliseconds: 1), // 极短动画，几乎看不出来
-            curve: Curves.linear,
-            alignment: positionInfo.relativePosition ?? 0.0,
-          );
-
-          break;
-        } catch (error) {
-          if (attempt == 4) {
-            _logger.e('精确位置恢复失败，使用备用方案', error: error);
-            // 备用方案：直接跳转
-            _itemScrollController.jumpTo(index: messageIndex);
-          }
-        }
-      }
-    }
-  }
-
-  /// 从ChatState恢复滚动位置 300ms 后恢复
-  Future<void> _restoreScrollPositionFromState() async {
-    final state = context.read<ChatCubit>().state;
-    final scrollPosition = state.currentScrollPosition;
-
-    if (!scrollPosition.isValid) {
-      _logger.d('没有有效的滚动位置信息可恢复');
-      return;
-    }
-
-    _logger.i('从状态恢复滚动位置', extra: {
-      'messageId': scrollPosition.messageId,
-      'originalIndex': scrollPosition.messageIndex,
-      'relativePosition': scrollPosition.relativePosition,
-    });
-
-    // 查找消息的当前索引
-    final messageIndex = state.messages.indexWhere(
-      (message) => message.messageId == scrollPosition.messageId,
-    );
-
-    if (messageIndex != -1) {
-      try {
-        await _itemScrollController.scrollTo(
-          index: messageIndex,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          alignment: scrollPosition.relativePosition ?? 0.0,
-        );
-
-        _logger.i('滚动位置恢复成功', extra: {
-          'messageId': scrollPosition.messageId,
-          'targetIndex': messageIndex,
-        });
-      } catch (error) {
-        _logger.e('恢复滚动位置失败', error: error);
-        // 备用方案：直接跳转
-        _itemScrollController.jumpTo(index: messageIndex);
-      }
-    } else {
-      _logger.w('未找到目标消息，无法恢复位置', extra: {
-        'messageId': scrollPosition.messageId,
-      });
-    }
-  }
-
-  /// 滚动到底部
-  void _scrollToBottom() {
-    final state = context.read<ChatCubit>().state;
-    if (state.messages.isNotEmpty) {
-      _itemScrollController.scrollTo(
-        index: state.messages.length - 1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
   }
 
   /// 滚动到指定消息
@@ -669,26 +568,6 @@ class _ChatPageState extends State<ChatPage> {
       ],
     );
   }
-
-  /// 💢💢💢
-  // CurrentScrollPosition initialScrollPosition(ChatState state) {
-  //   final positions = _itemPositionsListener.itemPositions.value;
-  //   final position = state.currentScrollPosition;
-
-  //   if (positions.length >= state.messages.length || !position.isValid) {
-  //     return const CurrentScrollPosition(
-  //       messageId: '',
-  //       messageIndex: 0,
-  //       relativePosition: 0.0,
-  //     );
-  //   }
-  //   _logger.i('初始滚动位置', extra: {
-  //     'positions': positions.map((e) => e.index).toList(),
-  //     'lastVisibleIndex': positions.last.index,
-  //     'messageCount': state.messages.length,
-  //   });
-  //   return position;
-  // }
 
   /// 构建输入区域
   Widget _buildInputArea() {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cc/core/database/models/conversation.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -13,7 +14,6 @@ import 'package:cc/core/proto/generated/message.pbenum.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
@@ -350,6 +350,18 @@ class ChatsRepositoryImpl implements ChatsRepository {
     return _conversations.watchLazy();
   }
 
+  /// 💢💢💢 新增：监听单个会话变化
+  /// 用于 ChatCubit 监听特定会话的状态变化
+  @override
+  Stream<Conversation?> watchConversation(String conversationId) {
+    return _conversations
+        .filter()
+        .conversationIdEqualTo(conversationId)
+        .watch(fireImmediately: true)
+        .map((conversations) =>
+            conversations.isNotEmpty ? conversations.first : null);
+  }
+
   /// 删除会话
   /// 删除指定的会话及其所有消息和相关媒体文件
   /// [conversationId] - 会话ID
@@ -472,6 +484,17 @@ class ChatsRepositoryImpl implements ChatsRepository {
           await _conversations.put(conversation);
         });
         _logger.i('本地数据库会话静音状态已更新');
+
+        // 💢💢💢 立即发送会话更新事件，通知ChatsCubit
+        _conversationUpdateController.add(
+          ConversationUpdateEvent(
+            conversationId: conversationId,
+            type: ConversationUpdateType.updated,
+            conversation: conversation, // 传入更新后的完整会话对象
+            isMuted: isMuted,
+          ),
+        );
+        _logger.d('已发送会话静音状态更新事件');
       } else {
         _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
         throw Exception('找不到指定会话');
@@ -520,6 +543,17 @@ class ChatsRepositoryImpl implements ChatsRepository {
           await _conversations.put(conversation);
         });
         _logger.i('本地数据库会话置顶状态已更新');
+
+        // 💢💢💢 立即发送会话更新事件，通知ChatsCubit
+        _conversationUpdateController.add(
+          ConversationUpdateEvent(
+            conversationId: conversationId,
+            type: ConversationUpdateType.updated,
+            conversation: conversation, // 传入更新后的完整会话对象
+            isPinned: isPinned,
+          ),
+        );
+        _logger.d('已发送会话置顶状态更新事件');
       } else {
         _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
         throw Exception('找不到指定会话');
@@ -837,18 +871,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 创建消息同步任务
   /// 根据会话状态和本地数据情况创建合适的消息同步任务
-  /// 新策略：
-  /// 1. 有last_read_message_id → 日期同步（包含未读消息）
-  /// 2. 没有last_read_message_id但有未读 → 未读同步
-  /// 3. 两个都没有 → 不同步
+  /// 新策略（简化版）：
+  /// 1. 有未读消息 → 未读同步
+  /// 2. 没有未读消息 → 最近消息同步
   /// [conversation] - 会话Proto对象
   /// 返回同步任务，如果不需要同步则返回null
   Future<ConversationSyncTask?> _createMessageSyncTask(
       conversation_proto.ConversationProto conversation) async {
     final conversationId = conversation.conversationId;
-    final lastReadMessageId = conversation.hasLastReadMessageId()
-        ? conversation.lastReadMessageId
-        : null;
     final unreadCount = conversation.unreadCount;
 
     if (_chatRepository == null) {
@@ -858,36 +888,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
     _logger.d('创建消息同步任务', extra: {
       'conversationId': conversationId,
-      'lastReadMessageId': lastReadMessageId,
       'unreadCount': unreadCount,
     });
 
     MessageSyncType syncType;
-    String? anchorMessageId;
     int priority = 0;
 
-    if (lastReadMessageId != null && lastReadMessageId.isNotEmpty) {
-      // 🎯 策略1：有last_read_message_id，使用日期同步（包含未读消息）
-      _logger.d('使用日期同步策略，以last_read_message_id为锚点（包含未读消息）');
-      syncType = MessageSyncType.RECENT;
-      anchorMessageId = lastReadMessageId;
-      priority = 1; // 最高优先级
-    } else if (unreadCount > 0) {
-      // 🎯 策略2：没有last_read_message_id但有未读消息，使用未读同步
-      _logger.d('没有last_read_message_id，但有$unreadCount条未读消息，使用未读消息同步策略');
+    if (unreadCount > 0) {
+      // 🎯 策略1：有未读消息，使用未读同步
+      _logger.d('有$unreadCount条未读消息，使用未读消息同步策略');
       syncType = MessageSyncType.UNREAD;
-      anchorMessageId = null; // 未读同步不需要锚点
-      priority = 2; // 次优先级
+      priority = 1; // 最高优先级
     } else {
-      // 🎯 策略3：两个都没有，不同步
-      _logger.d('没有last_read_message_id且没有未读消息，跳过消息同步');
-      return null;
+      // 🎯 策略2：没有未读消息，使用最近消息同步
+      _logger.d('没有未读消息，使用最近消息同步策略');
+      syncType = MessageSyncType.RECENT;
+      priority = 2; // 次优先级
     }
 
     return ConversationSyncTask(
       conversationId: conversationId,
       type: syncType,
-      anchorMessageId: anchorMessageId,
+      anchorMessageId: null, // 💢💢💢 移除锚点消息ID
       priority: priority,
     );
   }
@@ -1213,37 +1235,23 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 保存会话状态快照
   @override
-  Future<void> saveStateSnapshot({
-    required String conversationId,
-    required List<Message> messages,
-    String? lastReadMessageId,
-    required int unreadCount,
-    CurrentScrollPosition? currentScrollPosition,
-    String? visibleMessageId,
-    bool hasMoreHistory = true,
-    bool hasMoreRecent = false,
-  }) async {
+  Future<void> saveStateSnapshot(ChatStateSnapshot snapshot) async {
     try {
-      final snapshot = ChatStateSnapshot(
-        conversationId: conversationId,
-        messages: List<Message>.from(messages), // 深拷贝消息列表
-        lastReadMessageId: lastReadMessageId,
-        unreadCount: unreadCount,
-        currentScrollPosition: currentScrollPosition,
-        visibleMessageId: visibleMessageId,
-        timestamp: DateTime.now(),
-        hasMoreHistory: hasMoreHistory,
-        hasMoreRecent: hasMoreRecent,
+      // 💢💢💢 深拷贝消息列表以确保数据独立性
+      final snapshotWithCopiedMessages = snapshot.copyWith(
+        messages: List<Message>.from(snapshot.messages),
+        timestamp: DateTime.now(), // 更新保存时间戳
       );
 
-      _stateSnapshots[conversationId] = snapshot;
+      _stateSnapshots[snapshot.conversation.conversationId] =
+          snapshotWithCopiedMessages;
 
       _logger.d('💾 保存会话状态快照', extra: {
-        'conversationId': conversationId,
-        'messageCount': messages.length,
-        'currentScrollPosition': currentScrollPosition,
-        'visibleMessageId': visibleMessageId,
-        'unreadCount': unreadCount,
+        'conversationId': snapshot.conversation.conversationId,
+        'messageCount': snapshot.messages.length,
+        'currentScrollPosition': snapshot.currentScrollPosition?.messageIndex,
+        'visibleMessageId': snapshot.visibleMessageId,
+        'unreadCount': snapshot.unreadCount,
       });
     } catch (error) {
       _logger.e('保存状态快照失败', error: error);

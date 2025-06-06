@@ -1201,36 +1201,22 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 清空会话消息
-  /// 删除指定会话中的所有消息和相关媒体文件,但保留会话本身
-  /// [conversationId] - 会话ID
   @override
   Future<void> clearConversationMessages(String conversationId) async {
     try {
-      // 先获取所有相关消息,以便收集需要删除的媒体文件
-      final messages = await _messages
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .findAll();
+      _logger.i('清空会话消息', extra: {'conversationId': conversationId});
 
-      // 收集所有媒体文件路径
-      final filesToDelete = <String>[];
-      for (final message in messages) {
-        filesToDelete.addAll(_collectMediaFilePaths(message));
-      }
-
-      // 在数据库事务中删除所有消息
       await _isar.writeTxn(() async {
-        // 删除会话中的所有消息
+        // 删除该会话的所有消息
         await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
             .deleteAll();
       });
 
-      // 删除关联的媒体文件
-      await _deleteMediaFiles(filesToDelete);
+      _logger.i('会话消息清空成功', extra: {'conversationId': conversationId});
     } catch (error) {
-      _logger.e('清空会话消息失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('清空会话消息失败', error: error);
       rethrow;
     }
   }
@@ -1325,28 +1311,20 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<bool> syncConversationMessages(
     String conversationId,
     message_proto.MessageSyncType syncType, {
-    String? anchorMessageId,
+    String? anchorMessageId, // 💢💢💢 保留参数以兼容旧接口，但不再使用
   }) async {
     try {
       _logger.i('开始同步会话消息', extra: {
         'conversationId': conversationId,
         'syncType': syncType.name,
-        'anchorMessageId': anchorMessageId,
       });
 
       switch (syncType) {
         case message_proto.MessageSyncType.RECENT:
-          if (anchorMessageId == null) {
-            _logger.w('RECENT同步需要anchorMessageId');
-            return false;
-          }
-          return await syncRecentMessages(conversationId, anchorMessageId);
+          return await syncRecentMessages(conversationId);
 
         case message_proto.MessageSyncType.UNREAD:
-          return await syncUnreadMessages(
-            conversationId,
-            lastReadMessageId: anchorMessageId,
-          );
+          return await syncUnreadMessages(conversationId);
 
         default:
           _logger.w('未知的同步类型', extra: {'syncType': syncType});
@@ -1358,28 +1336,25 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 日期同步消息
+  /// 日期同步消息（最近消息）
   @override
   Future<bool> syncRecentMessages(
-    String conversationId,
-    String anchorMessageId,
-  ) async {
+    String conversationId, [
+    DateTime? anchorMessageTime, // 💢💢💢 保留参数以兼容旧接口，但不再使用
+  ]) async {
     try {
-      _logger.i('日期同步消息', extra: {
+      _logger.i('最近消息同步', extra: {
         'conversationId': conversationId,
-        'anchorMessageId': anchorMessageId,
       });
 
-      final dailyCounts = await calculateDailyMessageCounts(
-        conversationId,
-        anchorMessageId,
-      );
+      // 🔥 计算每日消息统计，用于服务器决定返回哪些消息
+      final dailyCounts = await calculateDailyMessageCounts(conversationId);
 
       final syncRequest = message_proto.MessageSyncRequest()
         ..syncType = message_proto.MessageSyncType.RECENT
-        ..conversationId = conversationId
-        ..anchorMessageId = anchorMessageId;
+        ..conversationId = conversationId;
 
+      // 添加每日消息统计
       for (final entry in dailyCounts.entries) {
         final dailyCount = message_proto.DailyMessageCount()
           ..date = entry.key
@@ -1387,7 +1362,7 @@ class ChatRepositoryImpl implements ChatRepository {
         syncRequest.dailyCounts.add(dailyCount);
       }
 
-      _logger.d('日期同步请求参数', extra: {
+      _logger.d('最近消息同步请求参数', extra: {
         'dailyCountsSize': dailyCounts.length,
       });
 
@@ -1395,7 +1370,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
       return true;
     } catch (error) {
-      _logger.e('日期同步消息失败', error: error);
+      _logger.e('最近消息同步失败', error: error);
       return false;
     }
   }
@@ -1403,22 +1378,22 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 同步未读消息
   @override
   Future<bool> syncUnreadMessages(
-    String conversationId, {
-    String? lastReadMessageId,
-  }) async {
+    String conversationId, [
+    String? lastReadMessageId, // 💢💢💢 保留参数以兼容旧接口，但不再使用
+  ]) async {
     try {
-      // _logger.i('同步未读消息', extra: {
-      //   'conversationId': conversationId,
-      //   'lastReadMessageId': lastReadMessageId,
-      // });
+      _logger.i('同步未读消息', extra: {
+        'conversationId': conversationId,
+      });
 
       final syncRequest = message_proto.MessageSyncRequest()
         ..syncType = message_proto.MessageSyncType.UNREAD
-        ..conversationId = conversationId
-        ..anchorMessageId = lastReadMessageId ?? '';
+        ..conversationId = conversationId;
+
+      // 💢💢💢 不再需要设置 anchorMessageId，服务器会根据type直接返回未读消息
 
       // 发送请求
-      _communicationService.emitProto('messages:syncs', syncRequest);
+      _communicationService.emitProto('messages:sync', syncRequest);
 
       return true;
     } catch (error) {
@@ -1427,31 +1402,22 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 计算锚点消息前后15天每天的消息数量
+  /// 计算最近15天每天的消息数量
   @override
   Future<Map<String, int>> calculateDailyMessageCounts(
     String conversationId,
-    String anchorMessageId,
   ) async {
     try {
       _logger.d('计算每日消息数量', extra: {
         'conversationId': conversationId,
-        'anchorMessageId': anchorMessageId,
       });
 
-      // 获取锚点消息的时间戳
-      final anchorTime =
-          await getMessageTimestamp(conversationId, anchorMessageId);
-      if (anchorTime == null) {
-        _logger.w('锚点消息不存在', extra: {'anchorMessageId': anchorMessageId});
-        return {};
-      }
-
       final dailyCounts = <String, int>{};
+      final currentTime = DateTime.now(); // 💢💢💢 使用当前时间作为锚点
 
       // 计算前后15天，共31天的数据
       for (int i = -15; i <= 15; i++) {
-        final targetDate = anchorTime.add(Duration(days: i));
+        final targetDate = currentTime.add(Duration(days: i));
         final dateKey = _formatDateKey(targetDate);
         final count = await getMessageCountByDate(conversationId, targetDate);
         dailyCounts[dateKey] = count;
@@ -1497,24 +1463,6 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 格式化日期为字符串键
   String _formatDateKey(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  /// 获取消息在时间线中的位置
-  Future<DateTime?> getMessageTimestamp(
-      String conversationId, String messageId) async {
-    try {
-      final message = await _messages
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .and()
-          .messageIdEqualTo(messageId)
-          .findFirst();
-
-      return message?.createdAt;
-    } catch (error) {
-      _logger.e('获取消息时间戳失败', error: error);
-      return null;
-    }
   }
 
   /// 检查消息是否存在于本地

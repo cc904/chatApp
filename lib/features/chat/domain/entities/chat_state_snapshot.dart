@@ -1,3 +1,4 @@
+import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
@@ -6,8 +7,8 @@ import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 /// 用于在用户快速切换会话时保存和恢复聊天状态
 /// 避免重新加载数据，提升用户体验
 class ChatStateSnapshot {
-  /// 会话ID
-  final String conversationId;
+  /// 会话信息
+  final Conversation conversation;
 
   /// 消息列表
   final List<Message> messages;
@@ -34,7 +35,7 @@ class ChatStateSnapshot {
   final bool hasMoreRecent;
 
   const ChatStateSnapshot({
-    required this.conversationId,
+    required this.conversation,
     required this.messages,
     this.lastReadMessageId,
     required this.unreadCount,
@@ -57,7 +58,7 @@ class ChatStateSnapshot {
 
   /// 复制快照并更新字段
   ChatStateSnapshot copyWith({
-    String? conversationId,
+    Conversation? conversation,
     List<Message>? messages,
     String? lastReadMessageId,
     int? unreadCount,
@@ -68,11 +69,12 @@ class ChatStateSnapshot {
     bool? hasMoreRecent,
   }) {
     return ChatStateSnapshot(
-      conversationId: conversationId ?? this.conversationId,
+      conversation: conversation ?? this.conversation,
       messages: messages ?? this.messages,
       lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
       unreadCount: unreadCount ?? this.unreadCount,
-      currentScrollPosition: currentScrollPosition ?? this.currentScrollPosition,
+      currentScrollPosition:
+          currentScrollPosition ?? this.currentScrollPosition,
       visibleMessageId: visibleMessageId ?? this.visibleMessageId,
       timestamp: timestamp ?? this.timestamp,
       hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
@@ -82,6 +84,6 @@ class ChatStateSnapshot {
 
   @override
   String toString() {
-    return 'ChatStateSnapshot{conversationId: $conversationId, messageCount: ${messages.length}, currentScrollPosition: $currentScrollPosition, age: ${ageInSeconds}s}';
+    return 'ChatStateSnapshot{conversationId: ${conversation.conversationId}, messageCount: ${messages.length}, currentScrollPosition: $currentScrollPosition, age: ${ageInSeconds}s}';
   }
 }
