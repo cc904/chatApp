@@ -577,7 +577,8 @@ class ChatCubit extends Cubit<ChatState> {
 
       if (firstMessage != null &&
           state.lastReadMessageId != firstMessage.messageId &&
-          firstMessage.status != 'read') {
+          firstMessage.status != 'read' &&
+          !state.isSearchMode) {
         _chatRepository.markMessagesAsReadBySelf(
           _conversationId,
           firstMessage.messageId,
@@ -676,6 +677,11 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: [],
         isSearching: false,
         searchDateFilter: null,
+        searchResultMessageIds: [],
+        currentSearchResultIndex: 0,
+        isShowingSearchAsList: false,
+        searchResultTotalCount: 0,
+        originalMessages: state.messages, // 💢 备份当前消息列表
       ));
       _logger.i('进入搜索模式');
     }
@@ -690,16 +696,22 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: [],
         isSearching: false,
         searchDateFilter: null,
+        searchResultMessageIds: [],
+        currentSearchResultIndex: 0,
+        isShowingSearchAsList: false,
+        searchResultTotalCount: 0,
+        messages: state.originalMessages ?? state.messages, // 💢 恢复原始消息列表
+        originalMessages: null, // 清空备份
       ));
       _logger.i('退出搜索模式');
     }
   }
 
-  /// 执行搜索
+  /// 💢💢💢 重构：执行数据库搜索
   Future<void> performSearch(String query) async {
     if (isClosed) return;
 
-    _logger.i('执行搜索', extra: {'query': query});
+    _logger.i('执行数据库搜索', extra: {'query': query});
 
     try {
       emit(state.copyWith(
@@ -711,21 +723,54 @@ class ChatCubit extends Cubit<ChatState> {
         emit(state.copyWith(
           searchResults: [],
           isSearching: false,
+          searchResultMessageIds: [],
+          currentSearchResultIndex: 0,
+          searchResultTotalCount: 0,
         ));
         return;
       }
 
-      // 在本地消息中搜索
-      final searchResults = _searchInMessages(query, state.messages);
+      // 🔥 使用新的数据库搜索方法（结果按从新到旧排序）
+      final searchResult = await _chatRepository.searchMessagesInDatabase(
+        query: query.trim(),
+        conversationId: _conversationId,
+        dateFilter: state.searchDateFilter,
+      );
 
-      emit(state.copyWith(
-        searchResults: searchResults,
-        isSearching: false,
-      ));
+      if (searchResult.hasResults) {
+        // 💢💢💢 新逻辑：加载最新搜索结果附近的消息（替换式加载）
+        final firstResultId = searchResult.matchedMessageIds.first; // 最新的搜索结果
+        final result = await _chatRepository.getMessagesAroundSearchResult(
+          conversationId: _conversationId,
+          targetMessageId: firstResultId,
+          contextSize: 25, // 前后各25条消息
+        );
 
-      _logger.i('搜索完成', extra: {'resultCount': searchResults.length});
+        emit(state.copyWith(
+          messages: result.messages, // 💢 替换整个消息列表
+          searchResultMessageIds: searchResult.matchedMessageIds,
+          currentSearchResultIndex: 0, // 从第一个（最新）搜索结果开始
+          searchResultTotalCount: searchResult.totalCount,
+          isSearching: false,
+        ));
+
+        _logger.i('数据库搜索完成（替换式加载）', extra: {
+          'query': query,
+          'resultCount': searchResult.totalCount,
+          'loadedMessageCount': result.messages.length,
+          'loadedRange':
+              '${result.timeRange.start.toIso8601String()} - ${result.timeRange.end.toIso8601String()}',
+        });
+      } else {
+        emit(state.copyWith(
+          searchResultMessageIds: [],
+          currentSearchResultIndex: 0,
+          searchResultTotalCount: 0,
+          isSearching: false,
+        ));
+      }
     } catch (error) {
-      _logger.e('搜索失败', error: error);
+      _logger.e('数据库搜索失败', error: error);
       if (!isClosed) {
         emit(state.copyWith(
           isSearching: false,
@@ -735,58 +780,101 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 💢💢💢 重构：跳转到下一个搜索结果（线性导航，无循环）
+  Future<void> goToNextSearchResult() async {
+    if (!isClosed && state.searchResultMessageIds.isNotEmpty) {
+      // 💢💢💢 线性导航：检查是否已经是最后一个
+      if (state.currentSearchResultIndex >= state.searchResultTotalCount - 1) {
+        _logger.i('已经是最后一个搜索结果，无法继续下一个');
+        return;
+      }
+
+      final nextIndex = state.currentSearchResultIndex + 1;
+      final targetMessageId = state.searchResultMessageIds[nextIndex];
+
+      await _loadAndJumpToSearchResultIncremental(nextIndex, targetMessageId);
+    }
+  }
+
+  /// 💢💢💢 重构：跳转到上一个搜索结果（线性导航，无循环）
+  Future<void> goToPrevSearchResult() async {
+    if (!isClosed && state.searchResultMessageIds.isNotEmpty) {
+      // 💢💢💢 线性导航：检查是否已经是第一个
+      if (state.currentSearchResultIndex <= 0) {
+        _logger.i('已经是第一个搜索结果，无法继续上一个');
+        return;
+      }
+
+      final prevIndex = state.currentSearchResultIndex - 1;
+      final targetMessageId = state.searchResultMessageIds[prevIndex];
+
+      await _loadAndJumpToSearchResultIncremental(prevIndex, targetMessageId);
+    }
+  }
+
+  /// 💢💢💢 新增：切换搜索结果列表视图
+  void toggleSearchListView() {
+    if (!isClosed) {
+      emit(state.copyWith(
+        isShowingSearchAsList: !state.isShowingSearchAsList,
+      ));
+
+      _logger.i('切换搜索结果视图', extra: {
+        'isListView': !state.isShowingSearchAsList,
+      });
+    }
+  }
+
+  /// 💢💢💢 新增：滚动到指定的搜索结果消息(废弃)
+  // void _scrollToSearchResult(String messageId) {
+  //   // 这个方法会被UI层调用，用于滚动到指定消息
+  //   // 具体的滚动逻辑在ChatPage中实现
+  //   _logger.d('请求滚动到搜索结果', extra: {'messageId': messageId});
+  // }
+
   /// 获取当前显示的消息列表（搜索模式下返回搜索结果，正常模式返回所有消息）
   List<Message> getCurrentDisplayMessages() {
     if (state.isSearchMode && state.searchQuery.trim().isNotEmpty) {
-      return _searchInMessages(state.searchQuery, state.messages);
+      // 搜索模式下，直接返回当前的消息列表（已经是搜索范围内的消息）
+      return state.messages;
     }
     return state.messages;
   }
 
-  /// 设置搜索日期过滤器
-  void setSearchDateFilter(DateTime? dateFilter) {
-    if (!isClosed) {
-      emit(state.copyWith(searchDateFilter: dateFilter));
-
-      // 如果有搜索关键词，重新执行搜索
-      if (state.searchQuery.isNotEmpty) {
-        performSearch(state.searchQuery);
-      }
-
-      _logger.i('设置搜索日期过滤器', extra: {'dateFilter': dateFilter});
+  /// 💢💢💢 新增：获取当前搜索结果信息
+  Map<String, dynamic> getCurrentSearchInfo() {
+    if (!state.isSearchMode || state.searchResultTotalCount == 0) {
+      return {};
     }
+
+    return {
+      'currentIndex': state.currentSearchResultIndex + 1,
+      'totalCount': state.searchResultTotalCount,
+      'query': state.searchQuery,
+      'hasDateFilter': state.searchDateFilter != null,
+      'currentMessageId': state.searchResultMessageIds.isNotEmpty
+          ? state.searchResultMessageIds[state.currentSearchResultIndex]
+          : null,
+    };
   }
 
-  /// 在消息列表中搜索
-  List<Message> _searchInMessages(String query, List<Message> messages) {
-    final searchQuery = query.toLowerCase().trim();
-    final dateFilter = state.searchDateFilter;
+  /// 💢💢💢 新增：检查指定消息是否是当前高亮的搜索结果
+  bool isCurrentSearchResult(String messageId) {
+    if (!state.isSearchMode || state.searchResultMessageIds.isEmpty) {
+      return false;
+    }
 
-    return messages.where((message) {
-      // 日期过滤
-      if (dateFilter != null) {
-        final messageDate = DateTime(
-          message.createdAt.year,
-          message.createdAt.month,
-          message.createdAt.day,
-        );
-        final filterDate = DateTime(
-          dateFilter.year,
-          dateFilter.month,
-          dateFilter.day,
-        );
-        if (!messageDate.isAtSameMomentAs(filterDate)) {
-          return false;
-        }
-      }
-
-      // 内容搜索
-      final content = message.text?.toLowerCase() ?? '';
-      return content.contains(searchQuery);
-    }).toList();
+    final currentResultId =
+        state.searchResultMessageIds[state.currentSearchResultIndex];
+    return messageId == currentResultId;
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话设置管理   💢💢💢💢��💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢 新增：检查指定消息是否是搜索结果之一
+  bool isSearchResult(String messageId) {
+    return state.searchResultMessageIds.contains(messageId);
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话设置管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 更新会话静音状态
   Future<void> updateConversationMuteStatus(bool isMuted) async {
@@ -837,6 +925,242 @@ class ChatCubit extends Cubit<ChatState> {
     } catch (error) {
       _logger.e('获取会话信息失败', error: error);
       return null;
+    }
+  }
+
+  /// 获取有消息的日期列表
+  Set<DateTime> getAvailableDates() {
+    final availableDates = <DateTime>{};
+
+    for (final message in state.messages) {
+      final messageDate = DateTime(
+        message.createdAt.year,
+        message.createdAt.month,
+        message.createdAt.day,
+      );
+      availableDates.add(messageDate);
+    }
+
+    return availableDates;
+  }
+
+  /// 检查指定日期是否有消息
+  bool hasMessagesOnDate(DateTime date) {
+    final targetDate = DateTime(date.year, date.month, date.day);
+
+    return state.messages.any((message) {
+      final messageDate = DateTime(
+        message.createdAt.year,
+        message.createdAt.month,
+        message.createdAt.day,
+      );
+      return messageDate.isAtSameMomentAs(targetDate);
+    });
+  }
+
+  /// 设置搜索日期过滤器
+  void setSearchDateFilter(DateTime? dateFilter) {
+    if (!isClosed) {
+      emit(state.copyWith(searchDateFilter: dateFilter));
+
+      // 如果有搜索关键词，重新执行搜索
+      if (state.searchQuery.isNotEmpty) {
+        performSearch(state.searchQuery);
+      }
+
+      _logger.i('设置搜索日期过滤器', extra: {'dateFilter': dateFilter});
+    }
+  }
+
+  /// 💢💢💢 新增：加载并跳转到指定的搜索结果
+  Future<void> _loadAndJumpToSearchResult(
+      int targetIndex, String targetMessageId) async {
+    try {
+      _logger.i('加载并跳转到搜索结果', extra: {
+        'targetIndex': targetIndex + 1,
+        'targetMessageId': targetMessageId,
+      });
+
+      // 显示加载状态
+      emit(state.copyWith(isSearching: true));
+
+      // 🔥 加载目标搜索结果附近的消息（替换式加载）
+      final result = await _chatRepository.getMessagesAroundSearchResult(
+        conversationId: _conversationId,
+        targetMessageId: targetMessageId,
+        contextSize: 25,
+      );
+
+      // 更新状态
+      emit(state.copyWith(
+        messages: result.messages, // 💢 替换整个消息列表
+        currentSearchResultIndex: targetIndex,
+        isSearching: false,
+      ));
+
+      // 滚动到目标消息
+      // _scrollToSearchResult(targetMessageId);
+
+      _logger.i('加载并跳转完成', extra: {
+        'targetIndex': targetIndex + 1,
+        'loadedMessageCount': result.messages.length,
+        'loadedRange':
+            '${result.timeRange.start.toIso8601String()} - ${result.timeRange.end.toIso8601String()}',
+      });
+    } catch (error) {
+      _logger.e('加载并跳转到搜索结果失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          isSearching: false,
+          errorMessage: '跳转失败: ${error.toString()}',
+        ));
+      }
+    }
+  }
+
+  /// 💢💢💢 新增：增量加载 废弃->并跳转到指定的搜索结果
+  Future<void> _loadAndJumpToSearchResultIncremental(
+      int targetIndex, String targetMessageId) async {
+    try {
+      _logger.i('增量加载并跳转到搜索结果', extra: {
+        'targetIndex': targetIndex + 1,
+        'targetMessageId': targetMessageId,
+      });
+
+      // 显示加载状态
+      emit(state.copyWith(isSearching: true));
+
+      // 🔥 加载目标搜索结果附近的消息
+      final result = await _chatRepository.getMessagesAroundSearchResult(
+        conversationId: _conversationId,
+        targetMessageId: targetMessageId,
+        contextSize: 25,
+      );
+
+      // 💢💢💢 增量合并消息列表
+      final mergedMessages =
+          _mergeMessagesIncremental(state.messages, result.messages);
+
+      // 更新状态
+      emit(state.copyWith(
+        messages: mergedMessages, // 💢 增量合并后的消息列表
+        currentSearchResultIndex: targetIndex,
+        isSearching: false,
+      ));
+
+      // 滚动到目标消息(废弃)
+      // _scrollToSearchResult(targetMessageId);
+
+      _logger.i('增量加载并跳转完成', extra: {
+        'targetIndex': targetIndex + 1,
+        'originalMessageCount': state.messages.length,
+        'newMessageCount': result.messages.length,
+        'mergedMessageCount': mergedMessages.length,
+        'loadedRange':
+            '${result.timeRange.start.toIso8601String()} - ${result.timeRange.end.toIso8601String()}',
+      });
+
+      // 💢💢💢 延迟清理多余的消息（在跳转完成后）
+      // Future.delayed(const Duration(milliseconds: 500), () {
+      //   _cleanupExcessMessages(targetMessageId);
+      // });
+    } catch (error) {
+      _logger.e('增量加载并跳转到搜索结果失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          isSearching: false,
+          errorMessage: '跳转失败: ${error.toString()}',
+        ));
+      }
+    }
+  }
+
+  /// 💢💢💢 新增：增量合并消息列表并去重排序
+  List<Message> _mergeMessagesIncremental(
+      List<Message> existingMessages, List<Message> newMessages) {
+    // 使用Map来去重，messageId作为key
+    final messageMap = <String, Message>{};
+
+    // 先添加现有消息
+    for (final message in existingMessages) {
+      messageMap[message.messageId] = message;
+    }
+
+    // 再添加新消息（会覆盖重复的）
+    for (final message in newMessages) {
+      messageMap[message.messageId] = message;
+    }
+
+    // 转换为列表并按时间排序（最新到最老）
+    final mergedList = messageMap.values.toList();
+    mergedList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return mergedList;
+  }
+
+  /// 💢💢💢 新增：清理多余的消息，保持内存效率
+  void _cleanupExcessMessages(String targetMessageId) {
+    if (isClosed) return;
+
+    try {
+      final currentMessages = state.messages;
+      const maxMessagesInMemory = 200; // 内存中最多保留200条消息
+
+      // 如果消息数量超过限制，需要清理
+      if (currentMessages.length <= maxMessagesInMemory) {
+        return; // 无需清理
+      }
+
+      _logger.i('开始清理多余消息', extra: {
+        'currentCount': currentMessages.length,
+        'maxAllowed': maxMessagesInMemory,
+        'targetMessageId': targetMessageId,
+      });
+
+      // 找到目标消息的索引
+      final targetIndex = currentMessages.indexWhere(
+        (message) => message.messageId == targetMessageId,
+      );
+
+      if (targetIndex == -1) {
+        _logger.w('清理时未找到目标消息，跳过清理');
+        return;
+      }
+
+      // 计算保留范围：目标消息前后各保留一定数量
+      const keepBeforeTarget = 80;
+      const keepAfterTarget = 80;
+
+      final startIndex =
+          (targetIndex - keepBeforeTarget).clamp(0, currentMessages.length);
+      final endIndex =
+          (targetIndex + keepAfterTarget + 1).clamp(0, currentMessages.length);
+
+      final cleanedMessages = currentMessages.sublist(startIndex, endIndex);
+
+      // 💢💢💢 清理后，需要暂时禁用滚动位置监听，避免误触发加载更多
+      emit(state.copyWith(
+        messages: cleanedMessages,
+        isCleaningMessages: true, // 💢💢💢 添加清理标志
+      ));
+
+      _logger.i('清理多余消息完成', extra: {
+        'originalCount': currentMessages.length,
+        'cleanedCount': cleanedMessages.length,
+        'removedCount': currentMessages.length - cleanedMessages.length,
+        'targetStillExists':
+            cleanedMessages.any((m) => m.messageId == targetMessageId),
+      });
+
+      // 💢💢💢 延迟重置清理标志，给UI时间调整
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (!isClosed) {
+          emit(state.copyWith(isCleaningMessages: false));
+          _logger.d('清理标志已重置');
+        }
+      });
+    } catch (error) {
+      _logger.e('清理多余消息失败', error: error);
     }
   }
 

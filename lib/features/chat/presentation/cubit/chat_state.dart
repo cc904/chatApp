@@ -150,6 +150,25 @@ class ChatState extends Equatable {
   /// 搜索日期过滤器
   final DateTime? searchDateFilter;
 
+  /// 💢💢💢 新增搜索相关字段
+  /// 搜索结果中匹配的消息ID列表（按时间顺序排列）
+  final List<String> searchResultMessageIds;
+
+  /// 当前查看的搜索结果索引（从0开始）
+  final int currentSearchResultIndex;
+
+  /// 是否以列表形式显示搜索结果
+  final bool isShowingSearchAsList;
+
+  /// 搜索结果总数
+  final int searchResultTotalCount;
+
+  /// 💢💢💢 新增：搜索前的原始消息列表备份（用于退出搜索模式时恢复）
+  final List<Message>? originalMessages;
+
+  /// 💢💢💢 新增：是否正在清理多余消息（用于避免误触发加载更多）
+  final bool isCleaningMessages;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -171,6 +190,12 @@ class ChatState extends Equatable {
     this.searchResults = const [],
     this.isSearching = false,
     this.searchDateFilter,
+    required this.searchResultMessageIds,
+    required this.currentSearchResultIndex,
+    required this.isShowingSearchAsList,
+    required this.searchResultTotalCount,
+    this.originalMessages,
+    this.isCleaningMessages = false,
   });
 
   /// 初始状态
@@ -196,6 +221,12 @@ class ChatState extends Equatable {
       unreadCount: 0,
       currentScrollPosition: const CurrentScrollPosition.empty(),
       currentUser: currentUser,
+      searchResultMessageIds: const [],
+      currentSearchResultIndex: 0,
+      isShowingSearchAsList: false,
+      searchResultTotalCount: 0,
+      originalMessages: null,
+      isCleaningMessages: false,
     );
   }
 
@@ -220,6 +251,12 @@ class ChatState extends Equatable {
     List<Message>? searchResults,
     bool? isSearching,
     DateTime? searchDateFilter,
+    List<String>? searchResultMessageIds,
+    int? currentSearchResultIndex,
+    bool? isShowingSearchAsList,
+    int? searchResultTotalCount,
+    List<Message>? originalMessages,
+    bool? isCleaningMessages,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -243,6 +280,16 @@ class ChatState extends Equatable {
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
       searchDateFilter: searchDateFilter ?? this.searchDateFilter,
+      searchResultMessageIds:
+          searchResultMessageIds ?? this.searchResultMessageIds,
+      currentSearchResultIndex:
+          currentSearchResultIndex ?? this.currentSearchResultIndex,
+      isShowingSearchAsList:
+          isShowingSearchAsList ?? this.isShowingSearchAsList,
+      searchResultTotalCount:
+          searchResultTotalCount ?? this.searchResultTotalCount,
+      originalMessages: originalMessages ?? this.originalMessages,
+      isCleaningMessages: isCleaningMessages ?? this.isCleaningMessages,
     );
   }
 
@@ -296,5 +343,11 @@ class ChatState extends Equatable {
         searchResults,
         isSearching,
         searchDateFilter,
+        searchResultMessageIds,
+        currentSearchResultIndex,
+        isShowingSearchAsList,
+        searchResultTotalCount,
+        originalMessages,
+        isCleaningMessages,
       ];
 }

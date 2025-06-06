@@ -36,6 +36,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   static final _logger = LogService.instance;
   Timer? _scrollDebounceTimer;
+  Timer? _searchDebounceTimer; // 💢💢💢 新增：搜索防抖Timer
 
   /// 滚动控制器 - 用于控制列表滚动位置
   final ItemScrollController _itemScrollController = ItemScrollController();
@@ -46,6 +47,9 @@ class _ChatPageState extends State<ChatPage> {
 
   /// 文本输入控制器
   final TextEditingController _textController = TextEditingController();
+
+  /// 💢💢💢 新增：搜索输入控制器
+  final TextEditingController _searchController = TextEditingController();
 
   /// 焦点控制器
   final FocusNode _focusNode = FocusNode();
@@ -81,8 +85,10 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     _textController.dispose();
+    _searchController.dispose();
     _focusNode.dispose();
     _scrollDebounceTimer?.cancel();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -103,11 +109,25 @@ class _ChatPageState extends State<ChatPage> {
         // });
         if (lastVisibleIndex != null &&
             lastVisibleIndex >= state.messages.length - 10 &&
-            state.hasMoreHistory) {
+            state.hasMoreHistory &&
+            !state.isSearchMode && // 💢💢💢 搜索模式下不加载历史消息
+            !state.isCleaningMessages && // 💢💢💢 清理消息状态下不加载历史消息
+            lastVisibleIndex < state.messages.length) {
+          // 💢💢💢 确保索引在有效范围内
           _logger.i('检查是否需要加载更多历史消息', extra: {
             'lastVisibleIndex': lastVisibleIndex,
+            'messagesLength': state.messages.length,
           });
           _loadMoreHistoryWithPositionMaintenance();
+        } else if (lastVisibleIndex != null &&
+            lastVisibleIndex >= state.messages.length) {
+          // 💢💢💢 索引超出范围，可能是清理消息后的异常状态
+          _logger.w('检测到异常滚动位置，跳过加载更多', extra: {
+            'lastVisibleIndex': lastVisibleIndex,
+            'messagesLength': state.messages.length,
+            'isSearchMode': state.isSearchMode,
+            'isCleaningMessages': state.isCleaningMessages,
+          });
         }
       });
     }
@@ -253,11 +273,12 @@ class _ChatPageState extends State<ChatPage> {
     if (messageIndex != -1) {
       _itemScrollController.scrollTo(
         index: messageIndex,
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 100),
         curve: Curves.easeInOut,
       );
     }
   }
+
 
   /// 发送消息
   void _sendMessage() {
@@ -271,6 +292,10 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChatCubit, ChatState>(
+      buildWhen: (previous, current) {
+        return previous.isSearchMode != current.isSearchMode ||
+            previous.searchQuery != current.searchQuery;
+      },
       builder: (context, state) {
         return Scaffold(
           appBar: state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(),
@@ -385,81 +410,151 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   构建消息列表   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   构建消息列表   💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Widget _buildMessagesList() {
-    return BlocBuilder<ChatCubit, ChatState>(
-      buildWhen: (previous, current) {
-        return previous.messages.length != current.messages.length ||
-            previous.isSearchMode != current.isSearchMode ||
-            previous.isSearching != current.isSearching ||
-            previous.searchQuery != current.searchQuery;
-      },
-      builder: (context, state) {
-        _logger.i('💢 BlocBuilder 重绘');
+    return BlocListener<ChatCubit, ChatState>(
+      listenWhen: (previous, current) {
+        // 💢💢💢 监听搜索结果索引变化，触发自动滚动
+        final shouldListen = previous.currentSearchResultIndex !=
+                current.currentSearchResultIndex ||
+            (previous.searchResultMessageIds.length !=
+                    current.searchResultMessageIds.length &&
+                current.searchResultMessageIds.isNotEmpty);
 
-        // 获取当前应该显示的消息列表
-        final displayMessages =
-            context.read<ChatCubit>().getCurrentDisplayMessages();
-
-        // 搜索模式下的特殊状态处理
-        if (state.isSearchMode) {
-          if (state.isSearching) {
-            return Stack(
-              children: [
-                _buildBackground(),
-                const Center(child: CircularProgressIndicator()),
-              ],
-            );
-          }
-
-          if (state.searchQuery.trim().isNotEmpty && displayMessages.isEmpty) {
-            return Stack(
-              children: [
-                _buildBackground(),
-                const Center(
-                  child: Text(
-                    '没有找到匹配的消息',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                ),
-              ],
-            );
-          }
+        if (shouldListen) {
+          _logger.d('💢 BlocListener 条件满足', extra: {
+            'prevIndex': previous.currentSearchResultIndex,
+            'currentIndex': current.currentSearchResultIndex,
+            'prevResultIds': previous.searchResultMessageIds.length,
+            'currentResultIds': current.searchResultMessageIds.length,
+          });
         }
 
-        // 正常模式下的状态处理
-        if (!state.isSearchMode) {
-          if (state.isLoadingMessages && state.messages.isEmpty) {
-            return Stack(
-              children: [
-                _buildBackground(),
-                const Center(child: CircularProgressIndicator()),
-              ],
-            );
+        return shouldListen;
+      },
+      listener: (context, state) {
+        _logger.d('💢💢💢💢💢💢💢 BlocListener 被触发');
+
+        // 💢💢💢 自动滚动到当前搜索结果
+        if (state.isSearchMode &&
+            state.searchResultMessageIds.isNotEmpty &&
+            state.currentSearchResultIndex <
+                state.searchResultMessageIds.length) {
+          final currentResultMessageId =
+              state.searchResultMessageIds[state.currentSearchResultIndex];
+
+          _logger.d('💢 BlocListener 准备滚动', extra: {
+            'targetMessageId': currentResultMessageId,
+            'currentIndex': state.currentSearchResultIndex,
+          });
+
+          // 延迟执行滚动，等待UI更新完成
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _logger.d('💢 BlocListener 执行滚动回调');
+            _scrollToMessage(currentResultMessageId);
+          });
+        }
+      },
+      child: BlocBuilder<ChatCubit, ChatState>(
+        buildWhen: (previous, current) {
+          // 检查搜索模式状态变化
+          if (previous.currentSearchResultIndex !=
+              current.currentSearchResultIndex) {
+            _logger.i('💢 BlocBuilder 搜索模式状态变化');
+            return true;
           }
 
-          if (state.messages.isEmpty) {
-            return Stack(
-              children: [
-                _buildBackground(),
-                const Center(
-                  child: Text(
-                    '还没有消息\n发送第一条消息开始聊天吧！',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
+          // 检查消息列表是否发生变化
+          // 1. 首先检查长度是否不同
+          if (previous.messages.length != current.messages.length) {
+            _logger.i('💢 BlocBuilder 长度变化');
+            return true;
+          }
+
+          // 2. 长度相同时，检查内容是否相同（使用identical判断引用是否相同）
+          if (!identical(previous.messages, current.messages)) {
+            _logger.i('💢 BlocBuilder 内容变化');
+            return true;
+          }
+
+          _logger.d('💢 BlocBuilder 无变化');
+          return false;
+        },
+        builder: (context, state) {
+          _logger.w('💢 BlocBuilder builder 被调用', extra: {
+            'stateHash': state.hashCode,
+            'messagesLength': state.messages.length,
+            'isSearchMode': state.isSearchMode,
+            'isSearching': state.isSearching,
+          });
+
+          _logger.i('💢 BlocBuilder 重绘');
+
+          // 获取当前应该显示的消息列表
+          final displayMessages =
+              context.read<ChatCubit>().getCurrentDisplayMessages();
+
+          // 搜索模式下的特殊状态处理
+          if (state.isSearchMode) {
+            if (state.isSearching) {
+              return Stack(
+                children: [
+                  _buildBackground(),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              );
+            }
+
+            if (state.searchQuery.trim().isNotEmpty &&
+                displayMessages.isEmpty) {
+              return Stack(
+                children: [
+                  _buildBackground(),
+                  const Center(
+                    child: Text(
+                      '没有找到匹配的消息',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
                   ),
-                ),
-              ],
-            );
+                ],
+              );
+            }
           }
-        }
 
-        // 显示消息列表内容
-        return _buildMessagesContent(displayMessages, state);
-      },
+          // 正常模式下的状态处理
+          if (!state.isSearchMode) {
+            if (state.isLoadingMessages && state.messages.isEmpty) {
+              return Stack(
+                children: [
+                  _buildBackground(),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              );
+            }
+
+            if (state.messages.isEmpty) {
+              return Stack(
+                children: [
+                  _buildBackground(),
+                  const Center(
+                    child: Text(
+                      '还没有消息\n发送第一条消息开始聊天吧！',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+          }
+
+          // 显示消息列表内容
+          return _buildMessagesContent(displayMessages, state);
+        },
+      ),
     );
   }
 
@@ -524,6 +619,16 @@ class _ChatPageState extends State<ChatPage> {
                   // 根据类型渲染不同的组件
                   if (item is MessageListItemData) {
                     final message = item.message as Message;
+
+                    // 💢💢💢 检查消息是否为搜索结果
+                    final chatCubit = context.read<ChatCubit>();
+                    final isSearchResult =
+                        chatCubit.isSearchResult(message.messageId);
+                    final isCurrentSearchResult =
+                        chatCubit.isCurrentSearchResult(message.messageId);
+                    final searchQuery =
+                        state.isSearchMode ? state.searchQuery : null;
+
                     return MessageItem(
                       key: ValueKey(message.messageId),
                       message: message,
@@ -532,6 +637,10 @@ class _ChatPageState extends State<ChatPage> {
                       showTail: item.showTail,
                       isPrivateChat: item.isPrivateChat,
                       onTap: () => _onMessageTap(message),
+                      // 💢💢💢 新增搜索相关参数
+                      isSearchResult: isSearchResult,
+                      isCurrentSearchResult: isCurrentSearchResult,
+                      searchQuery: searchQuery,
                     );
                   } else if (item is MessageListItemDateSeparator) {
                     return DateSeparator(
@@ -674,13 +783,9 @@ class _ChatPageState extends State<ChatPage> {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 1,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
-        onPressed: () {
-          context.read<ChatCubit>().exitSearchMode();
-        },
-      ),
+      automaticallyImplyLeading: false, // 禁用自动添加的leading按钮
       title: TextField(
+        controller: _searchController, // 💢💢💢 使用专用的搜索控制器
         autofocus: true,
         decoration: const InputDecoration(
           hintText: '搜索消息...',
@@ -689,12 +794,22 @@ class _ChatPageState extends State<ChatPage> {
         ),
         style: const TextStyle(color: Colors.black, fontSize: 16),
         onChanged: (query) {
-          context.read<ChatCubit>().performSearch(query);
+          // 💢💢💢 实现搜索防抖（1秒）
+          _searchDebounceTimer?.cancel();
+          _searchDebounceTimer = Timer(
+            const Duration(milliseconds: 1000),
+            () {
+              context.read<ChatCubit>().performSearch(query);
+            },
+          );
         },
       ),
       actions: [
         TextButton(
           onPressed: () {
+            // 💢💢💢 退出搜索时清空搜索框和取消防抖Timer
+            _searchController.clear();
+            _searchDebounceTimer?.cancel();
             context.read<ChatCubit>().exitSearchMode();
           },
           child: const Text(
@@ -710,8 +825,12 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildSearchBottomBar() {
     return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
+        // 💢💢💢 获取当前搜索信息
+        final searchInfo = context.read<ChatCubit>().getCurrentSearchInfo();
+        final hasResults = searchInfo.isNotEmpty;
+
         return Container(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(
@@ -720,36 +839,22 @@ class _ChatPageState extends State<ChatPage> {
                 width: 0.5,
               ),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              // 日期过滤按钮
-              IconButton(
-                icon: Icon(
-                  Icons.calendar_today,
-                  color: state.searchDateFilter != null
-                      ? Theme.of(context).primaryColor
-                      : Colors.grey,
-                ),
-                onPressed: () {
-                  _showDateFilterPicker(context);
-                },
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(10),
+                offset: const Offset(0, -1),
+                blurRadius: 4,
               ),
-              // 显示当前过滤的日期
-              if (state.searchDateFilter != null) ...[
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text(
-                    '${state.searchDateFilter!.month}/${state.searchDateFilter!.day}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  deleteIcon: const Icon(Icons.close, size: 16),
-                  onDeleted: () {
-                    context.read<ChatCubit>().setSearchDateFilter(null);
-                  },
-                ),
-              ],
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 💢💢💢 搜索结果导航栏
+              if (hasResults) _buildSearchNavigationBar(searchInfo),
+
+              // 💢💢💢 搜索选项工具栏
+              _buildSearchOptionsBar(state),
             ],
           ),
         );
@@ -757,18 +862,501 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// 💢💢💢 新增：搜索结果导航栏
+  Widget _buildSearchNavigationBar(Map<String, dynamic> searchInfo) {
+    final currentIndex = searchInfo['currentIndex'] as int;
+    final totalCount = searchInfo['totalCount'] as int;
+
+    // 💢💢💢 计算按钮的启用状态（线性导航）
+    final canGoPrev = currentIndex > 1; // 不是第一个
+    final canGoNext = currentIndex < totalCount; // 不是最后一个
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          // 搜索结果计数器
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Text(
+              '$currentIndex / $totalCount',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+
+          const Spacer(),
+
+          // 导航按钮组
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 上一个结果按钮（因为列表反向，这里是下一个搜索结果）
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      bottomLeft: Radius.circular(20),
+                    ),
+                    onTap: canGoNext
+                        ? () => context.read<ChatCubit>().goToNextSearchResult()
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.keyboard_arrow_up,
+                        size: 20,
+                        color: canGoNext
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 分隔线
+                Container(
+                  width: 1,
+                  height: 24,
+                  color: Colors.grey.shade300,
+                ),
+
+                // 下一个结果按钮（因为列表反向，这里是上一个搜索结果）
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                    onTap: canGoPrev
+                        ? () => context.read<ChatCubit>().goToPrevSearchResult()
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 20,
+                        color: canGoPrev
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 💢💢💢 新增：搜索选项工具栏
+  Widget _buildSearchOptionsBar(ChatState state) {
+    return Row(
+      children: [
+        // 搜索状态指示器
+        if (state.isSearching)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '搜索中...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          )
+        else if (state.searchQuery.trim().isNotEmpty &&
+            state.searchResultTotalCount == 0)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 16,
+                color: Colors.grey.shade500,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '无匹配结果',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+
+        const Spacer(),
+
+        // 日期过滤按钮
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _showDateFilterPicker(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: state.searchDateFilter != null
+                    ? Theme.of(context).primaryColor.withAlpha(26)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: state.searchDateFilter != null
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: state.searchDateFilter != null
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.shade600,
+                  ),
+                  if (state.searchDateFilter != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '${state.searchDateFilter!.month}/${state.searchDateFilter!.day}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () =>
+                          context.read<ChatCubit>().setSearchDateFilter(null),
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 显示日期选择器
   Future<void> _showDateFilterPicker(BuildContext context) async {
-    final selectedDate = await showDatePicker(
+    final chatCubit = context.read<ChatCubit>();
+    final availableDates = chatCubit.getAvailableDates();
+
+    if (availableDates.isEmpty) {
+      // 如果没有可用日期，显示提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前会话暂无消息')),
+        );
+      }
+      return;
+    }
+
+    // 使用自定义日期选择器
+    final selectedDate = await showDialog<DateTime>(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      builder: (context) => _CustomDatePickerDialog(
+        availableDates: availableDates,
+        initialDate: DateTime.now(),
+      ),
     );
 
     if (selectedDate != null && mounted) {
       // ignore: use_build_context_synchronously
       context.read<ChatCubit>().setSearchDateFilter(selectedDate);
     }
+  }
+}
+
+/// 自定义日期选择器对话框
+class _CustomDatePickerDialog extends StatefulWidget {
+  final Set<DateTime> availableDates;
+  final DateTime initialDate;
+
+  const _CustomDatePickerDialog({
+    required this.availableDates,
+    required this.initialDate,
+  });
+
+  @override
+  State<_CustomDatePickerDialog> createState() =>
+      _CustomDatePickerDialogState();
+}
+
+class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
+  late DateTime _currentDate;
+  late DateTime _displayMonth;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 如果有可用日期，选择最新的日期；否则使用初始日期
+    if (widget.availableDates.isNotEmpty) {
+      final sortedDates = widget.availableDates.toList()
+        ..sort((a, b) => b.compareTo(a)); // 按日期降序排列
+      _currentDate = sortedDates.first; // 选择最新的日期
+    } else {
+      _currentDate = widget.initialDate;
+    }
+
+    _displayMonth = DateTime(_currentDate.year, _currentDate.month);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择日期'),
+      content: SizedBox(
+        width: 300,
+        height: 450,
+        child: Column(
+          children: [
+            // 提示文本
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 16, color: Colors.blue.shade600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '只能选择有消息的日期（蓝色标记）',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // 月份导航
+            _buildMonthNavigation(),
+            const SizedBox(height: 16),
+            // 日历网格
+            Expanded(child: _buildCalendarGrid()),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _currentDate),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthNavigation() {
+    // 检查上个月和下个月是否有消息
+    final prevMonth = DateTime(_displayMonth.year, _displayMonth.month - 1);
+    final nextMonth = DateTime(_displayMonth.year, _displayMonth.month + 1);
+
+    final hasPrevMonthMessages = _hasMessagesInMonth(prevMonth);
+    final hasNextMonthMessages = _hasMessagesInMonth(nextMonth);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          onPressed: hasPrevMonthMessages
+              ? () {
+                  setState(() {
+                    _displayMonth = prevMonth;
+                  });
+                }
+              : null,
+          icon: Icon(
+            Icons.chevron_left,
+            color: hasPrevMonthMessages ? null : Colors.grey.shade400,
+          ),
+        ),
+        Text(
+          '${_displayMonth.year}年${_displayMonth.month}月',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        IconButton(
+          onPressed: hasNextMonthMessages
+              ? () {
+                  setState(() {
+                    _displayMonth = nextMonth;
+                  });
+                }
+              : null,
+          icon: Icon(
+            Icons.chevron_right,
+            color: hasNextMonthMessages ? null : Colors.grey.shade400,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 检查指定月份是否有消息
+  bool _hasMessagesInMonth(DateTime month) {
+    return widget.availableDates
+        .any((date) => date.year == month.year && date.month == month.month);
+  }
+
+  Widget _buildCalendarGrid() {
+    final daysInMonth =
+        DateTime(_displayMonth.year, _displayMonth.month + 1, 0).day;
+    final firstDayOfMonth =
+        DateTime(_displayMonth.year, _displayMonth.month, 1);
+    final weekdayOfFirstDay =
+        firstDayOfMonth.weekday % 7; // 0 = Sunday, 6 = Saturday
+
+    return Column(
+      children: [
+        // 星期标题
+        SizedBox(
+          height: 30,
+          child: Row(
+            children: ['日', '一', '二', '三', '四', '五', '六']
+                .map((day) => Expanded(
+                      child: Center(
+                        child: Text(
+                          day,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // 日历网格
+        Expanded(
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1.0,
+            ),
+            itemCount: daysInMonth + weekdayOfFirstDay,
+            itemBuilder: (context, index) {
+              if (index < weekdayOfFirstDay) {
+                return const SizedBox(); // 空白位置
+              }
+
+              final day = index - weekdayOfFirstDay + 1;
+              final date =
+                  DateTime(_displayMonth.year, _displayMonth.month, day);
+              final hasMessages = widget.availableDates.contains(date);
+              final isSelected = date.isAtSameMomentAs(DateTime(
+                  _currentDate.year, _currentDate.month, _currentDate.day));
+              final isToday = _isSameDay(date, DateTime.now());
+
+              return GestureDetector(
+                onTap: hasMessages
+                    ? () {
+                        setState(() {
+                          _currentDate = date;
+                        });
+                      }
+                    : null,
+                child: Container(
+                  margin: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : (hasMessages
+                            ? Colors.blue.shade50
+                            : Colors.transparent),
+                    borderRadius: BorderRadius.circular(8),
+                    border: isToday && hasMessages
+                        ? Border.all(
+                            color: Theme.of(context).primaryColor, width: 2)
+                        : (hasMessages
+                            ? Border.all(color: Colors.blue.shade200)
+                            : null),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : (hasMessages
+                                ? (isToday
+                                    ? Theme.of(context).primaryColor
+                                    : Colors.blue.shade700)
+                                : Colors.grey.shade400),
+                        fontWeight: isSelected || isToday
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 检查两个日期是否是同一天
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 }

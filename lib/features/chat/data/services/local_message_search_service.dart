@@ -5,6 +5,7 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:isar/isar.dart';
 
 /// 本地消息搜索服务 - 基于Isar数据库的全文搜索
+/// 废弃，使用ChatRepositoryImpl中的searchMessages方法替代
 class LocalMessageSearchService {
   final LogService _logger = LogService.instance;
 
@@ -264,6 +265,11 @@ class LocalMessageSearchService {
   ) async {
     final searchOptions = options ?? const LocalSearchOptions();
 
+    // 💢💢💢 如果没有指定消息类型，默认只搜索文本消息，避免图片和表情符被包含
+    final effectiveSearchOptions = searchOptions.messageTypes == null
+        ? searchOptions.copyWith(messageTypes: ['text'])
+        : searchOptions;
+
     // 获取所有消息，然后在内存中过滤
     List<Message> messages;
 
@@ -275,7 +281,7 @@ class LocalMessageSearchService {
             .filter()
             .conversationIdEqualTo(conversationId)
             .sortByCreatedAtDesc()
-            .limit(searchOptions.limit)
+            .limit(effectiveSearchOptions.limit)
             .findAll();
         messages.addAll(conversationMessages);
       }
@@ -284,27 +290,30 @@ class LocalMessageSearchService {
       messages = await _isar.messages
           .where()
           .sortByCreatedAtDesc()
-          .limit(searchOptions.limit * 2) // 获取更多消息以便过滤
+          .limit(effectiveSearchOptions.limit * 2) // 获取更多消息以便过滤
           .findAll();
     }
 
     // 在内存中应用过滤条件
-    messages = _applyFilters(messages, searchOptions);
+    messages = _applyFilters(messages, effectiveSearchOptions);
 
     // 文本搜索过滤
-    final filteredMessages = _filterByText(messages, query, searchOptions);
+    final filteredMessages =
+        _filterByText(messages, query, effectiveSearchOptions);
 
     // 限制结果数量
-    if (filteredMessages.length > searchOptions.limit) {
+    if (filteredMessages.length > effectiveSearchOptions.limit) {
       filteredMessages.removeRange(
-          searchOptions.limit, filteredMessages.length);
+          effectiveSearchOptions.limit, filteredMessages.length);
     }
 
     // 转换为搜索结果项并按相关性排序
     final results = filteredMessages.map((message) {
-      final highlights = _generateHighlights(message, query, searchOptions);
-      final snippet = _generateSnippet(message, query, searchOptions);
-      final score = _calculateRelevanceScore(message, query, searchOptions);
+      final highlights =
+          _generateHighlights(message, query, effectiveSearchOptions);
+      final snippet = _generateSnippet(message, query, effectiveSearchOptions);
+      final score =
+          _calculateRelevanceScore(message, query, effectiveSearchOptions);
 
       return LocalSearchResultItem(
         message: message,

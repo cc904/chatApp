@@ -2,6 +2,27 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
+/// 搜索结果类
+/// 包含搜索相关的所有信息
+class SearchResult {
+  /// 匹配的消息ID列表（按时间顺序排列）
+  final List<String> matchedMessageIds;
+
+  /// 搜索结果总数
+  final int totalCount;
+
+  const SearchResult({
+    required this.matchedMessageIds,
+    required this.totalCount,
+  });
+
+  /// 是否有搜索结果
+  bool get hasResults => totalCount > 0;
+
+  /// 是否为空结果
+  bool get isEmpty => totalCount == 0;
+}
+
 /// 日期时间范围类
 class DateTimeRange {
   final DateTime start;
@@ -68,6 +89,41 @@ abstract class ChatRepository {
   /// 搜索消息
   Future<List<Message>> searchMessages(String keyword,
       {String? conversationId});
+
+  /// 💢💢💢 新增：在数据库中搜索消息并返回结果信息
+  /// 直接从数据库搜索，返回匹配消息的ID列表和完整的消息范围
+  /// [query] - 搜索关键词
+  /// [conversationId] - 会话ID
+  /// [dateFilter] - 可选的日期过滤器
+  /// 返回搜索结果信息
+  Future<SearchResult> searchMessagesInDatabase({
+    required String query,
+    required String conversationId,
+    DateTime? dateFilter,
+  });
+
+  /// 💢💢💢 新增：根据搜索结果获取完整的消息范围
+  /// 从最老的搜索结果到最新的搜索结果之间的所有消息
+  /// [conversationId] - 会话ID
+  /// [searchResultIds] - 搜索结果消息ID列表
+  /// 返回完整的消息列表
+  Future<List<Message>> getMessagesRangeForSearch({
+    required String conversationId,
+    required List<String> searchResultIds,
+  });
+
+  /// 💢💢💢 新增：加载指定搜索结果附近的消息
+  /// 替换式加载，只获取目标搜索结果前后指定数量的消息
+  /// [conversationId] - 会话ID
+  /// [targetMessageId] - 目标搜索结果消息ID
+  /// [contextSize] - 上下文大小（前后各取多少条消息）
+  /// 返回目标消息附近的消息列表和时间范围
+  Future<({List<Message> messages, DateTimeRange timeRange})>
+      getMessagesAroundSearchResult({
+    required String conversationId,
+    required String targetMessageId,
+    int contextSize = 25,
+  });
 
   /// 发送文本消息
   Future<Message> sendTextMessage(String conversationId, String text);

@@ -699,10 +699,19 @@ class ChatRepositoryImpl implements ChatRepository {
           .optional(conversationId != null,
               (q) => q.conversationIdEqualTo(conversationId!))
           .and()
+          .typeEqualTo('text') // 💢💢💢 只搜索文本类型的消息
+          .and()
           .optional(keyword.isNotEmpty,
               (q) => q.textContains(keyword, caseSensitive: false));
 
       final messages = await query.sortByCreatedAtDesc().findAll();
+
+      _logger.d('搜索消息完成', extra: {
+        'keyword': keyword,
+        'conversationId': conversationId,
+        'resultCount': messages.length,
+      });
+
       return messages;
     } catch (error) {
       _logger.e('搜索消息失败', error: error, stackTrace: StackTrace.current);
@@ -1920,6 +1929,306 @@ class ChatRepositoryImpl implements ChatRepository {
         'conversationId': conversationId,
         'validationTime': DateTime.now().toIso8601String(),
       };
+    }
+  }
+
+  /// 💢💢💢 新增：在数据库中搜索消息并返回结果信息
+  /// TODO: 优化搜索逻辑，只搜索文本类型的消息，排除图片、语音、视频、文件等其他类型
+  @override
+  Future<SearchResult> searchMessagesInDatabase({
+    required String query,
+    required String conversationId,
+    DateTime? dateFilter,
+  }) async {
+    try {
+      _logger.i('在数据库中搜索消息', extra: {
+        'query': query,
+        'conversationId': conversationId,
+        'hasDateFilter': dateFilter != null,
+      });
+
+      if (query.trim().isEmpty) {
+        return const SearchResult(
+          matchedMessageIds: [],
+          totalCount: 0,
+        );
+      }
+
+      // 💢💢💢 新方法：先获取所有消息，然后在内存中进行匹配
+      final trimmedQuery = query.trim().toLowerCase();
+
+      // 分割关键词（支持空格分隔的多关键词搜索）
+      final keywords = trimmedQuery
+          .split(RegExp(r'\s+'))
+          .where((keyword) => keyword.isNotEmpty)
+          .toList();
+
+      // 构建基础查询（只过滤会话ID和日期）
+      var queryBuilder =
+          _messages.filter().conversationIdEqualTo(conversationId);
+
+      // 添加日期过滤条件
+      if (dateFilter != null) {
+        final startOfDay =
+            DateTime(dateFilter.year, dateFilter.month, dateFilter.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+
+        queryBuilder =
+            queryBuilder.and().createdAtBetween(startOfDay, endOfDay);
+      }
+
+      // 💢💢💢 先获取所有符合基础条件的消息
+      final allMessages = await queryBuilder.sortByCreatedAtDesc().findAll();
+
+      _logger.d('获取基础消息列表', extra: {
+        'totalMessages': allMessages.length,
+        'keywords': keywords,
+      });
+
+      // 💢💢💢 在内存中进行关键词匹配，确保每条消息只被计算一次
+      final matchedMessages = <Message>[];
+      final processedMessageIds = <String>{};
+      int textMessageCount = 0;
+      int nonTextMessageCount = 0;
+
+      for (final message in allMessages) {
+        // 确保不重复处理同一条消息
+        if (processedMessageIds.contains(message.messageId)) {
+          continue;
+        }
+
+        // 💢💢💢 只搜索文本类型的消息，排除图片、表情符、语音等其他类型
+        if (message.type != 'text') {
+          nonTextMessageCount++;
+          continue;
+        }
+
+        textMessageCount++;
+
+        // 💢💢💢 检查消息的多个文本字段是否包含任意一个关键词
+        bool isMatch = false;
+
+        // 收集所有可搜索的文本字段
+        final searchableTexts = <String>[];
+
+        // 主要文本内容
+        if (message.text != null && message.text!.isNotEmpty) {
+          searchableTexts.add(message.text!.toLowerCase());
+        }
+
+        // 文件名（对于文件类型消息，虽然我们已经过滤了非文本消息，但保留此逻辑以备将来扩展）
+        if (message.fileName != null && message.fileName!.isNotEmpty) {
+          searchableTexts.add(message.fileName!.toLowerCase());
+        }
+
+        // 位置地址（对于位置类型消息）
+        if (message.locationAddress != null &&
+            message.locationAddress!.isNotEmpty) {
+          searchableTexts.add(message.locationAddress!.toLowerCase());
+        }
+
+        // 发送者名称
+        if (message.senderName != null && message.senderName!.isNotEmpty) {
+          searchableTexts.add(message.senderName!.toLowerCase());
+        }
+
+        // 在所有可搜索文本中查找关键词
+        for (final searchText in searchableTexts) {
+          for (final keyword in keywords) {
+            if (searchText.contains(keyword)) {
+              isMatch = true;
+              break;
+            }
+          }
+          if (isMatch) break; // 找到匹配就退出
+        }
+
+        if (isMatch) {
+          matchedMessages.add(message);
+          processedMessageIds.add(message.messageId);
+        }
+      }
+
+      // 按时间降序排列（最新到最老）
+      matchedMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // 提取消息ID列表（从新到旧排序）
+      final matchedMessageIds =
+          matchedMessages.map((msg) => msg.messageId).toList();
+
+      final result = SearchResult(
+        matchedMessageIds: matchedMessageIds,
+        totalCount: matchedMessages.length,
+      );
+
+      _logger.i('数据库搜索完成（内存匹配）', extra: {
+        'query': query,
+        'keywords': keywords,
+        'searchFields': ['text', 'fileName', 'locationAddress', 'senderName'],
+        'candidateMessages': allMessages.length,
+        'textMessages': textMessageCount,
+        'nonTextMessages': nonTextMessageCount,
+        'matchedMessages': result.totalCount,
+      });
+
+      return result;
+    } catch (error) {
+      _logger.e('数据库搜索失败', error: error, stackTrace: StackTrace.current);
+
+      return const SearchResult(
+        matchedMessageIds: [],
+        totalCount: 0,
+      );
+    }
+  }
+
+  /// 💢💢💢 新增：根据搜索结果获取完整的消息范围
+  @override
+  Future<List<Message>> getMessagesRangeForSearch({
+    required String conversationId,
+    required List<String> searchResultIds,
+  }) async {
+    try {
+      if (searchResultIds.isEmpty) {
+        return [];
+      }
+
+      _logger.i('获取搜索结果的完整消息范围', extra: {
+        'conversationId': conversationId,
+        'searchResultCount': searchResultIds.length,
+      });
+
+      // 获取搜索结果中最老和最新的消息
+      final firstMessage = await _messages
+          .filter()
+          .messageIdEqualTo(searchResultIds.first)
+          .findFirst();
+
+      final lastMessage = await _messages
+          .filter()
+          .messageIdEqualTo(searchResultIds.last)
+          .findFirst();
+
+      if (firstMessage == null || lastMessage == null) {
+        _logger.w('找不到搜索结果的边界消息');
+        return [];
+      }
+
+      // 获取时间范围内的所有消息
+      final startTime = firstMessage.createdAt;
+      final endTime =
+          lastMessage.createdAt.add(const Duration(seconds: 1)); // 包含最后一条消息
+
+      final allMessages = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .createdAtBetween(startTime, endTime)
+          .sortByCreatedAtDesc() // 按时间降序排列（最新到最老，符合聊天界面显示）
+          .findAll();
+
+      _logger.i('获取搜索范围消息完成', extra: {
+        'totalMessages': allMessages.length,
+        'timeRange':
+            '${startTime.toIso8601String()} - ${endTime.toIso8601String()}',
+      });
+
+      return allMessages;
+    } catch (error) {
+      _logger.e('获取搜索范围消息失败', error: error, stackTrace: StackTrace.current);
+      return [];
+    }
+  }
+
+  /// 💢💢💢 新增：加载指定搜索结果附近的消息
+  @override
+  Future<({List<Message> messages, DateTimeRange timeRange})>
+      getMessagesAroundSearchResult({
+    required String conversationId,
+    required String targetMessageId,
+    int contextSize = 25,
+  }) async {
+    try {
+      _logger.i('加载搜索结果附近的消息', extra: {
+        'conversationId': conversationId,
+        'targetMessageId': targetMessageId,
+        'contextSize': contextSize,
+      });
+
+      // 获取目标消息
+      final targetMessage = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .messageIdEqualTo(targetMessageId)
+          .findFirst();
+
+      if (targetMessage == null) {
+        _logger.w('找不到目标搜索结果消息', extra: {'messageId': targetMessageId});
+        return (
+          messages: <Message>[],
+          timeRange: DateTimeRange(start: DateTime.now(), end: DateTime.now())
+        );
+      }
+
+      final targetTime = targetMessage.createdAt;
+
+      // 获取目标消息之前的消息（按时间升序，取最后contextSize条）
+      final beforeMessages = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .createdAtLessThan(targetTime)
+          .sortByCreatedAt() // 按时间升序
+          .findAll();
+
+      final contextBefore = beforeMessages.length > contextSize
+          ? beforeMessages.sublist(beforeMessages.length - contextSize)
+          : beforeMessages;
+
+      // 获取目标消息之后的消息（按时间升序，取前contextSize条）
+      final afterMessages = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .createdAtGreaterThan(targetTime)
+          .sortByCreatedAt() // 按时间升序
+          .limit(contextSize)
+          .findAll();
+
+      // 合并所有消息：之前的 + 目标消息 + 之后的
+      final allMessages = <Message>[
+        ...contextBefore,
+        targetMessage,
+        ...afterMessages,
+      ];
+
+      // 按时间降序排列（符合聊天界面显示）
+      allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // 计算时间范围
+      final startTime =
+          allMessages.isEmpty ? DateTime.now() : allMessages.last.createdAt;
+      final endTime =
+          allMessages.isEmpty ? DateTime.now() : allMessages.first.createdAt;
+
+      final timeRange = DateTimeRange(start: startTime, end: endTime);
+
+      _logger.i('加载搜索结果附近消息完成', extra: {
+        'totalMessages': allMessages.length,
+        'beforeCount': contextBefore.length,
+        'afterCount': afterMessages.length,
+        'timeRange':
+            '${startTime.toIso8601String()} - ${endTime.toIso8601String()}',
+      });
+
+      return (messages: allMessages, timeRange: timeRange);
+    } catch (error) {
+      _logger.e('加载搜索结果附近消息失败', error: error, stackTrace: StackTrace.current);
+      return (
+        messages: <Message>[],
+        timeRange: DateTimeRange(start: DateTime.now(), end: DateTime.now())
+      );
     }
   }
 }

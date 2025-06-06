@@ -167,7 +167,7 @@ class SearchCubit extends Cubit<SearchState> {
         final now = DateTime.now();
         final oneYearAgo = DateTime(now.year - 1, now.month, now.day);
         return messages.where((m) => m.createdAt.isAfter(oneYearAgo)).toList();
-      }
+    }
   }
 
   // 应用过滤器到消息列表（供外部调用）

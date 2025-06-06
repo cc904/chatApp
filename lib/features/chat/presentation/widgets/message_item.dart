@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 ///
 /// 用于显示单条消息，支持不同消息类型和发送状态
 /// 支持消息分组显示：同一人连续消息只在最后一条显示头像和尾巴
+/// 💢💢💢 支持搜索高亮显示
 class MessageItem extends StatelessWidget {
   final Message message;
   final bool isCurrentUser;
@@ -13,6 +14,11 @@ class MessageItem extends StatelessWidget {
   final bool showTail; // 是否显示小尾巴
   final bool isPrivateChat; // 是否为私聊
   final VoidCallback? onTap;
+
+  /// 💢💢💢 新增搜索相关参数
+  final bool isSearchResult; // 是否为搜索结果
+  final bool isCurrentSearchResult; // 是否为当前选中的搜索结果
+  final String? searchQuery; // 搜索关键词（用于高亮文本）
 
   const MessageItem({
     super.key,
@@ -22,6 +28,9 @@ class MessageItem extends StatelessWidget {
     this.showTail = true,
     this.isPrivateChat = false,
     this.onTap,
+    this.isSearchResult = false,
+    this.isCurrentSearchResult = false,
+    this.searchQuery,
   });
 
   @override
@@ -83,6 +92,20 @@ class MessageItem extends StatelessWidget {
 
   /// 构建消息气泡
   Widget _buildMessageBubble(BuildContext context) {
+    // 💢💢💢 计算搜索高亮样式
+    Color? highlightBorderColor;
+    double borderWidth = 0.0;
+
+    if (isCurrentSearchResult) {
+      // 当前搜索结果：橙色高亮边框
+      highlightBorderColor = Colors.orange;
+      borderWidth = 2.0;
+    } else if (isSearchResult) {
+      // 普通搜索结果：淡蓝色边框
+      highlightBorderColor = Colors.blue.shade300;
+      borderWidth = 1.5;
+    }
+
     return Container(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.7,
@@ -108,6 +131,20 @@ class MessageItem extends StatelessWidget {
                   : const Radius.circular(18.0)
               : const Radius.circular(18.0),
         ),
+        // 💢💢💢 添加搜索高亮边框
+        border: highlightBorderColor != null
+            ? Border.all(color: highlightBorderColor, width: borderWidth)
+            : null,
+        // 💢💢💢 当前搜索结果添加发光效果
+        boxShadow: isCurrentSearchResult
+            ? [
+                BoxShadow(
+                  color: Colors.orange.withAlpha(102),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ]
+            : null,
       ),
       child: Column(
         crossAxisAlignment:
@@ -145,9 +182,9 @@ class MessageItem extends StatelessWidget {
   Widget _buildMessageContent(BuildContext context) {
     switch (message.type) {
       case 'text':
-        return Text(
+        return _buildHighlightedText(
           message.text ?? '',
-          style: TextStyle(
+          baseStyle: TextStyle(
             fontSize: 14.0,
             color: isCurrentUser ? Colors.white : Colors.black87,
           ),
@@ -220,14 +257,12 @@ class MessageItem extends StatelessWidget {
                 const SizedBox(height: 4.0),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: Text(
+                  child: _buildHighlightedText(
                     message.text!,
-                    style: TextStyle(
+                    baseStyle: TextStyle(
                       fontSize: 14.0,
                       color: isCurrentUser ? Colors.white : Colors.black87,
                     ),
-                    maxLines: 3, // 限制最大行数避免文字过长
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -413,5 +448,54 @@ class MessageItem extends StatelessWidget {
 
     // 默认使用略微横向的比例，适合大多数照片
     return 1.3; // 4:3 比例，接近手机拍照的默认比例
+  }
+
+  /// 构建高亮文本
+  Widget _buildHighlightedText(String text, {required TextStyle baseStyle}) {
+    if (searchQuery == null || searchQuery!.isEmpty) {
+      return Text(
+        text,
+        style: baseStyle,
+      );
+    }
+
+    final RegExp regExp = RegExp(searchQuery!, caseSensitive: false);
+    final List<TextSpan> spans = [];
+    int lastIndex = 0;
+
+    for (final match in regExp.allMatches(text)) {
+      final start = match.start;
+      final end = match.end;
+
+      if (start > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, start),
+          style: baseStyle,
+        ));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(start, end),
+        style: baseStyle.copyWith(
+          fontWeight: FontWeight.bold,
+          color: Colors.orange,
+        ),
+      ));
+
+      lastIndex = end;
+    }
+
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: baseStyle,
+      ));
+    }
+
+    return Text.rich(
+      TextSpan(
+        children: spans,
+      ),
+    );
   }
 }
