@@ -251,6 +251,7 @@ class ChatState extends Equatable {
     List<Message>? searchResults,
     bool? isSearching,
     DateTime? searchDateFilter,
+    bool clearSearchDateFilter = false,
     List<String>? searchResultMessageIds,
     int? currentSearchResultIndex,
     bool? isShowingSearchAsList,
@@ -279,7 +280,9 @@ class ChatState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
-      searchDateFilter: searchDateFilter ?? this.searchDateFilter,
+      searchDateFilter: clearSearchDateFilter
+          ? null
+          : (searchDateFilter ?? this.searchDateFilter),
       searchResultMessageIds:
           searchResultMessageIds ?? this.searchResultMessageIds,
       currentSearchResultIndex:

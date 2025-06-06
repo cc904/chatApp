@@ -825,14 +825,7 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 💢💢💢 新增：滚动到指定的搜索结果消息(废弃)
-  // void _scrollToSearchResult(String messageId) {
-  //   // 这个方法会被UI层调用，用于滚动到指定消息
-  //   // 具体的滚动逻辑在ChatPage中实现
-  //   _logger.d('请求滚动到搜索结果', extra: {'messageId': messageId});
-  // }
-
-  /// 获取当前显示的消息列表（搜索模式下返回搜索结果，正常模式返回所有消息）
+  /// 💢💢💢 新增：获取当前显示的消息列表（搜索模式下返回搜索结果，正常模式返回所有消息）
   List<Message> getCurrentDisplayMessages() {
     if (state.isSearchMode && state.searchQuery.trim().isNotEmpty) {
       // 搜索模式下，直接返回当前的消息列表（已经是搜索范围内的消息）
@@ -961,16 +954,120 @@ class ChatCubit extends Cubit<ChatState> {
   /// 设置搜索日期过滤器
   void setSearchDateFilter(DateTime? dateFilter) {
     if (!isClosed) {
-      emit(state.copyWith(searchDateFilter: dateFilter));
+      // 💢💢💢 使用新的 clearSearchDateFilter 参数来正确处理 null 值
+      emit(state.copyWith(
+        searchDateFilter: dateFilter,
+        clearSearchDateFilter: dateFilter == null,
+      ));
 
-      // 如果有搜索关键词，重新执行搜索
+      // 💢💢💢 新逻辑：根据不同情况处理
       if (state.searchQuery.isNotEmpty) {
+        // 如果有搜索关键词，重新执行搜索
         performSearch(state.searchQuery);
+      } else if (dateFilter != null) {
+        // 💢💢💢 如果没有搜索关键词但有日期过滤器，展示当天所有消息
+        _performDateOnlyFilter(dateFilter);
+      } else {
+        // 💢💢💢 如果清除了日期过滤器且没有搜索词，恢复正常消息列表
+        _restoreNormalMessageList();
       }
 
-      _logger.i('设置搜索日期过滤器', extra: {'dateFilter': dateFilter});
+      _logger.i('设置搜索日期过滤器', extra: {
+        'dateFilter': dateFilter,
+        'hasSearchQuery': state.searchQuery.isNotEmpty,
+      });
     }
   }
+
+  /// 💢💢💢 新增：执行纯日期过滤，展示指定日期的所有消息
+  Future<void> _performDateOnlyFilter(DateTime dateFilter) async {
+    try {
+      _logger.i('执行纯日期过滤', extra: {
+        'dateFilter': dateFilter.toIso8601String(),
+      });
+
+      emit(state.copyWith(isSearching: true));
+
+      // 获取指定日期的所有消息
+      final messages = await _chatRepository.getMessagesByDateRange(
+        _conversationId,
+        dateFilter,
+        dateFilter,
+        limit: 200, // 一天最多200条消息
+      );
+
+      emit(state.copyWith(
+        messages: messages,
+        isSearching: false,
+        // 💢💢💢 清空搜索结果相关状态，因为这不是文本搜索
+        searchResultMessageIds: [],
+        currentSearchResultIndex: 0,
+        searchResultTotalCount: 0,
+      ));
+
+      _logger.i('纯日期过滤完成', extra: {
+        'dateFilter': dateFilter.toIso8601String(),
+        'messageCount': messages.length,
+      });
+    } catch (error) {
+      _logger.e('纯日期过滤失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          isSearching: false,
+          errorMessage: '日期过滤失败: ${error.toString()}',
+        ));
+      }
+    }
+  }
+
+  /// 💢💢💢 新增：恢复正常消息列表
+  Future<void> _restoreNormalMessageList() async {
+    try {
+      _logger.i('恢复正常消息列表');
+
+      emit(state.copyWith(isSearching: true));
+
+      // 💢💢💢 如果有原始消息备份，直接恢复；否则重新加载
+      if (state.originalMessages != null &&
+          state.originalMessages!.isNotEmpty) {
+        // 直接恢复原始消息列表
+        emit(state.copyWith(
+          messages: state.originalMessages!,
+          isSearching: false,
+          // 💢💢💢 清空搜索相关状态
+          searchResultMessageIds: [],
+          currentSearchResultIndex: 0,
+          searchResultTotalCount: 0,
+          originalMessages: null, // 清空备份
+        ));
+        _logger.i('从备份恢复正常消息列表完成');
+      } else {
+        // 重新加载最近的消息
+        await _loadInitialMessages();
+
+        // 💢💢💢 确保重置搜索状态
+        if (!isClosed) {
+          emit(state.copyWith(
+            isSearching: false,
+            searchResultMessageIds: [],
+            currentSearchResultIndex: 0,
+            searchResultTotalCount: 0,
+          ));
+        }
+        _logger.i('重新加载恢复正常消息列表完成');
+      }
+    } catch (error) {
+      _logger.e('恢复正常消息列表失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          isSearching: false,
+          errorMessage: '恢复消息列表失败: ${error.toString()}',
+        ));
+      }
+    }
+  }
+
+  /// 💢💢💢💢💢��💢💢💢💢💢💢💢💢   会话设置管理   💢💢💢💢💢💢💢��💢💢💢💢💢💢
 
   /// 💢💢💢 新增：加载并跳转到指定的搜索结果
   Future<void> _loadAndJumpToSearchResult(

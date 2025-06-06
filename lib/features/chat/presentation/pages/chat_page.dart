@@ -279,7 +279,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-
   /// 发送消息
   void _sendMessage() {
     final text = _textController.text.trim();
@@ -824,11 +823,16 @@ class _ChatPageState extends State<ChatPage> {
   /// 构建搜索模式的底部栏
   Widget _buildSearchBottomBar() {
     return BlocBuilder<ChatCubit, ChatState>(
+      buildWhen: (previous, current) {
+        // 💢💢💢 确保在搜索相关状态变化时重建UI
+        return previous.searchDateFilter != current.searchDateFilter ||
+            previous.searchResultTotalCount != current.searchResultTotalCount ||
+            previous.currentSearchResultIndex !=
+                current.currentSearchResultIndex ||
+            previous.isSearching != current.isSearching ||
+            previous.searchQuery != current.searchQuery;
+      },
       builder: (context, state) {
-        // 💢💢💢 获取当前搜索信息
-        final searchInfo = context.read<ChatCubit>().getCurrentSearchInfo();
-        final hasResults = searchInfo.isNotEmpty;
-
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           decoration: BoxDecoration(
@@ -850,10 +854,7 @@ class _ChatPageState extends State<ChatPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 💢💢💢 搜索结果导航栏
-              if (hasResults) _buildSearchNavigationBar(searchInfo),
-
-              // 💢💢💢 搜索选项工具栏
+              // 💢💢💢 搜索选项工具栏（合并了导航功能）
               _buildSearchOptionsBar(state),
             ],
           ),
@@ -862,219 +863,219 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 💢💢💢 新增：搜索结果导航栏
-  Widget _buildSearchNavigationBar(Map<String, dynamic> searchInfo) {
-    final currentIndex = searchInfo['currentIndex'] as int;
-    final totalCount = searchInfo['totalCount'] as int;
+  /// 💢💢💢 新增：搜索选项工具栏（合并了导航功能）
+  Widget _buildSearchOptionsBar(ChatState state) {
+    // 获取搜索结果信息
+    final hasResults = state.searchResultTotalCount > 0;
+    final currentIndex = state.currentSearchResultIndex;
+    final totalCount = state.searchResultTotalCount;
 
-    // 💢💢💢 计算按钮的启用状态（线性导航）
-    final canGoPrev = currentIndex > 1; // 不是第一个
-    final canGoNext = currentIndex < totalCount; // 不是最后一个
+    // 计算导航按钮的启用状态
+    final canGoPrev = hasResults && currentIndex > 1;
+    final canGoNext = hasResults && currentIndex < totalCount;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          // 搜索结果计数器
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              '$currentIndex / $totalCount',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
+          // 💢💢💢 左侧：日期过滤按钮
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _showDateFilterPicker(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: state.searchDateFilter != null
+                      ? Theme.of(context).primaryColor.withAlpha(26)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: state.searchDateFilter != null
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: state.searchDateFilter != null
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey.shade600,
+                    ),
+                    if (state.searchDateFilter != null) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '${state.searchDateFilter!.month}/${state.searchDateFilter!.day}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () =>
+                            context.read<ChatCubit>().setSearchDateFilter(null),
+                        child: Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
 
-          const Spacer(),
-
-          // 导航按钮组
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Row(
+          // 💢💢💢 中间：搜索状态指示器
+          const SizedBox(width: 12),
+          if (state.isSearching)
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 上一个结果按钮（因为列表反向，这里是下一个搜索结果）
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
-                    ),
-                    onTap: canGoNext
-                        ? () => context.read<ChatCubit>().goToNextSearchResult()
-                        : null,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.keyboard_arrow_up,
-                        size: 20,
-                        color: canGoNext
-                            ? Colors.grey.shade700
-                            : Colors.grey.shade400,
-                      ),
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
                     ),
                   ),
                 ),
-
-                // 分隔线
-                Container(
-                  width: 1,
-                  height: 24,
-                  color: Colors.grey.shade300,
+                const SizedBox(width: 8),
+                Text(
+                  '搜索中...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
-
-                // 下一个结果按钮（因为列表反向，这里是上一个搜索结果）
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                    onTap: canGoPrev
-                        ? () => context.read<ChatCubit>().goToPrevSearchResult()
-                        : null,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 20,
-                        color: canGoPrev
-                            ? Colors.grey.shade700
-                            : Colors.grey.shade400,
-                      ),
-                    ),
+              ],
+            )
+          else if (state.searchQuery.trim().isNotEmpty && !hasResults)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.search_off,
+                  size: 16,
+                  color: Colors.grey.shade500,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '无匹配结果',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  /// 💢💢💢 新增：搜索选项工具栏
-  Widget _buildSearchOptionsBar(ChatState state) {
-    return Row(
-      children: [
-        // 搜索状态指示器
-        if (state.isSearching)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).primaryColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '搜索中...',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          )
-        else if (state.searchQuery.trim().isNotEmpty &&
-            state.searchResultTotalCount == 0)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 16,
-                color: Colors.grey.shade500,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '无匹配结果',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
+          const Spacer(),
 
-        const Spacer(),
-
-        // 日期过滤按钮
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => _showDateFilterPicker(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
+          // 💢💢💢 右侧：搜索结果导航
+          if (hasResults) ...[
+            // 搜索结果计数器
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: state.searchDateFilter != null
-                    ? Theme.of(context).primaryColor.withAlpha(26)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: state.searchDateFilter != null
-                      ? Theme.of(context).primaryColor
-                      : Colors.grey.shade300,
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                '$currentIndex / $totalCount',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade700,
                 ),
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // 导航按钮组
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 16,
-                    color: state.searchDateFilter != null
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade600,
+                  // 上一个结果按钮（因为列表反向，这里是下一个搜索结果）
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        bottomLeft: Radius.circular(20),
+                      ),
+                      onTap: canGoNext
+                          ? () =>
+                              context.read<ChatCubit>().goToNextSearchResult()
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.keyboard_arrow_up,
+                          size: 20,
+                          color: canGoNext
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade400,
+                        ),
+                      ),
+                    ),
                   ),
-                  if (state.searchDateFilter != null) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      '${state.searchDateFilter!.month}/${state.searchDateFilter!.day}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
+
+                  // 分隔线
+                  Container(
+                    width: 1,
+                    height: 24,
+                    color: Colors.grey.shade300,
+                  ),
+
+                  // 下一个结果按钮（因为列表反向，这里是上一个搜索结果）
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                      onTap: canGoPrev
+                          ? () =>
+                              context.read<ChatCubit>().goToPrevSearchResult()
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 20,
+                          color: canGoPrev
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade400,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () =>
-                          context.read<ChatCubit>().setSearchDateFilter(null),
-                      child: Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ],
+                  ),
                 ],
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        ],
+      ),
     );
   }
 
