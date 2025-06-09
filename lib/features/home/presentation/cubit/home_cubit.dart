@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/features/home/data/repositories/home_repository_impl.dart';
 import 'package:cc/core/database/models/current_user.dart';
@@ -142,8 +143,28 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 尝试重新连接
   Future<void> reconnect() async {
-    _logger.i('尝试重新连接');
-    await checkNetworkConnection();
+    _logger.i('HomeCubit: 尝试重新连接');
+
+    try {
+      // 先检查设备网络状态
+      await checkNetworkConnection();
+
+      // 如果设备有网络，调用通信服务重连
+      if (state.isConnected) {
+        final communicationService = CommunicationService();
+        final success = await communicationService.reconnect();
+
+        if (success) {
+          _logger.i('HomeCubit: 重连成功');
+        } else {
+          _logger.w('HomeCubit: 重连失败');
+        }
+      } else {
+        _logger.w('HomeCubit: 设备无网络连接，无法重连');
+      }
+    } catch (error) {
+      _logger.e('HomeCubit: 重连异常', error: error);
+    }
   }
 
   @override

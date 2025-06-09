@@ -1,8 +1,6 @@
 import 'package:isar/isar.dart';
 import 'user.dart';
 import 'message.dart';
-import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
-import 'package:fixnum/fixnum.dart';
 
 part 'conversation.g.dart';
 
@@ -54,19 +52,6 @@ class Conversation {
   // 会话创建者ID
   String? createdBy;
 
-  // 💢💢💢 新增游标同步相关字段 💢💢💢
-  // 同步游标消息ID - 记录服务器同步到的位置
-  String? syncCursorMessageId;
-
-  // 同步游标时间戳 - 记录服务器同步到的时间点
-  DateTime? syncCursorTimestamp;
-
-  // 本地游标消息ID - 记录本地数据的最新位置
-  String? localCursorMessageId;
-
-  // 本地游标时间戳 - 记录本地数据的最新时间点
-  DateTime? localCursorTimestamp;
-
   // 会话参与者
   final participants = IsarLinks<User>();
 
@@ -101,156 +86,6 @@ class Conversation {
 
     // 增强版本：结合未读消息计数判断
     return unreadCount > 0;
-  }
-
-  // 💢💢💢 新增：判断是否需要同步
-  @ignore
-  bool get needsSync {
-    // 没有同步游标，需要初始同步
-    if (syncCursorMessageId == null || syncCursorTimestamp == null) {
-      return true;
-    }
-
-    // 本地有新消息，需要向前同步
-    if (localCursorTimestamp != null && syncCursorTimestamp != null) {
-      return localCursorTimestamp!.isAfter(syncCursorTimestamp!);
-    }
-
-    return false;
-  }
-
-  // 💢💢💢 新增：获取本地游标信息
-  @ignore
-  Map<String, dynamic> get localCursor {
-    return {
-      'messageId': localCursorMessageId,
-      'timestamp': localCursorTimestamp,
-    };
-  }
-
-  // 💢💢💢 新增：获取同步游标信息
-  @ignore
-  Map<String, dynamic> get syncCursor {
-    return {
-      'messageId': syncCursorMessageId,
-      'timestamp': syncCursorTimestamp,
-    };
-  }
-
-  /// 从Protocol Buffer对象创建数据库对象
-  ///
-  /// 直接从ConversationProto对象创建Conversation实例
-  /// 简化了在仓库中的数据转换逻辑
-  ///
-  /// [proto] - 原始的Protocol Buffer对象
-  /// 返回：转换后的数据库对象
-  factory Conversation.fromProto(proto.ConversationProto protoConv) {
-    // 确定会话类型
-    final protoType = protoConv.type;
-    ConversationType convType;
-
-    switch (protoType.value) {
-      case 0:
-        convType = ConversationType.private;
-        break;
-      case 1:
-        convType = ConversationType.group;
-        break;
-      case 2:
-        convType = ConversationType.channel;
-        break;
-      default:
-        convType = ConversationType.private;
-    }
-
-    final conversation = Conversation()
-      ..conversationId = protoConv.conversationId
-      ..type = convType
-      ..name = protoConv.hasName() ? protoConv.name : null
-      ..avatar = protoConv.hasAvatar() ? protoConv.avatar : null
-      ..lastMessagePreview = protoConv.hasLastMessagePreview()
-          ? protoConv.lastMessagePreview
-          : null
-      ..lastMessageTime = protoConv.hasLastMessageTime()
-          ? DateTime.fromMillisecondsSinceEpoch(
-              protoConv.lastMessageTime.toInt())
-          : null
-      ..createdAt = protoConv.hasCreatedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoConv.createdAt.toInt())
-          : DateTime.now()
-      ..unreadCount = protoConv.hasUnreadCount() ? protoConv.unreadCount : 0
-      ..contactUserId =
-          protoConv.hasContactUserId() ? protoConv.contactUserId : null
-      ..lastMessageId =
-          protoConv.hasLastReadMessageId() ? protoConv.lastReadMessageId : null
-      ..isMuted = protoConv.hasMuted() ? protoConv.muted : false
-      ..lastMessageName =
-          protoConv.hasLastMessageName() ? protoConv.lastMessageName : null
-      ..isPinned = protoConv.hasPinned() ? protoConv.pinned : false
-      ..lastReadAt = protoConv.hasLastReadAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoConv.lastReadAt.toInt())
-          : null
-      ..lastReadMessageId =
-          protoConv.hasLastReadMessageId() ? protoConv.lastReadMessageId : null
-      ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null;
-
-    return conversation;
-  }
-
-  /// 将数据库对象转换为Protocol Buffer对象
-  ///
-  /// 用于将Conversation对象转换为可序列化的Proto对象
-  /// 便于网络传输和存储
-  ///
-  /// 返回：转换后的Protocol Buffer对象
-  proto.ConversationProto toProto() {
-    proto.ConversationType protoType;
-
-    switch (type) {
-      case ConversationType.private:
-        protoType = proto.ConversationType.PRIVATE;
-        break;
-      case ConversationType.group:
-        protoType = proto.ConversationType.GROUP;
-        break;
-      case ConversationType.channel:
-        protoType = proto.ConversationType.CHANNEL;
-        break;
-    }
-
-    // 将参与者转换为ParticipantProto对象列表
-    final participantProtos = <proto.ParticipantProto>[];
-    for (final user in participants) {
-      participantProtos.add(proto.ParticipantProto(
-        userId: user.userId,
-        name: user.name,
-        avatar: user.avatar,
-        // 注意：这里只添加了基本字段，如果需要更多字段，请根据实际情况添加
-        // 例如：role、joinedAt、lastReadAt等
-      ));
-    }
-
-    return proto.ConversationProto(
-      conversationId: conversationId,
-      type: protoType,
-      name: name,
-      avatar: avatar,
-      lastMessagePreview: lastMessagePreview,
-      lastMessageTime: lastMessageTime != null
-          ? Int64(lastMessageTime!.millisecondsSinceEpoch)
-          : null,
-      createdAt: Int64(createdAt.millisecondsSinceEpoch),
-      unreadCount: unreadCount,
-      contactUserId: contactUserId,
-      lastMessageName: lastMessageName,
-      participants: participantProtos,
-      muted: isMuted,
-      pinned: isPinned,
-      lastReadAt:
-          lastReadAt != null ? Int64(lastReadAt!.millisecondsSinceEpoch) : null,
-      lastReadMessageId: lastReadMessageId,
-      createdBy: createdBy,
-    );
   }
 
   /// 创建一个新的 Conversation 对象，复制当前对象的所有属性，并允许覆盖指定的属性

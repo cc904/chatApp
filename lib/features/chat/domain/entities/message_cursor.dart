@@ -65,6 +65,26 @@ class MessageCursor {
   int get hashCode {
     return Object.hash(messageId, timestamp, position);
   }
+
+  /// 转换为Map（用于序列化）
+  Map<String, dynamic> toMap() {
+    return {
+      'messageId': messageId,
+      'timestamp': timestamp?.millisecondsSinceEpoch,
+      'position': position,
+    };
+  }
+
+  /// 从Map创建（用于反序列化）
+  factory MessageCursor.fromMap(Map<String, dynamic> map) {
+    return MessageCursor(
+      messageId: map['messageId'],
+      timestamp: map['timestamp'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['timestamp'])
+          : null,
+      position: map['position'],
+    );
+  }
 }
 
 /// 游标同步结果

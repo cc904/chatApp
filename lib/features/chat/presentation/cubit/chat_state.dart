@@ -173,6 +173,22 @@ class ChatState extends Equatable {
   /// 当消息状态发生变化时，这个值会改变，从而触发BlocBuilder重建
   final int messageUpdateTrigger;
 
+  /// 🔄 并发同步相关字段
+  /// 是否正在进行消息同步
+  final bool isSyncing;
+
+  /// 同步期间暂存的新消息队列
+  final List<Message> pendingMessages;
+
+  /// 是否在同步期间收到了新消息
+  final bool hasNewMessagesDuringSync;
+
+  /// 最后一次同步的时间戳（用于增量同步）
+  final int? lastSyncTimestamp;
+
+  /// 是否正在进行增量同步
+  final bool isIncrementalSyncing;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -201,6 +217,11 @@ class ChatState extends Equatable {
     this.originalMessages,
     this.isCleaningMessages = false,
     this.messageUpdateTrigger = 0,
+    this.isSyncing = false,
+    this.pendingMessages = const [],
+    this.hasNewMessagesDuringSync = false,
+    this.lastSyncTimestamp,
+    this.isIncrementalSyncing = false,
   });
 
   /// 初始状态
@@ -233,6 +254,11 @@ class ChatState extends Equatable {
       originalMessages: null,
       isCleaningMessages: false,
       messageUpdateTrigger: 0,
+      isSyncing: false,
+      pendingMessages: const [],
+      hasNewMessagesDuringSync: false,
+      lastSyncTimestamp: null,
+      isIncrementalSyncing: false,
     );
   }
 
@@ -265,6 +291,11 @@ class ChatState extends Equatable {
     List<Message>? originalMessages,
     bool? isCleaningMessages,
     int? messageUpdateTrigger,
+    bool? isSyncing,
+    List<Message>? pendingMessages,
+    bool? hasNewMessagesDuringSync,
+    int? lastSyncTimestamp,
+    bool? isIncrementalSyncing,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -301,6 +332,12 @@ class ChatState extends Equatable {
       originalMessages: originalMessages ?? this.originalMessages,
       isCleaningMessages: isCleaningMessages ?? this.isCleaningMessages,
       messageUpdateTrigger: messageUpdateTrigger ?? this.messageUpdateTrigger,
+      isSyncing: isSyncing ?? this.isSyncing,
+      pendingMessages: pendingMessages ?? this.pendingMessages,
+      hasNewMessagesDuringSync:
+          hasNewMessagesDuringSync ?? this.hasNewMessagesDuringSync,
+      lastSyncTimestamp: lastSyncTimestamp ?? this.lastSyncTimestamp,
+      isIncrementalSyncing: isIncrementalSyncing ?? this.isIncrementalSyncing,
     );
   }
 
@@ -361,5 +398,10 @@ class ChatState extends Equatable {
         originalMessages,
         isCleaningMessages,
         messageUpdateTrigger,
+        isSyncing,
+        pendingMessages,
+        hasNewMessagesDuringSync,
+        lastSyncTimestamp,
+        isIncrementalSyncing,
       ];
 }

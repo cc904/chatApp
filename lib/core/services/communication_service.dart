@@ -31,11 +31,30 @@ class CommunicationService {
   // 原始事件处理器映射
   final Map<String, dynamic Function(dynamic)> _rawEventHandlers = {};
 
+  // 💢💢💢 新增：重连成功事件流控制器
+  final StreamController<void> _reconnectSuccessController =
+      StreamController<void>.broadcast();
+
+  /// 重连成功事件流
+  /// 当重连成功时，所有监听者都会收到通知
+  Stream<void> get reconnectSuccessStream => _reconnectSuccessController.stream;
+
   // 单例模式
   static final CommunicationService _instance =
       CommunicationService._internal();
   factory CommunicationService() => _instance;
-  CommunicationService._internal();
+  CommunicationService._internal() {
+    _initConnectionListener();
+  }
+
+  /// 💢💢💢 新增：初始化连接状态监听
+  void _initConnectionListener() {
+    connectionStateStream.listen((status) {
+      if (status == SocketConnectionStatus.connected) {
+        _onReconnectSuccess();
+      }
+    });
+  }
 
   /// 连接到服务器
   /// [serverUrl] - 服务器URL
@@ -65,6 +84,55 @@ class CommunicationService {
   Future<void> disconnect() async {
     _logger.i('断开服务器连接');
     await _socketService.disconnect();
+  }
+
+  /// 💢💢💢 新增：手动重连
+  /// 提供统一的重连接口，供上层调用
+  Future<bool> reconnect() async {
+    _logger.i('🔄 开始手动重连');
+
+    try {
+      // 检查当前连接状态
+      if (_socketService.isConnected) {
+        _logger.i('当前已连接，无需重连');
+        return true;
+      }
+
+      // 调用底层重连逻辑
+      final success = await _socketService.reconnect();
+
+      if (success) {
+        _logger.i('✅ 手动重连成功');
+      } else {
+        _logger.w('❌ 手动重连失败');
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('手动重连异常', error: error, stackTrace: StackTrace.current);
+      return false;
+    }
+  }
+
+  /// 💢💢💢 新增：重连成功后的统一处理
+  /// 当连接成功时（包括初次连接和重连），执行统一的后续处理
+  void _onReconnectSuccess() {
+    _logger.i('🎉 连接成功，执行重连后处理');
+
+    try {
+      // 通知所有监听者重连成功
+      _reconnectSuccessController.add(null);
+
+      _logger.i('重连成功事件已通知所有监听者');
+    } catch (error) {
+      _logger.e('重连成功处理异常', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 💢💢💢 新增：获取连接状态信息
+  /// 提供详细的连接状态信息，用于调试和状态显示
+  Map<String, dynamic> getConnectionInfo() {
+    return _socketService.getConnectionInfo();
   }
 
   /// 初始化所有预定义Proto事件的数据通道
@@ -114,8 +182,10 @@ class CommunicationService {
   /// 发送Protobuf消息
   /// [eventName] - 事件名称
   /// [message] - Protobuf消息对象
-  Future<void> emitProto<T extends GeneratedMessage>(
-      String eventName, T message) async {
+  /// [retryOnFailure] - 发送失败时是否自动重试
+  Future<bool> emitProto<T extends GeneratedMessage>(
+      String eventName, T message,
+      {bool retryOnFailure = true}) async {
     _logger.d('📤 发送Proto消息: $eventName [${message.runtimeType}]');
 
     // 验证事件类型是否匹配
@@ -131,7 +201,32 @@ class CommunicationService {
       }
     }
 
-    await _socketService.emitProto(eventName, message);
+    // 尝试发送消息
+    final success = await _socketService.emitProto(eventName, message);
+
+    // 💢💢💢 新增：如果发送失败且允许重试，尝试重连后再发送
+    if (!success && retryOnFailure && !_socketService.isConnected) {
+      _logger.i('📤 消息发送失败，尝试重连后重发: $eventName');
+
+      try {
+        // 尝试重连
+        final reconnectSuccess = await reconnect();
+
+        if (reconnectSuccess) {
+          _logger.i('📤 重连成功，重新发送消息: $eventName');
+          // 重连成功后重新发送
+          return await _socketService.emitProto(eventName, message);
+        } else {
+          _logger.w('📤 重连失败，消息发送失败: $eventName');
+          return false;
+        }
+      } catch (error) {
+        _logger.e('📤 重连重发过程异常', error: error, extra: {'eventName': eventName});
+        return false;
+      }
+    }
+
+    return success;
   }
 
   /// 监听特定类型的Proto事件
@@ -176,6 +271,9 @@ class CommunicationService {
       controller.close();
     }
     _eventControllers.clear();
+
+    // 💢💢💢 关闭重连成功事件流控制器
+    _reconnectSuccessController.close();
 
     // 断开连接
     _socketService.dispose();

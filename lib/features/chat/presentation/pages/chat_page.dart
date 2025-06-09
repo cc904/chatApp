@@ -358,6 +358,109 @@ class _ChatPageState extends State<ChatPage> {
               state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
           body: Column(
             children: [
+              // 🔄 新增：同步状态横幅
+              if (state.isSyncing)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: Colors.blue.withAlpha(20),
+                  child: const Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.blue),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '正在同步消息...',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              // 🔄 新增：同步期间新消息提示
+              if (state.hasNewMessagesDuringSync)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: Colors.orange.withAlpha(20),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.message,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '有 ${state.pendingMessages.length} 条新消息正在同步中...',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      // 可选：提供手动刷新按钮
+                      TextButton(
+                        onPressed: () {
+                          // 触发强制同步
+                          // TODO: 实现强制同步方法
+                        },
+                        style: TextButton.styleFrom(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          '刷新',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              // 🔄 新增：增量同步指示器
+              if (state.isIncrementalSyncing)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  color: Colors.green.withAlpha(10),
+                  child: const Row(
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          valueColor: AlwaysStoppedAnimation(Colors.green),
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        '检查新消息...',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: _buildMessagesList(),
               ),
@@ -485,18 +588,29 @@ class _ChatPageState extends State<ChatPage> {
     return BlocListener<ChatCubit, ChatState>(
       listenWhen: (previous, current) {
         // 💢💢💢 监听搜索结果索引变化，触发自动滚动
-        final shouldListen = previous.currentSearchResultIndex !=
+        final searchResultChanged = previous.currentSearchResultIndex !=
                 current.currentSearchResultIndex ||
             (previous.searchResultMessageIds.length !=
                     current.searchResultMessageIds.length &&
                 current.searchResultMessageIds.isNotEmpty);
 
+        // 💢💢💢 监听滚动位置变化（初始化时自动滚动到最新消息）
+        final scrollPositionChanged =
+            previous.currentScrollPosition.messageId !=
+                    current.currentScrollPosition.messageId &&
+                current.currentScrollPosition.messageId != null &&
+                !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
+
+        final shouldListen = searchResultChanged || scrollPositionChanged;
+
         if (shouldListen) {
           _logger.d('💢 BlocListener 条件满足', extra: {
+            'searchResultChanged': searchResultChanged,
+            'scrollPositionChanged': scrollPositionChanged,
+            'prevScrollMessageId': previous.currentScrollPosition.messageId,
+            'currentScrollMessageId': current.currentScrollPosition.messageId,
             'prevIndex': previous.currentSearchResultIndex,
             'currentIndex': current.currentSearchResultIndex,
-            'prevResultIds': previous.searchResultMessageIds.length,
-            'currentResultIds': current.searchResultMessageIds.length,
           });
         }
 
@@ -513,15 +627,39 @@ class _ChatPageState extends State<ChatPage> {
           final currentResultMessageId =
               state.searchResultMessageIds[state.currentSearchResultIndex];
 
-          _logger.d('💢 BlocListener 准备滚动', extra: {
+          _logger.d('💢 BlocListener 搜索模式滚动', extra: {
             'targetMessageId': currentResultMessageId,
             'currentIndex': state.currentSearchResultIndex,
           });
 
           // 延迟执行滚动，等待UI更新完成
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _logger.d('💢 BlocListener 执行滚动回调');
+            _logger.d('💢 BlocListener 执行搜索滚动回调');
             _scrollToMessage(currentResultMessageId);
+          });
+        }
+        // 💢💢💢 自动滚动到设置的位置（初始化时滚动到最新消息）
+        else if (!state.isSearchMode &&
+            state.currentScrollPosition.messageId != null) {
+          final targetMessageId = state.currentScrollPosition.messageId!;
+          final targetIndex = state.currentScrollPosition.messageIndex ?? 0;
+          final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
+
+          _logger.i('💢 BlocListener 初始化滚动到最新消息', extra: {
+            'targetMessageId': targetMessageId,
+            'targetIndex': targetIndex,
+            'alignment': alignment,
+            'reason': '根据业务逻辑显示最新消息',
+          });
+
+          // 延迟执行滚动，等待UI更新完成
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _logger.d('💢 BlocListener 执行初始化滚动回调');
+            _scrollToMessage(
+              targetMessageId,
+              alignment: alignment,
+              duration: const Duration(milliseconds: 100), // 快速滚动
+            );
           });
         }
       },

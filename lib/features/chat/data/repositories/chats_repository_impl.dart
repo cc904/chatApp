@@ -5,6 +5,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
+import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/core/services/communication_service.dart';
@@ -53,10 +54,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
-  // 消息同步相关配置
-  static const int maxConcurrentMessageSync = 3; // 最大并发消息同步数
-  static const int messageSyncDelayMs = 500; // 消息同步延迟（毫秒）
-
   // 构造函数
   ChatsRepositoryImpl({ChatRepository? chatRepository})
       : _chatRepository = chatRepository {
@@ -65,6 +62,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  事件处理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
   /// 注册事件监听
   Future<void> _registerEventHandlers() async {
     if (!_communicationService.isInitialized) {
@@ -782,9 +780,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
         return;
       }
 
-      // 转换为数据库对象 - 使用模型类提供的fromProto方法
+      // 转换为数据库对象 - 使用适配器转换方法
       final List<db.Conversation> dbConversations = collection.conversations
-          .map((conv) => db.Conversation.fromProto(conv))
+          .map((conv) => ConversationAdapter.fromProto(conv))
           .toList();
 
       // 更新本地数据库
@@ -797,8 +795,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       ));
       _logger.i('发送会话同步完成事件');
 
-      // 🔥 新增：会话同步完成后，触发消息同步
-      await _triggerMessageSyncAfterConversationSync(collection.conversations);
+      // 🔥 已移除：会话同步完成后自动触发消息同步的逻辑
     } catch (e, stack) {
       _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
       // 处理失败时标记同步错误
@@ -807,137 +804,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
         conversations: null,
       ));
       _logger.i('发送会话同步错误事件');
-    }
-  }
-
-  /// 会话同步完成后触发消息同步
-  ///
-  /// 根据每个会话的last_read_message_id和未读消息数量，
-  /// 制定合适的消息同步策略并执行同步
-  Future<void> _triggerMessageSyncAfterConversationSync(
-      List<conversation_proto.ConversationProto> conversations) async {
-    if (_chatRepository == null) {
-      _logger.w('ChatRepository未注入，跳过消息同步');
-      return;
-    }
-
-    _logger.i('开始为${conversations.length}个会话制定消息同步策略');
-
-    // 创建同步任务列表
-    final List<ConversationSyncTask> syncTasks = [];
-
-    for (final conversation in conversations) {
-      final syncTask = await _createMessageSyncTask(conversation);
-      if (syncTask != null) {
-        syncTasks.add(syncTask);
-      }
-    }
-
-    if (syncTasks.isEmpty) {
-      _logger.i('没有需要同步消息的会话');
-      return;
-    }
-
-    // 按优先级排序（未读消息优先）
-    syncTasks.sort((a, b) => a.priority.compareTo(b.priority));
-
-    _logger.d('开始批量消息同步', extra: {
-      'taskCount': syncTasks.length,
-      'tasks': syncTasks
-          .map((t) => {
-                'conversationId': t.conversationId,
-                'syncType': t.type.name,
-                'priority': t.priority,
-              })
-          .toList()
-    });
-
-    // 延迟执行，避免与会话同步冲突
-    Timer(const Duration(milliseconds: messageSyncDelayMs), () async {
-      try {
-        // 批量同步消息
-        final results = await _chatRepository!.batchSyncMessages(
-          syncTasks,
-          maxConcurrent: maxConcurrentMessageSync,
-        );
-
-        // 记录同步结果
-        _logMessageSyncResults(results, syncTasks);
-      } catch (error) {
-        _logger.e('批量消息同步失败', error: error);
-      }
-    });
-  }
-
-  /// 创建消息同步任务
-  /// 根据会话状态和本地数据情况创建合适的消息同步任务
-  /// 新策略（游标模式）：
-  /// 1. 有本地消息 → CURSOR_FORWARD 向前同步新消息
-  /// 2. 无本地消息 → INITIAL_LOAD 初始加载
-  /// [conversation] - 会话Proto对象
-  /// 返回同步任务，如果不需要同步则返回null
-  Future<ConversationSyncTask?> _createMessageSyncTask(
-      conversation_proto.ConversationProto conversation) async {
-    final conversationId = conversation.conversationId;
-    final unreadCount = conversation.unreadCount;
-
-    if (_chatRepository == null) {
-      _logger.w('ChatRepository未初始化，跳过消息同步');
-      return null;
-    }
-
-    _logger.d('创建消息同步任务（游标模式）', extra: {
-      'conversationId': conversationId,
-      'unreadCount': unreadCount,
-    });
-
-    // 检查本地是否有消息
-    final hasLocalMessages =
-        await _chatRepository!.hasLocalMessages(conversationId);
-
-    message_proto.MessageSyncType syncType;
-    int priority = 0;
-
-    if (!hasLocalMessages) {
-      // 🎯 策略1：无本地消息，使用初始加载
-      _logger.d('无本地消息，使用初始加载策略');
-      syncType = message_proto.MessageSyncType.INITIAL_LOAD;
-      priority = 1; // 最高优先级
-    } else {
-      // 🎯 策略2：有本地消息，使用向前同步获取新消息
-      _logger.d('有本地消息，使用向前游标同步策略');
-      syncType = message_proto.MessageSyncType.CURSOR_FORWARD;
-      priority = unreadCount > 0 ? 1 : 2; // 有未读消息优先级更高
-    }
-
-    return ConversationSyncTask.cursor(
-      conversationId: conversationId,
-      type: syncType,
-      priority: priority,
-      limit: 20, // 默认加载20条消息
-    );
-  }
-
-  /// 记录消息同步结果
-  void _logMessageSyncResults(
-      List<bool> results, List<ConversationSyncTask> tasks) {
-    final successCount = results.where((r) => r).length;
-    final failureCount = results.length - successCount;
-
-    _logger.i('消息同步完成', extra: {
-      'totalConversations': results.length,
-      'successCount': successCount,
-      'failureCount': failureCount,
-    });
-
-    // 记录失败的同步
-    for (int i = 0; i < results.length; i++) {
-      if (!results[i]) {
-        _logger.w('会话消息同步失败', extra: {
-          'conversationId': tasks[i].conversationId,
-          'syncType': tasks[i].type.name,
-        });
-      }
     }
   }
 
@@ -1092,7 +958,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   void _handleConversationDetailResponse(
       conversation_proto.ConversationDetailResponse response) async {
     if (response.success && response.hasConversation()) {
-      final conversation = db.Conversation.fromProto(response.conversation);
+      final conversation = ConversationAdapter.fromProto(response.conversation);
       _logger.i('成功获取会话详情', extra: {
         'conversationId': conversation.conversationId,
         'conversationType': conversation.type.name

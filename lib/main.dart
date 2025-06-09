@@ -4,6 +4,7 @@ import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/network_notification_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -41,6 +42,9 @@ void main() async {
 
     // 初始化文件上传服务
     FileUploadService();
+
+    // 💢💢💢 新增：初始化网络状态通知服务
+    NetworkNotificationService.instance.initialize();
 
     // 初始化安全存储服务并检查是否有保存的服务器URL
     try {

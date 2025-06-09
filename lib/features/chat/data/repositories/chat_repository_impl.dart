@@ -6,16 +6,16 @@ import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/features/chat/domain/entities/message_cursor.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
-
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+import 'dart:math';
 
 /// 信号量类，用于控制并发数量
 class Semaphore {
@@ -55,6 +55,56 @@ class MessageException implements Exception {
   String toString() => message;
 }
 
+/// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：空档期同步配置 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+/// 空档期同步配置类
+class GapSyncConfig {
+  /// 分页大小（每次同步的消息数量）
+  static const int pageSize = 50;
+
+  /// 最大页数限制（防止无限递归）
+  static const int maxPages = 20;
+
+  /// 最大总消息数限制（防止同步过多消息）
+  static const int maxTotalMessages = 1000;
+
+  /// 时间差阈值（秒）- 小于此值则不需要同步
+  static const int timeDifferenceThreshold = 1;
+
+  /// 单次同步超时时间
+  static const Duration syncTimeout = Duration(seconds: 10);
+
+  /// 页面之间的延迟（避免过于频繁的请求）
+  static const Duration pageDelay = Duration(milliseconds: 100);
+}
+
+/// 递归同步统计信息
+class RecursiveSyncStats {
+  final int totalPages;
+  final int totalMessages;
+  final Duration totalDuration;
+  final bool isComplete;
+  final String? errorReason;
+
+  RecursiveSyncStats({
+    required this.totalPages,
+    required this.totalMessages,
+    required this.totalDuration,
+    required this.isComplete,
+    this.errorReason,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'totalPages': totalPages,
+      'totalMessages': totalMessages,
+      'totalDurationMs': totalDuration.inMilliseconds,
+      'isComplete': isComplete,
+      'errorReason': errorReason,
+    };
+  }
+}
+
 /// ChatRepository的实现类
 /// 负责单个聊天会话相关的数据处理、消息收发等功能
 class ChatRepositoryImpl implements ChatRepository {
@@ -66,7 +116,6 @@ class ChatRepositoryImpl implements ChatRepository {
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
   IsarCollection<Message> get _messages => _isar.messages;
-  IsarCollection<Conversation> get _conversations => _isar.conversations;
 
   // 事件流控制器
   final _typingStatusController =
@@ -78,6 +127,45 @@ class ChatRepositoryImpl implements ChatRepository {
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  获取输入状态流  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 发送正在输入状态
+  /// 通知其他用户当前用户的输入状态
+  /// [conversationId] - 会话ID
+  /// [isTyping] - 是否正在输入
+  @override
+  Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
+    if (_communicationService.isInitialized) {
+      try {
+        final typingProto = message_proto.TypingProto()
+          ..conversationId = conversationId
+          ..isTyping = isTyping;
+
+        _communicationService.emitProto(
+            isTyping ? 'user:typing' : 'user:typing:stop', typingProto);
+        return;
+      } catch (error) {
+        _logger.e('发送打字状态失败', error: error, stackTrace: StackTrace.current);
+      }
+    }
+
+    _logger.w('通信服务未初始化,无法发送输入状态');
+  }
+
+  /// 获取输入状态流
+  /// 返回用户输入状态变化的流
+  @override
+  Stream<Map<String, dynamic>> getTypingStatusStream() {
+    return _typingStatusController.stream;
+  }
+
+  /// 获取消息状态流
+  /// 返回消息状态变化的流
+  @override
+  Stream<Map<String, dynamic>> getMessageStatusStream() {
+    return _messageStatusController.stream;
+  }
 
   // 跟踪用户当前活跃的会话
   final Set<String> _activeConversations = <String>{};
@@ -115,7 +203,10 @@ class ChatRepositoryImpl implements ChatRepository {
             .listen(_handleHistoryMessagesResponse))
         ..add(_communicationService
             .onProto<message_proto.MessageResponse>('message:send:response')
-            .listen(_handleMessageSendResponse));
+            .listen(_handleMessageSendResponse))
+        ..add(_communicationService
+            .onProto<message_proto.MessageProto>('message:new')
+            .listen(_handleNewMessage)); // 💢💢💢 新增：处理新消息事件
 
       // 添加通用监听器用于调试
       _logger.i('已注册历史消息事件监听器: messages:history:response');
@@ -188,7 +279,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 将消息集合转换为List<Message>
       final messages = response.messagesCollection.messages
-          .map((e) => Message.fromProto(e))
+          .map((e) => MessageAdapter.fromProto(e))
           .toList();
 
       // 将消息通过Stream发送出去
@@ -597,7 +688,7 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 2. 创建Proto对象用于发送
-      final protoMsg = message.toProto();
+      final protoMsg = MessageAdapter.toProto(message);
 
       // 3. 发送消息到服务器并等待响应
       final serverResponse =
@@ -663,7 +754,11 @@ class ChatRepositoryImpl implements ChatRepository {
           ..messageId = tempMessageId; // 使用临时ID
 
         // 发送消息
-        _communicationService.emitProto('message:send', messageToSend);
+        final sendSuccess = await _communicationService.emitProto(
+            'message:send', messageToSend);
+        if (!sendSuccess) {
+          throw Exception('发送消息到服务器失败');
+        }
 
         // 等待服务器响应 - 使用MessageResponse格式
         final response = await _communicationService
@@ -1195,45 +1290,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  获取输入状态流  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 发送正在输入状态
-  /// 通知其他用户当前用户的输入状态
-  /// [conversationId] - 会话ID
-  /// [isTyping] - 是否正在输入
-  @override
-  Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
-    if (_communicationService.isInitialized) {
-      try {
-        final typingProto = message_proto.TypingProto()
-          ..conversationId = conversationId
-          ..isTyping = isTyping;
-
-        _communicationService.emitProto(
-            isTyping ? 'user:typing' : 'user:typing:stop', typingProto);
-        return;
-      } catch (error) {
-        _logger.e('发送打字状态失败', error: error, stackTrace: StackTrace.current);
-      }
-    }
-
-    _logger.w('通信服务未初始化,无法发送输入状态');
-  }
-
-  /// 获取输入状态流
-  /// 返回用户输入状态变化的流
-  @override
-  Stream<Map<String, dynamic>> getTypingStatusStream() {
-    return _typingStatusController.stream;
-  }
-
-  /// 获取消息状态流
-  /// 返回消息状态变化的流
-  @override
-  Stream<Map<String, dynamic>> getMessageStatusStream() {
-    return _messageStatusController.stream;
-  }
-
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 清空会话消息
@@ -1262,8 +1318,13 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [conversationId] - 会话ID
   @override
   Future<void> joinConversationRoom(String conversationId) async {
+    final joinStartTime = DateTime.now();
+
     try {
-      _logger.i('用户进入会话页面', extra: {'conversationId': conversationId});
+      _logger.i('用户进入会话页面', extra: {
+        'conversationId': conversationId,
+        'joinStartTime': joinStartTime.toIso8601String(),
+      });
 
       // 🔥 将会话加入活跃会话集合
       _activeConversations.add(conversationId);
@@ -1278,13 +1339,51 @@ class ChatRepositoryImpl implements ChatRepository {
             conversation_proto.ConversationJoinLeaveRequest()
               ..conversationId = conversationId;
 
-        _communicationService.emitProto('conversation:join', joinRoomRequest);
-        _logger.d('已发送加入会话房间请求');
+        _logger.d('发送加入会话房间请求', extra: {
+          'conversationId': conversationId,
+          'requestTime': DateTime.now().toIso8601String(),
+        });
+
+        final success = await _communicationService.emitProto(
+            'conversation:join', joinRoomRequest);
+
+        final joinEndTime = DateTime.now();
+        final joinDuration = joinEndTime.difference(joinStartTime);
+
+        if (success) {
+          _logger.i('加入会话房间成功', extra: {
+            'conversationId': conversationId,
+            'joinDurationMs': joinDuration.inMilliseconds,
+            'joinEndTime': joinEndTime.toIso8601String(),
+          });
+        } else {
+          _logger.w('发送加入会话房间请求失败', extra: {
+            'conversationId': conversationId,
+            'joinDurationMs': joinDuration.inMilliseconds,
+          });
+
+          // 💢 新增：记录失败但不抛出异常，让调用者知道状态
+          throw Exception('加入会话房间请求发送失败');
+        }
       } else {
         _logger.w('通信服务未初始化，无法发送加入会话房间请求');
+        throw Exception('通信服务未初始化');
       }
     } catch (error) {
-      _logger.e('加入会话房间失败', error: error, stackTrace: StackTrace.current);
+      final joinEndTime = DateTime.now();
+      final joinDuration = joinEndTime.difference(joinStartTime);
+
+      _logger
+          .e('加入会话房间失败', error: error, stackTrace: StackTrace.current, extra: {
+        'conversationId': conversationId,
+        'joinDurationMs': joinDuration.inMilliseconds,
+        'joinStartTime': joinStartTime.toIso8601String(),
+        'failureTime': joinEndTime.toIso8601String(),
+      });
+
+      // 从活跃会话集合中移除
+      _activeConversations.remove(conversationId);
+      rethrow;
     }
   }
 
@@ -1309,8 +1408,13 @@ class ChatRepositoryImpl implements ChatRepository {
             conversation_proto.ConversationJoinLeaveRequest()
               ..conversationId = conversationId;
 
-        _communicationService.emitProto('conversation:leave', leaveRoomRequest);
-        _logger.d('已发送离开会话房间请求');
+        final success = await _communicationService.emitProto(
+            'conversation:leave', leaveRoomRequest);
+        if (success) {
+          _logger.d('已发送离开会话房间请求');
+        } else {
+          _logger.w('发送离开会话房间请求失败');
+        }
       }
     } catch (error) {
       _logger.e('离开会话房间失败', error: error, stackTrace: StackTrace.current);
@@ -1397,13 +1501,13 @@ class ChatRepositoryImpl implements ChatRepository {
 
           if (existing == null) {
             // 消息不存在，转换并保存
-            final message = Message.fromProto(protoMsg);
+            final message = MessageAdapter.fromProto(protoMsg);
             await _messages.put(message);
             savedCount++;
           }
           // 如果消息已存在，覆盖保存
           else {
-            final message = Message.fromProto(protoMsg);
+            final message = MessageAdapter.fromProto(protoMsg);
             message.id = existing.id;
             await _messages.put(message);
             savedCount++;
@@ -1629,7 +1733,7 @@ class ChatRepositoryImpl implements ChatRepository {
       await _updateMessageStatus(message, 'sending');
 
       // 2. 创建Proto对象用于发送
-      final protoMsg = message.toProto();
+      final protoMsg = MessageAdapter.toProto(message);
 
       // 3. 发送消息到服务器（不等待响应）
       _communicationService.emitProto('message:send', protoMsg);
@@ -2356,19 +2460,21 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 游标管理方法实现 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取本地游标
+  /// 注意：游标数据已迁移到MessageTimelineRepository管理
   @override
   Future<MessageCursor> getLocalCursor(String conversationId) async {
     try {
-      final conversation = await _conversations
+      // 从最新消息中推断游标位置
+      final latestMessage = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
+          .sortByCreatedAtDesc()
           .findFirst();
 
-      if (conversation?.localCursorMessageId != null &&
-          conversation?.localCursorTimestamp != null) {
+      if (latestMessage != null) {
         return MessageCursor.fromMessageData(
-          conversation!.localCursorMessageId!,
-          conversation.localCursorTimestamp!,
+          latestMessage.messageId,
+          latestMessage.createdAt,
         );
       }
 
@@ -2380,21 +2486,17 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 更新本地游标
+  /// 注意：游标数据已迁移到MessageTimelineRepository管理，此方法保留为兼容性接口
   @override
   Future<void> updateLocalCursor(
       String conversationId, MessageCursor cursor) async {
     try {
-      await _isar.writeTxn(() async {
-        final conversation = await _conversations
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .findFirst();
-
-        if (conversation != null) {
-          conversation.localCursorMessageId = cursor.messageId;
-          conversation.localCursorTimestamp = cursor.timestamp;
-          await _conversations.put(conversation);
-        }
+      // 游标数据现在由MessageTimelineRepository管理
+      // 这里保留空实现以保持接口兼容性
+      _logger.d('本地游标更新请求已忽略（已迁移到MessageTimelineRepository）', extra: {
+        'conversationId': conversationId,
+        'messageId': cursor.messageId,
+        'timestamp': cursor.timestamp?.toIso8601String(),
       });
     } catch (error) {
       _logger.e('更新本地游标失败', error: error);
@@ -2402,19 +2504,21 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 获取同步游标
+  /// 注意：游标数据已迁移到MessageTimelineRepository管理
   @override
   Future<MessageCursor> getSyncCursor(String conversationId) async {
     try {
-      final conversation = await _conversations
+      // 从最新消息中推断同步游标位置
+      final latestMessage = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
+          .sortByCreatedAtDesc()
           .findFirst();
 
-      if (conversation?.syncCursorMessageId != null &&
-          conversation?.syncCursorTimestamp != null) {
+      if (latestMessage != null) {
         return MessageCursor.fromMessageData(
-          conversation!.syncCursorMessageId!,
-          conversation.syncCursorTimestamp!,
+          latestMessage.messageId,
+          latestMessage.createdAt,
         );
       }
 
@@ -2426,24 +2530,356 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 更新同步游标
+  /// 注意：游标数据已迁移到MessageTimelineRepository管理，此方法保留为兼容性接口
   @override
   Future<void> updateSyncCursor(
       String conversationId, MessageCursor cursor) async {
     try {
-      await _isar.writeTxn(() async {
-        final conversation = await _conversations
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .findFirst();
-
-        if (conversation != null) {
-          conversation.syncCursorMessageId = cursor.messageId;
-          conversation.syncCursorTimestamp = cursor.timestamp;
-          await _conversations.put(conversation);
-        }
+      // 游标数据现在由MessageTimelineRepository管理
+      // 这里保留空实现以保持接口兼容性
+      _logger.d('同步游标更新请求已忽略（已迁移到MessageTimelineRepository）', extra: {
+        'conversationId': conversationId,
+        'messageId': cursor.messageId,
+        'timestamp': cursor.timestamp?.toIso8601String(),
       });
     } catch (error) {
       _logger.e('更新同步游标失败', error: error);
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：处理新消息事件（服务器广播）
+
+  /// 处理新消息事件
+  /// 当服务器广播新消息时触发，需要防止重复处理
+  /// [newMessage] - 新消息的Proto格式
+  void _handleNewMessage(message_proto.MessageProto newMessage) async {
+    try {
+      _logger.d('收到新消息事件', extra: {
+        'messageId': newMessage.messageId,
+        'conversationId': newMessage.conversationId,
+        'senderId': newMessage.senderId,
+        'type': newMessage.type.toString(),
+      });
+
+      // 💢💢💢 防重复检查：如果是当前用户发送的消息，忽略
+      if (newMessage.senderId == _currentUser.userId) {
+        _logger.d('忽略自己发送的消息广播', extra: {
+          'messageId': newMessage.messageId,
+          'senderId': newMessage.senderId,
+        });
+        return;
+      }
+
+      // 💢💢💢 防重复检查：检查消息是否已存在于数据库
+      final existingMessage = await _messages
+          .filter()
+          .messageIdEqualTo(newMessage.messageId)
+          .findFirst();
+
+      if (existingMessage != null) {
+        _logger.d('消息已存在，忽略重复', extra: {
+          'messageId': newMessage.messageId,
+        });
+        return;
+      }
+
+      // 💢💢💢 保存新消息到数据库
+      final message = MessageAdapter.fromProto(newMessage);
+      await _isar.writeTxn(() async {
+        await _messages.put(message);
+      });
+
+      _logger.d('新消息已保存到数据库', extra: {
+        'messageId': message.messageId,
+        'conversationId': message.conversationId,
+      });
+
+      // 💢💢💢 通知UI更新
+      _messageStatusController.add({
+        'type': 'newMessage',
+        'conversationId': newMessage.conversationId,
+        'message': message,
+      });
+    } catch (error) {
+      _logger.e('处理新消息事件失败',
+          error: error,
+          stackTrace: StackTrace.current,
+          extra: {'messageId': newMessage.messageId});
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：无缝消息同步方法
+
+  /// 执行无缝消息同步
+  /// 解决进入房间和历史同步之间的消息空档期问题
+  /// [conversationId] - 会话ID
+  /// [joinTimestamp] - 用户进入房间的时间戳
+  /// [lastLocalMessageTimestamp] - 本地最新消息的时间戳
+  @override
+  Future<bool> performSeamlessSync(
+    String conversationId,
+    DateTime joinTimestamp,
+    DateTime? lastLocalMessageTimestamp,
+  ) async {
+    try {
+      _logger.i('执行无缝消息同步', extra: {
+        'conversationId': conversationId,
+        'joinTimestamp': joinTimestamp.toIso8601String(),
+        'lastLocalMessageTimestamp':
+            lastLocalMessageTimestamp?.toIso8601String(),
+      });
+
+      final now = DateTime.now();
+      final syncFromTimestamp = lastLocalMessageTimestamp ?? joinTimestamp;
+
+      // 计算时间差
+      final timeDifference = now.difference(syncFromTimestamp).inSeconds;
+
+      if (timeDifference <= GapSyncConfig.timeDifferenceThreshold) {
+        _logger.d('时间差很小，无需同步', extra: {
+          'timeDifferenceSeconds': timeDifference,
+        });
+        return true;
+      }
+
+      _logger.i('检测到时间空档，开始同步', extra: {
+        'timeDifferenceSeconds': timeDifference,
+        'syncFromTimestamp': syncFromTimestamp.toIso8601String(),
+        'syncToTimestamp': now.toIso8601String(),
+      });
+
+      // 💢💢💢 使用递归分页同步，获取空档期内的所有消息
+      final syncStartTime = DateTime.now();
+      final result = await _syncMessagesByTimeRange(
+        conversationId,
+        syncFromTimestamp,
+        now,
+      );
+      final syncDuration = DateTime.now().difference(syncStartTime);
+
+      if (result.isNotEmpty) {
+        _logger.i('空档期同步完成', extra: {
+          'conversationId': conversationId,
+          'syncedMessageCount': result.length,
+          'syncDurationMs': syncDuration.inMilliseconds,
+          'averagePageTime': syncDuration.inMilliseconds /
+              max(1, (result.length / GapSyncConfig.pageSize).ceil()),
+        });
+
+        // 通知UI更新
+        _messageStatusController.add({
+          'type': 'gapSync',
+          'conversationId': conversationId,
+          'messages': result,
+        });
+      } else {
+        _logger.d('空档期无消息需要同步', extra: {
+          'syncDurationMs': syncDuration.inMilliseconds,
+        });
+      }
+
+      return true;
+    } catch (error) {
+      _logger.e('无缝消息同步失败', error: error, extra: {
+        'conversationId': conversationId,
+      });
+      return false;
+    }
+  }
+
+  /// 💢💢💢 按时间范围同步消息（支持分页递归）
+  /// [conversationId] - 会话ID
+  /// [fromTimestamp] - 开始时间戳
+  /// [toTimestamp] - 结束时间戳
+  Future<List<Message>> _syncMessagesByTimeRange(
+    String conversationId,
+    DateTime fromTimestamp,
+    DateTime toTimestamp,
+  ) async {
+    try {
+      _logger.i('开始按时间范围同步消息', extra: {
+        'conversationId': conversationId,
+        'fromTimestamp': fromTimestamp.toIso8601String(),
+        'toTimestamp': toTimestamp.toIso8601String(),
+      });
+
+      // 💢💢💢 递归分页同步，确保获取所有消息
+      final allMessages = await _recursiveSyncByTimeRange(
+        conversationId,
+        fromTimestamp,
+        toTimestamp,
+      );
+
+      _logger.i('时间范围消息同步完成', extra: {
+        'conversationId': conversationId,
+        'totalSyncedMessages': allMessages.length,
+        'timeRange':
+            '${fromTimestamp.toIso8601String()} → ${toTimestamp.toIso8601String()}',
+      });
+
+      return allMessages;
+    } catch (error) {
+      _logger.e('按时间范围同步消息失败', error: error);
+      return [];
+    }
+  }
+
+  /// 💢💢💢 递归分页同步（核心方法）
+  /// 确保获取时间范围内的所有消息，不会因为分页限制而丢失
+  Future<List<Message>> _recursiveSyncByTimeRange(
+    String conversationId,
+    DateTime fromTimestamp,
+    DateTime toTimestamp, {
+    int pageSize = GapSyncConfig.pageSize,
+    int maxPages = GapSyncConfig.maxPages,
+    int currentPage = 1,
+    int totalMessagesSoFar = 0, // 跟踪已同步的总消息数
+  }) async {
+    try {
+      _logger.d('递归同步第$currentPage页', extra: {
+        'conversationId': conversationId,
+        'fromTimestamp': fromTimestamp.toIso8601String(),
+        'toTimestamp': toTimestamp.toIso8601String(),
+        'currentPage': currentPage,
+        'pageSize': pageSize,
+        'totalMessagesSoFar': totalMessagesSoFar,
+      });
+
+      // 💢💢💢 检查是否超过最大消息数限制
+      if (totalMessagesSoFar >= GapSyncConfig.maxTotalMessages) {
+        _logger.w('已达到最大消息数限制，停止同步', extra: {
+          'totalMessagesSoFar': totalMessagesSoFar,
+          'maxTotalMessages': GapSyncConfig.maxTotalMessages,
+        });
+        return [];
+      }
+
+      // 创建分页同步请求
+      final request = message_proto.MessageSyncRequest()
+        ..syncType = message_proto.MessageSyncType.CURSOR_FORWARD
+        ..conversationId = conversationId
+        ..cursorTimestamp = $fixnum.Int64(fromTimestamp.millisecondsSinceEpoch)
+        ..limit = pageSize;
+
+      // 发送同步请求
+      final success =
+          await _communicationService.emitProto('messages:sync', request);
+      if (!success) {
+        _logger.w('发送第$currentPage页同步请求失败');
+        return [];
+      }
+
+      // 等待同步响应
+      final response = await _communicationService
+          .onProto<message_proto.MessageSyncResponse>('messages:sync:response')
+          .where((resp) => resp.conversationId == conversationId)
+          .timeout(GapSyncConfig.syncTimeout)
+          .first;
+
+      if (!response.success) {
+        _logger.w('第$currentPage页消息同步失败');
+        return [];
+      }
+
+      // 获取当前页消息
+      final currentPageMessages = response.messages.messages;
+
+      if (currentPageMessages.isEmpty) {
+        _logger.d('第$currentPage页无消息，同步完成');
+        return [];
+      }
+
+      // 保存当前页消息到本地数据库
+      await _saveMessagesToLocal(currentPageMessages);
+
+      // 转换为Message对象
+      final currentMessages = currentPageMessages
+          .map((proto) => MessageAdapter.fromProto(proto))
+          .toList();
+
+      _logger.d('第$currentPage页同步完成', extra: {
+        'messageCount': currentMessages.length,
+        'hasMoreAfter': response.hasMoreAfter,
+        'totalMessagesSoFar': totalMessagesSoFar + currentMessages.length,
+      });
+
+      // 💢💢💢 检查是否需要继续分页
+      List<Message> allMessages = List.from(currentMessages);
+      final newTotalMessages = totalMessagesSoFar + currentMessages.length;
+
+      // 判断条件（更严格的检查）：
+      // 1. 服务器返回hasMoreAfter=true（还有更多消息）
+      // 2. 当前页返回了满页消息（可能还有更多）
+      // 3. 没有超过最大页数限制
+      // 4. 没有超过最大消息数限制
+      // 5. 最新消息的时间戳还没有达到结束时间戳
+      final needMorePages =
+          (response.hasMoreAfter || currentPageMessages.length >= pageSize) &&
+              currentPage < maxPages &&
+              newTotalMessages < GapSyncConfig.maxTotalMessages &&
+              currentMessages.isNotEmpty;
+
+      if (needMorePages) {
+        // 💢💢💢 计算下一页的起始时间戳
+        final lastMessage = currentMessages.last;
+        final nextFromTimestamp =
+            lastMessage.createdAt.add(const Duration(milliseconds: 1));
+
+        // 检查是否已经超过了结束时间戳
+        if (nextFromTimestamp.isBefore(toTimestamp)) {
+          _logger.d('需要继续同步下一页', extra: {
+            'nextFromTimestamp': nextFromTimestamp.toIso8601String(),
+            'currentPage': currentPage,
+            'newTotalMessages': newTotalMessages,
+          });
+
+          // 💢💢💢 添加页面间延迟，避免过于频繁的请求
+          if (GapSyncConfig.pageDelay.inMilliseconds > 0) {
+            await Future.delayed(GapSyncConfig.pageDelay);
+          }
+
+          // 递归获取下一页
+          final nextPageMessages = await _recursiveSyncByTimeRange(
+            conversationId,
+            nextFromTimestamp,
+            toTimestamp,
+            pageSize: pageSize,
+            maxPages: maxPages,
+            currentPage: currentPage + 1,
+            totalMessagesSoFar: newTotalMessages,
+          );
+
+          allMessages.addAll(nextPageMessages);
+        } else {
+          _logger.d('已达到结束时间戳，停止分页', extra: {
+            'nextFromTimestamp': nextFromTimestamp.toIso8601String(),
+            'toTimestamp': toTimestamp.toIso8601String(),
+          });
+        }
+      } else {
+        String stopReason = '服务器无更多消息';
+        if (currentPage >= maxPages) {
+          stopReason = '达到页数限制';
+        } else if (newTotalMessages >= GapSyncConfig.maxTotalMessages) {
+          stopReason = '达到消息数限制';
+        } else if (!response.hasMoreAfter &&
+            currentPageMessages.length < pageSize) {
+          stopReason = '服务器返回不满页';
+        }
+
+        _logger.d('无需更多分页', extra: {
+          'reason': stopReason,
+          'currentPage': currentPage,
+          'maxPages': maxPages,
+          'totalMessages': newTotalMessages,
+          'maxTotalMessages': GapSyncConfig.maxTotalMessages,
+        });
+      }
+
+      return allMessages;
+    } catch (error) {
+      _logger.e('递归同步第$currentPage页失败', error: error);
+      return [];
     }
   }
 }

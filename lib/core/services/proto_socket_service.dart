@@ -303,6 +303,46 @@ class ProtoSocketService {
     }
   }
 
+  /// 💢💢💢 新增：手动重连接口
+  /// 提供给上层调用的公共重连方法
+  Future<bool> reconnect() async {
+    _logger.i('🔄 收到手动重连请求');
+
+    try {
+      // 如果已经连接，直接返回成功
+      if (_isConnected) {
+        _logger.i('当前已连接，无需重连');
+        return true;
+      }
+
+      // 如果正在重连中，等待当前重连完成
+      if (_isReconnecting) {
+        _logger.i('正在重连中，等待当前重连完成');
+        // 等待重连状态变化
+        await reconnectingStateStream
+            .firstWhere((isReconnecting) => !isReconnecting);
+        return _isConnected;
+      }
+
+      // 重置重连计数，允许手动重连
+      final originalAttempts = _reconnectAttempts;
+      _reconnectAttempts = 0;
+
+      // 执行重连
+      await _attemptReconnect();
+
+      // 如果重连失败，恢复原来的计数
+      if (!_isConnected) {
+        _reconnectAttempts = originalAttempts;
+      }
+
+      return _isConnected;
+    } catch (error) {
+      _logger.e('手动重连异常', error: error, stackTrace: StackTrace.current);
+      return false;
+    }
+  }
+
   /// 释放资源
   void dispose() {
     _reconnectTimer?.cancel();
@@ -378,6 +418,13 @@ class ProtoSocketService {
   Future<bool> emitProto(String eventName, GeneratedMessage message) async {
     if (!_isConnected) {
       _logger.i('❌ Socket未连接，无法发送消息: $eventName');
+
+      // 💢💢💢 新增：发送失败时触发重连
+      if (!_isReconnecting && _reconnectAttempts < _maxReconnectAttempts) {
+        _logger.i('🔄 发送失败，触发自动重连');
+        _attemptReconnect();
+      }
+
       return false;
     }
 
@@ -387,6 +434,13 @@ class ProtoSocketService {
       return true;
     } catch (e) {
       _logger.i('❌ 发送Socket消息失败: $e');
+
+      // 💢💢💢 新增：发送异常时也触发重连
+      if (!_isReconnecting && _reconnectAttempts < _maxReconnectAttempts) {
+        _logger.i('🔄 发送异常，触发自动重连');
+        _attemptReconnect();
+      }
+
       return false;
     }
   }

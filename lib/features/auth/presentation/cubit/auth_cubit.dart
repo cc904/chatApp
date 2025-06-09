@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/adapters/user_adapter.dart';
 import 'package:cc/core/network/auth_api_client.dart';
 
 part 'auth_state.dart';
@@ -150,7 +151,8 @@ class AuthCubit extends Cubit<AuthState> {
         _logger.i('令牌登录成功', extra: {'userId': response.currentUser!.userId});
 
         emit(state.toAuthenticatedState(
-          currentUserProto: response.currentUser!,
+          currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
+          authToken: UserAdapter.extractToken(response.currentUser!),
         ));
         return true;
       } else {
@@ -232,7 +234,8 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('登录成功，用户信息: ${response.currentUser!.userId}');
 
       emit(state.toAuthenticatedState(
-        currentUserProto: response.currentUser!,
+        currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
+        authToken: UserAdapter.extractToken(response.currentUser!),
       ));
     } catch (error) {
       _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
@@ -306,7 +309,8 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('注册成功，用户ID: ${response.currentUser!.userId}');
 
       emit(state.toAuthenticatedState(
-        currentUserProto: response.currentUser!,
+        currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
+        authToken: UserAdapter.extractToken(response.currentUser!),
       ));
     } catch (error) {
       _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);

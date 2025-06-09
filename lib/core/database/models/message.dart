@@ -1,7 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:fixnum/fixnum.dart';
 import 'conversation.dart';
-import 'package:cc/core/proto/generated/message.pb.dart' as proto;
 
 part 'message.g.dart';
 
@@ -107,13 +105,6 @@ class Message {
   // 引用消息
   String? quotedMessageId;
 
-  // 💢💢💢 新增游标同步相关字段 💢💢💢
-  // 消息序号（可选，用于精确排序）
-  int? sequenceNumber;
-
-  // 游标位置（可选，组合时间戳和消息ID形成唯一游标）
-  String? cursorPosition;
-
   // 索引文本内容用于搜索
   @Index(type: IndexType.value, caseSensitive: false)
   String? get textForSearch => text;
@@ -126,135 +117,6 @@ class Message {
   @ignore
   bool get isDelivered => status == 'delivered' || status == 'read';
 
-  // 💢💢💢 新增：生成游标位置
-  @ignore
-  String get computedCursorPosition {
-    if (cursorPosition != null && cursorPosition!.isNotEmpty) {
-      return cursorPosition!;
-    }
-    // 使用时间戳和消息ID组合生成游标
-    return '${createdAt.millisecondsSinceEpoch}_$messageId';
-  }
-
   // 与会话的关系
   final conversation = IsarLink<Conversation>();
-
-  /// 从 Protocol Buffer对象创建数据库对象
-  ///
-  /// 直接从MessageProto对象创建Message实例
-  ///
-  /// [proto] - 原始的Protocol Buffer对象
-  /// 返回：转换后的数据库对象
-  static Message fromProto(proto.MessageProto proto) {
-    final message = Message()
-      ..messageId = proto.messageId
-      ..conversationId = proto.conversationId
-      ..senderId = proto.senderId
-      ..senderName = proto.hasSenderName() ? proto.senderName : null
-      ..senderAvatar = proto.hasSenderAvatar() ? proto.senderAvatar : null
-      ..createdAt = proto.hasCreatedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.createdAt.toInt())
-          : DateTime.now()
-      ..status = proto.hasStatus() ? proto.status.name.toLowerCase() : 'sent'
-      ..type = proto.hasType() ? proto.type.name.toLowerCase() : 'text'
-      ..text = proto.hasText() ? proto.text : null
-      ..mediaUrl = proto.hasMediaUrl() ? proto.mediaUrl : null
-      ..localPath = proto.hasLocalPath() ? proto.localPath : null
-      ..duration = proto.hasDuration() ? proto.duration : null
-      ..fileSize = proto.hasFileSize() ? proto.fileSize : null
-      ..fileName = proto.hasFileName() ? proto.fileName : null
-      ..thumbnailUrl = proto.hasThumbnailUrl() ? proto.thumbnailUrl : null
-      ..latitude = proto.hasLatitude() ? proto.latitude : null
-      ..longitude = proto.hasLongitude() ? proto.longitude : null
-      ..locationAddress =
-          proto.hasLocationAddress() ? proto.locationAddress : null
-      ..quotedMessageId =
-          proto.hasQuotedMessageId() ? proto.quotedMessageId : null;
-
-    return message;
-  }
-
-  /// 将数据库对象转换为Protocol Buffer对象
-  ///
-  /// 用于将Message对象转换为可序列化的Proto对象
-  /// 便于网络传输和存储
-  ///
-  /// 返回：转换后的Protocol Buffer对象
-  proto.MessageProto toProto() {
-    // 将字符串类型转换为枚举类型
-    final messageType = _stringToMessageType(type);
-    final messageStatus = _stringToMessageStatus(status);
-
-    return proto.MessageProto(
-      messageId: messageId,
-      conversationId: conversationId,
-      senderId: senderId,
-      senderName: senderName,
-      senderAvatar: senderAvatar,
-      createdAt: Int64(createdAt.millisecondsSinceEpoch),
-      status: messageStatus,
-      type: messageType,
-      text: text,
-      mediaUrl: mediaUrl,
-      localPath: localPath,
-      duration: duration,
-      fileSize: fileSize,
-      fileName: fileName,
-      thumbnailUrl: thumbnailUrl,
-      latitude: latitude,
-      longitude: longitude,
-      locationAddress: locationAddress,
-      quotedMessageId: quotedMessageId,
-    );
-  }
-
-  /// 将字符串类型转换为Proto的枚举类型
-  static proto.MessageType _stringToMessageType(String type) {
-    switch (type.toLowerCase()) {
-      case 'text':
-        return proto.MessageType.TEXT;
-      case 'image':
-        return proto.MessageType.IMAGE;
-      case 'voice':
-        return proto.MessageType.VOICE;
-      case 'video':
-        return proto.MessageType.VIDEO;
-      case 'file':
-        return proto.MessageType.FILE;
-      case 'location':
-        return proto.MessageType.LOCATION;
-      case 'system':
-        return proto.MessageType.SYSTEM;
-      case 'sticker':
-        return proto.MessageType.STICKER;
-      case 'gif':
-        return proto.MessageType.GIF;
-      case 'contact':
-        return proto.MessageType.CONTACT;
-      case 'poll':
-        return proto.MessageType.POLL;
-      case 'link':
-        return proto.MessageType.LINK;
-      default:
-        return proto.MessageType.TEXT;
-    }
-  }
-
-  /// 将字符串状态转换为Proto的枚举类型
-  static proto.MessageStatus _stringToMessageStatus(String status) {
-    switch (status.toLowerCase()) {
-      case 'sending':
-        return proto.MessageStatus.SENDING;
-      case 'sent':
-        return proto.MessageStatus.SENT;
-      case 'delivered':
-        return proto.MessageStatus.DELIVERED;
-      case 'read':
-        return proto.MessageStatus.READ;
-      case 'failed':
-        return proto.MessageStatus.FAILED;
-      default:
-        return proto.MessageStatus.SENT;
-    }
-  }
 }

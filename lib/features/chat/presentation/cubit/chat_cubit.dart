@@ -9,6 +9,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
+import 'package:cc/features/chat/domain/entities/message_cursor.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
@@ -68,6 +69,10 @@ class ChatCubit extends Cubit<ChatState> {
   // 添加恢复状态标记，避免恢复期间的干扰
   bool _isRestoring = false;
   bool get isRestoring => _isRestoring;
+
+  // 🔄 并发同步相关字段
+  Timer? _incrementalSyncTimer;
+  static const Duration _incrementalSyncInterval = Duration(seconds: 2);
 
   // 简化的配置参数
   static const int defaultPageSize = 30; // 每页消息数量
@@ -141,14 +146,8 @@ class ChatCubit extends Cubit<ChatState> {
         _logger.i('没有状态快照，执行正常初始化流程');
       }
 
-      // 没有快照，执行正常初始化流程
-      _setupEventListeners();
-
-      // 加载消息
-      await _loadInitialMessages();
-
-      // 加入会话房间
-      await joinConversation();
+      // 🔄 修改：使用新的并发同步流程
+      await _startInitialSync();
 
       _logger.i('ChatCubit初始化完成');
     } catch (error) {
@@ -156,6 +155,243 @@ class ChatCubit extends Cubit<ChatState> {
       _isRestoring = false;
       _logger.e('初始化ChatCubit失败', error: error);
       emit(state.copyWith(errorMessage: '初始化失败: ${error.toString()}'));
+    }
+  }
+
+  /// 💢💢💢 新增：无缝消息同步流程
+  /// 解决进入房间和历史同步之间的消息空档期问题
+  Future<void> _performSeamlessSync() async {
+    try {
+      _logger.i('开始无缝消息同步流程', extra: {'conversationId': _conversationId});
+
+      // 💢 第一步：设置事件监听（必须最先设置，确保不错过任何消息）
+      _setupEventListeners();
+
+      // 💢 第二步：加载本地历史消息（获取当前最新消息时间）
+      emit(state.copyWith(isLoadingMessages: true));
+      await loadMoreMessages();
+
+      // 💢 第三步：记录准备加入房间的时间戳（在实际加入房间前的最后时刻）
+      final preJoinTimestamp = DateTime.now();
+      _logger.d('记录准备加入房间时间戳', extra: {
+        'timestamp': preJoinTimestamp.toIso8601String(),
+        'timestampMs': preJoinTimestamp.millisecondsSinceEpoch,
+      });
+
+      // 💢 第四步：立即加入会话房间（开始接收新消息）
+      await joinConversation();
+
+      // 💢 第五步：记录实际加入房间完成的时间戳
+      final actualJoinTimestamp = DateTime.now();
+      _logger.d('记录实际加入房间完成时间戳', extra: {
+        'timestamp': actualJoinTimestamp.toIso8601String(),
+        'timestampMs': actualJoinTimestamp.millisecondsSinceEpoch,
+        'joinDelayMs':
+            actualJoinTimestamp.difference(preJoinTimestamp).inMilliseconds,
+      });
+
+      // 💢 第六步：同步空档期消息（从准备加入到实际加入完成的时间段）
+      await _syncGapMessages(preJoinTimestamp, actualJoinTimestamp);
+
+      // 💢💢💢 第七步：根据业务逻辑设置初始滚动位置
+      await _setInitialScrollPosition();
+
+      emit(state.copyWith(isLoadingMessages: false));
+
+      _logger.i('无缝消息同步流程完成', extra: {
+        'totalJoinTime':
+            actualJoinTimestamp.difference(preJoinTimestamp).inMilliseconds,
+      });
+    } catch (error) {
+      _logger.e('无缝消息同步失败', error: error);
+      emit(state.copyWith(
+        isLoadingMessages: false,
+        errorMessage: '同步消息失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 💢💢💢 新增：设置初始滚动位置
+  /// 根据业务逻辑：无论什么情况都显示到最新消息（在UI底部第一条）
+  Future<void> _setInitialScrollPosition() async {
+    try {
+      if (state.messages.isEmpty) {
+        _logger.d('没有消息，无需设置滚动位置');
+        return;
+      }
+
+      // 获取最新消息（列表中的第一条，因为按时间降序排列）
+      final latestMessage = state.messages.first;
+
+      _logger.i('设置初始滚动位置到最新消息', extra: {
+        'latestMessageId': latestMessage.messageId,
+        'messageIndex': 0, // 最新消息总是在索引0
+        'totalMessages': state.messages.length,
+        'unreadCount': state.unreadCount,
+        'reason': state.unreadCount > 0
+            ? '有${state.unreadCount}条未读消息，显示到最新消息'
+            : '有新消息但无未读，显示到最新消息',
+      });
+
+      // 💢💢💢 创建滚动位置：指向最新消息，在UI底部第一条
+      final scrollPosition = CurrentScrollPosition.fromAnchor(
+        messageId: latestMessage.messageId,
+        messageIndex: 0, // 最新消息总是在索引0
+        relativePosition: 0.0, // 在UI底部第一条显示
+        includeTimestamp: true,
+      );
+
+      // 更新状态
+      emit(state.copyWith(
+        currentScrollPosition: scrollPosition,
+      ));
+
+      _logger.d('初始滚动位置设置完成', extra: {
+        'scrollPosition': scrollPosition.toString(),
+      });
+    } catch (error) {
+      _logger.e('设置初始滚动位置失败', error: error);
+      // 不影响主流程，只记录错误
+    }
+  }
+
+  /// 💢💢💢 修改：同步空档期消息（使用多游标系统正确处理离线消息）
+  /// [preJoinTimestamp] - 准备加入房间的时间戳
+  /// [actualJoinTimestamp] - 实际加入房间完成的时间戳
+  Future<void> _syncGapMessages(
+      DateTime preJoinTimestamp, DateTime actualJoinTimestamp) async {
+    try {
+      _logger.i('开始多游标空档期消息同步', extra: {
+        'conversationId': _conversationId,
+        'preJoinTimestamp': preJoinTimestamp.toIso8601String(),
+        'actualJoinTimestamp': actualJoinTimestamp.toIso8601String(),
+      });
+
+      // 🎯 第一步：获取本地最新消息作为T2时间点
+      final latestMessage =
+          state.messages.isNotEmpty ? state.messages.first : null;
+      final lastLocalMessageTime = latestMessage?.createdAt;
+      final lastLocalMessageId = latestMessage?.messageId;
+
+      if (lastLocalMessageTime == null || lastLocalMessageId == null) {
+        _logger.i('没有本地消息，使用初始加载同步', extra: {
+          'reason': '本地消息为空',
+        });
+
+        // 如果没有本地消息，直接使用初始加载
+        await _chatRepository.syncMessagesInitial(_conversationId, limit: 30);
+        return;
+      }
+
+      // 🎯 第二步：计算时间空档期
+      final timeGapHours =
+          actualJoinTimestamp.difference(lastLocalMessageTime).inHours;
+
+      _logger.i('检测到时间空档期', extra: {
+        'lastLocalMessageTime': lastLocalMessageTime.toIso8601String(),
+        'timeGapHours': timeGapHours,
+        'timeGapMinutes':
+            actualJoinTimestamp.difference(lastLocalMessageTime).inMinutes,
+      });
+
+      // 🎯 第三步：如果空档期小于1小时，使用向前游标同步
+      if (timeGapHours < 1) {
+        _logger.i('使用向前游标同步（空档期较小）', extra: {
+          'method': 'CURSOR_FORWARD',
+          'fromMessageId': lastLocalMessageId,
+        });
+
+        // 创建本地最新消息的游标
+        final localCursor = MessageCursor.fromMessageData(
+          lastLocalMessageId,
+          lastLocalMessageTime,
+        );
+
+        // 使用向前游标同步获取离线消息
+        final result = await _chatRepository.syncMessagesForward(
+          _conversationId,
+          cursor: localCursor,
+          limit: 50, // 增加限制以获取更多离线消息
+        );
+
+        if (result.success) {
+          _logger.i('向前游标同步完成', extra: {
+            'returnedCount': result.returnedCount,
+            'hasMoreAfter': result.hasMoreAfter,
+          });
+        } else {
+          _logger.w('向前游标同步失败', extra: {
+            'errorMessage': result.errorMessage,
+          });
+        }
+      }
+      // 🎯 第四步：如果空档期较大，使用双向游标同步
+      else {
+        _logger.i('使用双向游标同步（空档期较大）', extra: {
+          'method': 'CURSOR_AROUND',
+          'anchorPoint': '本地最新消息位置',
+        });
+
+        // 创建本地最新消息的游标作为锚点
+        final anchorCursor = MessageCursor.fromMessageData(
+          lastLocalMessageId,
+          lastLocalMessageTime,
+        );
+
+        // 使用双向游标同步，以本地最新消息为中心
+        final result = await _chatRepository.syncMessagesAround(
+          _conversationId,
+          cursor: anchorCursor,
+          beforeCount: 10, // 获取锚点前10条（防止重复）
+          afterCount: 50, // 重点获取锚点后的离线消息
+          includeCursor: false, // 不包含锚点消息（避免重复）
+        );
+
+        if (result.success) {
+          _logger.i('双向游标同步完成', extra: {
+            'returnedCount': result.returnedCount,
+            'hasMoreAfter': result.hasMoreAfter,
+          });
+
+          // 如果还有更多新消息，继续使用向前同步
+          if (result.hasMoreAfter && result.nextCursor != null) {
+            _logger.i('检测到更多新消息，继续向前同步');
+
+            final nextResult = await _chatRepository.syncMessagesForward(
+              _conversationId,
+              cursor: result.nextCursor!,
+              limit: 30,
+            );
+
+            if (nextResult.success) {
+              _logger.i('后续向前同步完成', extra: {
+                'returnedCount': nextResult.returnedCount,
+              });
+            }
+          }
+        } else {
+          _logger.w('双向游标同步失败', extra: {
+            'errorMessage': result.errorMessage,
+          });
+        }
+      }
+
+      // 🎯 第五步：更新同步游标到当前时间
+      final currentCursor = MessageCursor(
+        messageId: 'sync_${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: actualJoinTimestamp,
+        position: '${actualJoinTimestamp.millisecondsSinceEpoch}_sync',
+      );
+
+      await _chatRepository.updateSyncCursor(_conversationId, currentCursor);
+
+      _logger.i('多游标空档期消息同步完成', extra: {
+        'syncMethod': timeGapHours < 1 ? 'CURSOR_FORWARD' : 'CURSOR_AROUND',
+        'timeGapHours': timeGapHours,
+      });
+    } catch (error) {
+      _logger.e('多游标空档期消息同步失败', error: error);
+      // 同步失败不影响正常使用，只记录错误
     }
   }
 
@@ -236,6 +472,12 @@ class ChatCubit extends Cubit<ChatState> {
       case 'messageStatusUpdate':
         _handleSingleMessageStatusUpdate(event);
         break;
+      case 'newMessage':
+        _handleNewMessageEvent(event);
+        break;
+      case 'gapSync':
+        _handleGapSyncEvent(event);
+        break;
       default:
         _logger.w('未知的消息状态更新事件类型', extra: {'type': eventType});
     }
@@ -293,6 +535,280 @@ class ChatCubit extends Cubit<ChatState> {
     } else {
       _logger.w('未找到要更新的消息', extra: {'messageId': messageId});
     }
+  }
+
+  /// 💢💢💢 修改：处理新消息事件（支持并发同步）
+  void _handleNewMessageEvent(Map<String, dynamic> event) {
+    if (isClosed) return;
+
+    final conversationId = event['conversationId'] as String?;
+    final message = event['message'] as Message?;
+
+    if (conversationId != _conversationId || message == null) {
+      return;
+    }
+
+    _logger.d('处理新消息事件', extra: {
+      'messageId': message.messageId,
+      'senderId': message.senderId,
+      'conversationId': conversationId,
+      'type': message.type,
+      'isSyncing': state.isSyncing,
+    });
+
+    // 🔄 检查是否正在同步中
+    if (state.isSyncing) {
+      // 同步中，将消息暂存到队列
+      _addToPendingMessages(message);
+      return;
+    }
+
+    // 直接添加到消息列表
+    _addMessageToState(message);
+  }
+
+  /// 🔄 新增：添加消息到暂存队列
+  void _addToPendingMessages(Message message) {
+    // 检查是否已在暂存队列中
+    final isDuplicate = state.pendingMessages.any(
+      (m) => m.messageId == message.messageId,
+    );
+
+    if (isDuplicate) {
+      _logger.d('消息已在暂存队列中，忽略重复', extra: {
+        'messageId': message.messageId,
+      });
+      return;
+    }
+
+    final updatedPendingMessages = [...state.pendingMessages, message];
+
+    emit(state.copyWith(
+      pendingMessages: updatedPendingMessages,
+      hasNewMessagesDuringSync: true,
+    ));
+
+    _logger.d('消息已暂存', extra: {
+      'messageId': message.messageId,
+      'pendingCount': updatedPendingMessages.length,
+    });
+  }
+
+  /// 🔄 新增：直接添加消息到状态
+  void _addMessageToState(Message message) {
+    // 检查消息是否已存在（防止重复）
+    final existingMessageIndex = state.messages.indexWhere(
+      (msg) => msg.messageId == message.messageId,
+    );
+
+    if (existingMessageIndex != -1) {
+      _logger.d('消息已存在，忽略重复', extra: {
+        'messageId': message.messageId,
+      });
+      return;
+    }
+
+    // 将新消息插入到正确位置（保持时间顺序）
+    final updatedMessages = List<Message>.from(state.messages);
+    _insertMessageByTimestamp(updatedMessages, message);
+
+    // 更新最后同步时间戳
+    final newSyncTimestamp = message.createdAt.millisecondsSinceEpoch;
+
+    emit(state.copyWith(
+      messages: updatedMessages,
+      lastSyncTimestamp: newSyncTimestamp,
+      messageUpdateTrigger: state.messageUpdateTrigger + 1,
+    ));
+
+    _logger.d('新消息已添加到状态', extra: {
+      'messageId': message.messageId,
+      'totalMessages': updatedMessages.length,
+      'newSyncTimestamp': newSyncTimestamp,
+    });
+  }
+
+  /// 🔄 新增：开始初始同步
+  Future<void> _startInitialSync() async {
+    try {
+      _logger.i('开始初始同步', extra: {'conversationId': _conversationId});
+
+      emit(state.copyWith(
+        isSyncing: true,
+        lastSyncTimestamp: DateTime.now().millisecondsSinceEpoch,
+      ));
+
+      // 执行实际的消息加载
+      await loadMoreMessages();
+
+      // 处理暂存的消息
+      await _processPendingMessages();
+
+      // 启动增量同步
+      _startIncrementalSync();
+
+      emit(state.copyWith(
+        isSyncing: false,
+        hasNewMessagesDuringSync: false,
+      ));
+
+      _logger.i('初始同步完成');
+    } catch (error) {
+      _logger.e('初始同步失败', error: error);
+      emit(state.copyWith(
+        isSyncing: false,
+        errorMessage: '同步失败: ${error.toString()}',
+      ));
+    }
+  }
+
+  /// 🔄 新增：处理暂存的消息
+  Future<void> _processPendingMessages() async {
+    if (state.pendingMessages.isEmpty) return;
+
+    _logger.i('处理暂存消息', extra: {
+      'pendingCount': state.pendingMessages.length,
+    });
+
+    // 按时间戳排序暂存消息
+    final sortedPendingMessages = List<Message>.from(state.pendingMessages)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    final currentMessages = List<Message>.from(state.messages);
+    final newMessages = <Message>[];
+
+    for (final pendingMessage in sortedPendingMessages) {
+      // 去重检查
+      final isDuplicate = currentMessages.any(
+        (m) => m.messageId == pendingMessage.messageId,
+      );
+
+      if (!isDuplicate) {
+        newMessages.add(pendingMessage);
+        _insertMessageByTimestamp(currentMessages, pendingMessage);
+      }
+    }
+
+    if (newMessages.isNotEmpty) {
+      emit(state.copyWith(
+        messages: currentMessages,
+        pendingMessages: const [],
+        messageUpdateTrigger: state.messageUpdateTrigger + 1,
+      ));
+
+      _logger.i('暂存消息处理完成', extra: {
+        'addedCount': newMessages.length,
+        'totalMessages': currentMessages.length,
+      });
+    } else {
+      // 只清空暂存队列
+      emit(state.copyWith(
+        pendingMessages: const [],
+      ));
+    }
+  }
+
+  /// 🔄 新增：启动增量同步
+  void _startIncrementalSync() {
+    _incrementalSyncTimer?.cancel();
+    _incrementalSyncTimer = Timer.periodic(
+      _incrementalSyncInterval,
+      (_) => _performIncrementalSync(),
+    );
+
+    _logger.d('增量同步定时器已启动', extra: {
+      'interval': _incrementalSyncInterval.inSeconds,
+    });
+  }
+
+  /// 🔄 新增：执行增量同步
+  Future<void> _performIncrementalSync() async {
+    if (state.isSyncing || state.lastSyncTimestamp == null) {
+      return;
+    }
+
+    try {
+      emit(state.copyWith(isIncrementalSyncing: true));
+
+      _logger.d('执行增量同步检查', extra: {
+        'lastSyncTimestamp': state.lastSyncTimestamp,
+      });
+
+      // TODO: 实现真正的增量同步逻辑
+    } catch (error) {
+      _logger.e('增量同步失败', error: error);
+    } finally {
+      if (!isClosed) {
+        emit(state.copyWith(isIncrementalSyncing: false));
+      }
+    }
+  }
+
+  /// 🔄 新增：停止增量同步
+  void _stopIncrementalSync() {
+    _incrementalSyncTimer?.cancel();
+    _incrementalSyncTimer = null;
+    _logger.d('增量同步定时器已停止');
+  }
+
+  /// 💢💢💢 新增：处理空档期同步事件
+  void _handleGapSyncEvent(Map<String, dynamic> event) {
+    if (isClosed) return;
+
+    final conversationId = event['conversationId'] as String?;
+    final messages = event['messages'] as List<Message>?;
+
+    if (conversationId != _conversationId ||
+        messages == null ||
+        messages.isEmpty) {
+      return;
+    }
+
+    _logger.d('处理空档期同步事件', extra: {
+      'conversationId': conversationId,
+      'gapMessageCount': messages.length,
+    });
+
+    // 💢💢💢 合并空档期消息到现有消息列表
+    final currentMessages = List<Message>.from(state.messages);
+
+    for (final gapMessage in messages) {
+      // 检查消息是否已存在
+      final existingIndex = currentMessages.indexWhere(
+        (msg) => msg.messageId == gapMessage.messageId,
+      );
+
+      if (existingIndex == -1) {
+        // 按时间顺序插入消息
+        _insertMessageByTimestamp(currentMessages, gapMessage);
+      }
+    }
+
+    // 通过触发器触发UI刷新
+    _updateMessagesInStateWithTrigger(currentMessages);
+
+    _logger.d('空档期消息已合并到UI', extra: {
+      'totalMessages': currentMessages.length,
+      'addedGapMessages': messages.length,
+    });
+  }
+
+  /// 💢💢💢 按时间戳顺序插入消息
+  void _insertMessageByTimestamp(List<Message> messages, Message newMessage) {
+    // 找到插入位置（按时间升序排列）
+    int insertIndex = messages.length;
+
+    for (int i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].createdAt.isBefore(newMessage.createdAt)) {
+        insertIndex = i + 1;
+        break;
+      } else if (i == 0) {
+        insertIndex = 0;
+        break;
+      }
+    }
+
+    messages.insert(insertIndex, newMessage);
   }
 
   /// 💢💢💢 新增：带触发器的消息状态更新方法
@@ -507,12 +1023,13 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 💢💢💢 加载更多消息
+  /// 💢💢💢 加载更多消息（使用游标同步系统）
   /// 用于滚动到顶部时加载更早的消息，同时保持用户当前查看位置
   Future<void> loadMoreMessages() async {
-    _logger.i('加载更多消息', extra: {
+    _logger.i('加载更多消息（游标模式）', extra: {
       'conversationId': _conversationId,
       'hasMoreHistory': state.hasMoreHistory,
+      'currentMessageCount': state.messages.length,
     });
     try {
       // 检查Cubit是否已关闭
@@ -531,17 +1048,61 @@ class ChatCubit extends Cubit<ChatState> {
 
       emit(state.copyWith(isLoadingMoreMessages: true));
 
-      // 获取最早的消息时间作为before参数
-      DateTime? before;
-      if (state.messages.isNotEmpty) {
-        before = state.messages.last.createdAt;
-      }
+      // 🎯 使用游标同步系统加载消息
+      if (state.messages.isEmpty) {
+        // 没有本地消息，使用初始加载
+        _logger.i('首次加载消息，使用初始加载模式');
+        final result = await _chatRepository.syncMessagesInitial(
+          _conversationId,
+          limit: defaultPageSize,
+        );
 
-      await _chatRepository.getConversationMessages(
-        _conversationId,
-        limit: defaultPageSize,
-        before: before,
-      );
+        if (result.success) {
+          _logger.i('初始消息加载成功', extra: {
+            'returnedCount': result.returnedCount,
+            'hasMoreBefore': result.hasMoreBefore,
+          });
+        } else {
+          _logger.w('初始消息加载失败', extra: {
+            'errorMessage': result.errorMessage,
+          });
+        }
+      } else {
+        // 有本地消息，使用向后游标同步获取更早的消息
+        final oldestMessage = state.messages.last;
+        final localCursor = MessageCursor.fromMessageData(
+          oldestMessage.messageId,
+          oldestMessage.createdAt,
+        );
+
+        _logger.i('使用向后游标同步加载历史消息', extra: {
+          'fromMessageId': oldestMessage.messageId,
+          'fromTimestamp': oldestMessage.createdAt.toIso8601String(),
+        });
+
+        final result = await _chatRepository.syncMessagesBackward(
+          _conversationId,
+          cursor: localCursor,
+          limit: defaultPageSize,
+        );
+
+        if (result.success) {
+          _logger.i('向后游标同步成功', extra: {
+            'returnedCount': result.returnedCount,
+            'hasMoreBefore': result.hasMoreBefore,
+          });
+
+          // 更新本地游标到最旧的位置
+          if (result.prevCursor != null) {
+            await _chatRepository.updateLocalCursor(
+                _conversationId, result.prevCursor!);
+          }
+        } else {
+          _logger.w('向后游标同步失败', extra: {
+            'errorMessage': result.errorMessage,
+          });
+        }
+      }
 
       emit(state.copyWith(isLoadingMoreMessages: false));
     } catch (error) {
@@ -1655,6 +2216,9 @@ class ChatCubit extends Cubit<ChatState> {
   @override
   Future<void> close() async {
     _logger.i('关闭ChatCubit', extra: {'conversationId': _conversationId});
+
+    // 🔄 停止增量同步定时器
+    _stopIncrementalSync();
 
     // 取消所有订阅
     for (final subscription in _subscriptions.values) {

@@ -318,6 +318,19 @@ abstract class ChatRepository {
   /// 验证消息数据一致性
   Future<Map<String, dynamic>> validateMessageConsistency(
       String conversationId);
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：无缝消息同步 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 执行无缝消息同步
+  /// 解决进入房间和历史同步之间的消息空档期问题
+  /// [conversationId] - 会话ID
+  /// [joinTimestamp] - 用户进入房间的时间戳
+  /// [lastLocalMessageTimestamp] - 本地最新消息的时间戳
+  Future<bool> performSeamlessSync(
+    String conversationId,
+    DateTime joinTimestamp,
+    DateTime? lastLocalMessageTimestamp,
+  );
 }
 
 /// 会话同步任务（更新支持游标）

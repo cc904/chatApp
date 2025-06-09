@@ -337,7 +337,7 @@ class _ContactsPageState extends State<ContactsPage>
                   return NetworkStatusIndicator(
                     networkStatus: homeState.networkStatus,
                     onRetry: () {
-                      // 重试连接
+                      // 💢💢💢 修改：通过HomeCubit调用重连
                       context.read<HomeCubit>().reconnect();
                     },
                   );

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/core/database/models/conversation.dart';
@@ -33,6 +35,9 @@ class ChatsCubit extends Cubit<ChatsState> {
 
     // 设置stream事件订阅
     await _setupSubscriptions();
+
+    // 💢💢💢 新增：初始化重连监听
+    _initReconnectListener();
   }
 
   /// 设置stream事件订阅
@@ -361,37 +366,73 @@ class ChatsCubit extends Cubit<ChatsState> {
     }
   }
 
-  /// 重新连接
-  ///
-  /// 当网络断开后重新连接
-  Future<void> reconnect() async {
-    _logger.i('尝试重新连接');
+  /// 💢💢💢 重构：移除重连逻辑，改为监听重连成功事件
+  /// ChatsCubit 不再负责重连，而是监听重连成功后进行数据同步
+  void _initReconnectListener() {
+    _logger.i('ChatsCubit: 初始化重连成功监听');
 
+    // 监听重连成功事件
+    _subscriptions['reconnectSuccess'] =
+        CommunicationService().reconnectSuccessStream.listen((_) {
+      _logger.i('ChatsCubit: 收到重连成功通知，开始数据同步');
+      _syncAfterReconnect();
+    });
+
+    // 监听连接状态变化
+    _subscriptions['connectionState'] = CommunicationService()
+        .connectionStateStream
+        .listen(_handleConnectionStateChange);
+  }
+
+  /// 💢💢💢 新增：处理连接状态变化
+  void _handleConnectionStateChange(SocketConnectionStatus status) {
+    _logger.d('ChatsCubit: 连接状态变化', extra: {'status': status.toString()});
+
+    switch (status) {
+      case SocketConnectionStatus.connected:
+        emit(state.copyWith(
+          networkStatus: ChatsState.kNetworkStatusConnected,
+          isConnected: true,
+          lastConnectionTime: DateTime.now(),
+          connectionErrorMessage: null,
+        ));
+        break;
+      case SocketConnectionStatus.connecting:
+        emit(state.copyWith(
+          networkStatus: ChatsState.kNetworkStatusConnecting,
+          isConnected: false,
+        ));
+        break;
+      case SocketConnectionStatus.reconnecting:
+        emit(state.copyWith(
+          networkStatus: ChatsState.kNetworkStatusConnecting,
+          isConnected: false,
+        ));
+        break;
+      case SocketConnectionStatus.disconnected:
+      case SocketConnectionStatus.error:
+        emit(state.copyWith(
+          networkStatus: ChatsState.kNetworkStatusError,
+          isConnected: false,
+          connectionErrorMessage: '连接已断开',
+        ));
+        break;
+    }
+  }
+
+  /// 💢💢💢 新增：重连成功后的数据同步
+  Future<void> _syncAfterReconnect() async {
     try {
-      // 更新网络状态为连接中
-      emit(state.copyWith(
-        networkStatus: ChatsState.kNetworkStatusConnecting,
-        isConnected: false,
-      ));
+      _logger.i('ChatsCubit: 开始重连后数据同步');
 
-      // TODO 实现实际的重连逻辑，可能需要调用repository中的方法
+      // 重新同步会话列表
+      await requestSyncConversations();
 
-      // 连接成功后更新状态
-      emit(state.copyWith(
-        networkStatus: ChatsState.kNetworkStatusConnected,
-        isConnected: true,
-        lastConnectionTime: DateTime.now(),
-        connectionErrorMessage: null,
-      ));
-
-      // 重新加载会话列表
-      await loadConversations();
+      _logger.i('ChatsCubit: 重连后数据同步完成');
     } catch (error) {
-      _logger.e('重新连接失败', error: error);
+      _logger.e('ChatsCubit: 重连后数据同步失败', error: error);
       emit(state.copyWith(
-        networkStatus: ChatsState.kNetworkStatusError,
-        isConnected: false,
-        connectionErrorMessage: '连接失败: ${error.toString()}',
+        connectionErrorMessage: '数据同步失败: ${error.toString()}',
       ));
     }
   }
