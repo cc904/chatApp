@@ -1,4 +1,5 @@
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/domain/entities/message_cursor.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
@@ -203,37 +204,87 @@ abstract class ChatRepository {
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   网络请求   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   网络请求   💢💢💢💢💢💢💢��💢💢💢💢💢💢
 
-  /// 同步会话消息
-  Future<bool> syncConversationMessages(
-    String conversationId,
-    message_proto.MessageSyncType syncType, {
-    String? anchorMessageId,
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新的游标同步方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 向前游标同步（获取新消息）
+  /// [conversationId] - 会话ID
+  /// [cursor] - 起始游标位置
+  /// [limit] - 获取消息数量限制
+  /// 返回同步结果
+  Future<CursorSyncResult> syncMessagesForward(
+    String conversationId, {
+    MessageCursor? cursor,
+    int limit = 20,
   });
 
-  /// 日期同步消息（最近消息）
-  Future<bool> syncRecentMessages(
-    String conversationId, [
-    DateTime? anchorMessageTime, // 💢💢💢 保留参数以兼容旧接口，但不再使用
-  ]);
+  /// 向后游标同步（获取历史消息）
+  /// [conversationId] - 会话ID
+  /// [cursor] - 起始游标位置
+  /// [limit] - 获取消息数量限制
+  /// 返回同步结果
+  Future<CursorSyncResult> syncMessagesBackward(
+    String conversationId, {
+    MessageCursor? cursor,
+    int limit = 20,
+  });
 
-  /// 同步未读消息
-  Future<bool> syncUnreadMessages(
-    String conversationId, [
-    String? lastReadMessageId, // 💢💢💢 保留参数以兼容旧接口，但不再使用
-  ]);
+  /// 双向游标同步（获取上下文消息）
+  /// [conversationId] - 会话ID
+  /// [cursor] - 中心游标位置
+  /// [beforeCount] - 游标前消息数量
+  /// [afterCount] - 游标后消息数量
+  /// [includeCursor] - 是否包含游标消息本身
+  /// 返回同步结果
+  Future<CursorSyncResult> syncMessagesAround(
+    String conversationId, {
+    required MessageCursor cursor,
+    int beforeCount = 10,
+    int afterCount = 10,
+    bool includeCursor = true,
+  });
 
-  /// 计算最近15天每天的消息数量（简化版）
-  Future<Map<String, int>> calculateDailyMessageCounts(
-    String conversationId,
-  );
+  /// 初始加载消息
+  /// [conversationId] - 会话ID
+  /// [limit] - 获取消息数量限制
+  /// 返回同步结果
+  Future<CursorSyncResult> syncMessagesInitial(
+    String conversationId, {
+    int limit = 20,
+  });
 
-  /// 获取指定日期的消息数量
-  Future<int> getMessageCountByDate(String conversationId, DateTime date);
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 游标管理方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 检查消息是否存在于本地
+  /// 获取本地游标
+  /// [conversationId] - 会话ID
+  /// 返回本地游标信息
+  Future<MessageCursor> getLocalCursor(String conversationId);
+
+  /// 更新本地游标
+  /// [conversationId] - 会话ID
+  /// [cursor] - 新的游标位置
+  Future<void> updateLocalCursor(String conversationId, MessageCursor cursor);
+
+  /// 获取同步游标
+  /// [conversationId] - 会话ID
+  /// 返回同步游标信息
+  Future<MessageCursor> getSyncCursor(String conversationId);
+
+  /// 更新同步游标
+  /// [conversationId] - 会话ID
+  /// [cursor] - 新的游标位置
+  Future<void> updateSyncCursor(String conversationId, MessageCursor cursor);
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 辅助方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 检查消息是否存在于本地数据库
   Future<bool> isMessageExistsLocally(String conversationId, String messageId);
+
+  /// 检查会话是否有本地消息
+  /// [conversationId] - 会话ID
+  /// 返回是否有本地消息
+  Future<bool> hasLocalMessages(String conversationId);
 
   /// 批量同步多个会话的消息
   Future<List<bool>> batchSyncMessages(
@@ -269,17 +320,38 @@ abstract class ChatRepository {
       String conversationId);
 }
 
-/// 会话同步任务
+/// 会话同步任务（更新支持游标）
 class ConversationSyncTask {
   final String conversationId;
   final message_proto.MessageSyncType type;
-  final String? anchorMessageId;
+  final String? anchorMessageId; // 保留兼容性
+  final MessageCursor? cursor; // 新增游标支持
   final int priority;
+  final int? limit;
 
   ConversationSyncTask({
     required this.conversationId,
     required this.type,
     this.anchorMessageId,
+    this.cursor,
     this.priority = 0,
+    this.limit,
   });
+
+  /// 创建游标任务
+  factory ConversationSyncTask.cursor({
+    required String conversationId,
+    required message_proto.MessageSyncType type,
+    MessageCursor? cursor,
+    int priority = 0,
+    int? limit,
+  }) {
+    return ConversationSyncTask(
+      conversationId: conversationId,
+      type: type,
+      cursor: cursor,
+      priority: priority,
+      limit: limit,
+    );
+  }
 }

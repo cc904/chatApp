@@ -59,14 +59,20 @@ final $typed_data.Uint8List messageStatusDescriptor = $convert.base64Decode(
 const MessageSyncType$json = {
   '1': 'MessageSyncType',
   '2': [
-    {'1': 'RECENT', '2': 0},
-    {'1': 'UNREAD', '2': 1},
+    {'1': 'CURSOR_FORWARD', '2': 0},
+    {'1': 'CURSOR_BACKWARD', '2': 1},
+    {'1': 'CURSOR_AROUND', '2': 2},
+    {'1': 'INITIAL_LOAD', '2': 3},
+    {'1': 'RECENT', '2': 4},
+    {'1': 'UNREAD', '2': 5},
   ],
 };
 
 /// Descriptor for `MessageSyncType`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List messageSyncTypeDescriptor = $convert.base64Decode(
-    'Cg9NZXNzYWdlU3luY1R5cGUSCgoGUkVDRU5UEAASCgoGVU5SRUFEEAE=');
+    'Cg9NZXNzYWdlU3luY1R5cGUSEgoOQ1VSU09SX0ZPUldBUkQQABITCg9DVVJTT1JfQkFDS1dBUk'
+    'QQARIRCg1DVVJTT1JfQVJPVU5EEAISEAoMSU5JVElBTF9MT0FEEAMSCgoGUkVDRU5UEAQSCgoG'
+    'VU5SRUFEEAU=');
 
 @$core.Deprecated('Use messageProtoDescriptor instead')
 const MessageProto$json = {
@@ -449,6 +455,74 @@ final $typed_data.Uint8List dailyMessageCountDescriptor = $convert.base64Decode(
     'ChFEYWlseU1lc3NhZ2VDb3VudBISCgRkYXRlGAEgASgJUgRkYXRlEhQKBWNvdW50GAIgASgFUg'
     'Vjb3VudA==');
 
+@$core.Deprecated('Use cursorSyncRequestDescriptor instead')
+const CursorSyncRequest$json = {
+  '1': 'CursorSyncRequest',
+  '2': [
+    {'1': 'sync_type', '3': 1, '4': 1, '5': 14, '6': '.cc.MessageSyncType', '10': 'syncType'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'cursor_message_id', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'cursorMessageId', '17': true},
+    {'1': 'cursor_timestamp', '3': 4, '4': 1, '5': 3, '9': 1, '10': 'cursorTimestamp', '17': true},
+    {'1': 'limit', '3': 5, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'before_count', '3': 6, '4': 1, '5': 5, '9': 2, '10': 'beforeCount', '17': true},
+    {'1': 'after_count', '3': 7, '4': 1, '5': 5, '9': 3, '10': 'afterCount', '17': true},
+    {'1': 'include_cursor', '3': 8, '4': 1, '5': 8, '10': 'includeCursor'},
+  ],
+  '8': [
+    {'1': '_cursor_message_id'},
+    {'1': '_cursor_timestamp'},
+    {'1': '_before_count'},
+    {'1': '_after_count'},
+  ],
+};
+
+/// Descriptor for `CursorSyncRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cursorSyncRequestDescriptor = $convert.base64Decode(
+    'ChFDdXJzb3JTeW5jUmVxdWVzdBIwCglzeW5jX3R5cGUYASABKA4yEy5jYy5NZXNzYWdlU3luY1'
+    'R5cGVSCHN5bmNUeXBlEicKD2NvbnZlcnNhdGlvbl9pZBgCIAEoCVIOY29udmVyc2F0aW9uSWQS'
+    'LwoRY3Vyc29yX21lc3NhZ2VfaWQYAyABKAlIAFIPY3Vyc29yTWVzc2FnZUlkiAEBEi4KEGN1cn'
+    'Nvcl90aW1lc3RhbXAYBCABKANIAVIPY3Vyc29yVGltZXN0YW1wiAEBEhQKBWxpbWl0GAUgASgF'
+    'UgVsaW1pdBImCgxiZWZvcmVfY291bnQYBiABKAVIAlILYmVmb3JlQ291bnSIAQESJAoLYWZ0ZX'
+    'JfY291bnQYByABKAVIA1IKYWZ0ZXJDb3VudIgBARIlCg5pbmNsdWRlX2N1cnNvchgIIAEoCFIN'
+    'aW5jbHVkZUN1cnNvckIUChJfY3Vyc29yX21lc3NhZ2VfaWRCEwoRX2N1cnNvcl90aW1lc3RhbX'
+    'BCDwoNX2JlZm9yZV9jb3VudEIOCgxfYWZ0ZXJfY291bnQ=');
+
+@$core.Deprecated('Use cursorSyncResponseDescriptor instead')
+const CursorSyncResponse$json = {
+  '1': 'CursorSyncResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'messages', '3': 3, '4': 1, '5': 11, '6': '.cc.MessageCollection', '10': 'messages'},
+    {'1': 'prev_cursor', '3': 4, '4': 1, '5': 9, '9': 0, '10': 'prevCursor', '17': true},
+    {'1': 'next_cursor', '3': 5, '4': 1, '5': 9, '9': 1, '10': 'nextCursor', '17': true},
+    {'1': 'has_more_before', '3': 6, '4': 1, '5': 8, '10': 'hasMoreBefore'},
+    {'1': 'has_more_after', '3': 7, '4': 1, '5': 8, '10': 'hasMoreAfter'},
+    {'1': 'returned_count', '3': 8, '4': 1, '5': 5, '10': 'returnedCount'},
+    {'1': 'oldest_timestamp', '3': 9, '4': 1, '5': 3, '9': 2, '10': 'oldestTimestamp', '17': true},
+    {'1': 'newest_timestamp', '3': 10, '4': 1, '5': 3, '9': 3, '10': 'newestTimestamp', '17': true},
+  ],
+  '8': [
+    {'1': '_prev_cursor'},
+    {'1': '_next_cursor'},
+    {'1': '_oldest_timestamp'},
+    {'1': '_newest_timestamp'},
+  ],
+};
+
+/// Descriptor for `CursorSyncResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cursorSyncResponseDescriptor = $convert.base64Decode(
+    'ChJDdXJzb3JTeW5jUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxInCg9jb252ZX'
+    'JzYXRpb25faWQYAiABKAlSDmNvbnZlcnNhdGlvbklkEjEKCG1lc3NhZ2VzGAMgASgLMhUuY2Mu'
+    'TWVzc2FnZUNvbGxlY3Rpb25SCG1lc3NhZ2VzEiQKC3ByZXZfY3Vyc29yGAQgASgJSABSCnByZX'
+    'ZDdXJzb3KIAQESJAoLbmV4dF9jdXJzb3IYBSABKAlIAVIKbmV4dEN1cnNvcogBARImCg9oYXNf'
+    'bW9yZV9iZWZvcmUYBiABKAhSDWhhc01vcmVCZWZvcmUSJAoOaGFzX21vcmVfYWZ0ZXIYByABKA'
+    'hSDGhhc01vcmVBZnRlchIlCg5yZXR1cm5lZF9jb3VudBgIIAEoBVINcmV0dXJuZWRDb3VudBIu'
+    'ChBvbGRlc3RfdGltZXN0YW1wGAkgASgDSAJSD29sZGVzdFRpbWVzdGFtcIgBARIuChBuZXdlc3'
+    'RfdGltZXN0YW1wGAogASgDSANSD25ld2VzdFRpbWVzdGFtcIgBAUIOCgxfcHJldl9jdXJzb3JC'
+    'DgoMX25leHRfY3Vyc29yQhMKEV9vbGRlc3RfdGltZXN0YW1wQhMKEV9uZXdlc3RfdGltZXN0YW'
+    '1w');
+
 @$core.Deprecated('Use messageSyncRequestDescriptor instead')
 const MessageSyncRequest$json = {
   '1': 'MessageSyncRequest',
@@ -456,6 +530,18 @@ const MessageSyncRequest$json = {
     {'1': 'sync_type', '3': 1, '4': 1, '5': 14, '6': '.cc.MessageSyncType', '10': 'syncType'},
     {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'daily_counts', '3': 4, '4': 3, '5': 11, '6': '.cc.DailyMessageCount', '10': 'dailyCounts'},
+    {'1': 'cursor_message_id', '3': 5, '4': 1, '5': 9, '9': 0, '10': 'cursorMessageId', '17': true},
+    {'1': 'cursor_timestamp', '3': 6, '4': 1, '5': 3, '9': 1, '10': 'cursorTimestamp', '17': true},
+    {'1': 'limit', '3': 7, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'before_count', '3': 8, '4': 1, '5': 5, '9': 2, '10': 'beforeCount', '17': true},
+    {'1': 'after_count', '3': 9, '4': 1, '5': 5, '9': 3, '10': 'afterCount', '17': true},
+    {'1': 'include_cursor', '3': 10, '4': 1, '5': 8, '10': 'includeCursor'},
+  ],
+  '8': [
+    {'1': '_cursor_message_id'},
+    {'1': '_cursor_timestamp'},
+    {'1': '_before_count'},
+    {'1': '_after_count'},
   ],
 };
 
@@ -464,7 +550,12 @@ final $typed_data.Uint8List messageSyncRequestDescriptor = $convert.base64Decode
     'ChJNZXNzYWdlU3luY1JlcXVlc3QSMAoJc3luY190eXBlGAEgASgOMhMuY2MuTWVzc2FnZVN5bm'
     'NUeXBlUghzeW5jVHlwZRInCg9jb252ZXJzYXRpb25faWQYAiABKAlSDmNvbnZlcnNhdGlvbklk'
     'EjgKDGRhaWx5X2NvdW50cxgEIAMoCzIVLmNjLkRhaWx5TWVzc2FnZUNvdW50UgtkYWlseUNvdW'
-    '50cw==');
+    '50cxIvChFjdXJzb3JfbWVzc2FnZV9pZBgFIAEoCUgAUg9jdXJzb3JNZXNzYWdlSWSIAQESLgoQ'
+    'Y3Vyc29yX3RpbWVzdGFtcBgGIAEoA0gBUg9jdXJzb3JUaW1lc3RhbXCIAQESFAoFbGltaXQYBy'
+    'ABKAVSBWxpbWl0EiYKDGJlZm9yZV9jb3VudBgIIAEoBUgCUgtiZWZvcmVDb3VudIgBARIkCgth'
+    'ZnRlcl9jb3VudBgJIAEoBUgDUgphZnRlckNvdW50iAEBEiUKDmluY2x1ZGVfY3Vyc29yGAogAS'
+    'gIUg1pbmNsdWRlQ3Vyc29yQhQKEl9jdXJzb3JfbWVzc2FnZV9pZEITChFfY3Vyc29yX3RpbWVz'
+    'dGFtcEIPCg1fYmVmb3JlX2NvdW50Qg4KDF9hZnRlcl9jb3VudA==');
 
 @$core.Deprecated('Use messageSyncResponseDescriptor instead')
 const MessageSyncResponse$json = {
@@ -473,6 +564,19 @@ const MessageSyncResponse$json = {
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'messages', '3': 3, '4': 1, '5': 11, '6': '.cc.MessageCollection', '10': 'messages'},
+    {'1': 'prev_cursor', '3': 4, '4': 1, '5': 9, '9': 0, '10': 'prevCursor', '17': true},
+    {'1': 'next_cursor', '3': 5, '4': 1, '5': 9, '9': 1, '10': 'nextCursor', '17': true},
+    {'1': 'has_more_before', '3': 6, '4': 1, '5': 8, '10': 'hasMoreBefore'},
+    {'1': 'has_more_after', '3': 7, '4': 1, '5': 8, '10': 'hasMoreAfter'},
+    {'1': 'returned_count', '3': 8, '4': 1, '5': 5, '10': 'returnedCount'},
+    {'1': 'oldest_timestamp', '3': 9, '4': 1, '5': 3, '9': 2, '10': 'oldestTimestamp', '17': true},
+    {'1': 'newest_timestamp', '3': 10, '4': 1, '5': 3, '9': 3, '10': 'newestTimestamp', '17': true},
+  ],
+  '8': [
+    {'1': '_prev_cursor'},
+    {'1': '_next_cursor'},
+    {'1': '_oldest_timestamp'},
+    {'1': '_newest_timestamp'},
   ],
 };
 
@@ -480,7 +584,14 @@ const MessageSyncResponse$json = {
 final $typed_data.Uint8List messageSyncResponseDescriptor = $convert.base64Decode(
     'ChNNZXNzYWdlU3luY1Jlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSJwoPY29udm'
     'Vyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIxCghtZXNzYWdlcxgDIAEoCzIVLmNj'
-    'Lk1lc3NhZ2VDb2xsZWN0aW9uUghtZXNzYWdlcw==');
+    'Lk1lc3NhZ2VDb2xsZWN0aW9uUghtZXNzYWdlcxIkCgtwcmV2X2N1cnNvchgEIAEoCUgAUgpwcm'
+    'V2Q3Vyc29yiAEBEiQKC25leHRfY3Vyc29yGAUgASgJSAFSCm5leHRDdXJzb3KIAQESJgoPaGFz'
+    'X21vcmVfYmVmb3JlGAYgASgIUg1oYXNNb3JlQmVmb3JlEiQKDmhhc19tb3JlX2FmdGVyGAcgAS'
+    'gIUgxoYXNNb3JlQWZ0ZXISJQoOcmV0dXJuZWRfY291bnQYCCABKAVSDXJldHVybmVkQ291bnQS'
+    'LgoQb2xkZXN0X3RpbWVzdGFtcBgJIAEoA0gCUg9vbGRlc3RUaW1lc3RhbXCIAQESLgoQbmV3ZX'
+    'N0X3RpbWVzdGFtcBgKIAEoA0gDUg9uZXdlc3RUaW1lc3RhbXCIAQFCDgoMX3ByZXZfY3Vyc29y'
+    'Qg4KDF9uZXh0X2N1cnNvckITChFfb2xkZXN0X3RpbWVzdGFtcEITChFfbmV3ZXN0X3RpbWVzdG'
+    'FtcA==');
 
 @$core.Deprecated('Use batchMessageSyncRequestDescriptor instead')
 const BatchMessageSyncRequest$json = {

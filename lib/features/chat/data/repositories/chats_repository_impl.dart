@@ -10,13 +10,13 @@ import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/core/proto/generated/message.pbenum.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/core/database/models/message.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 
 /// ChatsRepository的实现类
 /// 负责聊天会话列表相关的数据处理、会话管理等功能
@@ -871,9 +871,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 创建消息同步任务
   /// 根据会话状态和本地数据情况创建合适的消息同步任务
-  /// 新策略（简化版）：
-  /// 1. 有未读消息 → 未读同步
-  /// 2. 没有未读消息 → 最近消息同步
+  /// 新策略（游标模式）：
+  /// 1. 有本地消息 → CURSOR_FORWARD 向前同步新消息
+  /// 2. 无本地消息 → INITIAL_LOAD 初始加载
   /// [conversation] - 会话Proto对象
   /// 返回同步任务，如果不需要同步则返回null
   Future<ConversationSyncTask?> _createMessageSyncTask(
@@ -886,31 +886,35 @@ class ChatsRepositoryImpl implements ChatsRepository {
       return null;
     }
 
-    _logger.d('创建消息同步任务', extra: {
+    _logger.d('创建消息同步任务（游标模式）', extra: {
       'conversationId': conversationId,
       'unreadCount': unreadCount,
     });
 
-    MessageSyncType syncType;
+    // 检查本地是否有消息
+    final hasLocalMessages =
+        await _chatRepository!.hasLocalMessages(conversationId);
+
+    message_proto.MessageSyncType syncType;
     int priority = 0;
 
-    if (unreadCount > 0) {
-      // 🎯 策略1：有未读消息，使用未读同步
-      _logger.d('有$unreadCount条未读消息，使用未读消息同步策略');
-      syncType = MessageSyncType.UNREAD;
+    if (!hasLocalMessages) {
+      // 🎯 策略1：无本地消息，使用初始加载
+      _logger.d('无本地消息，使用初始加载策略');
+      syncType = message_proto.MessageSyncType.INITIAL_LOAD;
       priority = 1; // 最高优先级
     } else {
-      // 🎯 策略2：没有未读消息，使用最近消息同步
-      _logger.d('没有未读消息，使用最近消息同步策略');
-      syncType = MessageSyncType.RECENT;
-      priority = 2; // 次优先级
+      // 🎯 策略2：有本地消息，使用向前同步获取新消息
+      _logger.d('有本地消息，使用向前游标同步策略');
+      syncType = message_proto.MessageSyncType.CURSOR_FORWARD;
+      priority = unreadCount > 0 ? 1 : 2; // 有未读消息优先级更高
     }
 
-    return ConversationSyncTask(
+    return ConversationSyncTask.cursor(
       conversationId: conversationId,
       type: syncType,
-      anchorMessageId: null, // 💢💢💢 移除锚点消息ID
       priority: priority,
+      limit: 20, // 默认加载20条消息
     );
   }
 
@@ -1231,7 +1235,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 💢💢💢💢💢��💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 保存会话状态快照
   @override

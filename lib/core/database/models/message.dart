@@ -69,7 +69,7 @@ class Message {
   String messageId = '';
 
   // 会话ID和创建时间的复合索引 - 优化按会话查询和时间排序
-  @Index(composite: [CompositeIndex('createdAt')])
+  @Index(composite: [CompositeIndex('createdAt'), CompositeIndex('messageId')])
   late String conversationId;
 
   late String senderId;
@@ -107,15 +107,34 @@ class Message {
   // 引用消息
   String? quotedMessageId;
 
+  // 💢💢💢 新增游标同步相关字段 💢💢💢
+  // 消息序号（可选，用于精确排序）
+  int? sequenceNumber;
+
+  // 游标位置（可选，组合时间戳和消息ID形成唯一游标）
+  String? cursorPosition;
+
   // 索引文本内容用于搜索
   @Index(type: IndexType.value, caseSensitive: false)
   String? get textForSearch => text;
 
   // 辅助方法：判断消息是否已读
+  @ignore
   bool get isRead => status == 'read';
 
   // 辅助方法：判断消息是否已送达
+  @ignore
   bool get isDelivered => status == 'delivered' || status == 'read';
+
+  // 💢💢💢 新增：生成游标位置
+  @ignore
+  String get computedCursorPosition {
+    if (cursorPosition != null && cursorPosition!.isNotEmpty) {
+      return cursorPosition!;
+    }
+    // 使用时间戳和消息ID组合生成游标
+    return '${createdAt.millisecondsSinceEpoch}_$messageId';
+  }
 
   // 与会话的关系
   final conversation = IsarLink<Conversation>();

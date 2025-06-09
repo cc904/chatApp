@@ -14,6 +14,7 @@ class MessageItem extends StatelessWidget {
   final bool showTail; // 是否显示小尾巴
   final bool isPrivateChat; // 是否为私聊
   final VoidCallback? onTap;
+  final VoidCallback? onResend; // 💢💢💢 新增：重发消息回调
 
   /// 💢💢💢 新增搜索相关参数
   final bool isSearchResult; // 是否为搜索结果
@@ -28,6 +29,7 @@ class MessageItem extends StatelessWidget {
     this.showTail = true,
     this.isPrivateChat = false,
     this.onTap,
+    this.onResend, // 💢💢💢 新增参数
     this.isSearchResult = false,
     this.isCurrentSearchResult = false,
     this.searchQuery,
@@ -362,9 +364,36 @@ class MessageItem extends StatelessWidget {
         color = Colors.blue;
         break;
       case 'failed':
-        iconData = Icons.error;
-        color = Colors.red;
-        break;
+        // 💢💢💢 失败状态：显示可点击的重发按钮
+        return GestureDetector(
+          onTap: onResend,
+          child: Container(
+            padding: const EdgeInsets.all(4.0),
+            decoration: BoxDecoration(
+              color: Colors.red.withAlpha(26),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error,
+                  size: 14.0,
+                  color: Colors.red,
+                ),
+                SizedBox(width: 4.0),
+                Text(
+                  '重发',
+                  style: TextStyle(
+                    fontSize: 12.0,
+                    color: Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       default:
         iconData = Icons.check;
         color = Colors.grey;

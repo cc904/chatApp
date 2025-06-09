@@ -169,6 +169,10 @@ class ChatState extends Equatable {
   /// 💢💢💢 新增：是否正在清理多余消息（用于避免误触发加载更多）
   final bool isCleaningMessages;
 
+  /// 💢💢💢 新增：消息更新触发器（用于触发UI刷新）
+  /// 当消息状态发生变化时，这个值会改变，从而触发BlocBuilder重建
+  final int messageUpdateTrigger;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -196,6 +200,7 @@ class ChatState extends Equatable {
     required this.searchResultTotalCount,
     this.originalMessages,
     this.isCleaningMessages = false,
+    this.messageUpdateTrigger = 0,
   });
 
   /// 初始状态
@@ -227,6 +232,7 @@ class ChatState extends Equatable {
       searchResultTotalCount: 0,
       originalMessages: null,
       isCleaningMessages: false,
+      messageUpdateTrigger: 0,
     );
   }
 
@@ -258,6 +264,7 @@ class ChatState extends Equatable {
     int? searchResultTotalCount,
     List<Message>? originalMessages,
     bool? isCleaningMessages,
+    int? messageUpdateTrigger,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -293,6 +300,7 @@ class ChatState extends Equatable {
           searchResultTotalCount ?? this.searchResultTotalCount,
       originalMessages: originalMessages ?? this.originalMessages,
       isCleaningMessages: isCleaningMessages ?? this.isCleaningMessages,
+      messageUpdateTrigger: messageUpdateTrigger ?? this.messageUpdateTrigger,
     );
   }
 
@@ -352,5 +360,6 @@ class ChatState extends Equatable {
         searchResultTotalCount,
         originalMessages,
         isCleaningMessages,
+        messageUpdateTrigger,
       ];
 }

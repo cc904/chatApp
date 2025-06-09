@@ -5,6 +5,7 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -102,32 +103,26 @@ class _ChatPageState extends State<ChatPage> {
 
         // 检查是否需要加载更多历史消息
         final state = context.read<ChatCubit>().state;
-        final lastVisibleIndex = positions.lastOrNull?.index;
-        // _logger.i('检查是否需要加载更多历史消息', extra: {
-        //   'messagesLength': state.messages.length,
-        //   'lastVisibleIndex': lastVisibleIndex,
-        // });
+
+        // 💢💢💢 过滤掉超出消息列表范围的位置
+        final validPositions = positions
+            .where((position) =>
+                position.index >= 0 && position.index < state.messages.length)
+            .toList();
+
+        final lastVisibleIndex = validPositions.lastOrNull?.index;
+
         if (lastVisibleIndex != null &&
             lastVisibleIndex >= state.messages.length - 10 &&
             state.hasMoreHistory &&
             !state.isSearchMode && // 💢💢💢 搜索模式下不加载历史消息
-            !state.isCleaningMessages && // 💢💢💢 清理消息状态下不加载历史消息
-            lastVisibleIndex < state.messages.length) {
-          // 💢💢💢 确保索引在有效范围内
+            !state.isCleaningMessages) {
+          // 💢💢💢 清理消息状态下不加载历史消息
           _logger.i('检查是否需要加载更多历史消息', extra: {
             'lastVisibleIndex': lastVisibleIndex,
             'messagesLength': state.messages.length,
           });
           _loadMoreHistoryWithPositionMaintenance();
-        } else if (lastVisibleIndex != null &&
-            lastVisibleIndex >= state.messages.length) {
-          // 💢💢💢 索引超出范围，可能是清理消息后的异常状态
-          _logger.w('检测到异常滚动位置，跳过加载更多', extra: {
-            'lastVisibleIndex': lastVisibleIndex,
-            'messagesLength': state.messages.length,
-            'isSearchMode': state.isSearchMode,
-            'isCleaningMessages': state.isCleaningMessages,
-          });
         }
       });
     }
@@ -137,17 +132,26 @@ class _ChatPageState extends State<ChatPage> {
   void _updateCurrentScrollPosition() {
     final positions = _itemPositionsListener.itemPositions.value;
     final state = context.read<ChatCubit>().state;
+
+    // 💢💢💢 过滤掉超出消息列表范围的位置
+    final validPositions = positions
+        .where((position) =>
+            position.index >= 0 && position.index < state.messages.length)
+        .toList();
+
     _logger.w('更新当前滚动位置', extra: {
-      'positions': positions.map((e) => e.index).toList(),
-      'lastVisibleIndex': positions.lastOrNull?.index,
+      'originalPositions': positions.map((e) => e.index).toList(),
+      'validPositions': validPositions.map((e) => e.index).toList(),
+      'lastVisibleIndex': validPositions.lastOrNull?.index,
       'messageCount': state.messages.length,
     });
 
-    if (positions.isEmpty || state.messages.isEmpty) {
+    if (validPositions.isEmpty || state.messages.isEmpty) {
       return;
     }
 
-    context.read<ChatCubit>().updateCurrentScrollPosition(positions);
+    // 💢💢💢 只传递有效的位置给ChatCubit
+    context.read<ChatCubit>().updateCurrentScrollPosition(validPositions);
   }
 
   /// 💢💢💢 加载更多历史消息 💢💢💢 调用前已防抖
@@ -162,28 +166,179 @@ class _ChatPageState extends State<ChatPage> {
     context.read<ChatCubit>().loadMoreMessages();
   }
 
-  /// 滚动到指定消息
-  void _scrollToMessage(String messageId) {
-    final state = context.read<ChatCubit>().state;
-    final messageIndex = state.messages.indexWhere(
-      (message) => message.messageId == messageId,
-    );
+  /// 💢💢💢 完善的滚动到指定消息方法
+  Future<void> _scrollToMessage(
+    String messageId, {
+    Duration? duration,
+    Curve? curve,
+    double? alignment,
+    bool showHighlight = false,
+  }) async {
+    try {
+      final state = context.read<ChatCubit>().state;
 
-    if (messageIndex != -1) {
-      _itemScrollController.scrollTo(
-        index: messageIndex,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeInOut,
+      _logger.i('开始滚动到消息', extra: {
+        'messageId': messageId,
+        'totalMessages': state.messages.length,
+        'showHighlight': showHighlight,
+      });
+
+      // 查找消息在当前列表中的索引
+      final messageIndex = state.messages.indexWhere(
+        (message) => message.messageId == messageId,
       );
+
+      if (messageIndex == -1) {
+        _logger.w('消息未在当前列表中找到', extra: {
+          'messageId': messageId,
+          'searchInDatabase': true,
+        });
+
+        // 💢💢💢 如果消息不在当前列表中，尝试从数据库加载
+        await _loadMessageAndScroll(messageId);
+        return;
+      }
+
+      // 💢💢💢 检查滚动控制器是否可用
+      if (!_itemScrollController.isAttached) {
+        _logger.w('滚动控制器未附加，延迟执行滚动');
+
+        // 等待下一帧再尝试滚动
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToMessage(
+            messageId,
+            duration: duration,
+            curve: curve,
+            alignment: alignment,
+            showHighlight: showHighlight,
+          );
+        });
+        return;
+      }
+
+      // 💢💢💢 执行滚动
+      await _itemScrollController.scrollTo(
+        index: messageIndex,
+        duration: duration ?? const Duration(milliseconds: 300),
+        curve: curve ?? Curves.easeInOut,
+        alignment: alignment ?? 0.5, // 默认居中显示
+      );
+
+      _logger.i('滚动完成', extra: {
+        'messageId': messageId,
+        'messageIndex': messageIndex,
+        'alignment': alignment ?? 0.5,
+      });
+
+      // 💢💢💢 可选的高亮效果
+      if (showHighlight) {
+        _highlightMessage(messageId);
+      }
+    } catch (error) {
+      _logger.e('滚动到消息失败', error: error, extra: {
+        'messageId': messageId,
+      });
     }
+  }
+
+  /// 💢💢💢 新增：加载消息并滚动（当消息不在当前列表中时）
+  Future<void> _loadMessageAndScroll(String messageId) async {
+    try {
+      _logger.i('消息不在当前列表，尝试加载消息', extra: {
+        'messageId': messageId,
+      });
+
+      final chatCubit = context.read<ChatCubit>();
+
+      // 💢💢💢 尝试加载包含目标消息的消息段
+      final success = await chatCubit.loadMessagesAroundMessage(messageId);
+
+      if (success) {
+        // 加载成功后，等待UI更新，然后再次尝试滚动
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToMessage(messageId, showHighlight: true);
+        });
+      } else {
+        _logger.w('无法加载包含目标消息的消息段', extra: {
+          'messageId': messageId,
+        });
+
+        // 显示提示信息
+        if (mounted) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('无法定位到该消息'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      _logger.e('加载消息并滚动失败', error: error, extra: {
+        'messageId': messageId,
+      });
+    }
+  }
+
+  /// 💢💢💢 新增：高亮显示消息（可选功能）
+  void _highlightMessage(String messageId) {
+    // TODO: 实现消息高亮效果
+    // 可以通过更新ChatCubit的状态来实现临时高亮
+    _logger.d('高亮消息', extra: {
+      'messageId': messageId,
+    });
   }
 
   /// 发送消息
   void _sendMessage() {
     final text = _textController.text.trim();
-    if (text.isNotEmpty) {
+
+    // 验证输入
+    if (text.isEmpty) {
+      return;
+    }
+
+    // 验证文本长度
+    if (text.length > 4000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('消息内容过长，请控制在4000字符以内'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // 发送消息
+    try {
       context.read<ChatCubit>().sendTextMessage(text);
       _textController.clear();
+
+      // 收起键盘
+      FocusScope.of(context).unfocus();
+
+      // 轻微震动反馈
+      HapticFeedback.lightImpact();
+    } catch (error) {
+      _logger.e('发送消息失败', error: error);
+
+      // 显示错误提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送失败: ${error.toString()}'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: '重试',
+              onPressed: () {
+                _textController.text = text;
+                _sendMessage();
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -192,11 +347,15 @@ class _ChatPageState extends State<ChatPage> {
     return BlocBuilder<ChatCubit, ChatState>(
       buildWhen: (previous, current) {
         return previous.isSearchMode != current.isSearchMode ||
-            previous.searchQuery != current.searchQuery;
+            previous.searchQuery != current.searchQuery ||
+            previous.conversation.isMuted != current.conversation.isMuted ||
+            previous.conversation.name != current.conversation.name ||
+            previous.networkStatus != current.networkStatus;
       },
       builder: (context, state) {
         return Scaffold(
-          appBar: state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(),
+          appBar:
+              state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
           body: Column(
             children: [
               Expanded(
@@ -211,44 +370,57 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   /// 构建应用栏
-  PreferredSizeWidget _buildAppBar() {
-    final state = context.read<ChatCubit>().state;
+  PreferredSizeWidget _buildAppBar(ChatState state) {
     return AppBar(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Hero(
-            tag: 'chat_title_${state.conversation.conversationId}',
-            child: Material(
-              color: Colors.transparent,
-              child: Text(
-                state.conversation.name ?? '未知联系人',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          BlocBuilder<ChatCubit, ChatState>(
-            builder: (context, state) {
-              return Hero(
-                tag: 'chat_subtitle_${state.conversation.conversationId}',
+          // 主标题行：会话名称 + 静音图标
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Hero(
+                tag: 'chat_title_${state.conversation.conversationId}',
                 child: Material(
                   color: Colors.transparent,
                   child: Text(
-                    _getLastSeenText(state),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
+                    state.conversation.name ?? '未知联系人',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
-              );
-            },
+              ),
+              // 静音图标（只在静音时显示）
+              if (state.conversation.isMuted)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6.0),
+                  child: Icon(
+                    Icons.volume_off,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+            ],
+          ),
+          // 副标题：在线状态
+          Hero(
+            tag: 'chat_subtitle_${state.conversation.conversationId}',
+            child: Material(
+              color: Colors.transparent,
+              child: Text(
+                _getLastSeenText(state),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         ],
       ),
@@ -372,6 +544,15 @@ class _ChatPageState extends State<ChatPage> {
           // 2. 长度相同时，检查内容是否相同（使用identical判断引用是否相同）
           if (!identical(previous.messages, current.messages)) {
             _logger.i('💢 BlocBuilder 内容变化');
+            return true;
+          }
+
+          // 💢💢💢 新增：检查消息更新触发器
+          if (previous.messageUpdateTrigger != current.messageUpdateTrigger) {
+            _logger.i('💢 BlocBuilder 消息更新触发器变化', extra: {
+              'prevTrigger': previous.messageUpdateTrigger,
+              'currTrigger': current.messageUpdateTrigger,
+            });
             return true;
           }
 
@@ -535,6 +716,9 @@ class _ChatPageState extends State<ChatPage> {
                       showTail: item.showTail,
                       isPrivateChat: item.isPrivateChat,
                       onTap: () => _onMessageTap(message),
+                      onResend: message.status == 'failed' && item.isCurrentUser
+                          ? () => _onResendMessage(message.messageId)
+                          : null, // 💢💢💢 新增：重发回调
                       // 💢💢💢 新增搜索相关参数
                       isSearchResult: isSearchResult,
                       isCurrentSearchResult: isCurrentSearchResult,
@@ -629,15 +813,6 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
     );
-  }
-
-  /// 判断是否为当前用户的消息
-  bool _isCurrentUserMessage(Message message, ChatState state) {
-    if (state.currentUser != null) {
-      return message.senderId == state.currentUser!.userId;
-    }
-    // 临时逻辑：假设senderId等于当前用户ID
-    return false; // TODO 根据实际逻辑判断
   }
 
   /// 消息点击事件
@@ -757,7 +932,7 @@ class _ChatPageState extends State<ChatPage> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          // 💢💢💢 左侧：日期过滤按钮
+          // 💢💢💢 左侧：日期跳转按钮
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -766,14 +941,10 @@ class _ChatPageState extends State<ChatPage> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: state.searchDateFilter != null
-                      ? Theme.of(context).primaryColor.withAlpha(26)
-                      : Colors.transparent,
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: state.searchDateFilter != null
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade300,
+                    color: Colors.grey.shade300,
                   ),
                 ),
                 child: Row(
@@ -782,31 +953,17 @@ class _ChatPageState extends State<ChatPage> {
                     Icon(
                       Icons.calendar_today,
                       size: 16,
-                      color: state.searchDateFilter != null
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.shade600,
+                      color: Colors.grey.shade600,
                     ),
-                    if (state.searchDateFilter != null) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '${state.searchDateFilter!.month}/${state.searchDateFilter!.day}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).primaryColor,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '跳转到日期',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
                       ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () =>
-                            context.read<ChatCubit>().setSearchDateFilter(null),
-                        child: Icon(
-                          Icons.close,
-                          size: 14,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -983,9 +1140,77 @@ class _ChatPageState extends State<ChatPage> {
     );
 
     if (selectedDate != null && mounted) {
+      // 💢💢💢 修改逻辑：跳转到指定日期的第一条消息，而不是过滤
       // ignore: use_build_context_synchronously
-      context.read<ChatCubit>().setSearchDateFilter(selectedDate);
+      await _jumpToDateFirstMessage(context, selectedDate);
     }
+  }
+
+  /// 💢💢💢 新增：跳转到指定日期的第一条消息
+  Future<void> _jumpToDateFirstMessage(
+      BuildContext context, DateTime selectedDate) async {
+    final chatCubit = context.read<ChatCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      // 查找指定日期的第一条消息
+      final firstMessageOfDate =
+          await chatCubit.findFirstMessageOfDate(selectedDate);
+
+      if (firstMessageOfDate != null) {
+        // 如果找到消息，滚动到该消息
+        _scrollToMessage(firstMessageOfDate.messageId);
+
+        // 显示成功提示
+        if (mounted) {
+          messenger.showSnackBar(
+            SnackBar(
+              content:
+                  Text('已跳转到 ${selectedDate.month}/${selectedDate.day} 的第一条消息'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // 如果没有找到消息，显示提示
+        if (mounted) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('${selectedDate.month}/${selectedDate.day} 没有找到消息'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      _logger.e('跳转到日期消息失败', error: error);
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('跳转失败，请重试'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 💢💢💢 新增：重发消息
+  void _onResendMessage(String messageId) {
+    _logger.d('重发消息', extra: {
+      'messageId': messageId,
+    });
+
+    // 调用ChatCubit的重发方法
+    context.read<ChatCubit>().resendMessage(messageId);
+
+    // 提供用户反馈
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('正在重发消息...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 }
 
@@ -1047,7 +1272,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '只能选择有消息的日期（蓝色标记）',
+                      '蓝色标记的日期有消息，选择日期可跳转到当天第一条消息',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.blue.shade600,
@@ -1080,18 +1305,25 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
   }
 
   Widget _buildMonthNavigation() {
-    // 检查上个月和下个月是否有消息
+    // 💢💢💢 允许导航到所有月份，不限制只有消息的月份
     final prevMonth = DateTime(_displayMonth.year, _displayMonth.month - 1);
     final nextMonth = DateTime(_displayMonth.year, _displayMonth.month + 1);
+    final now = DateTime.now();
 
-    final hasPrevMonthMessages = _hasMessagesInMonth(prevMonth);
-    final hasNextMonthMessages = _hasMessagesInMonth(nextMonth);
+    // 设置合理的时间范围：过去5年到未来1年
+    final minDate = DateTime(now.year - 5, 1, 1);
+    final maxDate = DateTime(now.year + 1, 12, 31);
+
+    final canGoPrev = prevMonth.isAfter(minDate) ||
+        prevMonth.isAtSameMomentAs(DateTime(minDate.year, minDate.month));
+    final canGoNext = nextMonth.isBefore(maxDate) ||
+        nextMonth.isAtSameMomentAs(DateTime(maxDate.year, maxDate.month));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          onPressed: hasPrevMonthMessages
+          onPressed: canGoPrev
               ? () {
                   setState(() {
                     _displayMonth = prevMonth;
@@ -1100,7 +1332,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
               : null,
           icon: Icon(
             Icons.chevron_left,
-            color: hasPrevMonthMessages ? null : Colors.grey.shade400,
+            color: canGoPrev ? null : Colors.grey.shade400,
           ),
         ),
         Text(
@@ -1108,7 +1340,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         IconButton(
-          onPressed: hasNextMonthMessages
+          onPressed: canGoNext
               ? () {
                   setState(() {
                     _displayMonth = nextMonth;
@@ -1117,17 +1349,11 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
               : null,
           icon: Icon(
             Icons.chevron_right,
-            color: hasNextMonthMessages ? null : Colors.grey.shade400,
+            color: canGoNext ? null : Colors.grey.shade400,
           ),
         ),
       ],
     );
-  }
-
-  /// 检查指定月份是否有消息
-  bool _hasMessagesInMonth(DateTime month) {
-    return widget.availableDates
-        .any((date) => date.year == month.year && date.month == month.month);
   }
 
   Widget _buildCalendarGrid() {
@@ -1183,13 +1409,12 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
               final isToday = _isSameDay(date, DateTime.now());
 
               return GestureDetector(
-                onTap: hasMessages
-                    ? () {
-                        setState(() {
-                          _currentDate = date;
-                        });
-                      }
-                    : null,
+                onTap: () {
+                  // 💢💢💢 允许选择任何日期，不限制只有消息的日期
+                  setState(() {
+                    _currentDate = date;
+                  });
+                },
                 child: Container(
                   margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
@@ -1199,12 +1424,12 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                             ? Colors.blue.shade50
                             : Colors.transparent),
                     borderRadius: BorderRadius.circular(8),
-                    border: isToday && hasMessages
+                    border: isToday
                         ? Border.all(
                             color: Theme.of(context).primaryColor, width: 2)
                         : (hasMessages
                             ? Border.all(color: Colors.blue.shade200)
-                            : null),
+                            : Border.all(color: Colors.grey.shade200)),
                   ),
                   child: Center(
                     child: Text(
@@ -1216,7 +1441,9 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                                 ? (isToday
                                     ? Theme.of(context).primaryColor
                                     : Colors.blue.shade700)
-                                : Colors.grey.shade400),
+                                : (isToday
+                                    ? Theme.of(context).primaryColor
+                                    : Colors.grey.shade600)),
                         fontWeight: isSelected || isToday
                             ? FontWeight.bold
                             : FontWeight.normal,

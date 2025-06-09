@@ -71,12 +71,21 @@ class MessageStatus extends $pb.ProtobufEnum {
   const MessageStatus._(super.v, super.n);
 }
 
-/// 消息同步策略枚举
+/// 消息同步策略枚举 - 新的双向游标同步模式
 class MessageSyncType extends $pb.ProtobufEnum {
-  static const MessageSyncType RECENT = MessageSyncType._(0, _omitEnumNames ? '' : 'RECENT');
-  static const MessageSyncType UNREAD = MessageSyncType._(1, _omitEnumNames ? '' : 'UNREAD');
+  static const MessageSyncType CURSOR_FORWARD = MessageSyncType._(0, _omitEnumNames ? '' : 'CURSOR_FORWARD');
+  static const MessageSyncType CURSOR_BACKWARD = MessageSyncType._(1, _omitEnumNames ? '' : 'CURSOR_BACKWARD');
+  static const MessageSyncType CURSOR_AROUND = MessageSyncType._(2, _omitEnumNames ? '' : 'CURSOR_AROUND');
+  static const MessageSyncType INITIAL_LOAD = MessageSyncType._(3, _omitEnumNames ? '' : 'INITIAL_LOAD');
+  /// 保留旧的类型以兼容现有代码
+  static const MessageSyncType RECENT = MessageSyncType._(4, _omitEnumNames ? '' : 'RECENT');
+  static const MessageSyncType UNREAD = MessageSyncType._(5, _omitEnumNames ? '' : 'UNREAD');
 
   static const $core.List<MessageSyncType> values = <MessageSyncType> [
+    CURSOR_FORWARD,
+    CURSOR_BACKWARD,
+    CURSOR_AROUND,
+    INITIAL_LOAD,
     RECENT,
     UNREAD,
   ];

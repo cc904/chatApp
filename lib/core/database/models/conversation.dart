@@ -54,6 +54,19 @@ class Conversation {
   // 会话创建者ID
   String? createdBy;
 
+  // 💢💢💢 新增游标同步相关字段 💢💢💢
+  // 同步游标消息ID - 记录服务器同步到的位置
+  String? syncCursorMessageId;
+
+  // 同步游标时间戳 - 记录服务器同步到的时间点
+  DateTime? syncCursorTimestamp;
+
+  // 本地游标消息ID - 记录本地数据的最新位置
+  String? localCursorMessageId;
+
+  // 本地游标时间戳 - 记录本地数据的最新时间点
+  DateTime? localCursorTimestamp;
+
   // 会话参与者
   final participants = IsarLinks<User>();
 
@@ -88,6 +101,40 @@ class Conversation {
 
     // 增强版本：结合未读消息计数判断
     return unreadCount > 0;
+  }
+
+  // 💢💢💢 新增：判断是否需要同步
+  @ignore
+  bool get needsSync {
+    // 没有同步游标，需要初始同步
+    if (syncCursorMessageId == null || syncCursorTimestamp == null) {
+      return true;
+    }
+
+    // 本地有新消息，需要向前同步
+    if (localCursorTimestamp != null && syncCursorTimestamp != null) {
+      return localCursorTimestamp!.isAfter(syncCursorTimestamp!);
+    }
+
+    return false;
+  }
+
+  // 💢💢💢 新增：获取本地游标信息
+  @ignore
+  Map<String, dynamic> get localCursor {
+    return {
+      'messageId': localCursorMessageId,
+      'timestamp': localCursorTimestamp,
+    };
+  }
+
+  // 💢💢💢 新增：获取同步游标信息
+  @ignore
+  Map<String, dynamic> get syncCursor {
+    return {
+      'messageId': syncCursorMessageId,
+      'timestamp': syncCursorTimestamp,
+    };
   }
 
   /// 从Protocol Buffer对象创建数据库对象

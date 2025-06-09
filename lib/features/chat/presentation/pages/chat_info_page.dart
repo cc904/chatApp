@@ -20,8 +20,6 @@ class ChatInfoPage extends StatefulWidget {
 class _ChatInfoPageState extends State<ChatInfoPage>
     with SingleTickerProviderStateMixin {
   final _logger = LogService.instance;
-  // 模拟属性值,实际应该保存在数据库中
-  bool _isMuted = false;
   // 静音按钮动画控制器
   late AnimationController _muteAnimController;
   late Animation<double> _rotateAnimation;
@@ -57,12 +55,12 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         final chatCubit = context.read<ChatCubit>();
         final conversation = chatCubit.state.conversation;
 
-        setState(() {
-          _isMuted = conversation.isMuted;
-          if (_isMuted) {
-            _muteAnimController.value = 1.0; // 直接设置到终点
-          }
-        });
+        // 根据会话的静音状态设置动画
+        if (conversation.isMuted) {
+          _muteAnimController.value = 1.0; // 直接设置到终点
+        } else {
+          _muteAnimController.value = 0.0;
+        }
       }
     });
   }
@@ -77,21 +75,22 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 切换静音状态
   void _toggleMuteState() {
-    setState(() {
-      _isMuted = !_isMuted;
-      if (_isMuted) {
-        _muteAnimController.forward();
-      } else {
-        _muteAnimController.reverse();
-      }
-    });
+    final chatCubit = context.read<ChatCubit>();
+    final currentMuteStatus = chatCubit.state.conversation.isMuted;
+    final newMuteStatus = !currentMuteStatus;
 
-    UINotificationService().showSuccess(_isMuted ? '已开启静音' : '已关闭静音');
-    _logger.i('切换静音状态', extra: {'isMuted': _isMuted});
+    // 立即更新动画状态
+    if (newMuteStatus) {
+      _muteAnimController.forward();
+    } else {
+      _muteAnimController.reverse();
+    }
+
+    UINotificationService().showSuccess(newMuteStatus ? '已开启静音' : '已关闭静音');
+    _logger.i('切换静音状态', extra: {'isMuted': newMuteStatus});
 
     // 通过 ChatCubit 更新静音状态（遵循 DDD 架构）
-    final chatCubit = context.read<ChatCubit>();
-    chatCubit.updateConversationMuteStatus(_isMuted);
+    chatCubit.updateConversationMuteStatus(newMuteStatus);
   }
 
   @override
@@ -481,13 +480,21 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                         ),
                       );
                     },
-                    child: Text(
-                      _isMuted ? 'unmute' : 'mute',
-                      key: ValueKey<bool>(_isMuted),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue,
-                      ),
+                    child: BlocBuilder<ChatCubit, ChatState>(
+                      buildWhen: (previous, current) =>
+                          previous.conversation.isMuted !=
+                          current.conversation.isMuted,
+                      builder: (context, state) {
+                        final isMuted = state.conversation.isMuted;
+                        return Text(
+                          isMuted ? 'unmute' : 'mute',
+                          key: ValueKey<bool>(isMuted),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
