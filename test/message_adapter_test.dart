@@ -93,7 +93,8 @@ void main() {
         {'string': 'voice', 'proto': proto.MessageType.VOICE},
         {'string': 'video', 'proto': proto.MessageType.VIDEO},
         {'string': 'file', 'proto': proto.MessageType.FILE},
-        {'string': 'location', 'proto': proto.MessageType.LOCATION},
+        // 位置消息测试已移除
+        // expect(MessageAdapter.messageTypeToString(proto.MessageType.LOCATION), 'location'),
       ];
 
       for (final typeTest in types) {

@@ -47,78 +47,68 @@ const MessageSchema = CollectionSchema(
       name: r'fileSize',
       type: IsarType.double,
     ),
-    r'latitude': PropertySchema(
-      id: 6,
-      name: r'latitude',
-      type: IsarType.double,
-    ),
     r'localPath': PropertySchema(
-      id: 7,
+      id: 6,
       name: r'localPath',
       type: IsarType.string,
     ),
-    r'locationAddress': PropertySchema(
-      id: 8,
-      name: r'locationAddress',
-      type: IsarType.string,
-    ),
-    r'longitude': PropertySchema(
-      id: 9,
-      name: r'longitude',
-      type: IsarType.double,
-    ),
     r'mediaUrl': PropertySchema(
-      id: 10,
+      id: 7,
       name: r'mediaUrl',
       type: IsarType.string,
     ),
     r'messageId': PropertySchema(
-      id: 11,
+      id: 8,
       name: r'messageId',
       type: IsarType.string,
     ),
+    r'messageIndex': PropertySchema(
+      id: 9,
+      name: r'messageIndex',
+      type: IsarType.long,
+    ),
     r'quotedMessageId': PropertySchema(
-      id: 12,
+      id: 10,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'senderAvatar': PropertySchema(
-      id: 13,
+      id: 11,
       name: r'senderAvatar',
       type: IsarType.string,
     ),
     r'senderId': PropertySchema(
-      id: 14,
+      id: 12,
       name: r'senderId',
       type: IsarType.string,
     ),
     r'senderName': PropertySchema(
-      id: 15,
+      id: 13,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 16,
+      id: 14,
       name: r'status',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 17,
+      id: 15,
       name: r'text',
       type: IsarType.string,
     ),
     r'textForSearch': PropertySchema(
-      id: 18,
+      id: 16,
       name: r'textForSearch',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 19,
+      id: 17,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 20,
+      id: 18,
       name: r'type',
       type: IsarType.string,
     )
@@ -142,9 +132,9 @@ const MessageSchema = CollectionSchema(
         )
       ],
     ),
-    r'conversationId_createdAt_messageId': IndexSchema(
-      id: 6172478172406021226,
-      name: r'conversationId_createdAt_messageId',
+    r'conversationId_messageIndex_createdAt': IndexSchema(
+      id: -2788030659683020195,
+      name: r'conversationId_messageIndex_createdAt',
       unique: false,
       replace: false,
       properties: [
@@ -154,14 +144,14 @@ const MessageSchema = CollectionSchema(
           caseSensitive: true,
         ),
         IndexPropertySchema(
-          name: r'createdAt',
+          name: r'messageIndex',
           type: IndexType.value,
           caseSensitive: false,
         ),
         IndexPropertySchema(
-          name: r'messageId',
-          type: IndexType.hash,
-          caseSensitive: true,
+          name: r'createdAt',
+          type: IndexType.value,
+          caseSensitive: false,
         )
       ],
     ),
@@ -215,12 +205,6 @@ int _messageEstimateSize(
   }
   {
     final value = object.localPath;
-    if (value != null) {
-      bytesCount += 3 + value.length * 3;
-    }
-  }
-  {
-    final value = object.locationAddress;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -286,21 +270,19 @@ void _messageSerialize(
   writer.writeString(offsets[3], object.errorMessage);
   writer.writeString(offsets[4], object.fileName);
   writer.writeDouble(offsets[5], object.fileSize);
-  writer.writeDouble(offsets[6], object.latitude);
-  writer.writeString(offsets[7], object.localPath);
-  writer.writeString(offsets[8], object.locationAddress);
-  writer.writeDouble(offsets[9], object.longitude);
-  writer.writeString(offsets[10], object.mediaUrl);
-  writer.writeString(offsets[11], object.messageId);
-  writer.writeString(offsets[12], object.quotedMessageId);
-  writer.writeString(offsets[13], object.senderAvatar);
-  writer.writeString(offsets[14], object.senderId);
-  writer.writeString(offsets[15], object.senderName);
-  writer.writeString(offsets[16], object.status);
-  writer.writeString(offsets[17], object.text);
-  writer.writeString(offsets[18], object.textForSearch);
-  writer.writeString(offsets[19], object.thumbnailUrl);
-  writer.writeString(offsets[20], object.type);
+  writer.writeString(offsets[6], object.localPath);
+  writer.writeString(offsets[7], object.mediaUrl);
+  writer.writeString(offsets[8], object.messageId);
+  writer.writeLong(offsets[9], object.messageIndex);
+  writer.writeString(offsets[10], object.quotedMessageId);
+  writer.writeString(offsets[11], object.senderAvatar);
+  writer.writeString(offsets[12], object.senderId);
+  writer.writeString(offsets[13], object.senderName);
+  writer.writeString(offsets[14], object.status);
+  writer.writeString(offsets[15], object.text);
+  writer.writeString(offsets[16], object.textForSearch);
+  writer.writeString(offsets[17], object.thumbnailUrl);
+  writer.writeString(offsets[18], object.type);
 }
 
 Message _messageDeserialize(
@@ -317,20 +299,18 @@ Message _messageDeserialize(
   object.fileName = reader.readStringOrNull(offsets[4]);
   object.fileSize = reader.readDoubleOrNull(offsets[5]);
   object.id = id;
-  object.latitude = reader.readDoubleOrNull(offsets[6]);
-  object.localPath = reader.readStringOrNull(offsets[7]);
-  object.locationAddress = reader.readStringOrNull(offsets[8]);
-  object.longitude = reader.readDoubleOrNull(offsets[9]);
-  object.mediaUrl = reader.readStringOrNull(offsets[10]);
-  object.messageId = reader.readString(offsets[11]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[12]);
-  object.senderAvatar = reader.readStringOrNull(offsets[13]);
-  object.senderId = reader.readString(offsets[14]);
-  object.senderName = reader.readStringOrNull(offsets[15]);
-  object.status = reader.readString(offsets[16]);
-  object.text = reader.readStringOrNull(offsets[17]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
-  object.type = reader.readString(offsets[20]);
+  object.localPath = reader.readStringOrNull(offsets[6]);
+  object.mediaUrl = reader.readStringOrNull(offsets[7]);
+  object.messageId = reader.readString(offsets[8]);
+  object.messageIndex = reader.readLong(offsets[9]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[10]);
+  object.senderAvatar = reader.readStringOrNull(offsets[11]);
+  object.senderId = reader.readString(offsets[12]);
+  object.senderName = reader.readStringOrNull(offsets[13]);
+  object.status = reader.readString(offsets[14]);
+  object.text = reader.readStringOrNull(offsets[15]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[17]);
+  object.type = reader.readString(offsets[18]);
   return object;
 }
 
@@ -354,19 +334,19 @@ P _messageDeserializeProp<P>(
     case 5:
       return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
       return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readString(offset)) as P;
-    case 12:
       return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readString(offset)) as P;
     case 13:
       return (reader.readStringOrNull(offset)) as P;
     case 14:
@@ -374,14 +354,10 @@ P _messageDeserializeProp<P>(
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 17:
       return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
-    case 19:
-      return (reader.readStringOrNull(offset)) as P;
-    case 20:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -585,28 +561,28 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToAnyCreatedAtMessageId(String conversationId) {
+      conversationIdEqualToAnyMessageIndexCreatedAt(String conversationId) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conversationId_createdAt_messageId',
+        indexName: r'conversationId_messageIndex_createdAt',
         value: [conversationId],
       ));
     });
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdNotEqualToAnyCreatedAtMessageId(String conversationId) {
+      conversationIdNotEqualToAnyMessageIndexCreatedAt(String conversationId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
+              indexName: r'conversationId_messageIndex_createdAt',
               lower: [],
               upper: [conversationId],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
+              indexName: r'conversationId_messageIndex_createdAt',
               lower: [conversationId],
               includeLower: false,
               upper: [],
@@ -614,13 +590,13 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
+              indexName: r'conversationId_messageIndex_createdAt',
               lower: [conversationId],
               includeLower: false,
               upper: [],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
+              indexName: r'conversationId_messageIndex_createdAt',
               lower: [],
               upper: [conversationId],
               includeUpper: false,
@@ -630,46 +606,46 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdCreatedAtEqualToAnyMessageId(
-          String conversationId, DateTime createdAt) {
+      conversationIdMessageIndexEqualToAnyCreatedAt(
+          String conversationId, int messageIndex) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conversationId_createdAt_messageId',
-        value: [conversationId, createdAt],
+        indexName: r'conversationId_messageIndex_createdAt',
+        value: [conversationId, messageIndex],
       ));
     });
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToCreatedAtNotEqualToAnyMessageId(
-          String conversationId, DateTime createdAt) {
+      conversationIdEqualToMessageIndexNotEqualToAnyCreatedAt(
+          String conversationId, int messageIndex) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
+              indexName: r'conversationId_messageIndex_createdAt',
               lower: [conversationId],
-              upper: [conversationId, createdAt],
+              upper: [conversationId, messageIndex],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
-              lower: [conversationId, createdAt],
+              indexName: r'conversationId_messageIndex_createdAt',
+              lower: [conversationId, messageIndex],
               includeLower: false,
               upper: [conversationId],
             ));
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
-              lower: [conversationId, createdAt],
+              indexName: r'conversationId_messageIndex_createdAt',
+              lower: [conversationId, messageIndex],
               includeLower: false,
               upper: [conversationId],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
+              indexName: r'conversationId_messageIndex_createdAt',
               lower: [conversationId],
-              upper: [conversationId, createdAt],
+              upper: [conversationId, messageIndex],
               includeUpper: false,
             ));
       }
@@ -677,15 +653,15 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToCreatedAtGreaterThanAnyMessageId(
+      conversationIdEqualToMessageIndexGreaterThanAnyCreatedAt(
     String conversationId,
-    DateTime createdAt, {
+    int messageIndex, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_createdAt_messageId',
-        lower: [conversationId, createdAt],
+        indexName: r'conversationId_messageIndex_createdAt',
+        lower: [conversationId, messageIndex],
         includeLower: include,
         upper: [conversationId],
       ));
@@ -693,24 +669,125 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToCreatedAtLessThanAnyMessageId(
+      conversationIdEqualToMessageIndexLessThanAnyCreatedAt(
     String conversationId,
-    DateTime createdAt, {
+    int messageIndex, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_createdAt_messageId',
+        indexName: r'conversationId_messageIndex_createdAt',
         lower: [conversationId],
-        upper: [conversationId, createdAt],
+        upper: [conversationId, messageIndex],
         includeUpper: include,
       ));
     });
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToCreatedAtBetweenAnyMessageId(
+      conversationIdEqualToMessageIndexBetweenAnyCreatedAt(
     String conversationId,
+    int lowerMessageIndex,
+    int upperMessageIndex, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'conversationId_messageIndex_createdAt',
+        lower: [conversationId, lowerMessageIndex],
+        includeLower: includeLower,
+        upper: [conversationId, upperMessageIndex],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdMessageIndexCreatedAtEqualTo(
+          String conversationId, int messageIndex, DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'conversationId_messageIndex_createdAt',
+        value: [conversationId, messageIndex, createdAt],
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdMessageIndexEqualToCreatedAtNotEqualTo(
+          String conversationId, int messageIndex, DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_messageIndex_createdAt',
+              lower: [conversationId, messageIndex],
+              upper: [conversationId, messageIndex, createdAt],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_messageIndex_createdAt',
+              lower: [conversationId, messageIndex, createdAt],
+              includeLower: false,
+              upper: [conversationId, messageIndex],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_messageIndex_createdAt',
+              lower: [conversationId, messageIndex, createdAt],
+              includeLower: false,
+              upper: [conversationId, messageIndex],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_messageIndex_createdAt',
+              lower: [conversationId, messageIndex],
+              upper: [conversationId, messageIndex, createdAt],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdMessageIndexEqualToCreatedAtGreaterThan(
+    String conversationId,
+    int messageIndex,
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'conversationId_messageIndex_createdAt',
+        lower: [conversationId, messageIndex, createdAt],
+        includeLower: include,
+        upper: [conversationId, messageIndex],
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdMessageIndexEqualToCreatedAtLessThan(
+    String conversationId,
+    int messageIndex,
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'conversationId_messageIndex_createdAt',
+        lower: [conversationId, messageIndex],
+        upper: [conversationId, messageIndex, createdAt],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdMessageIndexEqualToCreatedAtBetween(
+    String conversationId,
+    int messageIndex,
     DateTime lowerCreatedAt,
     DateTime upperCreatedAt, {
     bool includeLower = true,
@@ -718,59 +795,12 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_createdAt_messageId',
-        lower: [conversationId, lowerCreatedAt],
+        indexName: r'conversationId_messageIndex_createdAt',
+        lower: [conversationId, messageIndex, lowerCreatedAt],
         includeLower: includeLower,
-        upper: [conversationId, upperCreatedAt],
+        upper: [conversationId, messageIndex, upperCreatedAt],
         includeUpper: includeUpper,
       ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdCreatedAtMessageIdEqualTo(
-          String conversationId, DateTime createdAt, String messageId) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conversationId_createdAt_messageId',
-        value: [conversationId, createdAt, messageId],
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdCreatedAtEqualToMessageIdNotEqualTo(
-          String conversationId, DateTime createdAt, String messageId) {
-    return QueryBuilder.apply(this, (query) {
-      if (query.whereSort == Sort.asc) {
-        return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
-              lower: [conversationId, createdAt],
-              upper: [conversationId, createdAt, messageId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
-              lower: [conversationId, createdAt, messageId],
-              includeLower: false,
-              upper: [conversationId, createdAt],
-            ));
-      } else {
-        return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
-              lower: [conversationId, createdAt, messageId],
-              includeLower: false,
-              upper: [conversationId, createdAt],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_createdAt_messageId',
-              lower: [conversationId, createdAt],
-              upper: [conversationId, createdAt, messageId],
-              includeUpper: false,
-            ));
-      }
     });
   }
 
@@ -1613,84 +1643,6 @@ extension MessageQueryFilter
     });
   }
 
-  QueryBuilder<Message, Message, QAfterFilterCondition> latitudeIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'latitude',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> latitudeIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'latitude',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> latitudeEqualTo(
-    double? value, {
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'latitude',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> latitudeGreaterThan(
-    double? value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'latitude',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> latitudeLessThan(
-    double? value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'latitude',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> latitudeBetween(
-    double? lower,
-    double? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'latitude',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
   QueryBuilder<Message, Message, QAfterFilterCondition> localPathIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1833,236 +1785,6 @@ extension MessageQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'localPath',
         value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      locationAddressIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'locationAddress',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      locationAddressIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'locationAddress',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> locationAddressEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'locationAddress',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      locationAddressGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'locationAddress',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> locationAddressLessThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'locationAddress',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> locationAddressBetween(
-    String? lower,
-    String? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'locationAddress',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      locationAddressStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'locationAddress',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> locationAddressEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'locationAddress',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> locationAddressContains(
-      String value,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'locationAddress',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> locationAddressMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'locationAddress',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      locationAddressIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'locationAddress',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      locationAddressIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'locationAddress',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> longitudeIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'longitude',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> longitudeIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'longitude',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> longitudeEqualTo(
-    double? value, {
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'longitude',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> longitudeGreaterThan(
-    double? value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'longitude',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> longitudeLessThan(
-    double? value, {
-    bool include = false,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'longitude',
-        value: value,
-        epsilon: epsilon,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> longitudeBetween(
-    double? lower,
-    double? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    double epsilon = Query.epsilon,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'longitude',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        epsilon: epsilon,
       ));
     });
   }
@@ -2339,6 +2061,59 @@ extension MessageQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'messageId',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> messageIndexEqualTo(
+      int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'messageIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> messageIndexGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'messageIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> messageIndexLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'messageIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> messageIndexBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'messageIndex',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -3715,18 +3490,6 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
-  QueryBuilder<Message, Message, QAfterSortBy> sortByLatitude() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'latitude', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> sortByLatitudeDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'latitude', Sort.desc);
-    });
-  }
-
   QueryBuilder<Message, Message, QAfterSortBy> sortByLocalPath() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localPath', Sort.asc);
@@ -3736,30 +3499,6 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
   QueryBuilder<Message, Message, QAfterSortBy> sortByLocalPathDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localPath', Sort.desc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> sortByLocationAddress() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'locationAddress', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> sortByLocationAddressDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'locationAddress', Sort.desc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> sortByLongitude() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'longitude', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> sortByLongitudeDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'longitude', Sort.desc);
     });
   }
 
@@ -3784,6 +3523,18 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
   QueryBuilder<Message, Message, QAfterSortBy> sortByMessageIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'messageId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMessageIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'messageIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMessageIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'messageIndex', Sort.desc);
     });
   }
 
@@ -3982,18 +3733,6 @@ extension MessageQuerySortThenBy
     });
   }
 
-  QueryBuilder<Message, Message, QAfterSortBy> thenByLatitude() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'latitude', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> thenByLatitudeDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'latitude', Sort.desc);
-    });
-  }
-
   QueryBuilder<Message, Message, QAfterSortBy> thenByLocalPath() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localPath', Sort.asc);
@@ -4003,30 +3742,6 @@ extension MessageQuerySortThenBy
   QueryBuilder<Message, Message, QAfterSortBy> thenByLocalPathDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localPath', Sort.desc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> thenByLocationAddress() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'locationAddress', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> thenByLocationAddressDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'locationAddress', Sort.desc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> thenByLongitude() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'longitude', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> thenByLongitudeDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'longitude', Sort.desc);
     });
   }
 
@@ -4051,6 +3766,18 @@ extension MessageQuerySortThenBy
   QueryBuilder<Message, Message, QAfterSortBy> thenByMessageIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'messageId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMessageIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'messageIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMessageIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'messageIndex', Sort.desc);
     });
   }
 
@@ -4205,30 +3932,10 @@ extension MessageQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Message, Message, QDistinct> distinctByLatitude() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'latitude');
-    });
-  }
-
   QueryBuilder<Message, Message, QDistinct> distinctByLocalPath(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'localPath', caseSensitive: caseSensitive);
-    });
-  }
-
-  QueryBuilder<Message, Message, QDistinct> distinctByLocationAddress(
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'locationAddress',
-          caseSensitive: caseSensitive);
-    });
-  }
-
-  QueryBuilder<Message, Message, QDistinct> distinctByLongitude() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'longitude');
     });
   }
 
@@ -4243,6 +3950,12 @@ extension MessageQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'messageId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMessageIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'messageIndex');
     });
   }
 
@@ -4356,27 +4069,9 @@ extension MessageQueryProperty
     });
   }
 
-  QueryBuilder<Message, double?, QQueryOperations> latitudeProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'latitude');
-    });
-  }
-
   QueryBuilder<Message, String?, QQueryOperations> localPathProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'localPath');
-    });
-  }
-
-  QueryBuilder<Message, String?, QQueryOperations> locationAddressProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'locationAddress');
-    });
-  }
-
-  QueryBuilder<Message, double?, QQueryOperations> longitudeProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'longitude');
     });
   }
 
@@ -4389,6 +4084,12 @@ extension MessageQueryProperty
   QueryBuilder<Message, String, QQueryOperations> messageIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'messageId');
+    });
+  }
+
+  QueryBuilder<Message, int, QQueryOperations> messageIndexProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'messageIndex');
     });
   }
 

@@ -534,14 +534,12 @@ class _MessageBubbleEnhancedState extends State<MessageBubbleEnhanced>
                     color: widget.isMe ? Colors.white : Colors.black87,
                   ),
                 ),
-                if (widget.message.locationAddress != null)
-                  Text(
-                    widget.message.locationAddress!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: widget.isMe ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
+                // 位置消息显示 - 已移除位置功能
+                // if (widget.message.locationAddress != null)
+                //   Text(
+                //     widget.message.locationAddress!,
+                //     style: const TextStyle(fontSize: 14),
+                //   ),
               ],
             ),
           ),

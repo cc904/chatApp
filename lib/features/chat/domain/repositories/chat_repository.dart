@@ -1,4 +1,5 @@
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/models/conversation_cursor.dart';
 import 'package:cc/features/chat/domain/entities/message_cursor.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
@@ -171,16 +172,16 @@ abstract class ChatRepository {
   Future<List<Message>> getConversationMessagesFromDate(
     String conversationId,
     DateTime startDate, {
-    int limit = 30,
+    int limit = 50,
   });
 
   /// 从服务器获取历史消息
   Future<List<Message>> fetchHistoryMessages(String conversationId,
-      {DateTime? before, int limit = 20});
+      {DateTime? before, int limit = 50});
 
   /// 从服务器获取消息
   Future<List<Message>> fetchMessagesFromServer(String conversationId,
-      {int limit = 20, DateTime? before});
+      {int limit = 50, DateTime? before});
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  输入状态相关  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -216,7 +217,7 @@ abstract class ChatRepository {
   Future<CursorSyncResult> syncMessagesForward(
     String conversationId, {
     MessageCursor? cursor,
-    int limit = 20,
+    int limit = 50,
   });
 
   /// 向后游标同步（获取历史消息）
@@ -224,10 +225,10 @@ abstract class ChatRepository {
   /// [cursor] - 起始游标位置
   /// [limit] - 获取消息数量限制
   /// 返回同步结果
-  Future<CursorSyncResult> syncMessagesBackward(
+  Future<bool> syncMessagesBackward(
     String conversationId, {
     MessageCursor? cursor,
-    int limit = 20,
+    int limit = 50,
   });
 
   /// 双向游标同步（获取上下文消息）
@@ -249,10 +250,43 @@ abstract class ChatRepository {
   /// [conversationId] - 会话ID
   /// [limit] - 获取消息数量限制
   /// 返回同步结果
-  Future<CursorSyncResult> syncMessagesInitial(
+  Future<bool> syncMessagesInitial(
     String conversationId, {
-    int limit = 20,
+    int limit = 50,
   });
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：基于Index的简化同步方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 同步新消息（基于index）
+  /// [conversationId] - 会话ID
+  /// [fromIndex] - 起始index（客户端本地最新消息的index）
+  /// [limit] - 获取消息数量限制，默认50
+  /// 返回同步是否成功
+  Future<bool> syncNewMessages(
+    String conversationId, {
+    int? fromIndex,
+    int limit = 50,
+  });
+
+  /// 加载历史消息（基于index）
+  /// [conversationId] - 会话ID
+  /// [beforeIndex] - 结束index（获取该index之前的消息）
+  /// [limit] - 获取消息数量限制，默认50
+  /// 返回加载是否成功
+  Future<bool> loadHistoryMessages(
+    String conversationId, {
+    required int beforeIndex,
+    int limit = 50,
+  });
+
+  /// 获取或创建会话游标记录
+  /// [conversationId] - 会话ID
+  /// 返回游标记录
+  Future<ConversationCursor> getCursor(String conversationId);
+
+  /// 更新会话游标记录
+  /// [cursor] - 更新的游标记录
+  Future<void> updateCursor(ConversationCursor cursor);
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 游标管理方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -285,12 +319,6 @@ abstract class ChatRepository {
   /// [conversationId] - 会话ID
   /// 返回是否有本地消息
   Future<bool> hasLocalMessages(String conversationId);
-
-  /// 批量同步多个会话的消息
-  Future<List<bool>> batchSyncMessages(
-    List<ConversationSyncTask> syncTasks, {
-    int maxConcurrent = 3,
-  });
 
   /// 重新发送失败的消息
   Future<String> resendMessage(String messageId);

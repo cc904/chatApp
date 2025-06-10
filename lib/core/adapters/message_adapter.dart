@@ -2,10 +2,44 @@ import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as proto;
 
-/// 消息数据转换适配器
+/// 🚀 消息适配器 - 支持Index-based同步的转换器
 ///
-/// 负责处理Message模型与Protocol Buffer之间的数据转换
-/// 遵循DDD架构原则，将转换逻辑从模型中分离出来
+/// 负责在Protocol Buffer消息和数据库消息之间进行转换。
+/// 新版本重点支持messageIndex字段，用于替代复杂的时间戳游标系统。
+///
+/// ## 🎯 核心功能
+/// 1. **Proto ↔ Database 转换**：双向转换消息对象
+/// 2. **Index字段处理**：正确处理服务器分配的消息序列号
+/// 3. **位置功能移除**：不再处理位置相关字段
+///
+/// ## 🔥 Index方案优势
+/// ```dart
+/// // 旧方案：复杂的时间戳排序
+/// messages.sortByCreatedAtDesc().sortByMessageId()
+///
+/// // 新方案：简单的Index排序，绝对可靠
+/// messages.sortByMessageIndexDesc()  // 🚀 一行搞定！
+/// ```
+///
+/// ## 📋 支持的消息类型
+/// - TEXT: 文本消息
+/// - IMAGE: 图片消息
+/// - VOICE: 语音消息
+/// - FILE: 文件消息
+/// - VIDEO: 视频消息
+/// - SYSTEM: 系统消息
+/// - ~~LOCATION: 位置消息（已移除）~~
+///
+/// ## 🔄 转换示例
+/// ```dart
+/// // Protocol Buffer → Database
+/// final message = MessageAdapter.fromProto(protoMessage);
+/// print('Index: ${message.messageIndex}');  // 🔥 核心排序字段
+///
+/// // Database → Protocol Buffer
+/// final proto = MessageAdapter.toProto(dbMessage);
+/// print('Proto Index: ${proto.index}');     // 🔥 同步依据
+/// ```
 class MessageAdapter {
   /// 从 Protocol Buffer对象创建数据库对象
   ///
@@ -17,6 +51,7 @@ class MessageAdapter {
     final message = Message()
       ..messageId = protoMessage.messageId
       ..conversationId = protoMessage.conversationId
+      ..messageIndex = protoMessage.hasIndex() ? protoMessage.index.toInt() : 0
       ..senderId = protoMessage.senderId
       ..senderName =
           protoMessage.hasSenderName() ? protoMessage.senderName : null
@@ -38,11 +73,6 @@ class MessageAdapter {
       ..fileName = protoMessage.hasFileName() ? protoMessage.fileName : null
       ..thumbnailUrl =
           protoMessage.hasThumbnailUrl() ? protoMessage.thumbnailUrl : null
-      ..latitude = protoMessage.hasLatitude() ? protoMessage.latitude : null
-      ..longitude = protoMessage.hasLongitude() ? protoMessage.longitude : null
-      ..locationAddress = protoMessage.hasLocationAddress()
-          ? protoMessage.locationAddress
-          : null
       ..quotedMessageId = protoMessage.hasQuotedMessageId()
           ? protoMessage.quotedMessageId
           : null;
@@ -65,6 +95,7 @@ class MessageAdapter {
     return proto.MessageProto(
       messageId: message.messageId,
       conversationId: message.conversationId,
+      index: Int64(message.messageIndex),
       senderId: message.senderId,
       senderName: message.senderName,
       senderAvatar: message.senderAvatar,
@@ -78,9 +109,6 @@ class MessageAdapter {
       fileSize: message.fileSize,
       fileName: message.fileName,
       thumbnailUrl: message.thumbnailUrl,
-      latitude: message.latitude,
-      longitude: message.longitude,
-      locationAddress: message.locationAddress,
       quotedMessageId: message.quotedMessageId,
     );
   }
@@ -108,20 +136,8 @@ class MessageAdapter {
         return proto.MessageType.VIDEO;
       case 'file':
         return proto.MessageType.FILE;
-      case 'location':
-        return proto.MessageType.LOCATION;
       case 'system':
         return proto.MessageType.SYSTEM;
-      case 'sticker':
-        return proto.MessageType.STICKER;
-      case 'gif':
-        return proto.MessageType.GIF;
-      case 'contact':
-        return proto.MessageType.CONTACT;
-      case 'poll':
-        return proto.MessageType.POLL;
-      case 'link':
-        return proto.MessageType.LINK;
       default:
         return proto.MessageType.TEXT;
     }
@@ -158,20 +174,8 @@ class MessageAdapter {
         return 'video';
       case proto.MessageType.FILE:
         return 'file';
-      case proto.MessageType.LOCATION:
-        return 'location';
       case proto.MessageType.SYSTEM:
         return 'system';
-      case proto.MessageType.STICKER:
-        return 'sticker';
-      case proto.MessageType.GIF:
-        return 'gif';
-      case proto.MessageType.CONTACT:
-        return 'contact';
-      case proto.MessageType.POLL:
-        return 'poll';
-      case proto.MessageType.LINK:
-        return 'link';
       default:
         return 'text';
     }

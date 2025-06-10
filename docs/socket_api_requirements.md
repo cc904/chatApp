@@ -13,7 +13,7 @@
 ### 消息同步的三种场景
 
 1. **场景1：首次进入聊天**
-   - 客户端请求最新30条消息
+   - 客户端请求最新50条消息
    - 服务器返回按时间降序排列的消息列表
 
 2. **场景2：有新消息+无未读**
@@ -97,7 +97,7 @@ socket.emit('conversation:joined', /* ConversationJoinLeaveResponse proto */);
 final request = MessageSyncRequest()
   ..syncType = MessageSyncType.INITIAL_LOAD
   ..conversationId = conversationId
-  ..limit = 30;
+  ..limit = 50;
 
 socket.emitProto('messages:sync', request);
 ```
@@ -109,7 +109,7 @@ final request = MessageSyncRequest()
   ..conversationId = conversationId
   ..cursorMessageId = lastMessageId
   ..cursorTimestamp = Int64(lastTimestamp.millisecondsSinceEpoch)
-  ..limit = 20;
+  ..limit = 50;
 
 socket.emitProto('messages:sync', request);
 ```
@@ -449,7 +449,7 @@ socket.on('join_conversation', async ({ conversationId }) => {
 
 #### 场景1: 最新消息
 ```javascript
-socket.on('request_latest_messages', async ({ conversationId, limit = 30, userId }) => {
+socket.on('request_latest_messages', async ({ conversationId, limit = 50, userId }) => {
   try {
     const messages = await getLatestMessages(conversationId, limit);
     const totalCount = await getMessageCount(conversationId);

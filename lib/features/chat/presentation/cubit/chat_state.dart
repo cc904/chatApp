@@ -183,10 +183,11 @@ class ChatState extends Equatable {
   /// 是否在同步期间收到了新消息
   final bool hasNewMessagesDuringSync;
 
-  /// 最后一次同步的时间戳（用于增量同步）
+  /// 🔥 Index方案：以下字段已废弃，ConversationCursor.latestMessageIndex替代时间戳
+  /// 最后一次同步的时间戳（用于增量同步）- 已废弃，使用ConversationCursor.latestMessageIndex
   final int? lastSyncTimestamp;
 
-  /// 是否正在进行增量同步
+  /// 是否正在进行增量同步 - 已废弃，Index方案下每次同步都是增量的
   final bool isIncrementalSyncing;
 
   /// 构造函数

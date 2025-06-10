@@ -63,7 +63,7 @@ message MessageSyncResponse {
 
 // 服务器逻辑
 async function handleInitialLoad(request) {
-  // 1. 获取最新30条消息（按时间降序）
+  // 1. 获取最新50条消息（按时间降序）
   const messages = await db.query(`
     SELECT * FROM messages 
     WHERE conversation_id = ? 

@@ -13,11 +13,11 @@ async enterConversationFirstTime(String conversationId) {
   // 1. 使用初始加载游标同步
   final result = await chatRepository.syncMessagesInitial(
     conversationId,
-    limit: 30, // 获取最新30条消息
+    limit: 50, // 获取最新50条消息
   );
   
   // 2. 根据返回消息数量决定UI展示
-  if (result.returnedCount >= 30) {
+  if (result.returnedCount >= 50) {
     // 可能有更多历史消息
     showWithLoadMoreOption();
   } else {

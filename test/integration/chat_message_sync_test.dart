@@ -4,6 +4,7 @@ import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/unread_jump_strategy.dart';
+import 'package:flutter/foundation.dart';
 
 void main() {
   group('聊天消息同步集成测试 - 业务逻辑验证', () {
@@ -74,7 +75,7 @@ void main() {
         expect(scrollPosition.messageIndex, equals(0));
         expect(scrollPosition.relativePosition, equals(0.0));
 
-        print('✅ 场景1测试通过：首次进入显示到最新消息(${decision.targetMessageId})');
+        debugPrint('✅ 场景1测试通过：首次进入显示到最新消息(${decision.targetMessageId})');
       });
     });
 
@@ -113,7 +114,7 @@ void main() {
         expect(decision.targetMessageId, equals('new_5'));
         expect(decision.hasUnreadMessages, isFalse);
 
-        print('✅ 场景2测试通过：有新消息无未读显示到最新消息(${decision.targetMessageId})');
+        debugPrint('✅ 场景2测试通过：有新消息无未读显示到最新消息(${decision.targetMessageId})');
       });
     });
 
@@ -137,7 +138,7 @@ void main() {
         expect(decision.hasUnreadMessages, isTrue);
         expect(decision.totalUnreadCount, equals(1));
 
-        print('✅ 场景3a测试通过：单条未读消息显示到最新消息(${decision.targetMessageId})');
+        debugPrint('✅ 场景3a测试通过：单条未读消息显示到最新消息(${decision.targetMessageId})');
       });
 
       testWidgets('多条未读消息 - 应该显示到最新消息（最新的未读消息）', (WidgetTester tester) async {
@@ -169,7 +170,7 @@ void main() {
         expect(context.jumpedToIndex, equals(4)); // 最新消息的索引
         expect(context.remainingUnreadCount, equals(0)); // 跳转到最新后无剩余
 
-        print('✅ 场景3b测试通过：多条未读消息显示到最新消息(${decision.targetMessageId})');
+        debugPrint('✅ 场景3b测试通过：多条未读消息显示到最新消息(${decision.targetMessageId})');
       });
 
       testWidgets('大量未读消息 - 应该显示到最新消息', (WidgetTester tester) async {
@@ -194,7 +195,7 @@ void main() {
         expect(decision.hasUnreadMessages, isTrue);
         expect(decision.totalUnreadCount, equals(50));
 
-        print('✅ 场景3c测试通过：大量未读消息显示到最新消息(${decision.targetMessageId})');
+        debugPrint('✅ 场景3c测试通过：大量未读消息显示到最新消息(${decision.targetMessageId})');
       });
     });
 
@@ -245,7 +246,7 @@ void main() {
         expect(
             updatedState.currentScrollPosition.relativePosition, equals(0.0));
 
-        print('✅ UI滚动位置验证通过：最新消息(${latestMessage.messageId})在底部第一条');
+        debugPrint('✅ UI滚动位置验证通过：最新消息(${latestMessage.messageId})在底部第一条');
       });
     });
 
@@ -280,7 +281,7 @@ void main() {
             UnreadJumpStrategy.getJumpDescription(decision3, context3);
         expect(description3, equals('显示最新消息（5条未读）'));
 
-        print('✅ 用户友好描述验证通过');
+        debugPrint('✅ 用户友好描述验证通过');
       });
     });
   });

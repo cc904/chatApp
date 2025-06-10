@@ -2,6 +2,7 @@ import '../entities/message_cursor.dart';
 import '../entities/message_cursor_pair.dart';
 import '../../data/repositories/message_timeline_repository_isar.dart';
 import 'package:cc/core/database/models/message_cursor_pair.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// 消息时间线管理器
 /// 负责管理多个游标对，实现智能的消息同步策略
@@ -13,8 +14,8 @@ class MessageTimelineManager {
   final MessageTimelineRepositoryIsar _isarRepository;
 
   /// 游标对列表（按时间顺序排序）
-  final SortedMap<DateTime, MessageCursorPair> _cursorPairs =
-      SortedMap<DateTime, MessageCursorPair>();
+  final Map<DateTime, MessageCursorPair> _cursorPairs =
+      <DateTime, MessageCursorPair>{};
 
   /// 当前活跃的游标对（用户正在查看的部分）
   MessageCursorPair? _activeCursorPair;
@@ -30,6 +31,8 @@ class MessageTimelineManager {
 
   /// 是否已初始化（从持久化存储加载）
   bool _isInitialized = false;
+
+  final LogService _logger = LogService.instance;
 
   MessageTimelineManager({
     required this.conversationId,
@@ -119,7 +122,7 @@ class MessageTimelineManager {
             <String, dynamic>{}) : null,
       );
     } catch (error) {
-      print('转换Isar模型失败: $error');
+      _logger.e('转换Isar模型失败', error: error);
       return null;
     }
   }
@@ -407,7 +410,7 @@ class MessageTimelineManager {
     } catch (error) {
       // 持久化失败时只记录错误，不影响内存操作
       // 在实际项目中应该使用日志系统
-      print('持久化游标对失败: $error');
+      _logger.e('持久化游标对失败', error: error);
     }
   }
 
@@ -425,7 +428,7 @@ class MessageTimelineManager {
       final isarPair = _convertToIsarModel(pair);
       await _isarRepository.savePair(isarPair);
     } catch (error) {
-      print('持久化更新游标对失败: $error');
+      _logger.e('持久化更新游标对失败', error: error);
     }
   }
 
@@ -573,34 +576,5 @@ class TimelineStats {
   @override
   String toString() {
     return 'TimelineStats(pairs: $syncedPairs/$totalPairs, gaps: $gapPairs, messages: $totalMessages, coverage: ${coveragePercentage.toStringAsFixed(1)}%)';
-  }
-}
-
-/// SortedMap简单实现（基于TreeMap概念）
-class SortedMap<K extends Comparable<K>, V> {
-  final Map<K, V> _map = <K, V>{};
-
-  V? operator [](K key) => _map[key];
-  void operator []=(K key, V value) => _map[key] = value;
-
-  Iterable<V> get values {
-    final sortedKeys = _map.keys.toList()..sort();
-    return sortedKeys.map((key) => _map[key]!);
-  }
-
-  Iterable<K> get keys {
-    final sortedKeys = _map.keys.toList()..sort();
-    return sortedKeys;
-  }
-
-  void clear() => _map.clear();
-  bool containsKey(K key) => _map.containsKey(key);
-  V? remove(K key) => _map.remove(key);
-  int get length => _map.length;
-  bool get isEmpty => _map.isEmpty;
-  bool get isNotEmpty => _map.isNotEmpty;
-
-  void removeWhere(bool Function(K key, V value) test) {
-    _map.removeWhere(test);
   }
 }

@@ -398,7 +398,7 @@ class LocalMessageSearchService {
     }).toList();
   }
 
-  /// 获取字段文本
+  /// 根据字段获取消息文本
   String _getFieldText(Message message, LocalSearchField field) {
     switch (field) {
       case LocalSearchField.text:
@@ -407,8 +407,6 @@ class LocalMessageSearchService {
         return message.fileName ?? '';
       case LocalSearchField.senderName:
         return message.senderName ?? '';
-      case LocalSearchField.locationAddress:
-        return message.locationAddress ?? '';
     }
   }
 
@@ -716,7 +714,7 @@ enum LocalSearchField {
   text, // 消息文本
   fileName, // 文件名
   senderName, // 发送者名称
-  locationAddress, // 位置地址
+  // locationAddress, // 位置地址 - 已移除
 }
 
 /// 本地搜索结果

@@ -52,20 +52,15 @@ Future<void> _init() async {
 
     // 检查是否有状态快照
     if (_initialSnapshot != null && _initialSnapshot!.isValid) {
-      // 使用快照恢复状态（快速路径）
-      _isRestoring = true;
-      await joinConversation();
-      _setupEventListeners();
-      _isRestoring = false;
-      return;
+      // 快照只用于快速显示UI
+      _logger.i('检测到初始快照，但仍需执行同步流程');
     }
 
     // 无快照，执行完整初始化流程
-    await _performSeamlessSync();
+    await _startInitialSync();
     
   } catch (error) {
-    _isRestoring = false;
-    emit(state.copyWith(errorMessage: '初始化失败: ${error.toString()}'));
+    _logger.e('初始化失败', error: error);
   }
 }
 ```

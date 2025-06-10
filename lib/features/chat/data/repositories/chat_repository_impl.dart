@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:collection';
 import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/models/conversation_cursor.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -16,6 +17,8 @@ import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
 import 'dart:math';
+
+import 'package:cc/features/chat/domain/services/message_timeline_manager.dart';
 
 /// 信号量类，用于控制并发数量
 class Semaphore {
@@ -196,7 +199,7 @@ class ChatRepositoryImpl implements ChatRepository {
         ..add(_communicationService
             .onProto<message_proto.MessageSyncResponse>(
                 'messages:sync:response')
-            .listen(_handleMessageSyncResponse))
+            .listen(_handleMessageSyncResponseSimplified))
         ..add(_communicationService
             .onProto<message_proto.HistoryMessagesResponse>(
                 'messages:history:response')
@@ -294,24 +297,67 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 处理消息同步响应
+  /// 处理消息同步响应 - 已废弃，使用_handleMessageSyncResponseSimplified替代
+  @Deprecated('使用_handleMessageSyncResponseSimplified替代')
+  // ignore: unused_element
   void _handleMessageSyncResponse(message_proto.MessageSyncResponse response) {
     try {
       _logger.i('收到消息同步响应', extra: {
         'conversationId': response.conversationId,
         'success': response.success,
         'messageCount': response.messages.messages.length,
+        'hasMoreBefore': response.hasMoreBefore,
+        'hasMoreAfter': response.hasMoreAfter,
       });
 
       if (!response.success) {
         _logger.e('消息同步失败');
+        // 通知UI同步失败
+        _messageStatusController.add({
+          'type': 'syncError',
+          'conversationId': response.conversationId,
+          'error': '消息同步失败',
+        });
         return;
       }
 
       // 将消息保存到本地数据库
-      _saveMessagesToLocal(response.messages.messages);
+      _saveMessagesToLocal(response.messages.messages).then((savedCount) {
+        // 💢💢💢 新增：通过stream通知cubit消息同步完成
+        _messageStatusController.add({
+          'type': 'syncComplete',
+          'conversationId': response.conversationId,
+          'messages': response.messages.messages
+              .map((proto) => MessageAdapter.fromProto(proto))
+              .toList(),
+          'savedCount': savedCount,
+          'hasMoreBefore': response.hasMoreBefore,
+          'hasMoreAfter': response.hasMoreAfter,
+          'totalReceived': response.messages.messages.length,
+        });
+
+        _logger.i('消息同步完成并已通知UI', extra: {
+          'conversationId': response.conversationId,
+          'savedCount': savedCount,
+          'totalReceived': response.messages.messages.length,
+        });
+      }).catchError((error) {
+        _logger.e('保存同步消息失败', error: error);
+        // 通知UI保存失败
+        _messageStatusController.add({
+          'type': 'syncError',
+          'conversationId': response.conversationId,
+          'error': '保存消息失败: $error',
+        });
+      });
     } catch (error) {
       _logger.e('处理消息同步响应失败', error: error, stackTrace: StackTrace.current);
+      // 通知UI处理失败
+      _messageStatusController.add({
+        'type': 'syncError',
+        'conversationId': response.conversationId,
+        'error': '处理响应失败: $error',
+      });
     }
   }
 
@@ -397,18 +443,17 @@ class ChatRepositoryImpl implements ChatRepository {
       'beforeTimestamp': before?.millisecondsSinceEpoch,
     });
 
-    // 创建请求对象
+    // 创建请求对象 - 使用新的index字段
     final request = message_proto.HistoryMessagesRequest()
       ..conversationId = conversationId
       ..limit = limit
-      ..beforeTimestamp = $fixnum.Int64(before?.millisecondsSinceEpoch ?? 0)
-      ..beforeMessageId = '';
+      ..beforeIndex = $fixnum.Int64(0); // 临时使用0，实际使用时需要传入正确的index
 
     _logger.d('发送历史消息请求', extra: {
       'event': 'messages:history',
       'conversationId': request.conversationId,
       'limit': request.limit,
-      'beforeTimestamp': request.beforeTimestamp.toString(),
+      'beforeIndex': request.beforeIndex.toString(),
     });
 
     // 发送请求到服务器
@@ -1125,7 +1170,7 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<Message>> getConversationMessagesFromDate(
     String conversationId,
     DateTime startDate, {
-    int limit = 30,
+    int limit = 50,
   }) async {
     try {
       // 确保使用日期的开始时间
@@ -1156,8 +1201,11 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [before] - 可选，获取此时间之前的消息
   /// [limit] - 可选，每次获取的消息数量限制，默认 20 条
   @override
-  Future<List<Message>> fetchHistoryMessages(String conversationId,
-      {DateTime? before, int limit = 20}) async {
+  Future<List<Message>> fetchHistoryMessages(
+    String conversationId, {
+    DateTime? before,
+    int limit = 50,
+  }) async {
     try {
       _logger.i('从服务器获取历史消息', extra: {
         'conversationId': conversationId,
@@ -1239,8 +1287,11 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [before] - 可选的时间点,获取此时间之前的消息
   /// 返回消息列表
   @override
-  Future<List<Message>> fetchMessagesFromServer(String conversationId,
-      {int limit = 20, DateTime? before}) async {
+  Future<List<Message>> fetchMessagesFromServer(
+    String conversationId, {
+    int limit = 50,
+    DateTime? before,
+  }) async {
     try {
       _logger.i('从服务器获取消息',
           extra: {'conversationId': conversationId, 'limit': limit});
@@ -1330,7 +1381,6 @@ class ChatRepositoryImpl implements ChatRepository {
       _activeConversations.add(conversationId);
 
       // 🔥 进入会话时自动更新最后阅读时间（不同步到服务器，仅更新本地）
-      // TODO 需要通过ChatsRepository来更新
       _logger.d('用户进入会话页面，需要更新最后阅读时间');
 
       // 通知服务器用户加入会话房间
@@ -1490,8 +1540,13 @@ class ChatRepositoryImpl implements ChatRepository {
 
     try {
       int savedCount = 0;
+      String? conversationId;
+      Message? oldestMessage;
+      Message? newestMessage;
 
       await _isar.writeTxn(() async {
+        final List<Message> addedMessages = [];
+
         for (final protoMsg in protoMessages) {
           // 检查消息是否已存在
           final existing = await _messages
@@ -1503,6 +1558,7 @@ class ChatRepositoryImpl implements ChatRepository {
             // 消息不存在，转换并保存
             final message = MessageAdapter.fromProto(protoMsg);
             await _messages.put(message);
+            addedMessages.add(message);
             savedCount++;
           }
           // 如果消息已存在，覆盖保存
@@ -1510,16 +1566,39 @@ class ChatRepositoryImpl implements ChatRepository {
             final message = MessageAdapter.fromProto(protoMsg);
             message.id = existing.id;
             await _messages.put(message);
+            addedMessages.add(message);
             savedCount++;
+          }
+        }
+
+        // 💢💢💢 新增：更新游标记录逻辑
+        if (addedMessages.isNotEmpty) {
+          conversationId = addedMessages.first.conversationId;
+
+          // 按时间排序找到最旧和最新的消息
+          addedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          oldestMessage = addedMessages.first;
+          newestMessage = addedMessages.last;
+
+          // 创建或更新游标记录
+          if (oldestMessage != null && newestMessage != null) {
+            await _updateCursorRecords(conversationId!, oldestMessage!,
+                newestMessage!, addedMessages.length);
           }
         }
       });
 
-      // _logger.d('保存消息到本地数据库', extra: {
-      //   'totalReceived': protoMessages.length,
-      //   'savedCount': savedCount,
-      //   'skippedCount': protoMessages.length - savedCount,
-      // });
+      if (savedCount > 0 && conversationId != null) {
+        _logger.i('消息保存完成，游标记录已更新', extra: {
+          'conversationId': conversationId,
+          'savedCount': savedCount,
+          'oldestMessageId': oldestMessage?.messageId,
+          'newestMessageId': newestMessage?.messageId,
+          'timeRange': oldestMessage != null && newestMessage != null
+              ? '${oldestMessage!.createdAt.toIso8601String()} - ${newestMessage!.createdAt.toIso8601String()}'
+              : null,
+        });
+      }
 
       return savedCount;
     } catch (error) {
@@ -1528,117 +1607,80 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 批量同步多个会话的消息
-  @override
-  Future<List<bool>> batchSyncMessages(
-    List<ConversationSyncTask> syncTasks, {
-    int maxConcurrent = 3,
-  }) async {
-    _logger.i('批量同步消息（游标模式）', extra: {
-      'taskCount': syncTasks.length,
-      'maxConcurrent': maxConcurrent,
-    });
+  /// 💢💢💢 新增：更新游标记录
+  Future<void> _updateCursorRecords(
+    String conversationId,
+    Message oldestMessage,
+    Message newestMessage,
+    int messageCount,
+  ) async {
+    try {
+      // 检查是否需要创建新的游标对还是更新现有的
+      final existingTimelineManager = MessageTimelineManager(
+        conversationId: conversationId,
+      );
 
-    final results = <bool>[];
-    final semaphore = Semaphore(maxConcurrent);
+      // 判断消息类型：历史消息还是实时消息
+      final now = DateTime.now();
+      final messageAge = now.difference(newestMessage.createdAt).inMinutes;
 
-    // 并发执行同步任务
-    final futures = syncTasks.map((task) async {
-      await semaphore.acquire();
-      try {
-        final result = await _executeCursorSyncTask(task);
-        return result.success;
-      } finally {
-        semaphore.release();
+      if (messageAge < 5) {
+        // 5分钟内的消息认为是实时消息
+        _logger.d('创建实时消息游标记录', extra: {
+          'conversationId': conversationId,
+          'messageAge': messageAge,
+          'messageCount': messageCount,
+        });
+
+        await existingTimelineManager.addRealtimeSegment(
+          startCursor: MessageCursor.fromMessageData(
+            oldestMessage.messageId,
+            oldestMessage.createdAt,
+          ),
+          endCursor: MessageCursor.fromMessageData(
+            newestMessage.messageId,
+            newestMessage.createdAt,
+          ),
+          messageCount: messageCount,
+        );
+      } else {
+        // 较旧的消息认为是历史消息
+        _logger.d('创建历史消息游标记录', extra: {
+          'conversationId': conversationId,
+          'messageAge': messageAge,
+          'messageCount': messageCount,
+        });
+
+        await existingTimelineManager.addHistorySegment(
+          startCursor: MessageCursor.fromMessageData(
+            oldestMessage.messageId,
+            oldestMessage.createdAt,
+          ),
+          endCursor: MessageCursor.fromMessageData(
+            newestMessage.messageId,
+            newestMessage.createdAt,
+          ),
+          messageCount: messageCount,
+          isSynced: true,
+        );
       }
-    });
 
-    results.addAll(await Future.wait(futures));
-    return results;
-  }
+      // 检测并填充可能的空档
+      await existingTimelineManager.fillGaps();
 
-  /// 执行游标同步任务
-  Future<CursorSyncResult> _executeCursorSyncTask(
-      ConversationSyncTask task) async {
-    final conversationId = task.conversationId;
-    final syncType = task.type;
-    final limit = task.limit ?? 20;
-
-    _logger.d('执行游标同步任务', extra: {
-      'conversationId': conversationId,
-      'syncType': syncType.name,
-      'limit': limit,
-    });
-
-    switch (syncType) {
-      case message_proto.MessageSyncType.INITIAL_LOAD:
-        return await syncMessagesInitial(conversationId, limit: limit);
-
-      case message_proto.MessageSyncType.CURSOR_FORWARD:
-        // 获取同步游标作为起点
-        final syncCursor = await getSyncCursor(conversationId);
-        return await syncMessagesForward(
-          conversationId,
-          cursor: syncCursor.isEmpty ? null : syncCursor,
-          limit: limit,
-        );
-
-      case message_proto.MessageSyncType.CURSOR_BACKWARD:
-        // 获取本地游标作为起点
-        final localCursor = await getLocalCursor(conversationId);
-        return await syncMessagesBackward(
-          conversationId,
-          cursor: localCursor.isEmpty ? null : localCursor,
-          limit: limit,
-        );
-
-      case message_proto.MessageSyncType.CURSOR_AROUND:
-        // 双向同步需要明确的游标位置
-        if (task.cursor != null && task.cursor!.isValid) {
-          return await syncMessagesAround(
-            conversationId,
-            cursor: task.cursor!,
-            beforeCount: 10, // 使用默认值
-            afterCount: 10, // 使用默认值
-            includeCursor: true, // 使用默认值
-          );
-        } else {
-          _logger.w('双向同步缺少有效游标，降级为初始加载', extra: {
-            'conversationId': conversationId,
-          });
-          return await syncMessagesInitial(conversationId, limit: limit);
-        }
-
-      case message_proto.MessageSyncType.RECENT:
-      case message_proto.MessageSyncType.UNREAD:
-        // 旧的同步类型，转换为游标模式
-        _logger.w('使用已废弃的同步类型，转换为游标模式', extra: {
-          'conversationId': conversationId,
-          'oldSyncType': syncType.name,
-        });
-
-        // 检查是否有本地消息来决定使用哪种策略
-        final hasLocal = await hasLocalMessages(conversationId);
-        if (hasLocal) {
-          final syncCursor = await getSyncCursor(conversationId);
-          return await syncMessagesForward(
-            conversationId,
-            cursor: syncCursor.isEmpty ? null : syncCursor,
-            limit: limit,
-          );
-        } else {
-          return await syncMessagesInitial(conversationId, limit: limit);
-        }
-
-      default:
-        _logger.e('未知的同步类型', extra: {
-          'conversationId': conversationId,
-          'syncType': syncType.name,
-        });
-        return CursorSyncResult.failure(
-          conversationId: conversationId,
-          errorMessage: '未知的同步类型: ${syncType.name}',
-        );
+      _logger.d('游标记录更新完成', extra: {
+        'conversationId': conversationId,
+        'type': messageAge < 5 ? 'realtime' : 'history',
+        'timeRange':
+            '${oldestMessage.createdAt.toIso8601String()} - ${newestMessage.createdAt.toIso8601String()}',
+      });
+    } catch (error) {
+      _logger.e('更新游标记录失败', error: error, extra: {
+        'conversationId': conversationId,
+        'oldestMessageId': oldestMessage.messageId,
+        'newestMessageId': newestMessage.messageId,
+      });
+      // 游标更新失败不影响消息保存，只记录错误
     }
   }
 
@@ -2089,10 +2131,10 @@ class ChatRepositoryImpl implements ChatRepository {
         }
 
         // 位置地址（对于位置类型消息）
-        if (message.locationAddress != null &&
-            message.locationAddress!.isNotEmpty) {
-          searchableTexts.add(message.locationAddress!.toLowerCase());
-        }
+        // if (message.locationAddress != null &&
+        //     message.locationAddress!.isNotEmpty) {
+        //   searchableTexts.add(message.locationAddress!.toLowerCase());
+        // }
 
         // 发送者名称
         if (message.senderName != null && message.senderName!.isNotEmpty) {
@@ -2131,7 +2173,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.i('数据库搜索完成（内存匹配）', extra: {
         'query': query,
         'keywords': keywords,
-        'searchFields': ['text', 'fileName', 'locationAddress', 'senderName'],
+        'searchFields': ['text', 'fileName', 'senderName'],
         'candidateMessages': allMessages.length,
         'textMessages': textMessageCount,
         'nonTextMessages': nonTextMessageCount,
@@ -2301,38 +2343,32 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新的游标同步方法实现 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 向前游标同步（获取新消息）
+  /// 向前游标同步（获取新消息）- 已废弃，使用syncNewMessages替代
+  @Deprecated('使用syncNewMessages替代，基于index的简化同步')
   @override
   Future<CursorSyncResult> syncMessagesForward(
     String conversationId, {
     MessageCursor? cursor,
-    int limit = 20,
+    int limit = 50,
   }) async {
     try {
-      _logger.i('向前游标同步', extra: {
-        'conversationId': conversationId,
-        'cursor': cursor?.toString(),
-        'limit': limit,
-      });
+      _logger.w('调用了废弃方法syncMessagesForward，建议使用syncNewMessages');
 
-      final request = message_proto.MessageSyncRequest()
-        ..syncType = message_proto.MessageSyncType.CURSOR_FORWARD
-        ..conversationId = conversationId
-        ..limit = limit;
-
-      if (cursor != null && cursor.isValid) {
-        request.cursorMessageId = cursor.messageId!;
-        request.cursorTimestamp =
-            $fixnum.Int64(cursor.timestamp!.millisecondsSinceEpoch);
-      }
-
-      _communicationService.emitProto('messages:sync', request);
-
-      // 等待响应（简化实现，实际项目中应该通过事件处理）
-      return CursorSyncResult.success(
-        conversationId: conversationId,
-        returnedCount: 0, // 实际数量将在响应处理中更新
+      // 转换为新方法调用
+      final cursorRecord = await getCursor(conversationId);
+      final success = await syncNewMessages(
+        conversationId,
+        fromIndex: cursorRecord.latestMessageIndex > 0
+            ? cursorRecord.latestMessageIndex
+            : null,
+        limit: limit,
       );
+
+      return success
+          ? CursorSyncResult.success(
+              conversationId: conversationId, returnedCount: 0)
+          : CursorSyncResult.failure(
+              conversationId: conversationId, errorMessage: '同步失败');
     } catch (error) {
       _logger.e('向前游标同步失败', error: error);
       return CursorSyncResult.failure(
@@ -2342,47 +2378,35 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 向后游标同步（获取历史消息）
+  /// 向后游标同步（获取历史消息）- 已废弃，使用loadHistoryMessages替代
+  @Deprecated('使用loadHistoryMessages替代，基于index的简化同步')
   @override
-  Future<CursorSyncResult> syncMessagesBackward(
+  Future<bool> syncMessagesBackward(
     String conversationId, {
     MessageCursor? cursor,
-    int limit = 20,
+    int limit = 50,
   }) async {
     try {
-      _logger.i('向后游标同步', extra: {
-        'conversationId': conversationId,
-        'cursor': cursor?.toString(),
-        'limit': limit,
-      });
+      _logger.w('调用了废弃方法syncMessagesBackward，建议使用loadHistoryMessages');
 
-      final request = message_proto.MessageSyncRequest()
-        ..syncType = message_proto.MessageSyncType.CURSOR_BACKWARD
-        ..conversationId = conversationId
-        ..limit = limit;
-
-      if (cursor != null && cursor.isValid) {
-        request.cursorMessageId = cursor.messageId!;
-        request.cursorTimestamp =
-            $fixnum.Int64(cursor.timestamp!.millisecondsSinceEpoch);
+      // 转换为新方法调用
+      final cursorRecord = await getCursor(conversationId);
+      if (cursorRecord.earliestMessageIndex > 0) {
+        return await loadHistoryMessages(
+          conversationId,
+          beforeIndex: cursorRecord.earliestMessageIndex,
+          limit: limit,
+        );
       }
-
-      _communicationService.emitProto('messages:sync', request);
-
-      return CursorSyncResult.success(
-        conversationId: conversationId,
-        returnedCount: 0,
-      );
+      return false;
     } catch (error) {
       _logger.e('向后游标同步失败', error: error);
-      return CursorSyncResult.failure(
-        conversationId: conversationId,
-        errorMessage: error.toString(),
-      );
+      return false;
     }
   }
 
-  /// 双向游标同步（获取上下文消息）
+  /// 双向游标同步（获取上下文消息）- 已废弃
+  @Deprecated('基于index的同步方案不再需要双向同步，使用syncNewMessages和loadHistoryMessages组合')
   @override
   Future<CursorSyncResult> syncMessagesAround(
     String conversationId, {
@@ -2392,25 +2416,7 @@ class ChatRepositoryImpl implements ChatRepository {
     bool includeCursor = true,
   }) async {
     try {
-      _logger.i('双向游标同步', extra: {
-        'conversationId': conversationId,
-        'cursor': cursor.toString(),
-        'beforeCount': beforeCount,
-        'afterCount': afterCount,
-        'includeCursor': includeCursor,
-      });
-
-      final request = message_proto.MessageSyncRequest()
-        ..syncType = message_proto.MessageSyncType.CURSOR_AROUND
-        ..conversationId = conversationId
-        ..cursorMessageId = cursor.messageId!
-        ..cursorTimestamp =
-            $fixnum.Int64(cursor.timestamp!.millisecondsSinceEpoch)
-        ..beforeCount = beforeCount
-        ..afterCount = afterCount
-        ..includeCursor = includeCursor;
-
-      _communicationService.emitProto('messages:sync', request);
+      _logger.w('调用了废弃方法syncMessagesAround，建议使用新的index-based方法');
 
       return CursorSyncResult.success(
         conversationId: conversationId,
@@ -2427,48 +2433,41 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 初始加载消息
   @override
-  Future<CursorSyncResult> syncMessagesInitial(
+  Future<bool> syncMessagesInitial(
     String conversationId, {
-    int limit = 20,
+    int limit = 50,
   }) async {
     try {
-      _logger.i('初始加载消息', extra: {
+      _logger.i('请求初始消息', extra: {
         'conversationId': conversationId,
         'limit': limit,
       });
 
       final request = message_proto.MessageSyncRequest()
-        ..syncType = message_proto.MessageSyncType.INITIAL_LOAD
-        ..conversationId = conversationId
-        ..limit = limit;
+        ..conversationId = conversationId;
 
       _communicationService.emitProto('messages:sync', request);
 
-      return CursorSyncResult.success(
-        conversationId: conversationId,
-        returnedCount: 0,
-      );
+      return true;
     } catch (error) {
-      _logger.e('初始加载消息失败', error: error);
-      return CursorSyncResult.failure(
-        conversationId: conversationId,
-        errorMessage: error.toString(),
-      );
+      _logger.e('请求初始消息失败', error: error);
+      return false;
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 游标管理方法实现 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 游标管理方法 - 已迁移到Index方案 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 获取本地游标
-  /// 注意：游标数据已迁移到MessageTimelineRepository管理
+  /// 🔄 注意：复杂的MessageCursor系统已被简化的ConversationCursor+Index方案替代
+  /// 此方法保留为兼容性接口，实际游标管理请使用getCursor()和updateCursor()
   @override
   Future<MessageCursor> getLocalCursor(String conversationId) async {
     try {
-      // 从最新消息中推断游标位置
+      // 🚀 新方案：从最新消息的index推断游标位置
       final latestMessage = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
-          .sortByCreatedAtDesc()
+          .sortByMessageIndexDesc() // 🔥 使用index排序替代时间戳
           .findFirst();
 
       if (latestMessage != null) {
@@ -2486,17 +2485,18 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 更新本地游标
-  /// 注意：游标数据已迁移到MessageTimelineRepository管理，此方法保留为兼容性接口
+  /// 🔄 注意：已迁移到基于index的ConversationCursor系统，此方法保留为兼容性接口
+  /// 新的游标管理请使用 getCursor() 和 updateCursor() 方法
   @override
   Future<void> updateLocalCursor(
       String conversationId, MessageCursor cursor) async {
     try {
-      // 游标数据现在由MessageTimelineRepository管理
-      // 这里保留空实现以保持接口兼容性
-      _logger.d('本地游标更新请求已忽略（已迁移到MessageTimelineRepository）', extra: {
+      // 🚀 游标数据现在由ConversationCursor+Index管理，无需复杂的时间戳计算
+      _logger.d('本地游标更新请求已忽略（已迁移到Index-based ConversationCursor）', extra: {
         'conversationId': conversationId,
         'messageId': cursor.messageId,
         'timestamp': cursor.timestamp?.toIso8601String(),
+        'migration_note': '请使用基于index的游标管理方法',
       });
     } catch (error) {
       _logger.e('更新本地游标失败', error: error);
@@ -2504,15 +2504,15 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 获取同步游标
-  /// 注意：游标数据已迁移到MessageTimelineRepository管理
+  /// 🔄 注意：已迁移到基于index的ConversationCursor系统
   @override
   Future<MessageCursor> getSyncCursor(String conversationId) async {
     try {
-      // 从最新消息中推断同步游标位置
+      // 🚀 新方案：从最新消息的index推断同步游标位置
       final latestMessage = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
-          .sortByCreatedAtDesc()
+          .sortByMessageIndexDesc() // 🔥 使用index排序，绝对可靠
           .findFirst();
 
       if (latestMessage != null) {
@@ -2530,17 +2530,18 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 更新同步游标
-  /// 注意：游标数据已迁移到MessageTimelineRepository管理，此方法保留为兼容性接口
+  /// 🔄 注意：已迁移到基于index的ConversationCursor系统，此方法保留为兼容性接口
+  /// 新系统使用简单的latestMessageIndex数字，替代复杂的时间戳+消息ID组合
   @override
   Future<void> updateSyncCursor(
       String conversationId, MessageCursor cursor) async {
     try {
-      // 游标数据现在由MessageTimelineRepository管理
-      // 这里保留空实现以保持接口兼容性
-      _logger.d('同步游标更新请求已忽略（已迁移到MessageTimelineRepository）', extra: {
+      // 🚀 同步游标现在由ConversationCursor.latestMessageIndex管理
+      _logger.d('同步游标更新请求已忽略（已迁移到Index-based ConversationCursor）', extra: {
         'conversationId': conversationId,
         'messageId': cursor.messageId,
         'timestamp': cursor.timestamp?.toIso8601String(),
+        'migration_note': '现在使用ConversationCursor.latestMessageIndex管理同步位置',
       });
     } catch (error) {
       _logger.e('更新同步游标失败', error: error);
@@ -2754,11 +2755,9 @@ class ChatRepositoryImpl implements ChatRepository {
         return [];
       }
 
-      // 创建分页同步请求
+      // 创建分页同步请求 - 注意：这是旧的递归同步方法，已不推荐使用
       final request = message_proto.MessageSyncRequest()
-        ..syncType = message_proto.MessageSyncType.CURSOR_FORWARD
         ..conversationId = conversationId
-        ..cursorTimestamp = $fixnum.Int64(fromTimestamp.millisecondsSinceEpoch)
         ..limit = pageSize;
 
       // 发送同步请求
@@ -2880,6 +2879,237 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (error) {
       _logger.e('递归同步第$currentPage页失败', error: error);
       return [];
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：基于Index的简化同步方法实现 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 同步新消息（基于index）
+  @override
+  Future<bool> syncNewMessages(
+    String conversationId, {
+    int? fromIndex,
+    int limit = 50,
+  }) async {
+    try {
+      _logger.i('同步新消息（基于index）', extra: {
+        'conversationId': conversationId,
+        'fromIndex': fromIndex,
+        'limit': limit,
+      });
+
+      final request = message_proto.MessageSyncRequest()
+        ..conversationId = conversationId
+        ..limit = limit;
+
+      if (fromIndex != null && fromIndex > 0) {
+        request.fromIndex = $fixnum.Int64(fromIndex);
+      }
+
+      _communicationService.emitProto('messages:sync', request);
+      return true;
+    } catch (error) {
+      _logger.e('同步新消息失败', error: error);
+      return false;
+    }
+  }
+
+  /// 加载历史消息（基于index）
+  @override
+  Future<bool> loadHistoryMessages(
+    String conversationId, {
+    required int beforeIndex,
+    int limit = 50,
+  }) async {
+    try {
+      _logger.i('加载历史消息（基于index）', extra: {
+        'conversationId': conversationId,
+        'beforeIndex': beforeIndex,
+        'limit': limit,
+      });
+
+      final request = message_proto.HistoryMessagesRequest()
+        ..conversationId = conversationId
+        ..beforeIndex = $fixnum.Int64(beforeIndex)
+        ..limit = limit;
+
+      _communicationService.emitProto('messages:history', request);
+      return true;
+    } catch (error) {
+      _logger.e('加载历史消息失败', error: error);
+      return false;
+    }
+  }
+
+  /// 获取或创建会话游标记录
+  @override
+  Future<ConversationCursor> getCursor(String conversationId) async {
+    try {
+      // 先尝试从数据库获取
+      final cursor = await _isar.conversationCursors
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+
+      if (cursor != null) {
+        return cursor;
+      }
+
+      // 如果不存在，创建新的游标记录
+      final newCursor = ConversationCursor()
+        ..conversationId = conversationId
+        ..latestMessageIndex = 0
+        ..earliestMessageIndex = 0
+        ..messageCount = 0
+        ..lastSyncTime = DateTime.now()
+        ..hasMoreAfter = false
+        ..hasMoreBefore = true; // 默认认为服务器有历史消息
+
+      await _isar.writeTxn(() async {
+        await _isar.conversationCursors.put(newCursor);
+      });
+
+      _logger.d('创建新的会话游标记录', extra: {
+        'conversationId': conversationId,
+      });
+
+      return newCursor;
+    } catch (error) {
+      _logger.e('获取会话游标记录失败', error: error);
+      // 返回默认游标
+      return ConversationCursor()
+        ..conversationId = conversationId
+        ..latestMessageIndex = 0
+        ..earliestMessageIndex = 0
+        ..messageCount = 0
+        ..lastSyncTime = DateTime.now()
+        ..hasMoreAfter = false
+        ..hasMoreBefore = true;
+    }
+  }
+
+  /// 更新会话游标记录
+  @override
+  Future<void> updateCursor(ConversationCursor cursor) async {
+    try {
+      await _isar.writeTxn(() async {
+        await _isar.conversationCursors.put(cursor);
+      });
+
+      _logger.d('更新会话游标记录', extra: {
+        'conversationId': cursor.conversationId,
+        'latestMessageIndex': cursor.latestMessageIndex,
+        'earliestMessageIndex': cursor.earliestMessageIndex,
+        'messageCount': cursor.messageCount,
+      });
+    } catch (error) {
+      _logger.e('更新会话游标记录失败', error: error);
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 简化的同步响应处理方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 处理消息同步响应（简化版本）
+  void _handleMessageSyncResponseSimplified(
+      message_proto.MessageSyncResponse response) async {
+    try {
+      _logger.i('收到消息同步响应（简化版本）', extra: {
+        'conversationId': response.conversationId,
+        'messageCount': response.messages.messages.length,
+        'hasMoreBefore': response.hasMoreBefore,
+        'hasMoreAfter': response.hasMoreAfter,
+      });
+
+      if (!response.success || response.messages.messages.isEmpty) {
+        _logger.w('同步响应失败或无消息', extra: {
+          'success': response.success,
+          'messageCount': response.messages.messages.length,
+        });
+        return;
+      }
+
+      // 转换消息
+      final messages = response.messages.messages
+          .map((proto) => MessageAdapter.fromProto(proto))
+          .toList();
+
+      // 保存消息到数据库
+      await _saveMessagesToLocalSimplified(messages);
+
+      // 更新游标记录
+      await _updateCursorAfterSync(
+        response.conversationId,
+        messages,
+        response.hasMoreBefore,
+        response.hasMoreAfter,
+      );
+
+      // 通知UI更新
+      _messageStatusController.add({
+        'type': 'syncComplete',
+        'conversationId': response.conversationId,
+        'messages': messages,
+        'hasMoreBefore': response.hasMoreBefore,
+        'hasMoreAfter': response.hasMoreAfter,
+      });
+    } catch (error) {
+      _logger.e('处理消息同步响应失败', error: error);
+    }
+  }
+
+  /// 简化的消息保存方法
+  Future<void> _saveMessagesToLocalSimplified(List<Message> messages) async {
+    if (messages.isEmpty) return;
+
+    await _isar.writeTxn(() async {
+      for (final message in messages) {
+        await _messages.put(message);
+      }
+    });
+
+    _logger.d('保存消息到本地数据库', extra: {
+      'messageCount': messages.length,
+    });
+  }
+
+  /// 同步后更新游标记录
+  Future<void> _updateCursorAfterSync(
+    String conversationId,
+    List<Message> messages,
+    bool hasMoreBefore,
+    bool hasMoreAfter,
+  ) async {
+    if (messages.isEmpty) return;
+
+    try {
+      // 获取当前游标记录
+      final cursor = await getCursor(conversationId);
+
+      // 计算新的index边界
+      final messageIndexes = messages.map((m) => m.messageIndex).toList()
+        ..sort();
+      final minIndex = messageIndexes.first;
+      final maxIndex = messageIndexes.last;
+
+      // 更新游标记录
+      if (cursor.latestMessageIndex == 0 ||
+          maxIndex > cursor.latestMessageIndex) {
+        cursor.latestMessageIndex = maxIndex;
+      }
+
+      if (cursor.earliestMessageIndex == 0 ||
+          minIndex < cursor.earliestMessageIndex) {
+        cursor.earliestMessageIndex = minIndex;
+      }
+
+      cursor.messageCount += messages.length;
+      cursor.lastSyncTime = DateTime.now();
+      cursor.hasMoreBefore = hasMoreBefore;
+      cursor.hasMoreAfter = hasMoreAfter;
+
+      await updateCursor(cursor);
+    } catch (error) {
+      _logger.e('更新游标记录失败', error: error);
     }
   }
 }

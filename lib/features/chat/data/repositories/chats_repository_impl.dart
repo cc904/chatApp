@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -10,21 +11,18 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
-import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/core/database/models/message.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 
 /// ChatsRepository的实现类
 /// 负责聊天会话列表相关的数据处理、会话管理等功能
 class ChatsRepositoryImpl implements ChatsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
-  final ChatRepository? _chatRepository; // 用于消息同步
 
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
@@ -55,8 +53,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   final List<StreamSubscription> _subscriptions = [];
 
   // 构造函数
-  ChatsRepositoryImpl({ChatRepository? chatRepository})
-      : _chatRepository = chatRepository {
+  ChatsRepositoryImpl() {
     _logger.x('ChatsRepositoryImpl 初始化');
     _registerEventHandlers();
   }

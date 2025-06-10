@@ -88,7 +88,7 @@ class _HomePageState extends State<HomePage>
     _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
 
     // 创建ChatsRepository
-    _chatsRepository = ChatsRepositoryImpl(chatRepository: _chatRepository);
+    _chatsRepository = ChatsRepositoryImpl();
 
     _chatsCubit = ChatsCubit(
       chatsRepository: _chatsRepository!,

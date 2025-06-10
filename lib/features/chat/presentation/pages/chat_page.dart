@@ -358,109 +358,6 @@ class _ChatPageState extends State<ChatPage> {
               state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
           body: Column(
             children: [
-              // 🔄 新增：同步状态横幅
-              if (state.isSyncing)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: Colors.blue.withAlpha(20),
-                  child: const Row(
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.blue),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        '正在同步消息...',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              // 🔄 新增：同步期间新消息提示
-              if (state.hasNewMessagesDuringSync)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: Colors.orange.withAlpha(20),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.message,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '有 ${state.pendingMessages.length} 条新消息正在同步中...',
-                          style: const TextStyle(
-                            color: Colors.orange,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      // 可选：提供手动刷新按钮
-                      TextButton(
-                        onPressed: () {
-                          // 触发强制同步
-                          // TODO: 实现强制同步方法
-                        },
-                        style: TextButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          '刷新',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              // 🔄 新增：增量同步指示器
-              if (state.isIncrementalSyncing)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  color: Colors.green.withAlpha(10),
-                  child: const Row(
-                    children: [
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          valueColor: AlwaysStoppedAnimation(Colors.green),
-                        ),
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        '检查新消息...',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               Expanded(
                 child: _buildMessagesList(),
               ),
@@ -583,7 +480,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   构建消息列表   💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   构建消息列表   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Widget _buildMessagesList() {
     return BlocListener<ChatCubit, ChatState>(
       listenWhen: (previous, current) {
