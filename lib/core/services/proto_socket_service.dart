@@ -103,6 +103,14 @@ class ProtoSocketService {
     try {
       _reconnectTimer?.cancel();
 
+      // 💢💢💢 清理旧的Socket实例和监听器
+      if (_socket != null) {
+        _logger.i('🧹 清理旧的Socket实例');
+        _socket?.disconnect();
+        _socket?.dispose();
+        _socket = null;
+      }
+
       // 创建一个Completer来等待连接结果
       final completer = Completer<bool>();
 
@@ -290,7 +298,7 @@ class ProtoSocketService {
     // 监听所有事件
     _socket?.onAny((event, data) {
       // 调试 proto 事件
-      _logger.i('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
+      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
     });
   }
 

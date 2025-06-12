@@ -11,7 +11,6 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/chat/domain/entities/conversation_event.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
-import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/core/database/models/message.dart';
 
@@ -51,6 +50,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
+
+  // 💢💢💢 新增：去重机制，防止重复处理同步响应
+  String? _lastSyncResponseHash;
+  DateTime? _lastSyncResponseTime;
+  static const Duration _deduplicationWindow = Duration(seconds: 5);
 
   // 构造函数
   ChatsRepositoryImpl() {
@@ -578,6 +582,46 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
+  @override
+  Future<void> updateConversationLastReadAtIndex(
+      String conversationId, int lastReadIndex) async {
+    _logger.i('更新会话最后阅读消息索引', extra: {
+      'conversationId': conversationId,
+      'lastReadIndex': lastReadIndex
+    });
+
+    try {
+      // 更新本地数据库
+      final conversation = await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+      if (conversation != null) {
+        // 使用事务包装数据库写入操作
+        await _isar.writeTxn(() async {
+          conversation.lastReadAtIndex = lastReadIndex;
+          await _conversations.put(conversation);
+        });
+        _logger.i('本地数据库会话最后阅读索引已更新');
+
+        // 💢💢💢 立即发送会话更新事件，通知ChatsCubit
+        _conversationUpdateController.add(
+          ConversationUpdateEvent(
+            conversationId: conversationId,
+            type: ConversationUpdateType.readStatusUpdated,
+            conversation: conversation, // 传入更新后的完整会话对象
+          ),
+        );
+        _logger.d('已发送会话阅读状态更新事件');
+      } else {
+        _logger.w('找不到指定会话', extra: {'conversationId': conversationId});
+      }
+    } catch (error) {
+      _logger.e('更新会话最后阅读索引失败', error: error);
+      throw Exception('更新会话最后阅读索引失败: ${error.toString()}');
+    }
+  }
+
   /// 根据标签过滤会话
   ///
   /// 根据标签类型过滤会话列表
@@ -759,6 +803,26 @@ class ChatsRepositoryImpl implements ChatsRepository {
     _logger.i('收到会话同步响应',
         extra: {'conversations': collection.conversations.length});
 
+    // 💢💢💢 新增：去重机制，防止重复处理同步响应
+    final currentSyncResponseHash = collection.hashCode.toString();
+    final currentSyncResponseTime = DateTime.now();
+
+    if (_lastSyncResponseHash == currentSyncResponseHash &&
+        _lastSyncResponseTime != null &&
+        currentSyncResponseTime.difference(_lastSyncResponseTime!).inSeconds <=
+            _deduplicationWindow.inSeconds) {
+      _logger.i('重复的同步响应，已忽略', extra: {
+        'hash': currentSyncResponseHash,
+        'timeDiff': currentSyncResponseTime
+            .difference(_lastSyncResponseTime!)
+            .inSeconds,
+      });
+      return;
+    }
+
+    _lastSyncResponseHash = currentSyncResponseHash;
+    _lastSyncResponseTime = currentSyncResponseTime;
+
     // 标记同步开始
     _conversationSyncController.add(ConversationSyncEvent(
       type: ConversationSyncType.syncStarted,
@@ -825,8 +889,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
           // 更新会话信息
           conversation.lastMessageName = notification.lastMessageName;
           conversation.lastMessagePreview = notification.lastMessagePreview;
-          conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
-              notification.lastMessageTime.toInt());
+          conversation.lastMessageIndex = notification.lastMessageIndex.toInt();
           conversation.unreadCount = notification.unreadCount;
 
           // 保存更新后的会话
@@ -976,149 +1039,24 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话阅读状态管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  @override
-  Future<void> updateLastReadAt(String conversationId, DateTime timestamp,
-      {bool syncToServer = false}) async {
-    _logger.i('更新会话最后阅读时间', extra: {
-      'conversationId': conversationId,
-      'timestamp': timestamp.toString(),
-      'syncToServer': syncToServer,
-    });
-
-    try {
-      // 🔥 更新本地会话数据库
-      final conversation = await _conversations
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .findFirst();
-      if (conversation != null) {
-        // 使用事务包装数据库写入操作
-        await _isar.writeTxn(() async {
-          conversation.lastReadAt = timestamp;
-
-          // 如果最后阅读时间晚于或等于最后消息时间，则清零未读计数
-          if (conversation.lastMessageTime != null &&
-              (timestamp.isAfter(conversation.lastMessageTime!) ||
-                  timestamp.isAtSameMomentAs(conversation.lastMessageTime!))) {
-            conversation.unreadCount = 0;
-          }
-
-          await _conversations.put(conversation);
-        });
-        _logger.d('本地数据库会话最后阅读时间已更新');
-
-        // 🔥 发送会话阅读状态更新事件，通知Cubit更新
-        _conversationUpdateController.add(ConversationUpdateEvent(
-          conversationId: conversationId,
-          type: ConversationUpdateType.readStatusUpdated,
-          lastReadAt: timestamp,
-          unreadCount: conversation.unreadCount,
-        ));
-      } else {
-        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
-        throw Exception('找不到指定会话');
-      }
-
-      // 🔥 根据syncToServer参数决定是否同步到服务器
-      if (syncToServer && _communicationService.isInitialized) {
-        _logger.i('开始同步会话最后阅读时间到服务器');
-
-        // 创建会话标记已读请求
-        final markReadRequest = conversation_proto.ConversationMarkReadRequest()
-          ..conversationId = conversationId
-          ..readAt = $fixnum.Int64(timestamp.millisecondsSinceEpoch);
-
-        // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:mark:read', markReadRequest);
-
-        _logger.d('会话最后阅读时间同步请求已发送');
-      } else if (syncToServer) {
-        _logger.w('通信服务未初始化，无法同步会话最后阅读时间到服务器');
-      }
-    } catch (error) {
-      _logger.e('更新会话最后阅读时间失败', error: error);
-      throw Exception('更新会话最后阅读时间失败: ${error.toString()}');
-    }
-  }
-
-  @override
-  Future<void> updateLastReadMessageId(
-      String conversationId, String messageId) async {
-    _logger.i('更新会话最后阅读消息ID', extra: {
-      'conversationId': conversationId,
-      'messageId': messageId,
-    });
-
-    try {
-      // 🔥 更新本地会话数据库
-      final conversation = await _conversations
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .findFirst();
-      if (conversation != null) {
-        // 使用事务包装数据库写入操作
-        await _isar.writeTxn(() async {
-          conversation.lastReadMessageId = messageId;
-          await _conversations.put(conversation);
-        });
-        _logger.d('本地数据库会话最后阅读消息ID已更新');
-
-        // 🔥 发送会话阅读状态更新事件，通知Cubit更新
-        _conversationUpdateController.add(ConversationUpdateEvent(
-          conversationId: conversationId,
-          type: ConversationUpdateType.readStatusUpdated,
-          lastReadMessageId: messageId,
-        ));
-      } else {
-        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
-        throw Exception('找不到指定会话');
-      }
-
-      // 🔥 根据syncToServer参数决定是否同步到服务器
-      if (_communicationService.isInitialized) {
-        _logger.i('开始同步会话最后阅读消息ID到服务器');
-
-        // 创建会话标记已读请求
-        final markReadRequest = conversation_proto.ConversationMarkReadRequest()
-          ..conversationId = conversationId
-          ..messageId = messageId;
-
-        // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:mark:read', markReadRequest);
-
-        _logger.d('会话最后阅读消息ID同步请求已发送');
-      } else {
-        _logger.w('通信服务未初始化，无法同步会话最后阅读消息ID到服务器');
-      }
-    } catch (error) {
-      _logger.e('更新会话最后阅读消息ID失败', error: error);
-      throw Exception('更新会话最后阅读消息ID失败: ${error.toString()}');
-    }
-  }
-
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 保存会话状态快照
   @override
-  Future<void> saveStateSnapshot(ChatStateSnapshot snapshot) async {
+  Future<void> saveStateSnapshot(
+      ChatStateSnapshot snapshot, String conversationId) async {
     try {
       // 💢💢💢 深拷贝消息列表以确保数据独立性
       final snapshotWithCopiedMessages = snapshot.copyWith(
         messages: List<Message>.from(snapshot.messages),
-        timestamp: DateTime.now(), // 更新保存时间戳
       );
 
-      _stateSnapshots[snapshot.conversation.conversationId] =
-          snapshotWithCopiedMessages;
+      _stateSnapshots[conversationId] = snapshotWithCopiedMessages;
 
       _logger.d('💾 保存会话状态快照', extra: {
-        'conversationId': snapshot.conversation.conversationId,
+        'conversationId': conversationId,
         'messageCount': snapshot.messages.length,
         'currentScrollPosition': snapshot.currentScrollPosition?.messageIndex,
-        'visibleMessageId': snapshot.visibleMessageId,
-        'unreadCount': snapshot.unreadCount,
       });
     } catch (error) {
       _logger.e('保存状态快照失败', error: error);

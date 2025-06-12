@@ -247,6 +247,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     ConversationType? type,
     $fixnum.Int64? createdAt,
     $fixnum.Int64? lastMessageTime,
+    $fixnum.Int64? lastMessageIndex,
     $core.String? lastMessagePreview,
     $core.String? lastMessageName,
     $core.int? unreadCount,
@@ -255,8 +256,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     $core.bool? muted,
     $core.bool? pinned,
     $core.String? createdBy,
-    $fixnum.Int64? lastReadAt,
-    $core.String? lastReadMessageId,
+    $fixnum.Int64? lastReadAtIndex,
   }) {
     final $result = create();
     if (conversationId != null) {
@@ -276,6 +276,9 @@ class ConversationProto extends $pb.GeneratedMessage {
     }
     if (lastMessageTime != null) {
       $result.lastMessageTime = lastMessageTime;
+    }
+    if (lastMessageIndex != null) {
+      $result.lastMessageIndex = lastMessageIndex;
     }
     if (lastMessagePreview != null) {
       $result.lastMessagePreview = lastMessagePreview;
@@ -301,11 +304,8 @@ class ConversationProto extends $pb.GeneratedMessage {
     if (createdBy != null) {
       $result.createdBy = createdBy;
     }
-    if (lastReadAt != null) {
-      $result.lastReadAt = lastReadAt;
-    }
-    if (lastReadMessageId != null) {
-      $result.lastReadMessageId = lastReadMessageId;
+    if (lastReadAtIndex != null) {
+      $result.lastReadAtIndex = lastReadAtIndex;
     }
     return $result;
   }
@@ -320,16 +320,16 @@ class ConversationProto extends $pb.GeneratedMessage {
     ..e<ConversationType>(4, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: ConversationType.PRIVATE, valueOf: ConversationType.valueOf, enumValues: ConversationType.values)
     ..aInt64(5, _omitFieldNames ? '' : 'createdAt')
     ..aInt64(6, _omitFieldNames ? '' : 'lastMessageTime')
-    ..aOS(7, _omitFieldNames ? '' : 'lastMessagePreview')
-    ..aOS(8, _omitFieldNames ? '' : 'lastMessageName')
-    ..a<$core.int>(9, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
-    ..aOS(10, _omitFieldNames ? '' : 'contactUserId')
-    ..pc<ParticipantProto>(11, _omitFieldNames ? '' : 'participants', $pb.PbFieldType.PM, subBuilder: ParticipantProto.create)
-    ..aOB(12, _omitFieldNames ? '' : 'muted')
-    ..aOB(13, _omitFieldNames ? '' : 'pinned')
-    ..aOS(14, _omitFieldNames ? '' : 'createdBy')
-    ..aInt64(15, _omitFieldNames ? '' : 'lastReadAt')
-    ..aOS(16, _omitFieldNames ? '' : 'lastReadMessageId')
+    ..aInt64(7, _omitFieldNames ? '' : 'lastMessageIndex')
+    ..aOS(8, _omitFieldNames ? '' : 'lastMessagePreview')
+    ..aOS(9, _omitFieldNames ? '' : 'lastMessageName')
+    ..a<$core.int>(10, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
+    ..aOS(11, _omitFieldNames ? '' : 'contactUserId')
+    ..pc<ParticipantProto>(12, _omitFieldNames ? '' : 'participants', $pb.PbFieldType.PM, subBuilder: ParticipantProto.create)
+    ..aOB(13, _omitFieldNames ? '' : 'muted')
+    ..aOB(14, _omitFieldNames ? '' : 'pinned')
+    ..aOS(15, _omitFieldNames ? '' : 'createdBy')
+    ..aInt64(16, _omitFieldNames ? '' : 'lastReadAtIndex')
     ..hasRequiredFields = false
   ;
 
@@ -410,91 +410,91 @@ class ConversationProto extends $pb.GeneratedMessage {
   void clearLastMessageTime() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.String get lastMessagePreview => $_getSZ(6);
+  $fixnum.Int64 get lastMessageIndex => $_getI64(6);
   @$pb.TagNumber(7)
-  set lastMessagePreview($core.String v) { $_setString(6, v); }
+  set lastMessageIndex($fixnum.Int64 v) { $_setInt64(6, v); }
   @$pb.TagNumber(7)
-  $core.bool hasLastMessagePreview() => $_has(6);
+  $core.bool hasLastMessageIndex() => $_has(6);
   @$pb.TagNumber(7)
-  void clearLastMessagePreview() => $_clearField(7);
+  void clearLastMessageIndex() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $core.String get lastMessageName => $_getSZ(7);
+  $core.String get lastMessagePreview => $_getSZ(7);
   @$pb.TagNumber(8)
-  set lastMessageName($core.String v) { $_setString(7, v); }
+  set lastMessagePreview($core.String v) { $_setString(7, v); }
   @$pb.TagNumber(8)
-  $core.bool hasLastMessageName() => $_has(7);
+  $core.bool hasLastMessagePreview() => $_has(7);
   @$pb.TagNumber(8)
-  void clearLastMessageName() => $_clearField(8);
+  void clearLastMessagePreview() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.int get unreadCount => $_getIZ(8);
+  $core.String get lastMessageName => $_getSZ(8);
   @$pb.TagNumber(9)
-  set unreadCount($core.int v) { $_setSignedInt32(8, v); }
+  set lastMessageName($core.String v) { $_setString(8, v); }
   @$pb.TagNumber(9)
-  $core.bool hasUnreadCount() => $_has(8);
+  $core.bool hasLastMessageName() => $_has(8);
   @$pb.TagNumber(9)
-  void clearUnreadCount() => $_clearField(9);
+  void clearLastMessageName() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $core.String get contactUserId => $_getSZ(9);
+  $core.int get unreadCount => $_getIZ(9);
   @$pb.TagNumber(10)
-  set contactUserId($core.String v) { $_setString(9, v); }
+  set unreadCount($core.int v) { $_setSignedInt32(9, v); }
   @$pb.TagNumber(10)
-  $core.bool hasContactUserId() => $_has(9);
+  $core.bool hasUnreadCount() => $_has(9);
   @$pb.TagNumber(10)
-  void clearContactUserId() => $_clearField(10);
+  void clearUnreadCount() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get contactUserId => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set contactUserId($core.String v) { $_setString(10, v); }
+  @$pb.TagNumber(11)
+  $core.bool hasContactUserId() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearContactUserId() => $_clearField(11);
 
   /// 参与者详细信息，包含所有参与者的完整信息
-  @$pb.TagNumber(11)
-  $pb.PbList<ParticipantProto> get participants => $_getList(10);
+  @$pb.TagNumber(12)
+  $pb.PbList<ParticipantProto> get participants => $_getList(11);
 
   /// 扩展字段，用于通信但数据库中可能没有
-  @$pb.TagNumber(12)
-  $core.bool get muted => $_getBF(11);
-  @$pb.TagNumber(12)
-  set muted($core.bool v) { $_setBool(11, v); }
-  @$pb.TagNumber(12)
-  $core.bool hasMuted() => $_has(11);
-  @$pb.TagNumber(12)
-  void clearMuted() => $_clearField(12);
-
   @$pb.TagNumber(13)
-  $core.bool get pinned => $_getBF(12);
+  $core.bool get muted => $_getBF(12);
   @$pb.TagNumber(13)
-  set pinned($core.bool v) { $_setBool(12, v); }
+  set muted($core.bool v) { $_setBool(12, v); }
   @$pb.TagNumber(13)
-  $core.bool hasPinned() => $_has(12);
+  $core.bool hasMuted() => $_has(12);
   @$pb.TagNumber(13)
-  void clearPinned() => $_clearField(13);
+  void clearMuted() => $_clearField(13);
 
   @$pb.TagNumber(14)
-  $core.String get createdBy => $_getSZ(13);
+  $core.bool get pinned => $_getBF(13);
   @$pb.TagNumber(14)
-  set createdBy($core.String v) { $_setString(13, v); }
+  set pinned($core.bool v) { $_setBool(13, v); }
   @$pb.TagNumber(14)
-  $core.bool hasCreatedBy() => $_has(13);
+  $core.bool hasPinned() => $_has(13);
   @$pb.TagNumber(14)
-  void clearCreatedBy() => $_clearField(14);
+  void clearPinned() => $_clearField(14);
 
-  /// 最后阅读时间，用于客户端计算会话未读状态
   @$pb.TagNumber(15)
-  $fixnum.Int64 get lastReadAt => $_getI64(14);
+  $core.String get createdBy => $_getSZ(14);
   @$pb.TagNumber(15)
-  set lastReadAt($fixnum.Int64 v) { $_setInt64(14, v); }
+  set createdBy($core.String v) { $_setString(14, v); }
   @$pb.TagNumber(15)
-  $core.bool hasLastReadAt() => $_has(14);
+  $core.bool hasCreatedBy() => $_has(14);
   @$pb.TagNumber(15)
-  void clearLastReadAt() => $_clearField(15);
+  void clearCreatedBy() => $_clearField(15);
 
+  /// 最后阅读消息索引，用于客户端计算会话未读状态
   @$pb.TagNumber(16)
-  $core.String get lastReadMessageId => $_getSZ(15);
+  $fixnum.Int64 get lastReadAtIndex => $_getI64(15);
   @$pb.TagNumber(16)
-  set lastReadMessageId($core.String v) { $_setString(15, v); }
+  set lastReadAtIndex($fixnum.Int64 v) { $_setInt64(15, v); }
   @$pb.TagNumber(16)
-  $core.bool hasLastReadMessageId() => $_has(15);
+  $core.bool hasLastReadAtIndex() => $_has(15);
   @$pb.TagNumber(16)
-  void clearLastReadMessageId() => $_clearField(16);
+  void clearLastReadAtIndex() => $_clearField(16);
 }
 
 /// 会话更新
@@ -810,7 +810,7 @@ class SyncConversationsRequest extends $pb.GeneratedMessage {
 class ConversationUpdateNotification extends $pb.GeneratedMessage {
   factory ConversationUpdateNotification({
     $core.String? conversationId,
-    $fixnum.Int64? lastMessageTime,
+    $fixnum.Int64? lastMessageIndex,
     $core.String? lastMessagePreview,
     $core.String? lastMessageName,
     $core.int? unreadCount,
@@ -819,8 +819,8 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (lastMessageTime != null) {
-      $result.lastMessageTime = lastMessageTime;
+    if (lastMessageIndex != null) {
+      $result.lastMessageIndex = lastMessageIndex;
     }
     if (lastMessagePreview != null) {
       $result.lastMessagePreview = lastMessagePreview;
@@ -839,7 +839,7 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationUpdateNotification', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aInt64(2, _omitFieldNames ? '' : 'lastMessageTime')
+    ..aInt64(2, _omitFieldNames ? '' : 'lastMessageIndex')
     ..aOS(3, _omitFieldNames ? '' : 'lastMessagePreview')
     ..aOS(4, _omitFieldNames ? '' : 'lastMessageName')
     ..a<$core.int>(5, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
@@ -877,13 +877,13 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   void clearConversationId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $fixnum.Int64 get lastMessageTime => $_getI64(1);
+  $fixnum.Int64 get lastMessageIndex => $_getI64(1);
   @$pb.TagNumber(2)
-  set lastMessageTime($fixnum.Int64 v) { $_setInt64(1, v); }
+  set lastMessageIndex($fixnum.Int64 v) { $_setInt64(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasLastMessageTime() => $_has(1);
+  $core.bool hasLastMessageIndex() => $_has(1);
   @$pb.TagNumber(2)
-  void clearLastMessageTime() => $_clearField(2);
+  void clearLastMessageIndex() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get lastMessagePreview => $_getSZ(2);

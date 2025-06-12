@@ -284,9 +284,9 @@ Widget _buildTimeAndUnreadCount(Conversation conversation) {
 
 /// 构建未读消息徽章
 Widget _buildUnreadBadge(Conversation conversation) {
-  final bool isNewMessage = conversation.lastReadAt == null ||
-      (conversation.lastMessageTime != null &&
-          conversation.lastReadAt!.isBefore(conversation.lastMessageTime!));
+  final bool isNewMessage = conversation.lastReadAtIndex == null ||
+      (conversation.lastMessageIndex != null &&
+          conversation.lastReadAtIndex! < conversation.lastMessageIndex!);
 
   return Container(
     margin: const EdgeInsets.only(top: 16),

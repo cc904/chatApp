@@ -45,23 +45,23 @@ class ConversationAdapter {
           ? DateTime.fromMillisecondsSinceEpoch(
               protoConv.lastMessageTime.toInt())
           : null
+      ..lastMessageIndex = protoConv.hasLastMessageIndex()
+          ? protoConv.lastMessageIndex.toInt()
+          : null
       ..createdAt = protoConv.hasCreatedAt()
           ? DateTime.fromMillisecondsSinceEpoch(protoConv.createdAt.toInt())
           : DateTime.now()
       ..unreadCount = protoConv.hasUnreadCount() ? protoConv.unreadCount : 0
       ..contactUserId =
           protoConv.hasContactUserId() ? protoConv.contactUserId : null
-      ..lastMessageId =
-          protoConv.hasLastReadMessageId() ? protoConv.lastReadMessageId : null
+      ..lastMessageId = null // 已移除lastReadMessageId字段
       ..isMuted = protoConv.hasMuted() ? protoConv.muted : false
       ..lastMessageName =
           protoConv.hasLastMessageName() ? protoConv.lastMessageName : null
       ..isPinned = protoConv.hasPinned() ? protoConv.pinned : false
-      ..lastReadAt = protoConv.hasLastReadAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoConv.lastReadAt.toInt())
+      ..lastReadAtIndex = protoConv.hasLastReadAtIndex()
+          ? protoConv.lastReadAtIndex.toInt()
           : null
-      ..lastReadMessageId =
-          protoConv.hasLastReadMessageId() ? protoConv.lastReadMessageId : null
       ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null;
 
     return conversation;
@@ -110,6 +110,9 @@ class ConversationAdapter {
       lastMessageTime: conversation.lastMessageTime != null
           ? Int64(conversation.lastMessageTime!.millisecondsSinceEpoch)
           : null,
+      lastMessageIndex: conversation.lastMessageIndex != null
+          ? Int64(conversation.lastMessageIndex!)
+          : null,
       createdAt: Int64(conversation.createdAt.millisecondsSinceEpoch),
       unreadCount: conversation.unreadCount,
       contactUserId: conversation.contactUserId,
@@ -117,10 +120,9 @@ class ConversationAdapter {
       participants: participantProtos,
       muted: conversation.isMuted,
       pinned: conversation.isPinned,
-      lastReadAt: conversation.lastReadAt != null
-          ? Int64(conversation.lastReadAt!.millisecondsSinceEpoch)
+      lastReadAtIndex: conversation.lastReadAtIndex != null
+          ? Int64(conversation.lastReadAtIndex!)
           : null,
-      lastReadMessageId: conversation.lastReadMessageId,
       createdBy: conversation.createdBy,
     );
   }

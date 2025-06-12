@@ -1,8 +1,6 @@
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/conversation_cursor.dart';
-import 'package:cc/features/chat/domain/entities/message_cursor.dart';
-import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/presentation/cubit/message_update_operation.dart';
 
 /// 搜索结果类
 /// 包含搜索相关的所有信息
@@ -84,6 +82,10 @@ class ConversationInfo {
 abstract class ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
+  /// 加载本地最新的消息
+  Future<void> loadLatestLocalMessages(String conversationId,
+      {int limit = 50});
+
   /// 获取会话消息
   Future<void> getConversationMessages(String conversationId,
       {int limit = 20, DateTime? before});
@@ -154,7 +156,7 @@ abstract class ChatRepository {
 
   /// 标记当前查看的消息为已读
   Future<void> markMessagesAsReadBySelf(
-      String conversationId, String messageId);
+      String conversationId, Message message);
 
   /// 标记当前查看的消息为已读
   Future<void> markMessagesAsReadByOther(
@@ -192,7 +194,7 @@ abstract class ChatRepository {
   Stream<Map<String, dynamic>> getTypingStatusStream();
 
   /// 获取消息状态流
-  Stream<Map<String, dynamic>> getMessageStatusStream();
+  Stream<MessagesUpdateOperation> getMessageStatusStream();
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -205,62 +207,12 @@ abstract class ChatRepository {
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   网络请求   💢💢💢💢💢💢💢��💢💢💢💢💢💢
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新的游标同步方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 向前游标同步（获取新消息）
-  /// [conversationId] - 会话ID
-  /// [cursor] - 起始游标位置
-  /// [limit] - 获取消息数量限制
-  /// 返回同步结果
-  Future<CursorSyncResult> syncMessagesForward(
-    String conversationId, {
-    MessageCursor? cursor,
-    int limit = 50,
-  });
-
-  /// 向后游标同步（获取历史消息）
-  /// [conversationId] - 会话ID
-  /// [cursor] - 起始游标位置
-  /// [limit] - 获取消息数量限制
-  /// 返回同步结果
-  Future<bool> syncMessagesBackward(
-    String conversationId, {
-    MessageCursor? cursor,
-    int limit = 50,
-  });
-
-  /// 双向游标同步（获取上下文消息）
-  /// [conversationId] - 会话ID
-  /// [cursor] - 中心游标位置
-  /// [beforeCount] - 游标前消息数量
-  /// [afterCount] - 游标后消息数量
-  /// [includeCursor] - 是否包含游标消息本身
-  /// 返回同步结果
-  Future<CursorSyncResult> syncMessagesAround(
-    String conversationId, {
-    required MessageCursor cursor,
-    int beforeCount = 10,
-    int afterCount = 10,
-    bool includeCursor = true,
-  });
-
-  /// 初始加载消息
-  /// [conversationId] - 会话ID
-  /// [limit] - 获取消息数量限制
-  /// 返回同步结果
-  Future<bool> syncMessagesInitial(
-    String conversationId, {
-    int limit = 50,
-  });
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：基于Index的简化同步方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   网络请求   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 同步新消息（基于index）
   /// [conversationId] - 会话ID
   /// [fromIndex] - 起始index（客户端本地最新消息的index）
-  /// [limit] - 获取消息数量限制，默认50
+  /// [limit] - 获取消息数量限制，默认50  
   /// 返回同步是否成功
   Future<bool> syncNewMessages(
     String conversationId, {
@@ -279,39 +231,6 @@ abstract class ChatRepository {
     int limit = 50,
   });
 
-  /// 获取或创建会话游标记录
-  /// [conversationId] - 会话ID
-  /// 返回游标记录
-  Future<ConversationCursor> getCursor(String conversationId);
-
-  /// 更新会话游标记录
-  /// [cursor] - 更新的游标记录
-  Future<void> updateCursor(ConversationCursor cursor);
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 游标管理方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 获取本地游标
-  /// [conversationId] - 会话ID
-  /// 返回本地游标信息
-  Future<MessageCursor> getLocalCursor(String conversationId);
-
-  /// 更新本地游标
-  /// [conversationId] - 会话ID
-  /// [cursor] - 新的游标位置
-  Future<void> updateLocalCursor(String conversationId, MessageCursor cursor);
-
-  /// 获取同步游标
-  /// [conversationId] - 会话ID
-  /// 返回同步游标信息
-  Future<MessageCursor> getSyncCursor(String conversationId);
-
-  /// 更新同步游标
-  /// [conversationId] - 会话ID
-  /// [cursor] - 新的游标位置
-  Future<void> updateSyncCursor(String conversationId, MessageCursor cursor);
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 辅助方法 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
   /// 检查消息是否存在于本地数据库
   Future<bool> isMessageExistsLocally(String conversationId, String messageId);
 
@@ -325,7 +244,7 @@ abstract class ChatRepository {
 
   /// 创建临时消息（用于发送前显示）
   Future<Message> createTempMessage(
-      String conversationId, String content, String type);
+      String conversationId, String content, MessageType type);
 
   /// 发送消息（带超时机制，不等待响应）
   Future<void> sendMessageWithTimeout(Message message,
@@ -338,61 +257,5 @@ abstract class ChatRepository {
   Future<Message?> getMessageById(String messageId);
 
   /// 更新消息状态
-  Future<void> updateMessageStatus(String messageId, String status);
-
-  /// 清理重复消息数据
-  Future<int> cleanupDuplicateMessages(String conversationId);
-
-  /// 验证消息数据一致性
-  Future<Map<String, dynamic>> validateMessageConsistency(
-      String conversationId);
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新增：无缝消息同步 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 执行无缝消息同步
-  /// 解决进入房间和历史同步之间的消息空档期问题
-  /// [conversationId] - 会话ID
-  /// [joinTimestamp] - 用户进入房间的时间戳
-  /// [lastLocalMessageTimestamp] - 本地最新消息的时间戳
-  Future<bool> performSeamlessSync(
-    String conversationId,
-    DateTime joinTimestamp,
-    DateTime? lastLocalMessageTimestamp,
-  );
-}
-
-/// 会话同步任务（更新支持游标）
-class ConversationSyncTask {
-  final String conversationId;
-  final message_proto.MessageSyncType type;
-  final String? anchorMessageId; // 保留兼容性
-  final MessageCursor? cursor; // 新增游标支持
-  final int priority;
-  final int? limit;
-
-  ConversationSyncTask({
-    required this.conversationId,
-    required this.type,
-    this.anchorMessageId,
-    this.cursor,
-    this.priority = 0,
-    this.limit,
-  });
-
-  /// 创建游标任务
-  factory ConversationSyncTask.cursor({
-    required String conversationId,
-    required message_proto.MessageSyncType type,
-    MessageCursor? cursor,
-    int priority = 0,
-    int? limit,
-  }) {
-    return ConversationSyncTask(
-      conversationId: conversationId,
-      type: type,
-      cursor: cursor,
-      priority: priority,
-      limit: limit,
-    );
-  }
+  Future<void> updateMessageStatus(String messageId, MessageStatus status);
 }

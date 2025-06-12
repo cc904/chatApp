@@ -25,6 +25,7 @@ class Conversation {
   String? avatar;
   DateTime createdAt = DateTime.now();
   DateTime? lastMessageTime;
+  int? lastMessageIndex;
   String? lastMessagePreview;
   String? lastMessageId;
 
@@ -37,11 +38,8 @@ class Conversation {
   // 会话是否置顶
   bool isPinned = false;
 
-  // 最后阅读时间，用于客户端计算会话未读状态
-  DateTime? lastReadAt;
-
-  // 最后阅读的消息ID，用于记录阅读位置
-  String? lastReadMessageId;
+  // 最后阅读的消息索引，用于客户端计算会话未读状态
+  int? lastReadAtIndex;
 
   // 未读消息数量
   int unreadCount = 0;
@@ -74,17 +72,17 @@ class Conversation {
 
   /// 判断会话是否有未读消息
   bool get hasUnread {
-    // 基本版本：如果最后消息时间晚于最后阅读时间，则会话有未读消息
-    if (lastMessageTime != null && lastReadAt != null) {
-      return lastMessageTime!.isAfter(lastReadAt!);
+    // 基于消息索引判断：如果最后消息索引大于最后阅读索引，则有未读消息
+    if (lastMessageIndex != null && lastReadAtIndex != null) {
+      return lastMessageIndex! > lastReadAtIndex!;
     }
 
-    // 如果没有最后阅读时间但有未读计数，也认为有未读消息
-    if (lastReadAt == null && unreadCount > 0) {
+    // 如果没有最后阅读索引但有未读计数，也认为有未读消息
+    if (lastReadAtIndex == null && unreadCount > 0) {
       return true;
     }
 
-    // 增强版本：结合未读消息计数判断
+    // 基于未读消息计数判断
     return unreadCount > 0;
   }
 
@@ -96,13 +94,13 @@ class Conversation {
     String? avatar,
     DateTime? createdAt,
     DateTime? lastMessageTime,
+    int? lastMessageIndex,
     String? lastMessagePreview,
     String? lastMessageId,
     String? lastMessageName,
     bool? muted,
     bool? pinned,
-    DateTime? lastReadAt,
-    String? lastReadMessageId,
+    int? lastReadAtIndex,
     int? unreadCount,
     String? contactUserId,
     String? createdBy,
@@ -115,13 +113,13 @@ class Conversation {
       ..avatar = avatar ?? this.avatar
       ..createdAt = createdAt ?? this.createdAt
       ..lastMessageTime = lastMessageTime ?? this.lastMessageTime
+      ..lastMessageIndex = lastMessageIndex ?? this.lastMessageIndex
       ..lastMessagePreview = lastMessagePreview ?? this.lastMessagePreview
       ..lastMessageId = lastMessageId ?? this.lastMessageId
       ..lastMessageName = lastMessageName ?? this.lastMessageName
       ..isMuted = muted ?? isMuted
       ..isPinned = pinned ?? isPinned
-      ..lastReadAt = lastReadAt ?? this.lastReadAt
-      ..lastReadMessageId = lastReadMessageId ?? this.lastReadMessageId
+      ..lastReadAtIndex = lastReadAtIndex ?? this.lastReadAtIndex
       ..unreadCount = unreadCount ?? this.unreadCount
       ..contactUserId = contactUserId ?? this.contactUserId
       ..createdBy = createdBy ?? this.createdBy;

@@ -114,9 +114,10 @@ class _ChatPageState extends State<ChatPage> {
 
         if (lastVisibleIndex != null &&
             lastVisibleIndex >= state.messages.length - 10 &&
-            state.hasMoreHistory &&
+            state.hasMoreBefore &&
             !state.isSearchMode && // 💢💢💢 搜索模式下不加载历史消息
-            !state.isCleaningMessages) {
+            !state.isCleaningMessages &&
+            !state.isSyncing) {
           // 💢💢💢 清理消息状态下不加载历史消息
           _logger.i('检查是否需要加载更多历史消息', extra: {
             'lastVisibleIndex': lastVisibleIndex,
@@ -163,7 +164,7 @@ class _ChatPageState extends State<ChatPage> {
     _logger.i('加载更多历史消息', extra: {
       'conversationId': state.conversation.id,
     });
-    context.read<ChatCubit>().loadMoreMessages();
+    // context.read<ChatCubit>().requestMoreMessages();
   }
 
   /// 💢💢💢 完善的滚动到指定消息方法
@@ -341,6 +342,7 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -535,30 +537,30 @@ class _ChatPageState extends State<ChatPage> {
             _scrollToMessage(currentResultMessageId);
           });
         }
-        // 💢💢💢 自动滚动到设置的位置（初始化时滚动到最新消息）
-        else if (!state.isSearchMode &&
-            state.currentScrollPosition.messageId != null) {
-          final targetMessageId = state.currentScrollPosition.messageId!;
-          final targetIndex = state.currentScrollPosition.messageIndex ?? 0;
-          final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
+        // // 💢💢💢 自动滚动到设置的位置（初始化时滚动到最新消息）
+        // else if (!state.isSearchMode &&
+        //     state.currentScrollPosition.messageId != null) {
+        //   final targetMessageId = state.currentScrollPosition.messageId!;
+        //   final targetIndex = state.currentScrollPosition.messageIndex ?? 0;
+        //   final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
 
-          _logger.i('💢 BlocListener 初始化滚动到最新消息', extra: {
-            'targetMessageId': targetMessageId,
-            'targetIndex': targetIndex,
-            'alignment': alignment,
-            'reason': '根据业务逻辑显示最新消息',
-          });
+        //   _logger.i('💢 BlocListener 初始化滚动到最新消息', extra: {
+        //     'targetMessageId': targetMessageId,
+        //     'targetIndex': targetIndex,
+        //     'alignment': alignment,
+        //     'reason': '根据业务逻辑显示最新消息',
+        //   });
 
-          // 延迟执行滚动，等待UI更新完成
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _logger.d('💢 BlocListener 执行初始化滚动回调');
-            _scrollToMessage(
-              targetMessageId,
-              alignment: alignment,
-              duration: const Duration(milliseconds: 100), // 快速滚动
-            );
-          });
-        }
+        //   // 延迟执行滚动，等待UI更新完成
+        //   WidgetsBinding.instance.addPostFrameCallback((_) {
+        //     _logger.d('💢 BlocListener 执行初始化滚动回调');
+        //     _scrollToMessage(
+        //       targetMessageId,
+        //       alignment: alignment,
+        //       duration: const Duration(milliseconds: 100), // 快速滚动
+        //     );
+        //   });
+        // }
       },
       child: BlocBuilder<ChatCubit, ChatState>(
         buildWhen: (previous, current) {
@@ -595,13 +597,6 @@ class _ChatPageState extends State<ChatPage> {
           return false;
         },
         builder: (context, state) {
-          _logger.w('💢 BlocBuilder builder 被调用', extra: {
-            'stateHash': state.hashCode,
-            'messagesLength': state.messages.length,
-            'isSearchMode': state.isSearchMode,
-            'isSearching': state.isSearching,
-          });
-
           _logger.i('💢 BlocBuilder 重绘');
 
           // 获取当前应该显示的消息列表
@@ -732,7 +727,7 @@ class _ChatPageState extends State<ChatPage> {
 
                   // 根据类型渲染不同的组件
                   if (item is MessageListItemData) {
-                    final message = item.message as Message;
+                    final message = item.message;
 
                     // 💢💢💢 检查消息是否为搜索结果
                     final chatCubit = context.read<ChatCubit>();
@@ -751,7 +746,8 @@ class _ChatPageState extends State<ChatPage> {
                       showTail: item.showTail,
                       isPrivateChat: item.isPrivateChat,
                       onTap: () => _onMessageTap(message),
-                      onResend: message.status == 'failed' && item.isCurrentUser
+                      onResend: message.status == MessageStatus.failed &&
+                              item.isCurrentUser
                           ? () => _onResendMessage(message.messageId)
                           : null, // 💢💢💢 新增：重发回调
                       // 💢💢💢 新增搜索相关参数
@@ -790,63 +786,119 @@ class _ChatPageState extends State<ChatPage> {
 
   /// 构建输入区域
   Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.withAlpha(51), // 替代过时的withOpacity
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.attach_file),
-            onPressed: () {
-              // TODO 实现文件附件功能
-            },
-          ),
-          Expanded(
-            child: TextField(
-              controller: _textController,
-              focusNode: _focusNode,
-              decoration: InputDecoration(
-                hintText: '输入消息...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey.withAlpha(51), // 替代过时的withOpacity
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
+    return BlocBuilder<ChatCubit, ChatState>(
+      buildWhen: (previous, current) {
+        // 只在发送状态或网络状态变化时重建
+        return previous.isSending != current.isSending ||
+            previous.networkStatus != current.networkStatus;
+      },
+      builder: (context, state) {
+        final isEnabled =
+            state.networkStatus == ChatState.kNetworkStatusConnected &&
+                !state.isSending;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              top: BorderSide(
+                color: Colors.grey.withAlpha(51),
+                width: 0.5,
               ),
-              maxLines: null,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
             ),
           ),
-          const SizedBox(width: 8.0),
-          BlocBuilder<ChatCubit, ChatState>(
-            builder: (context, state) {
-              return IconButton(
-                icon: Icon(
-                  Icons.send,
-                  color: state.isSending
-                      ? Colors.grey
-                      : Theme.of(context).primaryColor,
+          child: SafeArea(
+            child: Row(
+              children: [
+                // 输入框
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                        width: 0.5,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _textController,
+                      enabled: isEnabled,
+                      maxLines: 5,
+                      minLines: 1,
+                      decoration: InputDecoration(
+                        hintText: isEnabled ? '输入消息...' : '连接中...',
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 16,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: isEnabled ? (text) => _sendMessage() : null,
+                    ),
+                  ),
                 ),
-                onPressed: state.isSending ? null : _sendMessage,
-              );
-            },
+
+                const SizedBox(width: 8),
+
+                // 发送按钮
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isEnabled
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.shade400,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: isEnabled ? _sendMessage : null,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                        ),
+                        child: state.isSending
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.send,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

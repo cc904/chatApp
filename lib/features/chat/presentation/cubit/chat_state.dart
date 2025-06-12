@@ -120,10 +120,10 @@ class ChatState extends Equatable {
   final String? lastReadMessageId;
 
   /// 是否有更多历史消息可加载
-  final bool hasMoreHistory;
+  final bool hasMoreBefore;
 
   /// 是否有更多新消息可加载
-  final bool hasMoreRecent;
+  final bool hasMoreAfter;
 
   /// 未读消息数量
   final int unreadCount;
@@ -180,16 +180,6 @@ class ChatState extends Equatable {
   /// 同步期间暂存的新消息队列
   final List<Message> pendingMessages;
 
-  /// 是否在同步期间收到了新消息
-  final bool hasNewMessagesDuringSync;
-
-  /// 🔥 Index方案：以下字段已废弃，ConversationCursor.latestMessageIndex替代时间戳
-  /// 最后一次同步的时间戳（用于增量同步）- 已废弃，使用ConversationCursor.latestMessageIndex
-  final int? lastSyncTimestamp;
-
-  /// 是否正在进行增量同步 - 已废弃，Index方案下每次同步都是增量的
-  final bool isIncrementalSyncing;
-
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -201,8 +191,8 @@ class ChatState extends Equatable {
     this.errorMessage,
     this.currentUser,
     this.lastReadMessageId,
-    required this.hasMoreHistory,
-    required this.hasMoreRecent,
+    required this.hasMoreBefore,
+    required this.hasMoreAfter,
     required this.unreadCount,
     this.firstUnreadMessageId,
     required this.currentScrollPosition,
@@ -220,9 +210,6 @@ class ChatState extends Equatable {
     this.messageUpdateTrigger = 0,
     this.isSyncing = false,
     this.pendingMessages = const [],
-    this.hasNewMessagesDuringSync = false,
-    this.lastSyncTimestamp,
-    this.isIncrementalSyncing = false,
   });
 
   /// 初始状态
@@ -243,8 +230,8 @@ class ChatState extends Equatable {
       isSending: false,
       networkStatus: 'connected',
       errorMessage: null,
-      hasMoreHistory: true,
-      hasMoreRecent: false,
+      hasMoreBefore: true,
+      hasMoreAfter: false,
       unreadCount: 0,
       currentScrollPosition: const CurrentScrollPosition.empty(),
       currentUser: currentUser,
@@ -257,9 +244,6 @@ class ChatState extends Equatable {
       messageUpdateTrigger: 0,
       isSyncing: false,
       pendingMessages: const [],
-      hasNewMessagesDuringSync: false,
-      lastSyncTimestamp: null,
-      isIncrementalSyncing: false,
     );
   }
 
@@ -274,8 +258,8 @@ class ChatState extends Equatable {
     String? networkStatus,
     String? errorMessage,
     String? lastReadMessageId,
-    bool? hasMoreHistory,
-    bool? hasMoreRecent,
+    bool? hasMoreBefore,
+    bool? hasMoreAfter,
     int? unreadCount,
     String? firstUnreadMessageId,
     CurrentScrollPosition? currentScrollPosition,
@@ -294,9 +278,6 @@ class ChatState extends Equatable {
     int? messageUpdateTrigger,
     bool? isSyncing,
     List<Message>? pendingMessages,
-    bool? hasNewMessagesDuringSync,
-    int? lastSyncTimestamp,
-    bool? isIncrementalSyncing,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -309,8 +290,8 @@ class ChatState extends Equatable {
       networkStatus: networkStatus ?? this.networkStatus,
       errorMessage: errorMessage ?? this.errorMessage,
       lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
-      hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
-      hasMoreRecent: hasMoreRecent ?? this.hasMoreRecent,
+      hasMoreBefore: hasMoreBefore ?? this.hasMoreBefore,
+      hasMoreAfter: hasMoreAfter ?? this.hasMoreAfter,
       unreadCount: unreadCount ?? this.unreadCount,
       firstUnreadMessageId: firstUnreadMessageId ?? this.firstUnreadMessageId,
       currentScrollPosition:
@@ -335,10 +316,6 @@ class ChatState extends Equatable {
       messageUpdateTrigger: messageUpdateTrigger ?? this.messageUpdateTrigger,
       isSyncing: isSyncing ?? this.isSyncing,
       pendingMessages: pendingMessages ?? this.pendingMessages,
-      hasNewMessagesDuringSync:
-          hasNewMessagesDuringSync ?? this.hasNewMessagesDuringSync,
-      lastSyncTimestamp: lastSyncTimestamp ?? this.lastSyncTimestamp,
-      isIncrementalSyncing: isIncrementalSyncing ?? this.isIncrementalSyncing,
     );
   }
 
@@ -353,8 +330,8 @@ class ChatState extends Equatable {
     return {
       'totalMessages': messages.length,
       'unreadCount': unreadCount,
-      'hasMoreHistory': hasMoreHistory,
-      'hasMoreRecent': hasMoreRecent,
+      'hasMoreBefore': hasMoreBefore,
+      'hasMoreAfter': hasMoreAfter,
       'firstMessageTime': messages.isNotEmpty
           ? messages.first.createdAt.toIso8601String()
           : null,
@@ -365,10 +342,10 @@ class ChatState extends Equatable {
   }
 
   /// 检查是否可以加载更多历史消息
-  bool get canLoadMoreHistory => hasMoreHistory;
+  bool get canLoadMoreHistory => hasMoreBefore;
 
   /// 检查是否可以加载更多新消息
-  bool get canLoadMoreRecent => hasMoreRecent;
+  bool get canLoadMoreRecent => hasMoreAfter;
 
   @override
   List<Object?> get props => [
@@ -382,8 +359,8 @@ class ChatState extends Equatable {
         errorMessage,
         currentUser,
         lastReadMessageId,
-        hasMoreHistory,
-        hasMoreRecent,
+        hasMoreBefore,
+        hasMoreAfter,
         unreadCount,
         firstUnreadMessageId,
         currentScrollPosition,
@@ -401,8 +378,5 @@ class ChatState extends Equatable {
         messageUpdateTrigger,
         isSyncing,
         pendingMessages,
-        hasNewMessagesDuringSync,
-        lastSyncTimestamp,
-        isIncrementalSyncing,
       ];
 }

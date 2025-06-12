@@ -214,27 +214,27 @@ class _ChatsPageState extends State<ChatsPage>
       buildWhen: (previous, current) =>
           previous.conversations != current.conversations,
       builder: (context, state) {
-        // 检查各分类下是否有新消息（lastReadAt < lastMessageTime）
+        // 检查各分类下是否有新消息（lastReadAtIndex < lastMessageIndex）
         final hasNewPrivateMessages = state.conversations
             .where((c) => c.type == ConversationType.private)
             .any((c) =>
-                c.lastReadAt != null &&
-                c.lastMessageTime != null &&
-                c.lastReadAt!.isBefore(c.lastMessageTime!));
+                c.lastReadAtIndex != null &&
+                c.lastMessageIndex != null &&
+                c.lastReadAtIndex! < c.lastMessageIndex!);
 
         final hasNewGroupMessages = state.conversations
             .where((c) => c.type == ConversationType.group)
             .any((c) =>
-                c.lastReadAt != null &&
-                c.lastMessageTime != null &&
-                c.lastReadAt!.isBefore(c.lastMessageTime!));
+                c.lastReadAtIndex != null &&
+                c.lastMessageIndex != null &&
+                c.lastReadAtIndex! < c.lastMessageIndex!);
 
         final hasNewChannelMessages = state.conversations
             .where((c) => c.type == ConversationType.channel)
             .any((c) =>
-                c.lastReadAt != null &&
-                c.lastMessageTime != null &&
-                c.lastReadAt!.isBefore(c.lastMessageTime!));
+                c.lastReadAtIndex != null &&
+                c.lastMessageIndex != null &&
+                c.lastReadAtIndex! < c.lastMessageIndex!);
 
         // 计算未读会话数量（除了All Chats）
         final privateUnreadCount = state.conversations

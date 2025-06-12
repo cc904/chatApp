@@ -177,7 +177,7 @@ void main() {
         type: proto.ConversationType.PRIVATE,
         createdAt: timestamp,
         lastMessageTime: timestamp,
-        lastReadAt: timestamp,
+        lastReadAtIndex: Int64(1),
       );
 
       // 转换为Conversation对象
@@ -188,7 +188,7 @@ void main() {
           closeTo(now.millisecondsSinceEpoch, 1000));
       expect(conversation.lastMessageTime?.millisecondsSinceEpoch,
           closeTo(now.millisecondsSinceEpoch, 1000));
-      expect(conversation.lastReadAt?.millisecondsSinceEpoch,
+      expect(conversation.lastReadAtIndex,
           closeTo(now.millisecondsSinceEpoch, 1000));
     });
   });

@@ -127,10 +127,6 @@ class HomeCubit extends Cubit<HomeState> {
       final connectivityResult = await _connectivity.checkConnectivity();
       _updateNetworkStatus(connectivityResult.first);
 
-      // 如果连接上了，尝试加载数据
-      if (state.isConnected) {
-        // TODO await _loadConversations();
-      }
     } catch (error) {
       _logger.e('检查网络连接失败', error: error);
       emit(state.copyWith(

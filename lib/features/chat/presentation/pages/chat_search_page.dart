@@ -8,7 +8,6 @@ import 'package:cc/features/chat/presentation/utils/date_picker_utility.dart';
 import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 // 导入本地化支持
 import 'package:cc/core/utils/ui_notification_helper.dart';
-import 'package:cc/core/constants/message_types.dart';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -67,10 +66,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   void _loadAllMessages() {
     context.read<HomeCubit>();
     _allMessages = [];
-    // TODO homeCubit.state.messagesByConversation[widget.conversationId] ?? [];
 
     // 按时间倒序排序
-    _allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _allMessages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
   }
 
   // 执行搜索

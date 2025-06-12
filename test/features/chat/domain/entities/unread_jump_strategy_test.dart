@@ -11,7 +11,7 @@ void main() {
         ..text = '测试消息 $id'
         ..senderId = 'user123'
         ..createdAt = time
-        ..type = 'text';
+        ..type = MessageType.text;
       return message;
     }
 

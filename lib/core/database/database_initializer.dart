@@ -6,8 +6,6 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
-import 'package:cc/core/database/models/message_cursor_pair.dart';
-import 'package:cc/core/database/models/conversation_cursor.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// 数据库初始化器
@@ -85,8 +83,6 @@ class DatabaseInitializer {
         MessageSchema,
         CurrentUserSchema,
         FriendRequestSchema,
-        MessageCursorPairModelSchema,
-        ConversationCursorSchema,
       ];
 
       final isarInstance = await Isar.open(

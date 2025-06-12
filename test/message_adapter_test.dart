@@ -16,7 +16,9 @@ void main() {
         createdAt: Int64(DateTime.now().millisecondsSinceEpoch),
         status: proto.MessageStatus.SENT,
         type: proto.MessageType.TEXT,
-        text: 'Hello, World!',
+        textMessage: proto.TextMessage(
+          text: 'Hello, World!',
+        ),
       );
 
       // 转换为Message对象
@@ -27,7 +29,7 @@ void main() {
       expect(message.conversationId, equals('test_conversation_id'));
       expect(message.senderId, equals('test_sender_id'));
       expect(message.senderName, equals('Test Sender'));
-      expect(message.status, equals('sent'));
+      expect(message.status, equals(MessageStatus.sent));
       expect(message.type, equals('text'));
       expect(message.text, equals('Hello, World!'));
     });
@@ -40,8 +42,8 @@ void main() {
         ..senderId = 'test_sender_id'
         ..senderName = 'Test Sender'
         ..createdAt = DateTime.now()
-        ..status = 'sent'
-        ..type = 'text'
+        ..status = MessageStatus.sent
+        ..type = MessageType.text
         ..text = 'Hello, World!';
 
       // 转换为Proto对象
@@ -54,7 +56,7 @@ void main() {
       expect(protoMessage.senderName, equals('Test Sender'));
       expect(protoMessage.status, equals(proto.MessageStatus.SENT));
       expect(protoMessage.type, equals(proto.MessageType.TEXT));
-      expect(protoMessage.text, equals('Hello, World!'));
+      expect(protoMessage.textMessage.text, equals('Hello, World!'));
     });
 
     test('应该正确处理批量转换', () {
@@ -65,14 +67,18 @@ void main() {
           conversationId: 'conv1',
           senderId: 'user1',
           type: proto.MessageType.TEXT,
-          text: 'Message 1',
+          textMessage: proto.TextMessage(
+            text: 'Message 1',
+          ),
         ),
         proto.MessageProto(
           messageId: 'msg2',
           conversationId: 'conv1',
           senderId: 'user2',
           type: proto.MessageType.TEXT,
-          text: 'Message 2',
+          textMessage: proto.TextMessage(
+            text: 'Message 2',
+          ),
         ),
       ];
 
@@ -128,7 +134,7 @@ void main() {
       expect(message.senderName, isNull);
       expect(message.text, isNull);
       expect(message.mediaUrl, isNull);
-      expect(message.status, equals('sent')); // 默认值
+      expect(message.status, equals(MessageStatus.sent)); // 默认值
       expect(message.type, equals('text')); // 默认值
     });
   });

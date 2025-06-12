@@ -25,19 +25,17 @@ class CommunicationService {
   Stream<bool> get reconnectingStateStream =>
       _socketService.reconnectingStateStream;
 
-  // 事件流控制器映射
+  // 实例变量
   final Map<String, StreamController<GeneratedMessage>> _eventControllers = {};
-
-  // 原始事件处理器映射
   final Map<String, dynamic Function(dynamic)> _rawEventHandlers = {};
 
-  // 💢💢💢 新增：重连成功事件流控制器
+  // 💢💢💢 新增：重连成功事件流
   final StreamController<void> _reconnectSuccessController =
       StreamController<void>.broadcast();
-
-  /// 重连成功事件流
-  /// 当重连成功时，所有监听者都会收到通知
   Stream<void> get reconnectSuccessStream => _reconnectSuccessController.stream;
+
+  // 💢💢💢 新增：标记是否已初始化事件通道
+  bool _isEventChannelsInitialized = false;
 
   // 单例模式
   static final CommunicationService _instance =
@@ -72,9 +70,10 @@ class CommunicationService {
       token: token,
     );
 
-    if (result) {
-      _logger.i('连接成功，初始化Proto事件通道');
+    if (result && !_isEventChannelsInitialized) {
+      _logger.i('初次连接成功，初始化Proto事件通道');
       _setupProtoEventChannels();
+      _isEventChannelsInitialized = true;
     }
 
     return result;
@@ -120,6 +119,14 @@ class CommunicationService {
     _logger.i('🎉 连接成功，执行重连后处理');
 
     try {
+      // 💢💢💢 重要：只有在事件通道已初始化的情况下才重新设置（表示这是重连而非初次连接）
+      if (_isEventChannelsInitialized) {
+        _logger.i('重连成功，重新初始化Proto事件通道');
+        _setupProtoEventChannels();
+      } else {
+        _logger.i('初次连接，跳过事件通道重新初始化');
+      }
+
       // 通知所有监听者重连成功
       _reconnectSuccessController.add(null);
 
@@ -141,8 +148,22 @@ class CommunicationService {
     final events = ProtoEvents.allEvents;
     _logger.i('初始化Proto事件通道', extra: {'events': events.toList()});
 
+    // 💢💢💢 新增：重新初始化前，先清理旧的监听器以防止重复
+    _cleanupEventChannels();
+
     for (final eventName in events) {
       _setupProtoEventChannel(eventName);
+    }
+  }
+
+  /// 💢💢💢 新增：清理事件通道
+  /// 清理所有现有的事件监听器，防止重复监听
+  void _cleanupEventChannels() {
+    _logger.d('清理旧的事件通道');
+
+    // 清理Socket层的事件监听器
+    for (final eventName in _eventControllers.keys) {
+      _socketService.off(eventName);
     }
   }
 

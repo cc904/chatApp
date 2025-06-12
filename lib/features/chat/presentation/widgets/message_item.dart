@@ -37,6 +37,11 @@ class MessageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 💢💢💢 删除的消息完全不显示
+    if (message.isMessageDeleted) {
+      return const SizedBox.shrink();
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Padding(
@@ -152,6 +157,30 @@ class MessageItem extends StatelessWidget {
         crossAxisAlignment:
             isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
+          // 💢💢💢 置顶消息指示器
+          if (message.isMessagePinned)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.push_pin,
+                    size: 12.0,
+                    color: isCurrentUser ? Colors.white70 : Colors.orange,
+                  ),
+                  const SizedBox(width: 4.0),
+                  Text(
+                    '置顶',
+                    style: TextStyle(
+                      fontSize: 10.0,
+                      color: isCurrentUser ? Colors.white70 : Colors.orange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (!isCurrentUser && message.senderName != null && !isPrivateChat)
             Padding(
               padding: const EdgeInsets.only(bottom: 4.0),
@@ -166,14 +195,33 @@ class MessageItem extends StatelessWidget {
             ),
           _buildMessageContent(context),
           const SizedBox(height: 2.0),
-          Text(
-            _formatTime(message.createdAt),
-            style: TextStyle(
-              fontSize: 11.0,
-              color: isCurrentUser
-                  ? Colors.white.withAlpha(179) // 替代过时的withOpacity
-                  : Colors.grey[600],
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (message.isMessageEdited) ...[
+                Text(
+                  '已编辑',
+                  style: TextStyle(
+                    fontSize: 10.0,
+                    color: isCurrentUser
+                        ? Colors.white.withAlpha(128)
+                        : Colors.grey[500],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(width: 4.0),
+              ],
+              Text(
+                _formatTime(message.createdAt),
+                style: TextStyle(
+                  fontSize: 11.0,
+                  color: isCurrentUser
+                      ? Colors.white.withAlpha(179) // 替代过时的withOpacity
+                      : Colors.grey[600],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -183,96 +231,92 @@ class MessageItem extends StatelessWidget {
   /// 构建消息内容
   Widget _buildMessageContent(BuildContext context) {
     switch (message.type) {
-      case 'text':
+      case MessageType.text:
         return _buildHighlightedText(
-          message.text ?? '',
+          message.text ?? '', // 使用displayText代替text，自动处理撤销/删除状态
           baseStyle: TextStyle(
             fontSize: 14.0,
             color: isCurrentUser ? Colors.white : Colors.black87,
           ),
         );
 
-      case 'image':
-        return IntrinsicWidth(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth:
-                      MediaQuery.of(context).size.width * 0.6, // 最大宽度为屏幕的60%
-                  maxHeight:
-                      MediaQuery.of(context).size.height * 0.4, // 最大高度为屏幕的40%
-                  minWidth: 120.0, // 最小宽度
-                  minHeight: 80.0, // 最小高度
-                ),
-                child: AspectRatio(
-                  aspectRatio: _calculateImageAspectRatio(), // 计算合适的宽高比
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: message.mediaUrl != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Image.network(
-                              message.mediaUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: Icon(
-                                    Icons.broken_image,
-                                    color: Colors.grey,
-                                    size: 40.0,
-                                  ),
-                                );
-                              },
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes !=
-                                            null
-                                        ? loadingProgress
-                                                .cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.image,
-                              color: Colors.grey,
-                              size: 40.0,
-                            ),
+      case MessageType.image:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth:
+                    MediaQuery.of(context).size.width * 0.6, // 最大宽度为屏幕的60%
+                maxHeight:
+                    MediaQuery.of(context).size.height * 0.4, // 最大高度为屏幕的40%
+                minWidth: 120.0, // 最小宽度
+                minHeight: 80.0, // 最小高度
+              ),
+              child: AspectRatio(
+                aspectRatio: _calculateImageAspectRatio(), // 计算合适的宽高比
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: message.mediaUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.network(
+                            message.mediaUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey,
+                                  size: 40.0,
+                                ),
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
                           ),
+                        )
+                      : const Center(
+                          child: Icon(
+                            Icons.image,
+                            color: Colors.grey,
+                            size: 40.0,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            if (message.caption?.isNotEmpty == true) ...[
+              const SizedBox(height: 4.0),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: _buildHighlightedText(
+                  message.caption!, // 图片消息使用caption字段
+                  baseStyle: TextStyle(
+                    fontSize: 14.0,
+                    color: isCurrentUser ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
-              if (message.text?.isNotEmpty == true) ...[
-                const SizedBox(height: 4.0),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: _buildHighlightedText(
-                    message.text!,
-                    baseStyle: TextStyle(
-                      fontSize: 14.0,
-                      color: isCurrentUser ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
             ],
-          ),
+          ],
         );
 
-      case 'voice':
+      case MessageType.voice:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -292,7 +336,110 @@ class MessageItem extends StatelessWidget {
           ],
         );
 
-      case 'file':
+      case MessageType.video:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.6,
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+                minWidth: 120.0,
+                minHeight: 80.0,
+              ),
+              child: AspectRatio(
+                aspectRatio: _calculateImageAspectRatio(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // 视频缩略图
+                      if (message.thumbnailUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.network(
+                            message.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.video_library,
+                                color: Colors.grey,
+                                size: 40.0,
+                              );
+                            },
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.video_library,
+                          color: Colors.grey,
+                          size: 40.0,
+                        ),
+                      // 播放按钮覆盖层
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(128),
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(12.0),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 24.0,
+                        ),
+                      ),
+                      // 时长显示
+                      if (message.duration != null)
+                        Positioned(
+                          bottom: 8.0,
+                          right: 8.0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6.0,
+                              vertical: 2.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withAlpha(179),
+                              borderRadius: BorderRadius.circular(4.0),
+                            ),
+                            child: Text(
+                              _formatDuration(message.duration!),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (message.caption?.isNotEmpty == true) ...[
+              const SizedBox(height: 4.0),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: _buildHighlightedText(
+                  message.caption!,
+                  baseStyle: TextStyle(
+                    fontSize: 14.0,
+                    color: isCurrentUser ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+
+      case MessageType.file:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -329,41 +476,47 @@ class MessageItem extends StatelessWidget {
           ],
         );
 
-      default:
+      case MessageType.system:
         return Text(
-          message.text ?? '不支持的消息类型',
+          message.displayText, // 系统消息使用displayText
           style: TextStyle(
             fontSize: 14.0,
-            color: isCurrentUser ? Colors.white : Colors.black87,
+            color: isCurrentUser ? Colors.white70 : Colors.grey[600],
             fontStyle: FontStyle.italic,
           ),
+          textAlign: TextAlign.center,
         );
     }
   }
 
   /// 构建消息状态
   Widget _buildMessageStatus() {
+    // 💢💢💢 撤销的消息不显示发送状态（删除的消息在build中已经过滤掉了）
+    if (message.isMessageRevoked) {
+      return const SizedBox.shrink(); // 撤销的消息不显示状态
+    }
+
     IconData iconData;
     Color color;
 
     switch (message.status) {
-      case 'sending':
+      case MessageStatus.sending:
         iconData = Icons.access_time;
         color = Colors.grey;
         break;
-      case 'sent':
+      case MessageStatus.sent:
         iconData = Icons.check;
         color = Colors.grey;
         break;
-      case 'delivered':
+      case MessageStatus.delivered:
         iconData = Icons.done_all;
         color = Colors.grey;
         break;
-      case 'read':
+      case MessageStatus.read:
         iconData = Icons.done_all;
         color = Colors.blue;
         break;
-      case 'failed':
+      case MessageStatus.failed:
         // 💢💢💢 失败状态：显示可点击的重发按钮
         return GestureDetector(
           onTap: onResend,
@@ -442,11 +595,16 @@ class MessageItem extends StatelessWidget {
 
   /// 格式化文件大小
   String _formatFileSize(double sizeInKB) {
-    if (sizeInKB < 1024) {
+    if (sizeInKB < 1) {
+      return '${(sizeInKB * 1024).toStringAsFixed(0)} B';
+    } else if (sizeInKB < 1024) {
       return '${sizeInKB.toStringAsFixed(1)} KB';
-    } else {
+    } else if (sizeInKB < 1024 * 1024) {
       final sizeInMB = sizeInKB / 1024;
       return '${sizeInMB.toStringAsFixed(1)} MB';
+    } else {
+      final sizeInGB = sizeInKB / (1024 * 1024);
+      return '${sizeInGB.toStringAsFixed(2)} GB';
     }
   }
 

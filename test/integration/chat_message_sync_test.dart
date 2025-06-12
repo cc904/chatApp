@@ -15,8 +15,8 @@ void main() {
         ..text = content
         ..senderId = 'user123'
         ..createdAt = time
-        ..type = 'text'
-        ..status = 'sent';
+        ..type = MessageType.text
+        ..status = MessageStatus.sent;
       return message;
     }
 
@@ -215,7 +215,7 @@ void main() {
         });
 
         // 按时间降序排列（最新消息在前）
-        messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        messages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
 
         // 创建初始状态
         final initialState = ChatState.initial(testUser).copyWith(

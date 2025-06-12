@@ -293,7 +293,7 @@ class ChatsCubit extends Cubit<ChatsState> {
       // 找到会话，更新阅读状态
       final conversation = currentConversations[conversationIndex];
       final updatedConversation =
-          conversation.copyWith(lastReadMessageId: event.lastReadMessageId);
+          conversation.copyWith(lastReadAtIndex: event.lastReadAtIndex);
       currentConversations[conversationIndex] = updatedConversation;
 
       _updateConversationsWithFilter(currentConversations);

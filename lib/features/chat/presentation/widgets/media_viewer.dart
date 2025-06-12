@@ -7,7 +7,6 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
-import 'package:cc/core/constants/message_types.dart';
 
 /// 图片查看器组件
 class ImageViewerPage extends StatefulWidget {

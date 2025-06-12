@@ -47,11 +47,8 @@ class ConversationUpdateEvent {
   /// 是否是置顶状态
   final bool? isPinned;
 
-  /// 最后阅读时间（用于阅读状态更新）
-  final DateTime? lastReadAt;
-
-  /// 最后阅读的消息ID（用于阅读状态更新）
-  final String? lastReadMessageId;
+  /// 最后阅读的消息索引（用于阅读状态更新）
+  final int? lastReadAtIndex;
 
   /// 构造函数
   ConversationUpdateEvent({
@@ -65,8 +62,7 @@ class ConversationUpdateEvent {
     this.senderName,
     this.isMuted,
     this.isPinned,
-    this.lastReadAt,
-    this.lastReadMessageId,
+    this.lastReadAtIndex,
   });
 
   @override

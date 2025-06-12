@@ -64,6 +64,10 @@ abstract class ChatsRepository {
   Future<void> updateConversationPinStatus(
       String conversationId, bool isPinned);
 
+  /// 更新会话的最后阅读消息索引
+  Future<void> updateConversationLastReadAtIndex(
+      String conversationId, int lastReadIndex);
+
   /// 根据标签过滤会话
   ///
   /// 根据标签类型过滤会话列表
@@ -91,24 +95,11 @@ abstract class ChatsRepository {
   /// [conversationId] - 会话ID
   Future<void> requestConversationDetail(String conversationId);
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话阅读状态管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 更新会话最后阅读时间
-  /// [conversationId] - 会话ID
-  /// [timestamp] - 阅读时间戳
-  /// [syncToServer] - 是否同步到服务器，默认false
-  Future<void> updateLastReadAt(String conversationId, DateTime timestamp,
-      {bool syncToServer = false});
-
-  /// 更新会话最后阅读消息ID
-  /// [conversationId] - 会话ID
-  /// [messageId] - 最后阅读的消息ID
-  Future<void> updateLastReadMessageId(String conversationId, String messageId);
-
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 保存会话状态快照
-  Future<void> saveStateSnapshot(ChatStateSnapshot snapshot);
+  Future<void> saveStateSnapshot(
+      ChatStateSnapshot snapshot, String conversationId);
 
   /// 获取会话状态快照
   Future<ChatStateSnapshot?> getStateSnapshot(String conversationId);

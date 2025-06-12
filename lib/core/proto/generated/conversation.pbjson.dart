@@ -83,16 +83,16 @@ const ConversationProto$json = {
     {'1': 'type', '3': 4, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
     {'1': 'created_at', '3': 5, '4': 1, '5': 3, '10': 'createdAt'},
     {'1': 'last_message_time', '3': 6, '4': 1, '5': 3, '10': 'lastMessageTime'},
-    {'1': 'last_message_preview', '3': 7, '4': 1, '5': 9, '10': 'lastMessagePreview'},
-    {'1': 'last_message_name', '3': 8, '4': 1, '5': 9, '10': 'lastMessageName'},
-    {'1': 'unread_count', '3': 9, '4': 1, '5': 5, '10': 'unreadCount'},
-    {'1': 'contact_user_id', '3': 10, '4': 1, '5': 9, '10': 'contactUserId'},
-    {'1': 'participants', '3': 11, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
-    {'1': 'muted', '3': 12, '4': 1, '5': 8, '10': 'muted'},
-    {'1': 'pinned', '3': 13, '4': 1, '5': 8, '10': 'pinned'},
-    {'1': 'created_by', '3': 14, '4': 1, '5': 9, '10': 'createdBy'},
-    {'1': 'last_read_at', '3': 15, '4': 1, '5': 3, '10': 'lastReadAt'},
-    {'1': 'last_read_message_id', '3': 16, '4': 1, '5': 9, '10': 'lastReadMessageId'},
+    {'1': 'last_message_index', '3': 7, '4': 1, '5': 3, '10': 'lastMessageIndex'},
+    {'1': 'last_message_preview', '3': 8, '4': 1, '5': 9, '10': 'lastMessagePreview'},
+    {'1': 'last_message_name', '3': 9, '4': 1, '5': 9, '10': 'lastMessageName'},
+    {'1': 'unread_count', '3': 10, '4': 1, '5': 5, '10': 'unreadCount'},
+    {'1': 'contact_user_id', '3': 11, '4': 1, '5': 9, '10': 'contactUserId'},
+    {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
+    {'1': 'muted', '3': 13, '4': 1, '5': 8, '10': 'muted'},
+    {'1': 'pinned', '3': 14, '4': 1, '5': 8, '10': 'pinned'},
+    {'1': 'created_by', '3': 15, '4': 1, '5': 9, '10': 'createdBy'},
+    {'1': 'last_read_at_index', '3': 16, '4': 1, '5': 3, '10': 'lastReadAtIndex'},
   ],
 };
 
@@ -102,13 +102,14 @@ final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
     'lvbklkEhIKBG5hbWUYAiABKAlSBG5hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISKAoEdHlw'
     'ZRgEIAEoDjIULmNjLkNvbnZlcnNhdGlvblR5cGVSBHR5cGUSHQoKY3JlYXRlZF9hdBgFIAEoA1'
     'IJY3JlYXRlZEF0EioKEWxhc3RfbWVzc2FnZV90aW1lGAYgASgDUg9sYXN0TWVzc2FnZVRpbWUS'
-    'MAoUbGFzdF9tZXNzYWdlX3ByZXZpZXcYByABKAlSEmxhc3RNZXNzYWdlUHJldmlldxIqChFsYX'
-    'N0X21lc3NhZ2VfbmFtZRgIIAEoCVIPbGFzdE1lc3NhZ2VOYW1lEiEKDHVucmVhZF9jb3VudBgJ'
-    'IAEoBVILdW5yZWFkQ291bnQSJgoPY29udGFjdF91c2VyX2lkGAogASgJUg1jb250YWN0VXNlck'
-    'lkEjgKDHBhcnRpY2lwYW50cxgLIAMoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SDHBhcnRpY2lw'
-    'YW50cxIUCgVtdXRlZBgMIAEoCFIFbXV0ZWQSFgoGcGlubmVkGA0gASgIUgZwaW5uZWQSHQoKY3'
-    'JlYXRlZF9ieRgOIAEoCVIJY3JlYXRlZEJ5EiAKDGxhc3RfcmVhZF9hdBgPIAEoA1IKbGFzdFJl'
-    'YWRBdBIvChRsYXN0X3JlYWRfbWVzc2FnZV9pZBgQIAEoCVIRbGFzdFJlYWRNZXNzYWdlSWQ=');
+    'LAoSbGFzdF9tZXNzYWdlX2luZGV4GAcgASgDUhBsYXN0TWVzc2FnZUluZGV4EjAKFGxhc3RfbW'
+    'Vzc2FnZV9wcmV2aWV3GAggASgJUhJsYXN0TWVzc2FnZVByZXZpZXcSKgoRbGFzdF9tZXNzYWdl'
+    'X25hbWUYCSABKAlSD2xhc3RNZXNzYWdlTmFtZRIhCgx1bnJlYWRfY291bnQYCiABKAVSC3Vucm'
+    'VhZENvdW50EiYKD2NvbnRhY3RfdXNlcl9pZBgLIAEoCVINY29udGFjdFVzZXJJZBI4CgxwYXJ0'
+    'aWNpcGFudHMYDCADKAsyFC5jYy5QYXJ0aWNpcGFudFByb3RvUgxwYXJ0aWNpcGFudHMSFAoFbX'
+    'V0ZWQYDSABKAhSBW11dGVkEhYKBnBpbm5lZBgOIAEoCFIGcGlubmVkEh0KCmNyZWF0ZWRfYnkY'
+    'DyABKAlSCWNyZWF0ZWRCeRIrChJsYXN0X3JlYWRfYXRfaW5kZXgYECABKANSD2xhc3RSZWFkQX'
+    'RJbmRleA==');
 
 @$core.Deprecated('Use conversationUpdateDescriptor instead')
 const ConversationUpdate$json = {
@@ -179,7 +180,7 @@ const ConversationUpdateNotification$json = {
   '1': 'ConversationUpdateNotification',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'last_message_time', '3': 2, '4': 1, '5': 3, '10': 'lastMessageTime'},
+    {'1': 'last_message_index', '3': 2, '4': 1, '5': 3, '10': 'lastMessageIndex'},
     {'1': 'last_message_preview', '3': 3, '4': 1, '5': 9, '10': 'lastMessagePreview'},
     {'1': 'last_message_name', '3': 4, '4': 1, '5': 9, '10': 'lastMessageName'},
     {'1': 'unread_count', '3': 5, '4': 1, '5': 5, '10': 'unreadCount'},
@@ -189,10 +190,10 @@ const ConversationUpdateNotification$json = {
 /// Descriptor for `ConversationUpdateNotification`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List conversationUpdateNotificationDescriptor = $convert.base64Decode(
     'Ch5Db252ZXJzYXRpb25VcGRhdGVOb3RpZmljYXRpb24SJwoPY29udmVyc2F0aW9uX2lkGAEgAS'
-    'gJUg5jb252ZXJzYXRpb25JZBIqChFsYXN0X21lc3NhZ2VfdGltZRgCIAEoA1IPbGFzdE1lc3Nh'
-    'Z2VUaW1lEjAKFGxhc3RfbWVzc2FnZV9wcmV2aWV3GAMgASgJUhJsYXN0TWVzc2FnZVByZXZpZX'
-    'cSKgoRbGFzdF9tZXNzYWdlX25hbWUYBCABKAlSD2xhc3RNZXNzYWdlTmFtZRIhCgx1bnJlYWRf'
-    'Y291bnQYBSABKAVSC3VucmVhZENvdW50');
+    'gJUg5jb252ZXJzYXRpb25JZBIsChJsYXN0X21lc3NhZ2VfaW5kZXgYAiABKANSEGxhc3RNZXNz'
+    'YWdlSW5kZXgSMAoUbGFzdF9tZXNzYWdlX3ByZXZpZXcYAyABKAlSEmxhc3RNZXNzYWdlUHJldm'
+    'lldxIqChFsYXN0X21lc3NhZ2VfbmFtZRgEIAEoCVIPbGFzdE1lc3NhZ2VOYW1lEiEKDHVucmVh'
+    'ZF9jb3VudBgFIAEoBVILdW5yZWFkQ291bnQ=');
 
 @$core.Deprecated('Use conversationSettingsUpdateRequestDescriptor instead')
 const ConversationSettingsUpdateRequest$json = {
