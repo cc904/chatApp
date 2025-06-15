@@ -96,15 +96,7 @@ const UserSchema = CollectionSchema(
       ],
     )
   },
-  links: {
-    r'conversations': LinkSchema(
-      id: -9143701531575595180,
-      name: r'conversations',
-      target: r'Conversation',
-      single: false,
-      linkName: r'participants',
-    )
-  },
+  links: {},
   embeddedSchemas: {},
   getId: _userGetId,
   getLinks: _userGetLinks,
@@ -225,13 +217,11 @@ Id _userGetId(User object) {
 }
 
 List<IsarLinkBase<dynamic>> _userGetLinks(User object) {
-  return [object.conversations];
+  return [];
 }
 
 void _userAttach(IsarCollection<dynamic> col, Id id, User object) {
   object.id = id;
-  object.conversations
-      .attach(col, col.isar.collection<Conversation>(), r'conversations', id);
 }
 
 extension UserQueryWhereSort on QueryBuilder<User, User, QWhere> {
@@ -1844,64 +1834,7 @@ extension UserQueryFilter on QueryBuilder<User, User, QFilterCondition> {
 
 extension UserQueryObject on QueryBuilder<User, User, QFilterCondition> {}
 
-extension UserQueryLinks on QueryBuilder<User, User, QFilterCondition> {
-  QueryBuilder<User, User, QAfterFilterCondition> conversations(
-      FilterQuery<Conversation> q) {
-    return QueryBuilder.apply(this, (query) {
-      return query.link(q, r'conversations');
-    });
-  }
-
-  QueryBuilder<User, User, QAfterFilterCondition> conversationsLengthEqualTo(
-      int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'conversations', length, true, length, true);
-    });
-  }
-
-  QueryBuilder<User, User, QAfterFilterCondition> conversationsIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'conversations', 0, true, 0, true);
-    });
-  }
-
-  QueryBuilder<User, User, QAfterFilterCondition> conversationsIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'conversations', 0, false, 999999, true);
-    });
-  }
-
-  QueryBuilder<User, User, QAfterFilterCondition> conversationsLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'conversations', 0, true, length, include);
-    });
-  }
-
-  QueryBuilder<User, User, QAfterFilterCondition>
-      conversationsLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'conversations', length, include, 999999, true);
-    });
-  }
-
-  QueryBuilder<User, User, QAfterFilterCondition> conversationsLengthBetween(
-    int lower,
-    int upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(
-          r'conversations', lower, includeLower, upper, includeUpper);
-    });
-  }
-}
+extension UserQueryLinks on QueryBuilder<User, User, QFilterCondition> {}
 
 extension UserQuerySortBy on QueryBuilder<User, User, QSortBy> {
   QueryBuilder<User, User, QAfterSortBy> sortByAvatar() {

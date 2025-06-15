@@ -1,7 +1,6 @@
 // ignore_for_file: unused_element
 
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/current_user.dart';
@@ -9,14 +8,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
-import 'package:cc/features/chat/domain/entities/conversation_event.dart';
-import 'package:cc/features/chat/presentation/cubit/message_update_operation.dart';
+
+/// 💢💢💢 新增：滚动方向枚举
+enum ScrollDirection {
+  /// 向上滚动（看更旧的消息）
+  up,
+
+  /// 向下滚动（看更新的消息）
+  down,
+
+  /// 静止不动
+  none,
+}
 
 /// 滚动恢复类型
 enum ScrollRestoreType {
@@ -60,11 +69,12 @@ class ScrollRestoreInfo {
 /// 简化版本，使用ChatRepository中的状态快照功能
 class ChatCubit extends Cubit<ChatState> {
   final ChatRepository _chatRepository;
+  final ChatRepositorySend _chatRepositorySend;
   final ChatsRepository _chatsRepository;
   final String _conversationId;
+  final CurrentUser _currentUser;
 
   final LogService _logger = LogService.instance;
-  final ChatStateSnapshot? _initialSnapshot;
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
@@ -72,22 +82,24 @@ class ChatCubit extends Cubit<ChatState> {
   // 简化的配置参数
   static const int defaultPageSize = 50; // 每页消息数量
 
-  /// 💢💢💢 新增：消息更新队列系统
-  final Queue<MessagesUpdateOperation> _messageUpdateQueue =
-      Queue<MessagesUpdateOperation>();
-  bool _isProcessingMessageQueue = false;
+  // 💢💢💢 新增：滚动位置更新防抖
+  Timer? _scrollPositionTimer;
+  static const Duration _scrollPositionDebounceDelay =
+      Duration(milliseconds: 150);
 
   ChatCubit({
     required ChatRepository chatRepository,
+    required ChatRepositorySend chatRepositorySend,
     required ChatsRepository chatsRepository,
     required Conversation initialConversation,
     required CurrentUser currentUser,
     ChatStateSnapshot? initialSnapshot,
     ContactsRepository? contactsRepository,
   })  : _chatRepository = chatRepository,
+        _chatRepositorySend = chatRepositorySend,
         _chatsRepository = chatsRepository,
-        _initialSnapshot = initialSnapshot,
         _conversationId = initialConversation.conversationId,
+        _currentUser = currentUser,
         super(_createInitialState(
             currentUser, initialSnapshot, initialConversation)) {
     _init();
@@ -103,6 +115,7 @@ class ChatCubit extends Cubit<ChatState> {
         messages: snapshot.messages,
         currentScrollPosition: snapshot.currentScrollPosition,
         isLoadingMessages: false,
+        conversation: conversation,
       );
     } else {
       // 使用传入的 conversation 对象创建初始状态
@@ -114,40 +127,16 @@ class ChatCubit extends Cubit<ChatState> {
   /// 初始化 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Future<void> _init() async {
     try {
-      _logger.i('ChatCubit初始化开始', extra: {'conversationId': _conversationId});
-
-      // 🔄 执行统一的同步流程（无论是否有快照）
-      await _startInitialSync();
-
-      _logger.i('ChatCubit初始化完成', extra: {
-        'hadSnapshot': _initialSnapshot != null,
-        'finalMessageCount': state.messages.length,
-      });
-    } catch (error) {
-      _logger.e('初始化ChatCubit失败', error: error);
-      emit(state.copyWith(errorMessage: '初始化失败: ${error.toString()}'));
-    }
-  }
-
-  /// 💢💢💢💢 🔄 新增：开始初始同步 - 主要同步入口
-  /// 这是新的并发同步系统的核心函数，替代原有的_performSeamlessSync
-  Future<void> _startInitialSync() async {
-    try {
       _logger.i('开始初始同步流程', extra: {'conversationId': _conversationId});
 
-      // 🔄 第一步：设置同步状态（Index方案无需时间戳）
-      emit(state.copyWith(
-        isSyncing: true,
-      ));
-
-      // 🔄 第二步：设置事件监听（必须在加入房间前设置）
-      _setupEventListeners();
+      // 🔄 第二步：设置数据库监听（必须在加入房间前设置）
+      _setupDatabaseListeners();
 
       // 🔄 第三步：加入会话房间开始接收实时消息
       await joinConversation();
 
       // 🔄 第四步：执行消息同步（此时新消息会被暂存）
-      await initMessages();
+      initMessages();
     } catch (error) {
       _logger.e('初始同步失败', error: error);
       emit(state.copyWith(
@@ -157,176 +146,37 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 更新状态中的消息列表（原有方法，保持不变）
-  void _updateMessagesInState(List<Message> newMessages) {
-    if (isClosed) return;
-
-    _logger.d('更新状态中的消息列表', extra: {
-      'newMessageCount': newMessages.length,
-    });
-
-    // 获取当前用户ID
-    final currentUserId = state.currentUser?.userId ?? '';
-
-    // 使用MessageListProcessor计算未读消息相关数据
-    final unreadCount = MessageListProcessor.calculateUnreadCount(
-      messages: newMessages,
-      currentUserId: currentUserId,
-      lastReadMessageId: state.lastReadMessageId,
-    );
-
-    emit(state.copyWith(
-      messages: newMessages,
-      isLoadingMessages: false,
-      isLoadingMoreMessages: false,
-      unreadCount: unreadCount,
-    ));
-
-    _logger.d('消息状态更新完成', extra: {
-      'totalMessages': newMessages.length,
-      'unreadCount': unreadCount,
-    });
-  }
-
-  /// 💢💢💢 处理加载更多消息状态更新事件
-  void _handleLoadMoreMessageStatusUpdate(Map<String, dynamic> event) {
-    _logger.d('处理加载更多消息状态更新',
-        extra: {
-          'messageCount': event['messages'].length,
-          'hasMoreBefore': event['hasMoreBefore'],
-        },
-        stackTrace: StackTrace.current);
-
-    final conversationId = event['conversationId'] as String?;
-    final messages = event['messages'] as List<Message>?;
-
-    if (conversationId != _conversationId || messages == null) {
-      return;
-    }
-
-    if (messages.isEmpty) {
-      if (!isClosed) {
-        emit(
-            state.copyWith(isLoadingMoreMessages: false, hasMoreBefore: false));
-      }
-      return;
-    }
-
-    // 按时间顺序
-    final sortedMessages = List<Message>.from(messages)
-      ..sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
-    final newMessages = [...state.messages, ...sortedMessages];
-
-    if (!isClosed) {
-      _updateMessagesInState(newMessages);
-    }
-  }
-
-  /// 💢💢💢 处理会话更新事件
-  /// 监听 ChatsCubit 中的会话状态变化，保持 ChatPage 中会话信息的同步
-  void _handleConversationUpdate(ConversationUpdateEvent event) {
-    _logger.d('处理会话更新事件', extra: {
-      'conversationId': event.conversationId,
-      'updateType': event.type.toString(),
-    });
-
-    if (isClosed) return;
-
-    // 根据更新类型处理不同的事件
-    switch (event.type) {
-      case ConversationUpdateType.updated:
-        // 会话信息更新（如静音状态、置顶状态等）
-        _logger.i('会话信息已更新', extra: {
-          'conversationId': event.conversationId,
-          'isMuted': event.isMuted,
-          'isPinned': event.isPinned,
-        });
-        // 这里可以更新 ChatPage 中显示的会话状态
-        // 例如 AppBar 中的会话名称、头像等
-        break;
-      case ConversationUpdateType.readStatusUpdated:
-        // 阅读状态更新
-        emit(state.copyWith(
-          unreadCount: event.unreadCount ?? state.unreadCount,
-        ));
-        break;
-      case ConversationUpdateType.added:
-      case ConversationUpdateType.removed:
-        // 这些事件通常不会影响当前打开的聊天页面
-        break;
-    }
-  }
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 初始化消息列表
+  /// 初始化消息列表（纯数据库监听架构版本）
   Future<void> initMessages() async {
     if (isClosed) return;
-    await _chatRepository.loadLatestLocalMessages(_conversationId);
-  }
 
-  /// 💢💢💢💢 请求消息
-  Future<void> _requestSyncMessages({int? limit}) async {
-    if (isClosed) return;
+    // 🔄 第一步：设置同步状态（Index方案无需时间戳）
+    emit(state.copyWith(
+      isSyncing: true,
+    ));
 
     try {
-      final defaultPageSize = limit ?? 50;
-
-      // 🎯 新的index-based同步逻辑
-      if (state.messages.isEmpty) {
-        // 没有本地消息，使用初始加载
-        _logger.i('请求首次消息，使用index-based同步');
-        final success = await _chatRepository.syncNewMessages(
+      final messages = await _chatRepository.getMessagesByAnchorMessageIndex(
           _conversationId,
-          limit: defaultPageSize,
-        );
+          null,
+          state.conversation.firstMessageIndex,
+          state.conversation.lastMessageIndex);
 
-        if (success) {
-          _logger.i('请求初始同步成功');
-        } else {
-          _logger.w('请求初始同步失败');
-        }
-      } else {
-        // 有本地消息，使用index-based历史消息加载
-        final newestMessage = state.messages.first;
-        final fromIndex = newestMessage.messageIndex;
+      _logger.i('初始化消息列表',
+          extra: {
+            'conversationId': _conversationId,
+            'messageCount': messages.length,
+          },
+          stackTrace: StackTrace.current);
 
-        _logger.i('使用index-based加载历史消息', extra: {
-          'fromIndex': fromIndex,
-          'messageId': newestMessage.messageId,
-        });
-
-        if (fromIndex > 0) {
-          final success = await _chatRepository.syncNewMessages(
-            _conversationId,
-            fromIndex: fromIndex,
-          );
-
-          if (success) {
-            _logger.i('请求同步消息成功');
-          } else {
-            _logger.w('请求同步消息失败');
-          }
-        } else {
-          _logger.w('最早消息的index为0，本地');
-          if (!isClosed) {
-            emit(state.copyWith(isLoadingMoreMessages: false));
-          }
-        }
-      }
+      emit(state.copyWith(messages: messages, isSyncing: false));
     } catch (error) {
-      _logger.e('请求消息失败', error: error);
-
-      // 检查Cubit是否已关闭
-      if (!isClosed) {
-        emit(state.copyWith(
-          errorMessage: '请求消息失败: ${error.toString()}',
-        ));
-      }
+      emit(state.copyWith(isSyncing: false));
+      _logger.e('初始化消息列表失败', error: error);
     }
   }
 
-  /// 发送文本消息
+  /// 发送文本消息（纯数据库监听架构版本）
   Future<void> sendTextMessage(String text) async {
     _logger.d('发送文本消息',
         extra: {
@@ -343,32 +193,32 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
-    Message? tempMessage;
     try {
       // 1. 设置发送状态
       if (!isClosed) {
         emit(state.copyWith(isSending: true));
       }
 
-      // 2. 创建临时消息
-      tempMessage = await _createTempMessage(text.trim());
+      // 2. 直接通过ChatRepositorySend发送消息
+      // Repository会创建消息、保存到数据库、发送到服务器
+      // 数据库监听会自动更新UI，无需手动更新
+      final message = await _chatRepositorySend.sendTextMessage(
+          _conversationId, text.trim());
 
-      // 3. 立即更新UI显示（乐观更新）
-      await _addMessageToUI(tempMessage);
-
-      // 4. 异步发送消息到服务器
-      _sendMessageToServerAsync(tempMessage);
-
-      _logger.i('文本消息已添加到UI，正在后台发送', extra: {
-        'tempMessageId': tempMessage.messageId,
+      _logger.i('文本消息发送请求已提交', extra: {
+        'messageId': message.messageId,
+        'conversationId': _conversationId,
       });
+
+      // 💢💢💢 关键：不需要手动更新UI，数据库监听会自动处理
     } catch (error) {
       _logger.e('发送文本消息失败', error: error);
 
-      // 处理发送失败
-      await _handleSendFailure(tempMessage?.messageId, error.toString());
+      // 设置错误状态
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '消息发送失败: ${error.toString()}'));
+      }
 
-      // 重新抛出异常，让UI层处理
       rethrow;
     } finally {
       // 重置发送状态
@@ -380,7 +230,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 创建临时消息
   Future<Message> _createTempMessage(String text) async {
-    return await _chatRepository.createTempMessage(
+    return await _chatRepositorySend.createTempMessage(
       _conversationId,
       text,
       MessageType.text,
@@ -392,7 +242,8 @@ class ChatCubit extends Cubit<ChatState> {
     if (isClosed) return;
 
     final updatedMessages = [message, ...state.messages];
-    _updateMessagesInState(updatedMessages);
+
+    emit(state.copyWith(messages: updatedMessages));
 
     _logger.d('消息已添加到UI', extra: {
       'messageId': message.messageId,
@@ -412,7 +263,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 发送消息到服务器
   Future<void> _sendMessageToServer(Message message) async {
-    await _chatRepository.sendMessageWithTimeout(
+    await _chatRepositorySend.sendMessageWithTimeout(
       message,
       timeout: const Duration(seconds: 5), // 增加超时时间到5秒
     );
@@ -424,7 +275,7 @@ class ChatCubit extends Cubit<ChatState> {
 
     try {
       // 标记消息为失败状态
-      await _chatRepository.markMessageAsFailed(messageId, errorReason);
+      await _chatRepositorySend.markMessageAsFailed(messageId, errorReason);
 
       // 设置错误消息给用户
       emit(state.copyWith(errorMessage: '消息发送失败: $errorReason'));
@@ -488,88 +339,150 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   /// 更新当前滚动位置 💢💢💢💢
-  /// 用于保存用户当前的查看位置
+  /// 用于保存用户当前的查看位置（带防抖机制）
   void updateCurrentScrollPosition(Iterable<ItemPosition> positions) {
-    if (!isClosed) {
-      if (positions.isEmpty || state.messages.isEmpty) {
-        return;
-      }
+    if (isClosed || positions.isEmpty || state.messages.isEmpty) {
+      return;
+    }
 
-      // 💢💢💢 过滤掉超出消息列表范围的位置
-      final validPositions = positions
-          .where((position) =>
-              position.index >= 0 && position.index < state.messages.length)
-          .toList();
+    // 💢💢💢 防抖机制：取消之前的定时器
+    _scrollPositionTimer?.cancel();
 
-      if (validPositions.isEmpty) {
-        _logger.w('所有滚动位置都超出消息列表范围', extra: {
-          'originalPositions': positions.map((e) => e.index).toList(),
-          'messageCount': state.messages.length,
-        });
-        return;
-      }
+    // 💢💢💢 设置新的防抖定时器
+    _scrollPositionTimer = Timer(_scrollPositionDebounceDelay, () {
+      _performScrollPositionUpdate(positions);
+    });
+  }
 
-      // 获取所有有效位置并按索引排序
-      final sortedPositions = validPositions.toList()
-        ..sort((a, b) => b.index.compareTo(a.index));
+  /// 💢💢💢 新增：执行滚动位置更新的实际逻辑
+  void _performScrollPositionUpdate(Iterable<ItemPosition> positions) {
+    if (isClosed || positions.isEmpty || state.messages.isEmpty) {
+      return;
+    }
 
-      // 选择屏幕中央的消息作为锚点
-      final centerPosition = sortedPositions.firstWhere(
-        (pos) => pos.itemLeadingEdge <= 0.5 && pos.itemTrailingEdge >= 0.5,
-        orElse: () => validPositions.first,
+    // 获取所有有效位置并按索引排序
+    final sortedPositions = positions.toList()
+      ..sort((a, b) => b.index.compareTo(a.index));
+
+    // 选择屏幕中央的消息作为锚点
+    final centerPosition = sortedPositions.firstWhere(
+      (pos) => pos.itemLeadingEdge <= 0.5 && pos.itemTrailingEdge >= 0.5,
+      orElse: () => positions.first,
+    );
+
+    int isDown = 0;
+
+    // 💢💢💢 双重检查索引有效性
+    if (centerPosition.index >= 0 &&
+        centerPosition.index < state.messages.length) {
+      final message = state.messages[centerPosition.index];
+      final currentScrollPosition = CurrentScrollPosition.fromAnchor(
+        messageId: message.messageId,
+        messageIndex: message.messageIndex,
+        relativePosition: centerPosition.itemLeadingEdge,
       );
 
-      // 💢💢💢 双重检查索引有效性
-      if (centerPosition.index >= 0 &&
-          centerPosition.index < state.messages.length) {
-        final message = state.messages[centerPosition.index];
-        final currentScrollPosition = CurrentScrollPosition.fromAnchor(
-          messageId: message.messageId,
-          messageIndex: centerPosition.index,
-          relativePosition: centerPosition.itemLeadingEdge,
-        );
-        _logger.i('更新当前滚动位置',
-            extra: {
-              'messageId': message.messageId,
-              'messageIndex': centerPosition.index,
-              'relativePosition': centerPosition.itemLeadingEdge,
-            },
-            stackTrace: StackTrace.current);
-        if (!isClosed) {
-          emit(state.copyWith(currentScrollPosition: currentScrollPosition));
-        }
+      // 💢💢💢 计算滚动方向
+      if (state.currentScrollPosition.messageIndex != null) {
+        isDown =
+            state.currentScrollPosition.messageIndex! - message.messageIndex;
       }
 
-      // 第一条可见消息（索引最小）
-      final firstPosition = sortedPositions.first;
-      final firstMessage = (firstPosition.index >= 0 &&
-              firstPosition.index < state.messages.length)
-          ? state.messages[firstPosition.index]
-          : null;
+      _logger.i('更新当前滚动位置', extra: {
+        'A': state.currentScrollPosition.messageIndex,
+        'B': message.messageIndex,
+        'isDown': isDown,
+      });
 
-      // 获取会话的最后阅读消息index
-      final lastReadMessageIndex = state.conversation.lastReadAtIndex;
+      if (!isClosed) {
+        emit(state.copyWith(
+          currentScrollPosition: currentScrollPosition,
+        ));
+      }
+    }
 
-      if (firstMessage != null &&
-          firstMessage.messageIndex > (lastReadMessageIndex ?? 0) &&
-          firstMessage.status != MessageStatus.read &&
-          !state.isSearchMode) {
-        //更新会话的最后阅读消息index
-        _chatsRepository.updateConversationLastReadAtIndex(
-            _conversationId, firstMessage.messageIndex);
+    // 💢💢💢 传递滚动方向给检查方法
+    _checkAndLoadMoreMessages(sortedPositions, isDown);
 
-        _chatRepository.markMessagesAsReadBySelf(_conversationId, firstMessage);
+    // 💢💢💢 已读状态更新
+    _updateReadStatus(sortedPositions);
+  }
 
-        _enqueueMessageOperation(
-          MessagesUpdateOperation(
-              operationType: MessagesUpdateOperationType.updateStatus,
-              messageUpdateEvents: [
-                MessageUpdateEvent.updateStatus(
-                  conversationId: _conversationId,
-                  messageId: firstMessage.messageId,
-                  statusType: MessageStatus.read,
-                )
-              ]),
+  /// 💢💢💢 新增：更新已读状态（独立方法）
+  void _updateReadStatus(List<ItemPosition> sortedPositions) {
+    // 最新可见消息（索引最大）
+    final lastPosition = sortedPositions.last;
+    final lastShowMessage =
+        (lastPosition.index >= 0 && lastPosition.index < state.messages.length)
+            ? state.messages[lastPosition.index]
+            : null;
+
+    // 💢💢💢 修复：通过currentUser获取participant，添加空值检查
+    final currentUserId = _currentUser.userId;
+
+    final participant = state.conversation.getParticipant(currentUserId);
+    if (participant == null) {
+      _logger.w('找不到当前用户的参与者信息', extra: {
+        'currentUserId': currentUserId,
+        'conversationId': _conversationId,
+      });
+      return;
+    }
+
+    final lastReadMessageIndex = participant.lastReadMessageIndex;
+
+    if (lastShowMessage != null &&
+        lastShowMessage.messageIndex > lastReadMessageIndex) {
+      _chatsRepository.updateParticipantSettings(
+        _conversationId,
+        readMessageIndex: lastShowMessage.messageIndex,
+      );
+      _logger.i('已读状态更新', extra: {
+        'messageIndex': lastShowMessage.messageIndex,
+        'lastReadMessageIndex': participant.lastReadMessageIndex,
+      });
+    }
+  }
+
+  /// 💢💢💢 新增：检查并加载更多消息
+  void _checkAndLoadMoreMessages(
+      List<ItemPosition> sortedPositions, int isDown) {
+    if (state.isSearchMode ||
+        state.isCleaningMessages ||
+        state.isSyncing ||
+        state.isLoadingMessages ||
+        state.messages.isEmpty) {
+      return; // 搜索模式、清理消息、同步中或正在加载时不触发
+    }
+
+    final firstVisibleMessageIndex =
+        state.messages[sortedPositions.first.index].messageIndex;
+    final lastVisibleMessageIndex =
+        state.messages[sortedPositions.last.index].messageIndex;
+
+    // 会话的消息索引范围 messages.first 最新消息 messages.last 最晚消息
+    final messagesUpIndex = state.messages.last.messageIndex;
+    final messagesDownIndex = state.messages.first.messageIndex;
+
+    _logger.i('检查并加载更多消息', extra: {'isDown': isDown});
+    if (isDown > 0) {
+      if (firstVisibleMessageIndex - 10 < messagesUpIndex &&
+          messagesUpIndex > state.conversation.firstMessageIndex) {
+        _logger.w('加载历史消息up');
+        _chatRepository.requestMoreMessages(
+          _conversationId,
+          messageIndex: firstVisibleMessageIndex,
+          isBefore: true, // 获取历史消息
+        );
+      }
+    } else {
+      if (lastVisibleMessageIndex + 10 > messagesDownIndex &&
+          messagesDownIndex < state.conversation.lastMessageIndex) {
+        _logger.w('加载历史消息down');
+        _chatRepository.requestMoreMessages(
+          _conversationId,
+          messageIndex: lastVisibleMessageIndex,
+          isBefore: false, // 获取更新的消息
         );
       }
     }
@@ -831,7 +744,7 @@ class ChatCubit extends Cubit<ChatState> {
         'targetMessageId': targetMessageId,
       });
 
-      // 显示加载状态
+      // 💢💢💢 使用搜索状态而不是加载状态
       emit(state.copyWith(isSearching: true));
 
       // 🔥 加载目标搜索结果附近的消息
@@ -911,8 +824,8 @@ class ChatCubit extends Cubit<ChatState> {
         'contextSize': contextSize,
       });
 
-      // 显示加载状态
-      emit(state.copyWith(isLoadingMessages: true));
+      // 💢💢💢 移除手动设置加载状态，由 ChatRepository 通知
+      // emit(state.copyWith(isLoadingMessages: true));
 
       // 使用现有的getMessagesAroundSearchResult方法
       final result = await _chatRepository.getMessagesAroundSearchResult(
@@ -925,7 +838,7 @@ class ChatCubit extends Cubit<ChatState> {
         // 更新消息列表
         emit(state.copyWith(
           messages: result.messages,
-          isLoadingMessages: false,
+          // isLoadingMessages: false, // 💢💢💢 由 ChatRepository 通知
         ));
 
         _logger.i('加载指定消息周围的消息成功', extra: {
@@ -939,7 +852,7 @@ class ChatCubit extends Cubit<ChatState> {
           'messageId': messageId,
         });
 
-        emit(state.copyWith(isLoadingMessages: false));
+        // emit(state.copyWith(isLoadingMessages: false)); // 💢💢💢 由 ChatRepository 通知
         return false;
       }
     } catch (error) {
@@ -949,7 +862,7 @@ class ChatCubit extends Cubit<ChatState> {
 
       if (!isClosed) {
         emit(state.copyWith(
-          isLoadingMessages: false,
+          // isLoadingMessages: false, // 💢💢💢 由 ChatRepository 通知
           errorMessage: '加载消息失败: ${error.toString()}',
         ));
       }
@@ -1036,8 +949,10 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 💢💢💢 统一通过 ChatsRepository 更新会话状态
       // 不再需要通过 ChatRepository 更新，避免重复操作
-      await _chatsRepository.updateConversationMuteStatus(
-          _conversationId, isMuted);
+      await _chatsRepository.updateParticipantSettings(
+        _conversationId,
+        muted: isMuted,
+      );
 
       // 💢💢💢 移除本地状态更新，由数据库监听自动处理
       // 当数据库更新后，watchConversation 会自动触发 _handleConversationDataUpdate
@@ -1061,8 +976,10 @@ class ChatCubit extends Cubit<ChatState> {
       });
 
       // 💢💢💢 统一通过 ChatsRepository 更新置顶状态
-      await _chatsRepository.updateConversationPinStatus(
-          _conversationId, isPinned);
+      await _chatsRepository.updateParticipantSettings(
+        _conversationId,
+        pinned: isPinned,
+      );
 
       // 💢💢💢 由数据库监听自动处理状态同步
       _logger.i('会话置顶状态更新请求已发送，等待数据库监听器自动同步状态');
@@ -1315,7 +1232,7 @@ class ChatCubit extends Cubit<ChatState> {
 
     try {
       // 1. 获取失败的消息
-      final message = await _chatRepository.getMessageById(messageId);
+      final message = await _chatRepositorySend.getMessageById(messageId);
       if (message == null) {
         _logger.w('重发消息失败：消息不存在', extra: {'messageId': messageId});
         return;
@@ -1335,11 +1252,8 @@ class ChatCubit extends Cubit<ChatState> {
       }
 
       // 3. 重置消息状态为发送中
-      await _chatRepository.updateMessageStatus(
+      await _chatRepositorySend.updateMessageStatus(
           messageId, MessageStatus.sending);
-
-      // 4. 更新UI中的消息状态
-      _updateMessageStatus(messageId, MessageStatus.sending);
 
       // 5. 重新发送消息
       await _sendMessageToServer(message);
@@ -1358,29 +1272,6 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 更新UI中消息的状态
-  void _updateMessageStatus(String messageId, MessageStatus status) {
-    if (isClosed) return;
-
-    // 使用队列系统更新消息状态
-    _enqueueMessageOperation(MessagesUpdateOperation(
-      operationType: MessagesUpdateOperationType.updateStatus,
-      messageUpdateEvents: [
-        MessageUpdateEvent(
-          updateType: MessageUpdateType.updateStatus,
-          messageId: messageId,
-          conversationId: _conversationId,
-          updateData: {'status': status},
-        ),
-      ],
-    ));
-
-    _logger.d('UI中消息状态更新已入队', extra: {
-      'messageId': messageId,
-      'status': status,
-    });
-  }
-
   /// 加载初始消息
   Future<void> _loadInitialMessages() async {
     try {
@@ -1390,7 +1281,7 @@ class ChatCubit extends Cubit<ChatState> {
         return;
       }
 
-      emit(state.copyWith(isLoadingMessages: true));
+      // emit(state.copyWith(isLoadingMessages: true)); // 💢💢💢 由 ChatRepository 通知
 
       // 从数据库加载消息
       // await requestSyncMessages();
@@ -1400,318 +1291,161 @@ class ChatCubit extends Cubit<ChatState> {
       // 检查Cubit是否已关闭
       if (!isClosed) {
         emit(state.copyWith(
-          isLoadingMessages: false,
+          // isLoadingMessages: false, // 💢💢💢 由 ChatRepository 通知
           errorMessage: '加载消息失败: ${error.toString()}',
         ));
       }
     }
   }
 
-  ///💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢 设置事件监听 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-  void _setupEventListeners() {
-    try {
-      _logger.i('设置事件监听', extra: {'conversationId': _conversationId});
+  ///💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢 设置数据库监听 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-      // 监听消息状态更新（包括加载更多和消息状态变化）
-      _subscriptions['messageStatus'] =
-          _chatRepository.getMessageStatusStream().listen(
-        _handleMessageStatusStream,
+  void _setupDatabaseListeners() {
+    try {
+      _logger.i('设置数据库监听', extra: {'conversationId': _conversationId});
+
+      // 💢💢💢 核心：监听数据库消息变化触发信号
+      _subscriptions['messagesWatch'] =
+          _chatRepository.watchMessages(_conversationId).listen(
+        (_) => _handleDatabaseMessagesChanged(),
         onError: (error) {
-          _logger.e('消息状态流监听出错', error: error);
+          _logger.e('数据库消息监听出错', error: error);
         },
       );
 
-      // // 💢💢💢 新增：监听单个会话的变化
-      // _subscriptions['conversationWatch'] =
-      //     _chatsRepository.watchConversation(_conversationId).listen(
-      //   _handleConversationDataUpdate,
-      //   onError: (error) {
-      //     _logger.e('会话数据流监听出错', error: error);
-      //   },
-      // );
-
-      // 监听会话更新事件（从 ChatsRepository）
-      _subscriptions['conversationUpdate'] = _chatsRepository
-          .conversationUpdateStream
-          .where((event) => event.conversationId == _conversationId)
-          .listen(
-        _handleConversationUpdate,
+      // 💢💢💢 监听会话数据变化
+      _subscriptions['conversationWatch'] =
+          _chatsRepository.watchConversation(_conversationId).listen(
+        _handleDatabaseConversationChanged,
         onError: (error) {
-          _logger.e('会话更新流监听出错', error: error);
+          _logger.e('数据库会话监听出错', error: error);
         },
       );
+
+      // 💢💢💢 保留必要的网络事件监听（如输入状态）
+      _subscriptions['typingStatus'] =
+          _chatRepository.getTypingStatusStream().listen(
+        _handleTypingStatus,
+        onError: (error) {
+          _logger.e('输入状态监听出错', error: error);
+        },
+      );
+
+      // 💢💢💢 新增：监听加载状态变化
+      _subscriptions['loadingStatus'] =
+          _chatRepository.getLoadingStatusStream().listen(
+        _handleLoadingStatus,
+        onError: (error) {
+          _logger.e('加载状态监听出错', error: error);
+        },
+      );
+
+      _logger.i('数据库监听设置完成');
     } catch (error) {
-      _logger.e('设置事件监听失败', error: error);
+      _logger.e('设置数据库监听失败', error: error);
     }
   }
 
-  /// 💢💢💢 统一处理消息状态更新事件
-  void _handleMessageStatusStream(MessagesUpdateOperation event) {
-    try {
-      // 直接处理操作类型，不再使用eventType
-      switch (event.operationType) {
-        case MessagesUpdateOperationType.init:
-        case MessagesUpdateOperationType.add:
-        case MessagesUpdateOperationType.sync:
-        case MessagesUpdateOperationType.update:
-        case MessagesUpdateOperationType.remove:
-        case MessagesUpdateOperationType.replace:
-        case MessagesUpdateOperationType.updateStatus:
-          _enqueueMessageOperation(event);
-          break;
-      }
-    } catch (error) {
-      _logger.e('处理消息状态流事件失败', error: error);
-    }
-  }
-
-  /// 🔄 加消息到暂存队列 💢💢💢💢
-  void _addToPendingMessages(List<Message> messages) {
-    final updatedPendingMessages = List<Message>.from(state.pendingMessages);
-
-    updatedPendingMessages.addAll(messages);
-
-    // 按messageIndex倒序排序
-    updatedPendingMessages
-        .sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
-
-    emit(state.copyWith(
-      pendingMessages: updatedPendingMessages,
-    ));
-
-    _logger.d('消息已暂存', extra: {
-      'pendingCount': updatedPendingMessages.length,
-    });
-  }
-
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢 Operation 队列系统 💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 💢💢💢💢 加入 Operation 队列
-  void _enqueueMessageOperation(MessagesUpdateOperation operation) {
-    _messageUpdateQueue.add(operation);
-    _logger.d('消息更新操作已入队', extra: {
-      'operation': operation.toString(),
-      'queueSize': _messageUpdateQueue.length,
-    });
-
-    // 如果当前没有在处理队列，立即开始处理
-    if (!_isProcessingMessageQueue) {
-      _processMessageUpdateQueue();
-    }
-  }
-
-  /// 💢💢💢💢 处理 Operation 队列
-  Future<void> _processMessageUpdateQueue() async {
-    if (_isProcessingMessageQueue || _messageUpdateQueue.isEmpty) {
-      return;
-    }
-
-    _isProcessingMessageQueue = true;
-    _logger.d('开始处理消息更新队列', extra: {
-      'queueSize': _messageUpdateQueue.length,
-    });
-
-    try {
-      while (_messageUpdateQueue.isNotEmpty) {
-        final operation = _messageUpdateQueue.removeFirst();
-        _executeMessageUpdateOperation(operation);
-
-        // 添加小延迟避免过度频繁的状态更新，但不影响单个操作的原子性
-        if (_messageUpdateQueue.isNotEmpty) {
-          await Future.delayed(const Duration(milliseconds: 5));
-        }
-      }
-    } catch (error) {
-      _logger.e('处理消息更新队列时出错', error: error);
-    } finally {
-      _isProcessingMessageQueue = false;
-      _logger.d('消息更新队列处理完成');
-    }
-  }
-
-  /// 💢💢💢💢 执行单个 Operation (同步，确保状态更新的原子性)
-  void _executeMessageUpdateOperation(MessagesUpdateOperation operation) {
+  /// 💢💢💢 处理数据库消息变化触发信号（优化性能版本）
+  void _handleDatabaseMessagesChanged() async {
     if (isClosed) return;
 
-    _logger.d('执行 Operation', extra: {
-      'operation type': operation.operationType.name,
+    // 获取锚点消息Index
+    final anchorMessageIndex = state.currentScrollPosition.messageIndex;
+
+    try {
+      // 主动从数据库获取最新消息数据
+      final messages = await _chatRepository.getMessagesByAnchorMessageIndex(
+          _conversationId,
+          anchorMessageIndex,
+          state.conversation.firstMessageIndex,
+          state.conversation.lastMessageIndex);
+
+      // 获取消息数量
+      final messageCount = messages.length;
+
+      // 更新消息列表
+      emit(state.copyWith(
+        messages: messages,
+        // isLoadingMessages: false, // 💢💢💢 由 ChatRepository 通知
+      ));
+
+      _logger.d('数据库消息变化处理完成', extra: {
+        'messageCount': messageCount,
+      });
+    } catch (error) {
+      _logger.e('处理数据库消息变化触发信号失败', error: error);
+    }
+  }
+
+  /// 💢💢💢 处理数据库会话变化
+  void _handleDatabaseConversationChanged(Conversation? conversation) {
+    if (isClosed || conversation == null) return;
+
+    _logger.d('数据库会话变化处理', extra: {
+      'conversationId': conversation.conversationId,
+      'name': conversation.name,
     });
 
-    // 获取当前状态的消息列表副本
-    final currentMessages = List<Message>.from(state.messages);
+    // 直接更新会话状态
+    emit(state.copyWith(conversation: conversation));
+  }
 
-    switch (operation.operationType) {
-      case MessagesUpdateOperationType.init:
-        if (operation.messages != null) {
-          _executeAddMessages(currentMessages, operation.messages!);
-        }
-        break;
+  /// 💢💢💢 处理输入状态变化
+  void _handleTypingStatus(Map<String, dynamic> event) {
+    if (isClosed) return;
 
-      case MessagesUpdateOperationType.add:
-        if (operation.messages != null) {
-          if (state.isSyncing) {
-            // 同步中，将消息暂存到队列
-            _addToPendingMessages(operation.messages!);
-            return;
+    final conversationId = event['conversationId'] as String?;
+    final isTyping = event['isTyping'] as bool? ?? false;
+
+    if (conversationId == _conversationId) {
+      _logger.d('输入状态变化', extra: {
+        'conversationId': conversationId,
+        'isTyping': isTyping,
+      });
+
+      // 更新输入状态（这里可以根据需要扩展状态）
+      // emit(state.copyWith(isOtherUserTyping: isTyping));
+    }
+  }
+
+  /// 💢💢💢 新增：处理加载状态变化
+  void _handleLoadingStatus(Map<String, dynamic> event) {
+    if (isClosed) return;
+
+    final conversationId = event['conversationId'] as String?;
+    final isLoading = event['isLoading'] as bool? ?? false;
+    final loadingType = event['loadingType'] as String? ?? 'messages';
+
+    if (conversationId == _conversationId) {
+      _logger.d('加载状态变化', extra: {
+        'isLoading': isLoading,
+        'loadingType': loadingType,
+      });
+
+      // 根据加载类型更新对应的状态
+      switch (loadingType) {
+        case 'moreMessages':
+          // 加载更多消息（滚动触发）
+          emit(state.copyWith(isLoadingMessages: isLoading));
+          break;
+        case 'initialMessages':
+          // 初始消息加载
+          emit(state.copyWith(isLoadingMessages: isLoading));
+          break;
+        case 'searchContext':
+          // 搜索上下文加载（可以使用搜索状态或单独的状态）
+          if (state.isSearchMode) {
+            emit(state.copyWith(isSearching: isLoading));
+          } else {
+            emit(state.copyWith(isLoadingMessages: isLoading));
           }
-          _executeAddMessages(currentMessages, operation.messages!);
-        }
-        break;
-
-      case MessagesUpdateOperationType.remove:
-        if (operation.messages != null) {
-          _executeRemoveMessages(
-              currentMessages, operation.messageUpdateEvents!);
-        }
-        break;
-
-      case MessagesUpdateOperationType.update:
-        if (operation.messages != null) {
-          _executeUpdateMessages(currentMessages, operation.messages!);
-        }
-        break;
-
-      case MessagesUpdateOperationType.replace:
-        if (operation.messages != null) {
-          currentMessages.clear();
-          currentMessages.addAll(operation.messages!);
-        }
-        break;
-
-      case MessagesUpdateOperationType.sync:
-        if (operation.messages != null) {
-          _executeSyncMessages(currentMessages, operation.messages!);
-          // 同步完成，清理同步状态和暂存消息
-          emit(state.copyWith(
-            messages: currentMessages
-              ..sort((a, b) => b.messageIndex.compareTo(a.messageIndex)),
-            isSyncing: false,
-            pendingMessages: [],
-            messageUpdateTrigger: state.messageUpdateTrigger + 1,
-          ));
-          return; // 提前返回，避免重复emit
-        }
-        break;
-
-      case MessagesUpdateOperationType.updateStatus:
-        if (operation.messageUpdateEvents != null) {
-          _executeUpdateMessagesStatus(
-              currentMessages, operation.messageUpdateEvents!);
-        }
-        break;
-    }
-
-    // 排序并更新状态
-    currentMessages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
-
-    emit(state.copyWith(
-      messages: currentMessages,
-      hasMoreBefore: operation.hasMoreBefore ?? state.hasMoreBefore,
-      hasMoreAfter: operation.hasMoreAfter ?? state.hasMoreAfter,
-      messageUpdateTrigger: state.messageUpdateTrigger + 1,
-    ));
-
-    if (operation.operationType == MessagesUpdateOperationType.init) {
-      _requestSyncMessages();
-    }
-
-    _logger.d('消息更新操作执行完成', extra: {
-      'operation': operation.operationType.name,
-      'finalMessageCount': currentMessages.length,
-    });
-  }
-
-  /// 💢💢💢💢 执行添加消息操作
-  void _executeAddMessages(
-      List<Message> currentMessages, List<Message> newMessages) {
-    for (final message in newMessages) {
-      // 先移除已存在的同ID消息（去重）
-      currentMessages.removeWhere((m) => m.messageId == message.messageId);
-      // 添加新消息
-      currentMessages.add(message);
-    }
-  }
-
-  /// 💢💢💢💢 执行移除消息操作
-  void _executeRemoveMessages(
-      List<Message> currentMessages, List<MessageUpdateEvent> events) {
-    for (final event in events) {
-      currentMessages.removeWhere((m) => m.messageId == event.messageId);
-    }
-  }
-
-  /// 💢💢💢💢 执行更新消息操作
-  void _executeUpdateMessages(
-      List<Message> currentMessages, List<Message> updatedMessages) {
-    for (final updatedMessage in updatedMessages) {
-      final index = currentMessages
-          .indexWhere((m) => m.messageId == updatedMessage.messageId);
-      if (index != -1) {
-        currentMessages[index] = updatedMessage;
-      } else {
-        // 如果消息不存在，直接添加
-        currentMessages.add(updatedMessage);
+          break;
+        case 'messages':
+        default:
+          // 默认消息加载
+          emit(state.copyWith(isLoadingMessages: isLoading));
       }
-    }
-  }
-
-  /// 💢💢💢💢 执行更新消息状态操作
-  void _executeUpdateMessagesStatus(
-      List<Message> currentMessages, List<MessageUpdateEvent> events) {
-    for (final event in events) {
-      final index = currentMessages.indexWhere((m) =>
-          m.messageId == event.messageId ||
-          (event.tempId != null && m.messageId == event.tempId));
-
-      if (index != -1) {
-        final existingMessage = currentMessages[index];
-        final statusType = event.updateData['status'];
-        if (statusType == MessageStatus.read.name) {
-          _executeMarkMessagesAsRead(currentMessages, existingMessage);
-          continue;
-        }
-
-        // 🚀 使用 MessageUpdateEvent.applyToMessage 方法直接应用更新
-        final updatedMessage = event.applyToMessage(existingMessage);
-
-        // 替换消息对象
-        currentMessages[index] = updatedMessage;
-      }
-    }
-  }
-
-  /// 💢💢💢💢 执行标记消息为已读操作
-  void _executeMarkMessagesAsRead(
-      List<Message> currentMessages, Message message) {
-    final currentUserId = state.currentUser?.userId;
-    int updatedCount = 0;
-
-    for (final m in currentMessages) {
-      if (m.messageIndex <= message.messageIndex &&
-          m.status == MessageStatus.delivered &&
-          m.senderId != currentUserId) {
-        m.status = MessageStatus.read;
-        updatedCount++;
-        // 💢💢💢 移除break，确保标记所有符合条件的消息
-      }
-    }
-
-    _logger.d('UI层标记消息为已读', extra: {
-      'targetMessageIndex': message.messageIndex,
-      'targetMessageId': message.messageId,
-      'updatedCount': updatedCount,
-    });
-  }
-
-  /// 💢💢💢💢 执行同步消息操作
-  void _executeSyncMessages(
-      List<Message> currentMessages, List<Message> updatedMessages) {
-    _executeAddMessages(currentMessages, updatedMessages);
-
-    // 处理暂存的消息
-    if (state.pendingMessages.isNotEmpty) {
-      _executeAddMessages(currentMessages, state.pendingMessages);
-      // 注意：这里不直接清空pendingMessages，而是在外层emit时一起更新
     }
   }
 
@@ -1719,9 +1453,9 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> close() async {
     _logger.i('关闭ChatCubit', extra: {'conversationId': _conversationId});
 
-    // 🔧 修复：清理消息更新队列
-    _messageUpdateQueue.clear();
-    _isProcessingMessageQueue = false;
+    // 💢💢💢 清理防抖定时器
+    _scrollPositionTimer?.cancel();
+    _scrollPositionTimer = null;
 
     // 取消所有订阅
     for (final subscription in _subscriptions.values) {

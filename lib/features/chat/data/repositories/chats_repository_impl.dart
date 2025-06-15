@@ -8,7 +8,7 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/features/chat/domain/entities/conversation_event.dart';
+// 移除ConversationSyncEvent import，改用数据库监听
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
@@ -23,6 +23,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
   final LogService _logger = LogService.instance;
   final CommunicationService _communicationService = CommunicationService();
 
+  final CurrentUser _currentUser;
+
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
   IsarCollection<User> get _users => _isar.users;
@@ -34,19 +36,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   final Map<String, ChatStateSnapshot> _stateSnapshots =
       <String, ChatStateSnapshot>{};
 
-  // 事件流控制器
-  final _conversationSyncController =
-      StreamController<ConversationSyncEvent>.broadcast();
-  final _conversationUpdateController =
-      StreamController<ConversationUpdateEvent>.broadcast();
-
-  @override
-  Stream<ConversationSyncEvent> get conversationSyncStream =>
-      _conversationSyncController.stream;
-
-  @override
-  Stream<ConversationUpdateEvent> get conversationUpdateStream =>
-      _conversationUpdateController.stream;
+  // 移除ConversationSyncEvent相关代码，改用数据库监听
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -57,7 +47,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
   static const Duration _deduplicationWindow = Duration(seconds: 5);
 
   // 构造函数
-  ChatsRepositoryImpl() {
+  ChatsRepositoryImpl({required CurrentUser currentUser})
+      : _currentUser = currentUser {
     _logger.x('ChatsRepositoryImpl 初始化');
     _registerEventHandlers();
   }
@@ -103,7 +94,15 @@ class ChatsRepositoryImpl implements ChatsRepository {
       ..add(_communicationService
           .onProto<conversation_proto.ConversationDetailResponse>(
               'conversation:detail:response')
-          .listen(_handleConversationDetailResponse));
+          .listen(_handleConversationDetailResponse))
+      ..add(_communicationService
+          .onProto<conversation_proto.ParticipantStatusUpdateResponse>(
+              'participant:status:update:response')
+          .listen(_handleParticipantStatusUpdateResponse))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationJoinLeaveResponse>(
+              'conversation:leave:response')
+          .listen(_handleConversationLeaveResponse));
   }
 
   /// 获取联系人信息
@@ -121,28 +120,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 获取当前用户ID
-  /// 直接从数据库获取当前登录用户的ID
-  /// 返回用户ID,如未找到则抛出异常
-  Future<String> _getCurrentUserId() async {
-    try {
-      if (!DatabaseInitializer.isInitialized) {
-        throw Exception('数据库未初始化，请确保已登录');
-      }
+  // /// 获取当前用户ID
+  // /// 直接从数据库获取当前登录用户的ID
+  // /// 返回用户ID,如未找到则抛出异常
+  // Future<String> _getCurrentUserId() async {
+  //   try {
+  //     if (!DatabaseInitializer.isInitialized) {
+  //       throw Exception('数据库未初始化，请确保已登录');
+  //     }
 
-      final currentUsers =
-          await DatabaseInitializer.isar.currentUsers.where().findAll();
+  //     final currentUsers =
+  //         await DatabaseInitializer.isar.currentUsers.where().findAll();
 
-      if (currentUsers.isEmpty) {
-        throw Exception('找不到当前用户信息，请确保已登录');
-      }
+  //     if (currentUsers.isEmpty) {
+  //       throw Exception('找不到当前用户信息，请确保已登录');
+  //     }
 
-      // 返回第一个用户的ID（通常只会有一个用户记录）
-      return currentUsers.first.userId;
-    } catch (e) {
-      throw Exception('获取当前用户ID失败: ${e.toString()}');
-    }
-  }
+  //     // 返回第一个用户的ID（通常只会有一个用户记录）
+  //     return currentUsers.first.userId;
+  //   } catch (e) {
+  //     throw Exception('获取当前用户ID失败: ${e.toString()}');
+  //   }
+  // }
 
   /// 获取所有会话
   /// 从本地数据库获取所有会话
@@ -150,31 +149,15 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<List<db.Conversation>> getAllConversations() async {
     try {
-      _logger.i('开始从本地数据库获取所有会话');
+      _logger.i('从本地数据库获取所有会话');
 
-      // 标记同步开始
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncStarted,
-        conversations: null,
-      ));
-
-      // 从数据库获取最新的会话列表
+      // 直接从数据库获取会话列表，不发送同步事件
       final conversations = await _conversations.where().findAll();
 
-      // 标记同步完成
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncCompleted,
-        conversations: conversations,
-      ));
+      _logger.d('成功获取会话列表', extra: {'会话数量': conversations.length});
       return conversations;
     } catch (error, stack) {
       _logger.e('获取会话列表失败', error: error, stackTrace: stack);
-
-      // 标记同步错误
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncError,
-        conversations: null,
-      ));
       return [];
     }
   }
@@ -203,23 +186,26 @@ class ChatsRepositoryImpl implements ChatsRepository {
               conversation.id = existing.id;
               await _conversations.put(conversation);
 
-              // 发布会话更新事件
-              _conversationUpdateController.add(ConversationUpdateEvent(
-                conversationId: conversation.conversationId,
-                type: ConversationUpdateType.updated,
-                conversation: conversation,
-              ));
+              // ✅ 已移除会话更新事件流，改用数据库监听
+            }
+
+            // 🔥 新增：检查边界信息，如果缺失则请求详细信息
+            if (conversation.firstMessageIndex <= 0 ||
+                conversation.lastMessageIndex <= 0) {
+              _logger.w('会话缺失边界信息，请求详细数据', extra: {
+                'conversationId': conversation.conversationId,
+                'firstMessageIndex': conversation.firstMessageIndex,
+                'lastMessageIndex': conversation.lastMessageIndex,
+              });
+
+              // 异步请求详细信息，不阻塞当前流程
+              requestConversationDetail(conversation.conversationId).ignore();
             }
           } else {
             // 添加新会话
             await _conversations.put(conversation);
 
-            // 发布会话新增事件
-            _conversationUpdateController.add(ConversationUpdateEvent(
-              conversationId: conversation.conversationId,
-              type: ConversationUpdateType.added,
-              conversation: conversation,
-            ));
+            // ✅ 已移除会话更新事件流，改用数据库监听
           }
         }
       });
@@ -282,9 +268,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
         conversation.id = await _conversations.put(conversation);
         await _conversations.put(conversation);
 
-        // 添加会话参与者
-        conversation.participants.add(contact);
-        await conversation.participants.save();
+        // 添加会话参与者 - 将User转换为Participant
+        final participant = _userToParticipant(contact);
+        conversation.participants.add(participant);
       });
 
       return conversation;
@@ -318,21 +304,20 @@ class ChatsRepositoryImpl implements ChatsRepository {
         await _conversations.put(conversation);
 
         // 添加当前用户
-        final currentUserId = await _getCurrentUserId();
-        final currentUser = await getContactById(currentUserId);
+        final currentUser = await getContactById(_currentUser.userId);
         if (currentUser != null) {
-          conversation.participants.add(currentUser);
+          final currentParticipant = _userToParticipant(currentUser);
+          conversation.participants.add(currentParticipant);
         }
 
         // 添加其他成员
         for (final memberId in memberIds) {
           final member = await getContactById(memberId);
           if (member != null) {
-            conversation.participants.add(member);
+            final memberParticipant = _userToParticipant(member);
+            conversation.participants.add(memberParticipant);
           }
         }
-
-        await conversation.participants.save();
       });
 
       return conversation;
@@ -356,7 +341,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
     return _conversations
         .filter()
         .conversationIdEqualTo(conversationId)
-        .watch(fireImmediately: true)
+        .watch(fireImmediately: false)
         .map((conversations) =>
             conversations.isNotEmpty ? conversations.first : null);
   }
@@ -424,8 +409,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 保存会话
       await _isar.writeTxn(() async {
         await _conversations.put(conversation);
-        // 建立会话与用户的关联
-        await conversation.participants.save();
+        // 参与者信息已经包含在conversation对象中，无需单独保存
       });
 
       _logger
@@ -464,161 +448,53 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
+  /// 统一更新参与者设置（静音、置顶、已读状态）
   @override
-  Future<void> updateConversationMuteStatus(
-      String conversationId, bool isMuted) async {
-    _logger.i('更新会话静音状态',
-        extra: {'conversationId': conversationId, 'isMuted': isMuted});
-
-    try {
-      // 更新本地数据库
-      final conversation = await _conversations
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .findFirst();
-      if (conversation != null) {
-        // 使用事务包装数据库写入操作
-        await _isar.writeTxn(() async {
-          conversation.isMuted = isMuted;
-          await _conversations.put(conversation);
-        });
-        _logger.i('本地数据库会话静音状态已更新');
-
-        // 💢💢💢 立即发送会话更新事件，通知ChatsCubit
-        _conversationUpdateController.add(
-          ConversationUpdateEvent(
-            conversationId: conversationId,
-            type: ConversationUpdateType.updated,
-            conversation: conversation, // 传入更新后的完整会话对象
-            isMuted: isMuted,
-          ),
-        );
-        _logger.d('已发送会话静音状态更新事件');
-      } else {
-        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
-        throw Exception('找不到指定会话');
-      }
-
-      // 同步到服务器
-      if (_communicationService.isInitialized) {
-        _logger.i('开始同步会话静音状态到服务器');
-
-        // 创建会话设置更新请求
-        final settingsUpdateRequest =
-            conversation_proto.ConversationSettingsUpdateRequest()
-              ..conversationId = conversationId
-              ..muted = isMuted;
-
-        // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:settings:update', settingsUpdateRequest);
-
-        // 服务器响应会通过_handleConversationSettingsUpdate方法处理
-      } else {
-        _logger.w('通信服务未初始化，无法同步会话静音状态到服务器');
-      }
-    } catch (error) {
-      _logger.e('更新会话静音状态失败', error: error);
-      throw Exception('更新会话静音状态失败: ${error.toString()}');
-    }
-  }
-
-  @override
-  Future<void> updateConversationPinStatus(
-      String conversationId, bool isPinned) async {
-    _logger.i('更新会话置顶状态',
-        extra: {'conversationId': conversationId, 'isPinned': isPinned});
-
-    try {
-      // 更新本地数据库
-      final conversation = await _conversations
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .findFirst();
-      if (conversation != null) {
-        // 使用事务包装数据库写入操作
-        await _isar.writeTxn(() async {
-          conversation.isPinned = isPinned;
-          await _conversations.put(conversation);
-        });
-        _logger.i('本地数据库会话置顶状态已更新');
-
-        // 💢💢💢 立即发送会话更新事件，通知ChatsCubit
-        _conversationUpdateController.add(
-          ConversationUpdateEvent(
-            conversationId: conversationId,
-            type: ConversationUpdateType.updated,
-            conversation: conversation, // 传入更新后的完整会话对象
-            isPinned: isPinned,
-          ),
-        );
-        _logger.d('已发送会话置顶状态更新事件');
-      } else {
-        _logger.e('找不到指定会话', extra: {'conversationId': conversationId});
-        throw Exception('找不到指定会话');
-      }
-
-      // 同步到服务器
-      if (_communicationService.isInitialized) {
-        _logger.i('开始同步会话置顶状态到服务器');
-
-        // 创建会话设置更新请求
-        final settingsUpdateRequest =
-            conversation_proto.ConversationSettingsUpdateRequest()
-              ..conversationId = conversationId
-              ..pinned = isPinned;
-
-        // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:settings:update', settingsUpdateRequest);
-
-        // 服务器响应会通过_handleConversationSettingsUpdate方法处理
-      } else {
-        _logger.w('通信服务未初始化，无法同步会话置顶状态到服务器');
-      }
-    } catch (error) {
-      _logger.e('更新会话置顶状态失败', error: error);
-      throw Exception('更新会话置顶状态失败: ${error.toString()}');
-    }
-  }
-
-  @override
-  Future<void> updateConversationLastReadAtIndex(
-      String conversationId, int lastReadIndex) async {
-    _logger.i('更新会话最后阅读消息索引', extra: {
+  Future<void> updateParticipantSettings(
+    String conversationId, {
+    int? readMessageIndex,
+    bool? muted,
+    bool? pinned,
+  }) async {
+    _logger.i('更新参与者设置', extra: {
       'conversationId': conversationId,
-      'lastReadIndex': lastReadIndex
+      'readMessageIndex': readMessageIndex,
+      'muted': muted,
+      'pinned': pinned,
     });
 
     try {
-      // 更新本地数据库
-      final conversation = await _conversations
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .findFirst();
-      if (conversation != null) {
-        // 使用事务包装数据库写入操作
-        await _isar.writeTxn(() async {
-          conversation.lastReadAtIndex = lastReadIndex;
-          await _conversations.put(conversation);
-        });
-        _logger.i('本地数据库会话最后阅读索引已更新');
+      // 同步到服务器
+      if (_communicationService.isInitialized) {
+        _logger.i('开始同步参与者设置到服务器');
 
-        // 💢💢💢 立即发送会话更新事件，通知ChatsCubit
-        _conversationUpdateController.add(
-          ConversationUpdateEvent(
-            conversationId: conversationId,
-            type: ConversationUpdateType.readStatusUpdated,
-            conversation: conversation, // 传入更新后的完整会话对象
-          ),
-        );
-        _logger.d('已发送会话阅读状态更新事件');
+        // 创建参与者设置更新请求
+        final participantUpdateRequest =
+            conversation_proto.ParticipantStatusUpdateRequest()
+              ..conversationId = conversationId;
+
+        // 设置可选字段
+        if (readMessageIndex != null) {
+          participantUpdateRequest.readMessageIndex = readMessageIndex;
+        }
+        if (muted != null) {
+          participantUpdateRequest.muted = muted;
+        }
+        if (pinned != null) {
+          participantUpdateRequest.pinned = pinned;
+        }
+
+        // 发送请求到服务器
+        _communicationService.emitProto(
+            'participant:status:update', participantUpdateRequest);
+
+        // 服务器响应会通过_handleParticipantSettingsUpdate方法处理
       } else {
-        _logger.w('找不到指定会话', extra: {'conversationId': conversationId});
+        _logger.w('通信服务未初始化，无法同步参与者设置到服务器');
       }
     } catch (error) {
-      _logger.e('更新会话最后阅读索引失败', error: error);
-      throw Exception('更新会话最后阅读索引失败: ${error.toString()}');
+      _logger.e('更新参与者设置失败', error: error);
+      throw Exception('更新参与者设置失败: ${error.toString()}');
     }
   }
 
@@ -652,7 +528,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
               .where((c) => c.type == db.ConversationType.channel)
               .toList();
         case 4: // 未读
-          return conversations.where((c) => c.unreadCount > 0).toList();
+          // 💢💢💢 需要当前用户ID来判断未读状态
+          final currentUserId = _currentUser.userId;
+          return conversations
+              .where((c) => c.unreadCount(currentUserId) > 0)
+              .toList();
         default:
           return conversations;
       }
@@ -699,8 +579,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
       // 使用事务包装数据库写入操作
       await _isar.writeTxn(() async {
-        if (muted != null) conversation.isMuted = muted;
-        if (pinned != null) conversation.isPinned = pinned;
+        final currentUserId = _currentUser.userId;
+        if (muted != null || pinned != null) {
+          conversation.updateCurrentUserSettings(
+            currentUserId: currentUserId,
+            muted: muted,
+            pinned: pinned,
+          );
+        }
         await _conversations.put(conversation);
       });
 
@@ -735,15 +621,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
               'pinned': response.pinned
             });
 
-            // 发出会话更新事件
-            _conversationUpdateController.add(
-              ConversationUpdateEvent(
-                conversationId: conversationId,
-                type: ConversationUpdateType.updated,
-                isMuted: muted,
-                isPinned: pinned,
-              ),
-            );
+            // ✅ 已移除会话更新事件流，改用数据库监听
           } else {
             _logger.w('服务器更新会话设置失败',
                 extra: {'conversationId': response.conversationId});
@@ -823,21 +701,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
     _lastSyncResponseHash = currentSyncResponseHash;
     _lastSyncResponseTime = currentSyncResponseTime;
 
-    // 标记同步开始
-    _conversationSyncController.add(ConversationSyncEvent(
-      type: ConversationSyncType.syncStarted,
-      conversations: null,
-    ));
-
     try {
       if (collection.conversations.isEmpty) {
         _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
-        // 即使列表为空，也标记为同步成功
-        _conversationSyncController.add(ConversationSyncEvent(
-          type: ConversationSyncType.syncCompleted,
-          conversations: [],
-        ));
-        _logger.i('发送会话同步完成事件');
         return;
       }
 
@@ -846,25 +712,12 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .map((conv) => ConversationAdapter.fromProto(conv))
           .toList();
 
-      // 更新本地数据库
+      // 更新本地数据库，数据库变化会自动触发UI更新
       await _updateLocalConversations(dbConversations);
 
-      // 发送批量同步完成事件，通知Cubit重新加载数据
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncCompleted,
-        conversations: dbConversations,
-      ));
-      _logger.i('发送会话同步完成事件');
-
-      // 🔥 已移除：会话同步完成后自动触发消息同步的逻辑
+      _logger.i('会话同步完成，数据库已更新');
     } catch (e, stack) {
       _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
-      // 处理失败时标记同步错误
-      _conversationSyncController.add(ConversationSyncEvent(
-        type: ConversationSyncType.syncError,
-        conversations: null,
-      ));
-      _logger.i('发送会话同步错误事件');
     }
   }
 
@@ -890,19 +743,19 @@ class ChatsRepositoryImpl implements ChatsRepository {
           conversation.lastMessageName = notification.lastMessageName;
           conversation.lastMessagePreview = notification.lastMessagePreview;
           conversation.lastMessageIndex = notification.lastMessageIndex.toInt();
-          conversation.unreadCount = notification.unreadCount;
+
+          // 更新当前用户的未读数量
+          final currentUserId = _currentUser.userId;
+          conversation.updateCurrentUserSettings(
+            currentUserId: currentUserId,
+          );
 
           // 保存更新后的会话
           await _conversations.put(conversation);
           _logger.d('已更新本地会话数据',
               extra: {'conversationId': notification.conversationId});
 
-          // 发布会话更新事件
-          _conversationUpdateController.add(ConversationUpdateEvent(
-            conversationId: conversation.conversationId,
-            type: ConversationUpdateType.updated,
-            conversation: conversation,
-          ));
+          // ✅ 已移除会话更新事件流，改用数据库监听
         } else {
           _logger.w('本地找不到对应的会话',
               extra: {'conversationId': notification.conversationId});
@@ -983,9 +836,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
             .findFirst();
 
         if (conversation != null) {
+          final currentUserId = _currentUser.userId;
+
           // 更新静音状态
           if (response.hasMuted()) {
-            conversation.isMuted = response.muted;
+            conversation.updateCurrentUserSettings(
+              currentUserId: currentUserId,
+              muted: response.muted,
+            );
             _logger.d('已更新会话静音状态', extra: {
               'conversationId': response.conversationId,
               'muted': response.muted
@@ -994,7 +852,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
           // 更新置顶状态
           if (response.hasPinned()) {
-            conversation.isPinned = response.pinned;
+            conversation.updateCurrentUserSettings(
+              currentUserId: currentUserId,
+              pinned: response.pinned,
+            );
             _logger.d('已更新会话置顶状态', extra: {
               'conversationId': response.conversationId,
               'pinned': response.pinned
@@ -1029,15 +890,150 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
       _logger.d('已将会话详情保存到本地数据库');
 
-      _conversationUpdateController.add(ConversationUpdateEvent(
-        conversationId: conversation.conversationId,
-        type: ConversationUpdateType.added,
-        conversation: conversation,
-      ));
+      // ✅ 已移除会话更新事件流，改用数据库监听
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   会话阅读状态管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  /// 处理参与者状态更新响应
+  void _handleParticipantStatusUpdateResponse(
+      conversation_proto.ParticipantStatusUpdateResponse response) async {
+    try {
+      _logger.i('收到参与者状态更新响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+      });
+
+      if (!response.success) {
+        _logger.w('参与者状态更新失败', extra: {
+          'conversationId': response.conversationId,
+        });
+        return;
+      }
+
+      if (!response.hasParticipant()) {
+        _logger.w('参与者状态更新响应中缺少参与者信息', extra: {
+          'conversationId': response.conversationId,
+        });
+        return;
+      }
+
+      // 更新本地数据库
+      await _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(response.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          final participant = response.participant;
+          final currentUserId = _currentUser.userId;
+
+          // 只有当更新的是当前用户的参与者信息时才更新本地设置
+          if (participant.userId == currentUserId) {
+            conversation.updateCurrentUserSettings(
+              currentUserId: currentUserId,
+              readMessageIndex: participant.readMessageIndex,
+              muted: participant.muted,
+              pinned: participant.pinned,
+            );
+
+            _logger.d('已更新当前用户的参与者设置', extra: {
+              'conversationId': response.conversationId,
+              'readMessageIndex': participant.readMessageIndex,
+              'muted': participant.muted,
+              'pinned': participant.pinned,
+            });
+          } else {
+            // 更新其他参与者的信息
+            final existingParticipantIndex = conversation.participants
+                .indexWhere((p) => p.userId == participant.userId);
+
+            if (existingParticipantIndex != -1) {
+              // 更新现有参与者
+              conversation.participants[existingParticipantIndex] =
+                  ConversationAdapter.participantFromProto(participant);
+              _logger.d('已更新其他参与者信息', extra: {
+                'conversationId': response.conversationId,
+                'userId': participant.userId,
+              });
+            }
+          }
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+          _logger.d('参与者状态更新完成',
+              extra: {'conversationId': response.conversationId});
+        } else {
+          _logger.w('本地找不到对应的会话',
+              extra: {'conversationId': response.conversationId});
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理参与者状态更新响应失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理会话离开响应
+  void _handleConversationLeaveResponse(
+      conversation_proto.ConversationJoinLeaveResponse response) async {
+    try {
+      _logger.i('收到会话离开响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'message': response.message,
+      });
+
+      if (!response.success) {
+        _logger.w('会话离开失败', extra: {
+          'conversationId': response.conversationId,
+          'message': response.message,
+        });
+        return;
+      }
+
+      // 更新本地数据库 - 更新最后阅读时间
+      await updateConversationLastReadTime(response.conversationId);
+    } catch (error, stackTrace) {
+      _logger.e('处理会话离开响应失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 更新会话的最后阅读时间
+  @override
+  Future<void> updateConversationLastReadTime(
+    String conversationId, {
+    DateTime? readTime,
+  }) async {
+    try {
+      await _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          final currentUserId = _currentUser.userId;
+
+          // 更新当前用户的最后阅读时间
+          conversation.updateLastReadTime(currentUserId, readTime: readTime);
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+
+          _logger.d('已更新会话的最后阅读时间', extra: {
+            'conversationId': conversationId,
+            'lastReadTime': conversation.lastReadTime?.toIso8601String(),
+          });
+        } else {
+          _logger.w('本地找不到对应的会话', extra: {'conversationId': conversationId});
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('更新会话最后阅读时间失败', error: error, stackTrace: stackTrace);
+    }
+  }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -1136,15 +1132,32 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   int get stateSnapshotCount => _stateSnapshots.length;
 
+  /// 将User对象转换为Participant对象
+  Participant _userToParticipant(User user) {
+    return Participant.create(
+      userId: user.userId,
+      name: user.name,
+      avatar: user.avatar ?? '',
+      unreadCount: 0,
+      muted: false,
+      pinned: false,
+      joinedAt: DateTime.now(),
+      deliveredMessageIndex: 0,
+      readMessageIndex: 0,
+      role: MemberRole.member,
+      online: user.status == 'online',
+      isActive: true,
+    );
+  }
+
   /// 释放资源
-  /// 取消所有订阅并关闭流控制器
+  /// 取消所有订阅
   void dispose() {
     _logger.i('销毁ChatsRepository');
     for (var subscription in _subscriptions) {
       subscription.cancel();
     }
     _subscriptions.clear();
-    _conversationSyncController.close();
-    _conversationUpdateController.close();
+    // ✅ 已移除会话同步事件流相关代码
   }
 }

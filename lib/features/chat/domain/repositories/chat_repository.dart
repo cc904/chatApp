@@ -1,6 +1,5 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
-import 'package:cc/features/chat/presentation/cubit/message_update_operation.dart';
 
 /// 搜索结果类
 /// 包含搜索相关的所有信息
@@ -77,18 +76,39 @@ class ConversationInfo {
   });
 }
 
-/// 聊天Repository接口
-/// 定义单个聊天会话相关的数据操作接口
+/// 聊天仓库接口
+/// 定义了单个聊天会话相关的数据操作方法
 abstract class ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 加载本地最新的消息
-  Future<void> loadLatestLocalMessages(String conversationId,
-      {int limit = 50});
+  /// 请求服务器获取更多消息
+  /// [conversationId] - 会话ID
+  /// [messageIndex] - 起始消息索引
+  /// [limit] - 获取消息数量限制
+  /// [isBefore] - 是否获取指定索引之前的消息
+  Future<void> requestMoreMessages(String conversationId,
+      {int? messageIndex, int limit = 50, bool? isBefore = false});
 
-  /// 获取会话消息
-  Future<void> getConversationMessages(String conversationId,
-      {int limit = 20, DateTime? before});
+  /// 基于锚点消息Index获取消息 前50条 后50条
+  /// [conversationId] - 会话ID
+  /// [anchorMessageIndex] - 锚点消息Index
+  /// 返回消息列表
+  Future<List<Message>> getMessagesByAnchorMessageIndex(String conversationId,
+      int? anchorMessageIndex, int firstMessageIndex, int lastMessageIndex);
+
+  /// 加载本地最新的消息 前50条 后50条
+  /// [conversationId] - 会话ID
+  /// [anchorMessageIndex] - 锚点消息Index
+  /// [firstMessageIndex] - 会话中的第一条消息的索引
+  /// [lastMessageIndex] - 会话中的最后一条消息的索引
+  /// [limit] - 获取消息数量限制
+  /// [isBefore] - 是否获取指定索引之前的消息
+  Future<List<Message>> loadMoreMessages(String conversationId,
+      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
+      {int limit = 50, bool? isBefore = false});
+
+  /// 获取会话中的消息数量
+  Future<int> getConversationMessageCount(String conversationId);
 
   /// 搜索消息
   Future<List<Message>> searchMessages(String keyword,
@@ -129,38 +149,8 @@ abstract class ChatRepository {
     int contextSize = 25,
   });
 
-  /// 发送文本消息
-  Future<Message> sendTextMessage(String conversationId, String text);
-
-  /// 发送图片消息
-  Future<Message> sendImageMessage(String conversationId, String localPath,
-      {String? mediaUrl});
-
-  /// 发送语音消息
-  Future<Message> sendVoiceMessage(
-      String conversationId, String localPath, int duration,
-      {String? mediaUrl});
-
-  /// 发送文件消息
-  Future<Message> sendFileMessage(
-      String conversationId, String localPath, String fileName, double fileSize,
-      {String? mediaUrl});
-
-  /// 发送视频消息
-  Future<Message> sendVideoMessage(
-      String conversationId, String localPath, int duration,
-      {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false});
-
   /// 删除消息
   Future<void> deleteMessage(String messageId);
-
-  /// 标记当前查看的消息为已读
-  Future<void> markMessagesAsReadBySelf(
-      String conversationId, Message message);
-
-  /// 标记当前查看的消息为已读
-  Future<void> markMessagesAsReadByOther(
-      String conversationId, String messageId);
 
   /// 按日期范围获取消息
   Future<List<Message>> getMessagesByDateRange(
@@ -177,14 +167,6 @@ abstract class ChatRepository {
     int limit = 50,
   });
 
-  /// 从服务器获取历史消息
-  Future<List<Message>> fetchHistoryMessages(String conversationId,
-      {DateTime? before, int limit = 50});
-
-  /// 从服务器获取消息
-  Future<List<Message>> fetchMessagesFromServer(String conversationId,
-      {int limit = 50, DateTime? before});
-
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  输入状态相关  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 发送正在输入状态
@@ -192,9 +174,6 @@ abstract class ChatRepository {
 
   /// 获取输入状态流
   Stream<Map<String, dynamic>> getTypingStatusStream();
-
-  /// 获取消息状态流
-  Stream<MessagesUpdateOperation> getMessageStatusStream();
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -207,55 +186,19 @@ abstract class ChatRepository {
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   网络请求   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 同步新消息（基于index）
+  /// 💢💢💢 新增：监听指定会话的消息变化
+  /// 返回变化触发信号，当数据库中的消息发生变化时触发通知（不传输具体数据）
   /// [conversationId] - 会话ID
-  /// [fromIndex] - 起始index（客户端本地最新消息的index）
-  /// [limit] - 获取消息数量限制，默认50  
-  /// 返回同步是否成功
-  Future<bool> syncNewMessages(
-    String conversationId, {
-    int? fromIndex,
-    int limit = 50,
-  });
+  /// 返回该会话消息的变化触发流
+  Stream<void> watchMessages(String conversationId);
 
-  /// 加载历史消息（基于index）
+  /// 💢💢💢 新增：监听指定会话的消息数量变化
+  /// 用于高效监听消息数量变化，避免传输大量消息数据
   /// [conversationId] - 会话ID
-  /// [beforeIndex] - 结束index（获取该index之前的消息）
-  /// [limit] - 获取消息数量限制，默认50
-  /// 返回加载是否成功
-  Future<bool> loadHistoryMessages(
-    String conversationId, {
-    required int beforeIndex,
-    int limit = 50,
-  });
+  /// 返回消息数量变化流
+  Stream<int> watchMessageCount(String conversationId);
 
-  /// 检查消息是否存在于本地数据库
-  Future<bool> isMessageExistsLocally(String conversationId, String messageId);
-
-  /// 检查会话是否有本地消息
-  /// [conversationId] - 会话ID
-  /// 返回是否有本地消息
-  Future<bool> hasLocalMessages(String conversationId);
-
-  /// 重新发送失败的消息
-  Future<String> resendMessage(String messageId);
-
-  /// 创建临时消息（用于发送前显示）
-  Future<Message> createTempMessage(
-      String conversationId, String content, MessageType type);
-
-  /// 发送消息（带超时机制，不等待响应）
-  Future<void> sendMessageWithTimeout(Message message,
-      {Duration timeout = const Duration(seconds: 3)});
-
-  /// 标记消息为失败状态
-  Future<void> markMessageAsFailed(String messageId, String errorReason);
-
-  /// 根据消息ID获取消息
-  Future<Message?> getMessageById(String messageId);
-
-  /// 更新消息状态
-  Future<void> updateMessageStatus(String messageId, MessageStatus status);
+  /// 💢💢💢 新增：获取加载状态流
+  /// 返回消息加载状态变化的流
+  Stream<Map<String, dynamic>> getLoadingStatusStream();
 }

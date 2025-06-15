@@ -117,6 +117,7 @@ class UserProto extends $pb.GeneratedMessage {
 
   /// 用户ID
   /// 系统分配的唯一标识
+  /// userId
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -126,6 +127,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
+  /// name
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -135,6 +137,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearName() => $_clearField(2);
 
+  /// avatar
   @$pb.TagNumber(3)
   $core.String get avatar => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -144,6 +147,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearAvatar() => $_clearField(3);
 
+  /// phone
   @$pb.TagNumber(4)
   $core.String get phone => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -153,6 +157,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearPhone() => $_clearField(4);
 
+  /// email
   @$pb.TagNumber(5)
   $core.String get email => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -162,6 +167,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearEmail() => $_clearField(5);
 
+  /// pinyin
   @$pb.TagNumber(6)
   $core.String get pinyin => $_getSZ(5);
   @$pb.TagNumber(6)
@@ -171,6 +177,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearPinyin() => $_clearField(6);
 
+  /// lastActiveTime
   @$pb.TagNumber(7)
   $fixnum.Int64 get lastActiveTime => $_getI64(6);
   @$pb.TagNumber(7)
@@ -180,6 +187,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearLastActiveTime() => $_clearField(7);
 
+  /// status, 已将字段号8保留给status
   @$pb.TagNumber(8)
   $core.String get status => $_getSZ(7);
   @$pb.TagNumber(8)
@@ -190,6 +198,7 @@ class UserProto extends $pb.GeneratedMessage {
   void clearStatus() => $_clearField(8);
 
   /// 扩展字段，用于通信但数据库中没有
+  /// 用户名，可能和name相同
   @$pb.TagNumber(10)
   $core.String get username => $_getSZ(8);
   @$pb.TagNumber(10)
@@ -199,6 +208,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearUsername() => $_clearField(10);
 
+  /// 显示名称，可能和name相同
   @$pb.TagNumber(11)
   $core.String get displayName => $_getSZ(9);
   @$pb.TagNumber(11)
@@ -208,6 +218,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(11)
   void clearDisplayName() => $_clearField(11);
 
+  /// 是否正在输入
   @$pb.TagNumber(12)
   $core.bool get isTyping => $_getBF(10);
   @$pb.TagNumber(12)
@@ -217,6 +228,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(12)
   void clearIsTyping() => $_clearField(12);
 
+  /// 在哪个会话中输入
   @$pb.TagNumber(13)
   $core.String get typingInConversation => $_getSZ(11);
   @$pb.TagNumber(13)
@@ -308,6 +320,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   static CurrentUserProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CurrentUserProto>(create);
   static CurrentUserProto? _defaultInstance;
 
+  /// 用户ID
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -317,6 +330,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
+  /// 认证令牌
   @$pb.TagNumber(2)
   $core.String get token => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -326,6 +340,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearToken() => $_clearField(2);
 
+  /// 用户名称
   @$pb.TagNumber(3)
   $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -335,6 +350,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearName() => $_clearField(3);
 
+  /// 头像URL
   @$pb.TagNumber(4)
   $core.String get avatar => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -344,6 +360,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearAvatar() => $_clearField(4);
 
+  /// 手机号
   @$pb.TagNumber(5)
   $core.String get phone => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -353,6 +370,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearPhone() => $_clearField(5);
 
+  /// 电子邮箱
   @$pb.TagNumber(6)
   $core.String get email => $_getSZ(5);
   @$pb.TagNumber(6)
@@ -362,6 +380,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearEmail() => $_clearField(6);
 
+  /// 令牌过期时间
   @$pb.TagNumber(7)
   $fixnum.Int64 get tokenExpireTime => $_getI64(6);
   @$pb.TagNumber(7)
@@ -371,6 +390,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearTokenExpireTime() => $_clearField(7);
 
+  /// 最后登录时间
   @$pb.TagNumber(8)
   $fixnum.Int64 get lastLoginTime => $_getI64(7);
   @$pb.TagNumber(8)
@@ -380,6 +400,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(8)
   void clearLastLoginTime() => $_clearField(8);
 
+  /// 状态
   @$pb.TagNumber(9)
   $core.String get status => $_getSZ(8);
   @$pb.TagNumber(9)
@@ -450,6 +471,7 @@ class UserStatusUpdate extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
+  /// 使用字符串保持一致性
   @$pb.TagNumber(2)
   $core.String get status => $_getSZ(1);
   @$pb.TagNumber(2)

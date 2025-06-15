@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 import 'package:flutter/material.dart';
@@ -140,7 +141,7 @@ class _ChatPageState extends State<ChatPage> {
             position.index >= 0 && position.index < state.messages.length)
         .toList();
 
-    _logger.w('更新当前滚动位置', extra: {
+    _logger.i('更新当前滚动位置', extra: {
       'originalPositions': positions.map((e) => e.index).toList(),
       'validPositions': validPositions.map((e) => e.index).toList(),
       'lastVisibleIndex': validPositions.lastOrNull?.index,
@@ -164,7 +165,6 @@ class _ChatPageState extends State<ChatPage> {
     _logger.i('加载更多历史消息', extra: {
       'conversationId': state.conversation.id,
     });
-    // context.read<ChatCubit>().requestMoreMessages();
   }
 
   /// 💢💢💢 完善的滚动到指定消息方法
@@ -343,7 +343,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChatCubit, ChatState>(
@@ -398,7 +397,8 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
               // 静音图标（只在静音时显示）
-              if (state.conversation.isMuted)
+              if (state.currentUser?.userId != null &&
+                  state.conversation.isMuted(state.currentUser!.userId))
                 const Padding(
                   padding: EdgeInsets.only(left: 6.0),
                   child: Icon(
@@ -516,7 +516,7 @@ class _ChatPageState extends State<ChatPage> {
         return shouldListen;
       },
       listener: (context, state) {
-        _logger.d('💢💢💢💢💢💢💢 BlocListener 被触发');
+        _logger.d('💢 BlocListener 被触发');
 
         // 💢💢💢 自动滚动到当前搜索结果
         if (state.isSearchMode &&
@@ -738,6 +738,17 @@ class _ChatPageState extends State<ChatPage> {
                     final searchQuery =
                         state.isSearchMode ? state.searchQuery : null;
 
+                    // 💢💢💢 计算消息显示状态（仅当前用户消息需要显示状态）
+                    MessageDisplayStatus? displayStatus;
+                    if (item.isCurrentUser) {
+                      displayStatus = _calculateMessageDisplayStatus(
+                        message,
+                        state.conversation,
+                        state.currentUser,
+                        item.isPrivateChat,
+                      );
+                    }
+
                     return MessageItem(
                       key: ValueKey(message.messageId),
                       message: message,
@@ -754,6 +765,7 @@ class _ChatPageState extends State<ChatPage> {
                       isSearchResult: isSearchResult,
                       isCurrentSearchResult: isCurrentSearchResult,
                       searchQuery: searchQuery,
+                      displayStatus: displayStatus, // 💢💢💢 新增：预计算的显示状态
                     );
                   } else if (item is MessageListItemDateSeparator) {
                     return DateSeparator(
@@ -1297,6 +1309,45 @@ class _ChatPageState extends State<ChatPage> {
         content: Text('正在重发消息...'),
         duration: Duration(seconds: 2),
       ),
+    );
+  }
+
+  /// 💢💢💢 新增：计算消息显示状态
+  MessageDisplayStatus _calculateMessageDisplayStatus(
+    Message message,
+    Conversation conversation,
+    CurrentUser? currentUser,
+    bool isPrivateChat,
+  ) {
+    // 如果是私聊且有会话和当前用户信息，使用参与者信息计算
+    if (isPrivateChat && currentUser != null) {
+      // 获取对方参与者信息（私聊中除当前用户外的另一个参与者）
+      final otherParticipant = conversation.participants
+          .where((p) => p.userId != currentUser.userId)
+          .firstOrNull;
+
+      if (otherParticipant != null) {
+        final messageIndex = message.messageIndex;
+        final deliveredIndex = otherParticipant.deliveredMessageIndex;
+        final readIndex = otherParticipant.readMessageIndex;
+
+        final isRead = messageIndex <= readIndex;
+        final isDelivered = messageIndex <= deliveredIndex;
+
+        return MessageDisplayStatus(
+          isRead: isRead,
+          isDelivered: isDelivered,
+          messageStatus: message.status,
+        );
+      }
+    }
+
+    // 回退到消息本身的状态
+    return MessageDisplayStatus(
+      isRead: message.status == MessageStatus.read,
+      isDelivered: message.status == MessageStatus.delivered ||
+          message.status == MessageStatus.read,
+      messageStatus: message.status,
     );
   }
 }

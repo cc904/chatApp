@@ -33,8 +33,11 @@ class ConversationType extends $pb.ProtobufEnum {
 
 /// 成员角色枚举，匹配数据库模型中的 MemberRole
 class MemberRole extends $pb.ProtobufEnum {
+  /// 普通成员
   static const MemberRole MEMBER = MemberRole._(0, _omitEnumNames ? '' : 'MEMBER');
+  /// 管理员
   static const MemberRole ADMIN = MemberRole._(1, _omitEnumNames ? '' : 'ADMIN');
+  /// 所有者
   static const MemberRole OWNER = MemberRole._(2, _omitEnumNames ? '' : 'OWNER');
 
   static const $core.List<MemberRole> values = <MemberRole> [

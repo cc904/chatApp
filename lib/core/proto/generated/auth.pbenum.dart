@@ -15,9 +15,13 @@ import 'package:protobuf/protobuf.dart' as $pb;
 
 /// 认证操作类型
 class AuthOperationType extends $pb.ProtobufEnum {
+  /// 登录
   static const AuthOperationType LOGIN = AuthOperationType._(0, _omitEnumNames ? '' : 'LOGIN');
+  /// 注册
   static const AuthOperationType REGISTER = AuthOperationType._(1, _omitEnumNames ? '' : 'REGISTER');
+  /// 重置密码
   static const AuthOperationType RESET_PASSWORD = AuthOperationType._(2, _omitEnumNames ? '' : 'RESET_PASSWORD');
+  /// 发送验证码
   static const AuthOperationType SEND_CODE = AuthOperationType._(3, _omitEnumNames ? '' : 'SEND_CODE');
 
   static const $core.List<AuthOperationType> values = <AuthOperationType> [

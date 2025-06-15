@@ -6,7 +6,7 @@ import 'package:cc/features/home/presentation/pages/search_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/features/home/presentation/widgets/conversation_item.dart';
+import 'package:cc/features/chat/presentation/widgets/conversation_item.dart';
 import 'package:cc/core/database/models/conversation.dart';
 
 /// 消息页面
@@ -214,45 +214,46 @@ class _ChatsPageState extends State<ChatsPage>
       buildWhen: (previous, current) =>
           previous.conversations != current.conversations,
       builder: (context, state) {
-        // 检查各分类下是否有新消息（lastReadAtIndex < lastMessageIndex）
+        final currentUserId = state.currentUser?.userId;
+        if (currentUserId == null) {
+          return const SizedBox.shrink(); // 如果没有当前用户信息，不显示标签栏
+        }
+
+        // 检查各分类下是否有新消息 - 基于hasNewMessagesSinceLastRead
         final hasNewPrivateMessages = state.conversations
             .where((c) => c.type == ConversationType.private)
-            .any((c) =>
-                c.lastReadAtIndex != null &&
-                c.lastMessageIndex != null &&
-                c.lastReadAtIndex! < c.lastMessageIndex!);
+            .any((c) => c.hasNewMessagesSinceLastRead(currentUserId));
 
         final hasNewGroupMessages = state.conversations
             .where((c) => c.type == ConversationType.group)
-            .any((c) =>
-                c.lastReadAtIndex != null &&
-                c.lastMessageIndex != null &&
-                c.lastReadAtIndex! < c.lastMessageIndex!);
+            .any((c) => c.hasNewMessagesSinceLastRead(currentUserId));
 
         final hasNewChannelMessages = state.conversations
             .where((c) => c.type == ConversationType.channel)
-            .any((c) =>
-                c.lastReadAtIndex != null &&
-                c.lastMessageIndex != null &&
-                c.lastReadAtIndex! < c.lastMessageIndex!);
+            .any((c) => c.hasNewMessagesSinceLastRead(currentUserId));
 
-        // 计算未读会话数量（除了All Chats）
+        // 计算未读会话数量（除了All Chats）- 基于hasNewMessagesSinceLastRead
         final privateUnreadCount = state.conversations
-            .where(
-                (c) => c.type == ConversationType.private && c.unreadCount > 0)
+            .where((c) =>
+                c.type == ConversationType.private &&
+                c.hasNewMessagesSinceLastRead(currentUserId))
             .length;
 
         final groupUnreadCount = state.conversations
-            .where((c) => c.type == ConversationType.group && c.unreadCount > 0)
+            .where((c) =>
+                c.type == ConversationType.group &&
+                c.hasNewMessagesSinceLastRead(currentUserId))
             .length;
 
         final channelUnreadCount = state.conversations
-            .where(
-                (c) => c.type == ConversationType.channel && c.unreadCount > 0)
+            .where((c) =>
+                c.type == ConversationType.channel &&
+                c.hasNewMessagesSinceLastRead(currentUserId))
             .length;
 
-        final unreadConversationsCount =
-            state.conversations.where((c) => c.unreadCount > 0).length;
+        final unreadConversationsCount = state.conversations
+            .where((c) => c.hasNewMessagesSinceLastRead(currentUserId))
+            .length;
 
         return Container(
           decoration: BoxDecoration(
@@ -579,6 +580,17 @@ class _ChatsPageState extends State<ChatsPage>
   /// 构建聊天列表的 Sliver 组件
   /// 返回多个 Sliver 组件组成的列表
   List<Widget> _buildChatListSlivers(ChatsState state) {
+    final currentUserId = state.currentUser?.userId;
+    if (currentUserId == null) {
+      return [
+        const SliverFillRemaining(
+          child: Center(
+            child: Text('用户信息未加载', style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      ];
+    }
+
     if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
       _logger.e('加载失败: ${state.errorMessage}');
       return [
@@ -643,7 +655,7 @@ class _ChatsPageState extends State<ChatsPage>
     final unpinnedConversations = <Conversation>[];
 
     for (final conversation in state.filteredConversations) {
-      if (conversation.isPinned) {
+      if (conversation.isPinned(currentUserId)) {
         pinnedConversations.add(conversation);
       } else {
         unpinnedConversations.add(conversation);

@@ -30,8 +30,8 @@ class ParticipantProto extends $pb.GeneratedMessage {
     $core.bool? muted,
     $core.bool? pinned,
     $fixnum.Int64? joinedAt,
-    $fixnum.Int64? lastReadAt,
-    $core.String? lastReadMessageId,
+    $core.int? deliveredMessageIndex,
+    $core.int? readMessageIndex,
     MemberRole? role,
     $core.String? addedBy,
     $core.bool? online,
@@ -59,11 +59,11 @@ class ParticipantProto extends $pb.GeneratedMessage {
     if (joinedAt != null) {
       $result.joinedAt = joinedAt;
     }
-    if (lastReadAt != null) {
-      $result.lastReadAt = lastReadAt;
+    if (deliveredMessageIndex != null) {
+      $result.deliveredMessageIndex = deliveredMessageIndex;
     }
-    if (lastReadMessageId != null) {
-      $result.lastReadMessageId = lastReadMessageId;
+    if (readMessageIndex != null) {
+      $result.readMessageIndex = readMessageIndex;
     }
     if (role != null) {
       $result.role = role;
@@ -91,8 +91,8 @@ class ParticipantProto extends $pb.GeneratedMessage {
     ..aOB(5, _omitFieldNames ? '' : 'muted')
     ..aOB(6, _omitFieldNames ? '' : 'pinned')
     ..aInt64(7, _omitFieldNames ? '' : 'joinedAt')
-    ..aInt64(8, _omitFieldNames ? '' : 'lastReadAt')
-    ..aOS(9, _omitFieldNames ? '' : 'lastReadMessageId')
+    ..a<$core.int>(8, _omitFieldNames ? '' : 'deliveredMessageIndex', $pb.PbFieldType.O3)
+    ..a<$core.int>(9, _omitFieldNames ? '' : 'readMessageIndex', $pb.PbFieldType.O3)
     ..e<MemberRole>(10, _omitFieldNames ? '' : 'role', $pb.PbFieldType.OE, defaultOrMaker: MemberRole.MEMBER, valueOf: MemberRole.valueOf, enumValues: MemberRole.values)
     ..aOS(11, _omitFieldNames ? '' : 'addedBy')
     ..aOB(12, _omitFieldNames ? '' : 'online')
@@ -121,6 +121,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   static ParticipantProto getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ParticipantProto>(create);
   static ParticipantProto? _defaultInstance;
 
+  /// userId
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -130,6 +131,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
+  /// 用户名称
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -139,6 +141,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearName() => $_clearField(2);
 
+  /// 用户头像
   @$pb.TagNumber(3)
   $core.String get avatar => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -148,6 +151,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearAvatar() => $_clearField(3);
 
+  /// unreadCount
   @$pb.TagNumber(4)
   $core.int get unreadCount => $_getIZ(3);
   @$pb.TagNumber(4)
@@ -157,6 +161,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearUnreadCount() => $_clearField(4);
 
+  /// muted
   @$pb.TagNumber(5)
   $core.bool get muted => $_getBF(4);
   @$pb.TagNumber(5)
@@ -166,6 +171,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearMuted() => $_clearField(5);
 
+  /// pinned
   @$pb.TagNumber(6)
   $core.bool get pinned => $_getBF(5);
   @$pb.TagNumber(6)
@@ -175,6 +181,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearPinned() => $_clearField(6);
 
+  /// joinedAt
   @$pb.TagNumber(7)
   $fixnum.Int64 get joinedAt => $_getI64(6);
   @$pb.TagNumber(7)
@@ -184,24 +191,27 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearJoinedAt() => $_clearField(7);
 
+  /// 送达消息索引 - 最后送达的消息索引
   @$pb.TagNumber(8)
-  $fixnum.Int64 get lastReadAt => $_getI64(7);
+  $core.int get deliveredMessageIndex => $_getIZ(7);
   @$pb.TagNumber(8)
-  set lastReadAt($fixnum.Int64 v) { $_setInt64(7, v); }
+  set deliveredMessageIndex($core.int v) { $_setSignedInt32(7, v); }
   @$pb.TagNumber(8)
-  $core.bool hasLastReadAt() => $_has(7);
+  $core.bool hasDeliveredMessageIndex() => $_has(7);
   @$pb.TagNumber(8)
-  void clearLastReadAt() => $_clearField(8);
+  void clearDeliveredMessageIndex() => $_clearField(8);
 
+  /// 已读消息索引 - 最后已读的消息索引
   @$pb.TagNumber(9)
-  $core.String get lastReadMessageId => $_getSZ(8);
+  $core.int get readMessageIndex => $_getIZ(8);
   @$pb.TagNumber(9)
-  set lastReadMessageId($core.String v) { $_setString(8, v); }
+  set readMessageIndex($core.int v) { $_setSignedInt32(8, v); }
   @$pb.TagNumber(9)
-  $core.bool hasLastReadMessageId() => $_has(8);
+  $core.bool hasReadMessageIndex() => $_has(8);
   @$pb.TagNumber(9)
-  void clearLastReadMessageId() => $_clearField(9);
+  void clearReadMessageIndex() => $_clearField(9);
 
+  /// role
   @$pb.TagNumber(10)
   MemberRole get role => $_getN(9);
   @$pb.TagNumber(10)
@@ -211,6 +221,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearRole() => $_clearField(10);
 
+  /// addedBy
   @$pb.TagNumber(11)
   $core.String get addedBy => $_getSZ(10);
   @$pb.TagNumber(11)
@@ -220,6 +231,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(11)
   void clearAddedBy() => $_clearField(11);
 
+  /// 是否在线
   @$pb.TagNumber(12)
   $core.bool get online => $_getBF(11);
   @$pb.TagNumber(12)
@@ -229,6 +241,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(12)
   void clearOnline() => $_clearField(12);
 
+  /// 是否活跃
   @$pb.TagNumber(13)
   $core.bool get isActive => $_getBF(12);
   @$pb.TagNumber(13)
@@ -242,25 +255,24 @@ class ParticipantProto extends $pb.GeneratedMessage {
 class ConversationProto extends $pb.GeneratedMessage {
   factory ConversationProto({
     $core.String? conversationId,
+    ConversationType? type,
     $core.String? name,
     $core.String? avatar,
-    ConversationType? type,
     $fixnum.Int64? createdAt,
+    $core.String? createdBy,
+    $core.int? firstMessageIndex,
+    $core.int? lastMessageIndex,
     $fixnum.Int64? lastMessageTime,
-    $fixnum.Int64? lastMessageIndex,
     $core.String? lastMessagePreview,
     $core.String? lastMessageName,
-    $core.int? unreadCount,
-    $core.String? contactUserId,
-    $core.Iterable<ParticipantProto>? participants,
-    $core.bool? muted,
-    $core.bool? pinned,
-    $core.String? createdBy,
-    $fixnum.Int64? lastReadAtIndex,
+    $pb.PbMap<$core.String, ParticipantProto>? participants,
   }) {
     final $result = create();
     if (conversationId != null) {
       $result.conversationId = conversationId;
+    }
+    if (type != null) {
+      $result.type = type;
     }
     if (name != null) {
       $result.name = name;
@@ -268,17 +280,20 @@ class ConversationProto extends $pb.GeneratedMessage {
     if (avatar != null) {
       $result.avatar = avatar;
     }
-    if (type != null) {
-      $result.type = type;
-    }
     if (createdAt != null) {
       $result.createdAt = createdAt;
     }
-    if (lastMessageTime != null) {
-      $result.lastMessageTime = lastMessageTime;
+    if (createdBy != null) {
+      $result.createdBy = createdBy;
+    }
+    if (firstMessageIndex != null) {
+      $result.firstMessageIndex = firstMessageIndex;
     }
     if (lastMessageIndex != null) {
       $result.lastMessageIndex = lastMessageIndex;
+    }
+    if (lastMessageTime != null) {
+      $result.lastMessageTime = lastMessageTime;
     }
     if (lastMessagePreview != null) {
       $result.lastMessagePreview = lastMessagePreview;
@@ -286,26 +301,8 @@ class ConversationProto extends $pb.GeneratedMessage {
     if (lastMessageName != null) {
       $result.lastMessageName = lastMessageName;
     }
-    if (unreadCount != null) {
-      $result.unreadCount = unreadCount;
-    }
-    if (contactUserId != null) {
-      $result.contactUserId = contactUserId;
-    }
     if (participants != null) {
       $result.participants.addAll(participants);
-    }
-    if (muted != null) {
-      $result.muted = muted;
-    }
-    if (pinned != null) {
-      $result.pinned = pinned;
-    }
-    if (createdBy != null) {
-      $result.createdBy = createdBy;
-    }
-    if (lastReadAtIndex != null) {
-      $result.lastReadAtIndex = lastReadAtIndex;
     }
     return $result;
   }
@@ -315,21 +312,17 @@ class ConversationProto extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(2, _omitFieldNames ? '' : 'name')
-    ..aOS(3, _omitFieldNames ? '' : 'avatar')
-    ..e<ConversationType>(4, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: ConversationType.PRIVATE, valueOf: ConversationType.valueOf, enumValues: ConversationType.values)
+    ..e<ConversationType>(2, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: ConversationType.PRIVATE, valueOf: ConversationType.valueOf, enumValues: ConversationType.values)
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aOS(4, _omitFieldNames ? '' : 'avatar')
     ..aInt64(5, _omitFieldNames ? '' : 'createdAt')
-    ..aInt64(6, _omitFieldNames ? '' : 'lastMessageTime')
-    ..aInt64(7, _omitFieldNames ? '' : 'lastMessageIndex')
-    ..aOS(8, _omitFieldNames ? '' : 'lastMessagePreview')
-    ..aOS(9, _omitFieldNames ? '' : 'lastMessageName')
-    ..a<$core.int>(10, _omitFieldNames ? '' : 'unreadCount', $pb.PbFieldType.O3)
-    ..aOS(11, _omitFieldNames ? '' : 'contactUserId')
-    ..pc<ParticipantProto>(12, _omitFieldNames ? '' : 'participants', $pb.PbFieldType.PM, subBuilder: ParticipantProto.create)
-    ..aOB(13, _omitFieldNames ? '' : 'muted')
-    ..aOB(14, _omitFieldNames ? '' : 'pinned')
-    ..aOS(15, _omitFieldNames ? '' : 'createdBy')
-    ..aInt64(16, _omitFieldNames ? '' : 'lastReadAtIndex')
+    ..aOS(6, _omitFieldNames ? '' : 'createdBy')
+    ..a<$core.int>(7, _omitFieldNames ? '' : 'firstMessageIndex', $pb.PbFieldType.O3)
+    ..a<$core.int>(8, _omitFieldNames ? '' : 'lastMessageIndex', $pb.PbFieldType.O3)
+    ..aInt64(9, _omitFieldNames ? '' : 'lastMessageTime')
+    ..aOS(10, _omitFieldNames ? '' : 'lastMessagePreview')
+    ..aOS(11, _omitFieldNames ? '' : 'lastMessageName')
+    ..m<$core.String, ParticipantProto>(12, _omitFieldNames ? '' : 'participants', entryClassName: 'ConversationProto.ParticipantsEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.OM, valueCreator: ParticipantProto.create, valueDefaultOrMaker: ParticipantProto.getDefault, packageName: const $pb.PackageName('cc'))
     ..hasRequiredFields = false
   ;
 
@@ -355,6 +348,7 @@ class ConversationProto extends $pb.GeneratedMessage {
   static ConversationProto? _defaultInstance;
 
   /// 主要字段，完全匹配数据库模型
+  /// conversationId
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -364,33 +358,37 @@ class ConversationProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// type
   @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
+  ConversationType get type => $_getN(1);
   @$pb.TagNumber(2)
-  set name($core.String v) { $_setString(1, v); }
+  set type(ConversationType v) { $_setField(2, v); }
   @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
+  $core.bool hasType() => $_has(1);
   @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
+  void clearType() => $_clearField(2);
 
+  /// name
   @$pb.TagNumber(3)
-  $core.String get avatar => $_getSZ(2);
+  $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
-  set avatar($core.String v) { $_setString(2, v); }
+  set name($core.String v) { $_setString(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasAvatar() => $_has(2);
+  $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearAvatar() => $_clearField(3);
+  void clearName() => $_clearField(3);
 
+  /// avatar
   @$pb.TagNumber(4)
-  ConversationType get type => $_getN(3);
+  $core.String get avatar => $_getSZ(3);
   @$pb.TagNumber(4)
-  set type(ConversationType v) { $_setField(4, v); }
+  set avatar($core.String v) { $_setString(3, v); }
   @$pb.TagNumber(4)
-  $core.bool hasType() => $_has(3);
+  $core.bool hasAvatar() => $_has(3);
   @$pb.TagNumber(4)
-  void clearType() => $_clearField(4);
+  void clearAvatar() => $_clearField(4);
 
+  /// createdAt
   @$pb.TagNumber(5)
   $fixnum.Int64 get createdAt => $_getI64(4);
   @$pb.TagNumber(5)
@@ -400,101 +398,70 @@ class ConversationProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearCreatedAt() => $_clearField(5);
 
+  /// createdBy
   @$pb.TagNumber(6)
-  $fixnum.Int64 get lastMessageTime => $_getI64(5);
+  $core.String get createdBy => $_getSZ(5);
   @$pb.TagNumber(6)
-  set lastMessageTime($fixnum.Int64 v) { $_setInt64(5, v); }
+  set createdBy($core.String v) { $_setString(5, v); }
   @$pb.TagNumber(6)
-  $core.bool hasLastMessageTime() => $_has(5);
+  $core.bool hasCreatedBy() => $_has(5);
   @$pb.TagNumber(6)
-  void clearLastMessageTime() => $_clearField(6);
+  void clearCreatedBy() => $_clearField(6);
 
+  /// 第一条消息的索引
   @$pb.TagNumber(7)
-  $fixnum.Int64 get lastMessageIndex => $_getI64(6);
+  $core.int get firstMessageIndex => $_getIZ(6);
   @$pb.TagNumber(7)
-  set lastMessageIndex($fixnum.Int64 v) { $_setInt64(6, v); }
+  set firstMessageIndex($core.int v) { $_setSignedInt32(6, v); }
   @$pb.TagNumber(7)
-  $core.bool hasLastMessageIndex() => $_has(6);
+  $core.bool hasFirstMessageIndex() => $_has(6);
   @$pb.TagNumber(7)
-  void clearLastMessageIndex() => $_clearField(7);
+  void clearFirstMessageIndex() => $_clearField(7);
 
+  /// 最后一条消息的索引
   @$pb.TagNumber(8)
-  $core.String get lastMessagePreview => $_getSZ(7);
+  $core.int get lastMessageIndex => $_getIZ(7);
   @$pb.TagNumber(8)
-  set lastMessagePreview($core.String v) { $_setString(7, v); }
+  set lastMessageIndex($core.int v) { $_setSignedInt32(7, v); }
   @$pb.TagNumber(8)
-  $core.bool hasLastMessagePreview() => $_has(7);
+  $core.bool hasLastMessageIndex() => $_has(7);
   @$pb.TagNumber(8)
-  void clearLastMessagePreview() => $_clearField(8);
+  void clearLastMessageIndex() => $_clearField(8);
 
+  /// 最后一条消息的时间 保持兼容性
   @$pb.TagNumber(9)
-  $core.String get lastMessageName => $_getSZ(8);
+  $fixnum.Int64 get lastMessageTime => $_getI64(8);
   @$pb.TagNumber(9)
-  set lastMessageName($core.String v) { $_setString(8, v); }
+  set lastMessageTime($fixnum.Int64 v) { $_setInt64(8, v); }
   @$pb.TagNumber(9)
-  $core.bool hasLastMessageName() => $_has(8);
+  $core.bool hasLastMessageTime() => $_has(8);
   @$pb.TagNumber(9)
-  void clearLastMessageName() => $_clearField(9);
+  void clearLastMessageTime() => $_clearField(9);
 
+  /// 最后一条消息的内容, 如果是语音或者视频消息, 则显示 [语音] 或 [视频]
   @$pb.TagNumber(10)
-  $core.int get unreadCount => $_getIZ(9);
+  $core.String get lastMessagePreview => $_getSZ(9);
   @$pb.TagNumber(10)
-  set unreadCount($core.int v) { $_setSignedInt32(9, v); }
+  set lastMessagePreview($core.String v) { $_setString(9, v); }
   @$pb.TagNumber(10)
-  $core.bool hasUnreadCount() => $_has(9);
+  $core.bool hasLastMessagePreview() => $_has(9);
   @$pb.TagNumber(10)
-  void clearUnreadCount() => $_clearField(10);
+  void clearLastMessagePreview() => $_clearField(10);
 
+  /// 最后一条消息的发送者名称 在群聊或者频道中使用
   @$pb.TagNumber(11)
-  $core.String get contactUserId => $_getSZ(10);
+  $core.String get lastMessageName => $_getSZ(10);
   @$pb.TagNumber(11)
-  set contactUserId($core.String v) { $_setString(10, v); }
+  set lastMessageName($core.String v) { $_setString(10, v); }
   @$pb.TagNumber(11)
-  $core.bool hasContactUserId() => $_has(10);
+  $core.bool hasLastMessageName() => $_has(10);
   @$pb.TagNumber(11)
-  void clearContactUserId() => $_clearField(11);
+  void clearLastMessageName() => $_clearField(11);
 
   /// 参与者详细信息，包含所有参与者的完整信息
+  /// key: user_id, value: ParticipantProto
   @$pb.TagNumber(12)
-  $pb.PbList<ParticipantProto> get participants => $_getList(11);
-
-  /// 扩展字段，用于通信但数据库中可能没有
-  @$pb.TagNumber(13)
-  $core.bool get muted => $_getBF(12);
-  @$pb.TagNumber(13)
-  set muted($core.bool v) { $_setBool(12, v); }
-  @$pb.TagNumber(13)
-  $core.bool hasMuted() => $_has(12);
-  @$pb.TagNumber(13)
-  void clearMuted() => $_clearField(13);
-
-  @$pb.TagNumber(14)
-  $core.bool get pinned => $_getBF(13);
-  @$pb.TagNumber(14)
-  set pinned($core.bool v) { $_setBool(13, v); }
-  @$pb.TagNumber(14)
-  $core.bool hasPinned() => $_has(13);
-  @$pb.TagNumber(14)
-  void clearPinned() => $_clearField(14);
-
-  @$pb.TagNumber(15)
-  $core.String get createdBy => $_getSZ(14);
-  @$pb.TagNumber(15)
-  set createdBy($core.String v) { $_setString(14, v); }
-  @$pb.TagNumber(15)
-  $core.bool hasCreatedBy() => $_has(14);
-  @$pb.TagNumber(15)
-  void clearCreatedBy() => $_clearField(15);
-
-  /// 最后阅读消息索引，用于客户端计算会话未读状态
-  @$pb.TagNumber(16)
-  $fixnum.Int64 get lastReadAtIndex => $_getI64(15);
-  @$pb.TagNumber(16)
-  set lastReadAtIndex($fixnum.Int64 v) { $_setInt64(15, v); }
-  @$pb.TagNumber(16)
-  $core.bool hasLastReadAtIndex() => $_has(15);
-  @$pb.TagNumber(16)
-  void clearLastReadAtIndex() => $_clearField(16);
+  $pb.PbMap<$core.String, ParticipantProto> get participants => $_getMap(11);
 }
 
 /// 会话更新
@@ -616,6 +583,7 @@ class ConversationUpdate extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearUpdatedBy() => $_clearField(6);
 
+  /// 更新动作：add_member, remove_member, change_title, etc.
   @$pb.TagNumber(7)
   $core.String get action => $_getSZ(6);
   @$pb.TagNumber(7)
@@ -796,6 +764,7 @@ class SyncConversationsRequest extends $pb.GeneratedMessage {
   static SyncConversationsRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SyncConversationsRequest>(create);
   static SyncConversationsRequest? _defaultInstance;
 
+  /// 上次同步时间戳（毫秒），如果为0或不提供则获取所有会话
   @$pb.TagNumber(1)
   $fixnum.Int64 get lastSyncTime => $_getI64(0);
   @$pb.TagNumber(1)
@@ -867,6 +836,7 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   static ConversationUpdateNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationUpdateNotification>(create);
   static ConversationUpdateNotification? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -876,6 +846,7 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 最后消息索引
   @$pb.TagNumber(2)
   $fixnum.Int64 get lastMessageIndex => $_getI64(1);
   @$pb.TagNumber(2)
@@ -885,6 +856,7 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearLastMessageIndex() => $_clearField(2);
 
+  /// 最后消息预览
   @$pb.TagNumber(3)
   $core.String get lastMessagePreview => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -894,6 +866,7 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearLastMessagePreview() => $_clearField(3);
 
+  /// 发送者名称
   @$pb.TagNumber(4)
   $core.String get lastMessageName => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -903,6 +876,7 @@ class ConversationUpdateNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearLastMessageName() => $_clearField(4);
 
+  /// 未读消息数
   @$pb.TagNumber(5)
   $core.int get unreadCount => $_getIZ(4);
   @$pb.TagNumber(5)
@@ -964,6 +938,7 @@ class ConversationSettingsUpdateRequest extends $pb.GeneratedMessage {
   static ConversationSettingsUpdateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationSettingsUpdateRequest>(create);
   static ConversationSettingsUpdateRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -973,6 +948,7 @@ class ConversationSettingsUpdateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 静音状态
   @$pb.TagNumber(2)
   $core.bool get muted => $_getBF(1);
   @$pb.TagNumber(2)
@@ -982,6 +958,7 @@ class ConversationSettingsUpdateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearMuted() => $_clearField(2);
 
+  /// 置顶状态
   @$pb.TagNumber(3)
   $core.bool get pinned => $_getBF(2);
   @$pb.TagNumber(3)
@@ -1053,6 +1030,7 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
   static ConversationSettingsUpdateResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationSettingsUpdateResponse>(create);
   static ConversationSettingsUpdateResponse? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1062,6 +1040,7 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 是否成功
   @$pb.TagNumber(2)
   $core.bool get success => $_getBF(1);
   @$pb.TagNumber(2)
@@ -1071,6 +1050,7 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearSuccess() => $_clearField(2);
 
+  /// 更新后的静音状态
   @$pb.TagNumber(3)
   $core.bool get muted => $_getBF(2);
   @$pb.TagNumber(3)
@@ -1080,6 +1060,7 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearMuted() => $_clearField(3);
 
+  /// 更新后的置顶状态
   @$pb.TagNumber(4)
   $core.bool get pinned => $_getBF(3);
   @$pb.TagNumber(4)
@@ -1089,6 +1070,7 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearPinned() => $_clearField(4);
 
+  /// 更新时间戳
   @$pb.TagNumber(5)
   $fixnum.Int64 get timestamp => $_getI64(4);
   @$pb.TagNumber(5)
@@ -1101,7 +1083,7 @@ class ConversationSettingsUpdateResponse extends $pb.GeneratedMessage {
 
 /// 会话加入/离开请求
 /// 用于处理用户加入或离开会话的请求
-/// 在服务端代码中，加入和离开操作使用相同的结构
+/// 在服务端代码中，加入和离开操作使用相同的结构 conversation:join
 class ConversationJoinLeaveRequest extends $pb.GeneratedMessage {
   factory ConversationJoinLeaveRequest({
     $core.String? conversationId,
@@ -1147,6 +1129,7 @@ class ConversationJoinLeaveRequest extends $pb.GeneratedMessage {
   static ConversationJoinLeaveRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationJoinLeaveRequest>(create);
   static ConversationJoinLeaveRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1156,6 +1139,7 @@ class ConversationJoinLeaveRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 用户ID，可选，如果不提供则使用当前用户ID
   @$pb.TagNumber(2)
   $core.String get userId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1164,6 +1148,88 @@ class ConversationJoinLeaveRequest extends $pb.GeneratedMessage {
   $core.bool hasUserId() => $_has(1);
   @$pb.TagNumber(2)
   void clearUserId() => $_clearField(2);
+}
+
+/// 会话加入/离开响应 conversation:leave:response
+class ConversationJoinLeaveResponse extends $pb.GeneratedMessage {
+  factory ConversationJoinLeaveResponse({
+    $core.bool? success,
+    $core.String? message,
+    $core.String? conversationId,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    return $result;
+  }
+  ConversationJoinLeaveResponse._() : super();
+  factory ConversationJoinLeaveResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ConversationJoinLeaveResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationJoinLeaveResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOS(3, _omitFieldNames ? '' : 'conversationId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ConversationJoinLeaveResponse clone() => ConversationJoinLeaveResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ConversationJoinLeaveResponse copyWith(void Function(ConversationJoinLeaveResponse) updates) => super.copyWith((message) => updates(message as ConversationJoinLeaveResponse)) as ConversationJoinLeaveResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConversationJoinLeaveResponse create() => ConversationJoinLeaveResponse._();
+  ConversationJoinLeaveResponse createEmptyInstance() => create();
+  static $pb.PbList<ConversationJoinLeaveResponse> createRepeated() => $pb.PbList<ConversationJoinLeaveResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ConversationJoinLeaveResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationJoinLeaveResponse>(create);
+  static ConversationJoinLeaveResponse? _defaultInstance;
+
+  /// 是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 提示消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 会话ID
+  @$pb.TagNumber(3)
+  $core.String get conversationId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set conversationId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasConversationId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversationId() => $_clearField(3);
 }
 
 /// 新增：会话创建请求
@@ -1227,6 +1293,7 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
   static ConversationCreateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationCreateRequest>(create);
   static ConversationCreateRequest? _defaultInstance;
 
+  /// 会话名称（群聊必填）
   @$pb.TagNumber(1)
   $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1236,6 +1303,7 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
 
+  /// 会话头像
   @$pb.TagNumber(2)
   $core.String get avatar => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1245,6 +1313,7 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearAvatar() => $_clearField(2);
 
+  /// 会话类型
   @$pb.TagNumber(3)
   ConversationType get type => $_getN(2);
   @$pb.TagNumber(3)
@@ -1254,9 +1323,11 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearType() => $_clearField(3);
 
+  /// 初始参与者ID列表
   @$pb.TagNumber(4)
   $pb.PbList<$core.String> get participantIds => $_getList(3);
 
+  /// 私聊对象ID（私聊必填）
   @$pb.TagNumber(5)
   $core.String get contactUserId => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -1333,6 +1404,7 @@ class UserJoinedNotification extends $pb.GeneratedMessage {
   static UserJoinedNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserJoinedNotification>(create);
   static UserJoinedNotification? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1342,6 +1414,7 @@ class UserJoinedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 用户ID
   @$pb.TagNumber(2)
   $core.String get userId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1351,6 +1424,7 @@ class UserJoinedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearUserId() => $_clearField(2);
 
+  /// 用户名称
   @$pb.TagNumber(3)
   $core.String get userName => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -1360,6 +1434,7 @@ class UserJoinedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearUserName() => $_clearField(3);
 
+  /// 用户头像
   @$pb.TagNumber(4)
   $core.String get userAvatar => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -1369,6 +1444,7 @@ class UserJoinedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearUserAvatar() => $_clearField(4);
 
+  /// 加入时间
   @$pb.TagNumber(5)
   $fixnum.Int64 get joinedAt => $_getI64(4);
   @$pb.TagNumber(5)
@@ -1378,6 +1454,7 @@ class UserJoinedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearJoinedAt() => $_clearField(5);
 
+  /// 由谁邀请加入（如适用）
   @$pb.TagNumber(6)
   $core.String get joinedBy => $_getSZ(5);
   @$pb.TagNumber(6)
@@ -1449,6 +1526,7 @@ class UserLeftNotification extends $pb.GeneratedMessage {
   static UserLeftNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserLeftNotification>(create);
   static UserLeftNotification? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1458,6 +1536,7 @@ class UserLeftNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 用户ID
   @$pb.TagNumber(2)
   $core.String get userId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1467,6 +1546,7 @@ class UserLeftNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearUserId() => $_clearField(2);
 
+  /// 用户名称
   @$pb.TagNumber(3)
   $core.String get userName => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -1476,6 +1556,7 @@ class UserLeftNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearUserName() => $_clearField(3);
 
+  /// 离开时间
   @$pb.TagNumber(4)
   $fixnum.Int64 get leftAt => $_getI64(3);
   @$pb.TagNumber(4)
@@ -1485,6 +1566,7 @@ class UserLeftNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearLeftAt() => $_clearField(4);
 
+  /// 离开原因（自行离开/被移除等）
   @$pb.TagNumber(5)
   $core.String get reason => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -1546,6 +1628,7 @@ class ConversationCreateResponse extends $pb.GeneratedMessage {
   static ConversationCreateResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationCreateResponse>(create);
   static ConversationCreateResponse? _defaultInstance;
 
+  /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
@@ -1555,6 +1638,7 @@ class ConversationCreateResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSuccess() => $_clearField(1);
 
+  /// 提示消息
   @$pb.TagNumber(2)
   $core.String get message => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1564,6 +1648,7 @@ class ConversationCreateResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearMessage() => $_clearField(2);
 
+  /// 创建的会话
   @$pb.TagNumber(3)
   ConversationProto get conversation => $_getN(2);
   @$pb.TagNumber(3)
@@ -1576,33 +1661,38 @@ class ConversationCreateResponse extends $pb.GeneratedMessage {
   ConversationProto ensureConversation() => $_ensure(2);
 }
 
-/// 新增：会话已读标记请求
-class ConversationMarkReadRequest extends $pb.GeneratedMessage {
-  factory ConversationMarkReadRequest({
+/// 参与者设置更新请求
+class ParticipantStatusUpdateRequest extends $pb.GeneratedMessage {
+  factory ParticipantStatusUpdateRequest({
     $core.String? conversationId,
-    $fixnum.Int64? readAt,
-    $core.String? messageId,
+    $core.int? readMessageIndex,
+    $core.bool? muted,
+    $core.bool? pinned,
   }) {
     final $result = create();
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (readAt != null) {
-      $result.readAt = readAt;
+    if (readMessageIndex != null) {
+      $result.readMessageIndex = readMessageIndex;
     }
-    if (messageId != null) {
-      $result.messageId = messageId;
+    if (muted != null) {
+      $result.muted = muted;
+    }
+    if (pinned != null) {
+      $result.pinned = pinned;
     }
     return $result;
   }
-  ConversationMarkReadRequest._() : super();
-  factory ConversationMarkReadRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ConversationMarkReadRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  ParticipantStatusUpdateRequest._() : super();
+  factory ParticipantStatusUpdateRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ParticipantStatusUpdateRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMarkReadRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ParticipantStatusUpdateRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aInt64(2, _omitFieldNames ? '' : 'readAt')
-    ..aOS(3, _omitFieldNames ? '' : 'messageId')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'readMessageIndex', $pb.PbFieldType.O3)
+    ..aOB(4, _omitFieldNames ? '' : 'muted')
+    ..aOB(5, _omitFieldNames ? '' : 'pinned')
     ..hasRequiredFields = false
   ;
 
@@ -1610,23 +1700,24 @@ class ConversationMarkReadRequest extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  ConversationMarkReadRequest clone() => ConversationMarkReadRequest()..mergeFromMessage(this);
+  ParticipantStatusUpdateRequest clone() => ParticipantStatusUpdateRequest()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  ConversationMarkReadRequest copyWith(void Function(ConversationMarkReadRequest) updates) => super.copyWith((message) => updates(message as ConversationMarkReadRequest)) as ConversationMarkReadRequest;
+  ParticipantStatusUpdateRequest copyWith(void Function(ParticipantStatusUpdateRequest) updates) => super.copyWith((message) => updates(message as ParticipantStatusUpdateRequest)) as ParticipantStatusUpdateRequest;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ConversationMarkReadRequest create() => ConversationMarkReadRequest._();
-  ConversationMarkReadRequest createEmptyInstance() => create();
-  static $pb.PbList<ConversationMarkReadRequest> createRepeated() => $pb.PbList<ConversationMarkReadRequest>();
+  static ParticipantStatusUpdateRequest create() => ParticipantStatusUpdateRequest._();
+  ParticipantStatusUpdateRequest createEmptyInstance() => create();
+  static $pb.PbList<ParticipantStatusUpdateRequest> createRepeated() => $pb.PbList<ParticipantStatusUpdateRequest>();
   @$core.pragma('dart2js:noInline')
-  static ConversationMarkReadRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMarkReadRequest>(create);
-  static ConversationMarkReadRequest? _defaultInstance;
+  static ParticipantStatusUpdateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ParticipantStatusUpdateRequest>(create);
+  static ParticipantStatusUpdateRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1636,32 +1727,43 @@ class ConversationMarkReadRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
-  @$pb.TagNumber(2)
-  $fixnum.Int64 get readAt => $_getI64(1);
-  @$pb.TagNumber(2)
-  set readAt($fixnum.Int64 v) { $_setInt64(1, v); }
-  @$pb.TagNumber(2)
-  $core.bool hasReadAt() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearReadAt() => $_clearField(2);
+  /// 已读消息索引
+  @$pb.TagNumber(3)
+  $core.int get readMessageIndex => $_getIZ(1);
+  @$pb.TagNumber(3)
+  set readMessageIndex($core.int v) { $_setSignedInt32(1, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasReadMessageIndex() => $_has(1);
+  @$pb.TagNumber(3)
+  void clearReadMessageIndex() => $_clearField(3);
 
-  @$pb.TagNumber(3)
-  $core.String get messageId => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set messageId($core.String v) { $_setString(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasMessageId() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearMessageId() => $_clearField(3);
+  /// 静音状态
+  @$pb.TagNumber(4)
+  $core.bool get muted => $_getBF(2);
+  @$pb.TagNumber(4)
+  set muted($core.bool v) { $_setBool(2, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasMuted() => $_has(2);
+  @$pb.TagNumber(4)
+  void clearMuted() => $_clearField(4);
+
+  /// 置顶状态
+  @$pb.TagNumber(5)
+  $core.bool get pinned => $_getBF(3);
+  @$pb.TagNumber(5)
+  set pinned($core.bool v) { $_setBool(3, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasPinned() => $_has(3);
+  @$pb.TagNumber(5)
+  void clearPinned() => $_clearField(5);
 }
 
-/// 新增：会话已读标记响应
-class ConversationMarkReadResponse extends $pb.GeneratedMessage {
-  factory ConversationMarkReadResponse({
+/// 参与者设置更新响应
+class ParticipantStatusUpdateResponse extends $pb.GeneratedMessage {
+  factory ParticipantStatusUpdateResponse({
     $core.bool? success,
     $core.String? conversationId,
-    $core.int? remainingUnread,
-    $fixnum.Int64? readAt,
+    ParticipantProto? participant,
   }) {
     final $result = create();
     if (success != null) {
@@ -1670,23 +1772,19 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (remainingUnread != null) {
-      $result.remainingUnread = remainingUnread;
-    }
-    if (readAt != null) {
-      $result.readAt = readAt;
+    if (participant != null) {
+      $result.participant = participant;
     }
     return $result;
   }
-  ConversationMarkReadResponse._() : super();
-  factory ConversationMarkReadResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ConversationMarkReadResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  ParticipantStatusUpdateResponse._() : super();
+  factory ParticipantStatusUpdateResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ParticipantStatusUpdateResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ConversationMarkReadResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ParticipantStatusUpdateResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
-    ..a<$core.int>(3, _omitFieldNames ? '' : 'remainingUnread', $pb.PbFieldType.O3)
-    ..aInt64(4, _omitFieldNames ? '' : 'readAt')
+    ..aOM<ParticipantProto>(3, _omitFieldNames ? '' : 'participant', subBuilder: ParticipantProto.create)
     ..hasRequiredFields = false
   ;
 
@@ -1694,23 +1792,24 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  ConversationMarkReadResponse clone() => ConversationMarkReadResponse()..mergeFromMessage(this);
+  ParticipantStatusUpdateResponse clone() => ParticipantStatusUpdateResponse()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  ConversationMarkReadResponse copyWith(void Function(ConversationMarkReadResponse) updates) => super.copyWith((message) => updates(message as ConversationMarkReadResponse)) as ConversationMarkReadResponse;
+  ParticipantStatusUpdateResponse copyWith(void Function(ParticipantStatusUpdateResponse) updates) => super.copyWith((message) => updates(message as ParticipantStatusUpdateResponse)) as ParticipantStatusUpdateResponse;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ConversationMarkReadResponse create() => ConversationMarkReadResponse._();
-  ConversationMarkReadResponse createEmptyInstance() => create();
-  static $pb.PbList<ConversationMarkReadResponse> createRepeated() => $pb.PbList<ConversationMarkReadResponse>();
+  static ParticipantStatusUpdateResponse create() => ParticipantStatusUpdateResponse._();
+  ParticipantStatusUpdateResponse createEmptyInstance() => create();
+  static $pb.PbList<ParticipantStatusUpdateResponse> createRepeated() => $pb.PbList<ParticipantStatusUpdateResponse>();
   @$core.pragma('dart2js:noInline')
-  static ConversationMarkReadResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMarkReadResponse>(create);
-  static ConversationMarkReadResponse? _defaultInstance;
+  static ParticipantStatusUpdateResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ParticipantStatusUpdateResponse>(create);
+  static ParticipantStatusUpdateResponse? _defaultInstance;
 
+  /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
@@ -1720,6 +1819,7 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSuccess() => $_clearField(1);
 
+  /// 会话ID
   @$pb.TagNumber(2)
   $core.String get conversationId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1729,23 +1829,17 @@ class ConversationMarkReadResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearConversationId() => $_clearField(2);
 
+  /// 更新后的参与者信息
   @$pb.TagNumber(3)
-  $core.int get remainingUnread => $_getIZ(2);
+  ParticipantProto get participant => $_getN(2);
   @$pb.TagNumber(3)
-  set remainingUnread($core.int v) { $_setSignedInt32(2, v); }
+  set participant(ParticipantProto v) { $_setField(3, v); }
   @$pb.TagNumber(3)
-  $core.bool hasRemainingUnread() => $_has(2);
+  $core.bool hasParticipant() => $_has(2);
   @$pb.TagNumber(3)
-  void clearRemainingUnread() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $fixnum.Int64 get readAt => $_getI64(3);
-  @$pb.TagNumber(4)
-  set readAt($fixnum.Int64 v) { $_setInt64(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasReadAt() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearReadAt() => $_clearField(4);
+  void clearParticipant() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ParticipantProto ensureParticipant() => $_ensure(2);
 }
 
 /// 新增：会话信息更新请求
@@ -1799,6 +1893,7 @@ class ConversationUpdateRequest extends $pb.GeneratedMessage {
   static ConversationUpdateRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationUpdateRequest>(create);
   static ConversationUpdateRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1808,6 +1903,7 @@ class ConversationUpdateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 新的会话名称
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1817,6 +1913,7 @@ class ConversationUpdateRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearName() => $_clearField(2);
 
+  /// 新的会话头像
   @$pb.TagNumber(3)
   $core.String get avatar => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -1878,6 +1975,7 @@ class ConversationMemberRequest extends $pb.GeneratedMessage {
   static ConversationMemberRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMemberRequest>(create);
   static ConversationMemberRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1887,6 +1985,7 @@ class ConversationMemberRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 用户ID
   @$pb.TagNumber(2)
   $core.String get userId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1896,6 +1995,7 @@ class ConversationMemberRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearUserId() => $_clearField(2);
 
+  /// 操作类型: add, remove, promote, demote
   @$pb.TagNumber(3)
   $core.String get action => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -1952,6 +2052,7 @@ class ConversationMembersResponse extends $pb.GeneratedMessage {
   static ConversationMembersResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMembersResponse>(create);
   static ConversationMembersResponse? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1961,6 +2062,7 @@ class ConversationMembersResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 成员列表
   @$pb.TagNumber(2)
   $pb.PbList<ParticipantProto> get members => $_getList(1);
 }
@@ -2026,6 +2128,7 @@ class ConversationMemberChangeNotification extends $pb.GeneratedMessage {
   static ConversationMemberChangeNotification getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMemberChangeNotification>(create);
   static ConversationMemberChangeNotification? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2035,6 +2138,7 @@ class ConversationMemberChangeNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
+  /// 成员信息
   @$pb.TagNumber(2)
   ParticipantProto get member => $_getN(1);
   @$pb.TagNumber(2)
@@ -2046,6 +2150,7 @@ class ConversationMemberChangeNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   ParticipantProto ensureMember() => $_ensure(1);
 
+  /// 操作类型: added, removed, promoted, demoted
   @$pb.TagNumber(3)
   $core.String get action => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -2055,6 +2160,7 @@ class ConversationMemberChangeNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearAction() => $_clearField(3);
 
+  /// 操作执行者ID
   @$pb.TagNumber(4)
   $core.String get actionBy => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -2064,6 +2170,7 @@ class ConversationMemberChangeNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearActionBy() => $_clearField(4);
 
+  /// 操作时间
   @$pb.TagNumber(5)
   $fixnum.Int64 get timestamp => $_getI64(4);
   @$pb.TagNumber(5)
@@ -2115,6 +2222,7 @@ class ConversationMembersRequest extends $pb.GeneratedMessage {
   static ConversationMembersRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationMembersRequest>(create);
   static ConversationMembersRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2166,6 +2274,7 @@ class ConversationDetailRequest extends $pb.GeneratedMessage {
   static ConversationDetailRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationDetailRequest>(create);
   static ConversationDetailRequest? _defaultInstance;
 
+  /// 会话ID
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2227,6 +2336,7 @@ class ConversationDetailResponse extends $pb.GeneratedMessage {
   static ConversationDetailResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConversationDetailResponse>(create);
   static ConversationDetailResponse? _defaultInstance;
 
+  /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
@@ -2236,6 +2346,7 @@ class ConversationDetailResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSuccess() => $_clearField(1);
 
+  /// 提示消息（失败时）
   @$pb.TagNumber(2)
   $core.String get message => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2245,6 +2356,7 @@ class ConversationDetailResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearMessage() => $_clearField(2);
 
+  /// 会话详情
   @$pb.TagNumber(3)
   ConversationProto get conversation => $_getN(2);
   @$pb.TagNumber(3)

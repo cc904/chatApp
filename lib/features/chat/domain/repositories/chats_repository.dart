@@ -1,6 +1,6 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/chat/domain/entities/conversation_event.dart';
+// 移除ConversationSyncEvent import，改用数据库监听
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 
 /// 聊天会话列表仓库接口
@@ -38,11 +38,7 @@ abstract class ChatsRepository {
   /// 返回该会话的变化流
   Stream<Conversation?> watchConversation(String conversationId);
 
-  /// 监听会话更新事件
-  Stream<ConversationUpdateEvent> get conversationUpdateStream;
-
-  /// 监听会话同步事件
-  Stream<ConversationSyncEvent> get conversationSyncStream;
+  // 移除会话同步事件流，改用数据库监听
 
   /// 监听联系人列表变化
   Stream<void> watchContacts();
@@ -56,17 +52,25 @@ abstract class ChatsRepository {
   /// 会话数据将通过事件通知并由状态管理系统更新UI
   Future<void> requestSyncConversations();
 
-  /// 更新会话的静音状态
-  Future<void> updateConversationMuteStatus(
-      String conversationId, bool isMuted);
+  /// 统一更新参与者设置（静音、置顶、已读状态）
+  /// [conversationId] - 会话ID
+  /// [readMessageIndex] - 已读消息索引（可选）
+  /// [muted] - 静音状态（可选）
+  /// [pinned] - 置顶状态（可选）
+  Future<void> updateParticipantSettings(
+    String conversationId, {
+    int? readMessageIndex,
+    bool? muted,
+    bool? pinned,
+  });
 
-  /// 更新会话的置顶状态
-  Future<void> updateConversationPinStatus(
-      String conversationId, bool isPinned);
-
-  /// 更新会话的最后阅读消息索引
-  Future<void> updateConversationLastReadAtIndex(
-      String conversationId, int lastReadIndex);
+  /// 更新会话的最后阅读时间
+  /// [conversationId] - 会话ID
+  /// [readTime] - 阅读时间，默认为当前时间
+  Future<void> updateConversationLastReadTime(
+    String conversationId, {
+    DateTime? readTime,
+  });
 
   /// 根据标签过滤会话
   ///

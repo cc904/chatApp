@@ -16,13 +16,8 @@ class ProtoEvents {
     'message:send': () => message.MessageProto(),
     'message:send:response': () => message.MessageSendResponse(),
 
-    'messages:fetch:before': () => message.BeforeMessagesRequest(),
-    'messages:fetch:after': () => message.AfterMessagesRequest(),
-    'messages:fetch:response': () => message.MessagesResponse(),
-
-    // 消息同步相关事件
-    'messages:sync': () => message.MessagesSyncRequest(),
-    'messages:sync:response': () => message.MessagesSyncResponse(),
+    'messages:fetch': () => message.MessagesFetchRequest(),
+    'messages:fetch:response': () => message.MessagesFetchResponse(),
 
     // 会话相关事件
     'conversation:update': () => conversation.ConversationProto(),
@@ -38,12 +33,15 @@ class ProtoEvents {
         conversation.ConversationSettingsUpdateResponse(),
     'conversation:join': () => conversation.ConversationJoinLeaveRequest(),
     'conversation:leave': () => conversation.ConversationJoinLeaveRequest(),
+    'conversation:leave:response': () =>
+        conversation.ConversationJoinLeaveResponse(),
     'conversation:create': () => conversation.ConversationCreateRequest(),
     'conversation:create:response': () =>
         conversation.ConversationCreateResponse(),
-    'conversation:mark:read': () => conversation.ConversationMarkReadRequest(),
-    'conversation:mark:read:response': () =>
-        conversation.ConversationMarkReadResponse(),
+    'participant:status:update': () =>
+        conversation.ParticipantStatusUpdateRequest(),
+    'participant:status:update:response': () =>
+        conversation.ParticipantStatusUpdateResponse(),
     'conversation:member:add': () => conversation.ConversationMemberRequest(),
     'conversation:members': () => conversation.ConversationMembersResponse(),
     'conversation:member:change': () =>

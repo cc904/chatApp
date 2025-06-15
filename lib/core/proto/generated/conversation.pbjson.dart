@@ -53,8 +53,8 @@ const ParticipantProto$json = {
     {'1': 'muted', '3': 5, '4': 1, '5': 8, '10': 'muted'},
     {'1': 'pinned', '3': 6, '4': 1, '5': 8, '10': 'pinned'},
     {'1': 'joined_at', '3': 7, '4': 1, '5': 3, '10': 'joinedAt'},
-    {'1': 'last_read_at', '3': 8, '4': 1, '5': 3, '10': 'lastReadAt'},
-    {'1': 'last_read_message_id', '3': 9, '4': 1, '5': 9, '10': 'lastReadMessageId'},
+    {'1': 'delivered_message_index', '3': 8, '4': 1, '5': 5, '10': 'deliveredMessageIndex'},
+    {'1': 'read_message_index', '3': 9, '4': 1, '5': 5, '10': 'readMessageIndex'},
     {'1': 'role', '3': 10, '4': 1, '5': 14, '6': '.cc.MemberRole', '10': 'role'},
     {'1': 'added_by', '3': 11, '4': 1, '5': 9, '10': 'addedBy'},
     {'1': 'online', '3': 12, '4': 1, '5': 8, '10': 'online'},
@@ -67,49 +67,55 @@ final $typed_data.Uint8List participantProtoDescriptor = $convert.base64Decode(
     'ChBQYXJ0aWNpcGFudFByb3RvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBISCgRuYW1lGAIgAS'
     'gJUgRuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFyEiEKDHVucmVhZF9jb3VudBgEIAEoBVIL'
     'dW5yZWFkQ291bnQSFAoFbXV0ZWQYBSABKAhSBW11dGVkEhYKBnBpbm5lZBgGIAEoCFIGcGlubm'
-    'VkEhsKCWpvaW5lZF9hdBgHIAEoA1IIam9pbmVkQXQSIAoMbGFzdF9yZWFkX2F0GAggASgDUgps'
-    'YXN0UmVhZEF0Ei8KFGxhc3RfcmVhZF9tZXNzYWdlX2lkGAkgASgJUhFsYXN0UmVhZE1lc3NhZ2'
-    'VJZBIiCgRyb2xlGAogASgOMg4uY2MuTWVtYmVyUm9sZVIEcm9sZRIZCghhZGRlZF9ieRgLIAEo'
-    'CVIHYWRkZWRCeRIWCgZvbmxpbmUYDCABKAhSBm9ubGluZRIbCglpc19hY3RpdmUYDSABKAhSCG'
-    'lzQWN0aXZl');
+    'VkEhsKCWpvaW5lZF9hdBgHIAEoA1IIam9pbmVkQXQSNgoXZGVsaXZlcmVkX21lc3NhZ2VfaW5k'
+    'ZXgYCCABKAVSFWRlbGl2ZXJlZE1lc3NhZ2VJbmRleBIsChJyZWFkX21lc3NhZ2VfaW5kZXgYCS'
+    'ABKAVSEHJlYWRNZXNzYWdlSW5kZXgSIgoEcm9sZRgKIAEoDjIOLmNjLk1lbWJlclJvbGVSBHJv'
+    'bGUSGQoIYWRkZWRfYnkYCyABKAlSB2FkZGVkQnkSFgoGb25saW5lGAwgASgIUgZvbmxpbmUSGw'
+    'oJaXNfYWN0aXZlGA0gASgIUghpc0FjdGl2ZQ==');
 
 @$core.Deprecated('Use conversationProtoDescriptor instead')
 const ConversationProto$json = {
   '1': 'ConversationProto',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
-    {'1': 'type', '3': 4, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
+    {'1': 'type', '3': 2, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 4, '4': 1, '5': 9, '10': 'avatar'},
     {'1': 'created_at', '3': 5, '4': 1, '5': 3, '10': 'createdAt'},
-    {'1': 'last_message_time', '3': 6, '4': 1, '5': 3, '10': 'lastMessageTime'},
-    {'1': 'last_message_index', '3': 7, '4': 1, '5': 3, '10': 'lastMessageIndex'},
-    {'1': 'last_message_preview', '3': 8, '4': 1, '5': 9, '10': 'lastMessagePreview'},
-    {'1': 'last_message_name', '3': 9, '4': 1, '5': 9, '10': 'lastMessageName'},
-    {'1': 'unread_count', '3': 10, '4': 1, '5': 5, '10': 'unreadCount'},
-    {'1': 'contact_user_id', '3': 11, '4': 1, '5': 9, '10': 'contactUserId'},
-    {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
-    {'1': 'muted', '3': 13, '4': 1, '5': 8, '10': 'muted'},
-    {'1': 'pinned', '3': 14, '4': 1, '5': 8, '10': 'pinned'},
-    {'1': 'created_by', '3': 15, '4': 1, '5': 9, '10': 'createdBy'},
-    {'1': 'last_read_at_index', '3': 16, '4': 1, '5': 3, '10': 'lastReadAtIndex'},
+    {'1': 'created_by', '3': 6, '4': 1, '5': 9, '10': 'createdBy'},
+    {'1': 'first_message_index', '3': 7, '4': 1, '5': 5, '10': 'firstMessageIndex'},
+    {'1': 'last_message_index', '3': 8, '4': 1, '5': 5, '10': 'lastMessageIndex'},
+    {'1': 'last_message_time', '3': 9, '4': 1, '5': 3, '10': 'lastMessageTime'},
+    {'1': 'last_message_preview', '3': 10, '4': 1, '5': 9, '10': 'lastMessagePreview'},
+    {'1': 'last_message_name', '3': 11, '4': 1, '5': 9, '10': 'lastMessageName'},
+    {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ConversationProto.ParticipantsEntry', '10': 'participants'},
   ],
+  '3': [ConversationProto_ParticipantsEntry$json],
+};
+
+@$core.Deprecated('Use conversationProtoDescriptor instead')
+const ConversationProto_ParticipantsEntry$json = {
+  '1': 'ParticipantsEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 11, '6': '.cc.ParticipantProto', '10': 'value'},
+  ],
+  '7': {'7': true},
 };
 
 /// Descriptor for `ConversationProto`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
     'ChFDb252ZXJzYXRpb25Qcm90bxInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcnNhdG'
-    'lvbklkEhIKBG5hbWUYAiABKAlSBG5hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISKAoEdHlw'
-    'ZRgEIAEoDjIULmNjLkNvbnZlcnNhdGlvblR5cGVSBHR5cGUSHQoKY3JlYXRlZF9hdBgFIAEoA1'
-    'IJY3JlYXRlZEF0EioKEWxhc3RfbWVzc2FnZV90aW1lGAYgASgDUg9sYXN0TWVzc2FnZVRpbWUS'
-    'LAoSbGFzdF9tZXNzYWdlX2luZGV4GAcgASgDUhBsYXN0TWVzc2FnZUluZGV4EjAKFGxhc3RfbW'
-    'Vzc2FnZV9wcmV2aWV3GAggASgJUhJsYXN0TWVzc2FnZVByZXZpZXcSKgoRbGFzdF9tZXNzYWdl'
-    'X25hbWUYCSABKAlSD2xhc3RNZXNzYWdlTmFtZRIhCgx1bnJlYWRfY291bnQYCiABKAVSC3Vucm'
-    'VhZENvdW50EiYKD2NvbnRhY3RfdXNlcl9pZBgLIAEoCVINY29udGFjdFVzZXJJZBI4CgxwYXJ0'
-    'aWNpcGFudHMYDCADKAsyFC5jYy5QYXJ0aWNpcGFudFByb3RvUgxwYXJ0aWNpcGFudHMSFAoFbX'
-    'V0ZWQYDSABKAhSBW11dGVkEhYKBnBpbm5lZBgOIAEoCFIGcGlubmVkEh0KCmNyZWF0ZWRfYnkY'
-    'DyABKAlSCWNyZWF0ZWRCeRIrChJsYXN0X3JlYWRfYXRfaW5kZXgYECABKANSD2xhc3RSZWFkQX'
-    'RJbmRleA==');
+    'lvbklkEigKBHR5cGUYAiABKA4yFC5jYy5Db252ZXJzYXRpb25UeXBlUgR0eXBlEhIKBG5hbWUY'
+    'AyABKAlSBG5hbWUSFgoGYXZhdGFyGAQgASgJUgZhdmF0YXISHQoKY3JlYXRlZF9hdBgFIAEoA1'
+    'IJY3JlYXRlZEF0Eh0KCmNyZWF0ZWRfYnkYBiABKAlSCWNyZWF0ZWRCeRIuChNmaXJzdF9tZXNz'
+    'YWdlX2luZGV4GAcgASgFUhFmaXJzdE1lc3NhZ2VJbmRleBIsChJsYXN0X21lc3NhZ2VfaW5kZX'
+    'gYCCABKAVSEGxhc3RNZXNzYWdlSW5kZXgSKgoRbGFzdF9tZXNzYWdlX3RpbWUYCSABKANSD2xh'
+    'c3RNZXNzYWdlVGltZRIwChRsYXN0X21lc3NhZ2VfcHJldmlldxgKIAEoCVISbGFzdE1lc3NhZ2'
+    'VQcmV2aWV3EioKEWxhc3RfbWVzc2FnZV9uYW1lGAsgASgJUg9sYXN0TWVzc2FnZU5hbWUSSwoM'
+    'cGFydGljaXBhbnRzGAwgAygLMicuY2MuQ29udmVyc2F0aW9uUHJvdG8uUGFydGljaXBhbnRzRW'
+    '50cnlSDHBhcnRpY2lwYW50cxpVChFQYXJ0aWNpcGFudHNFbnRyeRIQCgNrZXkYASABKAlSA2tl'
+    'eRIqCgV2YWx1ZRgCIAEoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SBXZhbHVlOgI4AQ==');
 
 @$core.Deprecated('Use conversationUpdateDescriptor instead')
 const ConversationUpdate$json = {
@@ -252,6 +258,22 @@ final $typed_data.Uint8List conversationJoinLeaveRequestDescriptor = $convert.ba
     'ChxDb252ZXJzYXRpb25Kb2luTGVhdmVSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCV'
     'IOY29udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
 
+@$core.Deprecated('Use conversationJoinLeaveResponseDescriptor instead')
+const ConversationJoinLeaveResponse$json = {
+  '1': 'ConversationJoinLeaveResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+  ],
+};
+
+/// Descriptor for `ConversationJoinLeaveResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationJoinLeaveResponseDescriptor = $convert.base64Decode(
+    'Ch1Db252ZXJzYXRpb25Kb2luTGVhdmVSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZX'
+    'NzEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5j'
+    'b252ZXJzYXRpb25JZA==');
+
 @$core.Deprecated('Use conversationCreateRequestDescriptor instead')
 const ConversationCreateRequest$json = {
   '1': 'ConversationCreateRequest',
@@ -326,38 +348,45 @@ final $typed_data.Uint8List conversationCreateResponseDescriptor = $convert.base
     'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USOQoMY29udmVyc2F0aW9uGAMgASgLMhUuY2MuQ29u'
     'dmVyc2F0aW9uUHJvdG9SDGNvbnZlcnNhdGlvbg==');
 
-@$core.Deprecated('Use conversationMarkReadRequestDescriptor instead')
-const ConversationMarkReadRequest$json = {
-  '1': 'ConversationMarkReadRequest',
+@$core.Deprecated('Use participantStatusUpdateRequestDescriptor instead')
+const ParticipantStatusUpdateRequest$json = {
+  '1': 'ParticipantStatusUpdateRequest',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'read_at', '3': 2, '4': 1, '5': 3, '10': 'readAt'},
-    {'1': 'message_id', '3': 3, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'read_message_index', '3': 3, '4': 1, '5': 5, '9': 0, '10': 'readMessageIndex', '17': true},
+    {'1': 'muted', '3': 4, '4': 1, '5': 8, '9': 1, '10': 'muted', '17': true},
+    {'1': 'pinned', '3': 5, '4': 1, '5': 8, '9': 2, '10': 'pinned', '17': true},
+  ],
+  '8': [
+    {'1': '_read_message_index'},
+    {'1': '_muted'},
+    {'1': '_pinned'},
   ],
 };
 
-/// Descriptor for `ConversationMarkReadRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMarkReadRequestDescriptor = $convert.base64Decode(
-    'ChtDb252ZXJzYXRpb25NYXJrUmVhZFJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg'
-    '5jb252ZXJzYXRpb25JZBIXCgdyZWFkX2F0GAIgASgDUgZyZWFkQXQSHQoKbWVzc2FnZV9pZBgD'
-    'IAEoCVIJbWVzc2FnZUlk');
+/// Descriptor for `ParticipantStatusUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List participantStatusUpdateRequestDescriptor = $convert.base64Decode(
+    'Ch5QYXJ0aWNpcGFudFN0YXR1c1VwZGF0ZVJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGAEgAS'
+    'gJUg5jb252ZXJzYXRpb25JZBIxChJyZWFkX21lc3NhZ2VfaW5kZXgYAyABKAVIAFIQcmVhZE1l'
+    'c3NhZ2VJbmRleIgBARIZCgVtdXRlZBgEIAEoCEgBUgVtdXRlZIgBARIbCgZwaW5uZWQYBSABKA'
+    'hIAlIGcGlubmVkiAEBQhUKE19yZWFkX21lc3NhZ2VfaW5kZXhCCAoGX211dGVkQgkKB19waW5u'
+    'ZWQ=');
 
-@$core.Deprecated('Use conversationMarkReadResponseDescriptor instead')
-const ConversationMarkReadResponse$json = {
-  '1': 'ConversationMarkReadResponse',
+@$core.Deprecated('Use participantStatusUpdateResponseDescriptor instead')
+const ParticipantStatusUpdateResponse$json = {
+  '1': 'ParticipantStatusUpdateResponse',
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'remaining_unread', '3': 3, '4': 1, '5': 5, '10': 'remainingUnread'},
-    {'1': 'read_at', '3': 4, '4': 1, '5': 3, '10': 'readAt'},
+    {'1': 'participant', '3': 3, '4': 1, '5': 11, '6': '.cc.ParticipantProto', '10': 'participant'},
   ],
 };
 
-/// Descriptor for `ConversationMarkReadResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMarkReadResponseDescriptor = $convert.base64Decode(
-    'ChxDb252ZXJzYXRpb25NYXJrUmVhZFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3'
-    'MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIpChByZW1haW5pbmdf'
-    'dW5yZWFkGAMgASgFUg9yZW1haW5pbmdVbnJlYWQSFwoHcmVhZF9hdBgEIAEoA1IGcmVhZEF0');
+/// Descriptor for `ParticipantStatusUpdateResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List participantStatusUpdateResponseDescriptor = $convert.base64Decode(
+    'Ch9QYXJ0aWNpcGFudFN0YXR1c1VwZGF0ZVJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2'
+    'Nlc3MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBI2CgtwYXJ0aWNp'
+    'cGFudBgDIAEoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SC3BhcnRpY2lwYW50');
 
 @$core.Deprecated('Use conversationUpdateRequestDescriptor instead')
 const ConversationUpdateRequest$json = {

@@ -2,6 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:intl/intl.dart';
 
+/// 消息显示状态
+/// 用于传递预计算的消息状态信息
+class MessageDisplayStatus {
+  final bool isRead;
+  final bool isDelivered;
+  final MessageStatus messageStatus;
+
+  const MessageDisplayStatus({
+    required this.isRead,
+    required this.isDelivered,
+    required this.messageStatus,
+  });
+}
+
 /// 消息项组件
 ///
 /// 用于显示单条消息，支持不同消息类型和发送状态
@@ -21,6 +35,9 @@ class MessageItem extends StatelessWidget {
   final bool isCurrentSearchResult; // 是否为当前选中的搜索结果
   final String? searchQuery; // 搜索关键词（用于高亮文本）
 
+  /// 💢💢💢 新增：预计算的消息状态（由外部计算好传入）
+  final MessageDisplayStatus? displayStatus;
+
   const MessageItem({
     super.key,
     required this.message,
@@ -33,6 +50,7 @@ class MessageItem extends StatelessWidget {
     this.isSearchResult = false,
     this.isCurrentSearchResult = false,
     this.searchQuery,
+    this.displayStatus, // 💢💢💢 新增参数：预计算的显示状态
   });
 
   @override
@@ -67,7 +85,7 @@ class MessageItem extends StatelessWidget {
             ),
             if (isCurrentUser) ...[
               const SizedBox(width: 8.0),
-              _buildMessageStatus(),
+              // 💢💢💢 已读状态已移到消息气泡内部，这里不再显示
             ],
           ],
         ),
@@ -197,6 +215,7 @@ class MessageItem extends StatelessWidget {
           const SizedBox(height: 2.0),
           Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (message.isMessageEdited) ...[
@@ -221,6 +240,11 @@ class MessageItem extends StatelessWidget {
                       : Colors.grey[600],
                 ),
               ),
+              // 💢💢💢 将已读状态移到时间后面（仅当前用户消息显示）
+              if (isCurrentUser) ...[
+                const SizedBox(width: 4.0),
+                _buildMessageStatusInline(),
+              ],
             ],
           ),
         ],
@@ -489,76 +513,6 @@ class MessageItem extends StatelessWidget {
     }
   }
 
-  /// 构建消息状态
-  Widget _buildMessageStatus() {
-    // 💢💢💢 撤销的消息不显示发送状态（删除的消息在build中已经过滤掉了）
-    if (message.isMessageRevoked) {
-      return const SizedBox.shrink(); // 撤销的消息不显示状态
-    }
-
-    IconData iconData;
-    Color color;
-
-    switch (message.status) {
-      case MessageStatus.sending:
-        iconData = Icons.access_time;
-        color = Colors.grey;
-        break;
-      case MessageStatus.sent:
-        iconData = Icons.check;
-        color = Colors.grey;
-        break;
-      case MessageStatus.delivered:
-        iconData = Icons.done_all;
-        color = Colors.grey;
-        break;
-      case MessageStatus.read:
-        iconData = Icons.done_all;
-        color = Colors.blue;
-        break;
-      case MessageStatus.failed:
-        // 💢💢💢 失败状态：显示可点击的重发按钮
-        return GestureDetector(
-          onTap: onResend,
-          child: Container(
-            padding: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              color: Colors.red.withAlpha(26),
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.error,
-                  size: 14.0,
-                  color: Colors.red,
-                ),
-                SizedBox(width: 4.0),
-                Text(
-                  '重发',
-                  style: TextStyle(
-                    fontSize: 12.0,
-                    color: Colors.red,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      default:
-        iconData = Icons.check;
-        color = Colors.grey;
-    }
-
-    return Icon(
-      iconData,
-      size: 16.0,
-      color: color,
-    );
-  }
-
   /// 格式化时间
   String _formatTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -683,6 +637,110 @@ class MessageItem extends StatelessWidget {
       TextSpan(
         children: spans,
       ),
+    );
+  }
+
+  /// 构建消息状态（内联版本，用于显示在消息气泡内）
+  Widget _buildMessageStatusInline() {
+    // 💢💢💢 撤销的消息不显示发送状态
+    if (message.isMessageRevoked) {
+      return const SizedBox.shrink();
+    }
+
+    // 💢💢💢 新逻辑：根据会话参与者信息计算已读状态
+    if (displayStatus != null) {
+      return _buildStatusByDisplayStatus();
+    }
+
+    // 💢💢💢 回退到原有逻辑（群聊或缺少会话信息时）
+    return _buildStatusByMessageStatus();
+  }
+
+  /// 根据显示状态构建状态（预计算专用）
+  Widget _buildStatusByDisplayStatus() {
+    if (displayStatus == null) {
+      return const SizedBox.shrink();
+    }
+
+    IconData iconData;
+    Color color;
+
+    // 根据预计算的状态判断显示
+    if (displayStatus!.isRead) {
+      // 已读
+      iconData = Icons.done_all;
+      color = isCurrentUser ? Colors.white : Colors.blue;
+    } else if (displayStatus!.isDelivered) {
+      // 已送达但未读
+      iconData = Icons.done_all;
+      color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+    } else {
+      // 根据消息本身的状态判断
+      switch (displayStatus!.messageStatus) {
+        case MessageStatus.sending:
+          iconData = Icons.access_time;
+          color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+          break;
+        case MessageStatus.sent:
+          iconData = Icons.check;
+          color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+          break;
+        case MessageStatus.failed:
+          return const Icon(
+            Icons.error,
+            size: 12.0,
+            color: Colors.red,
+          );
+        default:
+          iconData = Icons.check;
+          color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+      }
+    }
+
+    return Icon(
+      iconData,
+      size: 12.0,
+      color: color,
+    );
+  }
+
+  /// 根据消息状态构建状态（群聊或回退逻辑）
+  Widget _buildStatusByMessageStatus() {
+    IconData iconData;
+    Color color;
+
+    switch (message.status) {
+      case MessageStatus.sending:
+        iconData = Icons.access_time;
+        color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+        break;
+      case MessageStatus.sent:
+        iconData = Icons.check;
+        color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+        break;
+      case MessageStatus.delivered:
+        iconData = Icons.done_all;
+        color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+        break;
+      case MessageStatus.read:
+        iconData = Icons.done_all;
+        color = isCurrentUser ? Colors.white : Colors.blue;
+        break;
+      case MessageStatus.failed:
+        return const Icon(
+          Icons.error,
+          size: 12.0,
+          color: Colors.red,
+        );
+      default:
+        iconData = Icons.check;
+        color = isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey;
+    }
+
+    return Icon(
+      iconData,
+      size: 12.0,
+      color: color,
     );
   }
 }

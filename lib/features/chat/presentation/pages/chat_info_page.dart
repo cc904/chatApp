@@ -56,7 +56,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         final conversation = chatCubit.state.conversation;
 
         // 根据会话的静音状态设置动画
-        if (conversation.isMuted) {
+        final currentUserId = chatCubit.state.currentUser?.userId;
+        if (currentUserId != null && conversation.isMuted(currentUserId)) {
           _muteAnimController.value = 1.0; // 直接设置到终点
         } else {
           _muteAnimController.value = 0.0;
@@ -76,7 +77,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   // 切换静音状态
   void _toggleMuteState() {
     final chatCubit = context.read<ChatCubit>();
-    final currentMuteStatus = chatCubit.state.conversation.isMuted;
+    final currentUserId = chatCubit.state.currentUser?.userId;
+    if (currentUserId == null) return;
+
+    final currentMuteStatus =
+        chatCubit.state.conversation.isMuted(currentUserId);
     final newMuteStatus = !currentMuteStatus;
 
     // 立即更新动画状态
@@ -481,11 +486,17 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                       );
                     },
                     child: BlocBuilder<ChatCubit, ChatState>(
-                      buildWhen: (previous, current) =>
-                          previous.conversation.isMuted !=
-                          current.conversation.isMuted,
+                      buildWhen: (previous, current) {
+                        final currentUserId = current.currentUser?.userId;
+                        if (currentUserId == null) return false;
+                        return previous.conversation.isMuted(currentUserId) !=
+                            current.conversation.isMuted(currentUserId);
+                      },
                       builder: (context, state) {
-                        final isMuted = state.conversation.isMuted;
+                        final currentUserId = state.currentUser?.userId;
+                        final isMuted = currentUserId != null
+                            ? state.conversation.isMuted(currentUserId)
+                            : false;
                         return Text(
                           isMuted ? 'unmute' : 'mute',
                           key: ValueKey<bool>(isMuted),

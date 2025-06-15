@@ -7,6 +7,23 @@ import 'package:fixnum/fixnum.dart';
 void main() {
   group('ConversationAdapter Tests', () {
     test('应该正确从Proto转换为Conversation', () {
+      // 创建测试用的参与者Proto对象
+      final participantProto = proto.ParticipantProto(
+        userId: 'test_user_id',
+        name: 'Test User',
+        avatar: 'test_avatar_url',
+        unreadCount: 5,
+        muted: false,
+        pinned: true,
+        joinedAt: Int64(DateTime.now().millisecondsSinceEpoch),
+        deliveredMessageIndex: 10,
+        readMessageIndex: 8,
+        role: proto.MemberRole.MEMBER,
+        addedBy: 'admin_user',
+        online: true,
+        isActive: true,
+      );
+
       // 创建测试用的Proto对象
       final protoConversation = proto.ConversationProto(
         conversationId: 'test_conversation_id',
@@ -16,11 +33,13 @@ void main() {
         createdAt: Int64(DateTime.now().millisecondsSinceEpoch),
         lastMessagePreview: 'Hello, World!',
         lastMessageTime: Int64(DateTime.now().millisecondsSinceEpoch),
-        unreadCount: 5,
-        contactUserId: 'test_contact_id',
-        muted: false,
-        pinned: true,
+        createdBy: 'test_creator_id',
+        firstMessageIndex: 1,
+        lastMessageIndex: 100,
       );
+
+      // 添加参与者到Map中
+      protoConversation.participants['test_user_id'] = participantProto;
 
       // 转换为Conversation对象
       final conversation = ConversationAdapter.fromProto(protoConversation);
@@ -31,13 +50,32 @@ void main() {
       expect(conversation.name, equals('Test Conversation'));
       expect(conversation.avatar, equals('test_avatar_url'));
       expect(conversation.lastMessagePreview, equals('Hello, World!'));
-      expect(conversation.unreadCount, equals(5));
-      expect(conversation.contactUserId, equals('test_contact_id'));
-      expect(conversation.isMuted, equals(false));
-      expect(conversation.isPinned, equals(true));
+      expect(conversation.participants.length, equals(1));
+      expect(conversation.participants.first.userId, equals('test_user_id'));
+      expect(conversation.participants.first.name, equals('Test User'));
+      expect(conversation.participants.first.unreadCount, equals(5));
+      expect(conversation.participants.first.muted, equals(false));
+      expect(conversation.participants.first.pinned, equals(true));
     });
 
     test('应该正确从Conversation转换为Proto', () {
+      // 创建测试用的参与者
+      final participant = Participant.create(
+        userId: 'test_user_id',
+        name: 'Test User',
+        avatar: 'test_avatar_url',
+        unreadCount: 3,
+        muted: true,
+        pinned: false,
+        joinedAt: DateTime.now(),
+        deliveredMessageIndex: 15,
+        readMessageIndex: 12,
+        role: MemberRole.admin,
+        addedBy: 'admin_user',
+        online: false,
+        isActive: true,
+      );
+
       // 创建测试用的Conversation对象
       final conversation = Conversation()
         ..conversationId = 'test_conversation_id'
@@ -47,10 +85,10 @@ void main() {
         ..createdAt = DateTime.now()
         ..lastMessagePreview = 'Group message'
         ..lastMessageTime = DateTime.now()
-        ..unreadCount = 3
-        ..isMuted = true
-        ..isPinned = false
-        ..createdBy = 'test_creator_id';
+        ..createdBy = 'test_creator_id'
+        ..firstMessageIndex = 1
+        ..lastMessageIndex = 100
+        ..participants = [participant];
 
       // 转换为Proto对象
       final protoConversation = ConversationAdapter.toProto(conversation);
@@ -61,10 +99,14 @@ void main() {
       expect(protoConversation.name, equals('Test Group'));
       expect(protoConversation.avatar, equals('test_avatar_url'));
       expect(protoConversation.lastMessagePreview, equals('Group message'));
-      expect(protoConversation.unreadCount, equals(3));
-      expect(protoConversation.muted, equals(true));
-      expect(protoConversation.pinned, equals(false));
       expect(protoConversation.createdBy, equals('test_creator_id'));
+      expect(protoConversation.participants.length, equals(1));
+      expect(protoConversation.participants['test_user_id']?.userId,
+          equals('test_user_id'));
+      expect(protoConversation.participants['test_user_id']?.name,
+          equals('Test User'));
+      expect(protoConversation.participants['test_user_id']?.unreadCount,
+          equals(3));
     });
 
     test('应该正确处理批量转换', () {
@@ -161,10 +203,7 @@ void main() {
       expect(conversation.name, isNull);
       expect(conversation.avatar, isNull);
       expect(conversation.lastMessagePreview, isNull);
-      expect(conversation.contactUserId, isNull);
-      expect(conversation.unreadCount, equals(0)); // 默认值
-      expect(conversation.isMuted, equals(false)); // 默认值
-      expect(conversation.isPinned, equals(false)); // 默认值
+      expect(conversation.participants.length, equals(0)); // 空参与者列表
     });
 
     test('应该正确处理时间戳转换', () {
@@ -177,7 +216,8 @@ void main() {
         type: proto.ConversationType.PRIVATE,
         createdAt: timestamp,
         lastMessageTime: timestamp,
-        lastReadAtIndex: Int64(1),
+        firstMessageIndex: 1,
+        lastMessageIndex: 100,
       );
 
       // 转换为Conversation对象
@@ -188,8 +228,53 @@ void main() {
           closeTo(now.millisecondsSinceEpoch, 1000));
       expect(conversation.lastMessageTime?.millisecondsSinceEpoch,
           closeTo(now.millisecondsSinceEpoch, 1000));
-      expect(conversation.lastReadAtIndex,
-          closeTo(now.millisecondsSinceEpoch, 1000));
+      expect(conversation.firstMessageIndex, equals(1));
+      expect(conversation.lastMessageIndex, equals(100));
+    });
+
+    test('应该正确处理参与者转换', () {
+      // 创建测试用的参与者Proto对象
+      final participantProto = proto.ParticipantProto(
+        userId: 'test_user_id',
+        name: 'Test User',
+        avatar: 'test_avatar_url',
+        unreadCount: 5,
+        muted: false,
+        pinned: true,
+        joinedAt: Int64(DateTime.now().millisecondsSinceEpoch),
+        deliveredMessageIndex: 10,
+        readMessageIndex: 8,
+        role: proto.MemberRole.ADMIN,
+        addedBy: 'admin_user',
+        online: true,
+        isActive: true,
+      );
+
+      // 转换为Participant对象
+      final participant =
+          ConversationAdapter.participantFromProto(participantProto);
+
+      // 验证转换结果
+      expect(participant.userId, equals('test_user_id'));
+      expect(participant.name, equals('Test User'));
+      expect(participant.avatar, equals('test_avatar_url'));
+      expect(participant.unreadCount, equals(5));
+      expect(participant.muted, equals(false));
+      expect(participant.pinned, equals(true));
+      expect(participant.deliveredMessageIndex, equals(10));
+      expect(participant.readMessageIndex, equals(8));
+      expect(participant.role, equals(MemberRole.admin));
+      expect(participant.addedBy, equals('admin_user'));
+      expect(participant.online, equals(true));
+      expect(participant.isActive, equals(true));
+
+      // 测试反向转换
+      final protoParticipant =
+          ConversationAdapter.participantToProto(participant);
+      expect(protoParticipant.userId, equals('test_user_id'));
+      expect(protoParticipant.name, equals('Test User'));
+      expect(protoParticipant.unreadCount, equals(5));
+      expect(protoParticipant.role, equals(proto.MemberRole.ADMIN));
     });
   });
 }

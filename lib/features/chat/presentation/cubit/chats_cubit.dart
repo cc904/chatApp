@@ -8,7 +8,7 @@ import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/features/chat/domain/entities/conversation_event.dart';
+// 移除ConversationSyncEvent import，改用数据库监听
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 聊天模块的业务逻辑Cubit
@@ -44,26 +44,25 @@ class ChatsCubit extends Cubit<ChatsState> {
   Future<void> _setupSubscriptions() async {
     _logger.i('设置聊天事件订阅');
 
-    // 监听会话更新
-    _subscriptions['conversationUpdate'] =
-        _chatsRepository.conversationUpdateStream.listen((event) {
-      _handleConversationUpdate(event);
+    // ✅ 监听数据库会话变化，数据库变化时自动重新加载UI
+    _subscriptions['conversationDatabase'] =
+        _chatsRepository.watchConversations().listen((_) {
+      _logger.d('数据库会话列表发生变化，重新加载UI');
+      _loadConversationsFromDatabase();
     });
+  }
 
-    // 监听新消息
-    _subscriptions['newMessage'] =
-        _chatsRepository.conversationUpdateStream.listen((event) {
-      if (event.type == ConversationUpdateType.updated &&
-          event.lastMessagePreview != null) {
-        _handleNewMessageFromEvent(event);
-      }
-    });
-
-    // 监听会话同步
-    _subscriptions['conversationSync'] =
-        _chatsRepository.conversationSyncStream.listen((event) {
-      _handleConversationSync(event);
-    });
+  /// 从数据库加载会话列表（内部方法）
+  /// 直接从数据库获取数据并更新UI，不触发同步事件
+  Future<void> _loadConversationsFromDatabase() async {
+    try {
+      // 直接从数据库获取会话，不发送同步事件
+      final conversations = await _chatsRepository.getAllConversations();
+      _updateConversationsWithFilter(conversations);
+    } catch (error) {
+      _logger.e('从数据库加载会话列表失败', error: error);
+      emit(state.copyWith(errorMessage: '加载会话列表失败: ${error.toString()}'));
+    }
   }
 
   /// 统一的会话排序方法
@@ -122,27 +121,23 @@ class ChatsCubit extends Cubit<ChatsState> {
   /// 加载会话列表
   Future<void> loadConversations() async {
     _logger.i('加载会话列表');
-
-    try {
-      // 从本地数据库加载会话
-      final conversations = await _chatsRepository.getAllConversations();
-      _updateConversationsWithFilter(conversations);
-    } catch (error) {
-      _logger.e('加载会话列表失败', error: error);
-      emit(state.copyWith(errorMessage: '加载会话列表失败: ${error.toString()}'));
-    }
+    await _loadConversationsFromDatabase();
   }
 
   /// 同步会话列表
   /// 从服务器同步最新的会话数据
   Future<void> requestSyncConversations() async {
-    _logger.i('同步会话列表');
+    _logger.i('请求同步会话列表');
     try {
       emit(state.copyWith(
           conversationSyncStatus: ConversationSyncStatus.syncing));
 
-      // 调用仓库层的同步方法
+      // 调用仓库层的同步方法，数据库更新后会自动触发UI更新
       await _chatsRepository.requestSyncConversations();
+
+      // 同步请求发送成功，状态会在数据库更新时自动变为completed
+      emit(state.copyWith(
+          conversationSyncStatus: ConversationSyncStatus.completed));
     } catch (error) {
       _logger.e('同步会话失败', error: error);
       emit(state.copyWith(
@@ -150,164 +145,6 @@ class ChatsCubit extends Cubit<ChatsState> {
         errorMessage: '同步会话失败: ${error.toString()}',
       ));
     }
-  }
-
-  /// 处理会话同步事件
-  void _handleConversationSync(ConversationSyncEvent event) {
-    _logger.i('处理会话同步事件', extra: {
-      'type': event.type.toString(),
-    });
-
-    switch (event.type) {
-      case ConversationSyncType.syncStarted:
-        emit(state.copyWith(
-            conversationSyncStatus: ConversationSyncStatus.syncing,
-            errorMessage: null));
-        break;
-      case ConversationSyncType.syncCompleted:
-        final conversations = event.conversations ?? [];
-        _updateConversationsWithFilter(conversations,
-            additionalUpdates: (state) => state.copyWith(
-                conversationSyncStatus: ConversationSyncStatus.completed,
-                errorMessage: null));
-        break;
-      case ConversationSyncType.syncError:
-        emit(state.copyWith(
-            conversationSyncStatus: ConversationSyncStatus.error,
-            errorMessage: '同步会话失败'));
-        break;
-    }
-  }
-
-  /// 处理会话更新事件
-  void _handleConversationUpdate(ConversationUpdateEvent event) {
-    // _logger.i('处理会话更新事件', extra: {
-    //   'conversationId': event.conversationId,
-    //   'type': event.type.toString(),
-    // });
-
-    switch (event.type) {
-      case ConversationUpdateType.added:
-        _handleConversationAdded(event);
-        break;
-      case ConversationUpdateType.updated:
-        _handleConversationUpdated(event);
-        break;
-      case ConversationUpdateType.removed:
-        _handleConversationRemoved(event);
-        break;
-      case ConversationUpdateType.readStatusUpdated:
-        _handleConversationReadStatusUpdated(event);
-        break;
-    }
-  }
-
-  /// 处理新增会话事件
-  void _handleConversationAdded(ConversationUpdateEvent event) {
-    if (event.conversation == null) {
-      _logger.w('新增会话事件缺少会话对象');
-      return;
-    }
-
-    // 获取当前会话列表
-    final currentConversations = List<Conversation>.from(state.conversations);
-
-    // 检查会话是否已存在
-    final existingIndex = currentConversations
-        .indexWhere((c) => c.conversationId == event.conversationId);
-
-    if (existingIndex != -1) {
-      _logger.w('会话已存在，忽略添加操作');
-      return;
-    }
-
-    // 添加新会话
-    currentConversations.add(event.conversation!);
-
-    _updateConversationsWithFilter(currentConversations);
-  }
-
-  /// 处理会话更新事件
-  void _handleConversationUpdated(ConversationUpdateEvent event) {
-    // 获取当前会话列表
-    final currentConversations = List<Conversation>.from(state.conversations);
-
-    // 查找要更新的会话
-    final conversationIndex = currentConversations
-        .indexWhere((c) => c.conversationId == event.conversationId);
-
-    if (conversationIndex == -1) {
-      _logger.w('未找到要更新的会话', extra: {'conversationId': event.conversationId});
-      return;
-    }
-
-    // 更新会话
-    Conversation updatedConversation;
-
-    if (event.conversation != null) {
-      // 如果事件中包含完整的会话对象，直接使用
-      updatedConversation = event.conversation!;
-    } else {
-      // 否则，使用现有会话并更新相关字段
-      updatedConversation = currentConversations[conversationIndex].copyWith(
-        lastMessagePreview: event.lastMessagePreview,
-        lastMessageTime: event.lastMessageTime,
-        unreadCount: event.unreadCount,
-        lastMessageName: event.senderName,
-        muted: event.isMuted,
-        pinned: event.isPinned,
-      );
-    }
-
-    // 替换会话
-    currentConversations[conversationIndex] = updatedConversation;
-
-    _updateConversationsWithFilter(currentConversations);
-  }
-
-  /// 处理会话删除事件
-  void _handleConversationRemoved(ConversationUpdateEvent event) {
-    // 获取当前会话列表
-    final currentConversations = List<Conversation>.from(state.conversations);
-
-    // 移除会话
-    currentConversations
-        .removeWhere((c) => c.conversationId == event.conversationId);
-
-    _updateConversationsWithFilter(currentConversations);
-  }
-
-  /// 处理会话阅读状态更新事件
-  void _handleConversationReadStatusUpdated(ConversationUpdateEvent event) {
-    _logger.i('处理会话阅读状态更新事件', extra: {
-      'conversationId': event.conversationId,
-      'type': event.type.toString(),
-    });
-
-    // 更新会话阅读状态
-    final currentConversations = List<Conversation>.from(state.conversations);
-    final conversationIndex = currentConversations
-        .indexWhere((c) => c.conversationId == event.conversationId);
-
-    if (conversationIndex != -1) {
-      // 找到会话，更新阅读状态
-      final conversation = currentConversations[conversationIndex];
-      final updatedConversation =
-          conversation.copyWith(lastReadAtIndex: event.lastReadAtIndex);
-      currentConversations[conversationIndex] = updatedConversation;
-
-      _updateConversationsWithFilter(currentConversations);
-    }
-  }
-
-  /// 处理从事件中获取的新消息
-  void _handleNewMessageFromEvent(ConversationUpdateEvent event) {
-    // 检查是否有必要的数据
-    if (event.lastMessagePreview == null || event.lastMessageTime == null) {
-      return;
-    }
-
-    // 消息加载由ChatCubit处理
   }
 
   /// 更新会话静音状态
@@ -321,8 +158,10 @@ class ChatsCubit extends Cubit<ChatsState> {
 
     try {
       // 调用仓库层更新静音状态
-      await _chatsRepository.updateConversationMuteStatus(
-          conversationId, isMuted);
+      await _chatsRepository.updateParticipantSettings(
+        conversationId,
+        muted: isMuted,
+      );
 
       // 更新本地状态
       final currentConversations = List<Conversation>.from(state.conversations);
@@ -332,10 +171,15 @@ class ChatsCubit extends Cubit<ChatsState> {
       if (conversationIndex != -1) {
         // 找到会话，更新静音状态
         final conversation = currentConversations[conversationIndex];
-        final updatedConversation = conversation.copyWith(muted: isMuted);
-        currentConversations[conversationIndex] = updatedConversation;
-
-        _updateConversationsWithFilter(currentConversations);
+        final currentUserId = state.currentUser?.userId;
+        if (currentUserId != null) {
+          // 使用新的updateCurrentUserSettings方法更新静音状态
+          conversation.updateCurrentUserSettings(
+            currentUserId: currentUserId,
+            muted: isMuted,
+          );
+          _updateConversationsWithFilter(currentConversations);
+        }
       }
     } catch (error) {
       _logger.e('更新会话静音状态失败', error: error);
@@ -532,8 +376,14 @@ class ChatsCubit extends Cubit<ChatsState> {
             .toList();
         break;
       case 4: // 未读
-        tabFilteredConversations =
-            conversations.where((c) => c.unreadCount > 0).toList();
+        final currentUserId = state.currentUser?.userId;
+        if (currentUserId != null) {
+          tabFilteredConversations = conversations
+              .where((c) => c.unreadCount(currentUserId) > 0)
+              .toList();
+        } else {
+          tabFilteredConversations = [];
+        }
         break;
       default:
         tabFilteredConversations = conversations;

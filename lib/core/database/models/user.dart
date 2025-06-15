@@ -1,6 +1,5 @@
 import 'package:isar/isar.dart';
 import 'package:fixnum/fixnum.dart';
-import 'conversation.dart';
 import 'package:cc/core/proto/generated/user.pb.dart' as proto;
 import 'package:lpinyin/lpinyin.dart';
 
@@ -38,10 +37,6 @@ class User {
 
   // 联系人状态: online, offline, away
   String? status;
-
-  // 反向关系 - 该联系人参与的所有会话
-  @Backlink(to: 'participants')
-  final conversations = IsarLinks<Conversation>();
 
   // 为UI显示生成联系人头像文本(取名字首字母)
   String get avatarText {

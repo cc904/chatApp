@@ -1,6 +1,8 @@
 import 'package:cc/features/chat/data/repositories/chats_repository_impl.dart';
 import 'package:cc/features/chat/data/repositories/chat_repository_impl.dart';
+import 'package:cc/features/chat/data/repositories/chat_repository_send_impl.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +33,7 @@ class _HomePageState extends State<HomePage>
   ContactCubit? _contactCubit;
   ChatRepository? _chatRepository;
   ChatsRepository? _chatsRepository;
+  ChatRepositorySend? _chatRepositorySend;
   Timer? _cleanupTimer;
 
   final _secureStorage = SecureStorageService.instance;
@@ -87,8 +90,11 @@ class _HomePageState extends State<HomePage>
     // 创建全局共享的ChatRepository
     _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
 
+    // 创建ChatRepositorySend
+    _chatRepositorySend = ChatRepositorySendImpl(currentUser: currentUser);
+
     // 创建ChatsRepository
-    _chatsRepository = ChatsRepositoryImpl();
+    _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);
 
     _chatsCubit = ChatsCubit(
       chatsRepository: _chatsRepository!,
@@ -129,7 +135,8 @@ class _HomePageState extends State<HomePage>
     if (_homeCubit == null ||
         _chatsCubit == null ||
         _contactCubit == null ||
-        _chatsRepository == null) {
+        _chatsRepository == null ||
+        _chatRepositorySend == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -142,6 +149,8 @@ class _HomePageState extends State<HomePage>
         // Repository providers - 全局共享
         RepositoryProvider<ChatRepository>.value(value: _chatRepository!),
         RepositoryProvider<ChatsRepository>.value(value: _chatsRepository!),
+        RepositoryProvider<ChatRepositorySend>.value(
+            value: _chatRepositorySend!),
 
         // BLoC providers - 状态管理
         BlocProvider<HomeCubit>.value(value: _homeCubit!),

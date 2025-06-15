@@ -180,6 +180,16 @@ class ChatState extends Equatable {
   /// 同步期间暂存的新消息队列
   final List<Message> pendingMessages;
 
+  /// 🎯 锚点滚动相关字段
+  /// 当前会话ID
+  final String conversationId;
+
+  /// 是否正在加载
+  final bool isLoading;
+
+  /// 总消息数量
+  final int totalMessageCount;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -210,6 +220,9 @@ class ChatState extends Equatable {
     this.messageUpdateTrigger = 0,
     this.isSyncing = false,
     this.pendingMessages = const [],
+    this.conversationId = '',
+    this.isLoading = false,
+    this.totalMessageCount = 0,
   });
 
   /// 初始状态
@@ -244,6 +257,9 @@ class ChatState extends Equatable {
       messageUpdateTrigger: 0,
       isSyncing: false,
       pendingMessages: const [],
+      conversationId: '',
+      isLoading: false,
+      totalMessageCount: 0,
     );
   }
 
@@ -278,6 +294,9 @@ class ChatState extends Equatable {
     int? messageUpdateTrigger,
     bool? isSyncing,
     List<Message>? pendingMessages,
+    String? conversationId,
+    bool? isLoading,
+    int? totalMessageCount,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -316,6 +335,9 @@ class ChatState extends Equatable {
       messageUpdateTrigger: messageUpdateTrigger ?? this.messageUpdateTrigger,
       isSyncing: isSyncing ?? this.isSyncing,
       pendingMessages: pendingMessages ?? this.pendingMessages,
+      conversationId: conversationId ?? this.conversationId,
+      isLoading: isLoading ?? this.isLoading,
+      totalMessageCount: totalMessageCount ?? this.totalMessageCount,
     );
   }
 
@@ -378,5 +400,8 @@ class ChatState extends Equatable {
         messageUpdateTrigger,
         isSyncing,
         pendingMessages,
+        conversationId,
+        isLoading,
+        totalMessageCount,
       ];
 }

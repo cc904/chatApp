@@ -91,6 +91,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   static AuthRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AuthRequest>(create);
   static AuthRequest? _defaultInstance;
 
+  /// 操作类型
   @$pb.TagNumber(1)
   AuthOperationType get operationType => $_getN(0);
   @$pb.TagNumber(1)
@@ -100,6 +101,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearOperationType() => $_clearField(1);
 
+  /// 手机号
   @$pb.TagNumber(2)
   $core.String get phoneNumber => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -109,6 +111,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPhoneNumber() => $_clearField(2);
 
+  /// 密码
   @$pb.TagNumber(3)
   $core.String get password => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -118,6 +121,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearPassword() => $_clearField(3);
 
+  /// 验证码
   @$pb.TagNumber(4)
   $core.String get verificationCode => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -127,6 +131,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearVerificationCode() => $_clearField(4);
 
+  /// 昵称
   @$pb.TagNumber(5)
   $core.String get nickname => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -136,6 +141,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearNickname() => $_clearField(5);
 
+  /// 是否快速登录
   @$pb.TagNumber(6)
   $core.bool get isQuickLogin => $_getBF(5);
   @$pb.TagNumber(6)
@@ -145,6 +151,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearIsQuickLogin() => $_clearField(6);
 
+  /// 验证码用途
   @$pb.TagNumber(7)
   $core.String get purpose => $_getSZ(6);
   @$pb.TagNumber(7)
@@ -216,6 +223,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   static AuthResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AuthResponse>(create);
   static AuthResponse? _defaultInstance;
 
+  /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
@@ -225,6 +233,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSuccess() => $_clearField(1);
 
+  /// 提示信息
   @$pb.TagNumber(2)
   $core.String get message => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -234,6 +243,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearMessage() => $_clearField(2);
 
+  /// 用户ID
   @$pb.TagNumber(3)
   $core.String get userId => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -243,6 +253,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearUserId() => $_clearField(3);
 
+  /// 认证令牌
   @$pb.TagNumber(4)
   $core.String get token => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -252,6 +263,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearToken() => $_clearField(4);
 
+  /// 时间戳
   @$pb.TagNumber(5)
   $fixnum.Int64 get timestamp => $_getI64(4);
   @$pb.TagNumber(5)
@@ -757,6 +769,7 @@ class ResetPasswordRequest extends $pb.GeneratedMessage {
   static ResetPasswordRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ResetPasswordRequest>(create);
   static ResetPasswordRequest? _defaultInstance;
 
+  /// 手机号
   @$pb.TagNumber(1)
   $core.String get phoneNumber => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -766,6 +779,7 @@ class ResetPasswordRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPhoneNumber() => $_clearField(1);
 
+  /// 验证码
   @$pb.TagNumber(2)
   $core.String get verificationCode => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -775,6 +789,7 @@ class ResetPasswordRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearVerificationCode() => $_clearField(2);
 
+  /// 新密码
   @$pb.TagNumber(3)
   $core.String get newPassword => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -831,6 +846,7 @@ class SendCodeRequest extends $pb.GeneratedMessage {
   static SendCodeRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendCodeRequest>(create);
   static SendCodeRequest? _defaultInstance;
 
+  /// 手机号
   @$pb.TagNumber(1)
   $core.String get phoneNumber => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -840,6 +856,7 @@ class SendCodeRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPhoneNumber() => $_clearField(1);
 
+  /// 用途 (login/register/reset)
   @$pb.TagNumber(2)
   $core.String get purpose => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -906,6 +923,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   static SendCodeResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendCodeResponse>(create);
   static SendCodeResponse? _defaultInstance;
 
+  /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
@@ -915,6 +933,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSuccess() => $_clearField(1);
 
+  /// 提示信息
   @$pb.TagNumber(2)
   $core.String get message => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -924,6 +943,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearMessage() => $_clearField(2);
 
+  /// 时间戳
   @$pb.TagNumber(3)
   $fixnum.Int64 get timestamp => $_getI64(2);
   @$pb.TagNumber(3)
@@ -933,6 +953,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearTimestamp() => $_clearField(3);
 
+  /// 冷却时间（秒）
   @$pb.TagNumber(4)
   $core.int get cooldown => $_getIZ(3);
   @$pb.TagNumber(4)
@@ -1436,6 +1457,7 @@ class UserSession extends $pb.GeneratedMessage {
   static UserSession getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserSession>(create);
   static UserSession? _defaultInstance;
 
+  /// 用户ID
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1445,6 +1467,7 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
+  /// 认证令牌
   @$pb.TagNumber(2)
   $core.String get token => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1454,6 +1477,7 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearToken() => $_clearField(2);
 
+  /// 过期时间
   @$pb.TagNumber(3)
   $fixnum.Int64 get expireTime => $_getI64(2);
   @$pb.TagNumber(3)
@@ -1463,6 +1487,7 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearExpireTime() => $_clearField(3);
 
+  /// 手机号
   @$pb.TagNumber(4)
   $core.String get phoneNumber => $_getSZ(3);
   @$pb.TagNumber(4)
