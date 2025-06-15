@@ -15,18 +15,6 @@ import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-/// 💢💢💢 新增：滚动方向枚举
-enum ScrollDirection {
-  /// 向上滚动（看更旧的消息）
-  up,
-
-  /// 向下滚动（看更新的消息）
-  down,
-
-  /// 静止不动
-  none,
-}
-
 /// 滚动恢复类型
 enum ScrollRestoreType {
   /// 滚动到底部
@@ -81,11 +69,6 @@ class ChatCubit extends Cubit<ChatState> {
 
   // 简化的配置参数
   static const int defaultPageSize = 50; // 每页消息数量
-
-  // 💢💢💢 新增：滚动位置更新防抖
-  Timer? _scrollPositionTimer;
-  static const Duration _scrollPositionDebounceDelay =
-      Duration(milliseconds: 150);
 
   ChatCubit({
     required ChatRepository chatRepository,
@@ -339,23 +322,8 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   /// 更新当前滚动位置 💢💢💢💢
-  /// 用于保存用户当前的查看位置（带防抖机制）
+  /// 用于保存用户当前的查看位置
   void updateCurrentScrollPosition(Iterable<ItemPosition> positions) {
-    if (isClosed || positions.isEmpty || state.messages.isEmpty) {
-      return;
-    }
-
-    // 💢💢💢 防抖机制：取消之前的定时器
-    _scrollPositionTimer?.cancel();
-
-    // 💢💢💢 设置新的防抖定时器
-    _scrollPositionTimer = Timer(_scrollPositionDebounceDelay, () {
-      _performScrollPositionUpdate(positions);
-    });
-  }
-
-  /// 💢💢💢 新增：执行滚动位置更新的实际逻辑
-  void _performScrollPositionUpdate(Iterable<ItemPosition> positions) {
     if (isClosed || positions.isEmpty || state.messages.isEmpty) {
       return;
     }
@@ -388,12 +356,6 @@ class ChatCubit extends Cubit<ChatState> {
             state.currentScrollPosition.messageIndex! - message.messageIndex;
       }
 
-      _logger.i('更新当前滚动位置', extra: {
-        'A': state.currentScrollPosition.messageIndex,
-        'B': message.messageIndex,
-        'isDown': isDown,
-      });
-
       if (!isClosed) {
         emit(state.copyWith(
           currentScrollPosition: currentScrollPosition,
@@ -408,42 +370,6 @@ class ChatCubit extends Cubit<ChatState> {
     _updateReadStatus(sortedPositions);
   }
 
-  /// 💢💢💢 新增：更新已读状态（独立方法）
-  void _updateReadStatus(List<ItemPosition> sortedPositions) {
-    // 最新可见消息（索引最大）
-    final lastPosition = sortedPositions.last;
-    final lastShowMessage =
-        (lastPosition.index >= 0 && lastPosition.index < state.messages.length)
-            ? state.messages[lastPosition.index]
-            : null;
-
-    // 💢💢💢 修复：通过currentUser获取participant，添加空值检查
-    final currentUserId = _currentUser.userId;
-
-    final participant = state.conversation.getParticipant(currentUserId);
-    if (participant == null) {
-      _logger.w('找不到当前用户的参与者信息', extra: {
-        'currentUserId': currentUserId,
-        'conversationId': _conversationId,
-      });
-      return;
-    }
-
-    final lastReadMessageIndex = participant.lastReadMessageIndex;
-
-    if (lastShowMessage != null &&
-        lastShowMessage.messageIndex > lastReadMessageIndex) {
-      _chatsRepository.updateParticipantSettings(
-        _conversationId,
-        readMessageIndex: lastShowMessage.messageIndex,
-      );
-      _logger.i('已读状态更新', extra: {
-        'messageIndex': lastShowMessage.messageIndex,
-        'lastReadMessageIndex': participant.lastReadMessageIndex,
-      });
-    }
-  }
-
   /// 💢💢💢 新增：检查并加载更多消息
   void _checkAndLoadMoreMessages(
       List<ItemPosition> sortedPositions, int isDown) {
@@ -451,6 +377,7 @@ class ChatCubit extends Cubit<ChatState> {
         state.isCleaningMessages ||
         state.isSyncing ||
         state.isLoadingMessages ||
+        state.isLoadingMoreMessages ||
         state.messages.isEmpty) {
       return; // 搜索模式、清理消息、同步中或正在加载时不触发
     }
@@ -468,20 +395,20 @@ class ChatCubit extends Cubit<ChatState> {
     if (isDown > 0) {
       if (firstVisibleMessageIndex - 10 < messagesUpIndex &&
           messagesUpIndex > state.conversation.firstMessageIndex) {
-        _logger.w('加载历史消息up');
+        _logger.w('加载消息up', extra: {"messageIndex": firstVisibleMessageIndex});
         _chatRepository.requestMoreMessages(
           _conversationId,
-          messageIndex: firstVisibleMessageIndex,
+          messageIndex: messagesUpIndex,
           isBefore: true, // 获取历史消息
         );
       }
     } else {
       if (lastVisibleMessageIndex + 10 > messagesDownIndex &&
           messagesDownIndex < state.conversation.lastMessageIndex) {
-        _logger.w('加载历史消息down');
+        _logger.w('加载消息down', extra: {"messageIndex": lastVisibleMessageIndex});
         _chatRepository.requestMoreMessages(
           _conversationId,
-          messageIndex: lastVisibleMessageIndex,
+          messageIndex: messagesDownIndex,
           isBefore: false, // 获取更新的消息
         );
       }
@@ -565,7 +492,7 @@ class ChatCubit extends Cubit<ChatState> {
         final result = await _chatRepository.getMessagesAroundSearchResult(
           conversationId: _conversationId,
           targetMessageId: firstResultId,
-          contextSize: 25, // 前后各25条消息
+          contextSize: 50, // 前后各50条消息
         );
 
         emit(state.copyWith(
@@ -1425,16 +1352,48 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 根据加载类型更新对应的状态
       switch (loadingType) {
-        case 'moreMessages':
-          // 加载更多消息（滚动触发）
-          emit(state.copyWith(isLoadingMessages: isLoading));
+        case 'fetchMessages':
+          // 网络请求获取消息
+          emit(state.copyWith(isFetching: isLoading));
           break;
         case 'initialMessages':
           // 初始消息加载
           emit(state.copyWith(isLoadingMessages: isLoading));
           break;
+        case 'loadMoreBefore':
+          // 加载历史消息（向上滚动）
+          emit(state.copyWith(isLoadingMoreMessages: isLoading));
+          break;
+        case 'loadMoreAfter':
+          // 加载更新消息（向下滚动）
+          emit(state.copyWith(isLoadingMoreMessages: isLoading));
+          break;
+        case 'dateRange':
+          // 按日期范围加载消息
+          if (state.isSearchMode) {
+            emit(state.copyWith(isSearching: isLoading));
+          } else {
+            emit(state.copyWith(isLoadingMessages: isLoading));
+          }
+          break;
+        case 'fromDate':
+          // 从指定日期加载消息
+          if (state.isSearchMode) {
+            emit(state.copyWith(isSearching: isLoading));
+          } else {
+            emit(state.copyWith(isLoadingMessages: isLoading));
+          }
+          break;
         case 'searchContext':
           // 搜索上下文加载（可以使用搜索状态或单独的状态）
+          if (state.isSearchMode) {
+            emit(state.copyWith(isSearching: isLoading));
+          } else {
+            emit(state.copyWith(isLoadingMessages: isLoading));
+          }
+          break;
+        case 'searchRange':
+          // 搜索范围加载
           if (state.isSearchMode) {
             emit(state.copyWith(isSearching: isLoading));
           } else {
@@ -1449,13 +1408,45 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 💢💢💢 新增：更新已读状态（独立方法）
+  void _updateReadStatus(List<ItemPosition> sortedPositions) {
+    // 最新可见消息（索引最大）
+    final lastPosition = sortedPositions.last;
+    final lastShowMessage =
+        (lastPosition.index >= 0 && lastPosition.index < state.messages.length)
+            ? state.messages[lastPosition.index]
+            : null;
+
+    // 💢💢💢 修复：通过currentUser获取participant，添加空值检查
+    final currentUserId = _currentUser.userId;
+
+    final participant = state.conversation.getParticipant(currentUserId);
+    if (participant == null) {
+      _logger.w('找不到当前用户的参与者信息', extra: {
+        'currentUserId': currentUserId,
+        'conversationId': _conversationId,
+      });
+      return;
+    }
+
+    final lastReadMessageIndex = participant.lastReadMessageIndex;
+
+    if (lastShowMessage != null &&
+        lastShowMessage.messageIndex > lastReadMessageIndex) {
+      _chatsRepository.updateParticipantSettings(
+        _conversationId,
+        readMessageIndex: lastShowMessage.messageIndex,
+      );
+      _logger.i('已读状态更新', extra: {
+        'messageIndex': lastShowMessage.messageIndex,
+        'lastReadMessageIndex': participant.lastReadMessageIndex,
+      });
+    }
+  }
+
   @override
   Future<void> close() async {
     _logger.i('关闭ChatCubit', extra: {'conversationId': _conversationId});
-
-    // 💢💢💢 清理防抖定时器
-    _scrollPositionTimer?.cancel();
-    _scrollPositionTimer = null;
 
     // 取消所有订阅
     for (final subscription in _subscriptions.values) {

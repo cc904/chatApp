@@ -218,8 +218,8 @@ class ChatRepositoryImpl implements ChatRepository {
         await _messages.putAll(messageModels);
       });
 
-      // 💢💢💢 通知加载完成
-      _notifyLoadingStatus(conversationId, false, loadingType: 'moreMessages');
+      // 💢💢💢 通知网络请求完成
+      _notifyLoadingStatus(conversationId, false, loadingType: 'fetchMessages');
 
       _logger.i('消息批量写入数据库完成', extra: {
         'insertedCount': response.messages.length,
@@ -227,11 +227,11 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (error) {
       _logger.e('将收到的信息写入数据库失败', error: error, stackTrace: StackTrace.current);
 
-      // 💢💢💢 处理失败时也要通知停止加载
+      // 💢💢💢 处理失败时也要通知停止网络请求
       if (response.messages.isNotEmpty) {
         final conversationId = response.messages.first.conversationId;
         _notifyLoadingStatus(conversationId, false,
-            loadingType: 'moreMessages');
+            loadingType: 'fetchMessages');
       }
     }
   }
@@ -291,8 +291,8 @@ class ChatRepositoryImpl implements ChatRepository {
       'limit': limit,
     });
 
-    // 💢💢💢 通知开始加载
-    _notifyLoadingStatus(conversationId, true, loadingType: 'moreMessages');
+    // 💢💢💢 通知开始网络请求
+    _notifyLoadingStatus(conversationId, true, loadingType: 'fetchMessages');
 
     try {
       // 创建请求对象 - 使用新的index字段
@@ -305,8 +305,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 发送请求到服务器
       await _communicationService.emitProto('messages:fetch', request);
     } catch (error) {
-      // 💢💢💢 请求失败时通知停止加载
-      _notifyLoadingStatus(conversationId, false, loadingType: 'moreMessages');
+      // 💢💢💢 请求失败时通知停止网络请求
+      _notifyLoadingStatus(conversationId, false, loadingType: 'fetchMessages');
       rethrow;
     }
   }
@@ -392,6 +392,10 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<Message>> loadMoreMessages(String conversationId,
       int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
       {int limit = 50, bool? isBefore = false}) async {
+    // 💢💢💢 通知开始加载
+    final loadingType = isBefore == true ? 'loadMoreBefore' : 'loadMoreAfter';
+    _notifyLoadingStatus(conversationId, true, loadingType: loadingType);
+
     try {
       if (isBefore == true) {
         final messages = await _messages
@@ -412,6 +416,8 @@ class ChatRepositoryImpl implements ChatRepository {
               messageIndex: messages.last.messageIndex, isBefore: true);
         }
 
+        // 💢💢💢 通知加载完成
+        _notifyLoadingStatus(conversationId, false, loadingType: loadingType);
         return messages;
       } else {
         final messages = await _messages
@@ -432,10 +438,15 @@ class ChatRepositoryImpl implements ChatRepository {
               messageIndex: messages.last.messageIndex, isBefore: false);
         }
 
+        // 💢💢💢 通知加载完成
+        _notifyLoadingStatus(conversationId, false, loadingType: loadingType);
         return messages;
       }
     } catch (error) {
       _logger.e('加载本地最新的消息失败', error: error, stackTrace: StackTrace.current);
+
+      // 💢💢💢 出错时通知停止加载
+      _notifyLoadingStatus(conversationId, false, loadingType: loadingType);
       return [];
     }
   }
@@ -592,6 +603,9 @@ class ChatRepositoryImpl implements ChatRepository {
     DateTime endDate, {
     int limit = 50,
   }) async {
+    // 💢💢💢 通知开始加载
+    _notifyLoadingStatus(conversationId, true, loadingType: 'dateRange');
+
     try {
       // 确保转换为有效的DateTime对象,避免日期比较问题
       final safeStartDate = DateTime.utc(
@@ -625,9 +639,15 @@ class ChatRepositoryImpl implements ChatRepository {
           .findAll();
 
       _logger.d('按日期范围查询结果', extra: {'找到消息数': messages.length});
+
+      // 💢💢💢 通知加载完成
+      _notifyLoadingStatus(conversationId, false, loadingType: 'dateRange');
       return messages;
     } catch (error) {
       _logger.e('根据日期范围获取消息失败', error: error, stackTrace: StackTrace.current);
+
+      // 💢💢💢 出错时通知停止加载
+      _notifyLoadingStatus(conversationId, false, loadingType: 'dateRange');
       return [];
     }
   }
@@ -644,6 +664,9 @@ class ChatRepositoryImpl implements ChatRepository {
     DateTime startDate, {
     int limit = 50,
   }) async {
+    // 💢💢💢 通知开始加载
+    _notifyLoadingStatus(conversationId, true, loadingType: 'fromDate');
+
     try {
       // 确保使用日期的开始时间
       final dayStart =
@@ -660,9 +683,15 @@ class ChatRepositoryImpl implements ChatRepository {
           .findAll();
 
       _logger.d('从日期获取消息结果', extra: {'找到消息数': messages.length});
+
+      // 💢💢💢 通知加载完成
+      _notifyLoadingStatus(conversationId, false, loadingType: 'fromDate');
       return messages;
     } catch (error) {
       _logger.e('从指定日期获取消息失败', error: error, stackTrace: StackTrace.current);
+
+      // 💢💢💢 出错时通知停止加载
+      _notifyLoadingStatus(conversationId, false, loadingType: 'fromDate');
       return [];
     }
   }
@@ -940,8 +969,13 @@ class ChatRepositoryImpl implements ChatRepository {
     required String conversationId,
     required List<String> searchResultIds,
   }) async {
+    // 💢💢💢 通知开始加载
+    _notifyLoadingStatus(conversationId, true, loadingType: 'searchRange');
+
     try {
       if (searchResultIds.isEmpty) {
+        // 💢💢💢 通知加载完成
+        _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
         return [];
       }
 
@@ -963,6 +997,9 @@ class ChatRepositoryImpl implements ChatRepository {
 
       if (firstMessage == null || lastMessage == null) {
         _logger.w('找不到搜索结果的边界消息');
+
+        // 💢💢💢 通知加载完成
+        _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
         return [];
       }
 
@@ -985,9 +1022,14 @@ class ChatRepositoryImpl implements ChatRepository {
             '${startTime.toIso8601String()} - ${endTime.toIso8601String()}',
       });
 
+      // 💢💢💢 通知加载完成
+      _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
       return allMessages;
     } catch (error) {
       _logger.e('获取搜索范围消息失败', error: error, stackTrace: StackTrace.current);
+
+      // 💢💢💢 出错时通知停止加载
+      _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
       return [];
     }
   }

@@ -104,6 +104,9 @@ class ChatState extends Equatable {
   /// 是否正在加载更多消息
   final bool isLoadingMoreMessages;
 
+  /// 💢💢💢 新增：是否正在网络请求获取消息
+  final bool isFetching;
+
   /// 是否正在发送消息
   final bool isSending;
 
@@ -196,6 +199,7 @@ class ChatState extends Equatable {
     required this.messages,
     required this.isLoadingMessages,
     required this.isLoadingMoreMessages,
+    required this.isFetching,
     required this.isSending,
     required this.networkStatus,
     this.errorMessage,
@@ -240,6 +244,7 @@ class ChatState extends Equatable {
       messages: const [],
       isLoadingMessages: false,
       isLoadingMoreMessages: false,
+      isFetching: false,
       isSending: false,
       networkStatus: 'connected',
       errorMessage: null,
@@ -270,6 +275,7 @@ class ChatState extends Equatable {
     List<Message>? messages,
     bool? isLoadingMessages,
     bool? isLoadingMoreMessages,
+    bool? isFetching,
     bool? isSending,
     String? networkStatus,
     String? errorMessage,
@@ -305,6 +311,7 @@ class ChatState extends Equatable {
       isLoadingMessages: isLoadingMessages ?? this.isLoadingMessages,
       isLoadingMoreMessages:
           isLoadingMoreMessages ?? this.isLoadingMoreMessages,
+      isFetching: isFetching ?? this.isFetching,
       isSending: isSending ?? this.isSending,
       networkStatus: networkStatus ?? this.networkStatus,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -376,6 +383,7 @@ class ChatState extends Equatable {
         messages,
         isLoadingMessages,
         isLoadingMoreMessages,
+        isFetching,
         isSending,
         networkStatus,
         errorMessage,

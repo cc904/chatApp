@@ -100,71 +100,9 @@ class _ChatPageState extends State<ChatPage> {
     if (positions.isNotEmpty) {
       _scrollDebounceTimer?.cancel();
       _scrollDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-        _updateCurrentScrollPosition();
-
-        // 检查是否需要加载更多历史消息
-        final state = context.read<ChatCubit>().state;
-
-        // 💢💢💢 过滤掉超出消息列表范围的位置
-        final validPositions = positions
-            .where((position) =>
-                position.index >= 0 && position.index < state.messages.length)
-            .toList();
-
-        final lastVisibleIndex = validPositions.lastOrNull?.index;
-
-        if (lastVisibleIndex != null &&
-            lastVisibleIndex >= state.messages.length - 10 &&
-            state.hasMoreBefore &&
-            !state.isSearchMode && // 💢💢💢 搜索模式下不加载历史消息
-            !state.isCleaningMessages &&
-            !state.isSyncing) {
-          // 💢💢💢 清理消息状态下不加载历史消息
-          _logger.i('检查是否需要加载更多历史消息', extra: {
-            'lastVisibleIndex': lastVisibleIndex,
-            'messagesLength': state.messages.length,
-          });
-          _loadMoreHistoryWithPositionMaintenance();
-        }
+        context.read<ChatCubit>().updateCurrentScrollPosition(positions);
       });
     }
-  }
-
-  /// 💢💢💢 更新ChatState中的当前滚动位置
-  void _updateCurrentScrollPosition() {
-    final positions = _itemPositionsListener.itemPositions.value;
-    final state = context.read<ChatCubit>().state;
-
-    // 💢💢💢 过滤掉超出消息列表范围的位置
-    final validPositions = positions
-        .where((position) =>
-            position.index >= 0 && position.index < state.messages.length)
-        .toList();
-
-    _logger.i('更新当前滚动位置', extra: {
-      'originalPositions': positions.map((e) => e.index).toList(),
-      'validPositions': validPositions.map((e) => e.index).toList(),
-      'lastVisibleIndex': validPositions.lastOrNull?.index,
-      'messageCount': state.messages.length,
-    });
-
-    if (validPositions.isEmpty || state.messages.isEmpty) {
-      return;
-    }
-
-    // 💢💢💢 只传递有效的位置给ChatCubit
-    context.read<ChatCubit>().updateCurrentScrollPosition(validPositions);
-  }
-
-  /// 💢💢💢 加载更多历史消息 💢💢💢 调用前已防抖
-  void _loadMoreHistoryWithPositionMaintenance() async {
-    final state = context.read<ChatCubit>().state;
-    if (!state.canLoadMoreHistory || state.isLoadingMoreMessages) {
-      return;
-    }
-    _logger.i('加载更多历史消息', extra: {
-      'conversationId': state.conversation.id,
-    });
   }
 
   /// 💢💢💢 完善的滚动到指定消息方法
@@ -603,61 +541,45 @@ class _ChatPageState extends State<ChatPage> {
           final displayMessages =
               context.read<ChatCubit>().getCurrentDisplayMessages();
 
+          // 统一的状态判断，返回相应的中心内容
+          Widget? centerContent;
+
           // 搜索模式下的特殊状态处理
           if (state.isSearchMode) {
             if (state.isSearching) {
-              return Stack(
-                children: [
-                  _buildBackground(),
-                  const Center(child: CircularProgressIndicator()),
-                ],
+              centerContent = const CircularProgressIndicator();
+            } else if (state.searchQuery.trim().isNotEmpty &&
+                displayMessages.isEmpty) {
+              centerContent = const Text(
+                '没有找到匹配的消息',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
               );
             }
-
-            if (state.searchQuery.trim().isNotEmpty &&
-                displayMessages.isEmpty) {
-              return Stack(
-                children: [
-                  _buildBackground(),
-                  const Center(
-                    child: Text(
-                      '没有找到匹配的消息',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  ),
-                ],
+          }
+          // 正常模式下的状态处理
+          else {
+            if (state.isLoadingMessages && state.messages.isEmpty) {
+              centerContent = const CircularProgressIndicator();
+            } else if (state.messages.isEmpty) {
+              centerContent = const Text(
+                '还没有消息\n发送第一条消息开始聊天吧！',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                ),
               );
             }
           }
 
-          // 正常模式下的状态处理
-          if (!state.isSearchMode) {
-            if (state.isLoadingMessages && state.messages.isEmpty) {
-              return Stack(
-                children: [
-                  _buildBackground(),
-                  const Center(child: CircularProgressIndicator()),
-                ],
-              );
-            }
-
-            if (state.messages.isEmpty) {
-              return Stack(
-                children: [
-                  _buildBackground(),
-                  const Center(
-                    child: Text(
-                      '还没有消息\n发送第一条消息开始聊天吧！',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }
+          // 如果有特殊状态，显示统一的背景+中心内容
+          if (centerContent != null) {
+            return Stack(
+              children: [
+                _buildBackground(),
+                Center(child: centerContent),
+              ],
+            );
           }
 
           // 显示消息列表内容
