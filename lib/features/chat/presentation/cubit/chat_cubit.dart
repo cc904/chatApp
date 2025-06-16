@@ -363,8 +363,17 @@ class ChatCubit extends Cubit<ChatState> {
       }
     }
 
-    // 💢💢💢 传递滚动方向给检查方法
-    _checkAndLoadMoreMessages(sortedPositions, isDown);
+    if (!state.isSearchMode &&
+        !state.isCleaningMessages &&
+        !state.isSyncing &&
+        !state.isLoadingMessages &&
+        !state.isLoadingMoreMessages &&
+        state.messages.length > 50 &&
+        state.messages.isNotEmpty) {
+      // 搜索模式、清理消息、同步中或正在加载时不触发
+      // 💢💢💢 传递滚动方向给检查方法
+      _checkAndLoadMoreMessages(sortedPositions, isDown);
+    }
 
     // 💢💢💢 已读状态更新
     _updateReadStatus(sortedPositions);
@@ -373,15 +382,6 @@ class ChatCubit extends Cubit<ChatState> {
   /// 💢💢💢 新增：检查并加载更多消息
   void _checkAndLoadMoreMessages(
       List<ItemPosition> sortedPositions, int isDown) {
-    if (state.isSearchMode ||
-        state.isCleaningMessages ||
-        state.isSyncing ||
-        state.isLoadingMessages ||
-        state.isLoadingMoreMessages ||
-        state.messages.isEmpty) {
-      return; // 搜索模式、清理消息、同步中或正在加载时不触发
-    }
-
     final firstVisibleMessageIndex =
         state.messages[sortedPositions.first.index].messageIndex;
     final lastVisibleMessageIndex =

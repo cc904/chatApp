@@ -234,13 +234,15 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 获取或创建私聊会话
-  /// 根据联系人ID查找已有会话,不存在则创建新会话
+  /// 根据联系人ID查找已有会话,不存在则通过服务器创建新会话
   /// [contactUserId] - 联系人ID
   /// 返回会话对象
   @override
   Future<db.Conversation> getOrCreatePrivateConversation(
       String contactUserId) async {
     try {
+      _logger.i('获取或创建私聊会话', extra: {'contactUserId': contactUserId});
+
       // 先查找已有的私聊会话
       final existing = await _conversations
           .filter()
@@ -250,32 +252,91 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .findFirst();
 
       if (existing != null) {
+        _logger.i('找到已存在的私聊会话', extra: {
+          'conversationId': existing.conversationId,
+          'contactUserId': contactUserId,
+        });
         return existing;
       }
 
-      // 创建新会话
+      // 💢💢💢 修改：通过服务器创建新会话，而不是本地乐观创建
+      _logger.i('未找到已存在会话，通过服务器创建新私聊会话');
+
+      if (!_communicationService.isInitialized) {
+        throw Exception('通信服务未初始化，无法创建会话');
+      }
+
+      // 获取联系人信息
       final contact = await getContactById(contactUserId);
       if (contact == null) {
         throw Exception('联系人不存在');
       }
 
-      final conversation = db.Conversation();
-      conversation.type = db.ConversationType.private;
-      conversation.name = contact.name;
-      conversation.contactUserId = contactUserId;
+      // 💢💢💢 创建会话请求
+      final createRequest = conversation_proto.ConversationCreateRequest()
+        ..type = conversation_proto.ConversationType.PRIVATE
+        ..contactUserId = contactUserId
+        ..name = contact.name;
 
-      await _isar.writeTxn(() async {
-        conversation.id = await _conversations.put(conversation);
-        await _conversations.put(conversation);
+      // 设置头像（如果有）
+      if (contact.avatar != null && contact.avatar!.isNotEmpty) {
+        createRequest.avatar = contact.avatar!;
+      }
 
-        // 添加会话参与者 - 将User转换为Participant
-        final participant = _userToParticipant(contact);
-        conversation.participants.add(participant);
+      _logger.d('发送创建会话请求', extra: {
+        'contactUserId': contactUserId,
+        'contactName': contact.name,
       });
 
-      return conversation;
+      // 💢💢💢 发送创建请求到服务器
+      final success = await _communicationService.emitProto(
+          'conversation:create', createRequest);
+
+      if (!success) {
+        throw Exception('发送创建会话请求失败');
+      }
+
+      // 💢💢💢 等待服务器响应
+      try {
+        final response = await _communicationService
+            .onProto<conversation_proto.ConversationCreateResponse>(
+                'conversation:create:response')
+            .timeout(const Duration(seconds: 10))
+            .first;
+
+        if (!response.success) {
+          throw Exception('服务器创建会话失败: ${response.message}');
+        }
+
+        if (!response.hasConversation()) {
+          throw Exception('服务器响应中缺少会话数据');
+        }
+
+        _logger.i('服务器创建会话成功', extra: {
+          'conversationId': response.conversation.conversationId,
+          'contactUserId': contactUserId,
+        });
+
+        // 💢💢💢 将服务器返回的会话数据保存到本地数据库
+        final conversation = ConversationAdapter.fromProto(
+          response.conversation,
+          currentUserId: _currentUser.userId,
+        );
+
+        await _isar.writeTxn(() async {
+          await _conversations.put(conversation);
+        });
+
+        return conversation;
+      } on TimeoutException {
+        _logger.e('等待服务器创建会话响应超时');
+        throw Exception('创建会话超时，请重试');
+      }
     } catch (error) {
-      _logger.e('获取或创建私聊会话失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('获取或创建私聊会话失败',
+          error: error,
+          stackTrace: StackTrace.current,
+          extra: {'contactUserId': contactUserId});
       rethrow;
     }
   }

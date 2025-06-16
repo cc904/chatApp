@@ -1,7 +1,11 @@
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
-import 'package:cc/features/home/presentation/pages/scan_code_page.dart';
-import 'package:cc/features/home/presentation/pages/search_page.dart';
+
+import 'package:cc/features/chat/presentation/widgets/new_conversation_bottom_sheet.dart';
+import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
+import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -381,6 +385,7 @@ class _ChatsPageState extends State<ChatsPage>
         onPressed: () {
           // 处理编辑操作
           _logger.d('编辑按钮点击');
+          // TODO: 处理编辑操作
         },
         child: const Text(
           'Edit',
@@ -393,19 +398,12 @@ class _ChatsPageState extends State<ChatsPage>
 
       // 右侧操作按钮区域
       actions: [
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
-          onPressed: () {
-            _logger.d('添加会话按钮点击');
-            // 打开创建新会话选项
-            _showNewChatOptions();
-          },
-        ),
+        // 新建会话按钮
         IconButton(
           icon: const Icon(Icons.edit_square, color: Colors.blue),
           onPressed: () {
-            _logger.d('编辑会话按钮点击');
-            // 处理编辑操作
+            _logger.d('新建会话按钮点击');
+            _showNewConversationBottomSheet();
           },
         ),
       ],
@@ -413,53 +411,51 @@ class _ChatsPageState extends State<ChatsPage>
     );
   }
 
-  /// 显示新建会话选项
-  void _showNewChatOptions() {
+  /// 显示新建会话底部弹窗
+  void _showNewConversationBottomSheet() {
+    // 💢💢💢 先获取所有需要的Provider引用
+    final chatsRepository = context.read<ChatsRepository>();
+    final chatRepository = context.read<ChatRepository>();
+    final chatRepositorySend = context.read<ChatRepositorySend>();
+    final contactCubit = context.read<ContactCubit>();
+    final chatsCubit = context.read<ChatsCubit>();
+
+    final DraggableScrollableController scrollController =
+        DraggableScrollableController();
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '新建会话',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        controller: scrollController,
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: MultiRepositoryProvider(
+            providers: [
+              // 💢💢💢 使用预先获取的Provider引用
+              RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+              RepositoryProvider<ChatRepository>.value(value: chatRepository),
+              RepositoryProvider<ChatRepositorySend>.value(
+                  value: chatRepositorySend),
+            ],
+            child: MultiBlocProvider(
+              providers: [
+                // 💢💢💢 使用预先获取的Cubit引用
+                BlocProvider<ContactCubit>.value(value: contactCubit),
+                BlocProvider<ChatsCubit>.value(value: chatsCubit),
+              ],
+              child: NewConversationBottomSheet(
+                scrollController: scrollController,
               ),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.person_add, color: Colors.blue),
-              title: const Text('添加好友'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SearchPage(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.group_add, color: Colors.blue),
-              title: const Text('创建群组'),
-              onTap: () {
-                Navigator.pop(context);
-                // 导航到创建群组页面
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner, color: Colors.blue),
-              title: const Text('扫一扫'),
-              onTap: () {
-                Navigator.pop(context);
-                _openQRScanner(context);
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -776,20 +772,6 @@ class _ChatsPageState extends State<ChatsPage>
       return '${countInK.toStringAsFixed(1)}k';
     }
     return count.toString();
-  }
-
-  /// 打开二维码扫描页面
-  ///
-  /// 导航到扫码页面，用于扫描二维码添加好友或加入群聊
-  ///
-  /// 参数:
-  ///   - context: 当前构建上下文
-  void _openQRScanner(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const ScanCodePage(),
-      ),
-    );
   }
 }
 

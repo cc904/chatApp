@@ -193,13 +193,15 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 将收到的信息写入数据库,有重复的需要覆盖
   void _handleMessagesFetchResponse(
       message_proto.MessagesFetchResponse response) async {
+    final conversationId = response.conversationId;
     try {
       if (response.messages.isEmpty) {
         _logger.d('收到空的消息响应');
+        // 💢💢💢 通知网络请求完成
+        _notifyLoadingStatus(conversationId, false,
+            loadingType: 'fetchMessages');
         return;
       }
-
-      final conversationId = response.messages.first.conversationId;
 
       _logger.d('处理消息获取响应', extra: {
         'messageCount': response.messages.length,
@@ -229,7 +231,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 💢💢💢 处理失败时也要通知停止网络请求
       if (response.messages.isNotEmpty) {
-        final conversationId = response.messages.first.conversationId;
         _notifyLoadingStatus(conversationId, false,
             loadingType: 'fetchMessages');
       }
