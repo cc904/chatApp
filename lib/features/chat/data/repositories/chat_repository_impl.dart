@@ -67,12 +67,10 @@ class ChatRepositoryImpl implements ChatRepository {
   Isar get _isar => DatabaseInitializer.isar;
   IsarCollection<Message> get _messages => _isar.messages;
 
-  // 事件流控制器
+  // 输入事件流控制器
   final _typingStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
-  final _scrollPositionController =
-      StreamController<ScrollPositionInfo>.broadcast();
-  // 💢💢💢 新增：加载状态流控制器
+  // 加载状态流控制器
   final _loadingStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
 
@@ -292,10 +290,10 @@ class ChatRepositoryImpl implements ChatRepository {
       'limit': limit,
     });
 
-    // 💢💢💢 通知开始网络请求
-    _notifyLoadingStatus(conversationId, true, loadingType: 'fetchMessages');
-
     try {
+      // 💢💢💢 通知开始网络请求
+      _notifyLoadingStatus(conversationId, true, loadingType: 'fetchMessages');
+
       // 创建请求对象 - 使用新的index字段
       final request = message_proto.MessagesFetchRequest()
         ..conversationId = conversationId
@@ -393,6 +391,13 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<Message>> loadMoreMessages(String conversationId,
       int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
       {int limit = 50, bool? isBefore = false}) async {
+    _logger.d('加载本地最新的消息', extra: {
+      'conversationId': conversationId,
+      'anchorMessageIndex': anchorMessageIndex,
+      'firstMessageIndex': firstMessageIndex,
+      'lastMessageIndex': lastMessageIndex,
+      'limit': limit,
+    });
     // 💢💢💢 通知开始加载
     final loadingType = isBefore == true ? 'loadMoreBefore' : 'loadMoreAfter';
     _notifyLoadingStatus(conversationId, true, loadingType: loadingType);
@@ -415,6 +420,11 @@ class ChatRepositoryImpl implements ChatRepository {
           // 有消息且还有更多历史消息时，从最后一条消息开始请求
           await requestMoreMessages(conversationId,
               messageIndex: messages.last.messageIndex, isBefore: true);
+        } else {
+          // 使用stream通知加载完成
+          _logger.d('加载本地最新的消息完成', extra: {
+            'messageCount': messages.length,
+          });
         }
 
         // 💢💢💢 通知加载完成
@@ -807,8 +817,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
     _subscriptions.clear();
     _typingStatusController.close();
-    _scrollPositionController.close();
-    // 💢💢💢 关闭加载状态流控制器
     _loadingStatusController.close();
   }
 

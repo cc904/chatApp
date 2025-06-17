@@ -28,6 +28,7 @@ enum MessageProto_Content {
   contactMessage, 
   pollMessage, 
   linkMessage, 
+  membershipMessage, 
   notSet
 }
 
@@ -60,6 +61,7 @@ class MessageProto extends $pb.GeneratedMessage {
     ContactMessage? contactMessage,
     PollMessage? pollMessage,
     LinkMessage? linkMessage,
+    MembershipMessage? membershipMessage,
   }) {
     final $result = create();
     if (messageId != null) {
@@ -140,6 +142,9 @@ class MessageProto extends $pb.GeneratedMessage {
     if (linkMessage != null) {
       $result.linkMessage = linkMessage;
     }
+    if (membershipMessage != null) {
+      $result.membershipMessage = membershipMessage;
+    }
     return $result;
   }
   MessageProto._() : super();
@@ -154,10 +159,11 @@ class MessageProto extends $pb.GeneratedMessage {
     43 : MessageProto_Content.contactMessage,
     44 : MessageProto_Content.pollMessage,
     45 : MessageProto_Content.linkMessage,
+    46 : MessageProto_Content.membershipMessage,
     0 : MessageProto_Content.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..oo(0, [38, 39, 41, 42, 43, 44, 45])
+    ..oo(0, [38, 39, 41, 42, 43, 44, 45, 46])
     ..aOS(1, _omitFieldNames ? '' : 'messageId')
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
     ..aOS(3, _omitFieldNames ? '' : 'senderId')
@@ -184,6 +190,7 @@ class MessageProto extends $pb.GeneratedMessage {
     ..aOM<ContactMessage>(43, _omitFieldNames ? '' : 'contactMessage', subBuilder: ContactMessage.create)
     ..aOM<PollMessage>(44, _omitFieldNames ? '' : 'pollMessage', subBuilder: PollMessage.create)
     ..aOM<LinkMessage>(45, _omitFieldNames ? '' : 'linkMessage', subBuilder: LinkMessage.create)
+    ..aOM<MembershipMessage>(46, _omitFieldNames ? '' : 'membershipMessage', subBuilder: MembershipMessage.create)
     ..hasRequiredFields = false
   ;
 
@@ -465,6 +472,17 @@ class MessageProto extends $pb.GeneratedMessage {
   void clearLinkMessage() => $_clearField(45);
   @$pb.TagNumber(45)
   LinkMessage ensureLinkMessage() => $_ensure(25);
+
+  @$pb.TagNumber(46)
+  MembershipMessage get membershipMessage => $_getN(26);
+  @$pb.TagNumber(46)
+  set membershipMessage(MembershipMessage v) { $_setField(46, v); }
+  @$pb.TagNumber(46)
+  $core.bool hasMembershipMessage() => $_has(26);
+  @$pb.TagNumber(46)
+  void clearMembershipMessage() => $_clearField(46);
+  @$pb.TagNumber(46)
+  MembershipMessage ensureMembershipMessage() => $_ensure(26);
 }
 
 /// 文本消息内容
@@ -730,22 +748,38 @@ class MediaMessage extends $pb.GeneratedMessage {
   void clearCaption() => $_clearField(10);
 }
 
-/// 系统消息内容
+/// 系统消息内容 - 扩展版本
 class SystemMessage extends $pb.GeneratedMessage {
   factory SystemMessage({
     $core.String? text,
-    $core.String? action,
+    SystemEventType? eventType,
     $pb.PbMap<$core.String, $core.String>? params,
+    $core.Iterable<$core.String>? affectedUserIds,
+    $core.String? actorUserId,
+    $fixnum.Int64? eventTimestamp,
+    $pb.PbMap<$core.String, $core.String>? metadata,
   }) {
     final $result = create();
     if (text != null) {
       $result.text = text;
     }
-    if (action != null) {
-      $result.action = action;
+    if (eventType != null) {
+      $result.eventType = eventType;
     }
     if (params != null) {
       $result.params.addAll(params);
+    }
+    if (affectedUserIds != null) {
+      $result.affectedUserIds.addAll(affectedUserIds);
+    }
+    if (actorUserId != null) {
+      $result.actorUserId = actorUserId;
+    }
+    if (eventTimestamp != null) {
+      $result.eventTimestamp = eventTimestamp;
+    }
+    if (metadata != null) {
+      $result.metadata.addAll(metadata);
     }
     return $result;
   }
@@ -755,8 +789,12 @@ class SystemMessage extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SystemMessage', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'text')
-    ..aOS(2, _omitFieldNames ? '' : 'action')
+    ..e<SystemEventType>(2, _omitFieldNames ? '' : 'eventType', $pb.PbFieldType.OE, defaultOrMaker: SystemEventType.CONVERSATION_CREATED, valueOf: SystemEventType.valueOf, enumValues: SystemEventType.values)
     ..m<$core.String, $core.String>(3, _omitFieldNames ? '' : 'params', entryClassName: 'SystemMessage.ParamsEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.OS, packageName: const $pb.PackageName('cc'))
+    ..pPS(4, _omitFieldNames ? '' : 'affectedUserIds')
+    ..aOS(5, _omitFieldNames ? '' : 'actorUserId')
+    ..aInt64(6, _omitFieldNames ? '' : 'eventTimestamp')
+    ..m<$core.String, $core.String>(7, _omitFieldNames ? '' : 'metadata', entryClassName: 'SystemMessage.MetadataEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.OS, packageName: const $pb.PackageName('cc'))
     ..hasRequiredFields = false
   ;
 
@@ -790,19 +828,47 @@ class SystemMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearText() => $_clearField(1);
 
-  /// 例如：group_created, member_added等
+  /// 系统事件类型
   @$pb.TagNumber(2)
-  $core.String get action => $_getSZ(1);
+  SystemEventType get eventType => $_getN(1);
   @$pb.TagNumber(2)
-  set action($core.String v) { $_setString(1, v); }
+  set eventType(SystemEventType v) { $_setField(2, v); }
   @$pb.TagNumber(2)
-  $core.bool hasAction() => $_has(1);
+  $core.bool hasEventType() => $_has(1);
   @$pb.TagNumber(2)
-  void clearAction() => $_clearField(2);
+  void clearEventType() => $_clearField(2);
 
   /// 系统消息参数
   @$pb.TagNumber(3)
   $pb.PbMap<$core.String, $core.String> get params => $_getMap(2);
+
+  /// 事件相关的用户ID列表
+  @$pb.TagNumber(4)
+  $pb.PbList<$core.String> get affectedUserIds => $_getList(3);
+
+  /// 执行操作的用户ID
+  @$pb.TagNumber(5)
+  $core.String get actorUserId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set actorUserId($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasActorUserId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearActorUserId() => $_clearField(5);
+
+  /// 事件发生时间戳
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get eventTimestamp => $_getI64(5);
+  @$pb.TagNumber(6)
+  set eventTimestamp($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasEventTimestamp() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEventTimestamp() => $_clearField(6);
+
+  /// 额外的元数据
+  @$pb.TagNumber(7)
+  $pb.PbMap<$core.String, $core.String> get metadata => $_getMap(6);
 }
 
 /// 表情包消息
@@ -1878,6 +1944,275 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
   /// 消息集合
   @$pb.TagNumber(4)
   $pb.PbList<MessageProto> get messages => $_getList(3);
+}
+
+/// 新增：成员变动消息内容
+class MembershipMessage extends $pb.GeneratedMessage {
+  factory MembershipMessage({
+    SystemEventType? eventType,
+    MemberInfo? actor,
+    $core.Iterable<MemberInfo>? affectedMembers,
+    $fixnum.Int64? eventTimestamp,
+    $core.int? previousRole,
+    $core.int? newRole,
+    $core.String? removalReason,
+    $core.String? inviteLink,
+    $pb.PbMap<$core.String, $core.String>? metadata,
+  }) {
+    final $result = create();
+    if (eventType != null) {
+      $result.eventType = eventType;
+    }
+    if (actor != null) {
+      $result.actor = actor;
+    }
+    if (affectedMembers != null) {
+      $result.affectedMembers.addAll(affectedMembers);
+    }
+    if (eventTimestamp != null) {
+      $result.eventTimestamp = eventTimestamp;
+    }
+    if (previousRole != null) {
+      $result.previousRole = previousRole;
+    }
+    if (newRole != null) {
+      $result.newRole = newRole;
+    }
+    if (removalReason != null) {
+      $result.removalReason = removalReason;
+    }
+    if (inviteLink != null) {
+      $result.inviteLink = inviteLink;
+    }
+    if (metadata != null) {
+      $result.metadata.addAll(metadata);
+    }
+    return $result;
+  }
+  MembershipMessage._() : super();
+  factory MembershipMessage.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MembershipMessage.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MembershipMessage', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..e<SystemEventType>(1, _omitFieldNames ? '' : 'eventType', $pb.PbFieldType.OE, defaultOrMaker: SystemEventType.CONVERSATION_CREATED, valueOf: SystemEventType.valueOf, enumValues: SystemEventType.values)
+    ..aOM<MemberInfo>(2, _omitFieldNames ? '' : 'actor', subBuilder: MemberInfo.create)
+    ..pc<MemberInfo>(3, _omitFieldNames ? '' : 'affectedMembers', $pb.PbFieldType.PM, subBuilder: MemberInfo.create)
+    ..aInt64(4, _omitFieldNames ? '' : 'eventTimestamp')
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'previousRole', $pb.PbFieldType.O3)
+    ..a<$core.int>(6, _omitFieldNames ? '' : 'newRole', $pb.PbFieldType.O3)
+    ..aOS(7, _omitFieldNames ? '' : 'removalReason')
+    ..aOS(8, _omitFieldNames ? '' : 'inviteLink')
+    ..m<$core.String, $core.String>(9, _omitFieldNames ? '' : 'metadata', entryClassName: 'MembershipMessage.MetadataEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.OS, packageName: const $pb.PackageName('cc'))
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MembershipMessage clone() => MembershipMessage()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MembershipMessage copyWith(void Function(MembershipMessage) updates) => super.copyWith((message) => updates(message as MembershipMessage)) as MembershipMessage;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MembershipMessage create() => MembershipMessage._();
+  MembershipMessage createEmptyInstance() => create();
+  static $pb.PbList<MembershipMessage> createRepeated() => $pb.PbList<MembershipMessage>();
+  @$core.pragma('dart2js:noInline')
+  static MembershipMessage getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MembershipMessage>(create);
+  static MembershipMessage? _defaultInstance;
+
+  /// 事件类型
+  @$pb.TagNumber(1)
+  SystemEventType get eventType => $_getN(0);
+  @$pb.TagNumber(1)
+  set eventType(SystemEventType v) { $_setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasEventType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEventType() => $_clearField(1);
+
+  /// 执行操作的用户
+  @$pb.TagNumber(2)
+  MemberInfo get actor => $_getN(1);
+  @$pb.TagNumber(2)
+  set actor(MemberInfo v) { $_setField(2, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasActor() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearActor() => $_clearField(2);
+  @$pb.TagNumber(2)
+  MemberInfo ensureActor() => $_ensure(1);
+
+  /// 受影响的用户列表
+  @$pb.TagNumber(3)
+  $pb.PbList<MemberInfo> get affectedMembers => $_getList(2);
+
+  /// 事件发生时间
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get eventTimestamp => $_getI64(3);
+  @$pb.TagNumber(4)
+  set eventTimestamp($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasEventTimestamp() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEventTimestamp() => $_clearField(4);
+
+  /// 变更前的角色（用于角色变更事件）
+  @$pb.TagNumber(5)
+  $core.int get previousRole => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set previousRole($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasPreviousRole() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPreviousRole() => $_clearField(5);
+
+  /// 变更后的角色（用于角色变更事件）
+  @$pb.TagNumber(6)
+  $core.int get newRole => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set newRole($core.int v) { $_setSignedInt32(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasNewRole() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearNewRole() => $_clearField(6);
+
+  /// 移除原因（用于移除事件）
+  @$pb.TagNumber(7)
+  $core.String get removalReason => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set removalReason($core.String v) { $_setString(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasRemovalReason() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRemovalReason() => $_clearField(7);
+
+  /// 邀请链接（用于通过邀请加入的情况）
+  @$pb.TagNumber(8)
+  $core.String get inviteLink => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set inviteLink($core.String v) { $_setString(7, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasInviteLink() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearInviteLink() => $_clearField(8);
+
+  /// 额外信息
+  @$pb.TagNumber(9)
+  $pb.PbMap<$core.String, $core.String> get metadata => $_getMap(8);
+}
+
+/// 成员信息
+class MemberInfo extends $pb.GeneratedMessage {
+  factory MemberInfo({
+    $core.String? userId,
+    $core.String? userName,
+    $core.String? userAvatar,
+    $core.int? role,
+    $fixnum.Int64? joinedAt,
+  }) {
+    final $result = create();
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (userName != null) {
+      $result.userName = userName;
+    }
+    if (userAvatar != null) {
+      $result.userAvatar = userAvatar;
+    }
+    if (role != null) {
+      $result.role = role;
+    }
+    if (joinedAt != null) {
+      $result.joinedAt = joinedAt;
+    }
+    return $result;
+  }
+  MemberInfo._() : super();
+  factory MemberInfo.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MemberInfo.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MemberInfo', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'userId')
+    ..aOS(2, _omitFieldNames ? '' : 'userName')
+    ..aOS(3, _omitFieldNames ? '' : 'userAvatar')
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'role', $pb.PbFieldType.O3)
+    ..aInt64(5, _omitFieldNames ? '' : 'joinedAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MemberInfo clone() => MemberInfo()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MemberInfo copyWith(void Function(MemberInfo) updates) => super.copyWith((message) => updates(message as MemberInfo)) as MemberInfo;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MemberInfo create() => MemberInfo._();
+  MemberInfo createEmptyInstance() => create();
+  static $pb.PbList<MemberInfo> createRepeated() => $pb.PbList<MemberInfo>();
+  @$core.pragma('dart2js:noInline')
+  static MemberInfo getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MemberInfo>(create);
+  static MemberInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get userId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set userId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasUserId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUserId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userName($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasUserName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get userAvatar => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set userAvatar($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUserAvatar() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUserAvatar() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get role => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set role($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasRole() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRole() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get joinedAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set joinedAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasJoinedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearJoinedAt() => $_clearField(5);
 }
 
 

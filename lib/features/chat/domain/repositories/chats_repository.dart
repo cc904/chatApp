@@ -99,6 +99,11 @@ abstract class ChatsRepository {
   /// [conversationId] - 会话ID
   Future<void> requestConversationDetail(String conversationId);
 
+  /// 💢💢💢 新增：保存会话到本地数据库
+  /// 直接保存一个会话对象到本地数据库
+  /// [conversation] - 要保存的会话对象
+  Future<void> saveConversation(Conversation conversation);
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 保存会话状态快照

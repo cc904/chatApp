@@ -735,6 +735,27 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
+  /// 💢💢💢 新增：保存会话到本地数据库
+  /// 直接保存一个会话对象到本地数据库
+  /// [conversation] - 要保存的会话对象
+  @override
+  Future<void> saveConversation(db.Conversation conversation) async {
+    try {
+      await _isar.writeTxn(() async {
+        await _conversations.put(conversation);
+      });
+
+      _logger.i('会话已保存到本地数据库', extra: {
+        'conversationId': conversation.conversationId,
+        'type': conversation.type.name,
+        'name': conversation.name,
+      });
+    } catch (error, stack) {
+      _logger.e('保存会话到本地数据库失败', error: error, stackTrace: stack);
+      rethrow;
+    }
+  }
+
   /// 处理会话同步响应事件
   /// 将Proto格式的会话数据转换为数据库模型并更新本地数据
   void _handleSyncResponseProto(

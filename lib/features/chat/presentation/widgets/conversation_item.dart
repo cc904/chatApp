@@ -180,9 +180,7 @@ class ConversationItem extends StatelessWidget {
                   // 会话名称
                   Flexible(
                     child: Text(
-                      isGroup || isChannel
-                          ? (conversation.name ?? (isGroup ? '群聊' : '频道'))
-                          : conversation.name ?? '未知联系人',
+                      _getDisplayName(conversation, isGroup, isChannel),
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: 16,
@@ -226,12 +224,17 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建群聊或频道的消息预览
   Widget _buildGroupMessagePreview(Conversation conversation, bool isChannel) {
+    // 检查是否为系统消息，如果是系统消息则不显示发送者名称
+    final bool isSystemMessage =
+        _isSystemMessage(conversation.lastMessagePreview);
+
     return RichText(
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
         children: [
-          if (conversation.lastMessageName != null &&
+          if (!isSystemMessage &&
+              conversation.lastMessageName != null &&
               conversation.lastMessageName!.isNotEmpty)
             TextSpan(
               text: '${conversation.lastMessageName}: ',
@@ -251,6 +254,50 @@ class ConversationItem extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 检查消息内容是否为系统消息
+  bool _isSystemMessage(String? messagePreview) {
+    if (messagePreview == null || messagePreview.isEmpty) return false;
+
+    // 检查是否包含系统消息的关键词
+    final systemKeywords = [
+      'joined',
+      'left',
+      'created',
+      'added',
+      'removed',
+      '加入了',
+      '离开了',
+      '创建了',
+      '添加了',
+      '移除了',
+      '被添加',
+      '被移除',
+    ];
+
+    final lowerPreview = messagePreview.toLowerCase();
+    return systemKeywords
+        .any((keyword) => lowerPreview.contains(keyword.toLowerCase()));
+  }
+
+  /// 获取会话显示名称，对群聊和频道名称进行长度限制
+  String _getDisplayName(
+      Conversation conversation, bool isGroup, bool isChannel) {
+    String name;
+
+    if (isGroup || isChannel) {
+      name = conversation.name ?? (isGroup ? '群聊' : '频道');
+    } else {
+      name = conversation.name ?? '未知联系人';
+    }
+
+    // 对群聊和频道名称限制在8个字符内
+    if ((isGroup || isChannel) && name.length > 8) {
+      return name.substring(0, 8);
+    }
+
+    return name;
   }
 
   /// 构建时间和未读数量

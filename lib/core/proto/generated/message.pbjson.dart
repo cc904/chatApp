@@ -23,13 +23,14 @@ const MessageType$json = {
     {'1': 'FILE', '2': 3},
     {'1': 'VIDEO', '2': 4},
     {'1': 'SYSTEM', '2': 6},
+    {'1': 'MEMBERSHIP', '2': 7},
   ],
 };
 
 /// Descriptor for `MessageType`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List messageTypeDescriptor = $convert.base64Decode(
     'CgtNZXNzYWdlVHlwZRIICgRURVhUEAASCQoFSU1BR0UQARIJCgVWT0lDRRACEggKBEZJTEUQAx'
-    'IJCgVWSURFTxAEEgoKBlNZU1RFTRAG');
+    'IJCgVWSURFTxAEEgoKBlNZU1RFTRAGEg4KCk1FTUJFUlNISVAQBw==');
 
 @$core.Deprecated('Use messageStatusDescriptor instead')
 const MessageStatus$json = {
@@ -49,6 +50,49 @@ const MessageStatus$json = {
 final $typed_data.Uint8List messageStatusDescriptor = $convert.base64Decode(
     'Cg1NZXNzYWdlU3RhdHVzEgsKB1NFTkRJTkcQABIICgRTRU5UEAESDQoJREVMSVZFUkVEEAISCA'
     'oEUkVBRBADEgoKBkZBSUxFRBAEEgsKB0RFTEVURUQQBRILCgdSRVZPS0VEEAY=');
+
+@$core.Deprecated('Use systemEventTypeDescriptor instead')
+const SystemEventType$json = {
+  '1': 'SystemEventType',
+  '2': [
+    {'1': 'CONVERSATION_CREATED', '2': 0},
+    {'1': 'CONVERSATION_DELETED', '2': 1},
+    {'1': 'CONVERSATION_ARCHIVED', '2': 2},
+    {'1': 'CONVERSATION_UNARCHIVED', '2': 3},
+    {'1': 'MEMBER_JOINED', '2': 10},
+    {'1': 'MEMBER_LEFT', '2': 11},
+    {'1': 'MEMBER_REMOVED', '2': 12},
+    {'1': 'MEMBER_PROMOTED', '2': 13},
+    {'1': 'MEMBER_DEMOTED', '2': 14},
+    {'1': 'MEMBER_ROLE_CHANGED', '2': 15},
+    {'1': 'CONVERSATION_NAME_CHANGED', '2': 20},
+    {'1': 'CONVERSATION_AVATAR_CHANGED', '2': 21},
+    {'1': 'CONVERSATION_DESCRIPTION_CHANGED', '2': 22},
+    {'1': 'CONVERSATION_SETTINGS_CHANGED', '2': 23},
+    {'1': 'PERMISSIONS_CHANGED', '2': 30},
+    {'1': 'MUTE_SETTINGS_CHANGED', '2': 31},
+    {'1': 'MESSAGE_PINNED', '2': 40},
+    {'1': 'MESSAGE_UNPINNED', '2': 41},
+    {'1': 'MESSAGES_CLEARED', '2': 42},
+    {'1': 'ENCRYPTION_ENABLED', '2': 50},
+    {'1': 'ENCRYPTION_DISABLED', '2': 51},
+    {'1': 'CUSTOM_EVENT', '2': 99},
+  ],
+};
+
+/// Descriptor for `SystemEventType`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List systemEventTypeDescriptor = $convert.base64Decode(
+    'Cg9TeXN0ZW1FdmVudFR5cGUSGAoUQ09OVkVSU0FUSU9OX0NSRUFURUQQABIYChRDT05WRVJTQV'
+    'RJT05fREVMRVRFRBABEhkKFUNPTlZFUlNBVElPTl9BUkNISVZFRBACEhsKF0NPTlZFUlNBVElP'
+    'Tl9VTkFSQ0hJVkVEEAMSEQoNTUVNQkVSX0pPSU5FRBAKEg8KC01FTUJFUl9MRUZUEAsSEgoOTU'
+    'VNQkVSX1JFTU9WRUQQDBITCg9NRU1CRVJfUFJPTU9URUQQDRISCg5NRU1CRVJfREVNT1RFRBAO'
+    'EhcKE01FTUJFUl9ST0xFX0NIQU5HRUQQDxIdChlDT05WRVJTQVRJT05fTkFNRV9DSEFOR0VEEB'
+    'QSHwobQ09OVkVSU0FUSU9OX0FWQVRBUl9DSEFOR0VEEBUSJAogQ09OVkVSU0FUSU9OX0RFU0NS'
+    'SVBUSU9OX0NIQU5HRUQQFhIhCh1DT05WRVJTQVRJT05fU0VUVElOR1NfQ0hBTkdFRBAXEhcKE1'
+    'BFUk1JU1NJT05TX0NIQU5HRUQQHhIZChVNVVRFX1NFVFRJTkdTX0NIQU5HRUQQHxISCg5NRVNT'
+    'QUdFX1BJTk5FRBAoEhQKEE1FU1NBR0VfVU5QSU5ORUQQKRIUChBNRVNTQUdFU19DTEVBUkVEEC'
+    'oSFgoSRU5DUllQVElPTl9FTkFCTEVEEDISFwoTRU5DUllQVElPTl9ESVNBQkxFRBAzEhAKDENV'
+    'U1RPTV9FVkVOVBBj');
 
 @$core.Deprecated('Use messageProtoDescriptor instead')
 const MessageProto$json = {
@@ -80,6 +124,7 @@ const MessageProto$json = {
     {'1': 'contact_message', '3': 43, '4': 1, '5': 11, '6': '.cc.ContactMessage', '9': 0, '10': 'contactMessage'},
     {'1': 'poll_message', '3': 44, '4': 1, '5': 11, '6': '.cc.PollMessage', '9': 0, '10': 'pollMessage'},
     {'1': 'link_message', '3': 45, '4': 1, '5': 11, '6': '.cc.LinkMessage', '9': 0, '10': 'linkMessage'},
+    {'1': 'membership_message', '3': 46, '4': 1, '5': 11, '6': '.cc.MembershipMessage', '9': 0, '10': 'membershipMessage'},
   ],
   '3': [MessageProto_ReactionsEntry$json],
   '8': [
@@ -119,8 +164,10 @@ final $typed_data.Uint8List messageProtoDescriptor = $convert.base64Decode(
     '5TdGlja2VyTWVzc2FnZUgAUg5zdGlja2VyTWVzc2FnZRI9Cg9jb250YWN0X21lc3NhZ2UYKyAB'
     'KAsyEi5jYy5Db250YWN0TWVzc2FnZUgAUg5jb250YWN0TWVzc2FnZRI0Cgxwb2xsX21lc3NhZ2'
     'UYLCABKAsyDy5jYy5Qb2xsTWVzc2FnZUgAUgtwb2xsTWVzc2FnZRI0CgxsaW5rX21lc3NhZ2UY'
-    'LSABKAsyDy5jYy5MaW5rTWVzc2FnZUgAUgtsaW5rTWVzc2FnZRo8Cg5SZWFjdGlvbnNFbnRyeR'
-    'IQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoBVIFdmFsdWU6AjgBQgkKB2NvbnRlbnQ=');
+    'LSABKAsyDy5jYy5MaW5rTWVzc2FnZUgAUgtsaW5rTWVzc2FnZRJGChJtZW1iZXJzaGlwX21lc3'
+    'NhZ2UYLiABKAsyFS5jYy5NZW1iZXJzaGlwTWVzc2FnZUgAUhFtZW1iZXJzaGlwTWVzc2FnZRo8'
+    'Cg5SZWFjdGlvbnNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoBVIFdmFsdW'
+    'U6AjgBQgkKB2NvbnRlbnQ=');
 
 @$core.Deprecated('Use textMessageDescriptor instead')
 const TextMessage$json = {
@@ -170,10 +217,14 @@ const SystemMessage$json = {
   '1': 'SystemMessage',
   '2': [
     {'1': 'text', '3': 1, '4': 1, '5': 9, '10': 'text'},
-    {'1': 'action', '3': 2, '4': 1, '5': 9, '10': 'action'},
+    {'1': 'event_type', '3': 2, '4': 1, '5': 14, '6': '.cc.SystemEventType', '10': 'eventType'},
     {'1': 'params', '3': 3, '4': 3, '5': 11, '6': '.cc.SystemMessage.ParamsEntry', '10': 'params'},
+    {'1': 'affected_user_ids', '3': 4, '4': 3, '5': 9, '10': 'affectedUserIds'},
+    {'1': 'actor_user_id', '3': 5, '4': 1, '5': 9, '10': 'actorUserId'},
+    {'1': 'event_timestamp', '3': 6, '4': 1, '5': 3, '10': 'eventTimestamp'},
+    {'1': 'metadata', '3': 7, '4': 3, '5': 11, '6': '.cc.SystemMessage.MetadataEntry', '10': 'metadata'},
   ],
-  '3': [SystemMessage_ParamsEntry$json],
+  '3': [SystemMessage_ParamsEntry$json, SystemMessage_MetadataEntry$json],
 };
 
 @$core.Deprecated('Use systemMessageDescriptor instead')
@@ -186,12 +237,26 @@ const SystemMessage_ParamsEntry$json = {
   '7': {'7': true},
 };
 
+@$core.Deprecated('Use systemMessageDescriptor instead')
+const SystemMessage_MetadataEntry$json = {
+  '1': 'MetadataEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
+};
+
 /// Descriptor for `SystemMessage`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List systemMessageDescriptor = $convert.base64Decode(
-    'Cg1TeXN0ZW1NZXNzYWdlEhIKBHRleHQYASABKAlSBHRleHQSFgoGYWN0aW9uGAIgASgJUgZhY3'
-    'Rpb24SNQoGcGFyYW1zGAMgAygLMh0uY2MuU3lzdGVtTWVzc2FnZS5QYXJhbXNFbnRyeVIGcGFy'
-    'YW1zGjkKC1BhcmFtc0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgJUgV2YW'
-    'x1ZToCOAE=');
+    'Cg1TeXN0ZW1NZXNzYWdlEhIKBHRleHQYASABKAlSBHRleHQSMgoKZXZlbnRfdHlwZRgCIAEoDj'
+    'ITLmNjLlN5c3RlbUV2ZW50VHlwZVIJZXZlbnRUeXBlEjUKBnBhcmFtcxgDIAMoCzIdLmNjLlN5'
+    'c3RlbU1lc3NhZ2UuUGFyYW1zRW50cnlSBnBhcmFtcxIqChFhZmZlY3RlZF91c2VyX2lkcxgEIA'
+    'MoCVIPYWZmZWN0ZWRVc2VySWRzEiIKDWFjdG9yX3VzZXJfaWQYBSABKAlSC2FjdG9yVXNlcklk'
+    'EicKD2V2ZW50X3RpbWVzdGFtcBgGIAEoA1IOZXZlbnRUaW1lc3RhbXASOwoIbWV0YWRhdGEYBy'
+    'ADKAsyHy5jYy5TeXN0ZW1NZXNzYWdlLk1ldGFkYXRhRW50cnlSCG1ldGFkYXRhGjkKC1BhcmFt'
+    'c0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAEaOwoNTW'
+    'V0YWRhdGFFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB');
 
 @$core.Deprecated('Use stickerMessageDescriptor instead')
 const StickerMessage$json = {
@@ -386,4 +451,61 @@ final $typed_data.Uint8List messagesFetchResponseDescriptor = $convert.base64Dec
     'ChVNZXNzYWdlc0ZldGNoUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIQCgNtc2'
     'cYAiABKAlSA21zZxInCg9jb252ZXJzYXRpb25faWQYAyABKAlSDmNvbnZlcnNhdGlvbklkEiwK'
     'CG1lc3NhZ2VzGAQgAygLMhAuY2MuTWVzc2FnZVByb3RvUghtZXNzYWdlcw==');
+
+@$core.Deprecated('Use membershipMessageDescriptor instead')
+const MembershipMessage$json = {
+  '1': 'MembershipMessage',
+  '2': [
+    {'1': 'event_type', '3': 1, '4': 1, '5': 14, '6': '.cc.SystemEventType', '10': 'eventType'},
+    {'1': 'actor', '3': 2, '4': 1, '5': 11, '6': '.cc.MemberInfo', '10': 'actor'},
+    {'1': 'affected_members', '3': 3, '4': 3, '5': 11, '6': '.cc.MemberInfo', '10': 'affectedMembers'},
+    {'1': 'event_timestamp', '3': 4, '4': 1, '5': 3, '10': 'eventTimestamp'},
+    {'1': 'previous_role', '3': 5, '4': 1, '5': 5, '10': 'previousRole'},
+    {'1': 'new_role', '3': 6, '4': 1, '5': 5, '10': 'newRole'},
+    {'1': 'removal_reason', '3': 7, '4': 1, '5': 9, '10': 'removalReason'},
+    {'1': 'invite_link', '3': 8, '4': 1, '5': 9, '10': 'inviteLink'},
+    {'1': 'metadata', '3': 9, '4': 3, '5': 11, '6': '.cc.MembershipMessage.MetadataEntry', '10': 'metadata'},
+  ],
+  '3': [MembershipMessage_MetadataEntry$json],
+};
+
+@$core.Deprecated('Use membershipMessageDescriptor instead')
+const MembershipMessage_MetadataEntry$json = {
+  '1': 'MetadataEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `MembershipMessage`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List membershipMessageDescriptor = $convert.base64Decode(
+    'ChFNZW1iZXJzaGlwTWVzc2FnZRIyCgpldmVudF90eXBlGAEgASgOMhMuY2MuU3lzdGVtRXZlbn'
+    'RUeXBlUglldmVudFR5cGUSJAoFYWN0b3IYAiABKAsyDi5jYy5NZW1iZXJJbmZvUgVhY3RvchI5'
+    'ChBhZmZlY3RlZF9tZW1iZXJzGAMgAygLMg4uY2MuTWVtYmVySW5mb1IPYWZmZWN0ZWRNZW1iZX'
+    'JzEicKD2V2ZW50X3RpbWVzdGFtcBgEIAEoA1IOZXZlbnRUaW1lc3RhbXASIwoNcHJldmlvdXNf'
+    'cm9sZRgFIAEoBVIMcHJldmlvdXNSb2xlEhkKCG5ld19yb2xlGAYgASgFUgduZXdSb2xlEiUKDn'
+    'JlbW92YWxfcmVhc29uGAcgASgJUg1yZW1vdmFsUmVhc29uEh8KC2ludml0ZV9saW5rGAggASgJ'
+    'UgppbnZpdGVMaW5rEj8KCG1ldGFkYXRhGAkgAygLMiMuY2MuTWVtYmVyc2hpcE1lc3NhZ2UuTW'
+    'V0YWRhdGFFbnRyeVIIbWV0YWRhdGEaOwoNTWV0YWRhdGFFbnRyeRIQCgNrZXkYASABKAlSA2tl'
+    'eRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB');
+
+@$core.Deprecated('Use memberInfoDescriptor instead')
+const MemberInfo$json = {
+  '1': 'MemberInfo',
+  '2': [
+    {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'user_name', '3': 2, '4': 1, '5': 9, '10': 'userName'},
+    {'1': 'user_avatar', '3': 3, '4': 1, '5': 9, '10': 'userAvatar'},
+    {'1': 'role', '3': 4, '4': 1, '5': 5, '10': 'role'},
+    {'1': 'joined_at', '3': 5, '4': 1, '5': 3, '10': 'joinedAt'},
+  ],
+};
+
+/// Descriptor for `MemberInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List memberInfoDescriptor = $convert.base64Decode(
+    'CgpNZW1iZXJJbmZvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIbCgl1c2VyX25hbWUYAiABKA'
+    'lSCHVzZXJOYW1lEh8KC3VzZXJfYXZhdGFyGAMgASgJUgp1c2VyQXZhdGFyEhIKBHJvbGUYBCAB'
+    'KAVSBHJvbGUSGwoJam9pbmVkX2F0GAUgASgDUghqb2luZWRBdA==');
 

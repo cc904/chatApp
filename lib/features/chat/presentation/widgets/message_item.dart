@@ -60,6 +60,12 @@ class MessageItem extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    // 🆕 系统消息和成员变动消息使用特殊样式：居中显示，无头像，无气泡
+    if (message.type == MessageType.system ||
+        message.type == MessageType.membership) {
+      return _buildSystemMessage(context);
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Padding(
@@ -211,44 +217,143 @@ class MessageItem extends StatelessWidget {
                 ),
               ),
             ),
-          _buildMessageContent(context),
-          const SizedBox(height: 2.0),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (message.isMessageEdited) ...[
-                Text(
-                  '已编辑',
-                  style: TextStyle(
-                    fontSize: 10.0,
-                    color: isCurrentUser
-                        ? Colors.white.withAlpha(128)
-                        : Colors.grey[500],
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(width: 4.0),
-              ],
-              Text(
-                _formatTime(message.createdAt),
-                style: TextStyle(
-                  fontSize: 11.0,
-                  color: isCurrentUser
-                      ? Colors.white.withAlpha(179) // 替代过时的withOpacity
-                      : Colors.grey[600],
-                ),
-              ),
-              // 💢💢💢 将已读状态移到时间后面（仅当前用户消息显示）
-              if (isCurrentUser) ...[
-                const SizedBox(width: 4.0),
-                _buildMessageStatusInline(),
-              ],
-            ],
-          ),
+          _buildMessageContentWithTime(context),
         ],
       ),
+    );
+  }
+
+  /// 构建消息内容和时间（智能布局）
+  Widget _buildMessageContentWithTime(BuildContext context) {
+    // 对于文本消息，尝试将时间显示在同一行
+    if (message.type == MessageType.text) {
+      return _buildTextMessageWithInlineTime(context);
+    }
+
+    // 对于其他类型的消息，使用传统的分行布局
+    return Column(
+      crossAxisAlignment:
+          isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        _buildMessageContent(context),
+        const SizedBox(height: 2.0),
+        _buildTimeAndStatusRow(),
+      ],
+    );
+  }
+
+  /// 构建文本消息的内联时间布局
+  Widget _buildTextMessageWithInlineTime(BuildContext context) {
+    final messageText = message.text ?? '';
+
+    // 计算消息文本的宽度
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: messageText,
+        style: TextStyle(
+          fontSize: 14.0,
+          color: isCurrentUser ? Colors.white : Colors.black87,
+        ),
+      ),
+      maxLines: null,
+      textDirection: Directionality.of(context),
+    );
+    textPainter.layout(maxWidth: MediaQuery.of(context).size.width * 0.6);
+
+    // 计算时间和状态的宽度
+    final timeText = _formatTime(message.createdAt);
+    final timeAndStatusPainter = TextPainter(
+      text: TextSpan(
+        text:
+            '${message.isMessageEdited ? '已编辑 ' : ''}$timeText${isCurrentUser ? ' ✓' : ''}',
+        style: TextStyle(
+          fontSize: 11.0,
+          color: isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey[600],
+        ),
+      ),
+      textDirection: Directionality.of(context),
+    );
+    timeAndStatusPainter.layout();
+
+    // 判断是否可以在同一行显示
+    final maxWidth = MediaQuery.of(context).size.width * 0.6;
+    final canInline =
+        textPainter.width + timeAndStatusPainter.width + 16 <= maxWidth &&
+            textPainter.height <= 20; // 单行文本的高度大约是20
+
+    if (canInline) {
+      // 在同一行显示文本和时间
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Flexible(
+            child: _buildHighlightedText(
+              messageText,
+              baseStyle: TextStyle(
+                fontSize: 14.0,
+                color: isCurrentUser ? Colors.white : Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8.0),
+          _buildTimeAndStatusRow(),
+        ],
+      );
+    } else {
+      // 分行显示
+      return Column(
+        crossAxisAlignment:
+            isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          _buildHighlightedText(
+            messageText,
+            baseStyle: TextStyle(
+              fontSize: 14.0,
+              color: isCurrentUser ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 2.0),
+          _buildTimeAndStatusRow(),
+        ],
+      );
+    }
+  }
+
+  /// 构建时间和状态行
+  Widget _buildTimeAndStatusRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (message.isMessageEdited) ...[
+          Text(
+            '已编辑',
+            style: TextStyle(
+              fontSize: 10.0,
+              color: isCurrentUser
+                  ? Colors.white.withAlpha(128)
+                  : Colors.grey[500],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(width: 4.0),
+        ],
+        Text(
+          _formatTime(message.createdAt),
+          style: TextStyle(
+            fontSize: 11.0,
+            color:
+                isCurrentUser ? Colors.white.withAlpha(179) : Colors.grey[600],
+          ),
+        ),
+        // 💢💢💢 将已读状态移到时间后面（仅当前用户消息显示）
+        if (isCurrentUser) ...[
+          const SizedBox(width: 4.0),
+          _buildMessageStatusInline(),
+        ],
+      ],
     );
   }
 
@@ -501,37 +606,16 @@ class MessageItem extends StatelessWidget {
         );
 
       case MessageType.system:
-        return Text(
-          message.displayText, // 系统消息使用displayText
-          style: TextStyle(
-            fontSize: 14.0,
-            color: isCurrentUser ? Colors.white70 : Colors.grey[600],
-            fontStyle: FontStyle.italic,
-          ),
-          textAlign: TextAlign.center,
-        );
+      case MessageType.membership:
+        // 这些消息类型在build方法中已经被特殊处理，不会到达这里
+        return const SizedBox.shrink();
     }
   }
 
   /// 格式化时间
   String _formatTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-
-    if (messageDate == today) {
-      // 今天：显示时间
-      return DateFormat('HH:mm').format(dateTime);
-    } else if (messageDate == today.subtract(const Duration(days: 1))) {
-      // 昨天：显示"昨天 HH:mm"
-      return '昨天 ${DateFormat('HH:mm').format(dateTime)}';
-    } else if (now.difference(dateTime).inDays < 7) {
-      // 一周内：显示星期几和时间
-      return DateFormat('E HH:mm', 'zh_CN').format(dateTime);
-    } else {
-      // 更早：显示日期和时间
-      return DateFormat('MM/dd HH:mm').format(dateTime);
-    }
+    // 只显示时间点，不显示日期信息
+    return DateFormat('HH:mm').format(dateTime);
   }
 
   /// 格式化时长
@@ -589,6 +673,98 @@ class MessageItem extends StatelessWidget {
 
     // 默认使用略微横向的比例，适合大多数照片
     return 1.3; // 4:3 比例，接近手机拍照的默认比例
+  }
+
+  /// 🆕 构建系统消息（居中小字样式，无头像无气泡）
+  Widget _buildSystemMessage(BuildContext context) {
+    Widget content;
+
+    if (message.type == MessageType.membership) {
+      content = _buildMembershipMessageContent();
+    } else {
+      // 普通系统消息
+      content = Text(
+        message.displayText,
+        style: TextStyle(
+          fontSize: 11.0,
+          color: Colors.grey[600],
+          fontStyle: FontStyle.normal,
+        ),
+        textAlign: TextAlign.center,
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7F3E7), // 使用和聊天背景相同的淡绿色
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: content,
+        ),
+      ),
+    );
+  }
+
+  /// 🆕 构建成员变动消息内容
+  Widget _buildMembershipMessageContent() {
+    // 解析成员变动信息
+    final eventType = message.membershipEventType ?? 'MEMBER_JOINED';
+    final actorInfo = message.membershipActorMap;
+    final affectedMembers = message.membershipAffectedMembersList;
+
+    // 构建显示文本
+    String displayText = '';
+
+    final actorName = actorInfo?['userName'] ?? '未知用户';
+    final affectedNames =
+        affectedMembers.map((member) => member['userName'] ?? '未知用户').join('、');
+
+    switch (eventType) {
+      case 'MEMBER_JOINED':
+        displayText = affectedMembers.length > 1
+            ? '$actorName 邀请 $affectedNames 加入了群聊'
+            : '$affectedNames 加入了群聊';
+        break;
+      case 'MEMBER_LEFT':
+        displayText = '$affectedNames 离开了群聊';
+        break;
+      case 'MEMBER_REMOVED':
+        displayText = '$actorName 将 $affectedNames 移出了群聊';
+        break;
+      case 'MEMBER_PROMOTED':
+        displayText = '$actorName 将 $affectedNames 提升为管理员';
+        break;
+      case 'MEMBER_DEMOTED':
+        displayText = '$actorName 将 $affectedNames 降级为普通成员';
+        break;
+      case 'CONVERSATION_CREATED':
+        displayText = '$actorName 创建了群聊';
+        break;
+      case 'CONVERSATION_NAME_CHANGED':
+        displayText = '$actorName 修改了群聊名称';
+        break;
+      case 'CONVERSATION_AVATAR_CHANGED':
+        displayText = '$actorName 更换了群聊头像';
+        break;
+      default:
+        displayText = message.text ?? '未知事件';
+    }
+
+    // 成员变动消息使用简洁的文本样式，不显示图标
+    return Text(
+      displayText,
+      style: TextStyle(
+        fontSize: 13.0,
+        color: Colors.grey[600],
+        fontStyle: FontStyle.italic,
+      ),
+      textAlign: TextAlign.center,
+    );
   }
 
   /// 构建高亮文本

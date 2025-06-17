@@ -427,32 +427,45 @@ class _ChatsPageState extends State<ChatsPage>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        controller: scrollController,
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: MultiRepositoryProvider(
-            providers: [
-              // 💢💢💢 使用预先获取的Provider引用
-              RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
-              RepositoryProvider<ChatRepository>.value(value: chatRepository),
-              RepositoryProvider<ChatRepositorySend>.value(
-                  value: chatRepositorySend),
-            ],
-            child: MultiBlocProvider(
-              providers: [
-                // 💢💢💢 使用预先获取的Cubit引用
-                BlocProvider<ContactCubit>.value(value: contactCubit),
-                BlocProvider<ChatsCubit>.value(value: chatsCubit),
-              ],
-              child: NewConversationBottomSheet(
-                scrollController: scrollController,
+      isDismissible: true, // 明确允许点击背景关闭
+      enableDrag: true, // 允许拖拽关闭
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.of(context).pop(), // 点击背景关闭
+        child: Container(
+          color: Colors.transparent, // 必须有颜色才能接收点击事件
+          child: DraggableScrollableSheet(
+            controller: scrollController,
+            initialChildSize: 0.9,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) => GestureDetector(
+              onTap: () {}, // 阻止点击事件冒泡到背景
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: MultiRepositoryProvider(
+                  providers: [
+                    // 💢💢💢 使用预先获取的Provider引用
+                    RepositoryProvider<ChatsRepository>.value(
+                        value: chatsRepository),
+                    RepositoryProvider<ChatRepository>.value(
+                        value: chatRepository),
+                    RepositoryProvider<ChatRepositorySend>.value(
+                        value: chatRepositorySend),
+                  ],
+                  child: MultiBlocProvider(
+                    providers: [
+                      // 💢💢💢 使用预先获取的Cubit引用
+                      BlocProvider<ContactCubit>.value(value: contactCubit),
+                      BlocProvider<ChatsCubit>.value(value: chatsCubit),
+                    ],
+                    child: NewConversationBottomSheet(
+                      scrollController: scrollController,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

@@ -22,275 +22,340 @@ const MessageSchema = CollectionSchema(
       name: r'action',
       type: IsarType.string,
     ),
-    r'caption': PropertySchema(
+    r'actorUserId': PropertySchema(
       id: 1,
+      name: r'actorUserId',
+      type: IsarType.string,
+    ),
+    r'affectedUserIds': PropertySchema(
+      id: 2,
+      name: r'affectedUserIds',
+      type: IsarType.string,
+    ),
+    r'caption': PropertySchema(
+      id: 3,
       name: r'caption',
       type: IsarType.string,
     ),
     r'contactAvatar': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'contactAvatar',
       type: IsarType.string,
     ),
     r'contactEmail': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'contactEmail',
       type: IsarType.string,
     ),
     r'contactId': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'contactId',
       type: IsarType.string,
     ),
     r'contactName': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'contactName',
       type: IsarType.string,
     ),
     r'contactPhone': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'contactPhone',
       type: IsarType.string,
     ),
     r'conversationId': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'conversationId',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'duration': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'duration',
       type: IsarType.long,
     ),
     r'editedAt': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'editedAt',
       type: IsarType.dateTime,
     ),
+    r'eventTimestamp': PropertySchema(
+      id: 13,
+      name: r'eventTimestamp',
+      type: IsarType.dateTime,
+    ),
+    r'eventType': PropertySchema(
+      id: 14,
+      name: r'eventType',
+      type: IsarType.string,
+    ),
     r'expiresAt': PropertySchema(
-      id: 11,
+      id: 15,
       name: r'expiresAt',
       type: IsarType.dateTime,
     ),
     r'faviconUrl': PropertySchema(
-      id: 12,
+      id: 16,
       name: r'faviconUrl',
       type: IsarType.string,
     ),
     r'fileName': PropertySchema(
-      id: 13,
+      id: 17,
       name: r'fileName',
       type: IsarType.string,
     ),
     r'fileSize': PropertySchema(
-      id: 14,
+      id: 18,
       name: r'fileSize',
       type: IsarType.double,
     ),
     r'forwardedFromConversationId': PropertySchema(
-      id: 15,
+      id: 19,
       name: r'forwardedFromConversationId',
       type: IsarType.string,
     ),
     r'forwardedFromMessageId': PropertySchema(
-      id: 16,
+      id: 20,
       name: r'forwardedFromMessageId',
       type: IsarType.string,
     ),
     r'hashtags': PropertySchema(
-      id: 17,
+      id: 21,
       name: r'hashtags',
       type: IsarType.string,
     ),
     r'height': PropertySchema(
-      id: 18,
+      id: 22,
       name: r'height',
       type: IsarType.long,
     ),
     r'isAnonymous': PropertySchema(
-      id: 19,
+      id: 23,
       name: r'isAnonymous',
       type: IsarType.bool,
     ),
     r'isEdited': PropertySchema(
-      id: 20,
+      id: 24,
       name: r'isEdited',
       type: IsarType.bool,
     ),
     r'isMultipleChoice': PropertySchema(
-      id: 21,
+      id: 25,
       name: r'isMultipleChoice',
       type: IsarType.bool,
     ),
     r'isPinned': PropertySchema(
-      id: 22,
+      id: 26,
       name: r'isPinned',
       type: IsarType.bool,
     ),
     r'linkDescription': PropertySchema(
-      id: 23,
+      id: 27,
       name: r'linkDescription',
       type: IsarType.string,
     ),
     r'linkImageUrl': PropertySchema(
-      id: 24,
+      id: 28,
       name: r'linkImageUrl',
       type: IsarType.string,
     ),
     r'linkTitle': PropertySchema(
-      id: 25,
+      id: 29,
       name: r'linkTitle',
       type: IsarType.string,
     ),
     r'linkUrl': PropertySchema(
-      id: 26,
+      id: 30,
       name: r'linkUrl',
       type: IsarType.string,
     ),
     r'localPath': PropertySchema(
-      id: 27,
+      id: 31,
       name: r'localPath',
       type: IsarType.string,
     ),
     r'mediaUrl': PropertySchema(
-      id: 28,
+      id: 32,
       name: r'mediaUrl',
       type: IsarType.string,
     ),
+    r'membershipActor': PropertySchema(
+      id: 33,
+      name: r'membershipActor',
+      type: IsarType.string,
+    ),
+    r'membershipAffectedMembers': PropertySchema(
+      id: 34,
+      name: r'membershipAffectedMembers',
+      type: IsarType.string,
+    ),
+    r'membershipEventType': PropertySchema(
+      id: 35,
+      name: r'membershipEventType',
+      type: IsarType.string,
+    ),
+    r'membershipInviteLink': PropertySchema(
+      id: 36,
+      name: r'membershipInviteLink',
+      type: IsarType.string,
+    ),
+    r'membershipMetadata': PropertySchema(
+      id: 37,
+      name: r'membershipMetadata',
+      type: IsarType.string,
+    ),
+    r'membershipNewRole': PropertySchema(
+      id: 38,
+      name: r'membershipNewRole',
+      type: IsarType.long,
+    ),
+    r'membershipPreviousRole': PropertySchema(
+      id: 39,
+      name: r'membershipPreviousRole',
+      type: IsarType.long,
+    ),
+    r'membershipRemovalReason': PropertySchema(
+      id: 40,
+      name: r'membershipRemovalReason',
+      type: IsarType.string,
+    ),
     r'mentions': PropertySchema(
-      id: 29,
+      id: 41,
       name: r'mentions',
       type: IsarType.string,
     ),
     r'messageId': PropertySchema(
-      id: 30,
+      id: 42,
       name: r'messageId',
       type: IsarType.string,
     ),
     r'messageIndex': PropertySchema(
-      id: 31,
+      id: 43,
       name: r'messageIndex',
       type: IsarType.long,
     ),
+    r'metadata': PropertySchema(
+      id: 44,
+      name: r'metadata',
+      type: IsarType.string,
+    ),
     r'mimeType': PropertySchema(
-      id: 32,
+      id: 45,
       name: r'mimeType',
       type: IsarType.string,
     ),
     r'params': PropertySchema(
-      id: 33,
+      id: 46,
       name: r'params',
       type: IsarType.string,
     ),
     r'pollId': PropertySchema(
-      id: 34,
+      id: 47,
       name: r'pollId',
       type: IsarType.string,
     ),
     r'question': PropertySchema(
-      id: 35,
+      id: 48,
       name: r'question',
       type: IsarType.string,
     ),
     r'quotedMessageId': PropertySchema(
-      id: 36,
+      id: 49,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'reactions': PropertySchema(
-      id: 37,
+      id: 50,
       name: r'reactions',
       type: IsarType.string,
     ),
     r'repliedToMessageId': PropertySchema(
-      id: 38,
+      id: 51,
       name: r'repliedToMessageId',
       type: IsarType.string,
     ),
     r'senderAvatar': PropertySchema(
-      id: 39,
+      id: 52,
       name: r'senderAvatar',
       type: IsarType.string,
     ),
     r'senderId': PropertySchema(
-      id: 40,
+      id: 53,
       name: r'senderId',
       type: IsarType.string,
     ),
     r'senderName': PropertySchema(
-      id: 41,
+      id: 54,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'siteName': PropertySchema(
-      id: 42,
+      id: 55,
       name: r'siteName',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 43,
+      id: 56,
       name: r'status',
       type: IsarType.string,
       enumMap: _MessagestatusEnumValueMap,
     ),
     r'stickerId': PropertySchema(
-      id: 44,
+      id: 57,
       name: r'stickerId',
       type: IsarType.string,
     ),
     r'stickerPackId': PropertySchema(
-      id: 45,
+      id: 58,
       name: r'stickerPackId',
       type: IsarType.string,
     ),
     r'stickerPackName': PropertySchema(
-      id: 46,
+      id: 59,
       name: r'stickerPackName',
       type: IsarType.string,
     ),
     r'stickerUrl': PropertySchema(
-      id: 47,
+      id: 60,
       name: r'stickerUrl',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 48,
+      id: 61,
       name: r'tags',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 49,
+      id: 62,
       name: r'text',
       type: IsarType.string,
     ),
     r'textForSearch': PropertySchema(
-      id: 50,
+      id: 63,
       name: r'textForSearch',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 51,
+      id: 64,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 52,
+      id: 65,
       name: r'type',
       type: IsarType.string,
       enumMap: _MessagetypeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 53,
+      id: 66,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'width': PropertySchema(
-      id: 54,
+      id: 67,
       name: r'width',
       type: IsarType.long,
     )
@@ -379,6 +444,18 @@ int _messageEstimateSize(
     }
   }
   {
+    final value = object.actorUserId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.affectedUserIds;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.caption;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -415,6 +492,12 @@ int _messageEstimateSize(
     }
   }
   bytesCount += 3 + object.conversationId.length * 3;
+  {
+    final value = object.eventType;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.faviconUrl;
     if (value != null) {
@@ -482,12 +565,54 @@ int _messageEstimateSize(
     }
   }
   {
+    final value = object.membershipActor;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.membershipAffectedMembers;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.membershipEventType;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.membershipInviteLink;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.membershipMetadata;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.membershipRemovalReason;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.mentions;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
   }
   bytesCount += 3 + object.messageId.length * 3;
+  {
+    final value = object.metadata;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.mimeType;
     if (value != null) {
@@ -609,60 +734,73 @@ void _messageSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.action);
-  writer.writeString(offsets[1], object.caption);
-  writer.writeString(offsets[2], object.contactAvatar);
-  writer.writeString(offsets[3], object.contactEmail);
-  writer.writeString(offsets[4], object.contactId);
-  writer.writeString(offsets[5], object.contactName);
-  writer.writeString(offsets[6], object.contactPhone);
-  writer.writeString(offsets[7], object.conversationId);
-  writer.writeDateTime(offsets[8], object.createdAt);
-  writer.writeLong(offsets[9], object.duration);
-  writer.writeDateTime(offsets[10], object.editedAt);
-  writer.writeDateTime(offsets[11], object.expiresAt);
-  writer.writeString(offsets[12], object.faviconUrl);
-  writer.writeString(offsets[13], object.fileName);
-  writer.writeDouble(offsets[14], object.fileSize);
-  writer.writeString(offsets[15], object.forwardedFromConversationId);
-  writer.writeString(offsets[16], object.forwardedFromMessageId);
-  writer.writeString(offsets[17], object.hashtags);
-  writer.writeLong(offsets[18], object.height);
-  writer.writeBool(offsets[19], object.isAnonymous);
-  writer.writeBool(offsets[20], object.isEdited);
-  writer.writeBool(offsets[21], object.isMultipleChoice);
-  writer.writeBool(offsets[22], object.isPinned);
-  writer.writeString(offsets[23], object.linkDescription);
-  writer.writeString(offsets[24], object.linkImageUrl);
-  writer.writeString(offsets[25], object.linkTitle);
-  writer.writeString(offsets[26], object.linkUrl);
-  writer.writeString(offsets[27], object.localPath);
-  writer.writeString(offsets[28], object.mediaUrl);
-  writer.writeString(offsets[29], object.mentions);
-  writer.writeString(offsets[30], object.messageId);
-  writer.writeLong(offsets[31], object.messageIndex);
-  writer.writeString(offsets[32], object.mimeType);
-  writer.writeString(offsets[33], object.params);
-  writer.writeString(offsets[34], object.pollId);
-  writer.writeString(offsets[35], object.question);
-  writer.writeString(offsets[36], object.quotedMessageId);
-  writer.writeString(offsets[37], object.reactions);
-  writer.writeString(offsets[38], object.repliedToMessageId);
-  writer.writeString(offsets[39], object.senderAvatar);
-  writer.writeString(offsets[40], object.senderId);
-  writer.writeString(offsets[41], object.senderName);
-  writer.writeString(offsets[42], object.siteName);
-  writer.writeString(offsets[43], object.status.name);
-  writer.writeString(offsets[44], object.stickerId);
-  writer.writeString(offsets[45], object.stickerPackId);
-  writer.writeString(offsets[46], object.stickerPackName);
-  writer.writeString(offsets[47], object.stickerUrl);
-  writer.writeString(offsets[48], object.tags);
-  writer.writeString(offsets[49], object.text);
-  writer.writeString(offsets[50], object.textForSearch);
-  writer.writeString(offsets[51], object.thumbnailUrl);
-  writer.writeString(offsets[52], object.type.name);
-  writer.writeDateTime(offsets[53], object.updatedAt);
-  writer.writeLong(offsets[54], object.width);
+  writer.writeString(offsets[1], object.actorUserId);
+  writer.writeString(offsets[2], object.affectedUserIds);
+  writer.writeString(offsets[3], object.caption);
+  writer.writeString(offsets[4], object.contactAvatar);
+  writer.writeString(offsets[5], object.contactEmail);
+  writer.writeString(offsets[6], object.contactId);
+  writer.writeString(offsets[7], object.contactName);
+  writer.writeString(offsets[8], object.contactPhone);
+  writer.writeString(offsets[9], object.conversationId);
+  writer.writeDateTime(offsets[10], object.createdAt);
+  writer.writeLong(offsets[11], object.duration);
+  writer.writeDateTime(offsets[12], object.editedAt);
+  writer.writeDateTime(offsets[13], object.eventTimestamp);
+  writer.writeString(offsets[14], object.eventType);
+  writer.writeDateTime(offsets[15], object.expiresAt);
+  writer.writeString(offsets[16], object.faviconUrl);
+  writer.writeString(offsets[17], object.fileName);
+  writer.writeDouble(offsets[18], object.fileSize);
+  writer.writeString(offsets[19], object.forwardedFromConversationId);
+  writer.writeString(offsets[20], object.forwardedFromMessageId);
+  writer.writeString(offsets[21], object.hashtags);
+  writer.writeLong(offsets[22], object.height);
+  writer.writeBool(offsets[23], object.isAnonymous);
+  writer.writeBool(offsets[24], object.isEdited);
+  writer.writeBool(offsets[25], object.isMultipleChoice);
+  writer.writeBool(offsets[26], object.isPinned);
+  writer.writeString(offsets[27], object.linkDescription);
+  writer.writeString(offsets[28], object.linkImageUrl);
+  writer.writeString(offsets[29], object.linkTitle);
+  writer.writeString(offsets[30], object.linkUrl);
+  writer.writeString(offsets[31], object.localPath);
+  writer.writeString(offsets[32], object.mediaUrl);
+  writer.writeString(offsets[33], object.membershipActor);
+  writer.writeString(offsets[34], object.membershipAffectedMembers);
+  writer.writeString(offsets[35], object.membershipEventType);
+  writer.writeString(offsets[36], object.membershipInviteLink);
+  writer.writeString(offsets[37], object.membershipMetadata);
+  writer.writeLong(offsets[38], object.membershipNewRole);
+  writer.writeLong(offsets[39], object.membershipPreviousRole);
+  writer.writeString(offsets[40], object.membershipRemovalReason);
+  writer.writeString(offsets[41], object.mentions);
+  writer.writeString(offsets[42], object.messageId);
+  writer.writeLong(offsets[43], object.messageIndex);
+  writer.writeString(offsets[44], object.metadata);
+  writer.writeString(offsets[45], object.mimeType);
+  writer.writeString(offsets[46], object.params);
+  writer.writeString(offsets[47], object.pollId);
+  writer.writeString(offsets[48], object.question);
+  writer.writeString(offsets[49], object.quotedMessageId);
+  writer.writeString(offsets[50], object.reactions);
+  writer.writeString(offsets[51], object.repliedToMessageId);
+  writer.writeString(offsets[52], object.senderAvatar);
+  writer.writeString(offsets[53], object.senderId);
+  writer.writeString(offsets[54], object.senderName);
+  writer.writeString(offsets[55], object.siteName);
+  writer.writeString(offsets[56], object.status.name);
+  writer.writeString(offsets[57], object.stickerId);
+  writer.writeString(offsets[58], object.stickerPackId);
+  writer.writeString(offsets[59], object.stickerPackName);
+  writer.writeString(offsets[60], object.stickerUrl);
+  writer.writeString(offsets[61], object.tags);
+  writer.writeString(offsets[62], object.text);
+  writer.writeString(offsets[63], object.textForSearch);
+  writer.writeString(offsets[64], object.thumbnailUrl);
+  writer.writeString(offsets[65], object.type.name);
+  writer.writeDateTime(offsets[66], object.updatedAt);
+  writer.writeLong(offsets[67], object.width);
 }
 
 Message _messageDeserialize(
@@ -673,64 +811,77 @@ Message _messageDeserialize(
 ) {
   final object = Message();
   object.action = reader.readStringOrNull(offsets[0]);
-  object.caption = reader.readStringOrNull(offsets[1]);
-  object.contactAvatar = reader.readStringOrNull(offsets[2]);
-  object.contactEmail = reader.readStringOrNull(offsets[3]);
-  object.contactId = reader.readStringOrNull(offsets[4]);
-  object.contactName = reader.readStringOrNull(offsets[5]);
-  object.contactPhone = reader.readStringOrNull(offsets[6]);
-  object.conversationId = reader.readString(offsets[7]);
-  object.createdAt = reader.readDateTime(offsets[8]);
-  object.duration = reader.readLongOrNull(offsets[9]);
-  object.editedAt = reader.readDateTimeOrNull(offsets[10]);
-  object.expiresAt = reader.readDateTimeOrNull(offsets[11]);
-  object.faviconUrl = reader.readStringOrNull(offsets[12]);
-  object.fileName = reader.readStringOrNull(offsets[13]);
-  object.fileSize = reader.readDoubleOrNull(offsets[14]);
-  object.forwardedFromConversationId = reader.readStringOrNull(offsets[15]);
-  object.forwardedFromMessageId = reader.readStringOrNull(offsets[16]);
-  object.hashtags = reader.readStringOrNull(offsets[17]);
-  object.height = reader.readLongOrNull(offsets[18]);
+  object.actorUserId = reader.readStringOrNull(offsets[1]);
+  object.affectedUserIds = reader.readStringOrNull(offsets[2]);
+  object.caption = reader.readStringOrNull(offsets[3]);
+  object.contactAvatar = reader.readStringOrNull(offsets[4]);
+  object.contactEmail = reader.readStringOrNull(offsets[5]);
+  object.contactId = reader.readStringOrNull(offsets[6]);
+  object.contactName = reader.readStringOrNull(offsets[7]);
+  object.contactPhone = reader.readStringOrNull(offsets[8]);
+  object.conversationId = reader.readString(offsets[9]);
+  object.createdAt = reader.readDateTime(offsets[10]);
+  object.duration = reader.readLongOrNull(offsets[11]);
+  object.editedAt = reader.readDateTimeOrNull(offsets[12]);
+  object.eventTimestamp = reader.readDateTimeOrNull(offsets[13]);
+  object.eventType = reader.readStringOrNull(offsets[14]);
+  object.expiresAt = reader.readDateTimeOrNull(offsets[15]);
+  object.faviconUrl = reader.readStringOrNull(offsets[16]);
+  object.fileName = reader.readStringOrNull(offsets[17]);
+  object.fileSize = reader.readDoubleOrNull(offsets[18]);
+  object.forwardedFromConversationId = reader.readStringOrNull(offsets[19]);
+  object.forwardedFromMessageId = reader.readStringOrNull(offsets[20]);
+  object.hashtags = reader.readStringOrNull(offsets[21]);
+  object.height = reader.readLongOrNull(offsets[22]);
   object.id = id;
-  object.isAnonymous = reader.readBoolOrNull(offsets[19]);
-  object.isEdited = reader.readBool(offsets[20]);
-  object.isMultipleChoice = reader.readBoolOrNull(offsets[21]);
-  object.isPinned = reader.readBool(offsets[22]);
-  object.linkDescription = reader.readStringOrNull(offsets[23]);
-  object.linkImageUrl = reader.readStringOrNull(offsets[24]);
-  object.linkTitle = reader.readStringOrNull(offsets[25]);
-  object.linkUrl = reader.readStringOrNull(offsets[26]);
-  object.localPath = reader.readStringOrNull(offsets[27]);
-  object.mediaUrl = reader.readStringOrNull(offsets[28]);
-  object.mentions = reader.readStringOrNull(offsets[29]);
-  object.messageId = reader.readString(offsets[30]);
-  object.messageIndex = reader.readLong(offsets[31]);
-  object.mimeType = reader.readStringOrNull(offsets[32]);
-  object.params = reader.readStringOrNull(offsets[33]);
-  object.pollId = reader.readStringOrNull(offsets[34]);
-  object.question = reader.readStringOrNull(offsets[35]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[36]);
-  object.reactions = reader.readStringOrNull(offsets[37]);
-  object.repliedToMessageId = reader.readStringOrNull(offsets[38]);
-  object.senderAvatar = reader.readStringOrNull(offsets[39]);
-  object.senderId = reader.readString(offsets[40]);
-  object.senderName = reader.readStringOrNull(offsets[41]);
-  object.siteName = reader.readStringOrNull(offsets[42]);
+  object.isAnonymous = reader.readBoolOrNull(offsets[23]);
+  object.isEdited = reader.readBool(offsets[24]);
+  object.isMultipleChoice = reader.readBoolOrNull(offsets[25]);
+  object.isPinned = reader.readBool(offsets[26]);
+  object.linkDescription = reader.readStringOrNull(offsets[27]);
+  object.linkImageUrl = reader.readStringOrNull(offsets[28]);
+  object.linkTitle = reader.readStringOrNull(offsets[29]);
+  object.linkUrl = reader.readStringOrNull(offsets[30]);
+  object.localPath = reader.readStringOrNull(offsets[31]);
+  object.mediaUrl = reader.readStringOrNull(offsets[32]);
+  object.membershipActor = reader.readStringOrNull(offsets[33]);
+  object.membershipAffectedMembers = reader.readStringOrNull(offsets[34]);
+  object.membershipEventType = reader.readStringOrNull(offsets[35]);
+  object.membershipInviteLink = reader.readStringOrNull(offsets[36]);
+  object.membershipMetadata = reader.readStringOrNull(offsets[37]);
+  object.membershipNewRole = reader.readLongOrNull(offsets[38]);
+  object.membershipPreviousRole = reader.readLongOrNull(offsets[39]);
+  object.membershipRemovalReason = reader.readStringOrNull(offsets[40]);
+  object.mentions = reader.readStringOrNull(offsets[41]);
+  object.messageId = reader.readString(offsets[42]);
+  object.messageIndex = reader.readLong(offsets[43]);
+  object.metadata = reader.readStringOrNull(offsets[44]);
+  object.mimeType = reader.readStringOrNull(offsets[45]);
+  object.params = reader.readStringOrNull(offsets[46]);
+  object.pollId = reader.readStringOrNull(offsets[47]);
+  object.question = reader.readStringOrNull(offsets[48]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[49]);
+  object.reactions = reader.readStringOrNull(offsets[50]);
+  object.repliedToMessageId = reader.readStringOrNull(offsets[51]);
+  object.senderAvatar = reader.readStringOrNull(offsets[52]);
+  object.senderId = reader.readString(offsets[53]);
+  object.senderName = reader.readStringOrNull(offsets[54]);
+  object.siteName = reader.readStringOrNull(offsets[55]);
   object.status =
-      _MessagestatusValueEnumMap[reader.readStringOrNull(offsets[43])] ??
+      _MessagestatusValueEnumMap[reader.readStringOrNull(offsets[56])] ??
           MessageStatus.sending;
-  object.stickerId = reader.readStringOrNull(offsets[44]);
-  object.stickerPackId = reader.readStringOrNull(offsets[45]);
-  object.stickerPackName = reader.readStringOrNull(offsets[46]);
-  object.stickerUrl = reader.readStringOrNull(offsets[47]);
-  object.tags = reader.readStringOrNull(offsets[48]);
-  object.text = reader.readStringOrNull(offsets[49]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[51]);
+  object.stickerId = reader.readStringOrNull(offsets[57]);
+  object.stickerPackId = reader.readStringOrNull(offsets[58]);
+  object.stickerPackName = reader.readStringOrNull(offsets[59]);
+  object.stickerUrl = reader.readStringOrNull(offsets[60]);
+  object.tags = reader.readStringOrNull(offsets[61]);
+  object.text = reader.readStringOrNull(offsets[62]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[64]);
   object.type =
-      _MessagetypeValueEnumMap[reader.readStringOrNull(offsets[52])] ??
+      _MessagetypeValueEnumMap[reader.readStringOrNull(offsets[65])] ??
           MessageType.text;
-  object.updatedAt = reader.readDateTimeOrNull(offsets[53]);
-  object.width = reader.readLongOrNull(offsets[54]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[66]);
+  object.width = reader.readLongOrNull(offsets[67]);
   return object;
 }
 
@@ -756,45 +907,45 @@ P _messageDeserializeProp<P>(
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 11:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 15:
       return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
       return (reader.readStringOrNull(offset)) as P;
     case 17:
       return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 19:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 20:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 22:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 23:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 24:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 25:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 26:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 27:
       return (reader.readStringOrNull(offset)) as P;
     case 28:
@@ -802,9 +953,9 @@ P _messageDeserializeProp<P>(
     case 29:
       return (reader.readStringOrNull(offset)) as P;
     case 30:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 31:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 32:
       return (reader.readStringOrNull(offset)) as P;
     case 33:
@@ -818,18 +969,17 @@ P _messageDeserializeProp<P>(
     case 37:
       return (reader.readStringOrNull(offset)) as P;
     case 38:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 39:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 40:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 41:
       return (reader.readStringOrNull(offset)) as P;
     case 42:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 43:
-      return (_MessagestatusValueEnumMap[reader.readStringOrNull(offset)] ??
-          MessageStatus.sending) as P;
+      return (reader.readLong(offset)) as P;
     case 44:
       return (reader.readStringOrNull(offset)) as P;
     case 45:
@@ -847,11 +997,38 @@ P _messageDeserializeProp<P>(
     case 51:
       return (reader.readStringOrNull(offset)) as P;
     case 52:
+      return (reader.readStringOrNull(offset)) as P;
+    case 53:
+      return (reader.readString(offset)) as P;
+    case 54:
+      return (reader.readStringOrNull(offset)) as P;
+    case 55:
+      return (reader.readStringOrNull(offset)) as P;
+    case 56:
+      return (_MessagestatusValueEnumMap[reader.readStringOrNull(offset)] ??
+          MessageStatus.sending) as P;
+    case 57:
+      return (reader.readStringOrNull(offset)) as P;
+    case 58:
+      return (reader.readStringOrNull(offset)) as P;
+    case 59:
+      return (reader.readStringOrNull(offset)) as P;
+    case 60:
+      return (reader.readStringOrNull(offset)) as P;
+    case 61:
+      return (reader.readStringOrNull(offset)) as P;
+    case 62:
+      return (reader.readStringOrNull(offset)) as P;
+    case 63:
+      return (reader.readStringOrNull(offset)) as P;
+    case 64:
+      return (reader.readStringOrNull(offset)) as P;
+    case 65:
       return (_MessagetypeValueEnumMap[reader.readStringOrNull(offset)] ??
           MessageType.text) as P;
-    case 53:
+    case 66:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 54:
+    case 67:
       return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -883,6 +1060,7 @@ const _MessagetypeEnumValueMap = {
   r'file': r'file',
   r'video': r'video',
   r'system': r'system',
+  r'membership': r'membership',
 };
 const _MessagetypeValueEnumMap = {
   r'text': MessageType.text,
@@ -891,6 +1069,7 @@ const _MessagetypeValueEnumMap = {
   r'file': MessageType.file,
   r'video': MessageType.video,
   r'system': MessageType.system,
+  r'membership': MessageType.membership,
 };
 
 Id _messageGetId(Message object) {
@@ -1633,6 +1812,305 @@ extension MessageQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'action',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'actorUserId',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'actorUserId',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'actorUserId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'actorUserId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'actorUserId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'actorUserId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'actorUserId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'actorUserId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'actorUserId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'actorUserId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> actorUserIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'actorUserId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      actorUserIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'actorUserId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      affectedUserIdsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'affectedUserIds',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      affectedUserIdsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'affectedUserIds',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> affectedUserIdsEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'affectedUserIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      affectedUserIdsGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'affectedUserIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> affectedUserIdsLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'affectedUserIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> affectedUserIdsBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'affectedUserIds',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      affectedUserIdsStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'affectedUserIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> affectedUserIdsEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'affectedUserIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> affectedUserIdsContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'affectedUserIds',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> affectedUserIdsMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'affectedUserIds',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      affectedUserIdsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'affectedUserIds',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      affectedUserIdsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'affectedUserIds',
         value: '',
       ));
     });
@@ -2843,6 +3321,223 @@ extension MessageQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTimestampIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'eventTimestamp',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      eventTimestampIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'eventTimestamp',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTimestampEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'eventTimestamp',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      eventTimestampGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'eventTimestamp',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTimestampLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'eventTimestamp',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTimestampBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'eventTimestamp',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'eventType',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'eventType',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'eventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'eventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'eventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'eventType',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'eventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'eventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'eventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'eventType',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'eventType',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> eventTypeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'eventType',
+        value: '',
       ));
     });
   }
@@ -4823,6 +5518,1080 @@ extension MessageQueryFilter
     });
   }
 
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipActorIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipActor',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipActorIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipActor',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> membershipActorEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipActor',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipActorGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipActor',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> membershipActorLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipActor',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> membershipActorBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipActor',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipActorStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'membershipActor',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> membershipActorEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'membershipActor',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> membershipActorContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'membershipActor',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> membershipActorMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'membershipActor',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipActorIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipActor',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipActorIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'membershipActor',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipAffectedMembers',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipAffectedMembers',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipAffectedMembers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipAffectedMembers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipAffectedMembers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipAffectedMembers',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'membershipAffectedMembers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'membershipAffectedMembers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'membershipAffectedMembers',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'membershipAffectedMembers',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipAffectedMembers',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipAffectedMembersIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'membershipAffectedMembers',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipEventType',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipEventType',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipEventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipEventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipEventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipEventType',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'membershipEventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'membershipEventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'membershipEventType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'membershipEventType',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipEventType',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipEventTypeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'membershipEventType',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipInviteLink',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipInviteLink',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipInviteLink',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipInviteLink',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipInviteLink',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipInviteLink',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'membershipInviteLink',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'membershipInviteLink',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'membershipInviteLink',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'membershipInviteLink',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipInviteLink',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipInviteLinkIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'membershipInviteLink',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipMetadata',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipMetadata',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipMetadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipMetadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipMetadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipMetadata',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'membershipMetadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'membershipMetadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'membershipMetadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'membershipMetadata',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipMetadata',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipMetadataIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'membershipMetadata',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipNewRoleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipNewRole',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipNewRoleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipNewRole',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipNewRoleEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipNewRole',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipNewRoleGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipNewRole',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipNewRoleLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipNewRole',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipNewRoleBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipNewRole',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipPreviousRoleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipPreviousRole',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipPreviousRoleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipPreviousRole',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipPreviousRoleEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipPreviousRole',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipPreviousRoleGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipPreviousRole',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipPreviousRoleLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipPreviousRole',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipPreviousRoleBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipPreviousRole',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'membershipRemovalReason',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'membershipRemovalReason',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipRemovalReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'membershipRemovalReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'membershipRemovalReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'membershipRemovalReason',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'membershipRemovalReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'membershipRemovalReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'membershipRemovalReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'membershipRemovalReason',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'membershipRemovalReason',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition>
+      membershipRemovalReasonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'membershipRemovalReason',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterFilterCondition> mentionsIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -5148,6 +6917,152 @@ extension MessageQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'metadata',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'metadata',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'metadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'metadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'metadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'metadata',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'metadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'metadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'metadata',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'metadata',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'metadata',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> metadataIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'metadata',
+        value: '',
       ));
     });
   }
@@ -8371,6 +10286,30 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> sortByActorUserId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'actorUserId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByActorUserIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'actorUserId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByAffectedUserIds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'affectedUserIds', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByAffectedUserIdsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'affectedUserIds', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> sortByCaption() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'caption', Sort.asc);
@@ -8488,6 +10427,30 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
   QueryBuilder<Message, Message, QAfterSortBy> sortByEditedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'editedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByEventTimestamp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventTimestamp', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByEventTimestampDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventTimestamp', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByEventType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByEventTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventType', Sort.desc);
     });
   }
 
@@ -8710,6 +10673,107 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipActor() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipActor', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipActorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipActor', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      sortByMembershipAffectedMembers() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipAffectedMembers', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      sortByMembershipAffectedMembersDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipAffectedMembers', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipEventType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipEventType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipEventTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipEventType', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipInviteLink() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipInviteLink', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      sortByMembershipInviteLinkDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipInviteLink', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipMetadata() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipMetadata', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipMetadataDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipMetadata', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipNewRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipNewRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipNewRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipNewRole', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipPreviousRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipPreviousRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      sortByMembershipPreviousRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipPreviousRole', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMembershipRemovalReason() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipRemovalReason', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      sortByMembershipRemovalReasonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipRemovalReason', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> sortByMentions() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mentions', Sort.asc);
@@ -8743,6 +10807,18 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
   QueryBuilder<Message, Message, QAfterSortBy> sortByMessageIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'messageIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMetadata() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metadata', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByMetadataDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metadata', Sort.desc);
     });
   }
 
@@ -9037,6 +11113,30 @@ extension MessageQuerySortThenBy
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> thenByActorUserId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'actorUserId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByActorUserIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'actorUserId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByAffectedUserIds() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'affectedUserIds', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByAffectedUserIdsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'affectedUserIds', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> thenByCaption() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'caption', Sort.asc);
@@ -9154,6 +11254,30 @@ extension MessageQuerySortThenBy
   QueryBuilder<Message, Message, QAfterSortBy> thenByEditedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'editedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByEventTimestamp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventTimestamp', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByEventTimestampDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventTimestamp', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByEventType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByEventTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventType', Sort.desc);
     });
   }
 
@@ -9388,6 +11512,107 @@ extension MessageQuerySortThenBy
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipActor() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipActor', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipActorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipActor', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      thenByMembershipAffectedMembers() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipAffectedMembers', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      thenByMembershipAffectedMembersDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipAffectedMembers', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipEventType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipEventType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipEventTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipEventType', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipInviteLink() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipInviteLink', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      thenByMembershipInviteLinkDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipInviteLink', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipMetadata() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipMetadata', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipMetadataDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipMetadata', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipNewRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipNewRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipNewRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipNewRole', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipPreviousRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipPreviousRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      thenByMembershipPreviousRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipPreviousRole', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMembershipRemovalReason() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipRemovalReason', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy>
+      thenByMembershipRemovalReasonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'membershipRemovalReason', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> thenByMentions() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mentions', Sort.asc);
@@ -9421,6 +11646,18 @@ extension MessageQuerySortThenBy
   QueryBuilder<Message, Message, QAfterSortBy> thenByMessageIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'messageIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMetadata() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metadata', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByMetadataDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'metadata', Sort.desc);
     });
   }
 
@@ -9710,6 +11947,21 @@ extension MessageQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Message, Message, QDistinct> distinctByActorUserId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'actorUserId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByAffectedUserIds(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'affectedUserIds',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Message, Message, QDistinct> distinctByCaption(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -9776,6 +12028,19 @@ extension MessageQueryWhereDistinct
   QueryBuilder<Message, Message, QDistinct> distinctByEditedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'editedAt');
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByEventTimestamp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'eventTimestamp');
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByEventType(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'eventType', caseSensitive: caseSensitive);
     });
   }
 
@@ -9901,6 +12166,66 @@ extension MessageQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipActor(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipActor',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipAffectedMembers(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipAffectedMembers',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipEventType(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipEventType',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipInviteLink(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipInviteLink',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipMetadata(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipMetadata',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipNewRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipNewRole');
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipPreviousRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipPreviousRole');
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMembershipRemovalReason(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'membershipRemovalReason',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Message, Message, QDistinct> distinctByMentions(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -9918,6 +12243,13 @@ extension MessageQueryWhereDistinct
   QueryBuilder<Message, Message, QDistinct> distinctByMessageIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'messageIndex');
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByMetadata(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'metadata', caseSensitive: caseSensitive);
     });
   }
 
@@ -10100,6 +12432,18 @@ extension MessageQueryProperty
     });
   }
 
+  QueryBuilder<Message, String?, QQueryOperations> actorUserIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'actorUserId');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations> affectedUserIdsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'affectedUserIds');
+    });
+  }
+
   QueryBuilder<Message, String?, QQueryOperations> captionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'caption');
@@ -10157,6 +12501,18 @@ extension MessageQueryProperty
   QueryBuilder<Message, DateTime?, QQueryOperations> editedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'editedAt');
+    });
+  }
+
+  QueryBuilder<Message, DateTime?, QQueryOperations> eventTimestampProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'eventTimestamp');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations> eventTypeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'eventType');
     });
   }
 
@@ -10270,6 +12626,60 @@ extension MessageQueryProperty
     });
   }
 
+  QueryBuilder<Message, String?, QQueryOperations> membershipActorProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipActor');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations>
+      membershipAffectedMembersProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipAffectedMembers');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations>
+      membershipEventTypeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipEventType');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations>
+      membershipInviteLinkProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipInviteLink');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations>
+      membershipMetadataProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipMetadata');
+    });
+  }
+
+  QueryBuilder<Message, int?, QQueryOperations> membershipNewRoleProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipNewRole');
+    });
+  }
+
+  QueryBuilder<Message, int?, QQueryOperations>
+      membershipPreviousRoleProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipPreviousRole');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations>
+      membershipRemovalReasonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'membershipRemovalReason');
+    });
+  }
+
   QueryBuilder<Message, String?, QQueryOperations> mentionsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'mentions');
@@ -10285,6 +12695,12 @@ extension MessageQueryProperty
   QueryBuilder<Message, int, QQueryOperations> messageIndexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'messageIndex');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations> metadataProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'metadata');
     });
   }
 

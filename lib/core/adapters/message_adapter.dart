@@ -138,9 +138,85 @@ class MessageAdapter {
     if (protoMessage.hasSystemMessage()) {
       final systemMessage = protoMessage.systemMessage;
       message.text = systemMessage.hasText() ? systemMessage.text : null;
-      message.action = systemMessage.hasAction() ? systemMessage.action : null;
+      // 🆕 使用新的eventType字段替代action字段
+      if (systemMessage.hasEventType()) {
+        message.eventType = systemMessage.eventType.name;
+        // 保持向后兼容性
+        message.action = systemMessage.eventType.name;
+      }
       message.params = systemMessage.params.isNotEmpty
           ? jsonEncode(systemMessage.params)
+          : null;
+
+      // 🆕 新增系统事件字段
+      message.affectedUserIds = systemMessage.affectedUserIds.isNotEmpty
+          ? jsonEncode(systemMessage.affectedUserIds)
+          : null;
+      message.actorUserId =
+          systemMessage.hasActorUserId() ? systemMessage.actorUserId : null;
+      message.eventTimestamp = systemMessage.hasEventTimestamp()
+          ? DateTime.fromMillisecondsSinceEpoch(
+              systemMessage.eventTimestamp.toInt())
+          : null;
+      message.metadata = systemMessage.metadata.isNotEmpty
+          ? jsonEncode(systemMessage.metadata)
+          : null;
+    }
+
+    // 🆕 处理成员变动消息
+    if (protoMessage.hasMembershipMessage()) {
+      final membershipMessage = protoMessage.membershipMessage;
+      // 设置成员变动事件类型
+      if (membershipMessage.hasEventType()) {
+        message.membershipEventType = membershipMessage.eventType.name;
+      }
+
+      // 设置操作者信息
+      if (membershipMessage.hasActor()) {
+        final actor = membershipMessage.actor;
+        message.membershipActor = jsonEncode({
+          'userId': actor.hasUserId() ? actor.userId : null,
+          'userName': actor.hasUserName() ? actor.userName : null,
+          'userAvatar': actor.hasUserAvatar() ? actor.userAvatar : null,
+          'role': actor.hasRole() ? actor.role : null,
+          'joinedAt': actor.hasJoinedAt() ? actor.joinedAt.toInt() : null,
+        });
+      }
+
+      // 设置受影响的成员列表
+      if (membershipMessage.affectedMembers.isNotEmpty) {
+        final affectedMembers = membershipMessage.affectedMembers
+            .map((member) => {
+                  'userId': member.hasUserId() ? member.userId : null,
+                  'userName': member.hasUserName() ? member.userName : null,
+                  'userAvatar':
+                      member.hasUserAvatar() ? member.userAvatar : null,
+                  'role': member.hasRole() ? member.role : null,
+                  'joinedAt':
+                      member.hasJoinedAt() ? member.joinedAt.toInt() : null,
+                })
+            .toList();
+        message.membershipAffectedMembers = jsonEncode(affectedMembers);
+      }
+
+      // 设置时间戳和角色变更信息
+      message.eventTimestamp = membershipMessage.hasEventTimestamp()
+          ? DateTime.fromMillisecondsSinceEpoch(
+              membershipMessage.eventTimestamp.toInt())
+          : null;
+      message.membershipPreviousRole = membershipMessage.hasPreviousRole()
+          ? membershipMessage.previousRole
+          : null;
+      message.membershipNewRole =
+          membershipMessage.hasNewRole() ? membershipMessage.newRole : null;
+      message.membershipRemovalReason = membershipMessage.hasRemovalReason()
+          ? membershipMessage.removalReason
+          : null;
+      message.membershipInviteLink = membershipMessage.hasInviteLink()
+          ? membershipMessage.inviteLink
+          : null;
+      message.membershipMetadata = membershipMessage.metadata.isNotEmpty
+          ? jsonEncode(membershipMessage.metadata)
           : null;
     }
 
@@ -299,12 +375,123 @@ class MessageAdapter {
       case MessageType.system:
         final systemMessage = proto.SystemMessage();
         if (message.text != null) systemMessage.text = message.text!;
-        if (message.action != null) systemMessage.action = message.action!;
+
+        // 🆕 使用新的eventType字段
+        if (message.eventType != null) {
+          try {
+            // 将字符串转换为SystemEventType枚举
+            final eventType = proto.SystemEventType.values.firstWhere(
+              (e) => e.name == message.eventType,
+              orElse: () => proto.SystemEventType.CONVERSATION_CREATED,
+            );
+            systemMessage.eventType = eventType;
+          } catch (e) {
+            // 如果解析失败，使用默认值
+            systemMessage.eventType =
+                proto.SystemEventType.CONVERSATION_CREATED;
+          }
+        }
+
         if (message.params != null) {
           final paramsMap = _parseJsonMapStringString(message.params!);
           systemMessage.params.addAll(paramsMap);
         }
+
+        // 🆕 新增系统事件字段
+        if (message.affectedUserIds != null) {
+          final affectedUserIds =
+              _parseJsonStringList(message.affectedUserIds!);
+          systemMessage.affectedUserIds.addAll(affectedUserIds);
+        }
+        if (message.actorUserId != null) {
+          systemMessage.actorUserId = message.actorUserId!;
+        }
+        if (message.eventTimestamp != null) {
+          systemMessage.eventTimestamp =
+              Int64(message.eventTimestamp!.millisecondsSinceEpoch);
+        }
+        if (message.metadata != null) {
+          final metadataMap = _parseJsonMapStringString(message.metadata!);
+          systemMessage.metadata.addAll(metadataMap);
+        }
+
         protoMessage.systemMessage = systemMessage;
+        break;
+
+      case MessageType.membership:
+        // 🆕 处理成员变动消息
+        final membershipMessage = proto.MembershipMessage();
+
+        // 设置事件类型
+        if (message.membershipEventType != null) {
+          try {
+            final eventType = proto.SystemEventType.values.firstWhere(
+              (e) => e.name == message.membershipEventType,
+              orElse: () => proto.SystemEventType.MEMBER_JOINED,
+            );
+            membershipMessage.eventType = eventType;
+          } catch (e) {
+            membershipMessage.eventType = proto.SystemEventType.MEMBER_JOINED;
+          }
+        }
+
+        // 设置操作者信息
+        if (message.membershipActor != null) {
+          final actorMap = _parseJsonMapStringDynamic(message.membershipActor!);
+          final actor = proto.MemberInfo(
+            userId: actorMap['userId']?.toString(),
+            userName: actorMap['userName']?.toString(),
+            userAvatar: actorMap['userAvatar']?.toString(),
+            role: actorMap['role'] as int?,
+            joinedAt: actorMap['joinedAt'] != null
+                ? Int64(actorMap['joinedAt'] as int)
+                : null,
+          );
+          membershipMessage.actor = actor;
+        }
+
+        // 设置受影响的成员列表
+        if (message.membershipAffectedMembers != null) {
+          final membersData = _parseJsonListMapStringDynamic(
+              message.membershipAffectedMembers!);
+          final members = membersData
+              .map((memberMap) => proto.MemberInfo(
+                    userId: memberMap['userId']?.toString(),
+                    userName: memberMap['userName']?.toString(),
+                    userAvatar: memberMap['userAvatar']?.toString(),
+                    role: memberMap['role'] as int?,
+                    joinedAt: memberMap['joinedAt'] != null
+                        ? Int64(memberMap['joinedAt'] as int)
+                        : null,
+                  ))
+              .toList();
+          membershipMessage.affectedMembers.addAll(members);
+        }
+
+        // 设置时间戳和角色变更信息
+        if (message.eventTimestamp != null) {
+          membershipMessage.eventTimestamp =
+              Int64(message.eventTimestamp!.millisecondsSinceEpoch);
+        }
+        if (message.membershipPreviousRole != null) {
+          membershipMessage.previousRole = message.membershipPreviousRole!;
+        }
+        if (message.membershipNewRole != null) {
+          membershipMessage.newRole = message.membershipNewRole!;
+        }
+        if (message.membershipRemovalReason != null) {
+          membershipMessage.removalReason = message.membershipRemovalReason!;
+        }
+        if (message.membershipInviteLink != null) {
+          membershipMessage.inviteLink = message.membershipInviteLink!;
+        }
+        if (message.membershipMetadata != null) {
+          final metadataMap =
+              _parseJsonMapStringString(message.membershipMetadata!);
+          membershipMessage.metadata.addAll(metadataMap);
+        }
+
+        protoMessage.membershipMessage = membershipMessage;
         break;
     }
   }
@@ -334,6 +521,8 @@ class MessageAdapter {
         return MessageType.file;
       case proto.MessageType.SYSTEM:
         return MessageType.system;
+      case proto.MessageType.MEMBERSHIP:
+        return MessageType.membership;
       default:
         return MessageType.text;
     }
@@ -354,6 +543,8 @@ class MessageAdapter {
         return proto.MessageType.FILE;
       case MessageType.system:
         return proto.MessageType.SYSTEM;
+      case MessageType.membership:
+        return proto.MessageType.MEMBERSHIP;
     }
   }
 
@@ -435,6 +626,26 @@ class MessageAdapter {
       return map.map((key, value) => MapEntry(key, value.toString()));
     } catch (e) {
       return {};
+    }
+  }
+
+  /// 🆕 解析JSON字符串为Map<String, dynamic>
+  static Map<String, dynamic> _parseJsonMapStringDynamic(String jsonString) {
+    try {
+      return Map<String, dynamic>.from(jsonDecode(jsonString));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /// 🆕 解析JSON字符串为List<Map<String, dynamic>>
+  static List<Map<String, dynamic>> _parseJsonListMapStringDynamic(
+      String jsonString) {
+    try {
+      final List<dynamic> list = jsonDecode(jsonString);
+      return list.cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
     }
   }
 }

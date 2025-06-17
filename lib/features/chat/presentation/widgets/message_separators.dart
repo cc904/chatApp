@@ -41,33 +41,25 @@ class DateSeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16.0),
-      child: Row(
-        children: [
-          const Expanded(child: Divider()),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 6.0,
-              ),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
               decoration: BoxDecoration(
-                color: Colors.grey[200],
+            color: const Color(0xFFE7F3E7), // 使用和系统消息相同的淡绿色
                 borderRadius: BorderRadius.circular(16.0),
               ),
               child: Text(
                 _formatDate(date),
                 style: TextStyle(
-                  fontSize: 12.0,
+              fontSize: 11.0, // 和系统消息相同的字体大小
                   color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              fontStyle: FontStyle.normal, // 和系统消息相同的字体样式
             ),
+            textAlign: TextAlign.center,
           ),
-          const Expanded(child: Divider()),
-        ],
+        ),
       ),
     );
   }

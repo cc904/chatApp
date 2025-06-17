@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart'
@@ -14,52 +13,47 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 
-/// 创建群聊页面
-/// 设置群聊信息：头像、名称、设置等
-class CreateGroupPage extends StatefulWidget {
-  /// 选中的群成员
-  final List<User> selectedMembers;
-
-  const CreateGroupPage({
-    super.key,
-    required this.selectedMembers,
-  });
+/// 创建频道页面
+/// 设置频道信息：名称、描述、头像等
+class CreateChannelPage extends StatefulWidget {
+  const CreateChannelPage({super.key});
 
   @override
-  State<CreateGroupPage> createState() => _CreateGroupPageState();
+  State<CreateChannelPage> createState() => _CreateChannelPageState();
 }
 
-class _CreateGroupPageState extends State<CreateGroupPage> {
+class _CreateChannelPageState extends State<CreateChannelPage> {
   final _logger = LogService.instance;
-  final TextEditingController _groupNameController = TextEditingController();
-  final FocusNode _groupNameFocusNode = FocusNode();
+  final TextEditingController _channelNameController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final FocusNode _channelNameFocusNode = FocusNode();
+  final FocusNode _descriptionFocusNode = FocusNode();
   final CommunicationService _communicationService = CommunicationService();
   final SecureStorageService _secureStorage = SecureStorageService.instance;
 
-  bool _autoDeleteMessages = false;
-  String? _groupAvatarPath;
+  String? _channelAvatarPath;
   bool _isCreating = false;
   CurrentUser? _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _initializeUserAndGroupName();
+    _initializeUserAndChannelName();
   }
 
-  /// 初始化当前用户信息并设置默认群名
-  Future<void> _initializeUserAndGroupName() async {
+  /// 初始化当前用户信息并设置默认频道名
+  Future<void> _initializeUserAndChannelName() async {
     try {
       // 获取当前用户信息
       _currentUser = await _secureStorage.getFullUserInfo();
 
-      // 设置默认群名：XXX(创建者)的群
+      // 设置默认频道名：XXX(创建者)的频道
       if (_currentUser != null) {
         final creatorName = _truncateText(_currentUser!.name, 4); // 创建者名称限制4个字符
-        _groupNameController.text = '$creatorName的群';
+        _channelNameController.text = '$creatorName的频道';
       } else {
         // 如果无法获取当前用户信息，使用备用方案
-        _groupNameController.text = '新群聊';
+        _channelNameController.text = '新频道';
       }
 
       if (mounted) {
@@ -67,8 +61,8 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       }
     } catch (e) {
       _logger.e('初始化用户信息失败', error: e);
-      // 使用备用群名
-      _groupNameController.text = '新群聊';
+      // 使用备用频道名
+      _channelNameController.text = '新频道';
       if (mounted) {
         setState(() {});
       }
@@ -85,15 +79,16 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
   @override
   void dispose() {
-    _groupNameController.dispose();
-    _groupNameFocusNode.dispose();
+    _channelNameController.dispose();
+    _descriptionController.dispose();
+    _channelNameFocusNode.dispose();
+    _descriptionFocusNode.dispose();
     super.dispose();
   }
 
-  /// 选择群头像
-  void _selectGroupAvatar() {
-    // TODO: 实现头像选择功能
-    _logger.i('选择群头像');
+  /// 选择频道头像
+  void _selectChannelAvatar() {
+    _logger.i('选择频道头像');
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -123,19 +118,19 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     );
   }
 
-  /// 创建群聊
-  void _createGroup() async {
-    final groupName = _groupNameController.text.trim();
-    if (groupName.isEmpty) {
+  /// 创建频道
+  void _createChannel() async {
+    final channelName = _channelNameController.text.trim();
+    if (channelName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入群聊名称')),
+        const SnackBar(content: Text('请输入频道名称')),
       );
       return;
     }
 
-    if (groupName.length > 8) {
+    if (channelName.length > 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('群聊名称不能超过8个字符')),
+        const SnackBar(content: Text('频道名称不能超过8个字符')),
       );
       return;
     }
@@ -147,11 +142,10 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     });
 
     try {
-      _logger.i('创建群聊', extra: {
-        'groupName': groupName,
-        'memberCount': widget.selectedMembers.length,
-        'autoDeleteMessages': _autoDeleteMessages,
-        'hasAvatar': _groupAvatarPath != null,
+      _logger.i('创建频道', extra: {
+        'channelName': channelName,
+        'description': _descriptionController.text.trim(),
+        'hasAvatar': _channelAvatarPath != null,
       });
 
       // 检查通信服务是否可用
@@ -160,21 +154,19 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         throw Exception('网络连接不可用，请检查网络状态');
       }
 
-      // 构建群聊创建请求
+      // 构建频道创建请求
       final createRequest = conversation_proto.ConversationCreateRequest()
-        ..name = groupName
-        ..type = conversation_proto.ConversationType.GROUP
-        ..participantIds.addAll(widget.selectedMembers.map((m) => m.userId));
+        ..name = channelName
+        ..type = conversation_proto.ConversationType.CHANNEL;
 
       // 设置头像（如果有）
-      if (_groupAvatarPath != null && _groupAvatarPath!.isNotEmpty) {
-        createRequest.avatar = _groupAvatarPath!;
+      if (_channelAvatarPath != null && _channelAvatarPath!.isNotEmpty) {
+        createRequest.avatar = _channelAvatarPath!;
       }
 
-      _logger.d('发送创建群聊请求', extra: {
-        'groupName': groupName,
-        'participantCount': widget.selectedMembers.length,
-        'participantIds': widget.selectedMembers.map((m) => m.userId).toList(),
+      _logger.d('发送创建频道请求', extra: {
+        'channelName': channelName,
+        'description': _descriptionController.text.trim(),
       });
 
       // 发送创建请求到服务器
@@ -182,7 +174,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
           'conversation:create', createRequest);
 
       if (!success) {
-        throw Exception('发送创建群聊请求失败');
+        throw Exception('发送创建频道请求失败');
       }
 
       // 等待服务器响应
@@ -193,7 +185,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
           .first;
 
       if (!response.success) {
-        throw Exception('创建群聊失败: ${response.message}');
+        throw Exception('创建频道失败: ${response.message}');
       }
 
       if (!response.hasConversation()) {
@@ -201,16 +193,16 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       }
 
       final conversationId = response.conversation.conversationId;
-      _logger.i('群聊创建成功', extra: {
+      _logger.i('频道创建成功', extra: {
         'conversationId': conversationId,
-        'groupName': groupName,
+        'channelName': channelName,
       });
 
       if (mounted) {
         // 显示成功提示
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('群聊"$groupName"创建成功'),
+            content: Text('频道"$channelName"创建成功'),
             backgroundColor: Colors.green,
           ),
         );
@@ -231,24 +223,24 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
           );
 
           // 🆕 重要：保存会话到本地数据库
-          _logger.i('保存新创建的群聊到本地数据库', extra: {
+          _logger.i('保存新创建的频道到本地数据库', extra: {
             'conversationId': conversationId,
-            'groupName': groupName,
+            'channelName': channelName,
           });
 
           // 直接保存服务器返回的会话数据到本地数据库
           try {
             await chatsRepository.saveConversation(conversation);
-            _logger.i('群聊已保存到本地数据库');
+            _logger.i('频道已保存到本地数据库');
           } catch (e) {
-            _logger.w('保存群聊到本地数据库失败，但创建成功: $e');
+            _logger.w('保存频道到本地数据库失败，但创建成功: $e');
             // 即使保存失败，我们也继续进入聊天页面，因为服务器端已经创建成功
           }
 
-          // 关闭所有相关页面并直接进入群聊会话
+          // 关闭所有相关页面并直接进入频道会话
           navigator.popUntil((route) => route.isFirst);
 
-          // 进入群聊会话页面，提供必要的依赖
+          // 进入频道会话页面，提供必要的依赖
           navigator.push(
             MaterialPageRoute(
               builder: (context) => MultiRepositoryProvider(
@@ -283,12 +275,12 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         }
       }
     } catch (error) {
-      _logger.e('创建群聊失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('创建频道失败', error: error, stackTrace: StackTrace.current);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('创建群聊失败: ${error.toString()}'),
+            content: Text('创建频道失败: ${error.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -305,15 +297,25 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('New Group'),
+        backgroundColor: Colors.grey[50],
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Create Channel',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: _isCreating ? null : _createGroup,
+            onPressed: _isCreating ? null : _createChannel,
             child: _isCreating
                 ? const SizedBox(
                     width: 16,
@@ -324,7 +326,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     ),
                   )
                 : const Text(
-                    'Create',
+                    'Next',
                     style: TextStyle(
                       color: Colors.blue,
                       fontSize: 16,
@@ -337,38 +339,35 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 群头像和名称设置区域
-            _buildGroupInfoSection(),
+            // 频道信息设置区域
+            _buildChannelInfoSection(),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // 自动删除消息设置
-            _buildAutoDeleteSection(),
-
-            const SizedBox(height: 24),
-
-            // 群成员列表
-            _buildMembersSection(),
+            // 频道描述设置区域
+            _buildDescriptionSection(),
           ],
         ),
       ),
     );
   }
 
-  /// 构建群信息设置区域
-  Widget _buildGroupInfoSection() {
+  /// 构建频道信息设置区域
+  Widget _buildChannelInfoSection() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
       ),
       child: Row(
         children: [
-          // 群头像
+          // 频道头像
           GestureDetector(
-            onTap: _selectGroupAvatar,
+            onTap: _selectChannelAvatar,
             child: Container(
               width: 80,
               height: 80,
@@ -376,10 +375,10 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                 color: Colors.blue[100],
                 shape: BoxShape.circle,
               ),
-              child: _groupAvatarPath != null
+              child: _channelAvatarPath != null
                   ? ClipOval(
                       child: Image.asset(
-                        _groupAvatarPath!,
+                        _channelAvatarPath!,
                         fit: BoxFit.cover,
                       ),
                     )
@@ -393,16 +392,16 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
           const SizedBox(width: 16),
 
-          // 群名称输入框
+          // 频道名称输入框
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
-                  controller: _groupNameController,
-                  focusNode: _groupNameFocusNode,
+                  controller: _channelNameController,
+                  focusNode: _channelNameFocusNode,
                   decoration: const InputDecoration(
-                    hintText: '群聊名称',
+                    hintText: 'Channel Name',
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -410,7 +409,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),
-                  maxLength: 8, // 限制群聊名称长度为8个字符
+                  maxLength: 8, // 限制频道名称长度为8个字符
                   onChanged: (value) {
                     setState(() {}); // 更新清除按钮的显示状态
                   },
@@ -427,25 +426,16 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     );
                   },
                 ),
-
-                // 显示成员数量
-                Text(
-                  '${widget.selectedMembers.length} members',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
               ],
             ),
           ),
 
           // 清除按钮
-          if (_groupNameController.text.isNotEmpty)
+          if (_channelNameController.text.isNotEmpty)
             IconButton(
               icon: Icon(Icons.clear, color: Colors.grey[600]),
               onPressed: () {
-                _groupNameController.clear();
+                _channelNameController.clear();
                 setState(() {});
               },
             ),
@@ -454,8 +444,8 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     );
   }
 
-  /// 构建自动删除消息设置区域
-  Widget _buildAutoDeleteSection() {
+  /// 构建频道描述设置区域
+  Widget _buildDescriptionSection() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -466,169 +456,30 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Auto-Delete Messages',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Automatically delete messages in this group for everyone after a period of time.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _autoDeleteMessages,
-                onChanged: (value) {
-                  setState(() {
-                    _autoDeleteMessages = value;
-                  });
-                },
-              ),
-            ],
-          ),
-
-          // 当开启自动删除时显示更多选项
-          if (_autoDeleteMessages) ...[
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            Text(
-              'Delete after:',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                _buildTimeOption('24 hours'),
-                _buildTimeOption('7 days'),
-                _buildTimeOption('90 days'),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// 构建时间选项按钮
-  Widget _buildTimeOption(String time) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue[200]!),
-      ),
-      child: Text(
-        time,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.blue[700],
-        ),
-      ),
-    );
-  }
-
-  /// 构建群成员列表区域
-  Widget _buildMembersSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Members (${widget.selectedMembers.length})',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+          const Text(
+            'Description',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
             ),
           ),
-
-          const Divider(height: 1),
-
-          // 成员列表
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.selectedMembers.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final member = widget.selectedMembers[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.grey[300],
-                  backgroundImage: member.avatar?.isNotEmpty == true
-                      ? NetworkImage(member.avatar!)
-                      : null,
-                  child: member.avatar?.isEmpty != false
-                      ? Text(
-                          member.name.isNotEmpty
-                              ? member.name[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        )
-                      : null,
-                ),
-                title: Text(
-                  member.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                subtitle: member.status?.isNotEmpty == true
-                    ? Text(
-                        member.status!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      )
-                    : Text(
-                        'last seen a long time ago',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                trailing: IconButton(
-                  icon: Icon(Icons.close, color: Colors.grey[600]),
-                  onPressed: () {
-                    setState(() {
-                      widget.selectedMembers.removeAt(index);
-                    });
-                  },
-                ),
-              );
-            },
+          const SizedBox(height: 8),
+          TextField(
+            controller: _descriptionController,
+            focusNode: _descriptionFocusNode,
+            decoration: const InputDecoration(
+              hintText:
+                  'You can provide an optional description for your channel.',
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+            maxLines: 3,
+            maxLength: 200,
           ),
         ],
       ),

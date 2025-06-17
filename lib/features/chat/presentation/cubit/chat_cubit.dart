@@ -123,7 +123,6 @@ class ChatCubit extends Cubit<ChatState> {
     } catch (error) {
       _logger.e('初始同步失败', error: error);
       emit(state.copyWith(
-        isSyncing: false,
         errorMessage: '同步失败: ${error.toString()}',
       ));
     }
@@ -134,10 +133,6 @@ class ChatCubit extends Cubit<ChatState> {
     if (isClosed) return;
 
     // 🔄 第一步：设置同步状态（Index方案无需时间戳）
-    emit(state.copyWith(
-      isSyncing: true,
-    ));
-
     try {
       final messages = await _chatRepository.getMessagesByAnchorMessageIndex(
           _conversationId,
@@ -151,10 +146,8 @@ class ChatCubit extends Cubit<ChatState> {
             'messageCount': messages.length,
           },
           stackTrace: StackTrace.current);
-
-      emit(state.copyWith(messages: messages, isSyncing: false));
+      emit(state.copyWith(messages: messages));
     } catch (error) {
-      emit(state.copyWith(isSyncing: false));
       _logger.e('初始化消息列表失败', error: error);
     }
   }
@@ -288,7 +281,6 @@ class ChatCubit extends Cubit<ChatState> {
       // 🔧 修复：离开会话时重置同步状态
       if (!isClosed) {
         emit(state.copyWith(
-          isSyncing: false,
           pendingMessages: [], // 清空暂存消息
         ));
       }
@@ -316,7 +308,7 @@ class ChatCubit extends Cubit<ChatState> {
       _logger.e('离开会话失败', error: error);
       // 即使出错也要重置同步状态
       if (!isClosed) {
-        emit(state.copyWith(isSyncing: false, pendingMessages: []));
+        emit(state.copyWith(pendingMessages: []));
       }
     }
   }
@@ -328,22 +320,37 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
+    // 💢💢💢 修复：过滤掉日期分隔符的位置，只保留消息位置
+    // 由于processedItems包含日期分隔符，我们需要找到真正的消息索引
+    final validMessagePositions = positions.where((pos) {
+      // 检查当前索引对应的是否为消息项（而非日期分隔符）
+      // 这需要根据MessageListProcessor的逻辑来判断
+      return _isMessagePosition(pos.index);
+    }).toList();
+
+    if (validMessagePositions.isEmpty) {
+      return;
+    }
+
     // 获取所有有效位置并按索引排序
-    final sortedPositions = positions.toList()
+    final sortedPositions = validMessagePositions
       ..sort((a, b) => b.index.compareTo(a.index));
 
     // 选择屏幕中央的消息作为锚点
     final centerPosition = sortedPositions.firstWhere(
       (pos) => pos.itemLeadingEdge <= 0.5 && pos.itemTrailingEdge >= 0.5,
-      orElse: () => positions.first,
+      orElse: () => validMessagePositions.first,
     );
 
     int isDown = 0;
 
+    // 💢💢💢 将processedItems索引转换为messages索引
+    final messageIndex =
+        _convertProcessedIndexToMessageIndex(centerPosition.index);
+
     // 💢💢💢 双重检查索引有效性
-    if (centerPosition.index >= 0 &&
-        centerPosition.index < state.messages.length) {
-      final message = state.messages[centerPosition.index];
+    if (messageIndex >= 0 && messageIndex < state.messages.length) {
+      final message = state.messages[messageIndex];
       final currentScrollPosition = CurrentScrollPosition.fromAnchor(
         messageId: message.messageId,
         messageIndex: message.messageIndex,
@@ -368,10 +375,9 @@ class ChatCubit extends Cubit<ChatState> {
         !state.isSyncing &&
         !state.isLoadingMessages &&
         !state.isLoadingMoreMessages &&
-        state.messages.length > 50 &&
+        // state.messages.length > 50 &&
         state.messages.isNotEmpty) {
       // 搜索模式、清理消息、同步中或正在加载时不触发
-      // 💢💢💢 传递滚动方向给检查方法
       _checkAndLoadMoreMessages(sortedPositions, isDown);
     }
 
@@ -379,13 +385,101 @@ class ChatCubit extends Cubit<ChatState> {
     _updateReadStatus(sortedPositions);
   }
 
+  /// 💢💢💢 检查位置是否对应消息项（而非日期分隔符）
+  bool _isMessagePosition(int processedIndex) {
+    // 根据MessageListProcessor的逻辑，我们需要计算有多少个日期分隔符在此索引之前
+    // 一个简单的方法是检查processedItems，但这里我们使用更直接的方法
+
+    // 如果没有消息，则肯定不是消息位置
+    if (state.messages.isEmpty) return false;
+
+    // 根据MessageListProcessor的逻辑：
+    // - 消息和日期分隔符交替出现
+    // - 对于每个日期组，消息在前，日期分隔符在后
+    // 所以我们可以通过计算消息数量来判断
+
+    final messageCount = state.messages.length;
+    // 根据MessageListProcessor的实现，每个日期组都会有一个分隔符
+    // 但这个计算比较复杂，我们采用更直接的方法
+
+    // 先估算：如果索引超过了消息数量的两倍，肯定有问题
+    if (processedIndex >= messageCount * 2) return false;
+
+    // 将processedIndex转换为messageIndex，看是否有效
+    final messageIndex = _convertProcessedIndexToMessageIndex(processedIndex);
+    return messageIndex >= 0 && messageIndex < messageCount;
+  }
+
+  /// 💢💢💢 将processedItems索引转换为messages索引
+  int _convertProcessedIndexToMessageIndex(int processedIndex) {
+    if (state.messages.isEmpty) return -1;
+
+    // 💢💢💢 新策略：根据MessageListProcessor的逻辑重新计算
+    // 我们知道processedItems包含消息和日期分隔符
+    // 直接模拟MessageListProcessor.processMessages的逻辑
+
+    int currentProcessedIndex = 0;
+
+    for (int messageIndex = 0;
+        messageIndex < state.messages.length;
+        messageIndex++) {
+      // 当前消息对应的processed index
+      if (currentProcessedIndex == processedIndex) {
+        return messageIndex;
+      }
+
+      currentProcessedIndex++; // 消息本身占用一个位置
+
+      // 检查是否需要插入日期分隔符（复制MessageListProcessor的逻辑）
+      final message = state.messages[messageIndex];
+      final currentMessageDate = DateTime(
+        message.createdAt.year,
+        message.createdAt.month,
+        message.createdAt.day,
+      );
+
+      // 查看下一条消息的日期
+      if (messageIndex + 1 < state.messages.length) {
+        final nextMessage = state.messages[messageIndex + 1];
+        final nextMessageDate = DateTime(
+          nextMessage.createdAt.year,
+          nextMessage.createdAt.month,
+          nextMessage.createdAt.day,
+        );
+
+        // 如果下一条消息的日期不同，则在当前消息后插入日期分隔符
+        if (currentMessageDate != nextMessageDate) {
+          currentProcessedIndex++; // 日期分隔符占用一个位置
+        }
+      } else {
+        // 这是最后一条消息（最旧的消息），总是添加日期分隔符
+        currentProcessedIndex++; // 日期分隔符占用一个位置
+      }
+    }
+
+    return -1; // 无效索引
+  }
+
   /// 💢💢💢 新增：检查并加载更多消息
   void _checkAndLoadMoreMessages(
       List<ItemPosition> sortedPositions, int isDown) {
+    // 💢💢💢 修复：转换索引后再访问messages
+    final firstMessageIndex =
+        _convertProcessedIndexToMessageIndex(sortedPositions.first.index);
+    final lastMessageIndex =
+        _convertProcessedIndexToMessageIndex(sortedPositions.last.index);
+
+    if (firstMessageIndex < 0 ||
+        lastMessageIndex < 0 ||
+        firstMessageIndex >= state.messages.length ||
+        lastMessageIndex >= state.messages.length) {
+      return; // 索引无效，直接返回
+    }
+
     final firstVisibleMessageIndex =
-        state.messages[sortedPositions.first.index].messageIndex;
+        state.messages[firstMessageIndex].messageIndex;
     final lastVisibleMessageIndex =
-        state.messages[sortedPositions.last.index].messageIndex;
+        state.messages[lastMessageIndex].messageIndex;
 
     // 会话的消息索引范围 messages.first 最新消息 messages.last 最晚消息
     final messagesUpIndex = state.messages.last.messageIndex;
@@ -396,9 +490,11 @@ class ChatCubit extends Cubit<ChatState> {
       if (firstVisibleMessageIndex - 10 < messagesUpIndex &&
           messagesUpIndex > state.conversation.firstMessageIndex) {
         _logger.w('加载消息up', extra: {"messageIndex": firstVisibleMessageIndex});
-        _chatRepository.requestMoreMessages(
+         _chatRepository.loadMoreMessages(
           _conversationId,
-          messageIndex: messagesUpIndex,
+          messagesUpIndex,
+          state.conversation.firstMessageIndex,
+          state.conversation.lastMessageIndex,
           isBefore: true, // 获取历史消息
         );
       }
@@ -406,9 +502,11 @@ class ChatCubit extends Cubit<ChatState> {
       if (lastVisibleMessageIndex + 10 > messagesDownIndex &&
           messagesDownIndex < state.conversation.lastMessageIndex) {
         _logger.w('加载消息down', extra: {"messageIndex": lastVisibleMessageIndex});
-        _chatRepository.requestMoreMessages(
+        _chatRepository.loadMoreMessages(
           _conversationId,
-          messageIndex: messagesDownIndex,
+          messagesDownIndex,
+          state.conversation.firstMessageIndex,
+          state.conversation.lastMessageIndex,
           isBefore: false, // 获取更新的消息
         );
       }
@@ -1410,12 +1508,18 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 💢💢💢 新增：更新已读状态（独立方法）
   void _updateReadStatus(List<ItemPosition> sortedPositions) {
-    // 最新可见消息（索引最大）
+    if (sortedPositions.isEmpty) return;
+
+    // 💢💢💢 修复：转换索引后再访问messages
     final lastPosition = sortedPositions.last;
-    final lastShowMessage =
-        (lastPosition.index >= 0 && lastPosition.index < state.messages.length)
-            ? state.messages[lastPosition.index]
-            : null;
+    final lastMessageIndex =
+        _convertProcessedIndexToMessageIndex(lastPosition.index);
+
+    if (lastMessageIndex < 0 || lastMessageIndex >= state.messages.length) {
+      return; // 索引无效，直接返回
+    }
+
+    final lastShowMessage = state.messages[lastMessageIndex];
 
     // 💢💢💢 修复：通过currentUser获取participant，添加空值检查
     final currentUserId = _currentUser.userId;
@@ -1431,8 +1535,7 @@ class ChatCubit extends Cubit<ChatState> {
 
     final lastReadMessageIndex = participant.lastReadMessageIndex;
 
-    if (lastShowMessage != null &&
-        lastShowMessage.messageIndex > lastReadMessageIndex) {
+    if (lastShowMessage.messageIndex > lastReadMessageIndex) {
       _chatsRepository.updateParticipantSettings(
         _conversationId,
         readMessageIndex: lastShowMessage.messageIndex,

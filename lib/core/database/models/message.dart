@@ -37,6 +37,7 @@ enum MessageType {
   file,
   video,
   system,
+  membership, // 新增：成员变动消息类型
 }
 
 /*
@@ -228,8 +229,25 @@ class Message {
   String? hashtags; // #话题标签列表（JSON格式存储 List<String>）
 
   // 系统消息相关字段
-  String? action; // 系统消息动作类型
+  String? action; // 系统消息动作类型 (已废弃，使用eventType替代)
   String? params; // 系统消息参数（JSON格式存储 Map<String, String>）
+
+  // 🆕 新增系统事件字段 - 对应SystemEventType
+  String? eventType; // 系统事件类型，对应SystemEventType枚举值
+  String? affectedUserIds; // 受影响的用户ID列表（JSON格式存储 List<String>）
+  String? actorUserId; // 执行操作的用户ID
+  DateTime? eventTimestamp; // 事件发生时间戳
+  String? metadata; // 额外元数据（JSON格式存储 Map<String, String>）
+
+  // 🆕 新增成员变动消息字段 - 对应MembershipMessage
+  String? membershipEventType; // 成员事件类型，对应SystemEventType枚举值
+  String? membershipActor; // 执行操作的用户信息（JSON格式存储 MemberInfo）
+  String? membershipAffectedMembers; // 受影响的成员列表（JSON格式存储 List<MemberInfo>）
+  int? membershipPreviousRole; // 变更前的角色（对应MemberRole）
+  int? membershipNewRole; // 变更后的角色（对应MemberRole）
+  String? membershipRemovalReason; // 移除原因
+  String? membershipInviteLink; // 邀请链接
+  String? membershipMetadata; // 成员变动元数据（JSON格式存储 Map<String, String>）
 
   // 表情包消息字段
   String? stickerId;
@@ -382,6 +400,85 @@ class Message {
   set paramsMap(Map<String, String> value) {
     params = jsonEncode(value);
   }
+
+  // 🆕 新增字段的JSON转换辅助方法
+  @ignore
+  List<String> get affectedUserIdsList {
+    if (affectedUserIds == null) return [];
+    try {
+      return List<String>.from(jsonDecode(affectedUserIds!));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  set affectedUserIdsList(List<String> value) {
+    affectedUserIds = jsonEncode(value);
+  }
+
+  @ignore
+  Map<String, String> get metadataMap {
+    if (metadata == null) return {};
+    try {
+      return Map<String, String>.from(jsonDecode(metadata!));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  set metadataMap(Map<String, String> value) {
+    metadata = jsonEncode(value);
+  }
+
+  @ignore
+  Map<String, dynamic>? get membershipActorMap {
+    if (membershipActor == null) return null;
+    try {
+      return Map<String, dynamic>.from(jsonDecode(membershipActor!));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  set membershipActorMap(Map<String, dynamic>? value) {
+    membershipActor = value != null ? jsonEncode(value) : null;
+  }
+
+  @ignore
+  List<Map<String, dynamic>> get membershipAffectedMembersList {
+    if (membershipAffectedMembers == null) return [];
+    try {
+      return List<Map<String, dynamic>>.from(
+          jsonDecode(membershipAffectedMembers!));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  set membershipAffectedMembersList(List<Map<String, dynamic>> value) {
+    membershipAffectedMembers = jsonEncode(value);
+  }
+
+  @ignore
+  Map<String, String> get membershipMetadataMap {
+    if (membershipMetadata == null) return {};
+    try {
+      return Map<String, String>.from(jsonDecode(membershipMetadata!));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  set membershipMetadataMap(Map<String, String> value) {
+    membershipMetadata = jsonEncode(value);
+  }
+
+  // 🆕 新增判断方法
+  @ignore
+  bool get isMembershipMessage => type == MessageType.membership;
+
+  @ignore
+  bool get isSystemMessage => type == MessageType.system;
 
   // 与会话的关系
   final conversation = IsarLink<Conversation>();

@@ -3,13 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/widgets/contact_list_widget.dart';
-import 'package:cc/features/chat/data/repositories/chats_repository_impl.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/presentation/pages/create_group_page.dart';
+import 'package:cc/features/chat/presentation/pages/channel_info_page.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/core/database/models/current_user.dart';
 
 /// 新建对话底部弹窗
 class NewConversationBottomSheet extends StatefulWidget {
@@ -57,8 +59,12 @@ class _NewConversationBottomSheetState
   void _handleMainPageContactTap(User contact) {
     _logger.i('选择联系人开始对话', extra: {'contactName': contact.name});
 
+    // 获取必要的Provider依赖
+    final chatsRepository = context.read<ChatsRepository>();
+    final chatRepository = context.read<ChatRepository>();
+    final chatRepositorySend = context.read<ChatRepositorySend>();
+
     // 调用repository创建会话
-    final chatsRepository = context.read<ChatsRepositoryImpl>();
     chatsRepository
         .getOrCreatePrivateConversation(contact.userId)
         .then((conversation) {
@@ -66,13 +72,31 @@ class _NewConversationBottomSheetState
         // 关闭底部弹窗
         Navigator.pop(context);
 
-        // 跳转到聊天页面
+        // 跳转到聊天页面，提供必要的Provider和Cubit
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatPage(
-              conversationId: conversation.conversationId,
-              initialConversation: conversation,
+            builder: (context) => MultiRepositoryProvider(
+              providers: [
+                RepositoryProvider<ChatRepository>.value(value: chatRepository),
+                RepositoryProvider<ChatsRepository>.value(
+                    value: chatsRepository),
+                RepositoryProvider<ChatRepositorySend>.value(
+                    value: chatRepositorySend),
+              ],
+              child: BlocProvider<ChatCubit>(
+                create: (context) => ChatCubit(
+                  chatRepository: chatRepository,
+                  chatRepositorySend: chatRepositorySend,
+                  chatsRepository: chatsRepository,
+                  currentUser: CurrentUser()..userId = '', // 这会被ChatCubit正确初始化
+                  initialConversation: conversation,
+                ),
+                child: ChatPage(
+                  conversationId: conversation.conversationId,
+                  initialConversation: conversation,
+                ),
+              ),
             ),
           ),
         );
@@ -149,6 +173,35 @@ class _NewConversationBottomSheetState
     );
   }
 
+  /// 导航到频道信息页面
+  void _navigateToChannelInfo() {
+    _logger.i('进入频道信息页面');
+
+    // 获取必要的Provider依赖
+    final chatsRepository = context.read<ChatsRepository>();
+    final chatRepository = context.read<ChatRepository>();
+    final chatRepositorySend = context.read<ChatRepositorySend>();
+
+    // 关闭当前底部面板
+    Navigator.pop(context);
+
+    // 导航到频道信息页面，传递必要的Provider
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+            RepositoryProvider<ChatRepository>.value(value: chatRepository),
+            RepositoryProvider<ChatRepositorySend>.value(
+                value: chatRepositorySend),
+          ],
+          child: const ChannelInfoPage(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -205,9 +258,9 @@ class _NewConversationBottomSheetState
               ),
             ),
             GestureDetector(
-              onTap: _switchToGroupPage,
+              onTap: () => Navigator.of(context).pop(),
               child: const Text(
-                'New Group',
+                'Cancel',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.blue,
@@ -249,7 +302,18 @@ class _NewConversationBottomSheetState
                 color: Colors.grey[600],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.blue,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             TextButton(
               onPressed: _selectedContacts.isNotEmpty ? _createGroup : null,
               child: Text(
@@ -271,7 +335,7 @@ class _NewConversationBottomSheetState
   Widget _buildMainPage() {
     return Column(
       children: [
-        // 已选联系人提示和新建群聊按钮
+        // 新建群聊按钮
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -282,6 +346,30 @@ class _NewConversationBottomSheetState
                 onTap: _switchToGroupPage,
                 child: const Text(
                   'New Group',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 分隔线
+        Divider(color: Colors.grey[300], height: 1),
+
+        // 新建频道按钮
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.campaign, color: Colors.blue),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: _navigateToChannelInfo,
+                child: const Text(
+                  'New Channel',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.blue,
