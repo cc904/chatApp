@@ -8,7 +8,8 @@ import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/core/database/models/conversation.dart';
-// 移除ConversationSyncEvent import，改用数据库监听
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
+import 'package:cc/features/chat/domain/entities/conversation_merger.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 聊天模块的业务逻辑Cubit
@@ -36,7 +37,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     // 设置stream事件订阅
     await _setupSubscriptions();
 
-    // 💢💢💢 新增：初始化重连监听
+    // 初始化重连监听
     _initReconnectListener();
   }
 
@@ -44,52 +45,34 @@ class ChatsCubit extends Cubit<ChatsState> {
   Future<void> _setupSubscriptions() async {
     _logger.i('设置聊天事件订阅');
 
-    // ✅ 监听数据库会话变化，数据库变化时自动重新加载UI
-    _subscriptions['conversationDatabase'] =
-        _chatsRepository.watchConversations().listen((_) {
-      _logger.d('数据库会话列表发生变化，重新加载UI');
-      _loadConversationsFromDatabase();
-    });
+    // 新架构：监听会话更新事件
+    _subscriptions['conversationUpdates'] =
+        _chatsRepository.getConversationUpdateStream().listen(
+      _handleConversationUpdate,
+      onError: (error) {
+        _logger.e('会话更新事件监听出错', error: error);
+      },
+    );
   }
 
-  /// 从数据库加载会话列表（内部方法）
-  /// 直接从数据库获取数据并更新UI，不触发同步事件
-  Future<void> _loadConversationsFromDatabase() async {
-    try {
-      // 直接从数据库获取会话，不发送同步事件
-      final conversations = await _chatsRepository.getAllConversations();
-      _updateConversationsWithFilter(conversations);
-    } catch (error) {
-      _logger.e('从数据库加载会话列表失败', error: error);
-      emit(state.copyWith(errorMessage: '加载会话列表失败: ${error.toString()}'));
-    }
-  }
+  /// 新架构：处理会话更新事件
+  void _handleConversationUpdate(ConversationUpdateEvent event) {
+    if (isClosed) return;
 
-  /// 统一的会话排序方法
-  /// 按最后消息时间倒序排列，没有消息的会话按创建时间排序
-  /// [conversations] - 要排序的会话列表
-  void _sortConversations(List<Conversation> conversations) {
-    // _logger.d('开始对会话进行排序',
-    //     extra: {'会话数量': conversations.length}, stackTrace: StackTrace.current);
-
-    conversations.sort((a, b) {
-      // 如果两个会话都没有最后消息时间，按创建时间倒序排序
-      if (a.lastMessageTime == null && b.lastMessageTime == null) {
-        return b.createdAt.compareTo(a.createdAt);
-      }
-      // 如果 a 没有最后消息时间，排在后面
-      if (a.lastMessageTime == null) {
-        return 1;
-      }
-      // 如果 b 没有最后消息时间，排在后面
-      if (b.lastMessageTime == null) {
-        return -1;
-      }
-      // 都有最后消息时间，按时间倒序排序（最新的在前）
-      return b.lastMessageTime!.compareTo(a.lastMessageTime!);
+    _logger.d('处理会话更新事件', extra: {
+      'eventType': event.runtimeType.toString(),
+      'conversationId': event.conversationId,
+      'timestamp': event.timestamp.toIso8601String(),
     });
 
-    // _logger.d('会话排序完成');
+    // 使用ConversationMerger处理会话更新
+    final updatedConversations = ConversationMerger.handleConversationUpdate(
+      state.conversations,
+      event,
+    );
+
+    // 更新状态并应用过滤器
+    _updateConversationsWithFilter(updatedConversations);
   }
 
   /// 统一的会话列表更新方法
@@ -121,7 +104,13 @@ class ChatsCubit extends Cubit<ChatsState> {
   /// 加载会话列表
   Future<void> loadConversations() async {
     _logger.i('加载会话列表');
-    await _loadConversationsFromDatabase();
+    try {
+      final conversations = await _chatsRepository.getAllConversations();
+      _updateConversationsWithFilter(conversations);
+    } catch (error) {
+      _logger.e('加载会话列表失败', error: error);
+      emit(state.copyWith(errorMessage: '加载会话列表失败: ${error.toString()}'));
+    }
   }
 
   /// 同步会话列表
@@ -210,7 +199,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     }
   }
 
-  /// 💢💢💢 重构：移除重连逻辑，改为监听重连成功事件
+  /// 重构：移除重连逻辑，改为监听重连成功事件
   /// ChatsCubit 不再负责重连，而是监听重连成功后进行数据同步
   void _initReconnectListener() {
     _logger.i('ChatsCubit: 初始化重连成功监听');
@@ -228,7 +217,7 @@ class ChatsCubit extends Cubit<ChatsState> {
         .listen(_handleConnectionStateChange);
   }
 
-  /// 💢💢💢 新增：处理连接状态变化
+  /// 处理连接状态变化
   void _handleConnectionStateChange(SocketConnectionStatus status) {
     _logger.d('ChatsCubit: 连接状态变化', extra: {'status': status.toString()});
 
@@ -264,7 +253,7 @@ class ChatsCubit extends Cubit<ChatsState> {
     }
   }
 
-  /// 💢💢💢 新增：重连成功后的数据同步
+  /// 重连成功后的数据同步
   Future<void> _syncAfterReconnect() async {
     try {
       _logger.i('ChatsCubit: 开始重连后数据同步');
@@ -417,8 +406,8 @@ class ChatsCubit extends Cubit<ChatsState> {
       }).toList();
     }
 
-    // 统一在最后对过滤后的会话进行排序（避免重复排序）
-    _sortConversations(finalFilteredConversations);
+    // 使用ConversationMerger进行统一排序
+    ConversationMerger.sortConversations(finalFilteredConversations);
 
     return finalFilteredConversations;
   }

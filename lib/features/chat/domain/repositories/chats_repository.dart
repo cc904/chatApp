@@ -1,7 +1,7 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
-// 移除ConversationSyncEvent import，改用数据库监听
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
 /// 聊天会话列表仓库接口
 /// 定义了会话列表管理所需的各种操作方法
@@ -29,16 +29,15 @@ abstract class ChatsRepository {
   /// 删除会话和会话中的所有消息
   Future<void> deleteConversation(String conversationId);
 
-  /// 监听会话列表变化
-  Stream<void> watchConversations();
+  /// 💢💢💢 新架构：获取会话更新事件流
+  /// 替代watchConversations，提供精确的会话变化事件
+  Stream<ConversationUpdateEvent> getConversationUpdateStream();
 
-  /// 💢💢💢 新增：监听单个会话变化
+  /// 监听单个会话变化
   /// 用于 ChatCubit 监听特定会话的状态变化
   /// [conversationId] - 会话ID
   /// 返回该会话的变化流
   Stream<Conversation?> watchConversation(String conversationId);
-
-  // 移除会话同步事件流，改用数据库监听
 
   /// 监听联系人列表变化
   Stream<void> watchContacts();

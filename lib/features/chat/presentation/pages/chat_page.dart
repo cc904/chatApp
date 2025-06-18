@@ -633,13 +633,6 @@ class _ChatPageState extends State<ChatPage> {
         // 消息列表内容
         Column(
           children: [
-            // 加载更多历史消息指示器 (仅在非搜索模式下显示)
-            if (!state.isSearchMode && state.isLoadingMoreMessages)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
-
             // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
             Expanded(
               child: ScrollablePositionedList.builder(

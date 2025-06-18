@@ -1,5 +1,6 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 
 /// 搜索结果类
 /// 包含搜索相关的所有信息
@@ -86,15 +87,8 @@ abstract class ChatRepository {
   /// [messageIndex] - 起始消息索引
   /// [limit] - 获取消息数量限制
   /// [isBefore] - 是否获取指定索引之前的消息
-  Future<void> requestMoreMessages(String conversationId,
+  Future<bool> requestMoreMessages(String conversationId,
       {int? messageIndex, int limit = 50, bool? isBefore = false});
-
-  /// 基于锚点消息Index获取消息 前50条 后50条
-  /// [conversationId] - 会话ID
-  /// [anchorMessageIndex] - 锚点消息Index
-  /// 返回消息列表
-  Future<List<Message>> getMessagesByAnchorMessageIndex(String conversationId,
-      int? anchorMessageIndex, int firstMessageIndex, int lastMessageIndex);
 
   /// 加载本地最新的消息 前50条 后50条
   /// [conversationId] - 会话ID
@@ -103,9 +97,10 @@ abstract class ChatRepository {
   /// [lastMessageIndex] - 会话中的最后一条消息的索引
   /// [limit] - 获取消息数量限制
   /// [isBefore] - 是否获取指定索引之前的消息
-  Future<List<Message>> loadMoreMessages(String conversationId,
-      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
-      {int limit = 50, bool? isBefore = false});
+  Future<bool> loadMoreMessages(String conversationId,
+      LoadingContext loadingContext, int anchorMessageIndex,
+      int firstMessageIndex, int lastMessageIndex,
+      {int? limit});
 
   /// 获取会话中的消息数量
   Future<int> getConversationMessageCount(String conversationId);
@@ -175,6 +170,21 @@ abstract class ChatRepository {
   /// 获取输入状态流
   Stream<Map<String, dynamic>> getTypingStatusStream();
 
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   新Stream架构   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 💢💢💢 核心Stream：消息更新事件流
+  /// 替代原来的数据库监听，通过精确的事件通知Cubit进行增量更新
+  /// [conversationId] - 会话ID
+  /// 返回该会话的消息更新事件流
+  Stream<MessageUpdateEvent> getMessageUpdateStream(String conversationId);
+
+  /// 💢💢💢 会话级加载状态流
+  /// 替代原来的手动状态管理，通过事件通知UI更新加载状态
+  /// [conversationId] - 会话ID
+  /// 返回该会话的加载状态更新流
+  Stream<LoadingStateUpdate> getConversationLoadingStateStream(
+      String conversationId);
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 清空会话消息
@@ -185,20 +195,4 @@ abstract class ChatRepository {
 
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
-
-  /// 💢💢💢 新增：监听指定会话的消息变化
-  /// 返回变化触发信号，当数据库中的消息发生变化时触发通知（不传输具体数据）
-  /// [conversationId] - 会话ID
-  /// 返回该会话消息的变化触发流
-  Stream<void> watchMessages(String conversationId);
-
-  /// 💢💢💢 新增：监听指定会话的消息数量变化
-  /// 用于高效监听消息数量变化，避免传输大量消息数据
-  /// [conversationId] - 会话ID
-  /// 返回消息数量变化流
-  Stream<int> watchMessageCount(String conversationId);
-
-  /// 💢💢💢 新增：获取加载状态流
-  /// 返回消息加载状态变化的流
-  Stream<Map<String, dynamic>> getLoadingStatusStream();
 }

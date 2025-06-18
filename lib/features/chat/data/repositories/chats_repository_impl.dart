@@ -8,10 +8,10 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/database/models/current_user.dart';
-// 移除ConversationSyncEvent import，改用数据库监听
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 import 'package:cc/core/database/models/message.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
@@ -36,7 +36,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
   final Map<String, ChatStateSnapshot> _stateSnapshots =
       <String, ChatStateSnapshot>{};
 
-  // 移除ConversationSyncEvent相关代码，改用数据库监听
+  // 💢💢💢 新架构：会话更新事件流控制器
+  final StreamController<ConversationUpdateEvent>
+      _conversationUpdateController =
+      StreamController<ConversationUpdateEvent>.broadcast();
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -45,6 +48,18 @@ class ChatsRepositoryImpl implements ChatsRepository {
   String? _lastSyncResponseHash;
   DateTime? _lastSyncResponseTime;
   static const Duration _deduplicationWindow = Duration(seconds: 5);
+
+  /// 💢💢💢 新架构：通知会话更新事件
+  void _notifyConversationUpdate(ConversationUpdateEvent event) {
+    if (!_conversationUpdateController.isClosed) {
+      _conversationUpdateController.add(event);
+      _logger.d('会话更新事件已发送', extra: {
+        'eventType': event.runtimeType.toString(),
+        'conversationId': event.conversationId,
+        'timestamp': event.timestamp.toIso8601String(),
+      });
+    }
+  }
 
   // 构造函数
   ChatsRepositoryImpl({required CurrentUser currentUser})
@@ -388,11 +403,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 监听会话变化
-  /// 返回会话列表变化的流
+  /// 💢💢💢 新架构：获取会话更新事件流
   @override
-  Stream<void> watchConversations() {
-    return _conversations.watchLazy();
+  Stream<ConversationUpdateEvent> getConversationUpdateStream() {
+    return _conversationUpdateController.stream;
   }
 
   /// 💢💢💢 新增：监听单个会话变化
@@ -797,6 +811,12 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 更新本地数据库，数据库变化会自动触发UI更新
       await _updateLocalConversations(dbConversations);
 
+      // 💢💢💢 新架构：发送会话列表重载事件
+      _notifyConversationUpdate(ConversationsReloadedEvent(
+        conversations: dbConversations,
+        timestamp: DateTime.now(),
+      ));
+
       _logger.i('会话同步完成，数据库已更新');
     } catch (e, stack) {
       _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
@@ -837,7 +857,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
           _logger.d('已更新本地会话数据',
               extra: {'conversationId': notification.conversationId});
 
-          // ✅ 已移除会话更新事件流，改用数据库监听
+          // 💢💢💢 新架构：发送会话更新事件
+          _notifyConversationUpdate(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: [
+              'lastMessageName',
+              'lastMessagePreview',
+              'lastMessageIndex'
+            ],
+            timestamp: DateTime.now(),
+          ));
         } else {
           _logger.w('本地找不到对应的会话',
               extra: {'conversationId': notification.conversationId});
@@ -948,6 +977,17 @@ class ChatsRepositoryImpl implements ChatsRepository {
           await _conversations.put(conversation);
           _logger.d('已更新本地会话设置',
               extra: {'conversationId': response.conversationId});
+
+          // 💢💢💢 新架构：发送会话设置更新事件
+          final updatedFields = <String>[];
+          if (response.hasMuted()) updatedFields.add('muted');
+          if (response.hasPinned()) updatedFields.add('pinned');
+
+          _notifyConversationUpdate(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: updatedFields,
+            timestamp: DateTime.now(),
+          ));
         } else {
           _logger.w('本地找不到对应的会话',
               extra: {'conversationId': response.conversationId});
@@ -1236,10 +1276,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 取消所有订阅
   void dispose() {
     _logger.i('销毁ChatsRepository');
+
+    // 💢💢💢 新架构：关闭会话更新事件流控制器
+    _conversationUpdateController.close();
+
     for (var subscription in _subscriptions) {
       subscription.cancel();
     }
     _subscriptions.clear();
-    // ✅ 已移除会话同步事件流相关代码
   }
 }

@@ -9,12 +9,15 @@ import 'package:flutter/foundation.dart';
 void main() {
   group('聊天消息同步集成测试 - 业务逻辑验证', () {
     // 测试用的消息创建工具
-    Message createTestMessage(String id, DateTime time, String content) {
+    Message createTestMessage(String id, DateTime time, String content,
+        {int? messageIndex}) {
       final message = Message()
         ..messageId = id
         ..text = content
         ..senderId = 'user123'
         ..createdAt = time
+        ..messageIndex = messageIndex ??
+            int.parse(id.replaceAll(RegExp(r'[^0-9]'), '')) // 从ID中提取数字作为index
         ..type = MessageType.text
         ..status = MessageStatus.sent;
       return message;

@@ -30,7 +30,7 @@ void main() {
       expect(message.senderId, equals('test_sender_id'));
       expect(message.senderName, equals('Test Sender'));
       expect(message.status, equals(MessageStatus.sent));
-      expect(message.type, equals('text'));
+      expect(message.type, equals(MessageType.text));
       expect(message.text, equals('Hello, World!'));
     });
 
@@ -94,11 +94,11 @@ void main() {
     test('应该正确处理枚举类型转换', () {
       // 测试所有消息类型
       final types = [
-        {'string': 'text', 'proto': proto.MessageType.TEXT},
-        {'string': 'image', 'proto': proto.MessageType.IMAGE},
-        {'string': 'voice', 'proto': proto.MessageType.VOICE},
-        {'string': 'video', 'proto': proto.MessageType.VIDEO},
-        {'string': 'file', 'proto': proto.MessageType.FILE},
+        {'enum': MessageType.text, 'proto': proto.MessageType.TEXT},
+        {'enum': MessageType.image, 'proto': proto.MessageType.IMAGE},
+        {'enum': MessageType.voice, 'proto': proto.MessageType.VOICE},
+        {'enum': MessageType.video, 'proto': proto.MessageType.VIDEO},
+        {'enum': MessageType.file, 'proto': proto.MessageType.FILE},
         // 位置消息测试已移除
         // expect(MessageAdapter.messageTypeToString(proto.MessageType.LOCATION), 'location'),
       ];
@@ -112,7 +112,7 @@ void main() {
         );
 
         final message = MessageAdapter.fromProto(protoMessage);
-        expect(message.type, equals(typeTest['string']));
+        expect(message.type, equals(typeTest['enum']));
 
         final backToProto = MessageAdapter.toProto(message);
         expect(backToProto.type, equals(typeTest['proto']));
@@ -135,7 +135,7 @@ void main() {
       expect(message.text, isNull);
       expect(message.mediaUrl, isNull);
       expect(message.status, equals(MessageStatus.sent)); // 默认值
-      expect(message.type, equals('text')); // 默认值
+      expect(message.type, equals(MessageType.text)); // 默认值
     });
   });
 }

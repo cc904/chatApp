@@ -9,6 +9,7 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
@@ -46,6 +47,8 @@ class Semaphore {
   }
 }
 
+class LoadType {}
+
 /// 消息异常
 class MessageException implements Exception {
   final String message;
@@ -70,9 +73,13 @@ class ChatRepositoryImpl implements ChatRepository {
   // 输入事件流控制器
   final _typingStatusController =
       StreamController<Map<String, dynamic>>.broadcast();
-  // 加载状态流控制器
-  final _loadingStatusController =
-      StreamController<Map<String, dynamic>>.broadcast();
+
+  // 💢💢💢 新Stream架构：消息更新事件流控制器
+  final Map<String, StreamController<MessageUpdateEvent>>
+      _messageUpdateControllers = {};
+  // 💢💢💢 新Stream架构：会话级加载状态流控制器
+  final Map<String, StreamController<LoadingStateUpdate>>
+      _conversationLoadingControllers = {};
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -109,12 +116,21 @@ class ChatRepositoryImpl implements ChatRepository {
     return _typingStatusController.stream;
   }
 
-  // 💢💢💢 新增：获取加载状态流
-  /// 获取加载状态流
-  /// 返回消息加载状态变化的流
+  /// 💢💢💢 新Stream架构：获取消息更新事件流
   @override
-  Stream<Map<String, dynamic>> getLoadingStatusStream() {
-    return _loadingStatusController.stream;
+  Stream<MessageUpdateEvent> getMessageUpdateStream(String conversationId) {
+    _messageUpdateControllers[conversationId] ??=
+        StreamController<MessageUpdateEvent>.broadcast();
+    return _messageUpdateControllers[conversationId]!.stream;
+  }
+
+  /// 💢💢💢 新Stream架构：获取会话级加载状态流
+  @override
+  Stream<LoadingStateUpdate> getConversationLoadingStateStream(
+      String conversationId) {
+    _conversationLoadingControllers[conversationId] ??=
+        StreamController<LoadingStateUpdate>.broadcast();
+    return _conversationLoadingControllers[conversationId]!.stream;
   }
 
   // 构造函数
@@ -193,11 +209,19 @@ class ChatRepositoryImpl implements ChatRepository {
       message_proto.MessagesFetchResponse response) async {
     final conversationId = response.conversationId;
     try {
+      // 💢💢💢 通知开始处理网络响应
+      _notifyConversationLoadingState(LoadingStateUpdate.start(
+        conversationId: conversationId,
+        context: LoadingContext.fetchMessages,
+      ));
+
       if (response.messages.isEmpty) {
         _logger.d('收到空的消息响应');
         // 💢💢💢 通知网络请求完成
-        _notifyLoadingStatus(conversationId, false,
-            loadingType: 'fetchMessages');
+        _notifyConversationLoadingState(LoadingStateUpdate.complete(
+          conversationId: conversationId,
+          context: LoadingContext.fetchMessages,
+        ));
         return;
       }
 
@@ -205,21 +229,32 @@ class ChatRepositoryImpl implements ChatRepository {
         'messageCount': response.messages.length,
       });
 
+      // 转换消息
+      final messageModels = <Message>[];
+      for (final protoMessage in response.messages) {
+        final messageModel = MessageAdapter.fromProto(protoMessage);
+        messageModels.add(messageModel);
+      }
+
       // 使用批量事务操作，提高性能和数据一致性
       await _isar.writeTxn(() async {
-        final messageModels = <Message>[];
-
-        for (final protoMessage in response.messages) {
-          final messageModel = MessageAdapter.fromProto(protoMessage);
-          messageModels.add(messageModel);
-        }
-
         // 批量插入/更新消息（自动处理重复，replace: true）
         await _messages.putAll(messageModels);
       });
 
+      // 💢💢💢 关键：推送精确的消息更新事件，而不是模糊的"数据库变了"信号
+      _notifyMessageUpdate(MessageAddedEvent(
+        conversationId: conversationId,
+        newMessages: messageModels,
+        position: MessageInsertPosition.merge, // 智能合并
+      ));
+
       // 💢💢💢 通知网络请求完成
-      _notifyLoadingStatus(conversationId, false, loadingType: 'fetchMessages');
+      _notifyConversationLoadingState(LoadingStateUpdate.complete(
+        conversationId: conversationId,
+        context: LoadingContext.fetchMessages,
+        metadata: {'messageCount': messageModels.length},
+      ));
 
       _logger.i('消息批量写入数据库完成', extra: {
         'insertedCount': response.messages.length,
@@ -227,11 +262,12 @@ class ChatRepositoryImpl implements ChatRepository {
     } catch (error) {
       _logger.e('将收到的信息写入数据库失败', error: error, stackTrace: StackTrace.current);
 
-      // 💢💢💢 处理失败时也要通知停止网络请求
-      if (response.messages.isNotEmpty) {
-        _notifyLoadingStatus(conversationId, false,
-            loadingType: 'fetchMessages');
-      }
+      // 💢💢💢 处理失败时通知错误
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        context: LoadingContext.fetchMessages,
+        error: error.toString(),
+      ));
     }
   }
 
@@ -268,6 +304,12 @@ class ChatRepositoryImpl implements ChatRepository {
           await _messages.put(tempMessage);
         });
 
+        // 💢💢💢 推送消息更新事件
+        _notifyMessageUpdate(MessageUpdatedEvent(
+          conversationId: tempMessage.conversationId,
+          updatedMessage: tempMessage,
+        ));
+
         _logger.i('消息发送成功，已更新本地消息和UI状态', extra: {
           'tempId': response.tempId,
           'serverMessageId': response.messageId,
@@ -281,7 +323,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    Request    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   @override
-  Future<void> requestMoreMessages(String conversationId,
+  Future<bool> requestMoreMessages(String conversationId,
       {int? messageIndex, int limit = 50, bool? isBefore = false}) async {
     _logger.i('请求服务器获取更多历史消息', extra: {
       'conversationId': conversationId,
@@ -291,8 +333,11 @@ class ChatRepositoryImpl implements ChatRepository {
     });
 
     try {
-      // 💢💢💢 通知开始网络请求
-      _notifyLoadingStatus(conversationId, true, loadingType: 'fetchMessages');
+      // 💢💢💢 使用新Stream架构通知网络请求开始
+      _notifyConversationLoadingState(LoadingStateUpdate.start(
+        conversationId: conversationId,
+        context: LoadingContext.fetchMessages,
+      ));
 
       // 创建请求对象 - 使用新的index字段
       final request = message_proto.MessagesFetchRequest()
@@ -303,163 +348,145 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 发送请求到服务器
       await _communicationService.emitProto('messages:fetch', request);
+
+      return true;
     } catch (error) {
       // 💢💢💢 请求失败时通知停止网络请求
-      _notifyLoadingStatus(conversationId, false, loadingType: 'fetchMessages');
-      rethrow;
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        context: LoadingContext.fetchMessages,
+        error: error.toString(),
+      ));
+      return false;
     }
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  Get4Database  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 基于锚点消息Index获取消息 前50条 后50条
-  /// [conversationId] - 会话ID
-  /// [anchorMessageIndex] - 锚点消息Index 如果为null,则使用会话中的最后一条消息的索引
-  /// [firstMessageIndex] - 会话中的第一条消息的索引
-  /// [lastMessageIndex] - 会话中的最后一条消息的索引
-  /// 返回消息列表
-  @override
-  Future<List<Message>> getMessagesByAnchorMessageIndex(
-      String conversationId,
-      int? anchorMessageIndex,
-      int firstMessageIndex,
-      int lastMessageIndex) async {
-    _logger.d('请求最近的50条消息', extra: {
-      'conversationId': conversationId,
-      'anchorMessageIndex': anchorMessageIndex,
-      'firstMessageIndex': firstMessageIndex,
-      'lastMessageIndex': lastMessageIndex,
-    });
-
-    // 💢💢💢 通知开始加载
-    _notifyLoadingStatus(conversationId, true, loadingType: 'initialMessages');
-
-    try {
-      if (anchorMessageIndex == null) {
-        // 获取最近的50条
-        final messages = await _messages
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .sortByMessageIndexDesc() // 💢 修复：最新消息在前（降序）
-            .limit(50)
-            .findAll();
-        _logger.d('local messages count', extra: {
-          'messageCount': messages.length,
-        });
-
-        if (messages.isEmpty) {
-          await requestMoreMessages(conversationId, isBefore: true);
-        } else if (messages.length < 50 &&
-            messages.last.messageIndex > firstMessageIndex) {
-          // 请求更多消息
-          await requestMoreMessages(conversationId,
-              messageIndex: messages.last.messageIndex, isBefore: true);
-        }
-
-        // 💢💢💢 通知加载完成
-        _notifyLoadingStatus(conversationId, false,
-            loadingType: 'initialMessages');
-        return messages;
-      }
-
-      final messagesBefore = await loadMoreMessages(conversationId,
-          anchorMessageIndex, firstMessageIndex, lastMessageIndex,
-          isBefore: true);
-
-      final messagesAfter = await loadMoreMessages(conversationId,
-          anchorMessageIndex, firstMessageIndex, lastMessageIndex,
-          isBefore: false);
-
-      // 💢 修复：合并后重新排序，确保整体按降序排列（最新消息在前）
-      final allMessages = [...messagesBefore, ...messagesAfter];
-      allMessages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
-
-      // 💢💢💢 通知加载完成
-      _notifyLoadingStatus(conversationId, false,
-          loadingType: 'initialMessages');
-      return allMessages;
-    } catch (error) {
-      // 💢💢💢 出错时通知停止加载
-      _notifyLoadingStatus(conversationId, false,
-          loadingType: 'initialMessages');
-      rethrow;
-    }
-  }
-
   /// 加载本地最新的消息
+  /// [conversationId] - 会话ID
+  /// [loadingContext] - 加载上下文
+  /// [anchorMessageIndex] - 锚点消息Index
+  /// [firstMessageIndex] - 第一条消息Index
+  /// [lastMessageIndex] - 最后一条消息Index
+  /// [limit] - 消息数量限制
   @override
-  Future<List<Message>> loadMoreMessages(String conversationId,
-      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
-      {int limit = 50, bool? isBefore = false}) async {
+  Future<bool> loadMoreMessages(
+      String conversationId,
+      LoadingContext loadingContext,
+      int anchorMessageIndex,
+      int firstMessageIndex,
+      int lastMessageIndex,
+      {int? limit}) async {
     _logger.d('加载本地最新的消息', extra: {
       'conversationId': conversationId,
       'anchorMessageIndex': anchorMessageIndex,
-      'firstMessageIndex': firstMessageIndex,
-      'lastMessageIndex': lastMessageIndex,
-      'limit': limit,
+      'loadingContext': loadingContext,
     });
-    // 💢💢💢 通知开始加载
-    final loadingType = isBefore == true ? 'loadMoreBefore' : 'loadMoreAfter';
-    _notifyLoadingStatus(conversationId, true, loadingType: loadingType);
+    _notifyConversationLoadingState(LoadingStateUpdate.start(
+      conversationId: conversationId,
+      context: loadingContext,
+    ));
 
-    try {
-      if (isBefore == true) {
-        final messages = await _messages
+    List<Message> messages = [];
+
+    switch (loadingContext) {
+      case LoadingContext.initial:
+        // 无新消息,读取最新100条
+        if (anchorMessageIndex == -1) {
+          messages = await _messages
+              .filter()
+              .conversationIdEqualTo(conversationId)
+              .sortByMessageIndexDesc()
+              .limit(limit ?? 100)
+              .findAll();
+
+          if (messages.isEmpty) {
+            await requestMoreMessages(conversationId, isBefore: true);
+          } else if (messages.length < 50 &&
+              messages.last.messageIndex > firstMessageIndex) {
+            await requestMoreMessages(conversationId,
+                messageIndex: messages.last.messageIndex, isBefore: true);
+          }
+        }
+        // 有新消息,锚点为新消息位置,获取范围内的消息 (anchorMessageIndex-50 到 anchorMessageIndex+50)
+        else {
+          final rangeSize = limit ?? 50;
+          final startIndex = anchorMessageIndex - rangeSize;
+          final endIndex = anchorMessageIndex + rangeSize;
+
+          messages = await _messages
+              .filter()
+              .conversationIdEqualTo(conversationId)
+              .and()
+              .messageIndexBetween(startIndex, endIndex)
+              .sortByMessageIndexDesc()
+              .findAll();
+
+          if (messages.isEmpty) {
+            await requestMoreMessages(conversationId, isBefore: true);
+          } else if (messages.length < 50 &&
+              messages.last.messageIndex > firstMessageIndex &&
+              messages.first.messageIndex < lastMessageIndex) {
+            await requestMoreMessages(conversationId,
+                messageIndex: anchorMessageIndex, isBefore: true);
+          }
+        }
+        break;
+      case LoadingContext.loadMoreBefore:
+        messages = await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
             .and()
             .messageIndexLessThan(anchorMessageIndex)
             .sortByMessageIndexDesc()
-            .limit(limit)
+            .limit(limit ?? 50)
             .findAll();
+
         if (messages.isEmpty) {
-          // 没有消息时，直接请求历史消息
           await requestMoreMessages(conversationId, isBefore: true);
         } else if (messages.length < 50 &&
             messages.last.messageIndex > firstMessageIndex) {
-          // 有消息且还有更多历史消息时，从最后一条消息开始请求
           await requestMoreMessages(conversationId,
               messageIndex: messages.last.messageIndex, isBefore: true);
-        } else {
-          // 使用stream通知加载完成
-          _logger.d('加载本地最新的消息完成', extra: {
-            'messageCount': messages.length,
-          });
         }
-
-        // 💢💢💢 通知加载完成
-        _notifyLoadingStatus(conversationId, false, loadingType: loadingType);
-        return messages;
-      } else {
-        final messages = await _messages
+        break;
+      case LoadingContext.loadMoreAfter:
+        messages = await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
             .and()
             .messageIndexGreaterThan(anchorMessageIndex)
             .sortByMessageIndex()
-            .limit(limit)
+            .limit(limit ?? 50)
             .findAll();
 
-        // 判断messagesAfter是否够50条
         if (messages.isEmpty) {
           await requestMoreMessages(conversationId, isBefore: false);
         } else if (messages.length < 50 &&
-            messages.last.messageIndex < lastMessageIndex) {
+            messages.first.messageIndex < lastMessageIndex) {
           await requestMoreMessages(conversationId,
-              messageIndex: messages.last.messageIndex, isBefore: false);
+              messageIndex: messages.first.messageIndex, isBefore: false);
         }
-
-        // 💢💢💢 通知加载完成
-        _notifyLoadingStatus(conversationId, false, loadingType: loadingType);
-        return messages;
-      }
-    } catch (error) {
-      _logger.e('加载本地最新的消息失败', error: error, stackTrace: StackTrace.current);
-
-      // 💢💢💢 出错时通知停止加载
-      _notifyLoadingStatus(conversationId, false, loadingType: loadingType);
-      return [];
+        break;
+      case LoadingContext.search:
+      case LoadingContext.sendMessage:
+      case LoadingContext.fetchMessages:
+      case LoadingContext.refresh:
+        break;
     }
+
+    _messageUpdateControllers[conversationId]!.add(MessageAddedEvent(
+      conversationId: conversationId,
+      newMessages: messages,
+      position: MessageInsertPosition.merge, // 智能合并
+    ));
+
+    _notifyConversationLoadingState(LoadingStateUpdate.complete(
+      conversationId: conversationId,
+      context: loadingContext,
+    ));
+    return true;
   }
 
   /// 获取会话中的消息数量
@@ -614,8 +641,11 @@ class ChatRepositoryImpl implements ChatRepository {
     DateTime endDate, {
     int limit = 50,
   }) async {
-    // 💢💢💢 通知开始加载
-    _notifyLoadingStatus(conversationId, true, loadingType: 'dateRange');
+    // 💢💢💢 使用新Stream架构通知开始加载
+    _notifyConversationLoadingState(LoadingStateUpdate.start(
+      conversationId: conversationId,
+      context: LoadingContext.search,
+    ));
 
     try {
       // 确保转换为有效的DateTime对象,避免日期比较问题
@@ -652,13 +682,20 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.d('按日期范围查询结果', extra: {'找到消息数': messages.length});
 
       // 💢💢💢 通知加载完成
-      _notifyLoadingStatus(conversationId, false, loadingType: 'dateRange');
+      _notifyConversationLoadingState(LoadingStateUpdate.complete(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+      ));
       return messages;
     } catch (error) {
       _logger.e('根据日期范围获取消息失败', error: error, stackTrace: StackTrace.current);
 
       // 💢💢💢 出错时通知停止加载
-      _notifyLoadingStatus(conversationId, false, loadingType: 'dateRange');
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+        error: error.toString(),
+      ));
       return [];
     }
   }
@@ -675,8 +712,11 @@ class ChatRepositoryImpl implements ChatRepository {
     DateTime startDate, {
     int limit = 50,
   }) async {
-    // 💢💢💢 通知开始加载
-    _notifyLoadingStatus(conversationId, true, loadingType: 'fromDate');
+    // 💢💢💢 使用新Stream架构通知开始加载
+    _notifyConversationLoadingState(LoadingStateUpdate.start(
+      conversationId: conversationId,
+      context: LoadingContext.search,
+    ));
 
     try {
       // 确保使用日期的开始时间
@@ -696,13 +736,20 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.d('从日期获取消息结果', extra: {'找到消息数': messages.length});
 
       // 💢💢💢 通知加载完成
-      _notifyLoadingStatus(conversationId, false, loadingType: 'fromDate');
+      _notifyConversationLoadingState(LoadingStateUpdate.complete(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+      ));
       return messages;
     } catch (error) {
       _logger.e('从指定日期获取消息失败', error: error, stackTrace: StackTrace.current);
 
       // 💢💢💢 出错时通知停止加载
-      _notifyLoadingStatus(conversationId, false, loadingType: 'fromDate');
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+        error: error.toString(),
+      ));
       return [];
     }
   }
@@ -817,7 +864,21 @@ class ChatRepositoryImpl implements ChatRepository {
     }
     _subscriptions.clear();
     _typingStatusController.close();
-    _loadingStatusController.close();
+
+    // 💢💢💢 关闭新Stream架构的控制器
+    for (var controller in _messageUpdateControllers.values) {
+      if (!controller.isClosed) {
+        controller.close();
+      }
+    }
+    _messageUpdateControllers.clear();
+
+    for (var controller in _conversationLoadingControllers.values) {
+      if (!controller.isClosed) {
+        controller.close();
+      }
+    }
+    _conversationLoadingControllers.clear();
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   私有辅助方法   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
@@ -978,13 +1039,19 @@ class ChatRepositoryImpl implements ChatRepository {
     required String conversationId,
     required List<String> searchResultIds,
   }) async {
-    // 💢💢💢 通知开始加载
-    _notifyLoadingStatus(conversationId, true, loadingType: 'searchRange');
+    // 💢💢💢 使用新Stream架构通知开始加载
+    _notifyConversationLoadingState(LoadingStateUpdate.start(
+      conversationId: conversationId,
+      context: LoadingContext.search,
+    ));
 
     try {
       if (searchResultIds.isEmpty) {
         // 💢💢💢 通知加载完成
-        _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
+        _notifyConversationLoadingState(LoadingStateUpdate.complete(
+          conversationId: conversationId,
+          context: LoadingContext.search,
+        ));
         return [];
       }
 
@@ -1008,7 +1075,10 @@ class ChatRepositoryImpl implements ChatRepository {
         _logger.w('找不到搜索结果的边界消息');
 
         // 💢💢💢 通知加载完成
-        _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
+        _notifyConversationLoadingState(LoadingStateUpdate.complete(
+          conversationId: conversationId,
+          context: LoadingContext.search,
+        ));
         return [];
       }
 
@@ -1032,13 +1102,20 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 💢💢💢 通知加载完成
-      _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
+      _notifyConversationLoadingState(LoadingStateUpdate.complete(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+      ));
       return allMessages;
     } catch (error) {
       _logger.e('获取搜索范围消息失败', error: error, stackTrace: StackTrace.current);
 
       // 💢💢💢 出错时通知停止加载
-      _notifyLoadingStatus(conversationId, false, loadingType: 'searchRange');
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+        error: error.toString(),
+      ));
       return [];
     }
   }
@@ -1058,8 +1135,11 @@ class ChatRepositoryImpl implements ChatRepository {
         'contextSize': contextSize,
       });
 
-      // 💢💢💢 通知开始加载
-      _notifyLoadingStatus(conversationId, true, loadingType: 'searchContext');
+      // 💢💢💢 使用新Stream架构通知开始加载
+      _notifyConversationLoadingState(LoadingStateUpdate.start(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+      ));
 
       // 获取目标消息
       final targetMessage = await _messages
@@ -1073,8 +1153,10 @@ class ChatRepositoryImpl implements ChatRepository {
         _logger.w('找不到目标搜索结果消息', extra: {'messageId': targetMessageId});
 
         // 💢💢💢 通知加载完成
-        _notifyLoadingStatus(conversationId, false,
-            loadingType: 'searchContext');
+        _notifyConversationLoadingState(LoadingStateUpdate.complete(
+          conversationId: conversationId,
+          context: LoadingContext.search,
+        ));
 
         return (
           messages: <Message>[],
@@ -1124,7 +1206,10 @@ class ChatRepositoryImpl implements ChatRepository {
       final timeRange = DateTimeRange(start: startTime, end: endTime);
 
       // 💢💢💢 通知加载完成
-      _notifyLoadingStatus(conversationId, false, loadingType: 'searchContext');
+      _notifyConversationLoadingState(LoadingStateUpdate.complete(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+      ));
 
       _logger.i('加载搜索结果附近消息完成', extra: {
         'totalMessages': allMessages.length,
@@ -1139,7 +1224,11 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.e('加载搜索结果附近消息失败', error: error, stackTrace: StackTrace.current);
 
       // 💢💢💢 出错时通知停止加载
-      _notifyLoadingStatus(conversationId, false, loadingType: 'searchContext');
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        context: LoadingContext.search,
+        error: error.toString(),
+      ));
 
       return (
         messages: <Message>[],
@@ -1190,7 +1279,14 @@ class ChatRepositoryImpl implements ChatRepository {
         await _messages.put(message);
       });
 
-      _logger.d('新消息已保存到数据库', extra: {
+      // 💢💢💢 关键：推送新消息事件，而不是依赖数据库监听
+      _notifyMessageUpdate(MessageAddedEvent(
+        conversationId: message.conversationId,
+        newMessages: [message],
+        position: MessageInsertPosition.after, // 新消息添加到前面
+      ));
+
+      _logger.d('新消息已保存到数据库并推送更新事件', extra: {
         'messageId': message.messageId,
         'conversationId': message.conversationId,
       });
@@ -1202,73 +1298,40 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   消息监听   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-
-  /// 💢💢💢 监听指定会话的消息变化
-  /// 返回变化触发信号，当数据库中的消息发生变化时触发通知（不传输具体数据）
-  /// 这是纯数据库监听架构的核心方法，UI响应触发信号后自行获取数据
-  @override
-  Stream<void> watchMessages(String conversationId) {
-    _logger.d('开始监听会话消息变化', extra: {'conversationId': conversationId});
-
-    return _messages
-        .filter()
-        .conversationIdEqualTo(conversationId)
-        .watchLazy(fireImmediately: false)
-        .map((_) {
-      _logger.d('数据库消息变化触发', extra: {
-        'messageCount':
-            _messages.filter().conversationIdEqualTo(conversationId).count(),
-      });
-
-      return;
-    });
-  }
-
-  /// 💢💢💢 监听指定会话的消息数量变化
-  /// 用于高效监听消息数量变化，避免传输大量消息数据
-  @override
-  Stream<int> watchMessageCount(String conversationId) {
-    return _messages
-        .filter()
-        .conversationIdEqualTo(conversationId)
-        .watchLazy(fireImmediately: true)
-        .asyncMap((_) async {
-      // 异步获取消息数量
-      final count = await _messages
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .count();
-
-      _logger.d('消息数量变化', extra: {
-        'conversationId': conversationId,
-        'count': count,
-      });
-
-      return count;
-    });
-  }
-
-  /// 💢💢💢 新增：通知加载状态变化
-  /// [conversationId] - 会话ID
-  /// [isLoading] - 是否正在加载
-  /// [loadingType] - 加载类型（可选）
-  void _notifyLoadingStatus(String conversationId, bool isLoading,
-      {String? loadingType}) {
+  /// 💢💢💢 新Stream架构：通知消息更新事件
+  void _notifyMessageUpdate(MessageUpdateEvent event) {
     try {
-      _loadingStatusController.add({
-        'conversationId': conversationId,
-        'isLoading': isLoading,
-        'loadingType': loadingType ?? 'messages',
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
+      final controller = _messageUpdateControllers[event.conversationId];
+      if (controller != null && !controller.isClosed) {
+        controller.add(event);
 
-      _logger.d('通知加载状态变化', extra: {
-        'isLoading': isLoading,
-        'loadingType': loadingType,
-      });
+        _logger.d('通知消息更新事件', extra: {
+          'conversationId': event.conversationId,
+          'eventType': event.runtimeType.toString(),
+          'timestamp': event.timestamp.toIso8601String(),
+        });
+      }
     } catch (error) {
-      _logger.e('通知加载状态失败', error: error);
+      _logger.e('通知消息更新事件失败', error: error);
+    }
+  }
+
+  /// 💢💢💢 新Stream架构：通知会话级加载状态变化
+  void _notifyConversationLoadingState(LoadingStateUpdate update) {
+    try {
+      final controller = _conversationLoadingControllers[update.conversationId];
+      if (controller != null && !controller.isClosed) {
+        controller.add(update);
+
+        _logger.d('通知会话级加载状态变化', extra: {
+          'conversationId': update.conversationId,
+          'context': update.context.toString(),
+          'isLoading': update.isLoading,
+          'error': update.error,
+        });
+      }
+    } catch (error) {
+      _logger.e('通知会话级加载状态失败', error: error);
     }
   }
 }
