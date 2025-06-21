@@ -103,6 +103,13 @@ abstract class ChatsRepository {
   /// [conversation] - 要保存的会话对象
   Future<void> saveConversation(Conversation conversation);
 
+  /// 💢💢💢 新增：获取第一条未读消息的ID
+  /// [conversationId] - 会话ID
+  /// [currentUserId] - 当前用户ID
+  /// 返回第一条未读消息的ID，如果没有未读消息则返回null
+  Future<String?> getFirstUnreadMessageId(
+      String conversationId, String currentUserId);
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 保存会话状态快照
@@ -115,7 +122,7 @@ abstract class ChatsRepository {
   /// 清除指定会话的状态快照
   Future<void> clearStateSnapshot(String conversationId);
 
-  /// 清除所有过期的状态快照
+  /// 清除所有无效的状态快照
   Future<void> cleanupExpiredSnapshots();
 
   /// 获取当前状态快照数量（用于监控和调试）

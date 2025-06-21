@@ -15,6 +15,7 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 
 /// 🔥 临时兼容类已全部移除 - Index方案完全替代了复杂的游标系统
 
@@ -212,7 +213,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知开始处理网络响应
       _notifyConversationLoadingState(LoadingStateUpdate.start(
         conversationId: conversationId,
-        context: LoadingContext.fetchMessages,
+        loadingType: LoadingType.LOAD_MORE_BEFORE,
       ));
 
       if (response.messages.isEmpty) {
@@ -220,7 +221,7 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知网络请求完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          context: LoadingContext.fetchMessages,
+          loadingType: LoadingType.LOAD_MORE_BEFORE,
         ));
         return;
       }
@@ -246,13 +247,13 @@ class ChatRepositoryImpl implements ChatRepository {
       _notifyMessageUpdate(MessageAddedEvent(
         conversationId: conversationId,
         newMessages: messageModels,
-        position: MessageInsertPosition.merge, // 智能合并
+        loadingType: response.loadingType, // 使用LoadingContext
       ));
 
       // 💢💢💢 通知网络请求完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        context: LoadingContext.fetchMessages,
+        loadingType: response.loadingType,
         metadata: {'messageCount': messageModels.length},
       ));
 
@@ -265,7 +266,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 处理失败时通知错误
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        context: LoadingContext.fetchMessages,
+        loadingType: response.loadingType,
         error: error.toString(),
       ));
     }
@@ -304,10 +305,12 @@ class ChatRepositoryImpl implements ChatRepository {
           await _messages.put(tempMessage);
         });
 
-        // 💢💢💢 推送消息更新事件
-        _notifyMessageUpdate(MessageUpdatedEvent(
+        // 💢💢💢 使用新的UpdateSendEvent推送消息发送更新事件
+        _notifyMessageUpdate(UpdateSendEvent(
           conversationId: tempMessage.conversationId,
-          updatedMessage: tempMessage,
+          tempId: response.tempId,
+          messageId: response.messageId,
+          messageIndex: response.messageIndex.toInt(),
         ));
 
         _logger.i('消息发送成功，已更新本地消息和UI状态', extra: {
@@ -323,12 +326,13 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    Request    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   @override
-  Future<bool> requestMoreMessages(String conversationId,
-      {int? messageIndex, int limit = 50, bool? isBefore = false}) async {
+  Future<bool> requestMoreMessages(
+      String conversationId, LoadingType loadingType, int messageIndex,
+      {int limit = 50}) async {
     _logger.i('请求服务器获取更多历史消息', extra: {
       'conversationId': conversationId,
       'messageIndex': messageIndex,
-      'isBefore': isBefore,
+      'loadingType': loadingType,
       'limit': limit,
     });
 
@@ -336,15 +340,15 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 使用新Stream架构通知网络请求开始
       _notifyConversationLoadingState(LoadingStateUpdate.start(
         conversationId: conversationId,
-        context: LoadingContext.fetchMessages,
+        loadingType: loadingType,
       ));
 
       // 创建请求对象 - 使用新的index字段
       final request = message_proto.MessagesFetchRequest()
         ..conversationId = conversationId
         ..limit = limit
-        ..messageIndex = $fixnum.Int64(messageIndex ?? -1)
-        ..isBefore = isBefore ?? false;
+        ..messageIndex = $fixnum.Int64(messageIndex)
+        ..loadingType = loadingType;
 
       // 发送请求到服务器
       await _communicationService.emitProto('messages:fetch', request);
@@ -354,7 +358,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 请求失败时通知停止网络请求
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        context: LoadingContext.fetchMessages,
+        loadingType: loadingType,
         error: error.toString(),
       ));
       return false;
@@ -371,27 +375,23 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [lastMessageIndex] - 最后一条消息Index
   /// [limit] - 消息数量限制
   @override
-  Future<bool> loadMoreMessages(
-      String conversationId,
-      LoadingContext loadingContext,
-      int anchorMessageIndex,
-      int firstMessageIndex,
-      int lastMessageIndex,
+  Future<bool> loadMoreMessages(String conversationId, LoadingType loadingType,
+      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
       {int? limit}) async {
     _logger.d('加载本地最新的消息', extra: {
       'conversationId': conversationId,
       'anchorMessageIndex': anchorMessageIndex,
-      'loadingContext': loadingContext,
+      'loadingContext': loadingType,
     });
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      context: loadingContext,
+      loadingType: loadingType,
     ));
 
     List<Message> messages = [];
 
-    switch (loadingContext) {
-      case LoadingContext.initial:
+    switch (loadingType) {
+      case LoadingType.INITIAL:
         // 无新消息,读取最新100条
         if (anchorMessageIndex == -1) {
           messages = await _messages
@@ -402,14 +402,14 @@ class ChatRepositoryImpl implements ChatRepository {
               .findAll();
 
           if (messages.isEmpty) {
-            await requestMoreMessages(conversationId, isBefore: true);
+            await requestMoreMessages(conversationId, loadingType, -1);
           } else if (messages.length < 50 &&
               messages.last.messageIndex > firstMessageIndex) {
-            await requestMoreMessages(conversationId,
-                messageIndex: messages.last.messageIndex, isBefore: true);
+            await requestMoreMessages(
+                conversationId, loadingType, messages.last.messageIndex);
           }
         }
-        // 有新消息,锚点为新消息位置,获取范围内的消息 (anchorMessageIndex-50 到 anchorMessageIndex+50)
+        // 有新消息,锚点为新消息位置,获取范围内的消息
         else {
           final rangeSize = limit ?? 50;
           final startIndex = anchorMessageIndex - rangeSize;
@@ -424,16 +424,16 @@ class ChatRepositoryImpl implements ChatRepository {
               .findAll();
 
           if (messages.isEmpty) {
-            await requestMoreMessages(conversationId, isBefore: true);
+            await requestMoreMessages(conversationId, loadingType, -1);
           } else if (messages.length < 50 &&
               messages.last.messageIndex > firstMessageIndex &&
               messages.first.messageIndex < lastMessageIndex) {
-            await requestMoreMessages(conversationId,
-                messageIndex: anchorMessageIndex, isBefore: true);
+            await requestMoreMessages(
+                conversationId, loadingType, anchorMessageIndex);
           }
         }
         break;
-      case LoadingContext.loadMoreBefore:
+      case LoadingType.LOAD_MORE_BEFORE:
         messages = await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
@@ -444,14 +444,14 @@ class ChatRepositoryImpl implements ChatRepository {
             .findAll();
 
         if (messages.isEmpty) {
-          await requestMoreMessages(conversationId, isBefore: true);
+          await requestMoreMessages(conversationId, loadingType, -1);
         } else if (messages.length < 50 &&
             messages.last.messageIndex > firstMessageIndex) {
-          await requestMoreMessages(conversationId,
-              messageIndex: messages.last.messageIndex, isBefore: true);
+          await requestMoreMessages(
+              conversationId, loadingType, messages.last.messageIndex);
         }
         break;
-      case LoadingContext.loadMoreAfter:
+      case LoadingType.LOAD_MORE_AFTER:
         messages = await _messages
             .filter()
             .conversationIdEqualTo(conversationId)
@@ -462,29 +462,29 @@ class ChatRepositoryImpl implements ChatRepository {
             .findAll();
 
         if (messages.isEmpty) {
-          await requestMoreMessages(conversationId, isBefore: false);
+          await requestMoreMessages(conversationId, loadingType, -1);
         } else if (messages.length < 50 &&
             messages.first.messageIndex < lastMessageIndex) {
-          await requestMoreMessages(conversationId,
-              messageIndex: messages.first.messageIndex, isBefore: false);
+          await requestMoreMessages(
+              conversationId, loadingType, messages.first.messageIndex);
         }
         break;
-      case LoadingContext.search:
-      case LoadingContext.sendMessage:
-      case LoadingContext.fetchMessages:
-      case LoadingContext.refresh:
+      case LoadingType.SEARCH:
+      case LoadingType.ADD:
+      case LoadingType.UPDATE:
+      case LoadingType.UPDATE_SEND:
         break;
     }
 
     _messageUpdateControllers[conversationId]!.add(MessageAddedEvent(
       conversationId: conversationId,
       newMessages: messages,
-      position: MessageInsertPosition.merge, // 智能合并
+      loadingType: loadingType, // 使用LoadingContext
     ));
 
     _notifyConversationLoadingState(LoadingStateUpdate.complete(
       conversationId: conversationId,
-      context: loadingContext,
+      loadingType: loadingType,
     ));
     return true;
   }
@@ -544,8 +544,8 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 删除消息
-  /// 删除指定的消息及其相关的媒体文件
+  /// 删除消息（标记为删除状态，不物理删除）
+  /// 将消息状态标记为已删除，清空内容但保留消息索引连续性
   /// [messageId] - 消息ID
   @override
   Future<void> deleteMessage(String messageId) async {
@@ -560,19 +560,45 @@ class ChatRepositoryImpl implements ChatRepository {
       // 用于存储要删除的文件路径
       final filesToDelete = _collectMediaFilePaths(message);
 
-      // 在数据库事务中删除消息
+      // 💢💢💢 在数据库事务中标记消息为删除状态
       await _isar.writeTxn(() async {
-        // 使用消息的Isar ID删除
-        final success = await _messages.delete(message.id);
-        if (!success) {
-          throw Exception('删除消息失败');
-        }
+        // 标记为删除状态，清空内容字段
+        message.status = MessageStatus.deleted;
+        message.text = null;
+        message.mediaUrl = null;
+        message.thumbnailUrl = null;
+        message.localPath = null;
+        message.fileName = null;
+        message.fileSize = null;
+        message.duration = null;
+        message.metadata = null;
+        message.updatedAt = DateTime.now();
+
+        // 更新消息到数据库，保留messageIndex等关键字段
+        await _messages.put(message);
       });
 
-      // 删除关联的媒体文件
+      // 删除关联的媒体文件（物理文件可以删除）
       await _deleteMediaFiles(filesToDelete);
+
+      // 💢💢💢 推送消息更新事件，通知UI更新
+      _notifyMessageUpdate(MessageUpdatedEvent(
+        conversationId: message.conversationId,
+        messageId: message.messageId,
+        updatedFields: {
+          'status': 'deleted',
+          'updatedAt': message.updatedAt?.toIso8601String(),
+        },
+      ));
+
+      _logger.i('消息已标记为删除状态', extra: {
+        'messageId': messageId,
+        'conversationId': message.conversationId,
+        'messageIndex': message.messageIndex,
+        'action': '标记删除而非物理删除',
+      });
     } catch (error) {
-      _logger.e('删除消息失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('标记消息删除失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -644,7 +670,7 @@ class ChatRepositoryImpl implements ChatRepository {
     // 💢💢💢 使用新Stream架构通知开始加载
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      context: LoadingContext.search,
+      loadingType: LoadingType.SEARCH,
     ));
 
     try {
@@ -684,7 +710,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
       ));
       return messages;
     } catch (error) {
@@ -693,7 +719,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
         error: error.toString(),
       ));
       return [];
@@ -715,7 +741,7 @@ class ChatRepositoryImpl implements ChatRepository {
     // 💢💢💢 使用新Stream架构通知开始加载
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      context: LoadingContext.search,
+      loadingType: LoadingType.SEARCH,
     ));
 
     try {
@@ -738,7 +764,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
       ));
       return messages;
     } catch (error) {
@@ -747,7 +773,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
         error: error.toString(),
       ));
       return [];
@@ -1042,7 +1068,7 @@ class ChatRepositoryImpl implements ChatRepository {
     // 💢💢💢 使用新Stream架构通知开始加载
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      context: LoadingContext.search,
+      loadingType: LoadingType.SEARCH,
     ));
 
     try {
@@ -1050,7 +1076,7 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知加载完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          context: LoadingContext.search,
+          loadingType: LoadingType.SEARCH,
         ));
         return [];
       }
@@ -1077,7 +1103,7 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知加载完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          context: LoadingContext.search,
+          loadingType: LoadingType.SEARCH,
         ));
         return [];
       }
@@ -1104,7 +1130,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
       ));
       return allMessages;
     } catch (error) {
@@ -1113,7 +1139,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
         error: error.toString(),
       ));
       return [];
@@ -1138,7 +1164,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 使用新Stream架构通知开始加载
       _notifyConversationLoadingState(LoadingStateUpdate.start(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
       ));
 
       // 获取目标消息
@@ -1155,7 +1181,7 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知加载完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          context: LoadingContext.search,
+          loadingType: LoadingType.SEARCH,
         ));
 
         return (
@@ -1208,7 +1234,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
       ));
 
       _logger.i('加载搜索结果附近消息完成', extra: {
@@ -1226,7 +1252,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        context: LoadingContext.search,
+        loadingType: LoadingType.SEARCH,
         error: error.toString(),
       ));
 
@@ -1283,7 +1309,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _notifyMessageUpdate(MessageAddedEvent(
         conversationId: message.conversationId,
         newMessages: [message],
-        position: MessageInsertPosition.after, // 新消息添加到前面
+        loadingType: LoadingType.ADD, // 新消息来自网络
       ));
 
       _logger.d('新消息已保存到数据库并推送更新事件', extra: {
@@ -1316,6 +1342,13 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 💢💢💢 新增：外部通知消息更新事件（公共接口）
+  /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化
+  @override
+  void notifyMessageUpdate(MessageUpdateEvent event) {
+    _notifyMessageUpdate(event);
+  }
+
   /// 💢💢💢 新Stream架构：通知会话级加载状态变化
   void _notifyConversationLoadingState(LoadingStateUpdate update) {
     try {
@@ -1325,7 +1358,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
         _logger.d('通知会话级加载状态变化', extra: {
           'conversationId': update.conversationId,
-          'context': update.context.toString(),
+          'loadingType': update.loadingType.toString(),
           'isLoading': update.isLoading,
           'error': update.error,
         });

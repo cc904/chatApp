@@ -187,7 +187,7 @@ class CommunicationService {
 
     // 配置Proto消息转换和处理
     _socketService.onProto(eventName, creator, (message) {
-      _logger.d('📨 收到Proto消息: $eventName',
+      _logger.d('收到Proto消息: $eventName',
           extra: {'messageType': message.runtimeType});
 
       // 添加try-catch以捕获可能的错误

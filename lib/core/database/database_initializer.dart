@@ -6,6 +6,7 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/models/friend_request.dart';
+// 💢💢💢 已移除：import 'database_migration.dart'; // 开发阶段不需要迁移
 import 'package:path_provider/path_provider.dart';
 
 /// 数据库初始化器
@@ -100,6 +101,9 @@ class DatabaseInitializer {
 
       // 创建索引
       await _createIndexes();
+
+      // 💢💢💢 已移除：数据库迁移（开发阶段直接修改代码）
+      // await _runMigrations(currentUser.userId);
     } catch (error) {
       // 确保在初始化失败时重置状态
       _isar = null;
@@ -108,6 +112,11 @@ class DatabaseInitializer {
       rethrow;
     }
   }
+
+  /// 💢💢💢 已移除：数据库迁移方法（开发阶段直接修改代码）
+  // static Future<void> _runMigrations(String userId) async {
+  //   // 开发阶段不需要迁移
+  // }
 
   /// 创建数据库索引
   ///

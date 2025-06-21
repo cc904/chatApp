@@ -90,8 +90,11 @@ class _HomePageState extends State<HomePage>
     // 创建全局共享的ChatRepository
     _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
 
-    // 创建ChatRepositorySend
-    _chatRepositorySend = ChatRepositorySendImpl(currentUser: currentUser);
+    // 创建ChatRepositorySend（需要传入ChatRepository以便发出事件）
+    _chatRepositorySend = ChatRepositorySendImpl(
+      currentUser: currentUser,
+      chatRepository: _chatRepository!,
+    );
 
     // 创建ChatsRepository
     _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);

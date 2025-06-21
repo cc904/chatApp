@@ -265,7 +265,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     $fixnum.Int64? lastMessageTime,
     $core.String? lastMessagePreview,
     $core.String? lastMessageName,
-    $pb.PbMap<$core.String, ParticipantProto>? participants,
+    $core.Iterable<ParticipantProto>? participants,
   }) {
     final $result = create();
     if (conversationId != null) {
@@ -322,7 +322,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     ..aInt64(9, _omitFieldNames ? '' : 'lastMessageTime')
     ..aOS(10, _omitFieldNames ? '' : 'lastMessagePreview')
     ..aOS(11, _omitFieldNames ? '' : 'lastMessageName')
-    ..m<$core.String, ParticipantProto>(12, _omitFieldNames ? '' : 'participants', entryClassName: 'ConversationProto.ParticipantsEntry', keyFieldType: $pb.PbFieldType.OS, valueFieldType: $pb.PbFieldType.OM, valueCreator: ParticipantProto.create, valueDefaultOrMaker: ParticipantProto.getDefault, packageName: const $pb.PackageName('cc'))
+    ..pc<ParticipantProto>(12, _omitFieldNames ? '' : 'participants', $pb.PbFieldType.PM, subBuilder: ParticipantProto.create)
     ..hasRequiredFields = false
   ;
 
@@ -459,9 +459,8 @@ class ConversationProto extends $pb.GeneratedMessage {
   void clearLastMessageName() => $_clearField(11);
 
   /// 参与者详细信息，包含所有参与者的完整信息
-  /// key: user_id, value: ParticipantProto
   @$pb.TagNumber(12)
-  $pb.PbMap<$core.String, ParticipantProto> get participants => $_getMap(11);
+  $pb.PbList<ParticipantProto> get participants => $_getList(11);
 }
 
 /// 会话更新

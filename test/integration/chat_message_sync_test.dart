@@ -70,12 +70,10 @@ void main() {
         // 验证滚动位置设置
         final scrollPosition = CurrentScrollPosition.fromAnchor(
           messageId: decision.targetMessageId!,
-          messageIndex: 0, // 最新消息在索引0
           relativePosition: 0.0, // UI底部第一条
         );
 
         expect(scrollPosition.messageId, equals('msg_30'));
-        expect(scrollPosition.messageIndex, equals(0));
         expect(scrollPosition.relativePosition, equals(0.0));
 
         debugPrint('✅ 场景1测试通过：首次进入显示到最新消息(${decision.targetMessageId})');
@@ -234,7 +232,6 @@ void main() {
         final latestMessage = initialState.messages.first;
         final scrollPosition = CurrentScrollPosition.fromAnchor(
           messageId: latestMessage.messageId,
-          messageIndex: 0, // 最新消息总是在索引0
           relativePosition: 0.0, // 在UI底部第一条显示
         );
 
@@ -245,7 +242,6 @@ void main() {
 
         // 断言：滚动位置设置正确
         expect(updatedState.currentScrollPosition.messageId, equals('msg_10'));
-        expect(updatedState.currentScrollPosition.messageIndex, equals(0));
         expect(
             updatedState.currentScrollPosition.relativePosition, equals(0.0));
 

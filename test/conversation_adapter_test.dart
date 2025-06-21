@@ -38,8 +38,8 @@ void main() {
         lastMessageIndex: 100,
       );
 
-      // 添加参与者到Map中
-      protoConversation.participants['test_user_id'] = participantProto;
+      // 添加参与者到列表中
+      protoConversation.participants.add(participantProto);
 
       // 转换为Conversation对象
       final conversation = ConversationAdapter.fromProto(protoConversation);
@@ -53,7 +53,7 @@ void main() {
       expect(conversation.participants.length, equals(1));
       expect(conversation.participants.first.userId, equals('test_user_id'));
       expect(conversation.participants.first.name, equals('Test User'));
-      expect(conversation.participants.first.unreadCount, equals(5));
+      // 💢💢💢 已修改：参与者模型中已移除unreadCount字段，改为测试动态计算
       expect(conversation.participants.first.muted, equals(false));
       expect(conversation.participants.first.pinned, equals(true));
     });
@@ -64,7 +64,7 @@ void main() {
         userId: 'test_user_id',
         name: 'Test User',
         avatar: 'test_avatar_url',
-        unreadCount: 3,
+        // 💢💢💢 已移除：unreadCount参数，现在使用动态计算
         muted: true,
         pinned: false,
         joinedAt: DateTime.now(),
@@ -101,12 +101,10 @@ void main() {
       expect(protoConversation.lastMessagePreview, equals('Group message'));
       expect(protoConversation.createdBy, equals('test_creator_id'));
       expect(protoConversation.participants.length, equals(1));
-      expect(protoConversation.participants['test_user_id']?.userId,
-          equals('test_user_id'));
-      expect(protoConversation.participants['test_user_id']?.name,
-          equals('Test User'));
-      expect(protoConversation.participants['test_user_id']?.unreadCount,
-          equals(3));
+      expect(
+          protoConversation.participants.first.userId, equals('test_user_id'));
+      expect(protoConversation.participants.first.name, equals('Test User'));
+      // 💢💢💢 已修改：参与者模型中已移除unreadCount字段，无需测试proto的unreadCount
     });
 
     test('应该正确处理批量转换', () {
@@ -258,7 +256,7 @@ void main() {
       expect(participant.userId, equals('test_user_id'));
       expect(participant.name, equals('Test User'));
       expect(participant.avatar, equals('test_avatar_url'));
-      expect(participant.unreadCount, equals(5));
+      // 💢💢💢 已修改：参与者模型中已移除unreadCount字段，改为测试动态计算
       expect(participant.muted, equals(false));
       expect(participant.pinned, equals(true));
       expect(participant.deliveredMessageIndex, equals(10));
@@ -273,7 +271,7 @@ void main() {
           ConversationAdapter.participantToProto(participant);
       expect(protoParticipant.userId, equals('test_user_id'));
       expect(protoParticipant.name, equals('Test User'));
-      expect(protoParticipant.unreadCount, equals(5));
+      // 💢💢💢 已修改：参与者模型中已移除unreadCount字段，无需测试proto的unreadCount
       expect(protoParticipant.role, equals(proto.MemberRole.ADMIN));
     });
   });

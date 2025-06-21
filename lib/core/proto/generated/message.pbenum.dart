@@ -65,6 +65,32 @@ class MessageStatus extends $pb.ProtobufEnum {
   const MessageStatus._(super.v, super.n);
 }
 
+/// 消息加载类型枚举
+class LoadingType extends $pb.ProtobufEnum {
+  static const LoadingType INITIAL = LoadingType._(0, _omitEnumNames ? '' : 'INITIAL');
+  static const LoadingType LOAD_MORE_BEFORE = LoadingType._(1, _omitEnumNames ? '' : 'LOAD_MORE_BEFORE');
+  static const LoadingType LOAD_MORE_AFTER = LoadingType._(2, _omitEnumNames ? '' : 'LOAD_MORE_AFTER');
+  static const LoadingType ADD = LoadingType._(3, _omitEnumNames ? '' : 'ADD');
+  static const LoadingType UPDATE = LoadingType._(4, _omitEnumNames ? '' : 'UPDATE');
+  static const LoadingType SEARCH = LoadingType._(5, _omitEnumNames ? '' : 'SEARCH');
+  static const LoadingType UPDATE_SEND = LoadingType._(6, _omitEnumNames ? '' : 'UPDATE_SEND');
+
+  static const $core.List<LoadingType> values = <LoadingType> [
+    INITIAL,
+    LOAD_MORE_BEFORE,
+    LOAD_MORE_AFTER,
+    ADD,
+    UPDATE,
+    SEARCH,
+    UPDATE_SEND,
+  ];
+
+  static final $core.Map<$core.int, LoadingType> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static LoadingType? valueOf($core.int value) => _byValue[value];
+
+  const LoadingType._(super.v, super.n);
+}
+
 /// 系统事件类型枚举
 class SystemEventType extends $pb.ProtobufEnum {
   /// 会话管理事件

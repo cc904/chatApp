@@ -9,9 +9,6 @@ class CurrentScrollPosition extends Equatable {
   /// 锚点消息ID
   final String? messageId;
 
-  /// 锚点消息在列表中的索引
-  final int? messageIndex;
-
   /// 消息在屏幕中的相对位置 (0.0 - 1.0)
   /// 0.0 表示消息顶部对齐屏幕顶部，1.0 表示消息底部对齐屏幕底部
   final double? relativePosition;
@@ -23,11 +20,11 @@ class CurrentScrollPosition extends Equatable {
   final DateTime? timestamp;
 
   /// 是否是有效的位置信息
-  bool get isValid => messageId != null && messageIndex != null;
+  /// 只要存在 messageId 即认为有效，listIndex 可以动态计算
+  bool get isValid => messageId != null;
 
   const CurrentScrollPosition({
     this.messageId,
-    this.messageIndex,
     this.relativePosition,
     this.scrollOffset,
     this.timestamp,
@@ -36,7 +33,6 @@ class CurrentScrollPosition extends Equatable {
   /// 创建空的滚动位置
   const CurrentScrollPosition.empty()
       : messageId = null,
-        messageIndex = null,
         relativePosition = null,
         scrollOffset = null,
         timestamp = null;
@@ -44,14 +40,12 @@ class CurrentScrollPosition extends Equatable {
   /// 从锚点消息创建位置信息
   factory CurrentScrollPosition.fromAnchor({
     required String messageId,
-    required int messageIndex,
     double? relativePosition,
     double? scrollOffset,
     bool includeTimestamp = false,
   }) {
     return CurrentScrollPosition(
       messageId: messageId,
-      messageIndex: messageIndex,
       relativePosition: relativePosition ?? 0.0,
       scrollOffset: scrollOffset,
       timestamp: includeTimestamp ? DateTime.now() : null,
@@ -60,31 +54,35 @@ class CurrentScrollPosition extends Equatable {
 
   CurrentScrollPosition copyWith({
     String? messageId,
-    int? messageIndex,
     double? relativePosition,
     double? scrollOffset,
     DateTime? timestamp,
   }) {
     return CurrentScrollPosition(
       messageId: messageId ?? this.messageId,
-      messageIndex: messageIndex ?? this.messageIndex,
       relativePosition: relativePosition ?? this.relativePosition,
       scrollOffset: scrollOffset ?? this.scrollOffset,
       timestamp: timestamp ?? this.timestamp,
     );
   }
 
+  /// 根据当前 messageId 在给定 messages 列表中动态计算 UI 索引
+  /// 如果未找到返回 -1
+  int getListIndex(List<Message> messages) {
+    if (messageId == null) return -1;
+    return messages.indexWhere((m) => m.messageId == messageId);
+  }
+
   @override
   List<Object?> get props => [
         messageId,
-        messageIndex,
         relativePosition,
         scrollOffset,
       ];
 
   @override
   String toString() {
-    return 'CurrentScrollPosition(messageId: $messageId, index: $messageIndex, '
+    return 'CurrentScrollPosition(messageId: $messageId, '
         'relativePos: $relativePosition, offset: $scrollOffset, '
         'timestamp: $timestamp)';
   }
@@ -117,7 +115,7 @@ class ChatState extends Equatable {
   final String? errorMessage;
 
   /// 当前用户信息
-  final CurrentUser? currentUser;
+  final CurrentUser currentUser;
 
   /// 最后阅读的消息ID
   final String? lastReadMessageId;
@@ -127,9 +125,6 @@ class ChatState extends Equatable {
 
   /// 是否有更多新消息可加载
   final bool hasMoreAfter;
-
-  /// 未读消息数量
-  final int unreadCount;
 
   /// 第一条未读消息ID
   final String? firstUnreadMessageId;
@@ -203,11 +198,10 @@ class ChatState extends Equatable {
     required this.isSending,
     required this.networkStatus,
     this.errorMessage,
-    this.currentUser,
+    required this.currentUser,
     this.lastReadMessageId,
     required this.hasMoreBefore,
     required this.hasMoreAfter,
-    required this.unreadCount,
     this.firstUnreadMessageId,
     required this.currentScrollPosition,
     this.isSearchMode = false,
@@ -250,7 +244,6 @@ class ChatState extends Equatable {
       errorMessage: null,
       hasMoreBefore: true,
       hasMoreAfter: false,
-      unreadCount: 0,
       currentScrollPosition: const CurrentScrollPosition.empty(),
       currentUser: currentUser,
       searchResultMessageIds: const [],
@@ -282,7 +275,6 @@ class ChatState extends Equatable {
     String? lastReadMessageId,
     bool? hasMoreBefore,
     bool? hasMoreAfter,
-    int? unreadCount,
     String? firstUnreadMessageId,
     CurrentScrollPosition? currentScrollPosition,
     bool? isSearchMode,
@@ -318,7 +310,6 @@ class ChatState extends Equatable {
       lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
       hasMoreBefore: hasMoreBefore ?? this.hasMoreBefore,
       hasMoreAfter: hasMoreAfter ?? this.hasMoreAfter,
-      unreadCount: unreadCount ?? this.unreadCount,
       firstUnreadMessageId: firstUnreadMessageId ?? this.firstUnreadMessageId,
       currentScrollPosition:
           currentScrollPosition ?? this.currentScrollPosition,
@@ -358,7 +349,6 @@ class ChatState extends Equatable {
   Map<String, dynamic> getMessageStats() {
     return {
       'totalMessages': messages.length,
-      'unreadCount': unreadCount,
       'hasMoreBefore': hasMoreBefore,
       'hasMoreAfter': hasMoreAfter,
       'firstMessageTime': messages.isNotEmpty
@@ -391,7 +381,6 @@ class ChatState extends Equatable {
         lastReadMessageId,
         hasMoreBefore,
         hasMoreAfter,
-        unreadCount,
         firstUnreadMessageId,
         currentScrollPosition,
         isSearchMode,
@@ -412,4 +401,10 @@ class ChatState extends Equatable {
         isLoading,
         totalMessageCount,
       ];
+
+  /// 是否正在加载更多之前的消息（向上滚动时）
+  bool get isLoadingMoreMessagesBefore => isLoadingMoreMessages;
+
+  /// 是否正在加载更多之后的消息（向下滚动时）
+  bool get isLoadingMoreMessagesAfter => isLoadingMoreMessages;
 }

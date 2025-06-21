@@ -3,8 +3,12 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 import 'package:isar/isar.dart';
 
 /// ChatRepositorySend的实现类
@@ -12,6 +16,8 @@ import 'package:isar/isar.dart';
 class ChatRepositorySendImpl implements ChatRepositorySend {
   final CommunicationService _communicationService = CommunicationService();
   final CurrentUser _currentUser;
+  final ChatRepository _chatRepository;
+  final LogService _logger = LogService.instance;
 
   // 数据库实例
   Isar get _isar => DatabaseInitializer.isar;
@@ -22,8 +28,11 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       StreamController<MessageSendEvent>.broadcast();
 
   /// 构造函数
-  ChatRepositorySendImpl({required CurrentUser currentUser})
-      : _currentUser = currentUser;
+  ChatRepositorySendImpl({
+    required CurrentUser currentUser,
+    required ChatRepository chatRepository,
+  })  : _currentUser = currentUser,
+        _chatRepository = chatRepository;
 
   /// 发送文本消息
   @override
@@ -98,11 +107,13 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 发送消息（带超时机制）
   @override
   Future<void> sendMessageWithTimeout(Message message,
-      {Duration timeout = const Duration(seconds: 5)}) async {
+      {Duration timeout = const Duration(seconds: 3)}) async {
     // 保存到数据库
     await _isar.writeTxn(() async {
       message.id = await _messages.put(message);
     });
+
+    await _notifyMessageAdded(message);
 
     // 发送到服务器
     final protoMsg = MessageAdapter.toProto(message);
@@ -151,6 +162,8 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       message.status = status;
       await _messages.put(message);
     });
+
+    await _notifyMessageUpdated(message);
   }
 
   /// 获取消息发送状态流
@@ -162,6 +175,10 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 创建消息
   Future<Message> _createMessage(
       String conversationId, String text, MessageType type) async {
+    // 💢💢💢 获取当前会话中最大的messageIndex
+    final maxMessageIndex = await _getMaxMessageIndex(conversationId);
+    final newMessageIndex = maxMessageIndex + 100;
+
     final message = Message()
       ..messageId =
           'temp_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}'
@@ -171,8 +188,54 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       ..type = type
       ..text = text.isEmpty ? null : text
       ..status = MessageStatus.sending
+      ..messageIndex = newMessageIndex // 💢💢💢 设置messageIndex
       ..createdAt = DateTime.now();
 
     return message;
+  }
+
+  /// 💢💢💢 新增：获取会话中最大的messageIndex
+  Future<int> _getMaxMessageIndex(String conversationId) async {
+    final maxMessage = await _messages
+        .filter()
+        .conversationIdEqualTo(conversationId)
+        .sortByMessageIndexDesc()
+        .limit(1)
+        .findFirst();
+
+    return maxMessage?.messageIndex ?? 0;
+  }
+
+  /// 💢💢💢 新增：通知ChatRepository发出消息添加事件
+  Future<void> _notifyMessageAdded(Message message) async {
+    try {
+      // 💢💢💢 使用公共接口方法
+      _chatRepository.notifyMessageUpdate(MessageAddedEvent(
+        conversationId: message.conversationId,
+        newMessages: [message],
+        loadingType: LoadingType.ADD, // 新发送的消息
+      ));
+    } catch (error) {
+      // 如果通知失败，记录错误但不影响消息发送
+      _logger.e('通知消息添加事件失败', error: error);
+    }
+  }
+
+  /// 💢💢💢 新增：通知ChatRepository发出消息更新事件
+  Future<void> _notifyMessageUpdated(Message message) async {
+    try {
+      // 💢💢💢 使用公共接口方法，传递messageId和更新的字段
+      _chatRepository.notifyMessageUpdate(MessageUpdatedEvent(
+        conversationId: message.conversationId,
+        messageId: message.messageId,
+        updatedFields: {
+          'status': message.status.name,
+          'updatedAt': message.updatedAt?.toIso8601String(),
+        },
+      ));
+    } catch (error) {
+      // 如果通知失败，记录错误但不影响消息更新
+      _logger.e('通知消息更新事件失败', error: error);
+    }
   }
 }

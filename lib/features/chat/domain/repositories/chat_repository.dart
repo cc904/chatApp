@@ -1,6 +1,7 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 
 /// 搜索结果类
 /// 包含搜索相关的所有信息
@@ -86,9 +87,10 @@ abstract class ChatRepository {
   /// [conversationId] - 会话ID
   /// [messageIndex] - 起始消息索引
   /// [limit] - 获取消息数量限制
-  /// [isBefore] - 是否获取指定索引之前的消息
-  Future<bool> requestMoreMessages(String conversationId,
-      {int? messageIndex, int limit = 50, bool? isBefore = false});
+  /// [loadingType] - 加载类型
+  Future<bool> requestMoreMessages(
+      String conversationId, LoadingType loadingType, int messageIndex,
+      {int limit = 50});
 
   /// 加载本地最新的消息 前50条 后50条
   /// [conversationId] - 会话ID
@@ -97,9 +99,8 @@ abstract class ChatRepository {
   /// [lastMessageIndex] - 会话中的最后一条消息的索引
   /// [limit] - 获取消息数量限制
   /// [isBefore] - 是否获取指定索引之前的消息
-  Future<bool> loadMoreMessages(String conversationId,
-      LoadingContext loadingContext, int anchorMessageIndex,
-      int firstMessageIndex, int lastMessageIndex,
+  Future<bool> loadMoreMessages(String conversationId, LoadingType loadingType,
+      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
       {int? limit});
 
   /// 获取会话中的消息数量
@@ -195,4 +196,9 @@ abstract class ChatRepository {
 
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
+
+  /// 💢💢💢 新增：外部通知消息更新事件
+  /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化
+  /// [event] - 消息更新事件
+  void notifyMessageUpdate(MessageUpdateEvent event);
 }

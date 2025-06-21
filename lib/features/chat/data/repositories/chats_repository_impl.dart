@@ -44,20 +44,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
 
-  // 💢💢💢 新增：去重机制，防止重复处理同步响应
-  String? _lastSyncResponseHash;
-  DateTime? _lastSyncResponseTime;
-  static const Duration _deduplicationWindow = Duration(seconds: 5);
-
   /// 💢💢💢 新架构：通知会话更新事件
   void _notifyConversationUpdate(ConversationUpdateEvent event) {
     if (!_conversationUpdateController.isClosed) {
       _conversationUpdateController.add(event);
-      _logger.d('会话更新事件已发送', extra: {
-        'eventType': event.runtimeType.toString(),
-        'conversationId': event.conversationId,
-        'timestamp': event.timestamp.toIso8601String(),
-      });
     }
   }
 
@@ -193,34 +183,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
               .findFirst();
 
           if (existing != null) {
-            // 只有当服务器的最后消息时间更新时才更新本地数据
-            if (conversation.lastMessageTime != null &&
-                (existing.lastMessageTime == null ||
-                    conversation.lastMessageTime!
-                        .isAfter(existing.lastMessageTime!))) {
-              conversation.id = existing.id;
-              await _conversations.put(conversation);
-
-              // ✅ 已移除会话更新事件流，改用数据库监听
-            }
-
-            // 🔥 新增：检查边界信息，如果缺失则请求详细信息
-            if (conversation.firstMessageIndex <= 0 ||
-                conversation.lastMessageIndex <= 0) {
-              _logger.w('会话缺失边界信息，请求详细数据', extra: {
-                'conversationId': conversation.conversationId,
-                'firstMessageIndex': conversation.firstMessageIndex,
-                'lastMessageIndex': conversation.lastMessageIndex,
-              });
-
-              // 异步请求详细信息，不阻塞当前流程
-              requestConversationDetail(conversation.conversationId).ignore();
-            }
+            conversation.id = existing.id;
+            await _conversations.put(conversation);
           } else {
             // 添加新会话
             await _conversations.put(conversation);
-
-            // ✅ 已移除会话更新事件流，改用数据库监听
           }
         }
       });
@@ -755,6 +722,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<void> saveConversation(db.Conversation conversation) async {
     try {
+      // 💢💢💢 已移除：不再需要手动计算unreadCount，使用动态计算
+
       await _isar.writeTxn(() async {
         await _conversations.put(conversation);
       });
@@ -763,12 +732,79 @@ class ChatsRepositoryImpl implements ChatsRepository {
         'conversationId': conversation.conversationId,
         'type': conversation.type.name,
         'name': conversation.name,
+        'unreadCount': conversation.unreadCount(_currentUser.userId),
       });
     } catch (error, stack) {
       _logger.e('保存会话到本地数据库失败', error: error, stackTrace: stack);
       rethrow;
     }
   }
+
+  /// 💢💢💢 新增：获取第一条未读消息的ID
+  /// [conversationId] - 会话ID
+  /// [currentUserId] - 当前用户ID
+  /// 返回第一条未读消息的ID，如果没有未读消息则返回null
+  @override
+  Future<String?> getFirstUnreadMessageId(
+      String conversationId, String currentUserId) async {
+    try {
+      _logger.d('开始查找第一条未读消息ID', extra: {
+        'conversationId': conversationId,
+        'currentUserId': currentUserId,
+      });
+
+      // 首先获取会话信息
+      final conversation = await getConversationById(conversationId);
+      if (conversation == null) {
+        _logger.w('会话不存在', extra: {'conversationId': conversationId});
+        return null;
+      }
+
+      // 获取第一条未读消息的索引
+      final firstUnreadIndex =
+          conversation.getFirstUnreadMessageIndex(currentUserId);
+      if (firstUnreadIndex == null) {
+        _logger.d('没有未读消息', extra: {
+          'conversationId': conversationId,
+          'currentUserId': currentUserId,
+        });
+        return null;
+      }
+
+      // 从数据库查询对应索引的消息
+      final message = await _isar.messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .messageIndexEqualTo(firstUnreadIndex)
+          .findFirst();
+
+      if (message == null) {
+        _logger.w('找不到对应索引的消息', extra: {
+          'conversationId': conversationId,
+          'firstUnreadIndex': firstUnreadIndex,
+        });
+        return null;
+      }
+
+      _logger.i('成功找到第一条未读消息', extra: {
+        'conversationId': conversationId,
+        'firstUnreadIndex': firstUnreadIndex,
+        'messageId': message.messageId,
+        'messageText': message.text?.substring(0, 50) ?? '非文本消息',
+      });
+
+      return message.messageId;
+    } catch (error, stackTrace) {
+      _logger.e('查找第一条未读消息ID失败', error: error, stackTrace: stackTrace, extra: {
+        'conversationId': conversationId,
+        'currentUserId': currentUserId,
+      });
+      return null;
+    }
+  }
+
+  /// 💢💢💢 已移除：_calculateAndUpdateUnreadCount 方法
+  /// 不再需要手动计算和更新unreadCount字段，现在完全使用动态计算：conversation.unreadCount(userId)
 
   /// 处理会话同步响应事件
   /// 将Proto格式的会话数据转换为数据库模型并更新本地数据
@@ -777,33 +813,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
     _logger.i('收到会话同步响应',
         extra: {'conversations': collection.conversations.length});
 
-    // 💢💢💢 新增：去重机制，防止重复处理同步响应
-    final currentSyncResponseHash = collection.hashCode.toString();
-    final currentSyncResponseTime = DateTime.now();
-
-    if (_lastSyncResponseHash == currentSyncResponseHash &&
-        _lastSyncResponseTime != null &&
-        currentSyncResponseTime.difference(_lastSyncResponseTime!).inSeconds <=
-            _deduplicationWindow.inSeconds) {
-      _logger.i('重复的同步响应，已忽略', extra: {
-        'hash': currentSyncResponseHash,
-        'timeDiff': currentSyncResponseTime
-            .difference(_lastSyncResponseTime!)
-            .inSeconds,
-      });
-      return;
-    }
-
-    _lastSyncResponseHash = currentSyncResponseHash;
-    _lastSyncResponseTime = currentSyncResponseTime;
-
     try {
       if (collection.conversations.isEmpty) {
         _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
         return;
       }
 
-      // 转换为数据库对象 - 使用适配器转换方法
+      // 转换为数据库对象 - 使用适配器转换方法，完全使用服务器数据
       final List<db.Conversation> dbConversations = collection.conversations
           .map((conv) => ConversationAdapter.fromProto(conv))
           .toList();
@@ -846,16 +862,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
           conversation.lastMessagePreview = notification.lastMessagePreview;
           conversation.lastMessageIndex = notification.lastMessageIndex.toInt();
 
-          // 更新当前用户的未读数量
-          final currentUserId = _currentUser.userId;
-          conversation.updateCurrentUserSettings(
-            currentUserId: currentUserId,
-          );
+          // 💢💢💢 已移除：不再需要手动计算unreadCount，使用动态计算
 
           // 保存更新后的会话
           await _conversations.put(conversation);
-          _logger.d('已更新本地会话数据',
-              extra: {'conversationId': notification.conversationId});
+          _logger.d('已更新本地会话数据', extra: {
+            'conversationId': notification.conversationId,
+            'unreadCount': conversation.unreadCount(_currentUser.userId),
+          });
 
           // 💢💢💢 新架构：发送会话更新事件
           _notifyConversationUpdate(ConversationUpdatedEvent(
@@ -1001,7 +1015,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
   void _handleConversationDetailResponse(
       conversation_proto.ConversationDetailResponse response) async {
     if (response.success && response.hasConversation()) {
-      final conversation = ConversationAdapter.fromProto(response.conversation);
+      final conversation = ConversationAdapter.fromProto(
+        response.conversation,
+        currentUserId: _currentUser.userId,
+      );
+
       _logger.i('成功获取会话详情', extra: {
         'conversationId': conversation.conversationId,
         'conversationType': conversation.type.name
@@ -1011,8 +1029,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       _logger.d('已将会话详情保存到本地数据库');
-
-      // ✅ 已移除会话更新事件流，改用数据库监听
     }
   }
 
@@ -1065,6 +1081,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
               'readMessageIndex': participant.readMessageIndex,
               'muted': participant.muted,
               'pinned': participant.pinned,
+              'calculatedUnreadCount': conversation.unreadCount(currentUserId),
             });
           } else {
             // 更新其他参与者的信息
@@ -1072,7 +1089,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
                 .indexWhere((p) => p.userId == participant.userId);
 
             if (existingParticipantIndex != -1) {
-              // 更新现有参与者
+              // 🔧 修复：完全使用服务器数据，不保留本地状态
               conversation.participants[existingParticipantIndex] =
                   ConversationAdapter.participantFromProto(participant);
               _logger.d('已更新其他参与者信息', extra: {
@@ -1084,6 +1101,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
           // 保存更新后的会话
           await _conversations.put(conversation);
+
+          // 💢💢💢 新增：发出会话更新事件通知ChatsPage
+          _notifyConversationUpdate(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: ['readMessageIndex', 'unreadCount'],
+            timestamp: DateTime.now(),
+          ));
+
           _logger.d('参与者状态更新完成',
               extra: {'conversationId': response.conversationId});
         } else {
@@ -1144,6 +1169,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
           // 保存更新后的会话
           await _conversations.put(conversation);
 
+          // 💢💢💢 新增：发出会话更新事件通知ChatsPage
+          _notifyConversationUpdate(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: ['lastReadTime'],
+            timestamp: DateTime.now(),
+          ));
+
           _logger.d('已更新会话的最后阅读时间', extra: {
             'conversationId': conversationId,
             'lastReadTime': conversation.lastReadTime?.toIso8601String(),
@@ -1174,7 +1206,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
       _logger.d('💾 保存会话状态快照', extra: {
         'conversationId': conversationId,
         'messageCount': snapshot.messages.length,
-        'currentScrollPosition': snapshot.currentScrollPosition?.messageIndex,
+        'currentScrollPosition':
+            snapshot.currentScrollPosition?.getListIndex(snapshot.messages),
       });
     } catch (error) {
       _logger.e('保存状态快照失败', error: error);
@@ -1191,16 +1224,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
         _logger.d('📖 获取会话状态快照', extra: {
           'conversationId': conversationId,
           'messageCount': snapshot.messages.length,
-          'age': snapshot.ageInSeconds,
         });
         return snapshot;
-      } else if (snapshot != null) {
-        // 快照过期，清除
-        _stateSnapshots.remove(conversationId);
-        _logger.d('🗑️ 会话状态快照已过期', extra: {
-          'conversationId': conversationId,
-          'age': snapshot.ageInSeconds,
-        });
       }
 
       return null;
@@ -1226,27 +1251,27 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 清除所有过期的状态快照
+  /// 清除所有无效的状态快照
   @override
   Future<void> cleanupExpiredSnapshots() async {
     try {
-      final expiredKeys = _stateSnapshots.entries
+      final invalidKeys = _stateSnapshots.entries
           .where((entry) => !entry.value.isValid)
           .map((entry) => entry.key)
           .toList();
 
-      for (final key in expiredKeys) {
+      for (final key in invalidKeys) {
         _stateSnapshots.remove(key);
       }
 
-      if (expiredKeys.isNotEmpty) {
-        _logger.d('🗑️ 清理过期状态快照', extra: {
-          'cleanedCount': expiredKeys.length,
+      if (invalidKeys.isNotEmpty) {
+        _logger.d('🗑️ 清理无效状态快照', extra: {
+          'cleanedCount': invalidKeys.length,
           'remainingCount': _stateSnapshots.length,
         });
       }
     } catch (error) {
-      _logger.e('清理过期状态快照失败', error: error);
+      _logger.e('清理无效状态快照失败', error: error);
     }
   }
 
@@ -1260,7 +1285,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       userId: user.userId,
       name: user.name,
       avatar: user.avatar ?? '',
-      unreadCount: 0,
+      // 💢💢💢 已移除：unreadCount参数，现在使用动态计算
       muted: false,
       pinned: false,
       joinedAt: DateTime.now(),

@@ -88,19 +88,8 @@ const ConversationProto$json = {
     {'1': 'last_message_time', '3': 9, '4': 1, '5': 3, '10': 'lastMessageTime'},
     {'1': 'last_message_preview', '3': 10, '4': 1, '5': 9, '10': 'lastMessagePreview'},
     {'1': 'last_message_name', '3': 11, '4': 1, '5': 9, '10': 'lastMessageName'},
-    {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ConversationProto.ParticipantsEntry', '10': 'participants'},
+    {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
   ],
-  '3': [ConversationProto_ParticipantsEntry$json],
-};
-
-@$core.Deprecated('Use conversationProtoDescriptor instead')
-const ConversationProto_ParticipantsEntry$json = {
-  '1': 'ParticipantsEntry',
-  '2': [
-    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
-    {'1': 'value', '3': 2, '4': 1, '5': 11, '6': '.cc.ParticipantProto', '10': 'value'},
-  ],
-  '7': {'7': true},
 };
 
 /// Descriptor for `ConversationProto`. Decode as a `google.protobuf.DescriptorProto`.
@@ -112,10 +101,8 @@ final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
     'YWdlX2luZGV4GAcgASgFUhFmaXJzdE1lc3NhZ2VJbmRleBIsChJsYXN0X21lc3NhZ2VfaW5kZX'
     'gYCCABKAVSEGxhc3RNZXNzYWdlSW5kZXgSKgoRbGFzdF9tZXNzYWdlX3RpbWUYCSABKANSD2xh'
     'c3RNZXNzYWdlVGltZRIwChRsYXN0X21lc3NhZ2VfcHJldmlldxgKIAEoCVISbGFzdE1lc3NhZ2'
-    'VQcmV2aWV3EioKEWxhc3RfbWVzc2FnZV9uYW1lGAsgASgJUg9sYXN0TWVzc2FnZU5hbWUSSwoM'
-    'cGFydGljaXBhbnRzGAwgAygLMicuY2MuQ29udmVyc2F0aW9uUHJvdG8uUGFydGljaXBhbnRzRW'
-    '50cnlSDHBhcnRpY2lwYW50cxpVChFQYXJ0aWNpcGFudHNFbnRyeRIQCgNrZXkYASABKAlSA2tl'
-    'eRIqCgV2YWx1ZRgCIAEoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SBXZhbHVlOgI4AQ==');
+    'VQcmV2aWV3EioKEWxhc3RfbWVzc2FnZV9uYW1lGAsgASgJUg9sYXN0TWVzc2FnZU5hbWUSOAoM'
+    'cGFydGljaXBhbnRzGAwgAygLMhQuY2MuUGFydGljaXBhbnRQcm90b1IMcGFydGljaXBhbnRz');
 
 @$core.Deprecated('Use conversationUpdateDescriptor instead')
 const ConversationUpdate$json = {

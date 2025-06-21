@@ -51,6 +51,26 @@ final $typed_data.Uint8List messageStatusDescriptor = $convert.base64Decode(
     'Cg1NZXNzYWdlU3RhdHVzEgsKB1NFTkRJTkcQABIICgRTRU5UEAESDQoJREVMSVZFUkVEEAISCA'
     'oEUkVBRBADEgoKBkZBSUxFRBAEEgsKB0RFTEVURUQQBRILCgdSRVZPS0VEEAY=');
 
+@$core.Deprecated('Use loadingTypeDescriptor instead')
+const LoadingType$json = {
+  '1': 'LoadingType',
+  '2': [
+    {'1': 'INITIAL', '2': 0},
+    {'1': 'LOAD_MORE_BEFORE', '2': 1},
+    {'1': 'LOAD_MORE_AFTER', '2': 2},
+    {'1': 'ADD', '2': 3},
+    {'1': 'UPDATE', '2': 4},
+    {'1': 'SEARCH', '2': 5},
+    {'1': 'UPDATE_SEND', '2': 6},
+  ],
+};
+
+/// Descriptor for `LoadingType`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List loadingTypeDescriptor = $convert.base64Decode(
+    'CgtMb2FkaW5nVHlwZRILCgdJTklUSUFMEAASFAoQTE9BRF9NT1JFX0JFRk9SRRABEhMKD0xPQU'
+    'RfTU9SRV9BRlRFUhACEgcKA0FERBADEgoKBlVQREFURRAEEgoKBlNFQVJDSBAFEg8KC1VQREFU'
+    'RV9TRU5EEAY=');
+
 @$core.Deprecated('Use systemEventTypeDescriptor instead')
 const SystemEventType$json = {
   '1': 'SystemEventType',
@@ -425,7 +445,7 @@ const MessagesFetchRequest$json = {
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'message_index', '3': 2, '4': 1, '5': 3, '10': 'messageIndex'},
     {'1': 'limit', '3': 3, '4': 1, '5': 5, '10': 'limit'},
-    {'1': 'is_before', '3': 4, '4': 1, '5': 8, '10': 'isBefore'},
+    {'1': 'loading_type', '3': 4, '4': 1, '5': 14, '6': '.cc.LoadingType', '10': 'loadingType'},
   ],
 };
 
@@ -433,7 +453,8 @@ const MessagesFetchRequest$json = {
 final $typed_data.Uint8List messagesFetchRequestDescriptor = $convert.base64Decode(
     'ChRNZXNzYWdlc0ZldGNoUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
     'NhdGlvbklkEiMKDW1lc3NhZ2VfaW5kZXgYAiABKANSDG1lc3NhZ2VJbmRleBIUCgVsaW1pdBgD'
-    'IAEoBVIFbGltaXQSGwoJaXNfYmVmb3JlGAQgASgIUghpc0JlZm9yZQ==');
+    'IAEoBVIFbGltaXQSMgoMbG9hZGluZ190eXBlGAQgASgOMg8uY2MuTG9hZGluZ1R5cGVSC2xvYW'
+    'RpbmdUeXBl');
 
 @$core.Deprecated('Use messagesFetchResponseDescriptor instead')
 const MessagesFetchResponse$json = {
@@ -443,6 +464,7 @@ const MessagesFetchResponse$json = {
     {'1': 'msg', '3': 2, '4': 1, '5': 9, '10': 'msg'},
     {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'messages', '3': 4, '4': 3, '5': 11, '6': '.cc.MessageProto', '10': 'messages'},
+    {'1': 'loading_type', '3': 5, '4': 1, '5': 14, '6': '.cc.LoadingType', '10': 'loadingType'},
   ],
 };
 
@@ -450,7 +472,8 @@ const MessagesFetchResponse$json = {
 final $typed_data.Uint8List messagesFetchResponseDescriptor = $convert.base64Decode(
     'ChVNZXNzYWdlc0ZldGNoUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIQCgNtc2'
     'cYAiABKAlSA21zZxInCg9jb252ZXJzYXRpb25faWQYAyABKAlSDmNvbnZlcnNhdGlvbklkEiwK'
-    'CG1lc3NhZ2VzGAQgAygLMhAuY2MuTWVzc2FnZVByb3RvUghtZXNzYWdlcw==');
+    'CG1lc3NhZ2VzGAQgAygLMhAuY2MuTWVzc2FnZVByb3RvUghtZXNzYWdlcxIyCgxsb2FkaW5nX3'
+    'R5cGUYBSABKA4yDy5jYy5Mb2FkaW5nVHlwZVILbG9hZGluZ1R5cGU=');
 
 @$core.Deprecated('Use membershipMessageDescriptor instead')
 const MembershipMessage$json = {

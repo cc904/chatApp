@@ -1764,7 +1764,7 @@ class MessagesFetchRequest extends $pb.GeneratedMessage {
     $core.String? conversationId,
     $fixnum.Int64? messageIndex,
     $core.int? limit,
-    $core.bool? isBefore,
+    LoadingType? loadingType,
   }) {
     final $result = create();
     if (conversationId != null) {
@@ -1776,8 +1776,8 @@ class MessagesFetchRequest extends $pb.GeneratedMessage {
     if (limit != null) {
       $result.limit = limit;
     }
-    if (isBefore != null) {
-      $result.isBefore = isBefore;
+    if (loadingType != null) {
+      $result.loadingType = loadingType;
     }
     return $result;
   }
@@ -1789,7 +1789,7 @@ class MessagesFetchRequest extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
     ..aInt64(2, _omitFieldNames ? '' : 'messageIndex')
     ..a<$core.int>(3, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
-    ..aOB(4, _omitFieldNames ? '' : 'isBefore')
+    ..e<LoadingType>(4, _omitFieldNames ? '' : 'loadingType', $pb.PbFieldType.OE, defaultOrMaker: LoadingType.INITIAL, valueOf: LoadingType.valueOf, enumValues: LoadingType.values)
     ..hasRequiredFields = false
   ;
 
@@ -1844,15 +1844,15 @@ class MessagesFetchRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearLimit() => $_clearField(3);
 
-  /// 是否是获取更早的消息
+  /// 加载类型
   @$pb.TagNumber(4)
-  $core.bool get isBefore => $_getBF(3);
+  LoadingType get loadingType => $_getN(3);
   @$pb.TagNumber(4)
-  set isBefore($core.bool v) { $_setBool(3, v); }
+  set loadingType(LoadingType v) { $_setField(4, v); }
   @$pb.TagNumber(4)
-  $core.bool hasIsBefore() => $_has(3);
+  $core.bool hasLoadingType() => $_has(3);
   @$pb.TagNumber(4)
-  void clearIsBefore() => $_clearField(4);
+  void clearLoadingType() => $_clearField(4);
 }
 
 /// 消息获取请求 - 使用index简化游标管理 messages:fetch:response
@@ -1862,6 +1862,7 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
     $core.String? msg,
     $core.String? conversationId,
     $core.Iterable<MessageProto>? messages,
+    LoadingType? loadingType,
   }) {
     final $result = create();
     if (success != null) {
@@ -1876,6 +1877,9 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
     if (messages != null) {
       $result.messages.addAll(messages);
     }
+    if (loadingType != null) {
+      $result.loadingType = loadingType;
+    }
     return $result;
   }
   MessagesFetchResponse._() : super();
@@ -1887,6 +1891,7 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'msg')
     ..aOS(3, _omitFieldNames ? '' : 'conversationId')
     ..pc<MessageProto>(4, _omitFieldNames ? '' : 'messages', $pb.PbFieldType.PM, subBuilder: MessageProto.create)
+    ..e<LoadingType>(5, _omitFieldNames ? '' : 'loadingType', $pb.PbFieldType.OE, defaultOrMaker: LoadingType.INITIAL, valueOf: LoadingType.valueOf, enumValues: LoadingType.values)
     ..hasRequiredFields = false
   ;
 
@@ -1944,6 +1949,16 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
   /// 消息集合
   @$pb.TagNumber(4)
   $pb.PbList<MessageProto> get messages => $_getList(3);
+
+  /// 加载类型
+  @$pb.TagNumber(5)
+  LoadingType get loadingType => $_getN(4);
+  @$pb.TagNumber(5)
+  set loadingType(LoadingType v) { $_setField(5, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasLoadingType() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLoadingType() => $_clearField(5);
 }
 
 /// 新增：成员变动消息内容

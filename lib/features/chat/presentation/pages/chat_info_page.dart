@@ -56,8 +56,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         final conversation = chatCubit.state.conversation;
 
         // 根据会话的静音状态设置动画
-        final currentUserId = chatCubit.state.currentUser?.userId;
-        if (currentUserId != null && conversation.isMuted(currentUserId)) {
+        final currentUserId = chatCubit.state.currentUser.userId;
+        if (conversation.isMuted(currentUserId)) {
           _muteAnimController.value = 1.0; // 直接设置到终点
         } else {
           _muteAnimController.value = 0.0;
@@ -77,8 +77,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   // 切换静音状态
   void _toggleMuteState() {
     final chatCubit = context.read<ChatCubit>();
-    final currentUserId = chatCubit.state.currentUser?.userId;
-    if (currentUserId == null) return;
+    final currentUserId = chatCubit.state.currentUser.userId;
 
     final currentMuteStatus =
         chatCubit.state.conversation.isMuted(currentUserId);
@@ -487,16 +486,14 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     },
                     child: BlocBuilder<ChatCubit, ChatState>(
                       buildWhen: (previous, current) {
-                        final currentUserId = current.currentUser?.userId;
-                        if (currentUserId == null) return false;
+                        final currentUserId = current.currentUser.userId;
                         return previous.conversation.isMuted(currentUserId) !=
                             current.conversation.isMuted(currentUserId);
                       },
                       builder: (context, state) {
-                        final currentUserId = state.currentUser?.userId;
-                        final isMuted = currentUserId != null
-                            ? state.conversation.isMuted(currentUserId)
-                            : false;
+                        final currentUserId = state.currentUser.userId;
+                        final isMuted =
+                            state.conversation.isMuted(currentUserId);
                         return Text(
                           isMuted ? 'unmute' : 'mute',
                           key: ValueKey<bool>(isMuted),

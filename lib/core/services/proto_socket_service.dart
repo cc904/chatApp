@@ -127,7 +127,6 @@ class ProtoSocketService {
         'forceNew': true, // 强制创建新连接
         'timeout': 20000, // 增加超时时间
         'extraHeaders': {
-          // 添加调试头信息
           'x-client-type': 'flutter-macos',
           'x-client-version': '1.0.0'
         },
@@ -286,19 +285,13 @@ class ProtoSocketService {
       }
     });
 
-    // 添加ping/pong事件监听，用于调试
+    // 添加ping/pong事件监听
     _socket?.on('ping', (_) {
       _logger.i('📡 Socket.io ping');
     });
 
     _socket?.on('pong', (_) {
       _logger.i('📡 Socket.io pong');
-    });
-
-    // 监听所有事件
-    _socket?.onAny((event, data) {
-      // 调试 proto 事件
-      _logger.w('📨 Socket.io事件: $event, 数据类型: ${data?.runtimeType}');
     });
   }
 

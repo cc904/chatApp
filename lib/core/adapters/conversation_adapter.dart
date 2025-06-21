@@ -8,6 +8,7 @@ import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
 /// 遵循DDD架构原则，将转换逻辑从模型中分离出来
 class ConversationAdapter {
   /// 💢💢💢 新增：从ParticipantProto转换为Participant
+  /// [existingParticipant] - 现有的参与者信息，用于保留未在Proto中设置的字段
   static Participant participantFromProto(
       proto.ParticipantProto protoParticipant) {
     // 转换MemberRole枚举
@@ -30,8 +31,7 @@ class ConversationAdapter {
       userId: protoParticipant.userId,
       name: protoParticipant.name,
       avatar: protoParticipant.hasAvatar() ? protoParticipant.avatar : '',
-      unreadCount:
-          protoParticipant.hasUnreadCount() ? protoParticipant.unreadCount : 0,
+      // 💢💢💢 已移除：unreadCount，现在使用动态计算 conversation.unreadCount(userId)
       muted: protoParticipant.hasMuted() ? protoParticipant.muted : false,
       pinned: protoParticipant.hasPinned() ? protoParticipant.pinned : false,
       joinedAt: protoParticipant.hasJoinedAt()
@@ -72,7 +72,7 @@ class ConversationAdapter {
       userId: participant.userId,
       name: participant.name,
       avatar: participant.avatar,
-      unreadCount: participant.unreadCount,
+      // 💢💢💢 已移除：unreadCount，现在使用动态计算
       muted: participant.muted,
       pinned: participant.pinned,
       joinedAt: participant.joinedAt != null
@@ -115,9 +115,9 @@ class ConversationAdapter {
         convType = ConversationType.private;
     }
 
-    // 💢💢💢 更新：转换参与者Map为List
-    final participants = protoConv.participants.values
-        .map((protoParticipant) => participantFromProto(protoParticipant))
+    // 💢💢💢 修复：转换参与者Proto列表为Participant列表，完全使用服务器数据
+    final participants = protoConv.participants
+        .map((participantProto) => participantFromProto(participantProto))
         .toList();
 
     // 💢💢💢 新增：从当前用户的参与者信息中提取个人设置
@@ -149,14 +149,14 @@ class ConversationAdapter {
       ..lastMessageName =
           protoConv.hasLastMessageName() ? protoConv.lastMessageName : null
       ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null
-      ..participants = participants // 💢💢💢 设置参与者列表
+      ..participants = participants // 💢💢💢 设置参与者List
       ..contactUserId =
           _extractContactUserId(protoConv, participants, currentUserId);
 
     return conversation;
   }
 
-  /// 💢💢💢 新增：提取私聊对象的用户ID
+  /// 💢💢💢 修复：提取私聊对象的用户ID
   static String? _extractContactUserId(proto.ConversationProto protoConv,
       List<Participant> participants, String? currentUserId) {
     // 只有私聊才需要contactUserId
@@ -200,11 +200,10 @@ class ConversationAdapter {
         break;
     }
 
-    // 💢💢💢 更新：将参与者转换为ParticipantProto Map
-    final participantProtos = <String, proto.ParticipantProto>{};
-    for (final participant in conversation.participants) {
-      participantProtos[participant.userId] = participantToProto(participant);
-    }
+    // 💢💢💢 修复：将参与者List转换为ParticipantProto列表
+    final participantProtos = conversation.participants
+        .map((participant) => participantToProto(participant))
+        .toList();
 
     final protoConversation = proto.ConversationProto(
       conversationId: conversation.conversationId,
@@ -227,7 +226,7 @@ class ConversationAdapter {
       // - lastReadIndex (从当前用户的participant.readMessageIndex获取)
     );
 
-    // 💢💢💢 设置参与者Map
+    // 💢💢💢 修复：设置参与者列表
     protoConversation.participants.addAll(participantProtos);
 
     return protoConversation;
@@ -247,13 +246,33 @@ class ConversationAdapter {
     return conversations.map((conversation) => toProto(conversation)).toList();
   }
 
-  /// 💢💢💢 新增：批量转换参与者
+  /// 💢💢💢 更新：批量转换参与者从Proto Map
+  static Map<String, Participant> participantsFromProtoMap(
+      Map<String, proto.ParticipantProto> protoMap) {
+    final participants = <String, Participant>{};
+    for (final entry in protoMap.entries) {
+      participants[entry.key] = participantFromProto(entry.value);
+    }
+    return participants;
+  }
+
+  /// 💢💢💢 更新：批量转换参与者到Proto Map
+  static Map<String, proto.ParticipantProto> participantsToProtoMap(
+      Map<String, Participant> participants) {
+    final protoMap = <String, proto.ParticipantProto>{};
+    for (final entry in participants.entries) {
+      protoMap[entry.key] = participantToProto(entry.value);
+    }
+    return protoMap;
+  }
+
+  /// 💢💢💢 保留：批量转换参与者（兼容性方法）
   static List<Participant> participantsFromProtoList(
       List<proto.ParticipantProto> protoList) {
     return protoList.map((proto) => participantFromProto(proto)).toList();
   }
 
-  /// 💢💢💢 新增：批量转换参与者到Proto
+  /// 💢💢💢 保留：批量转换参与者到Proto（兼容性方法）
   static List<proto.ParticipantProto> participantsToProtoList(
       List<Participant> participants) {
     return participants

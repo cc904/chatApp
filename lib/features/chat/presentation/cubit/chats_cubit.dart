@@ -59,7 +59,7 @@ class ChatsCubit extends Cubit<ChatsState> {
   void _handleConversationUpdate(ConversationUpdateEvent event) {
     if (isClosed) return;
 
-    _logger.d('处理会话更新事件', extra: {
+    _logger.d('🔔 ChatsPage收到会话更新事件', extra: {
       'eventType': event.runtimeType.toString(),
       'conversationId': event.conversationId,
       'timestamp': event.timestamp.toIso8601String(),
@@ -83,6 +83,15 @@ class ChatsCubit extends Cubit<ChatsState> {
     List<Conversation> conversations, {
     ChatsState Function(ChatsState)? additionalUpdates,
   }) {
+    // 💢💢💢 新增：记录更新前后的未读数量变化
+    final currentUserId = state.currentUser?.userId;
+    if (currentUserId != null) {
+      _logger.d('🔄 ChatsPage即将更新会话列表', extra: {
+        'oldConversationsCount': state.conversations.length,
+        'newConversationsCount': conversations.length,
+      });
+    }
+
     // 直接应用当前的过滤器（过滤器中会进行排序）
     final filteredConversations = _filterConversations(
         conversations, state.searchQuery, state.selectedTabIndex);
@@ -99,6 +108,12 @@ class ChatsCubit extends Cubit<ChatsState> {
     }
 
     emit(newState);
+
+    // 💢💢💢 新增：确认状态已更新
+    _logger.d('✅ ChatsPage状态已更新', extra: {
+      'conversationsCount': newState.conversations.length,
+      'filteredConversationsCount': newState.filteredConversations.length,
+    });
   }
 
   /// 加载会话列表

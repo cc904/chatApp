@@ -9,7 +9,7 @@ class ChatStateSnapshot {
   /// 消息列表
   final List<Message> messages;
 
-  /// 滚动位置（像素）
+  /// 滚动位置
   final CurrentScrollPosition? currentScrollPosition;
 
   const ChatStateSnapshot({
@@ -17,14 +17,9 @@ class ChatStateSnapshot {
     this.currentScrollPosition,
   });
 
-  /// 检查快照是否仍然有效（5分钟内）
+  /// 检查快照是否有效（只要有消息就认为有效）
   bool get isValid {
-    return DateTime.now().difference(DateTime.now()).inMinutes < 5;
-  }
-
-  /// 获取快照年龄（秒）
-  int get ageInSeconds {
-    return DateTime.now().difference(DateTime.now()).inSeconds;
+    return messages.isNotEmpty;
   }
 
   /// 复制快照并更新字段
@@ -41,6 +36,6 @@ class ChatStateSnapshot {
 
   @override
   String toString() {
-    return 'ChatStateSnapshot{messageCount: ${messages.length}, currentScrollPosition: $currentScrollPosition, age: ${ageInSeconds}s}';
+    return 'ChatStateSnapshot{messageCount: ${messages.length}, currentScrollPosition: $currentScrollPosition}';
   }
 }

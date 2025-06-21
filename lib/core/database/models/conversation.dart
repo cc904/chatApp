@@ -15,7 +15,7 @@ class Participant {
   String userId = ''; // 对应 user_id
   String name = ''; // 用户名称
   String avatar = ''; // 用户头像
-  int unreadCount = 0; // 对应 unread_count
+  // 💢💢💢 已移除：int unreadCount = 0; // 现在使用动态计算 conversation.unreadCount(userId)
   bool muted = false; // 对应 muted
   bool pinned = false; // 对应 pinned
   DateTime? joinedAt; // 对应 joined_at
@@ -48,7 +48,7 @@ class Participant {
     required this.userId,
     required this.name,
     this.avatar = '',
-    this.unreadCount = 0,
+    // 💢💢💢 已移除：this.unreadCount = 0, // 现在使用动态计算
     this.muted = false,
     this.pinned = false,
     this.joinedAt,
@@ -65,7 +65,7 @@ class Participant {
     String? userId,
     String? name,
     String? avatar,
-    int? unreadCount,
+    // 💢💢💢 已移除：int? unreadCount, // 现在使用动态计算
     bool? muted,
     bool? pinned,
     DateTime? joinedAt,
@@ -80,7 +80,7 @@ class Participant {
       userId: userId ?? this.userId,
       name: name ?? this.name,
       avatar: avatar ?? this.avatar,
-      unreadCount: unreadCount ?? this.unreadCount,
+      // 💢💢💢 已移除：unreadCount: unreadCount ?? this.unreadCount,
       muted: muted ?? this.muted,
       pinned: pinned ?? this.pinned,
       joinedAt: joinedAt ?? this.joinedAt,
@@ -95,6 +95,57 @@ class Participant {
   }
 }
 
+/// 会话数据模型
+///
+/// 这个模型表示一个聊天会话，包含了会话的基本信息、参与者信息以及消息统计
+/// 支持一对一聊天和群组聊天两种类型
+///
+/// 💢💢💢 新功能：未读消息相关API
+///
+/// 使用示例：
+/// ```dart
+/// // 1. 获取第一条未读消息ID（推荐方法）
+/// final messageId = await conversation.getUnreadMessage(currentUserId, chatsRepository);
+/// if (messageId != null) {
+///   print('第一条未读消息ID: $messageId');
+///   // 可以用于定位到具体消息位置
+///   await chatCubit.scrollToMessage(messageId);
+/// }
+///
+/// // 2. 获取第一条未读消息的索引（同步方法）
+/// final firstUnreadIndex = conversation.getUnreadMessageIndex(currentUserId);
+/// if (firstUnreadIndex != null) {
+///   print('第一条未读消息索引: $firstUnreadIndex');
+/// }
+///
+/// // 3. 获取未读消息数量
+/// final unreadCount = conversation.getUnreadMessageCount(currentUserId);
+/// print('未读消息数量: $unreadCount');
+///
+/// // 4. 检查是否有未读消息
+/// final hasUnread = conversation.hasUnread(currentUserId);
+/// if (hasUnread) {
+///   print('有未读消息');
+/// }
+///
+/// // 5. 获取详细的未读消息信息
+/// final info = conversation.getFirstUnreadMessageIdInfo(currentUserId);
+/// if (info['canQuery']) {
+///   print('可以查询第一条未读消息');
+///   print('索引范围: ${info['searchRange']['startIndex']} - ${info['searchRange']['endIndex']}');
+///   print('未读数量: ${info['unreadCount']}');
+/// }
+///
+/// // 6. 直接通过Repository调用
+/// final messageId2 = await chatsRepository.getFirstUnreadMessageId(
+///   conversation.conversationId,
+///   currentUserId
+/// );
+///
+/// // 7. 传统方法（别名）
+/// final unreadCount2 = conversation.unreadCount(currentUserId);
+/// final newMessageCount = conversation.hasNewMessageCount(currentUserId);
+/// ```
 @collection
 class Conversation {
   // Isar ID
@@ -119,7 +170,6 @@ class Conversation {
 
   DateTime? lastMessageTime;
   String? lastMessagePreview;
-  String? lastMessageId;
 
   // 最后一条消息的发送者名称，用于群聊或频道显示 (对应 last_message_name)
   String? lastMessageName;
@@ -131,6 +181,7 @@ class Conversation {
   String? createdBy;
 
   // 💢💢💢 新增：参与者详细信息，包含所有参与者的完整信息 (对应 participants)
+  // Isar数据库要求使用List，但提供Map接口方法以匹配proto定义
   List<Participant> participants = [];
 
   // 💢💢💢 新增：当前用户的最后阅读时间 - 记录用户最后一次离开会话的时间
@@ -188,6 +239,178 @@ class Conversation {
 
     // 确保未读数量不为负数
     return unread > 0 ? unread : 0;
+  }
+
+  /// 💢💢💢 新增：获取当前用户的未读消息数量（别名方法）
+  /// [currentUserId] - 当前用户ID
+  /// 💢💢💢 重构：获取第一条未读消息ID
+  /// 此方法返回第一条未读消息的ID，需要配合Repository使用
+  /// [currentUserId] - 当前用户ID
+  /// [repository] - 用于查询消息的Repository（可选）
+  ///
+  /// 如果提供了repository，返回实际的消息ID
+  /// 如果没有提供repository，返回null（因为无法查询数据库）
+  /// 如果没有未读消息，返回null
+  Future<String?> getUnreadMessage(String? currentUserId,
+      [dynamic repository]) async {
+    if (currentUserId == null) return null;
+
+    // 检查是否有未读消息
+    if (!hasUnread(currentUserId)) return null;
+
+    // 如果提供了repository，查询实际的消息ID
+    if (repository != null) {
+      return await repository.getFirstUnreadMessageId(
+          conversationId, currentUserId);
+    }
+
+    // 如果没有提供repository，无法查询数据库，返回null
+    return null;
+  }
+
+  /// 💢💢💢 新增：获取未读消息数量（明确的方法名）
+  /// [currentUserId] - 当前用户ID
+  /// 返回未读消息的数量
+  int getUnreadMessageCount(String? currentUserId) {
+    return unreadCount(currentUserId);
+  }
+
+  /// 💢💢💢 新增：同步获取第一条未读消息索引
+  /// [currentUserId] - 当前用户ID
+  /// 返回第一条未读消息的索引，如果没有未读消息则返回null
+  int? getUnreadMessageIndex(String? currentUserId) {
+    return getFirstUnreadMessageIndex(currentUserId);
+  }
+
+  /// 💢💢💢 新增：同步方法 - 检查是否有未读消息（返回布尔值）
+  /// [currentUserId] - 当前用户ID
+  /// 这个方法名更准确，避免与异步的getUnreadMessage混淆
+  bool hasUnreadMessage(String? currentUserId) {
+    return hasUnread(currentUserId);
+  }
+
+  /// 💢💢💢 新增：获取详细的未读消息信息
+  /// [currentUserId] - 当前用户ID
+  /// 返回包含未读数量和相关信息的Map
+  Map<String, dynamic> getUnreadMessageInfo(String? currentUserId) {
+    if (currentUserId == null) {
+      return {
+        'unreadCount': 0,
+        'hasUnread': false,
+        'lastReadIndex': -1,
+        'lastMessageIndex': lastMessageIndex,
+        'participantFound': false,
+      };
+    }
+
+    final participant = getParticipant(currentUserId);
+    if (participant == null) {
+      return {
+        'unreadCount': 0,
+        'hasUnread': false,
+        'lastReadIndex': -1,
+        'lastMessageIndex': lastMessageIndex,
+        'participantFound': false,
+      };
+    }
+
+    final unreadCount = this.unreadCount(currentUserId);
+
+    return {
+      'unreadCount': unreadCount,
+      'hasUnread': unreadCount > 0,
+      'lastReadIndex': participant.readMessageIndex,
+      'lastMessageIndex': lastMessageIndex,
+      'participantFound': true,
+      'participant': participant,
+    };
+  }
+
+  /// 💢💢💢 新增：获取第一条未读消息的索引
+  /// [currentUserId] - 当前用户ID
+  /// 返回第一条未读消息的索引，如果没有未读消息则返回null
+  int? getFirstUnreadMessageIndex(String? currentUserId) {
+    if (currentUserId == null) return null;
+
+    final participant = getParticipant(currentUserId);
+    if (participant == null) return null;
+
+    // 如果没有未读消息，返回null
+    if (!hasUnread(currentUserId)) return null;
+
+    // 第一条未读消息的索引 = 最后已读消息索引 + 1
+    final firstUnreadIndex = participant.readMessageIndex + 1;
+
+    // 确保索引在有效范围内
+    if (firstUnreadIndex > lastMessageIndex) return null;
+
+    return firstUnreadIndex;
+  }
+
+  /// 💢💢💢 新增：获取第一条未读消息ID的范围信息
+  /// [currentUserId] - 当前用户ID
+  /// 返回包含第一条未读消息索引和ID查询范围的信息
+  /// 注意：此方法只返回索引信息，实际的消息ID需要通过数据库查询获取
+  Map<String, dynamic> getFirstUnreadMessageIdInfo(String? currentUserId) {
+    if (currentUserId == null) {
+      return {
+        'hasUnread': false,
+        'firstUnreadIndex': null,
+        'searchRange': null,
+        'canQuery': false,
+      };
+    }
+
+    final participant = getParticipant(currentUserId);
+    if (participant == null) {
+      return {
+        'hasUnread': false,
+        'firstUnreadIndex': null,
+        'searchRange': null,
+        'canQuery': false,
+      };
+    }
+
+    final firstUnreadIndex = getFirstUnreadMessageIndex(currentUserId);
+    if (firstUnreadIndex == null) {
+      return {
+        'hasUnread': false,
+        'firstUnreadIndex': null,
+        'searchRange': null,
+        'canQuery': false,
+      };
+    }
+
+    return {
+      'hasUnread': true,
+      'firstUnreadIndex': firstUnreadIndex,
+      'searchRange': {
+        'startIndex': firstUnreadIndex,
+        'endIndex': lastMessageIndex,
+        'conversationId': conversationId,
+      },
+      'canQuery': true,
+      'unreadCount': unreadCount(currentUserId),
+    };
+  }
+
+  /// 💢💢💢 新增：获取用户的新消息数量
+  /// [userId] - 用户ID
+  /// 返回lastMessageIndex和用户lastReadMessageIndex的差值
+  int hasNewMessageCount(String userId) {
+    final participant = getParticipant(userId);
+    if (participant == null) return 0;
+
+    // 如果没有消息或索引信息不完整，返回0
+    if (lastMessageIndex <= 0 || participant.readMessageIndex < 0) {
+      return 0;
+    }
+
+    // 计算新消息数量：会话最后消息索引 - 用户最后已读消息索引
+    final newMessageCount = lastMessageIndex - participant.readMessageIndex;
+
+    // 确保新消息数量不为负数
+    return newMessageCount > 0 ? newMessageCount : 0;
   }
 
   /// 💢💢💢 新增：动态获取当前用户的最后已读消息索引
@@ -301,8 +524,13 @@ class Conversation {
 
   /// 💢💢💢 新增：添加参与者
   void addParticipant(Participant participant) {
-    // 如果已存在，则更新；否则添加
-    updateParticipant(participant);
+    final index =
+        participants.indexWhere((p) => p.userId == participant.userId);
+    if (index == -1) {
+      participants.add(participant);
+    } else {
+      participants[index] = participant;
+    }
   }
 
   /// 💢💢💢 新增：获取在线参与者数量
@@ -360,7 +588,6 @@ class Conversation {
     int? lastMessageIndex,
     DateTime? lastMessageTime,
     String? lastMessagePreview,
-    String? lastMessageId,
     String? lastMessageName,
     String? contactUserId,
     String? createdBy,
@@ -378,7 +605,6 @@ class Conversation {
       ..lastMessageIndex = lastMessageIndex ?? this.lastMessageIndex
       ..lastMessageTime = lastMessageTime ?? this.lastMessageTime
       ..lastMessagePreview = lastMessagePreview ?? this.lastMessagePreview
-      ..lastMessageId = lastMessageId ?? this.lastMessageId
       ..lastMessageName = lastMessageName ?? this.lastMessageName
       ..contactUserId = contactUserId ?? this.contactUserId
       ..createdBy = createdBy ?? this.createdBy

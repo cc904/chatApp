@@ -112,6 +112,7 @@ class _ChatPageState extends State<ChatPage> {
     Curve? curve,
     double? alignment,
     bool showHighlight = false,
+    bool jumpImmediately = false, // 💢💢💢 新增：立即跳转参数
   }) async {
     try {
       final state = context.read<ChatCubit>().state;
@@ -120,6 +121,7 @@ class _ChatPageState extends State<ChatPage> {
         'messageId': messageId,
         'totalMessages': state.messages.length,
         'showHighlight': showHighlight,
+        'jumpImmediately': jumpImmediately,
       });
 
       // 查找消息在当前列表中的索引
@@ -138,6 +140,29 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
 
+      // 💢💢💢 处理消息列表，添加分隔符，以获取正确的processedItems索引
+      final currentUserId = state.currentUser.userId;
+      final isPrivateChat = state.conversation.type == ConversationType.private;
+      final processedItems = MessageListProcessor.processMessages(
+        messages: state.messages,
+        currentUserId: currentUserId,
+        isPrivateChat: isPrivateChat,
+      );
+
+      // 💢💢💢 在processedItems中查找对应的索引
+      final processedIndex = processedItems.indexWhere((item) {
+        return item is MessageListItemData &&
+            item.message.messageId == messageId;
+      });
+
+      if (processedIndex == -1) {
+        _logger.w('消息在processedItems中未找到', extra: {
+          'messageId': messageId,
+          'messageIndex': messageIndex,
+        });
+        return;
+      }
+
       // 💢💢💢 检查滚动控制器是否可用
       if (!_itemScrollController.isAttached) {
         _logger.w('滚动控制器未附加，延迟执行滚动');
@@ -150,24 +175,42 @@ class _ChatPageState extends State<ChatPage> {
             curve: curve,
             alignment: alignment,
             showHighlight: showHighlight,
+            jumpImmediately: jumpImmediately,
           );
         });
         return;
       }
 
-      // 💢💢💢 执行滚动
-      await _itemScrollController.scrollTo(
-        index: messageIndex,
-        duration: duration ?? const Duration(milliseconds: 300),
-        curve: curve ?? Curves.easeInOut,
-        alignment: alignment ?? 0.5, // 默认居中显示
-      );
+      // 💢💢💢 根据参数选择立即跳转或动画滚动
+      if (jumpImmediately) {
+        // 立即跳转，无动画
+        _itemScrollController.jumpTo(
+          index: processedIndex,
+          alignment: alignment ?? 0.5,
+        );
 
-      _logger.i('滚动完成', extra: {
-        'messageId': messageId,
-        'messageIndex': messageIndex,
-        'alignment': alignment ?? 0.5,
-      });
+        _logger.i('立即跳转完成', extra: {
+          'messageId': messageId,
+          'messageIndex': messageIndex,
+          'processedIndex': processedIndex,
+          'alignment': alignment ?? 0.5,
+        });
+      } else {
+        // 动画滚动
+        await _itemScrollController.scrollTo(
+          index: processedIndex,
+          duration: duration ?? const Duration(milliseconds: 300),
+          curve: curve ?? Curves.easeInOut,
+          alignment: alignment ?? 0.5,
+        );
+
+        _logger.i('动画滚动完成', extra: {
+          'messageId': messageId,
+          'messageIndex': messageIndex,
+          'processedIndex': processedIndex,
+          'alignment': alignment ?? 0.5,
+        });
+      }
 
       // 💢💢💢 可选的高亮效果
       if (showHighlight) {
@@ -335,8 +378,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
               // 静音图标（只在静音时显示）
-              if (state.currentUser?.userId != null &&
-                  state.conversation.isMuted(state.currentUser!.userId))
+              if (state.conversation.isMuted(state.currentUser.userId))
                 const Padding(
                   padding: EdgeInsets.only(left: 6.0),
                   child: Icon(
@@ -438,12 +480,23 @@ class _ChatPageState extends State<ChatPage> {
                 current.currentScrollPosition.messageId != null &&
                 !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
 
-        final shouldListen = searchResultChanged || scrollPositionChanged;
+        // 💢💢💢 新增：监听消息列表更新，以恢复滚动位置
+        final messageListUpdated =
+            previous.messages.length != current.messages.length &&
+                current.currentScrollPosition.messageId != null &&
+                !current.isSearchMode &&
+                !current.isCleaningMessages; // 清理消息时不触发
+
+        final shouldListen =
+            searchResultChanged || scrollPositionChanged || messageListUpdated;
 
         if (shouldListen) {
           _logger.d('💢 BlocListener 条件满足', extra: {
             'searchResultChanged': searchResultChanged,
             'scrollPositionChanged': scrollPositionChanged,
+            'messageListUpdated': messageListUpdated,
+            'prevLength': previous.messages.length,
+            'currentLength': current.messages.length,
             'prevScrollMessageId': previous.currentScrollPosition.messageId,
             'currentScrollMessageId': current.currentScrollPosition.messageId,
             'prevIndex': previous.currentSearchResultIndex,
@@ -475,115 +528,209 @@ class _ChatPageState extends State<ChatPage> {
             _scrollToMessage(currentResultMessageId);
           });
         }
-        // // 💢💢💢 自动滚动到设置的位置（初始化时滚动到最新消息）
-        // else if (!state.isSearchMode &&
-        //     state.currentScrollPosition.messageId != null) {
-        //   final targetMessageId = state.currentScrollPosition.messageId!;
-        //   final targetIndex = state.currentScrollPosition.messageIndex ?? 0;
-        //   final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
+        // 💢💢💢 自动滚动到设置的位置（初始化或消息列表更新时恢复滚动位置）
+        else if (!state.isSearchMode &&
+            state.currentScrollPosition.messageId != null) {
+          final targetMessageId = state.currentScrollPosition.messageId!;
+          final targetIndex =
+              state.currentScrollPosition.getListIndex(state.messages);
+          final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
 
-        //   _logger.i('💢 BlocListener 初始化滚动到最新消息', extra: {
-        //     'targetMessageId': targetMessageId,
-        //     'targetIndex': targetIndex,
-        //     'alignment': alignment,
-        //     'reason': '根据业务逻辑显示最新消息',
-        //   });
+          _logger
+              .i('💢 BlocListener 消息列表更新，依赖 initialScrollIndex 自动定位', extra: {
+            'targetMessageId': targetMessageId,
+            'targetIndex': targetIndex,
+            'alignment': alignment,
+            'messageCount': state.messages.length,
+            'reason': '消息列表更新后，Widget重建时自动恢复滚动位置',
+          });
 
-        //   // 延迟执行滚动，等待UI更新完成
-        //   WidgetsBinding.instance.addPostFrameCallback((_) {
-        //     _logger.d('💢 BlocListener 执行初始化滚动回调');
-        //     _scrollToMessage(
-        //       targetMessageId,
-        //       alignment: alignment,
-        //       duration: const Duration(milliseconds: 100), // 快速滚动
-        //     );
-        //   });
-        // }
+          // 💢💢💢 注释：不再需要手动调用滚动方法
+          // 动态key会触发Widget重建，initialScrollIndex会自动处理滚动定位
+          // 延迟执行滚动，等待UI更新完成
+          // WidgetsBinding.instance.addPostFrameCallback((_) {
+          //   _logger.d('💢 BlocListener 执行滚动恢复回调');
+
+          //   // _scrollToMessage(
+          //   //   targetMessageId,
+          //   //   alignment: alignment,
+          //   //   jumpImmediately: true, // 💢💢💢 使用立即跳转，无动画时差
+          //   // );
+          // });
+        }
       },
       child: BlocBuilder<ChatCubit, ChatState>(
         buildWhen: (previous, current) {
-          // 检查搜索模式状态变化
-          if (previous.currentSearchResultIndex !=
-              current.currentSearchResultIndex) {
-            _logger.i('💢 BlocBuilder 搜索模式状态变化');
-            return true;
-          }
+          // 💢💢💢 合并后的BlocBuilder：统一处理所有相关状态变化
 
-          // 检查消息列表是否发生变化
-          // 1. 首先检查长度是否不同
-          if (previous.messages.length != current.messages.length) {
-            _logger.i('💢 BlocBuilder 长度变化');
-            return true;
-          }
-
-          // 2. 长度相同时，检查内容是否相同（使用identical判断引用是否相同）
+          // 1. 消息列表变化（最重要的重建条件）
           if (!identical(previous.messages, current.messages)) {
-            _logger.i('💢 BlocBuilder 内容变化');
+            _logger.i('💢 BlocBuilder：消息列表变化', extra: {
+              'previousLength': previous.messages.length,
+              'currentLength': current.messages.length,
+              'lengthDiff': current.messages.length - previous.messages.length,
+            });
             return true;
           }
 
-          // 💢💢💢 新增：检查消息更新触发器
+          // 2. 搜索状态变化（影响消息高亮和显示）
+          if (previous.isSearchMode != current.isSearchMode ||
+              previous.searchQuery != current.searchQuery ||
+              previous.currentSearchResultIndex !=
+                  current.currentSearchResultIndex ||
+              !identical(previous.searchResultMessageIds,
+                  current.searchResultMessageIds)) {
+            _logger.i('💢 BlocBuilder：搜索状态变化');
+            return true;
+          }
+
+          // 3. 会话信息变化（影响消息显示状态和类型判断）
+          if (previous.conversation.conversationId !=
+                  current.conversation.conversationId ||
+              previous.conversation.type != current.conversation.type) {
+            _logger.i('💢 BlocBuilder：会话信息变化');
+            return true;
+          }
+
+          // 5. 消息更新触发器变化（强制更新机制）
           if (previous.messageUpdateTrigger != current.messageUpdateTrigger) {
-            _logger.i('💢 BlocBuilder 消息更新触发器变化', extra: {
+            _logger.i('💢 BlocBuilder：消息更新触发器变化', extra: {
               'prevTrigger': previous.messageUpdateTrigger,
               'currTrigger': current.messageUpdateTrigger,
             });
             return true;
           }
 
-          _logger.d('💢 BlocBuilder 无变化');
+          _logger.d('💢 BlocBuilder：无相关状态变化');
           return false;
         },
         builder: (context, state) {
-          _logger.i('💢 BlocBuilder 重绘');
+          _logger.i('💢 BlocBuilder 重绘',
+              extra: {
+                'messageCount': state.messages.length,
+                'currentScrollPositionMessageID':
+                    state.currentScrollPosition.messageId,
+                'currentScrollPositionIndex':
+                    state.currentScrollPosition.getListIndex(state.messages),
+              },
+              stackTrace: StackTrace.current);
 
-          // 获取当前应该显示的消息列表
-          final displayMessages =
-              context.read<ChatCubit>().getCurrentDisplayMessages();
+          // 处理消息列表，添加分隔符
+          final currentUserId = state.currentUser.userId;
+          final isPrivateChat =
+              state.conversation.type == ConversationType.private;
+          final processedItems = MessageListProcessor.processMessages(
+            messages: state.messages, // 直接使用state中的消息列表
+            currentUserId: currentUserId,
+            isPrivateChat: isPrivateChat,
+          );
 
-          // 统一的状态判断，返回相应的中心内容
-          Widget? centerContent;
+          return Stack(
+            children: [
+              _buildBackground(),
+              // 消息列表内容
+              Column(
+                children: [
+                  // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+                  Expanded(
+                    child: ScrollablePositionedList.builder(
+                      key: ValueKey(
+                          'message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}_${state.messageUpdateTrigger}'),
+                      itemCount: processedItems.length,
+                      itemBuilder: (context, index) {
+                        final item = processedItems[index];
 
-          // 搜索模式下的特殊状态处理
-          if (state.isSearchMode) {
-            if (state.isSearching) {
-              centerContent = const CircularProgressIndicator();
-            } else if (state.searchQuery.trim().isNotEmpty &&
-                displayMessages.isEmpty) {
-              centerContent = const Text(
-                '没有找到匹配的消息',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              );
-            }
-          }
-          // 正常模式下的状态处理
-          else {
-            if (state.isLoadingMessages && state.messages.isEmpty) {
-              centerContent = const CircularProgressIndicator();
-            } else if (state.messages.isEmpty) {
-              centerContent = const Text(
-                '还没有消息\n发送第一条消息开始聊天吧！',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                ),
-              );
-            }
-          }
+                        // 根据类型渲染不同的组件
+                        if (item is MessageListItemData) {
+                          final message = item.message;
 
-          // 如果有特殊状态，显示统一的背景+中心内容
-          if (centerContent != null) {
-            return Stack(
-              children: [
-                _buildBackground(),
-                Center(child: centerContent),
-              ],
-            );
-          }
+                          // 💢💢💢 检查消息是否为搜索结果
+                          final chatCubit = context.read<ChatCubit>();
+                          final isSearchResult =
+                              chatCubit.isSearchResult(message.messageId);
+                          final isCurrentSearchResult = chatCubit
+                              .isCurrentSearchResult(message.messageId);
+                          final searchQuery =
+                              state.isSearchMode ? state.searchQuery : null;
 
-          // 显示消息列表内容
-          return _buildMessagesContent(displayMessages, state);
+                          // 💢💢💢 计算消息显示状态（仅当前用户消息需要显示状态）
+                          MessageDisplayStatus? displayStatus;
+                          if (item.isCurrentUser) {
+                            displayStatus = _calculateMessageDisplayStatus(
+                              message,
+                              state.conversation,
+                              state.currentUser,
+                              item.isPrivateChat,
+                            );
+                          }
+
+                          return MessageItem(
+                            key: ValueKey(message.messageId),
+                            message: message,
+                            isCurrentUser: item.isCurrentUser,
+                            showAvatar: item.showAvatar,
+                            showTail: item.showTail,
+                            isPrivateChat: item.isPrivateChat,
+                            onTap: () => _onMessageTap(message),
+                            onResend: message.status == MessageStatus.failed &&
+                                    item.isCurrentUser
+                                ? () => _onResendMessage(message.messageId)
+                                : null, // 💢💢💢 新增：重发回调
+                            // 💢💢💢 新增搜索相关参数
+                            isSearchResult: isSearchResult,
+                            isCurrentSearchResult: isCurrentSearchResult,
+                            searchQuery: searchQuery,
+                            displayStatus: displayStatus, // 💢💢💢 新增：预计算的显示状态
+                          );
+                        } else if (item is MessageListItemDateSeparator) {
+                          return DateSeparator(
+                            key: ValueKey(
+                                'date_${item.date.millisecondsSinceEpoch}'),
+                            date: item.date,
+                          );
+                        } else {
+                          // 未知类型，返回空容器
+                          return const SizedBox.shrink();
+                        }
+                      },
+                      itemScrollController: _itemScrollController,
+                      itemPositionsListener: _itemPositionsListener,
+                      // 💢💢💢 动态计算初始滚动索引，响应消息列表变化
+                      initialScrollIndex: (() {
+                        final anchorId = state.currentScrollPosition.messageId;
+                        if (anchorId == null) return 0;
+
+                        // 在 processedItems 中查找锚点消息对应的索引
+                        final anchorIndex = processedItems.indexWhere((item) {
+                          return item is MessageListItemData &&
+                              item.message.messageId == anchorId;
+                        });
+
+                        _logger.d('💢 动态计算初始滚动索引', extra: {
+                          'anchorId': anchorId,
+                          'anchorIndex': anchorIndex,
+                          'processedItemsLength': processedItems.length,
+                          'messageCount': state.messages.length,
+                          'widgetKey':
+                              'message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}_${state.messageUpdateTrigger}',
+                        });
+
+                        return anchorIndex >= 0 ? anchorIndex : 0;
+                      })(),
+                      initialAlignment:
+                          state.currentScrollPosition.relativePosition ??
+                              0.0, // 💢💢💢 使用精确的相对位置
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4.0,
+                        vertical: 8.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
         },
       ),
     );
@@ -609,103 +756,6 @@ class _ChatPageState extends State<ChatPage> {
         // SVG图案背景
         Positioned.fill(
           child: _buildSvgBackground(),
-        ),
-      ],
-    );
-  }
-
-  /// 构建消息内容
-  Widget _buildMessagesContent(List<Message> messages, ChatState state) {
-    // 处理消息列表，添加分隔符
-    final currentUserId = state.currentUser?.userId ?? '';
-    final isPrivateChat = state.conversation.conversationId.isNotEmpty
-        ? state.conversation.type == ConversationType.private
-        : true; // 默认值，当会话还未初始化时
-    final processedItems = MessageListProcessor.processMessages(
-      messages: messages,
-      currentUserId: currentUserId,
-      isPrivateChat: isPrivateChat,
-    );
-
-    return Stack(
-      children: [
-        _buildBackground(),
-        // 消息列表内容
-        Column(
-          children: [
-            // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
-            Expanded(
-              child: ScrollablePositionedList.builder(
-                itemCount: processedItems.length,
-                itemBuilder: (context, index) {
-                  final item = processedItems[index];
-
-                  // 根据类型渲染不同的组件
-                  if (item is MessageListItemData) {
-                    final message = item.message;
-
-                    // 💢💢💢 检查消息是否为搜索结果
-                    final chatCubit = context.read<ChatCubit>();
-                    final isSearchResult =
-                        chatCubit.isSearchResult(message.messageId);
-                    final isCurrentSearchResult =
-                        chatCubit.isCurrentSearchResult(message.messageId);
-                    final searchQuery =
-                        state.isSearchMode ? state.searchQuery : null;
-
-                    // 💢💢💢 计算消息显示状态（仅当前用户消息需要显示状态）
-                    MessageDisplayStatus? displayStatus;
-                    if (item.isCurrentUser) {
-                      displayStatus = _calculateMessageDisplayStatus(
-                        message,
-                        state.conversation,
-                        state.currentUser,
-                        item.isPrivateChat,
-                      );
-                    }
-
-                    return MessageItem(
-                      key: ValueKey(message.messageId),
-                      message: message,
-                      isCurrentUser: item.isCurrentUser,
-                      showAvatar: item.showAvatar,
-                      showTail: item.showTail,
-                      isPrivateChat: item.isPrivateChat,
-                      onTap: () => _onMessageTap(message),
-                      onResend: message.status == MessageStatus.failed &&
-                              item.isCurrentUser
-                          ? () => _onResendMessage(message.messageId)
-                          : null, // 💢💢💢 新增：重发回调
-                      // 💢💢💢 新增搜索相关参数
-                      isSearchResult: isSearchResult,
-                      isCurrentSearchResult: isCurrentSearchResult,
-                      searchQuery: searchQuery,
-                      displayStatus: displayStatus, // 💢💢💢 新增：预计算的显示状态
-                    );
-                  } else if (item is MessageListItemDateSeparator) {
-                    return DateSeparator(
-                      key: ValueKey('date_${item.date.millisecondsSinceEpoch}'),
-                      date: item.date,
-                    );
-                  } else {
-                    // 未知类型，返回空容器
-                    return const SizedBox.shrink();
-                  }
-                },
-                itemScrollController: _itemScrollController,
-                itemPositionsListener: _itemPositionsListener,
-                initialScrollIndex:
-                    state.currentScrollPosition.messageIndex ?? 0,
-                initialAlignment:
-                    state.currentScrollPosition.relativePosition ?? 0.0,
-                reverse: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4.0,
-                  vertical: 8.0,
-                ),
-              ),
-            ),
-          ],
         ),
       ],
     );

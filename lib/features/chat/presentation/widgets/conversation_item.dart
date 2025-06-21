@@ -302,6 +302,8 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建时间和未读数量
   Widget _buildTimeAndUnreadCount(Conversation conversation) {
+    conversation.unreadCount(currentUser.userId);
+
     return Padding(
       padding: const EdgeInsets.only(right: 16.0, left: 8.0),
       child: SizedBox(
@@ -334,6 +336,12 @@ class ConversationItem extends StatelessWidget {
     final bool isNewMessage =
         conversation.hasNewMessagesSinceLastRead(currentUser.userId);
 
+    conversation.unreadCount(currentUser.userId);
+
+    // 获取未读数量（用于Text显示）
+    final displayUnreadCount = conversation.unreadCount(currentUser.userId);
+    final formattedCount = _formatUnreadCount(displayUnreadCount);
+
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -346,7 +354,7 @@ class ConversationItem extends StatelessWidget {
         minHeight: 20,
       ),
       child: Text(
-        _formatUnreadCount(conversation.unreadCount(currentUser.userId)),
+        formattedCount,
         style: const TextStyle(
           color: Colors.white,
           fontSize: 12,
