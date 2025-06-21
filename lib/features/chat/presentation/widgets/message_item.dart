@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:intl/intl.dart';
+import 'voice_message_widget.dart';
 
 /// 消息显示状态
 /// 用于传递预计算的消息状态信息
@@ -446,23 +447,9 @@ class MessageItem extends StatelessWidget {
         );
 
       case MessageType.voice:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.mic,
-              color: isCurrentUser ? Colors.white : Colors.grey[700],
-              size: 20.0,
-            ),
-            const SizedBox(width: 8.0),
-            Text(
-              _formatDuration(message.duration ?? 0),
-              style: TextStyle(
-                fontSize: 14.0,
-                color: isCurrentUser ? Colors.white : Colors.black87,
-              ),
-            ),
-          ],
+        return VoiceMessageWidget(
+          message: message,
+          isCurrentUser: isCurrentUser,
         );
 
       case MessageType.video:

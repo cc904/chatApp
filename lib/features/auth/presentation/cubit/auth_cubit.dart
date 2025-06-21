@@ -7,6 +7,7 @@ import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:cc/core/adapters/user_adapter.dart';
 import 'package:cc/core/network/auth_api_client.dart';
+import 'package:cc/core/services/auth_token_sync_service.dart';
 
 part 'auth_state.dart';
 
@@ -150,9 +151,14 @@ class AuthCubit extends Cubit<AuthState> {
       if (response.success && response.currentUser != null) {
         _logger.i('令牌登录成功', extra: {'userId': response.currentUser!.userId});
 
+        final authToken = UserAdapter.extractToken(response.currentUser!);
+
+        // 🔑 自动同步Token到所有需要认证的服务
+        AuthTokenSyncService.instance.syncTokenToAllServices(authToken);
+
         emit(state.toAuthenticatedState(
           currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
-          authToken: UserAdapter.extractToken(response.currentUser!),
+          authToken: authToken,
         ));
         return true;
       } else {
@@ -233,9 +239,14 @@ class AuthCubit extends Cubit<AuthState> {
       // 登录成功
       _logger.i('登录成功，用户信息: ${response.currentUser!.userId}');
 
+      final authToken = UserAdapter.extractToken(response.currentUser!);
+
+      // 🔑 自动同步Token到所有需要认证的服务
+      AuthTokenSyncService.instance.syncTokenToAllServices(authToken);
+
       emit(state.toAuthenticatedState(
         currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
-        authToken: UserAdapter.extractToken(response.currentUser!),
+        authToken: authToken,
       ));
     } catch (error) {
       _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
@@ -308,9 +319,14 @@ class AuthCubit extends Cubit<AuthState> {
       // 注册成功
       _logger.i('注册成功，用户ID: ${response.currentUser!.userId}');
 
+      final authToken = UserAdapter.extractToken(response.currentUser!);
+
+      // 🔑 自动同步Token到所有需要认证的服务
+      AuthTokenSyncService.instance.syncTokenToAllServices(authToken);
+
       emit(state.toAuthenticatedState(
         currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
-        authToken: UserAdapter.extractToken(response.currentUser!),
+        authToken: authToken,
       ));
     } catch (error) {
       _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);

@@ -69,6 +69,17 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _showEmojiPanel = false;
   bool _isRecording = false;
 
+  /// 录制时间相关
+  Timer? _recordingTimer;
+  int _recordingSeconds = 0;
+
+  /// 格式化录制时间
+  String _formatRecordingTime(int seconds) {
+    int minutes = seconds ~/ 60;
+    int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
   /// 随机数生成器 - 用于随机选择SVG背景图案
   final Random _random = Random();
 
@@ -107,7 +118,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _waveAnimationController.dispose();
     _scrollDebounceTimer?.cancel();
     _searchDebounceTimer?.cancel();
-    // 释放语音录制服务
+    _recordingTimer?.cancel();
+    // 释放媒体录制服务
     _voiceRecordService.dispose();
     super.dispose();
   }
@@ -235,11 +247,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         _highlightMessage(messageId);
       }
     } catch (error) {
-      _logger.e('滚动到消息失败', 
-        error: error,
-        extra: {
-          'messageId': messageId,
-        });
+      _logger.e('滚动到消息失败', error: error, extra: {
+        'messageId': messageId,
+      });
     }
   }
 
@@ -277,11 +287,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         }
       }
     } catch (error) {
-      _logger.e('加载消息并滚动失败', 
-        error: error,
-        extra: {
-          'messageId': messageId,
-        });
+      _logger.e('加载消息并滚动失败', error: error, extra: {
+        'messageId': messageId,
+      });
     }
   }
 
@@ -994,7 +1002,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     );
   }
 
-  /// 开始录音
+  /// 开始录制（语音）
   Future<void> _startRecording() async {
     try {
       _logger.i('用户开始录音');
@@ -1003,7 +1011,35 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       if (success) {
         setState(() {
           _isRecording = true;
+          _recordingSeconds = 0;
         });
+
+        // 启动录制计时器，最大60秒
+        _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (mounted) {
+            setState(() {
+              _recordingSeconds++;
+            });
+
+            // 🔧 录音时长限制：最大60秒
+            if (_recordingSeconds >= VoiceRecordService.maxRecordingDuration) {
+              _logger.i(
+                  '录音达到最大时长${VoiceRecordService.maxRecordingDuration}秒，自动停止');
+              timer.cancel();
+              _stopRecording();
+
+              // 显示提示
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      '录音已达到最大时长(${VoiceRecordService.maxRecordingDuration}秒)，自动发送'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+        });
+
         HapticFeedback.lightImpact();
         _logger.i('录音开始成功');
       } else {
@@ -1030,6 +1066,32 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
+  /// 视频录制功能（暂时禁用，等camera插件问题解决）
+  Future<void> _startVideoRecording() async {
+    _logger.w('视频录制功能暂时禁用');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('视频录制功能开发中，敬请期待'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// 拍照功能（暂时禁用，等camera插件问题解决）
+  Future<void> _takePicture() async {
+    _logger.w('拍照功能暂时禁用');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('拍照功能开发中，敬请期待'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   /// 停止录音并发送
   Future<void> _stopRecording() async {
     try {
@@ -1038,6 +1100,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       setState(() {
         _isRecording = false;
       });
+
+      // 停止录制计时器
+      _recordingTimer?.cancel();
+      _recordingTimer = null;
 
       final result = await _voiceRecordService.stopRecording();
       if (result != null) {
@@ -1055,7 +1121,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           if (await file.exists()) {
             await file.delete();
           }
-          
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -1085,7 +1151,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       setState(() {
         _isRecording = false;
       });
-      
+
+      // 停止录制计时器
+      _recordingTimer?.cancel();
+      _recordingTimer = null;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1129,7 +1199,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 上传语音文件
       final uploadResult = await _fileUploadService.uploadVoice(
         File(recordResult.filePath),
-        recordResult.duration,
+        recordResult.duration * 1000, // 🔧 转换为毫秒，与数据库和proto保持一致
       );
 
       if (uploadResult != null) {
@@ -1143,7 +1213,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         final chatCubit = context.read<ChatCubit>();
         await chatCubit.sendVoiceMessage(
           recordResult.filePath,
-          recordResult.duration,
+          recordResult.duration * 1000, // 🔧 转换为毫秒
           mediaUrl: uploadResult.remoteUrl,
         );
 
@@ -1503,23 +1573,45 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 麦克风图标
-              Icon(
-                Icons.mic,
-                color: Colors.green.shade600,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
               // 音频示波器动画
               _buildAudioWaveAnimation(),
               const SizedBox(width: 12),
-              Text(
-                '正在录音...',
-                style: TextStyle(
-                  color: Colors.green.shade700,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '正在录音...',
+                    style: TextStyle(
+                      color: Colors.green.shade700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatRecordingTime(_recordingSeconds),
+                        style: TextStyle(
+                          color: Colors.green.shade600,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      Text(
+                        ' / ${_formatRecordingTime(VoiceRecordService.maxRecordingDuration)}',
+                        style: TextStyle(
+                          color: Colors.green.shade400,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -1605,10 +1697,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
         break;
       case '拍摄':
-        // TODO: 打开相机
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('拍摄功能开发中...')),
-        );
+        _showMediaCaptureOptions();
         break;
       case '文件':
         // TODO: 选择文件
@@ -1623,6 +1712,97 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
         break;
     }
+  }
+
+  /// 显示媒体拍摄选项
+  void _showMediaCaptureOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.blue),
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(context);
+                _takePicture();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam, color: Colors.red),
+              title: const Text('录制视频'),
+              onTap: () {
+                Navigator.pop(context);
+                _showVideoRecordingDialog();
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 显示视频录制对话框
+  void _showVideoRecordingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('录制视频'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('长按下方按钮开始录制视频'),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onLongPressStart: (_) => _startVideoRecording(),
+              onLongPressEnd: (_) => _stopRecording(),
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: _isRecording ? Colors.red : Colors.blue,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.videocam,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _isRecording ? '正在录制...' : '长按录制',
+              style: TextStyle(
+                color: _isRecording ? Colors.red : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (_isRecording) {
+                _voiceRecordService.cancelRecording();
+                setState(() {
+                  _isRecording = false;
+                });
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 消息点击事件
@@ -2326,7 +2506,7 @@ class AudioWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final centerY = size.height / 2;
-    final barCount = 10; // 增加到10个音频条
+    const barCount = 10; // 增加到10个音频条
     final totalBarWidth = size.width * 0.8; // 使用80%的宽度
     final barWidth = totalBarWidth / barCount;
     final spacing = (size.width - totalBarWidth) / 2; // 居中对齐
@@ -2337,9 +2517,10 @@ class AudioWavePainter extends CustomPainter {
       final barDrawWidth = barWidth * 0.6; // 实际条宽
 
       // 创建更复杂的动画效果
-      final phase1 = (progress * 6 + i * 0.8) % (2 * pi);
-      final phase2 = (progress * 4 + i * 0.3) % (2 * pi);
-      final phase3 = (progress * 8 + i * 1.2) % (2 * pi);
+      const twoPi = 2 * pi;
+      final phase1 = (progress * 6 + i * 0.8) % twoPi;
+      final phase2 = (progress * 4 + i * 0.3) % twoPi;
+      final phase3 = (progress * 8 + i * 1.2) % twoPi;
 
       // 混合多个波形创建更丰富的效果
       final wave1 = sin(phase1).abs() * 0.4;

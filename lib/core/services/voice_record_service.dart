@@ -4,38 +4,109 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:uuid/uuid.dart';
 
+/// 语音录制结果
+class VoiceRecordResult {
+  final String filePath;
+  final int duration; // 秒
+  final int fileSize; // 字节
+
+  const VoiceRecordResult({
+    required this.filePath,
+    required this.duration,
+    required this.fileSize,
+  });
+
+  /// 格式化文件大小
+  String get formattedFileSize {
+    if (fileSize < 1024) {
+      return '${fileSize}B';
+    } else if (fileSize < 1024 * 1024) {
+      return '${(fileSize / 1024).toStringAsFixed(1)}KB';
+    } else {
+      return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB';
+    }
+  }
+
+  /// 格式化时长
+  String get formattedDuration {
+    final minutes = duration ~/ 60;
+    final seconds = duration % 60;
+    if (minutes > 0) {
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    } else {
+      return '${seconds}s';
+    }
+  }
+
+  @override
+  String toString() {
+    return 'VoiceRecordResult(path: $filePath, duration: $formattedDuration, size: $formattedFileSize)';
+  }
+}
+
 /// 语音录制服务
+/// 使用record插件6.0.0的AudioRecorder实现语音录制功能
+/// 基于官方示例进行优化和简化
 class VoiceRecordService {
   static final VoiceRecordService _instance = VoiceRecordService._internal();
   factory VoiceRecordService() => _instance;
   VoiceRecordService._internal();
 
-  final Record _recorder = Record();
+  /// 最大录音时长（秒）
+  static const int maxRecordingDuration = 60;
+
+  late final AudioRecorder _recorder;
   final LogService _logger = LogService.instance;
   final Uuid _uuid = const Uuid();
 
   String? _currentRecordingPath;
   DateTime? _recordingStartTime;
+  bool _isRecording = false;
+  bool _isInitialized = false;
 
-  /// 检查录音权限（简化版本）
-  Future<bool> checkPermission() async {
+  /// 初始化录制器
+  Future<bool> _initializeRecorder() async {
     try {
-      // 使用record包自带的权限检查
-      return await _recorder.hasPermission();
-    } catch (e) {
-      _logger.e('检查录音权限失败', error: e);
+      if (!_isInitialized) {
+        _recorder = AudioRecorder();
+        _isInitialized = true;
+        _logger.i('语音录制器初始化成功');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      _logger.e('语音录制器初始化失败', error: e, stackTrace: stackTrace);
       return false;
     }
   }
+
+  /// 检查录音权限
+  Future<bool> hasPermission() async {
+    try {
+      if (!await _initializeRecorder()) {
+        return false;
+      }
+      return await _recorder.hasPermission();
+    } catch (e, stackTrace) {
+      _logger.e('检查录音权限失败', error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  /// 同步检查是否正在录制（基于内部状态）
+  bool get isRecording => _isRecording;
 
   /// 开始录音
   Future<bool> startRecording() async {
     try {
       _logger.i('开始录音流程');
 
+      if (!await _initializeRecorder()) {
+        return false;
+      }
+
       // 检查权限
       _logger.i('检查录音权限...');
-      final hasPermission = await checkPermission();
+      final hasPermission = await _recorder.hasPermission();
       _logger.i('权限检查结果', extra: {'hasPermission': hasPermission});
 
       if (!hasPermission) {
@@ -54,18 +125,19 @@ class VoiceRecordService {
 
       // 生成录音文件路径
       _logger.i('生成录音文件路径...');
-      final recordingPath = await _generateRecordingPath();
+      final recordingPath = await _generateFilePath();
       _logger.i('录音文件路径生成完成', extra: {'path': recordingPath});
 
-      // 开始录音
+      // 开始录音 - 使用优化配置
       _logger.i('开始录音到文件', extra: {'path': recordingPath});
       await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc), // AAC-LC编码，兼容性最好
         path: recordingPath,
-        encoder: AudioEncoder.aacLc, // 使用AAC编码，兼容性好
       );
 
       _currentRecordingPath = recordingPath;
       _recordingStartTime = DateTime.now();
+      _isRecording = true;
 
       _logger.i('录音开始成功', extra: {
         'path': recordingPath,
@@ -82,7 +154,7 @@ class VoiceRecordService {
   /// 停止录音并返回录音结果
   Future<VoiceRecordResult?> stopRecording() async {
     try {
-      if (!await _recorder.isRecording()) {
+      if (!_isRecording) {
         _logger.w('当前未在录音');
         return null;
       }
@@ -129,10 +201,11 @@ class VoiceRecordService {
       // 清理状态
       _currentRecordingPath = null;
       _recordingStartTime = null;
+      _isRecording = false;
 
       return result;
-    } catch (e) {
-      _logger.e('停止录音失败', error: e);
+    } catch (e, stackTrace) {
+      _logger.e('停止录音失败', error: e, stackTrace: stackTrace);
       await _cleanup();
       return null;
     }
@@ -141,22 +214,22 @@ class VoiceRecordService {
   /// 取消录音
   Future<void> cancelRecording() async {
     try {
-      if (await _recorder.isRecording()) {
-        await _recorder.stop();
-      }
+      if (_isRecording) {
+        await _recorder.cancel();
 
-      // 删除录音文件
-      if (_currentRecordingPath != null) {
-        final file = File(_currentRecordingPath!);
-        if (await file.exists()) {
-          await file.delete();
-          _logger.i('已删除取消的录音文件: $_currentRecordingPath');
+        // 删除录音文件（cancel方法应该已经删除了文件，但为了确保）
+        if (_currentRecordingPath != null) {
+          final file = File(_currentRecordingPath!);
+          if (await file.exists()) {
+            await file.delete();
+            _logger.i('已删除取消的录音文件: $_currentRecordingPath');
+          }
         }
-      }
 
-      await _cleanup();
-    } catch (e) {
-      _logger.e('取消录音失败', error: e);
+        await _cleanup();
+      }
+    } catch (e, stackTrace) {
+      _logger.e('取消录音失败', error: e, stackTrace: stackTrace);
       await _cleanup();
     }
   }
@@ -167,53 +240,54 @@ class VoiceRecordService {
     return DateTime.now().difference(_recordingStartTime!).inSeconds;
   }
 
-  /// 检查是否正在录音
-  Future<bool> isRecording() async {
-    return await _recorder.isRecording();
+  /// 异步检查是否正在录音（向后兼容）
+  Future<bool> isRecordingAsync() async {
+    try {
+      if (!_isInitialized) {
+        return _isRecording;
+      }
+      return await _recorder.isRecording();
+    } catch (e) {
+      return _isRecording;
+    }
   }
 
-  /// 生成录音文件路径
-  Future<String> _generateRecordingPath() async {
-    final tempDir = await getTemporaryDirectory();
-    final fileName =
-        'voice_${_uuid.v4()}_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    return '${tempDir.path}/$fileName';
+  /// 生成文件路径
+  Future<String> _generateFilePath() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final uuid = _uuid.v4();
+      // 使用.m4a扩展名，对应AAC-LC编码
+      return '${tempDir.path}/voice_${uuid}_$timestamp.m4a';
+    } catch (e) {
+      // 在测试环境中，path_provider可能不可用，使用固定路径
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final uuid = _uuid.v4();
+      return '/tmp/voice_${uuid}_$timestamp.m4a';
+    }
   }
 
   /// 清理状态
   Future<void> _cleanup() async {
     _currentRecordingPath = null;
     _recordingStartTime = null;
+    _isRecording = false;
   }
 
   /// 释放资源
   Future<void> dispose() async {
     try {
-      if (await _recorder.isRecording()) {
-        await _recorder.stop();
+      await cancelRecording();
+
+      if (_isInitialized) {
+        _recorder.dispose();
+        _isInitialized = false;
       }
-      _recorder.dispose();
-      await _cleanup();
-    } catch (e) {
-      _logger.e('释放录音服务资源失败', error: e);
+
+      _logger.i('语音录制服务资源已释放');
+    } catch (e, stackTrace) {
+      _logger.e('释放语音录制服务资源失败', error: e, stackTrace: stackTrace);
     }
-  }
-}
-
-/// 录音结果
-class VoiceRecordResult {
-  final String filePath;
-  final int duration; // 秒
-  final int fileSize; // 字节
-
-  const VoiceRecordResult({
-    required this.filePath,
-    required this.duration,
-    required this.fileSize,
-  });
-
-  @override
-  String toString() {
-    return 'VoiceRecordResult(path: $filePath, duration: ${duration}s, size: ${fileSize}bytes)';
   }
 }

@@ -15,7 +15,7 @@ import 'package:just_audio/just_audio.dart';
 class MediaService {
   final _logger = LogService.instance;
   final ImagePicker _imagePicker = ImagePicker();
-  final Record _audioRecorder = Record();
+  final AudioRecorder _audioRecorder = AudioRecorder();
   final Uuid _uuid = const Uuid();
 
   // 音频播放器实例,使用懒加载模式
@@ -53,7 +53,8 @@ class MediaService {
         _isPlayerInitialized = true;
 
         // 设置处理状态监听
-        _processingStateSubscription = _audioPlayer!.processingStateStream.listen((state) {
+        _processingStateSubscription =
+            _audioPlayer!.processingStateStream.listen((state) {
           _logger.i('音频处理状态: $state');
           if (state == ProcessingState.completed) {
             _isPlaying = false;
@@ -65,7 +66,8 @@ class MediaService {
           _logger.e('音频状态监听错误', error: error, stackTrace: StackTrace.current);
         });
       } catch (error) {
-        _logger.e('创建AudioPlayer实例失败', error: error, stackTrace: StackTrace.current);
+        _logger.e('创建AudioPlayer实例失败',
+            error: error, stackTrace: StackTrace.current);
         throw Exception('无法初始化音频播放器: $error');
       }
     }
@@ -106,7 +108,8 @@ class MediaService {
       try {
         player = await _getAudioPlayer();
       } catch (error) {
-        _logger.e('获取AudioPlayer实例失败', error: error, stackTrace: StackTrace.current);
+        _logger.e('获取AudioPlayer实例失败',
+            error: error, stackTrace: StackTrace.current);
         // 尝试重新初始化播放器
         _audioPlayer = null;
         _isPlayerInitialized = false;
@@ -212,7 +215,8 @@ class MediaService {
       try {
         player = await _getAudioPlayer();
       } catch (error) {
-        _logger.e('获取AudioPlayer实例失败', error: error, stackTrace: StackTrace.current);
+        _logger.e('获取AudioPlayer实例失败',
+            error: error, stackTrace: StackTrace.current);
         // 尝试重新初始化播放器
         _audioPlayer = null;
         _isPlayerInitialized = false;
@@ -292,29 +296,75 @@ class MediaService {
 
   /// 暂停音频播放
   Future<void> pauseAudio() async {
-    if (!_isPlaying || _audioPlayer == null || !_isPlayerInitialized) return;
+    _logger.i(
+        '收到暂停请求，当前状态: _isPlaying=$_isPlaying, _isPlayerInitialized=$_isPlayerInitialized');
+
+    if (_audioPlayer == null || !_isPlayerInitialized) {
+      _logger.w('音频播放器未初始化，无法暂停');
+      return;
+    }
+
+    // 🔧 检查播放器的实际状态
+    final playerState = _audioPlayer!.playerState;
+    final isReallyPlaying = playerState.playing;
+
+    _logger.i(
+        '播放器实际状态: playing=$isReallyPlaying, processingState=${playerState.processingState}');
+
+    if (!_isPlaying && !isReallyPlaying) {
+      _logger.w('当前未在播放（内部状态和播放器状态都确认），无需暂停');
+      return;
+    }
 
     try {
-      _logger.i('暂停音频播放');
+      _logger.i('执行音频暂停操作...');
+
+      // 🔧 强制暂停，不管内部状态
       await _audioPlayer!.pause();
+
+      // 🔧 等待一小段时间确保暂停操作完成
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // 🔧 再次检查播放器状态
+      final newState = _audioPlayer!.playerState;
+      _logger.i(
+          '暂停后播放器状态: playing=${newState.playing}, processingState=${newState.processingState}');
+
       _isPlaying = false;
-      _logger.i('音频播放已暂停');
+      _logger.i('音频播放已成功暂停，内部状态已更新');
     } catch (error) {
       _logger.e('暂停音频播放失败', error: error, stackTrace: StackTrace.current);
+      // 即使暂停失败，也要重置状态
+      _isPlaying = false;
+      rethrow;
     }
   }
 
   /// 恢复音频播放
   Future<void> resumeAudio() async {
-    if (_isPlaying || _audioPlayer == null || !_isPlayerInitialized) return;
+    _logger.i(
+        '收到恢复播放请求，当前状态: _isPlaying=$_isPlaying, _isPlayerInitialized=$_isPlayerInitialized');
+
+    if (_audioPlayer == null || !_isPlayerInitialized) {
+      _logger.w('音频播放器未初始化，无法恢复播放');
+      return;
+    }
+
+    if (_isPlaying) {
+      _logger.w('当前正在播放，无需恢复');
+      return;
+    }
 
     try {
-      _logger.i('恢复音频播放');
+      _logger.i('执行音频恢复播放操作');
       await _audioPlayer!.play();
       _isPlaying = true;
-      _logger.i('音频播放已恢复');
+      _logger.i('音频播放已成功恢复');
     } catch (error) {
       _logger.e('恢复音频播放失败', error: error, stackTrace: StackTrace.current);
+      // 恢复播放失败时保持暂停状态
+      _isPlaying = false;
+      rethrow;
     }
   }
 
@@ -346,6 +396,22 @@ class MediaService {
     }
   }
 
+  /// 获取当前音频时长
+  Duration? getCurrentAudioDuration() {
+    if (_audioPlayer != null && _isPlayerInitialized) {
+      return _audioPlayer!.duration;
+    }
+    return null;
+  }
+
+  /// 获取当前播放位置
+  Duration? getCurrentPosition() {
+    if (_audioPlayer != null && _isPlayerInitialized) {
+      return _audioPlayer!.position;
+    }
+    return null;
+  }
+
   /// 清理音频资源
   Future<void> disposeAudio() async {
     try {
@@ -359,7 +425,8 @@ class MediaService {
         try {
           await _processingStateSubscription!.cancel();
         } catch (error) {
-          _logger.e('取消处理状态监听器失败', error: error, stackTrace: StackTrace.current);
+          _logger.e('取消处理状态监听器失败',
+              error: error, stackTrace: StackTrace.current);
         } finally {
           _processingStateSubscription = null;
         }
@@ -375,7 +442,8 @@ class MediaService {
           await _audioPlayer!.stop();
           await _audioPlayer!.dispose();
         } catch (error) {
-          _logger.e('释放音频播放器资源失败', error: error, stackTrace: StackTrace.current);
+          _logger.e('释放音频播放器资源失败',
+              error: error, stackTrace: StackTrace.current);
         } finally {
           _audioPlayer = null;
           _isPlayerInitialized = false;
@@ -489,10 +557,12 @@ class MediaService {
 
         // 配置录音
         await _audioRecorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
           path: recordPath,
-          encoder: AudioEncoder.aacLc, // 使用AAC编码器
-          bitRate: 128000, // 比特率
-          samplingRate: 44100, // 采样率
         );
 
         _isRecording = true;

@@ -1,0 +1,438 @@
+import 'dart:io';
+import 'package:mime/mime.dart';
+import 'package:cc/core/services/upload_api_service.dart';
+import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+
+/// 媒体上传集成服务
+/// 将Upload API与现有消息系统集成的高级服务
+class MediaUploadIntegrationService {
+  final _logger = LogService.instance;
+  final _uploadService = UploadApiService();
+  late final ChatRepositorySend _chatRepository;
+
+  // 单例模式
+  static final MediaUploadIntegrationService _instance =
+      MediaUploadIntegrationService._internal();
+  factory MediaUploadIntegrationService() => _instance;
+  MediaUploadIntegrationService._internal();
+
+  /// 初始化服务
+  void initialize(ChatRepositorySend chatRepository, String authToken) {
+    _chatRepository = chatRepository;
+    _uploadService.setAuthToken(authToken);
+  }
+
+  /// 发送图片消息的完整流程
+  Future<Message> sendImageMessage({
+    required File imageFile,
+    required String conversationId,
+    String? caption,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+  }) async {
+    try {
+      onStatusUpdate?.call('准备上传图片...');
+
+      // 1. 获取图片尺寸（如果需要）
+      final dimensions = await _getImageDimensions(imageFile);
+
+      // 2. 上传图片到服务器
+      onStatusUpdate?.call('正在上传图片...');
+      final uploadResult = await _uploadService.uploadImage(
+        imageFile,
+        conversationId: conversationId,
+        caption: caption,
+        width: dimensions?.width,
+        height: dimensions?.height,
+        onProgress: onUploadProgress,
+      );
+
+      // 3. 发送消息
+      onStatusUpdate?.call('正在发送消息...');
+      final message = await _chatRepository.sendImageMessage(
+        conversationId,
+        imageFile.path,
+        mediaUrl: uploadResult.url,
+      );
+
+      // 4. 更新消息的服务器信息
+      if (uploadResult.metadata != null) {
+        message.fileSize = uploadResult.metadata!.size.toDouble();
+        message.mimeType = uploadResult.metadata!.mimeType;
+        if (uploadResult.metadata!.width != null) {
+          message.width = uploadResult.metadata!.width!;
+        }
+        if (uploadResult.metadata!.height != null) {
+          message.height = uploadResult.metadata!.height!;
+        }
+        if (uploadResult.thumbnailUrl != null) {
+          message.thumbnailUrl = uploadResult.thumbnailUrl!;
+        }
+      }
+
+      onStatusUpdate?.call('图片消息发送成功');
+      _logger.i('图片消息发送完成', extra: {
+        'conversationId': conversationId,
+        'messageId': message.messageId,
+        'fileId': uploadResult.fileId,
+        'url': uploadResult.url,
+      });
+
+      return message;
+    } catch (error) {
+      _logger.e('发送图片消息失败', error: error, stackTrace: StackTrace.current);
+      onStatusUpdate?.call('发送失败: $error');
+      rethrow;
+    }
+  }
+
+  /// 发送语音消息的完整流程
+  Future<Message> sendVoiceMessage({
+    required File voiceFile,
+    required String conversationId,
+    required int duration,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+  }) async {
+    try {
+      onStatusUpdate?.call('准备上传语音...');
+
+      // 1. 上传语音文件
+      onStatusUpdate?.call('正在上传语音...');
+      final uploadResult = await _uploadService.uploadVoice(
+        voiceFile,
+        conversationId: conversationId,
+        duration: duration,
+        onProgress: onUploadProgress,
+      );
+
+      // 2. 发送消息
+      onStatusUpdate?.call('正在发送消息...');
+      final message = await _chatRepository.sendVoiceMessage(
+        conversationId,
+        voiceFile.path,
+        duration, // 🔧 duration参数已经是毫秒，直接传递
+        mediaUrl: uploadResult.url,
+      );
+
+      // 3. 更新消息的服务器信息
+      if (uploadResult.metadata != null) {
+        message.fileSize = uploadResult.metadata!.size.toDouble();
+        message.mimeType = uploadResult.metadata!.mimeType;
+        message.duration = uploadResult.metadata!.duration ?? duration;
+      }
+
+      onStatusUpdate?.call('语音消息发送成功');
+      _logger.i('语音消息发送完成', extra: {
+        'conversationId': conversationId,
+        'messageId': message.messageId,
+        'fileId': uploadResult.fileId,
+        'duration': duration,
+      });
+
+      return message;
+    } catch (error) {
+      _logger.e('发送语音消息失败', error: error, stackTrace: StackTrace.current);
+      onStatusUpdate?.call('发送失败: $error');
+      rethrow;
+    }
+  }
+
+  /// 发送视频消息的完整流程
+  Future<Message> sendVideoMessage({
+    required File videoFile,
+    required String conversationId,
+    int? duration,
+    String? caption,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+  }) async {
+    try {
+      onStatusUpdate?.call('准备上传视频...');
+
+      // 1. 获取视频信息（如果需要）
+      final videoInfo = await _getVideoInfo(videoFile);
+      final actualDuration = duration ?? videoInfo['duration'] as int?;
+
+      // 2. 上传视频文件
+      onStatusUpdate?.call('正在上传视频...');
+      final uploadResult = await _uploadService.uploadVideo(
+        videoFile,
+        conversationId: conversationId,
+        duration: actualDuration,
+        width: videoInfo['width'] as int?,
+        height: videoInfo['height'] as int?,
+        caption: caption,
+        onProgress: onUploadProgress,
+      );
+
+      // 3. 发送消息
+      onStatusUpdate?.call('正在发送消息...');
+      final message = await _chatRepository.sendVideoMessage(
+        conversationId,
+        videoFile.path,
+        actualDuration != null ? actualDuration ~/ 1000 : 0,
+        thumbnailUrl: uploadResult.thumbnailUrl,
+        mediaUrl: uploadResult.url,
+        isServerProcessed: true,
+      );
+
+      // 4. 更新消息的服务器信息
+      if (uploadResult.metadata != null) {
+        message.fileSize = uploadResult.metadata!.size.toDouble();
+        message.mimeType = uploadResult.metadata!.mimeType;
+        message.duration =
+            uploadResult.metadata!.duration ?? actualDuration ?? 0;
+        if (uploadResult.metadata!.width != null) {
+          message.width = uploadResult.metadata!.width!;
+        }
+        if (uploadResult.metadata!.height != null) {
+          message.height = uploadResult.metadata!.height!;
+        }
+      }
+
+      onStatusUpdate?.call('视频消息发送成功');
+      _logger.i('视频消息发送完成', extra: {
+        'conversationId': conversationId,
+        'messageId': message.messageId,
+        'fileId': uploadResult.fileId,
+        'hasThumbnail': uploadResult.thumbnailUrl != null,
+      });
+
+      return message;
+    } catch (error) {
+      _logger.e('发送视频消息失败', error: error, stackTrace: StackTrace.current);
+      onStatusUpdate?.call('发送失败: $error');
+      rethrow;
+    }
+  }
+
+  /// 发送文档消息的完整流程
+  Future<Message> sendDocumentMessage({
+    required File documentFile,
+    required String conversationId,
+    String? caption,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+  }) async {
+    try {
+      onStatusUpdate?.call('准备上传文档...');
+
+      // 1. 获取文件信息
+      final fileSize = documentFile.lengthSync().toDouble();
+      final fileName = documentFile.path.split('/').last;
+
+      // 2. 上传文档文件
+      onStatusUpdate?.call('正在上传文档...');
+      final uploadResult = await _uploadService.uploadDocument(
+        documentFile,
+        conversationId: conversationId,
+        caption: caption,
+        onProgress: onUploadProgress,
+      );
+
+      // 3. 发送消息
+      onStatusUpdate?.call('正在发送消息...');
+      final message = await _chatRepository.sendFileMessage(
+        conversationId,
+        documentFile.path,
+        fileName,
+        fileSize,
+        mediaUrl: uploadResult.url,
+      );
+
+      // 4. 更新消息的服务器信息
+      if (uploadResult.metadata != null) {
+        message.fileSize = uploadResult.metadata!.size.toDouble();
+        message.mimeType = uploadResult.metadata!.mimeType;
+        message.fileName = uploadResult.metadata!.originalName;
+        if (uploadResult.thumbnailUrl != null) {
+          message.thumbnailUrl = uploadResult.thumbnailUrl!;
+        }
+      }
+
+      onStatusUpdate?.call('文档消息发送成功');
+      _logger.i('文档消息发送完成', extra: {
+        'conversationId': conversationId,
+        'messageId': message.messageId,
+        'fileId': uploadResult.fileId,
+        'fileName': fileName,
+      });
+
+      return message;
+    } catch (error) {
+      _logger.e('发送文档消息失败', error: error, stackTrace: StackTrace.current);
+      onStatusUpdate?.call('发送失败: $error');
+      rethrow;
+    }
+  }
+
+  /// 带重试的上传
+  Future<Message> sendMediaMessageWithRetry({
+    required File file,
+    required String conversationId,
+    required MediaType mediaType,
+    String? caption,
+    int? duration,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+    int maxRetries = 3,
+  }) async {
+    for (int i = 0; i < maxRetries; i++) {
+      try {
+        switch (mediaType) {
+          case MediaType.image:
+            return await sendImageMessage(
+              imageFile: file,
+              conversationId: conversationId,
+              caption: caption,
+              onUploadProgress: onUploadProgress,
+              onStatusUpdate: onStatusUpdate,
+            );
+          case MediaType.voice:
+            if (duration == null) {
+              throw ArgumentError('语音消息需要提供时长');
+            }
+            return await sendVoiceMessage(
+              voiceFile: file,
+              conversationId: conversationId,
+              duration: duration,
+              onUploadProgress: onUploadProgress,
+              onStatusUpdate: onStatusUpdate,
+            );
+          case MediaType.video:
+            return await sendVideoMessage(
+              videoFile: file,
+              conversationId: conversationId,
+              duration: duration,
+              caption: caption,
+              onUploadProgress: onUploadProgress,
+              onStatusUpdate: onStatusUpdate,
+            );
+          case MediaType.document:
+            return await sendDocumentMessage(
+              documentFile: file,
+              conversationId: conversationId,
+              caption: caption,
+              onUploadProgress: onUploadProgress,
+              onStatusUpdate: onStatusUpdate,
+            );
+        }
+      } catch (error) {
+        if (i == maxRetries - 1) {
+          rethrow;
+        }
+
+        _logger.w('发送媒体消息失败，准备重试... (${i + 1}/$maxRetries)');
+        onStatusUpdate?.call('发送失败，正在重试... (${i + 1}/$maxRetries)');
+
+        await Future.delayed(Duration(seconds: (i + 1) * 2)); // 递增延迟
+      }
+    }
+
+    throw Exception('重试次数已用完');
+  }
+
+  /// 批量上传文件
+  Future<List<Message>> sendMultipleFiles({
+    required List<File> files,
+    required String conversationId,
+    Function(int, int)? onProgress, // (currentIndex, totalCount)
+    Function(String)? onStatusUpdate,
+  }) async {
+    final messages = <Message>[];
+
+    for (int i = 0; i < files.length; i++) {
+      final file = files[i];
+      onProgress?.call(i + 1, files.length);
+      onStatusUpdate?.call('正在处理文件 ${i + 1}/${files.length}...');
+
+      try {
+        final mediaType = _getMediaTypeFromFile(file);
+        final message = await sendMediaMessageWithRetry(
+          file: file,
+          conversationId: conversationId,
+          mediaType: mediaType,
+          onStatusUpdate: (status) =>
+              onStatusUpdate?.call('文件 ${i + 1}: $status'),
+        );
+        messages.add(message);
+      } catch (error) {
+        _logger.e('批量上传中的文件失败', error: error, extra: {
+          'fileName': file.path.split('/').last,
+          'index': i,
+        });
+        // 继续处理其他文件，不中断整个流程
+      }
+    }
+
+    onStatusUpdate?.call('批量上传完成，成功 ${messages.length}/${files.length} 个文件');
+    return messages;
+  }
+
+  /// 从文件确定媒体类型
+  MediaType _getMediaTypeFromFile(File file) {
+    final mimeType = lookupMimeType(file.path);
+    if (mimeType != null) {
+      if (mimeType.startsWith('image/')) return MediaType.image;
+      if (mimeType.startsWith('audio/')) return MediaType.voice;
+      if (mimeType.startsWith('video/')) return MediaType.video;
+    }
+    return MediaType.document;
+  }
+
+  /// 获取图片尺寸
+  Future<ImageDimensions?> _getImageDimensions(File imageFile) async {
+    try {
+      // 这里应该使用适当的图片处理库来获取尺寸
+      // 暂时返回null，实际实现需要添加image库依赖
+      return null;
+    } catch (error) {
+      _logger.w('获取图片尺寸失败: $error');
+      return null;
+    }
+  }
+
+  /// 获取视频信息
+  Future<Map<String, dynamic>> _getVideoInfo(File videoFile) async {
+    try {
+      // 这里应该使用适当的视频处理库来获取信息
+      // 暂时返回空Map，实际实现需要添加video_player或ffmpeg库依赖
+      return {};
+    } catch (error) {
+      _logger.w('获取视频信息失败: $error');
+      return {};
+    }
+  }
+
+  /// 清除认证token
+  void clearAuth() {
+    _uploadService.clearAuthToken();
+  }
+}
+
+/// 媒体类型枚举
+enum MediaType {
+  image,
+  voice,
+  video,
+  document,
+}
+
+/// 图片尺寸
+class ImageDimensions {
+  final int width;
+  final int height;
+
+  const ImageDimensions({
+    required this.width,
+    required this.height,
+  });
+}
+
+/// 上传进度回调类型定义
+typedef UploadProgressCallback = void Function(int progress);
+typedef StatusUpdateCallback = void Function(String status);
+typedef BatchProgressCallback = void Function(int current, int total);
