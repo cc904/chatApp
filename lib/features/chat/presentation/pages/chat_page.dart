@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
 
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/current_user.dart';
@@ -16,6 +17,8 @@ import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/presentation/widgets/message_item.dart';
 import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
+import 'package:cc/core/services/voice_record_service.dart';
+import 'package:cc/core/services/file_upload_service.dart';
 
 /// 聊天页面
 ///
@@ -39,7 +42,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   static final _logger = LogService.instance;
   Timer? _scrollDebounceTimer;
   Timer? _searchDebounceTimer; // 💢💢💢 新增：搜索防抖Timer
@@ -59,6 +62,12 @@ class _ChatPageState extends State<ChatPage> {
 
   /// 焦点控制器
   final FocusNode _focusNode = FocusNode();
+
+  /// 新增：输入模式状态
+  bool _isVoiceMode = false;
+  bool _showMoreOptions = false;
+  bool _showEmojiPanel = false;
+  bool _isRecording = false;
 
   /// 随机数生成器 - 用于随机选择SVG背景图案
   final Random _random = Random();
@@ -80,6 +89,12 @@ class _ChatPageState extends State<ChatPage> {
     // 随机选择一个SVG图案
     _selectedSvgPattern = _svgPatterns[_random.nextInt(_svgPatterns.length)];
 
+    // 初始化动画控制器
+    _waveAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(); // 无限循环
+
     // 监听滚动位置变化
     _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
   }
@@ -89,8 +104,11 @@ class _ChatPageState extends State<ChatPage> {
     _textController.dispose();
     _searchController.dispose();
     _focusNode.dispose();
+    _waveAnimationController.dispose();
     _scrollDebounceTimer?.cancel();
     _searchDebounceTimer?.cancel();
+    // 释放语音录制服务
+    _voiceRecordService.dispose();
     super.dispose();
   }
 
@@ -217,9 +235,11 @@ class _ChatPageState extends State<ChatPage> {
         _highlightMessage(messageId);
       }
     } catch (error) {
-      _logger.e('滚动到消息失败', error: error, extra: {
-        'messageId': messageId,
-      });
+      _logger.e('滚动到消息失败', 
+        error: error,
+        extra: {
+          'messageId': messageId,
+        });
     }
   }
 
@@ -257,9 +277,11 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
     } catch (error) {
-      _logger.e('加载消息并滚动失败', error: error, extra: {
-        'messageId': messageId,
-      });
+      _logger.e('加载消息并滚动失败', 
+        error: error,
+        extra: {
+          'messageId': messageId,
+        });
     }
   }
 
@@ -338,12 +360,20 @@ class _ChatPageState extends State<ChatPage> {
         return Scaffold(
           appBar:
               state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
-          body: Column(
+          body: Stack(
             children: [
-              Expanded(
-                child: _buildMessagesList(),
+              Column(
+                children: [
+                  Expanded(
+                    child: _buildMessagesList(),
+                  ),
+                  state.isSearchMode
+                      ? _buildSearchBottomBar()
+                      : _buildInputArea(),
+                ],
               ),
-              state.isSearchMode ? _buildSearchBottomBar() : _buildInputArea(),
+              // 录制动画覆盖层
+              if (_isRecording) _buildRecordingOverlay(),
             ],
           ),
         );
@@ -774,109 +804,825 @@ class _ChatPageState extends State<ChatPage> {
             state.networkStatus == ChatState.kNetworkStatusConnected &&
                 !state.isSending;
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              top: BorderSide(
-                color: Colors.grey.withAlpha(51),
-                width: 0.5,
+        return Column(
+          children: [
+            // 主输入栏
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.grey.withAlpha(51),
+                    width: 0.5,
+                  ),
+                ),
               ),
-            ),
-          ),
-          child: SafeArea(
-            child: Row(
-              children: [
-                // 输入框
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.grey.shade300,
-                        width: 0.5,
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    // 语音/键盘切换按钮
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isVoiceMode = !_isVoiceMode;
+                          if (_isVoiceMode) {
+                            _focusNode.unfocus();
+                            _showMoreOptions = false;
+                          } else {
+                            _focusNode.requestFocus();
+                          }
+                        });
+                      },
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: Icon(
+                          _isVoiceMode ? Icons.keyboard : Icons.mic,
+                          size: 32,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ),
-                    child: TextField(
-                      controller: _textController,
-                      enabled: isEnabled,
-                      maxLines: 5,
-                      minLines: 1,
-                      decoration: InputDecoration(
-                        hintText: isEnabled ? '输入消息...' : '连接中...',
-                        hintStyle: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 16,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+
+                    const SizedBox(width: 8),
+
+                    // 输入框或语音按钮
+                    Expanded(
+                      child: _isVoiceMode
+                          ? _buildVoiceButton(isEnabled)
+                          : _buildTextInput(isEnabled),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // 表情按钮
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showEmojiPanel = !_showEmojiPanel;
+                          if (_showEmojiPanel) {
+                            _showMoreOptions = false;
+                            _focusNode.unfocus();
+                          }
+                        });
+                      },
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        // decoration: BoxDecoration(
+                        //   color: Colors.grey.shade100,
+                        //   borderRadius: BorderRadius.circular(18),
+                        // ),
+                        child: Icon(
+                          Icons.emoji_emotions_outlined,
+                          size: 32,
+                          color: Colors.grey.shade600,
                         ),
                       ),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: isEnabled ? (text) => _sendMessage() : null,
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // 发送按钮或添加按钮
+                    _textController.text.isNotEmpty && !_isVoiceMode
+                        ? _buildSendButton(state, isEnabled)
+                        : _buildAddButton(),
+                  ],
+                ),
+              ),
+            ),
+
+            // 功能面板或表情面板
+            if (_showMoreOptions)
+              _buildMoreOptionsPanel()
+            else if (_showEmojiPanel)
+              _buildEmojiPanel(),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 构建文本输入框
+  Widget _buildTextInput(bool isEnabled) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          width: 0.5,
+        ),
+      ),
+      child: TextField(
+        controller: _textController,
+        focusNode: _focusNode,
+        enabled: isEnabled,
+        maxLines: 5,
+        minLines: 1,
+        decoration: InputDecoration(
+          hintText: isEnabled ? '输入消息...' : '连接中...',
+          hintStyle: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 16,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+        ),
+        style: const TextStyle(
+          fontSize: 20,
+          color: Colors.black87,
+          height: 1.4, // 调整行高以适应更大的表情
+        ),
+        textInputAction: TextInputAction.send,
+        onSubmitted: isEnabled ? (text) => _sendMessage() : null,
+        onChanged: (text) {
+          setState(() {}); // 更新发送按钮显示状态
+        },
+        onTap: () {
+          setState(() {
+            _showMoreOptions = false;
+            _showEmojiPanel = false;
+          });
+        },
+      ),
+    );
+  }
+
+  /// 构建语音按钮
+  Widget _buildVoiceButton(bool isEnabled) {
+    return GestureDetector(
+      onLongPressStart: (_) async {
+        if (isEnabled) {
+          await _startRecording();
+        }
+      },
+      onLongPressMoveUpdate: (details) {
+        // 保持录制状态，可以在这里添加其他手势逻辑
+      },
+      onLongPressEnd: (_) async {
+        if (_isRecording) {
+          await _stopRecording();
+        }
+      },
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: _isRecording ? Colors.green.shade100 : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _isRecording ? Colors.green.shade300 : Colors.grey.shade300,
+            width: 0.5,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            _isRecording ? '松开结束' : '按住 说话',
+            style: TextStyle(
+              fontSize: 16,
+              color:
+                  _isRecording ? Colors.green.shade700 : Colors.grey.shade600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 开始录音
+  Future<void> _startRecording() async {
+    try {
+      _logger.i('用户开始录音');
+
+      final success = await _voiceRecordService.startRecording();
+      if (success) {
+        setState(() {
+          _isRecording = true;
+        });
+        HapticFeedback.lightImpact();
+        _logger.i('录音开始成功');
+      } else {
+        _logger.w('录音开始失败');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('录音失败，请检查麦克风权限'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _logger.e('录音开始异常', error: e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('录音失败: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 停止录音并发送
+  Future<void> _stopRecording() async {
+    try {
+      _logger.i('用户停止录音');
+
+      setState(() {
+        _isRecording = false;
+      });
+
+      final result = await _voiceRecordService.stopRecording();
+      if (result != null) {
+        _logger.i('录音结束', extra: {
+          'duration': result.duration,
+          'fileSize': result.fileSize,
+          'filePath': result.filePath,
+        });
+
+        // 检查录音时长
+        if (result.duration < 1) {
+          _logger.w('录音时间太短，删除录音文件');
+          // 删除录音文件
+          final file = File(result.filePath);
+          if (await file.exists()) {
+            await file.delete();
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('录音时间太短'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+          return;
+        }
+
+        // 上传并发送语音消息
+        await _uploadAndSendVoice(result);
+      } else {
+        _logger.w('录音结果为空');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('录音失败'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _logger.e('录音停止异常', error: e);
+      setState(() {
+        _isRecording = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('录音失败: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 上传并发送语音消息
+  Future<void> _uploadAndSendVoice(VoiceRecordResult recordResult) async {
+    try {
+      _logger.i('开始上传语音文件', extra: {
+        'filePath': recordResult.filePath,
+        'duration': recordResult.duration,
+        'fileSize': recordResult.fileSize,
+      });
+
+      // 显示上传中提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Text('正在发送语音...'),
+              ],
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // 上传语音文件
+      final uploadResult = await _fileUploadService.uploadVoice(
+        File(recordResult.filePath),
+        recordResult.duration,
+      );
+
+      if (uploadResult != null) {
+        _logger.i('语音文件上传成功', extra: {
+          'localPath': uploadResult.localPath,
+          'remoteUrl': uploadResult.remoteUrl,
+          'duration': uploadResult.duration,
+        });
+
+        // 发送语音消息
+        final chatCubit = context.read<ChatCubit>();
+        await chatCubit.sendVoiceMessage(
+          recordResult.filePath,
+          recordResult.duration,
+          mediaUrl: uploadResult.remoteUrl,
+        );
+
+        _logger.i('语音消息发送成功');
+
+        // 清除上传提示
+        if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+        }
+
+        // 触觉反馈
+        HapticFeedback.lightImpact();
+      } else {
+        throw Exception('文件上传失败');
+      }
+    } catch (e) {
+      _logger.e('语音消息发送失败', error: e);
+
+      // 删除录音文件
+      try {
+        final file = File(recordResult.filePath);
+        if (await file.exists()) {
+          await file.delete();
+          _logger.i('已删除失败的录音文件');
+        }
+      } catch (deleteError) {
+        _logger.w('删除录音文件失败', extra: {
+          'error': deleteError,
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('语音发送失败: $e'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: '重试',
+              onPressed: () => _uploadAndSendVoice(recordResult),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 构建发送按钮
+  Widget _buildSendButton(ChatState state, bool isEnabled) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: isEnabled ? _sendMessage : null,
+          child: state.isSending
+              ? const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                )
+              : const Icon(
+                  Icons.send,
+                  color: Colors.grey,
+                  size: 32,
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建添加按钮
+  Widget _buildAddButton() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _showMoreOptions = !_showMoreOptions;
+          if (_showMoreOptions) {
+            _focusNode.unfocus();
+            _showEmojiPanel = false;
+          }
+        });
+      },
+      child: Icon(
+        _showMoreOptions ? Icons.close : Icons.add,
+        size: 40,
+        color: Colors.grey.shade600,
+      ),
+    );
+  }
+
+  /// 构建功能面板
+  Widget _buildMoreOptionsPanel() {
+    final options = [
+      {'icon': Icons.photo_library, 'label': '图片'},
+      {'icon': Icons.camera_alt, 'label': '拍摄'},
+      {'icon': Icons.insert_drive_file, 'label': '文件'},
+      {'icon': Icons.person, 'label': '联系人'},
+    ];
+
+    return Container(
+      height: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF2F2F7), // 使用ChatInfoPage相同的背景色
+        border: Border(
+          top: BorderSide(
+            color: Color(0xFFE0E0E0),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: options.map((option) {
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    _handleMoreOptionTap(option['label'] as String);
+                  },
+                  child: Container(
+                    height: 90,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          option['icon'] as IconData,
+                          color: Colors.blue,
+                          size: 26,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          option['label'] as String,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 
-                const SizedBox(width: 8),
+  /// 构建表情面板
+  Widget _buildEmojiPanel() {
+    // 基础表情列表
+    final emojis = [
+      '😀',
+      '😃',
+      '😄',
+      '😁',
+      '😆',
+      '😅',
+      '😂',
+      '🤣',
+      '🥲',
+      '☺️',
+      '😊',
+      '😇',
+      '🙂',
+      '🙃',
+      '😉',
+      '😌',
+      '😍',
+      '🥰',
+      '😘',
+      '😗',
+      '😙',
+      '😚',
+      '😋',
+      '😛',
+      '😝',
+      '😜',
+      '🤪',
+      '🤨',
+      '🧐',
+      '🤓',
+      '😎',
+      '🥸',
+      '🤩',
+      '🥳',
+      '😏',
+      '😒',
+      '😞',
+      '😔',
+      '😟',
+      '😕',
+      '🙁',
+      '☹️',
+      '😣',
+      '😖',
+      '😫',
+      '😩',
+      '🥺',
+      '😢',
+      '😭',
+      '😤',
+      '😠',
+      '😡',
+      '🤬',
+      '🤯',
+      '😳',
+      '🥵',
+      '🥶',
+      '😶',
+      '😐',
+      '😑',
+      '😬',
+      '🙄',
+      '😯',
+      '😦',
+      '😧',
+      '😮',
+      '😲',
+      '🥱',
+      '😴',
+      '🤤',
+      '😪',
+      '😵',
+      '🤐',
+      '🥴',
+      '🤢',
+      '🤮',
+      '🤧',
+      '😷',
+      '🤒',
+      '🤕',
+    ];
 
-                // 发送按钮
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isEnabled
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade400,
-                    shape: BoxShape.circle,
+    return Container(
+      height: 240,
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF2F2F7),
+        border: Border(
+          top: BorderSide(
+            color: Color(0xFFE0E0E0),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 表情标题和关闭按钮
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '所有表情',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(22),
-                      onTap: isEnabled ? _sendMessage : null,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                        ),
-                        child: state.isSending
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : const Icon(
-                                Icons.send,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                      ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showEmojiPanel = false;
+                    });
+                  },
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.grey,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          // 表情网格
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 8,
+                childAspectRatio: 1.0,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              itemCount: emojis.length,
+              itemBuilder: (context, index) {
+                final emoji = emojis[index];
+                return GestureDetector(
+                  onTap: () {
+                    _insertEmoji(emoji);
+                  },
+                  child: Center(
+                    child: Text(
+                      emoji,
+                      style: const TextStyle(fontSize: 32),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  /// 构建录制覆盖层
+  Widget _buildRecordingOverlay() {
+    return Positioned(
+      bottom: 200,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.green.shade200, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(25),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 麦克风图标
+              Icon(
+                Icons.mic,
+                color: Colors.green.shade600,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              // 音频示波器动画
+              _buildAudioWaveAnimation(),
+              const SizedBox(width: 12),
+              Text(
+                '正在录音...',
+                style: TextStyle(
+                  color: Colors.green.shade700,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 动画控制器
+  late AnimationController _waveAnimationController;
+
+  /// 语音录制服务
+  final VoiceRecordService _voiceRecordService = VoiceRecordService();
+
+  /// 文件上传服务
+  final FileUploadService _fileUploadService = FileUploadService();
+
+  /// 音频示波器动画效果
+  Widget _buildAudioWaveAnimation() {
+    return Container(
+      width: 90,
+      height: 35,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.green.shade100.withAlpha(100),
+        border: Border.all(
+          color: Colors.green.shade200,
+          width: 0.5,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedBuilder(
+          animation: _waveAnimationController,
+          builder: (context, child) {
+            return CustomPaint(
+              painter:
+                  AudioWavePainter(progress: _waveAnimationController.value),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 插入表情到输入框
+  void _insertEmoji(String emoji) {
+    final currentText = _textController.text;
+    final currentPosition = _textController.selection.baseOffset;
+
+    if (currentPosition == -1) {
+      // 如果没有光标位置，就添加到末尾
+      _textController.text = currentText + emoji;
+      _textController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _textController.text.length),
+      );
+    } else {
+      // 在光标位置插入表情
+      final newText = currentText.substring(0, currentPosition) +
+          emoji +
+          currentText.substring(currentPosition);
+      _textController.text = newText;
+      _textController.selection = TextSelection.fromPosition(
+        TextPosition(offset: currentPosition + emoji.length),
+      );
+    }
+
+    // 更新UI状态
+    setState(() {});
+  }
+
+  /// 处理功能选项点击
+  void _handleMoreOptionTap(String label) {
+    setState(() {
+      _showMoreOptions = false;
+    });
+
+    switch (label) {
+      case '图片':
+        // TODO: 打开相册
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('相册功能开发中...')),
+        );
+        break;
+      case '拍摄':
+        // TODO: 打开相机
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('拍摄功能开发中...')),
+        );
+        break;
+      case '文件':
+        // TODO: 选择文件
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('文件功能开发中...')),
+        );
+        break;
+      case '联系人':
+        // TODO: 分享联系人
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('联系人功能开发中...')),
+        );
+        break;
+    }
   }
 
   /// 消息点击事件
@@ -1568,5 +2314,85 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
     return date1.year == date2.year &&
         date1.month == date2.month &&
         date1.day == date2.day;
+  }
+}
+
+/// 音频波形画笔类 - 绘制简单的音频示波器
+class AudioWavePainter extends CustomPainter {
+  final double progress;
+
+  AudioWavePainter({this.progress = 0.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final barCount = 10; // 增加到10个音频条
+    final totalBarWidth = size.width * 0.8; // 使用80%的宽度
+    final barWidth = totalBarWidth / barCount;
+    final spacing = (size.width - totalBarWidth) / 2; // 居中对齐
+
+    // 绘制美观的音频条形图
+    for (int i = 0; i < barCount; i++) {
+      final x = spacing + i * barWidth + barWidth * 0.2; // 添加条间距
+      final barDrawWidth = barWidth * 0.6; // 实际条宽
+
+      // 创建更复杂的动画效果
+      final phase1 = (progress * 6 + i * 0.8) % (2 * pi);
+      final phase2 = (progress * 4 + i * 0.3) % (2 * pi);
+      final phase3 = (progress * 8 + i * 1.2) % (2 * pi);
+
+      // 混合多个波形创建更丰富的效果
+      final wave1 = sin(phase1).abs() * 0.4;
+      final wave2 = sin(phase2).abs() * 0.3;
+      final wave3 = sin(phase3).abs() * 0.3;
+
+      final amplitude = wave1 + wave2 + wave3;
+      final barHeight = (0.2 + amplitude) * size.height * 0.85;
+
+      // 渐变颜色效果
+      final gradientHeight = barHeight / size.height;
+      final color = Color.lerp(
+        Colors.green.shade300,
+        Colors.green.shade600,
+        gradientHeight.clamp(0.0, 1.0),
+      )!;
+
+      // 绘制圆角矩形条
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x + barDrawWidth / 2, centerY),
+          width: barDrawWidth,
+          height: barHeight,
+        ),
+        Radius.circular(barDrawWidth / 2),
+      );
+
+      canvas.drawRRect(rect, paint);
+
+      // 添加高光效果
+      final highlightPaint = Paint()
+        ..color = Colors.white.withAlpha(80)
+        ..style = PaintingStyle.fill;
+
+      final highlightRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x + barDrawWidth / 2, centerY - barHeight * 0.2),
+          width: barDrawWidth * 0.6,
+          height: barHeight * 0.3,
+        ),
+        Radius.circular(barDrawWidth / 4),
+      );
+
+      canvas.drawRRect(highlightRect, highlightPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return oldDelegate is! AudioWavePainter || oldDelegate.progress != progress;
   }
 }

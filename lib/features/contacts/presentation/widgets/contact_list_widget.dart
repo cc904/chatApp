@@ -182,6 +182,11 @@ class _ContactListWidgetState extends State<ContactListWidget> {
 
   /// 滚动到指定字母
   void _scrollToLetter(String letter) {
+    // 💢💢💢 检查 ScrollController 是否已附加到滚动视图
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
     setState(() {
       _currentLetter = letter;
     });
@@ -204,8 +209,12 @@ class _ContactListWidgetState extends State<ContactListWidget> {
           offset += 36 + contactsCount * 72; // 分组标题 + 联系人项高度
         }
 
+        // 💢💢💢 确保偏移量不超过可滚动范围
+        final maxScrollExtent = _scrollController.position.maxScrollExtent;
+        final clampedOffset = offset.clamp(0.0, maxScrollExtent);
+
         _scrollController.animateTo(
-          offset,
+          clampedOffset,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
@@ -267,7 +276,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
             ),
 
             // 字母索引
-            if (widget.showAlphabetIndex && !_isFiltering)
+            if (widget.showAlphabetIndex && !_isFiltering && !widget.shrinkWrap)
               Positioned(
                 right: 8,
                 top: 0,
@@ -605,7 +614,12 @@ class _ContactListWidgetState extends State<ContactListWidget> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: allIndexes.map((index) {
           return GestureDetector(
-            onTap: () => _scrollToLetter(index),
+            onTap: () {
+              // 💢💢💢 确保在 widget 仍然 mounted 的情况下才执行滚动
+              if (mounted) {
+                _scrollToLetter(index);
+              }
+            },
             child: Container(
               height: 20,
               alignment: Alignment.center,

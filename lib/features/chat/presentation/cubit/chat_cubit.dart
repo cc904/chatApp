@@ -225,6 +225,63 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 发送语音消息
+  Future<void> sendVoiceMessage(String localPath, int duration,
+      {String? mediaUrl}) async {
+    _logger.d('发送语音消息',
+        extra: {
+          'conversationId': _conversationId,
+          'duration': duration,
+          'localPath': localPath,
+        },
+        stackTrace: StackTrace.current);
+
+    if (isClosed) return;
+
+    // 验证输入
+    if (localPath.trim().isEmpty || duration <= 0) {
+      _logger.w('尝试发送无效语音消息');
+      return;
+    }
+
+    try {
+      // 1. 设置发送状态
+      if (!isClosed) {
+        emit(state.copyWith(isSending: true));
+      }
+
+      // 2. 直接通过ChatRepositorySend发送语音消息
+      final message = await _chatRepositorySend.sendVoiceMessage(
+        _conversationId,
+        localPath.trim(),
+        duration,
+        mediaUrl: mediaUrl,
+      );
+
+      _logger.i('语音消息发送请求已提交', extra: {
+        'messageId': message.messageId,
+        'conversationId': _conversationId,
+        'duration': duration,
+      });
+
+      // 💢💢💢 关键：不需要手动更新UI，数据库监听会自动处理
+    } catch (error) {
+      _logger.e('发送语音消息失败', error: error);
+
+      // 设置错误状态
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '语音消息发送失败: ${error.toString()}'));
+      }
+
+      rethrow;
+    } finally {
+      // 重置发送状态
+      if (!isClosed) {
+        emit(state.copyWith(isSending: false));
+      }
+    }
+  }
+
   /// 创建临时消息
   Future<Message> _createTempMessage(String text) async {
     return await _chatRepositorySend.createTempMessage(
