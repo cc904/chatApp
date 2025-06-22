@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:intl/intl.dart';
+import 'package:dio/dio.dart';
+import 'package:cc/core/services/log_service.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'voice_message_widget.dart';
+import 'image_message_widget.dart';
+import 'video_message_widget.dart';
 
 /// 消息显示状态
 /// 用于传递预计算的消息状态信息
@@ -375,60 +382,11 @@ class MessageItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth:
-                    MediaQuery.of(context).size.width * 0.6, // 最大宽度为屏幕的60%
-                maxHeight:
-                    MediaQuery.of(context).size.height * 0.4, // 最大高度为屏幕的40%
-                minWidth: 120.0, // 最小宽度
-                minHeight: 80.0, // 最小高度
-              ),
-              child: AspectRatio(
-                aspectRatio: _calculateImageAspectRatio(), // 计算合适的宽高比
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: message.mediaUrl != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: Image.network(
-                            message.mediaUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  color: Colors.grey,
-                                  size: 40.0,
-                                ),
-                              );
-                            },
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(
-                            Icons.image,
-                            color: Colors.grey,
-                            size: 40.0,
-                          ),
-                        ),
-                ),
-              ),
+            ImageMessageWidget(
+              message: message,
+              isCurrentUser: isCurrentUser,
+              maxWidth: MediaQuery.of(context).size.width * 0.6,
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
             ),
             if (message.caption?.isNotEmpty == true) ...[
               const SizedBox(height: 4.0),
@@ -457,87 +415,11 @@ class MessageItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.6,
-                maxHeight: MediaQuery.of(context).size.height * 0.4,
-                minWidth: 120.0,
-                minHeight: 80.0,
-              ),
-              child: AspectRatio(
-                aspectRatio: _calculateImageAspectRatio(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // 视频缩略图
-                      if (message.thumbnailUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: Image.network(
-                            message.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.video_library,
-                                color: Colors.grey,
-                                size: 40.0,
-                              );
-                            },
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.video_library,
-                          color: Colors.grey,
-                          size: 40.0,
-                        ),
-                      // 播放按钮覆盖层
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(128),
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(12.0),
-                        child: const Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 24.0,
-                        ),
-                      ),
-                      // 时长显示
-                      if (message.duration != null)
-                        Positioned(
-                          bottom: 8.0,
-                          right: 8.0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6.0,
-                              vertical: 2.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withAlpha(179),
-                              borderRadius: BorderRadius.circular(4.0),
-                            ),
-                            child: Text(
-                              _formatDuration(message.duration!),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+            VideoMessageWidget(
+              message: message,
+              isCurrentUser: isCurrentUser,
+              maxWidth: MediaQuery.of(context).size.width * 0.6,
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
             ),
             if (message.caption?.isNotEmpty == true) ...[
               const SizedBox(height: 4.0),
@@ -556,40 +438,86 @@ class MessageItem extends StatelessWidget {
         );
 
       case MessageType.file:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.attachment,
-              color: isCurrentUser ? Colors.white : Colors.grey[700],
-              size: 20.0,
-            ),
-            const SizedBox(width: 8.0),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.fileName ?? '未知文件',
-                    style: TextStyle(
-                      fontSize: 14.0,
-                      color: isCurrentUser ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  if (message.fileSize != null)
-                    Text(
-                      _formatFileSize(message.fileSize!),
-                      style: TextStyle(
-                        fontSize: 12.0,
-                        color: isCurrentUser
-                            ? Colors.white.withAlpha(179) // 替代过时的withOpacity
-                            : Colors.grey[600],
-                      ),
-                    ),
-                ],
+        return GestureDetector(
+          onTap: () => _showFileDetailsDialog(context),
+          child: Container(
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: isCurrentUser
+                  ? Colors.white.withAlpha(25)
+                  : Colors.grey.withAlpha(25),
+              borderRadius: BorderRadius.circular(8.0),
+              border: Border.all(
+                color: isCurrentUser
+                    ? Colors.white.withAlpha(76)
+                    : Colors.grey.withAlpha(76),
+                width: 1.0,
               ),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.insert_drive_file,
+                  color: isCurrentUser ? Colors.white : Colors.grey[700],
+                  size: 24.0,
+                ),
+                const SizedBox(width: 12.0),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message.fileName ?? '未知文件',
+                        style: TextStyle(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w500,
+                          color: isCurrentUser ? Colors.white : Colors.black87,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2.0),
+                      Row(
+                        children: [
+                          if (message.fileSize != null) ...[
+                            Text(
+                              _formatFileSize(message.fileSize!),
+                              style: TextStyle(
+                                fontSize: 12.0,
+                                color: isCurrentUser
+                                    ? Colors.white.withAlpha(179)
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(width: 8.0),
+                          ],
+                          Text(
+                            '点击查看',
+                            style: TextStyle(
+                              fontSize: 11.0,
+                              color: isCurrentUser
+                                  ? Colors.white.withAlpha(153)
+                                  : Colors.blue[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: isCurrentUser
+                      ? Colors.white.withAlpha(153)
+                      : Colors.grey[500],
+                  size: 16.0,
+                ),
+              ],
+            ),
+          ),
         );
 
       case MessageType.system:
@@ -605,19 +533,6 @@ class MessageItem extends StatelessWidget {
     return DateFormat('HH:mm').format(dateTime);
   }
 
-  /// 格式化时长
-  String _formatDuration(int milliseconds) {
-    final seconds = milliseconds ~/ 1000;
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-
-    if (minutes > 0) {
-      return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
-    } else {
-      return '0:${remainingSeconds.toString().padLeft(2, '0')}';
-    }
-  }
-
   /// 格式化文件大小
   String _formatFileSize(double sizeInKB) {
     if (sizeInKB < 1) {
@@ -631,35 +546,6 @@ class MessageItem extends StatelessWidget {
       final sizeInGB = sizeInKB / (1024 * 1024);
       return '${sizeInGB.toStringAsFixed(2)} GB';
     }
-  }
-
-  /// 计算图片的宽高比
-  double _calculateImageAspectRatio() {
-    // 如果没有尺寸信息，根据图片类型或URL判断可能的宽高比
-    if (message.mediaUrl != null) {
-      final url = message.mediaUrl!.toLowerCase();
-
-      // 根据文件名或URL推测可能的宽高比
-      if (url.contains('portrait') || url.contains('vertical')) {
-        return 0.75; // 3:4 竖图比例
-      } else if (url.contains('landscape') || url.contains('horizontal')) {
-        return 1.5; // 3:2 横图比例
-      } else if (url.contains('square')) {
-        return 1.0; // 1:1 正方形
-      }
-
-      // 根据文件扩展名推测可能的宽高比
-      if (url.contains('.jpg') || url.contains('.jpeg')) {
-        return 1.3; // JPEG 通常是相机拍摄，4:3 比例较常见
-      } else if (url.contains('.png')) {
-        return 1.0; // PNG 通常是图标或截图，接近正方形
-      } else if (url.contains('.gif')) {
-        return 1.2; // GIF 通常是动图，略微横向
-      }
-    }
-
-    // 默认使用略微横向的比例，适合大多数照片
-    return 1.3; // 4:3 比例，接近手机拍照的默认比例
   }
 
   /// 🆕 构建系统消息（居中小字样式，无头像无气泡）
@@ -904,6 +790,369 @@ class MessageItem extends StatelessWidget {
       iconData,
       size: 12.0,
       color: color,
+    );
+  }
+
+  void _showFileDetailsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _FileDetailsDialog(message: message),
+    );
+  }
+}
+
+/// 文件详情对话框
+class _FileDetailsDialog extends StatefulWidget {
+  final Message message;
+
+  const _FileDetailsDialog({required this.message});
+
+  @override
+  State<_FileDetailsDialog> createState() => _FileDetailsDialogState();
+}
+
+class _FileDetailsDialogState extends State<_FileDetailsDialog> {
+  bool _isDownloading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                border:
+                    Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.blue, size: 24),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      '文件详情',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    style: IconButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(32, 32),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 文件信息
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 文件图标
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withAlpha(25),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: Colors.grey.withAlpha(51), width: 2),
+                      ),
+                      child: const Icon(Icons.insert_drive_file,
+                          size: 40, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 文件信息表格
+                    _buildInfoTable(),
+                  ],
+                ),
+              ),
+            ),
+
+            // 操作按钮
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.grey, width: 0.5)),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('关闭'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isDownloading ? null : _downloadFile,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: _isDownloading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.download, size: 18),
+                      label: Text(_isDownloading ? '下载中...' : '下载'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTable() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.withAlpha(12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withAlpha(25)),
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow('文件名', widget.message.fileName ?? '未知文件'),
+          _buildDivider(),
+          _buildInfoRow('文件大小', _formatFileSize(widget.message.fileSize ?? 0)),
+          _buildDivider(),
+          _buildInfoRow('文件类型', 'FILE'),
+          _buildDivider(),
+          _buildInfoRow('发送时间', _formatDateTime(widget.message.createdAt)),
+          if (widget.message.mediaUrl != null) ...[
+            _buildDivider(),
+            _buildInfoRow('下载链接', '可用', isStatus: true),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {bool isStatus = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: isStatus
+                ? Row(
+                    children: [
+                      Icon(Icons.check_circle,
+                          size: 16, color: Colors.green[600]),
+                      const SizedBox(width: 6),
+                      Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.green[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    value,
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: Colors.grey.withAlpha(25),
+      indent: 16,
+      endIndent: 16,
+    );
+  }
+
+  String _formatFileSize(double bytes) {
+    if (bytes < 1024) {
+      return '${bytes.toStringAsFixed(0)} B';
+    } else if (bytes < 1024 * 1024) {
+      final sizeInKB = bytes / 1024;
+      return '${sizeInKB.toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      final sizeInMB = bytes / (1024 * 1024);
+      return '${sizeInMB.toStringAsFixed(1)} MB';
+    } else {
+      final sizeInGB = bytes / (1024 * 1024 * 1024);
+      return '${sizeInGB.toStringAsFixed(2)} GB';
+    }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _downloadFile() async {
+    final logger = LogService.instance;
+
+    logger.i('开始下载文件');
+    logger.i('文件URL: ${widget.message.mediaUrl}');
+    logger.i('文件名: ${widget.message.fileName}');
+
+    // 如果没有真实URL，使用测试文件URL来验证下载功能
+    String? downloadUrl = widget.message.mediaUrl;
+    if (downloadUrl == null || downloadUrl.isEmpty) {
+      logger.w('使用测试URL进行下载演示');
+      downloadUrl = 'https://httpbin.org/bytes/1024'; // 1KB测试文件
+    }
+
+    setState(() {
+      _isDownloading = true;
+    });
+
+    try {
+      // 先进行 HEAD 请求测试连通性
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(minutes: 10),
+        sendTimeout: const Duration(seconds: 15),
+        headers: {
+          'User-Agent': 'Flutter App',
+        },
+      ));
+      try {
+        logger.i('开始 HEAD 请求测试连通性');
+        final headResponse = await dio.head(downloadUrl);
+        logger.i(
+            'HEAD 状态码: ${headResponse.statusCode}, Content-Length: ${headResponse.headers.value('content-length')}');
+      } catch (e) {
+        logger.w('HEAD 请求失败: $e');
+      }
+
+      logger.i('开始真正下载...');
+
+      // 使用dio.download直接写文件，避免内存占用
+      final Directory? downloadsDir = await getDownloadsDirectory();
+      Directory targetDir;
+
+      if (downloadsDir != null) {
+        targetDir = downloadsDir;
+        logger.i('使用系统下载目录: ${targetDir.path}');
+      } else {
+        // 回退到应用文档目录
+        targetDir = await getApplicationDocumentsDirectory();
+        logger.i('回退到应用文档目录: ${targetDir.path}');
+      }
+
+      // 创建文件名及路径
+      String fileName = widget.message.fileName ?? 'downloaded_file';
+      if (!fileName.contains('.')) {
+        fileName += '.bin';
+      }
+      final String filePath = '${targetDir.path}/$fileName';
+      logger.i('保存路径: $filePath');
+
+      await dio.download(
+        downloadUrl,
+        filePath,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            final percent = (received / total * 100).toStringAsFixed(1);
+            logger.i('下载进度: $percent% ($received/$total bytes)');
+          } else {
+            logger.i('已下载: $received bytes (总大小未知)');
+          }
+        },
+      );
+
+      logger.i('文件下载并保存成功');
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showSuccessSnackBar('文件已保存到: ${targetDir.path}');
+        HapticFeedback.lightImpact();
+      }
+    } catch (e, stackTrace) {
+      logger.e('下载失败: $e', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        _showErrorSnackBar('下载失败: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+        });
+      }
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

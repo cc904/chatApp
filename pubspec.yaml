@@ -74,6 +74,7 @@ dependencies:
   ansicolor: ^2.0.3
   term_glyph: ^1.2.2
   http: ^1.1.0
+  crypto: ^3.0.6
   lpinyin: ^2.0.3
   flutter_local_notifications: ^16.3.2
   permission_handler: ^11.3.0

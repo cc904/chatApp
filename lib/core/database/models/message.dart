@@ -201,7 +201,7 @@ class Message {
   String? mediaUrl;
   String? localPath;
   int? duration; // 语音/视频时长(毫秒)
-  double? fileSize; // 文件大小(KB)
+  double? fileSize; // 文件大小(字节)
   String? fileName; // 文件名
   String? thumbnailUrl; // 缩略图URL
   String? mimeType; // MIME类型

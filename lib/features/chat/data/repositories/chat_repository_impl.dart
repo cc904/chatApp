@@ -276,13 +276,20 @@ class ChatRepositoryImpl implements ChatRepository {
   void _handleMessageSendResponse(
       message_proto.MessageSendResponse response) async {
     try {
-      _logger.d('收到消息发送响应', extra: {
+      _logger.i('💌 收到消息发送响应', extra: {
         'success': response.success,
+        'tempId': response.tempId,
+        'messageId': response.messageId,
         'messageIndex': response.messageIndex.toInt(),
+        'conversationId': response.conversationId,
+        'msg': response.msg,
       });
 
       if (response.tempId.isEmpty) {
-        _logger.w('消息发送响应缺少临时ID，无法匹配本地消息');
+        _logger.w('💌 消息发送响应缺少临时ID，无法匹配本地消息', extra: {
+          'messageId': response.messageId,
+          'conversationId': response.conversationId,
+        });
         return;
       }
 
@@ -292,7 +299,10 @@ class ChatRepositoryImpl implements ChatRepository {
           .messageIdEqualTo(response.tempId)
           .findFirst();
       if (tempMessage == null) {
-        _logger.w('找不到对应的临时消息', extra: {'tempId': response.tempId});
+        _logger.w('💌 找不到对应的临时消息', extra: {
+          'tempId': response.tempId,
+          'messageId': response.messageId,
+        });
         return;
       }
 
@@ -302,6 +312,7 @@ class ChatRepositoryImpl implements ChatRepository {
           tempMessage.messageId = response.messageId;
           tempMessage.messageIndex = response.messageIndex.toInt();
           tempMessage.status = MessageStatus.sent;
+          tempMessage.updatedAt = DateTime.now();
           await _messages.put(tempMessage);
         });
 
@@ -313,13 +324,38 @@ class ChatRepositoryImpl implements ChatRepository {
           messageIndex: response.messageIndex.toInt(),
         ));
 
-        _logger.i('消息发送成功，已更新本地消息和UI状态', extra: {
+        _logger.i('💌 消息发送成功，已更新本地消息和UI状态', extra: {
           'tempId': response.tempId,
           'serverMessageId': response.messageId,
+          'messageIndex': response.messageIndex.toInt(),
+          'type': tempMessage.type.name,
         });
-      } // 失败了不需要修改状态,因为超时会更新为失败状态
+      } else {
+        // 发送失败，更新状态为失败
+        await _isar.writeTxn(() async {
+          tempMessage.status = MessageStatus.failed;
+          tempMessage.updatedAt = DateTime.now();
+          await _messages.put(tempMessage);
+        });
+
+        // 通知UI消息发送失败
+        _notifyMessageUpdate(MessageUpdatedEvent(
+          conversationId: tempMessage.conversationId,
+          messageId: tempMessage.messageId,
+          updatedFields: {
+            'status': MessageStatus.failed.name,
+            'updatedAt': DateTime.now().toIso8601String(),
+          },
+        ));
+
+        _logger.w('💌 消息发送失败，服务器返回错误', extra: {
+          'tempId': response.tempId,
+          'errorMsg': response.msg,
+          'type': tempMessage.type.name,
+        });
+      }
     } catch (error) {
-      _logger.e('处理消息发送响应失败', error: error);
+      _logger.e('💌 处理消息发送响应失败', error: error, stackTrace: StackTrace.current);
     }
   }
 

@@ -10,7 +10,8 @@ import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 class MediaUploadIntegrationService {
   final _logger = LogService.instance;
   final _uploadService = UploadApiService();
-  late final ChatRepositorySend _chatRepository;
+  ChatRepositorySend? _chatRepository;
+  bool _isInitialized = false;
 
   // 单例模式
   static final MediaUploadIntegrationService _instance =
@@ -19,9 +20,29 @@ class MediaUploadIntegrationService {
   MediaUploadIntegrationService._internal();
 
   /// 初始化服务
-  void initialize(ChatRepositorySend chatRepository, String authToken) {
+  void initialize(ChatRepositorySend chatRepository, [String? authToken]) {
+    if (_isInitialized && _chatRepository == chatRepository) {
+      _logger.d('MediaUploadIntegrationService已经初始化，跳过重复初始化');
+      return;
+    }
+
     _chatRepository = chatRepository;
-    _uploadService.setAuthToken(authToken);
+    _isInitialized = true;
+
+    if (authToken != null && authToken.isNotEmpty) {
+      _uploadService.setAuthToken(authToken);
+    }
+    // 如果authToken为空，假设UploadApiService已经通过AuthTokenSyncService配置了token
+
+    _logger.i('MediaUploadIntegrationService初始化完成');
+  }
+
+  /// 获取ChatRepository实例
+  ChatRepositorySend get _chatRepo {
+    if (_chatRepository == null) {
+      throw StateError('MediaUploadIntegrationService未初始化，请先调用initialize方法');
+    }
+    return _chatRepository!;
   }
 
   /// 发送图片消息的完整流程
@@ -51,10 +72,11 @@ class MediaUploadIntegrationService {
 
       // 3. 发送消息
       onStatusUpdate?.call('正在发送消息...');
-      final message = await _chatRepository.sendImageMessage(
+      final message = await _chatRepo.sendImageMessage(
         conversationId,
         imageFile.path,
         mediaUrl: uploadResult.url,
+        caption: caption,
       );
 
       // 4. 更新消息的服务器信息
@@ -110,7 +132,7 @@ class MediaUploadIntegrationService {
 
       // 2. 发送消息
       onStatusUpdate?.call('正在发送消息...');
-      final message = await _chatRepository.sendVoiceMessage(
+      final message = await _chatRepo.sendVoiceMessage(
         conversationId,
         voiceFile.path,
         duration, // 🔧 duration参数已经是毫秒，直接传递
@@ -170,7 +192,7 @@ class MediaUploadIntegrationService {
 
       // 3. 发送消息
       onStatusUpdate?.call('正在发送消息...');
-      final message = await _chatRepository.sendVideoMessage(
+      final message = await _chatRepo.sendVideoMessage(
         conversationId,
         videoFile.path,
         actualDuration != null ? actualDuration ~/ 1000 : 0,
@@ -235,7 +257,7 @@ class MediaUploadIntegrationService {
 
       // 3. 发送消息
       onStatusUpdate?.call('正在发送消息...');
-      final message = await _chatRepository.sendFileMessage(
+      final message = await _chatRepo.sendFileMessage(
         conversationId,
         documentFile.path,
         fileName,

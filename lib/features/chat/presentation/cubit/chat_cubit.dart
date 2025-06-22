@@ -74,6 +74,9 @@ class ChatCubit extends Cubit<ChatState> {
   // 简化的配置参数
   static const int defaultPageSize = 50; // 每页消息数量
 
+  /// 获取ChatRepositorySend实例（用于MediaUploadIntegrationService等外部服务）
+  ChatRepositorySend get chatRepositorySend => _chatRepositorySend;
+
   ChatCubit({
     required ChatRepository chatRepository,
     required ChatRepositorySend chatRepositorySend,

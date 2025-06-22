@@ -46,10 +46,13 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 发送图片消息
   @override
   Future<Message> sendImageMessage(String conversationId, String localPath,
-      {String? mediaUrl}) async {
+      {String? mediaUrl, String? caption}) async {
     final message = await _createMessage(conversationId, '', MessageType.image);
     message.localPath = localPath;
     message.mediaUrl = mediaUrl;
+    if (caption != null && caption.isNotEmpty) {
+      message.caption = caption;
+    }
     await sendMessageWithTimeout(message);
     return message;
   }
@@ -107,7 +110,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 发送消息（带超时机制）
   @override
   Future<void> sendMessageWithTimeout(Message message,
-      {Duration timeout = const Duration(seconds: 3)}) async {
+      {Duration timeout = const Duration(seconds: 10)}) async {
     // 保存到数据库
     await _isar.writeTxn(() async {
       message.id = await _messages.put(message);
@@ -117,13 +120,36 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
     // 发送到服务器
     final protoMsg = MessageAdapter.toProto(message);
-    _communicationService.emitProto('message:send', protoMsg);
+    final sendSuccess =
+        await _communicationService.emitProto('message:send', protoMsg);
 
-    // 超时处理
+    _logger.i('💌 消息发送请求已发出', extra: {
+      'messageId': message.messageId,
+      'tempId': message.messageId,
+      'sendSuccess': sendSuccess,
+      'conversationId': message.conversationId,
+      'type': message.type.name,
+    });
+
+    // 如果立即发送失败（如网络断开），直接标记为失败
+    if (!sendSuccess) {
+      _logger.w('💌 消息发送立即失败，网络连接问题', extra: {
+        'messageId': message.messageId,
+      });
+      await markMessageAsFailed(message.messageId, '网络连接失败');
+      return;
+    }
+
+    // 超时处理 - 延长超时时间到10秒，给网络更多时间
     Timer(timeout, () async {
       final currentMessage = await getMessageById(message.messageId);
       if (currentMessage?.status == MessageStatus.sending) {
-        await markMessageAsFailed(message.messageId, '发送超时');
+        _logger.w('💌 消息发送超时', extra: {
+          'messageId': message.messageId,
+          'timeoutSeconds': timeout.inSeconds,
+        });
+        await markMessageAsFailed(
+            message.messageId, '发送超时(${timeout.inSeconds}秒)');
       }
     });
   }

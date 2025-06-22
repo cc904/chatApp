@@ -19,6 +19,10 @@ import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
 import 'package:cc/core/services/voice_record_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
+import 'package:cc/core/services/media_service.dart';
+import 'package:cc/core/services/media_upload_integration_service.dart';
+import 'package:cc/core/services/audio_player_manager.dart';
+import 'package:mime/mime.dart';
 
 /// 聊天页面
 ///
@@ -108,6 +112,26 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     // 监听滚动位置变化
     _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
+
+    // 初始化媒体上传服务
+    _initializeMediaServices();
+  }
+
+  /// 初始化媒体服务
+  void _initializeMediaServices() {
+    // 在Widget构建完成后初始化媒体上传服务
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chatCubit = context.read<ChatCubit>();
+
+      // 获取ChatRepositorySend实例
+      final chatRepositorySend = chatCubit.chatRepositorySend;
+
+      // 初始化媒体上传集成服务
+      // UploadApiService应该已经通过AuthTokenSyncService配置了认证token
+      _mediaUploadIntegrationService.initialize(chatRepositorySend);
+
+      _logger.i('MediaUploadIntegrationService已初始化');
+    });
   }
 
   @override
@@ -121,6 +145,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _recordingTimer?.cancel();
     // 释放媒体录制服务
     _voiceRecordService.dispose();
+    // 🆕 停止音频播放
+    AudioPlayerManager().stopAll();
     super.dispose();
   }
 
@@ -669,7 +695,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               // 消息列表内容
               Column(
                 children: [
-                  // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+                  // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
                   Expanded(
                     child: ScrollablePositionedList.builder(
                       key: ValueKey(
@@ -1079,16 +1105,207 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
-  /// 拍照功能（暂时禁用，等camera插件问题解决）
+  /// 显示图片选择选项
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.blue),
+              title: const Text('从相册选择'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromGallery();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.green),
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(context);
+                _takePicture();
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 从相册选择图片
+  Future<void> _pickImageFromGallery() async {
+    try {
+      _logger.i('开始从相册选择图片');
+
+      final pickedFile = await _mediaService.pickImage(fromCamera: false);
+      if (pickedFile != null) {
+        _logger.i('图片选择成功', extra: {
+          'filePath': pickedFile.path,
+          'fileSize': await pickedFile.length(),
+        });
+
+        await _showImagePreviewAndSend(pickedFile);
+      } else {
+        _logger.i('用户取消了图片选择');
+      }
+    } catch (error) {
+      _logger.e('选择图片失败', error: error, stackTrace: StackTrace.current);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('选择图片失败: $error'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 拍照功能
   Future<void> _takePicture() async {
-    _logger.w('拍照功能暂时禁用');
+    try {
+      _logger.i('开始拍照');
+
+      // 在macOS上提示用户将从相册选择
+      if (Platform.isMacOS && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('macOS平台将从相册选择图片'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      final pickedFile = await _mediaService.pickImage(fromCamera: true);
+      if (pickedFile != null) {
+        _logger.i('图片选择成功', extra: {
+          'filePath': pickedFile.path,
+          'fileSize': await pickedFile.length(),
+        });
+
+        await _showImagePreviewAndSend(pickedFile);
+      } else {
+        _logger.i('用户取消了图片选择');
+      }
+    } catch (error) {
+      _logger.e('图片选择失败', error: error, stackTrace: StackTrace.current);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('图片选择失败: $error'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 显示图片预览并发送
+  Future<void> _showImagePreviewAndSend(File imageFile) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _ImagePreviewDialog(imageFile: imageFile),
+    );
+
+    if (result != null && result['confirmed'] == true) {
+      final caption = result['caption'] as String?;
+      await _uploadAndSendImage(imageFile, caption: caption);
+    }
+  }
+
+  /// 上传并发送图片消息
+  Future<void> _uploadAndSendImage(File imageFile, {String? caption}) async {
+    try {
+      _logger.i('开始上传图片', extra: {
+        'filePath': imageFile.path,
+        'caption': caption,
+      });
+
+      // 显示上传进度
+      _showUploadProgress('正在发送图片...');
+
+      // 使用MediaUploadIntegrationService发送图片消息
+      await _mediaUploadIntegrationService.sendImageMessage(
+        imageFile: imageFile,
+        conversationId: widget.conversationId,
+        caption: caption,
+        onUploadProgress: (progress) {
+          _updateUploadProgress('正在上传图片... $progress%');
+        },
+        onStatusUpdate: (status) {
+          _updateUploadProgress(status);
+        },
+      );
+
+      _logger.i('图片消息发送成功');
+
+      // 清除进度提示
+      _hideUploadProgress();
+
+      // 触觉反馈
+      HapticFeedback.lightImpact();
+    } catch (error) {
+      _logger.e('图片消息发送失败', error: error, stackTrace: StackTrace.current);
+
+      _hideUploadProgress();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('图片发送失败: $error'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: '重试',
+              onPressed: () => _uploadAndSendImage(imageFile, caption: caption),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 显示上传进度
+  void _showUploadProgress(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('拍照功能开发中，敬请期待'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          duration: const Duration(minutes: 5), // 长时间显示
         ),
       );
+    }
+  }
+
+  /// 更新上传进度
+  void _updateUploadProgress(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      _showUploadProgress(message);
+    }
+  }
+
+  /// 隐藏上传进度
+  void _hideUploadProgress() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
     }
   }
 
@@ -1176,6 +1393,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         'fileSize': recordResult.fileSize,
       });
 
+      // 在异步操作前获取ChatCubit引用
+      final chatCubit = context.read<ChatCubit>();
+
       // 显示上传中提示
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1210,7 +1430,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         });
 
         // 发送语音消息
-        final chatCubit = context.read<ChatCubit>();
         await chatCubit.sendVoiceMessage(
           recordResult.filePath,
           recordResult.duration * 1000, // 🔧 转换为毫秒
@@ -1254,6 +1473,103 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             action: SnackBarAction(
               label: '重试',
               onPressed: () => _uploadAndSendVoice(recordResult),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 选择并发送文件
+  Future<void> _pickAndSendFile() async {
+    try {
+      _logger.i('开始选择文件');
+
+      final pickedFile = await _mediaService.pickFile();
+      if (pickedFile != null) {
+        // 获取文件MIME类型用于调试
+        final mimeType = lookupMimeType(pickedFile.path);
+        _logger.i('文件选择成功', extra: {
+          'filePath': pickedFile.path,
+          'fileSize': await pickedFile.length(),
+          'mimeType': mimeType,
+          'fileName': pickedFile.path.split('/').last,
+        });
+
+        await _showFilePreviewAndSend(pickedFile);
+      } else {
+        _logger.i('用户取消了文件选择');
+      }
+    } catch (error) {
+      _logger.e('文件选择失败', error: error, stackTrace: StackTrace.current);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('文件选择失败: $error'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 显示文件预览并发送
+  Future<void> _showFilePreviewAndSend(File file) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _FilePreviewDialog(file: file),
+    );
+
+    if (result != null && result['confirmed'] == true) {
+      final caption = result['caption'] as String?;
+      await _uploadAndSendFile(file, caption: caption);
+    }
+  }
+
+  /// 上传并发送文件消息
+  Future<void> _uploadAndSendFile(File file, {String? caption}) async {
+    try {
+      _logger.i('开始上传文件', extra: {
+        'filePath': file.path,
+        'caption': caption,
+      });
+
+      // 显示上传进度
+      _showUploadProgress('正在发送文件...');
+
+      // 使用MediaUploadIntegrationService发送文件消息
+      await _mediaUploadIntegrationService.sendDocumentMessage(
+        documentFile: file,
+        conversationId: widget.conversationId,
+        caption: caption,
+        onUploadProgress: (progress) {
+          _updateUploadProgress('正在上传文件... $progress%');
+        },
+        onStatusUpdate: (status) {
+          _updateUploadProgress(status);
+        },
+      );
+
+      _logger.i('文件消息发送成功');
+
+      // 清除进度提示
+      _hideUploadProgress();
+
+      // 触觉反馈
+      HapticFeedback.lightImpact();
+    } catch (error) {
+      _logger.e('文件消息发送失败', error: error, stackTrace: StackTrace.current);
+
+      _hideUploadProgress();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('文件发送失败: $error'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: '重试',
+              onPressed: () => _uploadAndSendFile(file, caption: caption),
             ),
           ),
         );
@@ -1629,6 +1945,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 文件上传服务
   final FileUploadService _fileUploadService = FileUploadService();
 
+  /// 媒体服务
+  final MediaService _mediaService = MediaService();
+
+  /// 媒体上传集成服务
+  final MediaUploadIntegrationService _mediaUploadIntegrationService =
+      MediaUploadIntegrationService();
+
   /// 音频示波器动画效果
   Widget _buildAudioWaveAnimation() {
     return Container(
@@ -1691,19 +2014,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     switch (label) {
       case '图片':
-        // TODO: 打开相册
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('相册功能开发中...')),
-        );
+        _showImagePickerOptions();
         break;
       case '拍摄':
         _showMediaCaptureOptions();
         break;
       case '文件':
-        // TODO: 选择文件
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('文件功能开发中...')),
-        );
+        _pickAndSendFile();
         break;
       case '联系人':
         // TODO: 分享联系人
@@ -2497,83 +2814,438 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
   }
 }
 
-/// 音频波形画笔类 - 绘制简单的音频示波器
+/// 音频波形绘制器
 class AudioWavePainter extends CustomPainter {
   final double progress;
 
-  AudioWavePainter({this.progress = 0.0});
+  AudioWavePainter({required this.progress});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final centerY = size.height / 2;
-    const barCount = 10; // 增加到10个音频条
-    final totalBarWidth = size.width * 0.8; // 使用80%的宽度
-    final barWidth = totalBarWidth / barCount;
-    final spacing = (size.width - totalBarWidth) / 2; // 居中对齐
+    final paint = Paint()
+      ..color = Colors.green.shade400
+      ..strokeWidth = 1.5;
 
-    // 绘制美观的音频条形图
+    const barCount = 12;
+    const barWidth = 2.0;
+    final spacing = (size.width - (barCount * barWidth)) / (barCount - 1);
+
     for (int i = 0; i < barCount; i++) {
-      final x = spacing + i * barWidth + barWidth * 0.2; // 添加条间距
-      final barDrawWidth = barWidth * 0.6; // 实际条宽
+      final x = i * (barWidth + spacing);
 
-      // 创建更复杂的动画效果
-      const twoPi = 2 * pi;
-      final phase1 = (progress * 6 + i * 0.8) % twoPi;
-      final phase2 = (progress * 4 + i * 0.3) % twoPi;
-      final phase3 = (progress * 8 + i * 1.2) % twoPi;
+      // 创建动态高度效果
+      final baseHeight = size.height * 0.3;
+      final animatedHeight = size.height *
+          0.7 *
+          (0.5 + 0.5 * sin((progress * 2 * pi) + (i * 0.5)));
 
-      // 混合多个波形创建更丰富的效果
-      final wave1 = sin(phase1).abs() * 0.4;
-      final wave2 = sin(phase2).abs() * 0.3;
-      final wave3 = sin(phase3).abs() * 0.3;
+      final height = baseHeight + animatedHeight;
+      final y = (size.height - height) / 2;
 
-      final amplitude = wave1 + wave2 + wave3;
-      final barHeight = (0.2 + amplitude) * size.height * 0.85;
-
-      // 渐变颜色效果
-      final gradientHeight = barHeight / size.height;
-      final color = Color.lerp(
-        Colors.green.shade300,
-        Colors.green.shade600,
-        gradientHeight.clamp(0.0, 1.0),
-      )!;
-
-      // 绘制圆角矩形条
-      final paint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(x + barDrawWidth / 2, centerY),
-          width: barDrawWidth,
-          height: barHeight,
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barWidth, height),
+          const Radius.circular(1),
         ),
-        Radius.circular(barDrawWidth / 2),
+        paint,
       );
-
-      canvas.drawRRect(rect, paint);
-
-      // 添加高光效果
-      final highlightPaint = Paint()
-        ..color = Colors.white.withAlpha(80)
-        ..style = PaintingStyle.fill;
-
-      final highlightRect = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(x + barDrawWidth / 2, centerY - barHeight * 0.2),
-          width: barDrawWidth * 0.6,
-          height: barHeight * 0.3,
-        ),
-        Radius.circular(barDrawWidth / 4),
-      );
-
-      canvas.drawRRect(highlightRect, highlightPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return oldDelegate is! AudioWavePainter || oldDelegate.progress != progress;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+/// 图片预览对话框
+class _ImagePreviewDialog extends StatefulWidget {
+  final File imageFile;
+
+  const _ImagePreviewDialog({required this.imageFile});
+
+  @override
+  State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
+}
+
+class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
+  final TextEditingController _captionController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _captionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey, width: 0.5),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '发送图片',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+
+            // 图片预览
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    widget.imageFile,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image,
+                                  size: 48, color: Colors.grey),
+                              SizedBox(height: 8),
+                              Text('图片加载失败',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+
+            // 图片说明输入框
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _captionController,
+                decoration: const InputDecoration(
+                  hintText: '添加图片说明...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                maxLines: 2,
+                maxLength: 200,
+              ),
+            ),
+
+            // 操作按钮
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          _isLoading ? null : () => Navigator.of(context).pop(),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _sendImage,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('发送'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendImage() {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // 返回确认结果和图片说明
+    Navigator.of(context).pop({
+      'confirmed': true,
+      'caption': _captionController.text.trim().isEmpty
+          ? null
+          : _captionController.text.trim(),
+    });
+  }
+}
+
+/// 文件预览对话框
+class _FilePreviewDialog extends StatefulWidget {
+  final File file;
+
+  const _FilePreviewDialog({required this.file});
+
+  @override
+  State<_FilePreviewDialog> createState() => _FilePreviewDialogState();
+}
+
+class _FilePreviewDialogState extends State<_FilePreviewDialog> {
+  final TextEditingController _captionController = TextEditingController();
+  bool _isLoading = false;
+  late String _fileName;
+  late String _fileSize;
+  late String _fileExtension;
+  IconData _fileIcon = Icons.insert_drive_file;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFileInfo();
+  }
+
+  void _initFileInfo() {
+    _fileName = widget.file.path.split('/').last;
+
+    final fileSizeBytes = widget.file.lengthSync();
+    _fileSize = _formatFileSize(fileSizeBytes);
+
+    // 文件模式：统一使用通用文件图标
+    _fileIcon = Icons.insert_drive_file;
+    _fileExtension = 'FILE'; // 统一显示为FILE类型
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  Color _getFileIconColor(String extension) {
+    // 文件模式：统一使用灰色
+    return Colors.grey;
+  }
+
+  @override
+  void dispose() {
+    _captionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey, width: 0.5),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '发送文件',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+
+            // 文件信息预览
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 文件图标
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: _getFileIconColor(_fileExtension)
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _fileIcon,
+                        size: 40,
+                        color: _getFileIconColor(_fileExtension),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 文件名
+                    Text(
+                      _fileName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 文件大小
+                    Text(
+                      _fileSize,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 文件类型
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getFileIconColor(_fileExtension)
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _fileExtension.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _getFileIconColor(_fileExtension),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 文件说明输入框
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _captionController,
+                decoration: const InputDecoration(
+                  hintText: '添加文件说明...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                maxLines: 2,
+                maxLength: 200,
+              ),
+            ),
+
+            // 操作按钮
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          _isLoading ? null : () => Navigator.of(context).pop(),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _sendFile,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('发送'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendFile() {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // 返回确认结果和文件说明
+    Navigator.of(context).pop({
+      'confirmed': true,
+      'caption': _captionController.text.trim().isEmpty
+          ? null
+          : _captionController.text.trim(),
+    });
   }
 }

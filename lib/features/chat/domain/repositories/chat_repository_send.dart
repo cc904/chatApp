@@ -15,9 +15,10 @@ abstract class ChatRepositorySend {
   /// [conversationId] - 会话ID
   /// [localPath] - 图片本地路径
   /// [mediaUrl] - 可选的媒体URL,如已上传则直接使用
+  /// [caption] - 可选的图片说明文字
   /// 返回创建的消息对象
   Future<Message> sendImageMessage(String conversationId, String localPath,
-      {String? mediaUrl});
+      {String? mediaUrl, String? caption});
 
   /// 发送语音消息
   /// [conversationId] - 会话ID

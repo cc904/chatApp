@@ -235,56 +235,32 @@ class UploadApiService {
       throw const UploadException('文件不存在');
     }
 
-    final mimeType = lookupMimeType(file.path);
     final fileSize = file.lengthSync();
 
     switch (type) {
       case 'images':
-        if (mimeType == null || !mimeType.startsWith('image/')) {
-          throw const UploadException('不支持的图片格式');
-        }
         if (fileSize > 10 * 1024 * 1024) {
           throw const UploadException('图片大小不能超过10MB');
         }
         break;
 
       case 'voice':
-        if (mimeType == null || !mimeType.startsWith('audio/')) {
-          throw const UploadException('不支持的音频格式');
-        }
         if (fileSize > 50 * 1024 * 1024) {
           throw const UploadException('音频文件大小不能超过50MB');
         }
         break;
 
       case 'videos':
-        if (mimeType == null || !mimeType.startsWith('video/')) {
-          throw const UploadException('不支持的视频格式');
-        }
         if (fileSize > 500 * 1024 * 1024) {
           throw const UploadException('视频文件大小不能超过500MB');
         }
         break;
 
       case 'files':
-        const allowedTypes = [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-powerpoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-          'text/plain',
-          'application/zip',
-          'application/x-rar-compressed',
-        ];
-
-        if (mimeType == null || !allowedTypes.contains(mimeType)) {
-          throw const UploadException('不支持的文档格式');
-        }
-        if (fileSize > 100 * 1024 * 1024) {
-          throw const UploadException('文档大小不能超过100MB');
+        // 文件模式：彻底不验证文件类型，只限制大小为500MB
+        // 任何文件都可以上传，完全交由服务端处理
+        if (fileSize > 500 * 1024 * 1024) {
+          throw const UploadException('文件大小不能超过500MB');
         }
         break;
     }

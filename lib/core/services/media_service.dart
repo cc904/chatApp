@@ -1,39 +1,30 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:dio/dio.dart';
 
 /// 媒体服务类
-/// 负责处理图片、视频、语音和文件选择和存储
+/// 负责处理图片、视频、语音录制、文件选择和下载
 class MediaService {
   final _logger = LogService.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final AudioRecorder _audioRecorder = AudioRecorder();
   final Uuid _uuid = const Uuid();
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(minutes: 10),
+    sendTimeout: const Duration(seconds: 30),
+  ));
 
-  // 音频播放器实例,使用懒加载模式
-  AudioPlayer? _audioPlayer;
-  bool _isPlayerInitialized = false;
-
-  // 状态变量
+  // 录音状态变量
   String? _currentRecordingPath;
   bool _isRecording = false;
-  bool _isPlaying = false;
-
-  // 回调函数
-  VoidCallback? _onCompleteCallback;
-  void Function(double)? _onProgressCallback;
-
-  // 状态订阅
-  StreamSubscription<Duration>? _positionSubscription;
-  StreamSubscription<ProcessingState>? _processingStateSubscription;
 
   // 单例模式
   static final MediaService _instance = MediaService._internal();
@@ -43,481 +34,6 @@ class MediaService {
   }
 
   MediaService._internal();
-
-  // 获取AudioPlayer实例
-  Future<AudioPlayer> _getAudioPlayer() async {
-    if (_audioPlayer == null) {
-      _logger.i('创建新的AudioPlayer实例');
-      try {
-        _audioPlayer = AudioPlayer();
-        _isPlayerInitialized = true;
-
-        // 设置处理状态监听
-        _processingStateSubscription =
-            _audioPlayer!.processingStateStream.listen((state) {
-          _logger.i('音频处理状态: $state');
-          if (state == ProcessingState.completed) {
-            _isPlaying = false;
-            if (_onCompleteCallback != null) {
-              _onCompleteCallback!();
-            }
-          }
-        }, onError: (error) {
-          _logger.e('音频状态监听错误', error: error, stackTrace: StackTrace.current);
-        });
-      } catch (error) {
-        _logger.e('创建AudioPlayer实例失败',
-            error: error, stackTrace: StackTrace.current);
-        throw Exception('无法初始化音频播放器: $error');
-      }
-    }
-    return _audioPlayer!;
-  }
-
-  // 清理监听器
-  Future<void> _clearPositionListener() async {
-    if (_positionSubscription != null) {
-      try {
-        await _positionSubscription!.cancel();
-      } catch (error) {
-        _logger.e('取消位置监听器失败', error: error, stackTrace: StackTrace.current);
-      } finally {
-        _positionSubscription = null;
-      }
-    }
-  }
-
-  /// 播放本地音频文件
-  Future<void> playAudio(
-    String filePath, {
-    VoidCallback? onComplete,
-    void Function(double)? onProgress,
-  }) async {
-    try {
-      _logger.i('准备播放音频文件: $filePath');
-
-      // 先停止当前播放
-      await stopAudio();
-
-      // 保存回调函数
-      _onCompleteCallback = onComplete;
-      _onProgressCallback = onProgress;
-
-      // 获取播放器
-      AudioPlayer player;
-      try {
-        player = await _getAudioPlayer();
-      } catch (error) {
-        _logger.e('获取AudioPlayer实例失败',
-            error: error, stackTrace: StackTrace.current);
-        // 尝试重新初始化播放器
-        _audioPlayer = null;
-        _isPlayerInitialized = false;
-
-        // 第二次尝试
-        player = await _getAudioPlayer();
-      }
-
-      // 处理文件路径
-      String effectiveFilePath = filePath;
-      if (filePath.startsWith('file://')) {
-        effectiveFilePath = filePath.substring(7);
-        _logger.i('移除file://前缀,实际路径: $effectiveFilePath');
-      }
-
-      // 验证文件是否存在
-      final file = File(effectiveFilePath);
-      if (!await file.exists()) {
-        _logger.e('音频文件不存在: $effectiveFilePath');
-        throw Exception('音频文件不存在');
-      }
-
-      final fileSize = await file.length();
-      if (fileSize <= 0) {
-        _logger.e('音频文件大小为0');
-        throw Exception('音频文件无效（大小为0）');
-      }
-      _logger.i('音频文件大小: $fileSize字节');
-
-      // 清理之前的位置监听器
-      await _clearPositionListener();
-
-      // 设置音频源
-      _logger.i('加载音频文件...');
-      try {
-        await player.setFilePath(effectiveFilePath);
-      } catch (error) {
-        _logger.e('设置音频文件路径失败', error: error, stackTrace: StackTrace.current);
-        // 对于macOS,尝试使用完整的file://路径
-        if (Platform.isMacOS) {
-          _logger.i('在macOS上尝试使用file://URL格式');
-          final macOSPath = 'file://$effectiveFilePath';
-          await player.setUrl(macOSPath);
-        } else {
-          rethrow;
-        }
-      }
-
-      final duration = player.duration;
-      _logger.i('音频时长: ${duration?.inMilliseconds ?? "未知"}毫秒');
-
-      // 设置进度监听器
-      _positionSubscription = player.positionStream.listen((position) {
-        if (duration != null && duration.inMilliseconds > 0) {
-          final progress = position.inMilliseconds / duration.inMilliseconds;
-
-          // 调用进度回调
-          if (_onProgressCallback != null) {
-            _onProgressCallback!(progress);
-          }
-
-          if (progress >= 1.0 && _onCompleteCallback != null) {
-            _onCompleteCallback!();
-          }
-        }
-      }, onError: (error) {
-        _logger.e('播放进度监听错误', error: error, stackTrace: StackTrace.current);
-      });
-
-      // 开始播放
-      _logger.i('开始播放音频');
-      await player.play();
-      _isPlaying = true;
-    } catch (error) {
-      _logger.e('播放音频失败', error: error, stackTrace: StackTrace.current);
-      // 清理状态
-      _isPlaying = false;
-      _onCompleteCallback = null;
-      _onProgressCallback = null;
-      await _clearPositionListener();
-      rethrow;
-    }
-  }
-
-  /// 从URL播放音频
-  Future<void> playAudioFromUrl(
-    String url, {
-    VoidCallback? onComplete,
-    void Function(double)? onProgress,
-  }) async {
-    try {
-      _logger.i('准备播放URL音频: $url');
-
-      // 先停止当前播放
-      await stopAudio();
-
-      // 保存回调函数
-      _onCompleteCallback = onComplete;
-      _onProgressCallback = onProgress;
-
-      // 获取播放器
-      AudioPlayer player;
-      try {
-        player = await _getAudioPlayer();
-      } catch (error) {
-        _logger.e('获取AudioPlayer实例失败',
-            error: error, stackTrace: StackTrace.current);
-        // 尝试重新初始化播放器
-        _audioPlayer = null;
-        _isPlayerInitialized = false;
-
-        // 第二次尝试
-        player = await _getAudioPlayer();
-      }
-
-      // 清理之前的位置监听器
-      await _clearPositionListener();
-
-      // 根据URL类型设置音频源
-      if (url.startsWith('file://')) {
-        final localPath = url.substring(7);
-        _logger.i('检测到本地URL,转换为本地路径: $localPath');
-
-        // 验证文件是否存在
-        final file = File(localPath);
-        if (!await file.exists()) {
-          _logger.e('本地音频文件不存在: $localPath');
-          throw Exception('本地音频文件不存在');
-        }
-
-        try {
-          // 设置本地文件
-          await player.setFilePath(localPath);
-        } catch (error) {
-          _logger.e('设置本地文件路径失败', error: error, stackTrace: StackTrace.current);
-          // 对于macOS,直接使用URL格式
-          if (Platform.isMacOS) {
-            _logger.i('在macOS上尝试使用原始file://URL');
-            await player.setUrl(url);
-          } else {
-            rethrow;
-          }
-        }
-      } else {
-        // 设置网络URL
-        await player.setUrl(url);
-      }
-
-      final duration = player.duration;
-      _logger.i('音频时长: ${duration?.inMilliseconds ?? "未知"}毫秒');
-
-      // 设置进度监听器
-      _positionSubscription = player.positionStream.listen((position) {
-        if (duration != null && duration.inMilliseconds > 0) {
-          final progress = position.inMilliseconds / duration.inMilliseconds;
-
-          // 调用进度回调
-          if (_onProgressCallback != null) {
-            _onProgressCallback!(progress);
-          }
-
-          if (progress >= 1.0 && _onCompleteCallback != null) {
-            _onCompleteCallback!();
-          }
-        }
-      }, onError: (error) {
-        _logger.e('播放进度监听错误', error: error, stackTrace: StackTrace.current);
-      });
-
-      // 开始播放
-      _logger.i('开始播放音频URL');
-      await player.play();
-      _isPlaying = true;
-    } catch (error) {
-      _logger.e('播放URL音频失败', error: error, stackTrace: StackTrace.current);
-      // 清理状态
-      _isPlaying = false;
-      _onCompleteCallback = null;
-      _onProgressCallback = null;
-      await _clearPositionListener();
-      rethrow;
-    }
-  }
-
-  /// 暂停音频播放
-  Future<void> pauseAudio() async {
-    _logger.i(
-        '收到暂停请求，当前状态: _isPlaying=$_isPlaying, _isPlayerInitialized=$_isPlayerInitialized');
-
-    if (_audioPlayer == null || !_isPlayerInitialized) {
-      _logger.w('音频播放器未初始化，无法暂停');
-      return;
-    }
-
-    // 🔧 检查播放器的实际状态
-    final playerState = _audioPlayer!.playerState;
-    final isReallyPlaying = playerState.playing;
-
-    _logger.i(
-        '播放器实际状态: playing=$isReallyPlaying, processingState=${playerState.processingState}');
-
-    if (!_isPlaying && !isReallyPlaying) {
-      _logger.w('当前未在播放（内部状态和播放器状态都确认），无需暂停');
-      return;
-    }
-
-    try {
-      _logger.i('执行音频暂停操作...');
-
-      // 🔧 强制暂停，不管内部状态
-      await _audioPlayer!.pause();
-
-      // 🔧 等待一小段时间确保暂停操作完成
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // 🔧 再次检查播放器状态
-      final newState = _audioPlayer!.playerState;
-      _logger.i(
-          '暂停后播放器状态: playing=${newState.playing}, processingState=${newState.processingState}');
-
-      _isPlaying = false;
-      _logger.i('音频播放已成功暂停，内部状态已更新');
-    } catch (error) {
-      _logger.e('暂停音频播放失败', error: error, stackTrace: StackTrace.current);
-      // 即使暂停失败，也要重置状态
-      _isPlaying = false;
-      rethrow;
-    }
-  }
-
-  /// 恢复音频播放
-  Future<void> resumeAudio() async {
-    _logger.i(
-        '收到恢复播放请求，当前状态: _isPlaying=$_isPlaying, _isPlayerInitialized=$_isPlayerInitialized');
-
-    if (_audioPlayer == null || !_isPlayerInitialized) {
-      _logger.w('音频播放器未初始化，无法恢复播放');
-      return;
-    }
-
-    if (_isPlaying) {
-      _logger.w('当前正在播放，无需恢复');
-      return;
-    }
-
-    try {
-      _logger.i('执行音频恢复播放操作');
-      await _audioPlayer!.play();
-      _isPlaying = true;
-      _logger.i('音频播放已成功恢复');
-    } catch (error) {
-      _logger.e('恢复音频播放失败', error: error, stackTrace: StackTrace.current);
-      // 恢复播放失败时保持暂停状态
-      _isPlaying = false;
-      rethrow;
-    }
-  }
-
-  /// 停止音频播放
-  Future<void> stopAudio() async {
-    if (_audioPlayer == null || !_isPlayerInitialized) {
-      _logger.i('没有活动的音频播放器,无需停止');
-      return;
-    }
-
-    try {
-      _logger.i('停止音频播放');
-
-      // 清理回调
-      _onCompleteCallback = null;
-      _onProgressCallback = null;
-
-      // 清理位置监听器
-      await _clearPositionListener();
-
-      // 停止播放
-      await _audioPlayer!.stop();
-      _isPlaying = false;
-
-      _logger.i('音频播放已停止');
-    } catch (error) {
-      _logger.e('停止音频播放失败', error: error, stackTrace: StackTrace.current);
-      _isPlaying = false;
-    }
-  }
-
-  /// 获取当前音频时长
-  Duration? getCurrentAudioDuration() {
-    if (_audioPlayer != null && _isPlayerInitialized) {
-      return _audioPlayer!.duration;
-    }
-    return null;
-  }
-
-  /// 获取当前播放位置
-  Duration? getCurrentPosition() {
-    if (_audioPlayer != null && _isPlayerInitialized) {
-      return _audioPlayer!.position;
-    }
-    return null;
-  }
-
-  /// 清理音频资源
-  Future<void> disposeAudio() async {
-    try {
-      _logger.i('清理所有音频资源');
-
-      // 清理位置监听器
-      await _clearPositionListener();
-
-      // 清理处理状态监听器
-      if (_processingStateSubscription != null) {
-        try {
-          await _processingStateSubscription!.cancel();
-        } catch (error) {
-          _logger.e('取消处理状态监听器失败',
-              error: error, stackTrace: StackTrace.current);
-        } finally {
-          _processingStateSubscription = null;
-        }
-      }
-
-      // 清理回调
-      _onCompleteCallback = null;
-      _onProgressCallback = null;
-
-      // 如果有活动播放器,释放资源
-      if (_audioPlayer != null && _isPlayerInitialized) {
-        try {
-          await _audioPlayer!.stop();
-          await _audioPlayer!.dispose();
-        } catch (error) {
-          _logger.e('释放音频播放器资源失败',
-              error: error, stackTrace: StackTrace.current);
-        } finally {
-          _audioPlayer = null;
-          _isPlayerInitialized = false;
-        }
-      }
-
-      _isPlaying = false;
-      _logger.i('所有音频资源已清理');
-    } catch (error) {
-      _logger.e('清理音频资源失败', error: error, stackTrace: StackTrace.current);
-      // 确保实例被重置
-      _audioPlayer = null;
-      _isPlayerInitialized = false;
-      _isPlaying = false;
-    }
-  }
-
-  /// 选择图片（相册）
-  Future<File?> pickImage({required bool fromCamera}) async {
-    try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
-        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-        imageQuality: 70, // 压缩质量
-      );
-
-      if (pickedFile == null) {
-        return null; // 用户取消选择
-      }
-
-      // 将XFile转换为File并返回
-      return File(pickedFile.path);
-    } catch (error) {
-      _logger.e('选择图片失败', error: error, stackTrace: StackTrace.current);
-      return null;
-    }
-  }
-
-  /// 选择视频
-  Future<File?> pickVideo({required bool fromCamera}) async {
-    try {
-      final XFile? pickedFile = await _imagePicker.pickVideo(
-        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-      );
-
-      if (pickedFile == null) {
-        return null; // 用户取消选择
-      }
-
-      // 将XFile转换为File并返回
-      return File(pickedFile.path);
-    } catch (error) {
-      _logger.e('选择视频失败', error: error, stackTrace: StackTrace.current);
-      return null;
-    }
-  }
-
-  /// 选择文件
-  Future<File?> pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles();
-
-      if (result == null || result.files.isEmpty) {
-        return null; // 用户取消选择
-      }
-
-      // 获取文件路径并返回File对象
-      String? filePath = result.files.single.path;
-
-      return File(filePath!);
-    } catch (error) {
-      _logger.e('选择文件失败', error: error, stackTrace: StackTrace.current);
-      return null;
-    }
-  }
 
   /// 开始录音
   Future<bool> startRecording() async {
@@ -705,6 +221,128 @@ class MediaService {
 
   /// 检查录音是否正在进行
   bool get isRecording => _isRecording;
+
+  /// 选择图片（相册或相机）
+  Future<File?> pickImage({required bool fromCamera}) async {
+    try {
+      // 在macOS上，相机功能存在限制，强制使用相册
+      ImageSource source;
+      if (fromCamera && Platform.isMacOS) {
+        _logger.w('macOS平台不支持相机功能，自动切换到相册选择');
+        source = ImageSource.gallery;
+      } else {
+        source = fromCamera ? ImageSource.camera : ImageSource.gallery;
+      }
+
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 70, // 压缩质量
+      );
+
+      if (pickedFile == null) {
+        return null; // 用户取消选择
+      }
+
+      // 将XFile转换为File并返回
+      return File(pickedFile.path);
+    } catch (error) {
+      _logger.e('选择图片失败', error: error, stackTrace: StackTrace.current);
+      return null;
+    }
+  }
+
+  /// 选择视频
+  Future<File?> pickVideo({required bool fromCamera}) async {
+    try {
+      // 在macOS上，相机功能存在限制，强制使用相册
+      ImageSource source;
+      if (fromCamera && Platform.isMacOS) {
+        _logger.w('macOS平台不支持相机录制视频，自动切换到相册选择');
+        source = ImageSource.gallery;
+      } else {
+        source = fromCamera ? ImageSource.camera : ImageSource.gallery;
+      }
+
+      final XFile? pickedFile = await _imagePicker.pickVideo(
+        source: source,
+      );
+
+      if (pickedFile == null) {
+        return null; // 用户取消选择
+      }
+
+      // 将XFile转换为File并返回
+      return File(pickedFile.path);
+    } catch (error) {
+      _logger.e('选择视频失败', error: error, stackTrace: StackTrace.current);
+      return null;
+    }
+  }
+
+  /// 选择文件
+  Future<File?> pickFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles();
+
+      if (result == null || result.files.isEmpty) {
+        return null; // 用户取消选择
+      }
+
+      // 获取文件路径并返回File对象
+      String? filePath = result.files.single.path;
+
+      return File(filePath!);
+    } catch (error) {
+      _logger.e('选择文件失败', error: error, stackTrace: StackTrace.current);
+      return null;
+    }
+  }
+
+  /// 下载文件到本地
+  Future<String?> downloadFile(String url, String fileName) async {
+    try {
+      _logger.i('开始下载文件: $url');
+
+      // 获取Downloads目录
+      final Directory? downloadsDir = await getDownloadsDirectory();
+      if (downloadsDir == null) {
+        throw Exception('无法获取Downloads目录');
+      }
+
+      final String savePath = path.join(downloadsDir.path, fileName);
+      _logger.i('保存路径: $savePath');
+
+      // 使用Dio下载文件
+      await _dio.download(
+        url,
+        savePath,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          validateStatus: (status) => status! < 300,
+        ),
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            final progress = (received / total * 100).toStringAsFixed(1);
+            _logger.i('下载进度: $progress%');
+          }
+        },
+      );
+
+      // 验证文件是否下载成功
+      final file = File(savePath);
+      if (await file.exists()) {
+        final fileSize = await file.length();
+        _logger.i('文件下载成功: $savePath, 大小: $fileSize字节');
+        return savePath;
+      } else {
+        throw Exception('下载完成但文件不存在');
+      }
+    } catch (error) {
+      _logger.e('下载文件失败', error: error);
+      rethrow;
+    }
+  }
 }
 
 /// 录音结果类
