@@ -159,6 +159,10 @@ class Conversation {
 
   String? name;
   String? avatar;
+
+  // 群组或频道的描述信息
+  String? description;
+
   DateTime createdAt = DateTime.now();
 
   // 💢💢💢 会话边界信息，用于精确判断分页状态
@@ -441,22 +445,25 @@ class Conversation {
   /// 💢💢💢 新增：基于时间判断是否有新消息
   /// [currentUserId] - 当前用户ID
   /// 通过比较 lastMessageTime 和用户的 lastReadTime 来判断是否有新消息
+  /// 适用于多端登录和重新安装的情况
   bool hasNewMessagesSinceLastRead(String? currentUserId) {
     if (currentUserId == null) return false;
 
     // 如果没有最后消息时间，返回false
     if (lastMessageTime == null) return false;
 
-    // 如果用户从未阅读过会话，且有消息，则认为有新消息
+    // 如果用户从未阅读过会话，需要同时检查是否确实有未读消息
+    // 这样处理多端登录和重新安装的情况
     if (lastReadTime == null) {
-      return true;
+      // 必须确保确实有未读消息才认为有新消息
+      return hasUnread(currentUserId);
     }
 
     // 比较最后消息时间和最后阅读时间
     return lastMessageTime!.isAfter(lastReadTime!);
   }
 
-  /// 💢💢💢 新增：更新用户的最后阅读时间
+  /// 💢��💢 新增：更新用户的最后阅读时间
   /// [currentUserId] - 当前用户ID
   /// [readTime] - 阅读时间，默认为当前时间
   void updateLastReadTime(String currentUserId, {DateTime? readTime}) {
@@ -583,6 +590,7 @@ class Conversation {
     ConversationType? type,
     String? name,
     String? avatar,
+    String? description,
     DateTime? createdAt,
     int? firstMessageIndex,
     int? lastMessageIndex,
@@ -600,6 +608,7 @@ class Conversation {
       ..type = type ?? this.type
       ..name = name ?? this.name
       ..avatar = avatar ?? this.avatar
+      ..description = description ?? this.description
       ..createdAt = createdAt ?? this.createdAt
       ..firstMessageIndex = firstMessageIndex ?? this.firstMessageIndex
       ..lastMessageIndex = lastMessageIndex ?? this.lastMessageIndex

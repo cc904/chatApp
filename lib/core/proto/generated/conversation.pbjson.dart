@@ -89,6 +89,7 @@ const ConversationProto$json = {
     {'1': 'last_message_preview', '3': 10, '4': 1, '5': 9, '10': 'lastMessagePreview'},
     {'1': 'last_message_name', '3': 11, '4': 1, '5': 9, '10': 'lastMessageName'},
     {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
+    {'1': 'description', '3': 13, '4': 1, '5': 9, '10': 'description'},
   ],
 };
 
@@ -102,7 +103,8 @@ final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
     'gYCCABKAVSEGxhc3RNZXNzYWdlSW5kZXgSKgoRbGFzdF9tZXNzYWdlX3RpbWUYCSABKANSD2xh'
     'c3RNZXNzYWdlVGltZRIwChRsYXN0X21lc3NhZ2VfcHJldmlldxgKIAEoCVISbGFzdE1lc3NhZ2'
     'VQcmV2aWV3EioKEWxhc3RfbWVzc2FnZV9uYW1lGAsgASgJUg9sYXN0TWVzc2FnZU5hbWUSOAoM'
-    'cGFydGljaXBhbnRzGAwgAygLMhQuY2MuUGFydGljaXBhbnRQcm90b1IMcGFydGljaXBhbnRz');
+    'cGFydGljaXBhbnRzGAwgAygLMhQuY2MuUGFydGljaXBhbnRQcm90b1IMcGFydGljaXBhbnRzEi'
+    'AKC2Rlc2NyaXB0aW9uGA0gASgJUgtkZXNjcmlwdGlvbg==');
 
 @$core.Deprecated('Use conversationUpdateDescriptor instead')
 const ConversationUpdate$json = {
@@ -270,6 +272,7 @@ const ConversationCreateRequest$json = {
     {'1': 'type', '3': 3, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
     {'1': 'participant_ids', '3': 4, '4': 3, '5': 9, '10': 'participantIds'},
     {'1': 'contact_user_id', '3': 5, '4': 1, '5': 9, '10': 'contactUserId'},
+    {'1': 'description', '3': 6, '4': 1, '5': 9, '10': 'description'},
   ],
 };
 
@@ -278,7 +281,8 @@ final $typed_data.Uint8List conversationCreateRequestDescriptor = $convert.base6
     'ChlDb252ZXJzYXRpb25DcmVhdGVSZXF1ZXN0EhIKBG5hbWUYASABKAlSBG5hbWUSFgoGYXZhdG'
     'FyGAIgASgJUgZhdmF0YXISKAoEdHlwZRgDIAEoDjIULmNjLkNvbnZlcnNhdGlvblR5cGVSBHR5'
     'cGUSJwoPcGFydGljaXBhbnRfaWRzGAQgAygJUg5wYXJ0aWNpcGFudElkcxImCg9jb250YWN0X3'
-    'VzZXJfaWQYBSABKAlSDWNvbnRhY3RVc2VySWQ=');
+    'VzZXJfaWQYBSABKAlSDWNvbnRhY3RVc2VySWQSIAoLZGVzY3JpcHRpb24YBiABKAlSC2Rlc2Ny'
+    'aXB0aW9u');
 
 @$core.Deprecated('Use userJoinedNotificationDescriptor instead')
 const UserJoinedNotification$json = {

@@ -292,9 +292,9 @@ class ConversationItem extends StatelessWidget {
       name = conversation.name ?? '未知联系人';
     }
 
-    // 对群聊和频道名称限制在8个字符内
-    if ((isGroup || isChannel) && name.length > 8) {
-      return name.substring(0, 8);
+    // 对群聊和频道名称限制在24个字符内
+    if ((isGroup || isChannel) && name.length > 24) {
+      return name.substring(0, 24);
     }
 
     return name;

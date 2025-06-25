@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
+import 'dart:io';
 
 /// 创建群聊页面
 /// 设置群聊信息：头像、名称、设置等
@@ -133,9 +135,9 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       return;
     }
 
-    if (groupName.length > 8) {
+    if (groupName.length > 24) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('群聊名称不能超过8个字符')),
+        const SnackBar(content: Text('群聊名称不能超过24个字符')),
       );
       return;
     }
@@ -164,7 +166,9 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       final createRequest = conversation_proto.ConversationCreateRequest()
         ..name = groupName
         ..type = conversation_proto.ConversationType.GROUP
-        ..participantIds.addAll(widget.selectedMembers.map((m) => m.userId));
+        ..participantIds.addAll(widget.selectedMembers.map((m) => m.userId))
+        ..description =
+            '欢迎加入$groupName！这是一个全新的群组，让我们一起开始愉快的聊天吧。群组创建于${DateTime.now().toString().substring(0, 16)}。';
 
       // 设置头像（如果有）
       if (_groupAvatarPath != null && _groupAvatarPath!.isNotEmpty) {
@@ -378,15 +382,19 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               ),
               child: _groupAvatarPath != null
                   ? ClipOval(
-                      child: Image.asset(
-                        _groupAvatarPath!,
+                      child: Image.file(
+                        File(_groupAvatarPath!),
                         fit: BoxFit.cover,
+                        width: 80,
+                        height: 80,
                       ),
                     )
-                  : Icon(
-                      Icons.camera_alt,
-                      size: 32,
-                      color: Colors.blue[600],
+                  : UserAvatar(
+                      avatarUrl: null,
+                      name: _groupNameController.text.isNotEmpty
+                          ? _groupNameController.text
+                          : '群聊',
+                      radius: 40,
                     ),
             ),
           ),
@@ -410,7 +418,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),
-                  maxLength: 8, // 限制群聊名称长度为8个字符
+                  maxLength: 24, // 限制群聊名称长度为24个字符
                   onChanged: (value) {
                     setState(() {}); // 更新清除按钮的显示状态
                   },
@@ -580,22 +588,10 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
             itemBuilder: (context, index) {
               final member = widget.selectedMembers[index];
               return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.grey[300],
-                  backgroundImage: member.avatar?.isNotEmpty == true
-                      ? NetworkImage(member.avatar!)
-                      : null,
-                  child: member.avatar?.isEmpty != false
-                      ? Text(
-                          member.name.isNotEmpty
-                              ? member.name[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        )
-                      : null,
+                leading: UserAvatar(
+                  avatarUrl: member.avatar,
+                  name: member.name,
+                  radius: 20,
                 ),
                 title: Text(
                   member.name,

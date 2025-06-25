@@ -4,8 +4,8 @@ import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
-import 'package:cc/core/services/network_notification_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
@@ -43,15 +43,12 @@ void main() async {
     // 初始化文件上传服务
     FileUploadService();
 
-    // 💢💢💢 新增：初始化网络状态通知服务
-    NetworkNotificationService.instance.initialize();
-
     // 初始化安全存储服务并检查是否有保存的服务器URL
     try {
       final secureStorage = SecureStorageService.instance;
       final savedServerUrl = await secureStorage.getServerUrl();
       if (savedServerUrl != null && savedServerUrl.isNotEmpty) {
-        appConfig.serverUrl = savedServerUrl;
+        appConfig.setServerUrl(savedServerUrl);
         logger.x('从安全存储加载服务器URL', extra: {'serverUrl': savedServerUrl});
       } else {
         // 保存当前服务器URL到安全存储
@@ -178,6 +175,12 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.grey[200],
+          foregroundColor: Colors.black,
+          elevation: 0,
+          centerTitle: true,
+        ),
       ),
       // 添加本地化配置
       localizationsDelegates: const [

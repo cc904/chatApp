@@ -803,8 +803,145 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
+  /// 💢💢💢 新增：获取会话中的媒体消息（图片、视频）
+  @override
+  Future<List<Message>> getMediaMessages(String conversationId,
+      {int limit = 50, int offset = 0}) async {
+    try {
+      _logger.d('获取媒体消息', extra: {
+        'conversationId': conversationId,
+        'limit': limit,
+        'offset': offset,
+      });
+
+      final messages = await _isar.messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .group((q) => q
+              .typeEqualTo(MessageType.image)
+              .or()
+              .typeEqualTo(MessageType.video))
+          .sortByMessageIndexDesc()
+          .offset(offset)
+          .limit(limit)
+          .findAll();
+
+      _logger.d('获取媒体消息成功', extra: {
+        'conversationId': conversationId,
+        'count': messages.length,
+      });
+
+      return messages;
+    } catch (error, stackTrace) {
+      _logger.e('获取媒体消息失败', error: error, stackTrace: stackTrace);
+      return [];
+    }
+  }
+
+  /// 💢💢💢 新增：获取会话中的文件消息
+  @override
+  Future<List<Message>> getFileMessages(String conversationId,
+      {int limit = 50, int offset = 0}) async {
+    try {
+      _logger.d('获取文件消息', extra: {
+        'conversationId': conversationId,
+        'limit': limit,
+        'offset': offset,
+      });
+
+      final messages = await _isar.messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .typeEqualTo(MessageType.file)
+          .sortByMessageIndexDesc()
+          .offset(offset)
+          .limit(limit)
+          .findAll();
+
+      _logger.d('获取文件消息成功', extra: {
+        'conversationId': conversationId,
+        'count': messages.length,
+      });
+
+      return messages;
+    } catch (error, stackTrace) {
+      _logger.e('获取文件消息失败', error: error, stackTrace: stackTrace);
+      return [];
+    }
+  }
+
+  /// 💢💢💢 新增：获取会话中的语音消息
+  @override
+  Future<List<Message>> getVoiceMessages(String conversationId,
+      {int limit = 50, int offset = 0}) async {
+    try {
+      _logger.d('获取语音消息', extra: {
+        'conversationId': conversationId,
+        'limit': limit,
+        'offset': offset,
+      });
+
+      final messages = await _isar.messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .typeEqualTo(MessageType.voice)
+          .sortByMessageIndexDesc()
+          .offset(offset)
+          .limit(limit)
+          .findAll();
+
+      _logger.d('获取语音消息成功', extra: {
+        'conversationId': conversationId,
+        'count': messages.length,
+      });
+
+      return messages;
+    } catch (error, stackTrace) {
+      _logger.e('获取语音消息失败', error: error, stackTrace: stackTrace);
+      return [];
+    }
+  }
+
+  /// 💢💢💢 新增：获取会话中包含链接的消息
+  @override
+  Future<List<Message>> getLinkMessages(String conversationId,
+      {int limit = 50, int offset = 0}) async {
+    try {
+      _logger.d('获取链接消息', extra: {
+        'conversationId': conversationId,
+        'limit': limit,
+        'offset': offset,
+      });
+
+      // 查找文本消息中包含链接的消息
+      // 使用简单的URL模式匹配（包含http://或https://的消息）
+      final messages = await _isar.messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .typeEqualTo(MessageType.text)
+          .textIsNotNull()
+          .group((q) => q
+              .textContains('http://', caseSensitive: false)
+              .or()
+              .textContains('https://', caseSensitive: false))
+          .sortByMessageIndexDesc()
+          .offset(offset)
+          .limit(limit)
+          .findAll();
+
+      _logger.d('获取链接消息成功', extra: {
+        'conversationId': conversationId,
+        'count': messages.length,
+      });
+
+      return messages;
+    } catch (error, stackTrace) {
+      _logger.e('获取链接消息失败', error: error, stackTrace: stackTrace);
+      return [];
+    }
+  }
+
   /// 💢💢💢 已移除：_calculateAndUpdateUnreadCount 方法
-  /// 不再需要手动计算和更新unreadCount字段，现在完全使用动态计算：conversation.unreadCount(userId)
 
   /// 处理会话同步响应事件
   /// 将Proto格式的会话数据转换为数据库模型并更新本地数据

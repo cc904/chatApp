@@ -1,5 +1,6 @@
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+import 'package:cc/core/widgets/connection_status_indicator.dart';
 
 import 'package:cc/features/chat/presentation/widgets/new_conversation_bottom_sheet.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
@@ -300,7 +301,7 @@ class _ChatsPageState extends State<ChatsPage>
         chatsCubit.setSelectedTabIndex(index);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
           border: Border(
@@ -366,7 +367,14 @@ class _ChatsPageState extends State<ChatsPage>
         buildWhen: (previous, current) =>
             previous.conversationSyncStatus != current.conversationSyncStatus,
         builder: (context, state) {
-          return const Text('Chats');
+          return const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConnectionStatusIndicator(size: 14),
+              SizedBox(width: 4),
+              Text('Chats'),
+            ],
+          );
           // AppBarTitleWithNetworkStatus(
           //   title: 'Chats',
           //   networkStatus: state.conversationSyncStatus,

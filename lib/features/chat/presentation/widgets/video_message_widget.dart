@@ -36,7 +36,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
   // 缩略图信息
   ImageProvider? _thumbnailProvider;
-  String? _effectiveVideoPath;
   String? _effectiveThumbnailPath;
 
   // 实际的缩略图宽高比（从图片获取）
@@ -50,27 +49,12 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
   /// 初始化视频
   void _initializeVideo() {
-    _logger.i('🎬 初始化视频消息', extra: {
-      'messageId': widget.message.messageId,
-      'mediaUrl': widget.message.mediaUrl,
-      'localPath': widget.message.localPath,
-      'thumbnailUrl': widget.message.thumbnailUrl,
-      'duration': widget.message.duration,
-      'width': widget.message.width,
-      'height': widget.message.height,
-    });
-
     try {
-      // 确定视频路径优先级：localPath > mediaUrl（优先使用本地文件）
-      if (widget.message.localPath != null &&
-          widget.message.localPath!.isNotEmpty) {
-        _effectiveVideoPath = widget.message.localPath!;
-        _logger.i('📁 使用本地视频: $_effectiveVideoPath');
-      } else if (widget.message.mediaUrl != null &&
-          widget.message.mediaUrl!.isNotEmpty) {
-        _effectiveVideoPath = widget.message.mediaUrl!;
-        _logger.i('📡 使用网络视频: $_effectiveVideoPath');
-      } else {
+      // 检查是否有有效的视频路径
+      if ((widget.message.localPath == null ||
+              widget.message.localPath!.isEmpty) &&
+          (widget.message.mediaUrl == null ||
+              widget.message.mediaUrl!.isEmpty)) {
         throw Exception('视频路径为空');
       }
 
@@ -78,12 +62,11 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
       if (widget.message.thumbnailUrl != null &&
           widget.message.thumbnailUrl!.isNotEmpty) {
         _effectiveThumbnailPath = widget.message.thumbnailUrl!;
-        _logger.i('🖼️ 使用缩略图: $_effectiveThumbnailPath');
       }
 
       _loadThumbnail();
     } catch (error) {
-      _logger.e('❌ 视频初始化失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('视频初始化失败', error: error);
       _setError('视频初始化失败: $error');
     }
   }
@@ -98,7 +81,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
     if (_effectiveThumbnailPath == null || _effectiveThumbnailPath!.isEmpty) {
       // 没有缩略图，直接显示默认视频图标
-      _logger.i('📹 没有缩略图，显示默认视频图标');
       setState(() {
         _isLoading = false;
         _thumbnailProvider = null;
@@ -113,21 +95,18 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
       if (_effectiveThumbnailPath!.startsWith('http://') ||
           _effectiveThumbnailPath!.startsWith('https://')) {
         // 网络缩略图 - 使用缓存服务下载到本地
-        _logger.i('🌐 处理网络缩略图: $_effectiveThumbnailPath');
         localThumbnailPath =
             await _thumbnailCache.getThumbnail(_effectiveThumbnailPath!);
 
         if (localThumbnailPath == null) {
           throw Exception('缩略图下载失败');
         }
-        _logger.i('✅ 缩略图已缓存到本地: $localThumbnailPath');
       } else if (_effectiveThumbnailPath!.startsWith('file://')) {
         // file:// 协议的本地文件
         final filePath = _effectiveThumbnailPath!.substring(7);
         final file = File(filePath);
         if (file.existsSync()) {
           localThumbnailPath = filePath;
-          _logger.i('📄 使用本地缩略图文件: $filePath');
         } else {
           throw Exception('缩略图文件不存在: $filePath');
         }
@@ -136,7 +115,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
         final file = File(_effectiveThumbnailPath!);
         if (file.existsSync()) {
           localThumbnailPath = _effectiveThumbnailPath!;
-          _logger.i('📁 使用本地缩略图文件: $_effectiveThumbnailPath');
         } else {
           throw Exception('缩略图文件不存在: $_effectiveThumbnailPath');
         }
@@ -144,12 +122,11 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
       // 使用本地文件创建ImageProvider
       _thumbnailProvider = FileImage(File(localThumbnailPath));
-      _logger.i('🎯 创建本地缩略图Provider: $localThumbnailPath');
 
       // 预加载缩略图
       _preloadThumbnail();
     } catch (error) {
-      _logger.e('❌ 加载缩略图失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('加载缩略图失败', error: error);
       // 缩略图加载失败不算致命错误，继续显示默认图标
       if (mounted) {
         setState(() {
@@ -179,13 +156,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
           // 计算实际的宽高比
           final actualRatio = info.image.width / info.image.height;
 
-          _logger.i('✅ 缩略图加载成功', extra: {
-            'width': info.image.width,
-            'height': info.image.height,
-            'aspectRatio': actualRatio,
-            'synchronousCall': synchronousCall,
-          });
-
           setState(() {
             _isLoading = false;
             _hasError = false;
@@ -196,7 +166,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
       },
       onError: (exception, stackTrace) {
         if (mounted) {
-          _logger.w('⚠️ 缩略图加载失败，使用默认图标', stackTrace: stackTrace);
           // 缩略图失败不影响整体功能
           setState(() {
             _isLoading = false;
@@ -225,9 +194,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   double _calculateAspectRatio() {
     // 1. 优先使用实际缩略图的宽高比
     if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
-      _logger.d('使用实际缩略图宽高比', extra: {
-        'aspectRatio': _actualAspectRatio,
-      });
       return _actualAspectRatio!;
     }
 
@@ -237,16 +203,10 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
         widget.message.width! > 0 &&
         widget.message.height! > 0) {
       final ratio = widget.message.width! / widget.message.height!;
-      _logger.d('使用消息中的宽高比', extra: {
-        'width': widget.message.width,
-        'height': widget.message.height,
-        'ratio': ratio,
-      });
       return ratio;
     }
 
     // 3. 默认使用16:9的横屏比例（作为最后的备选）
-    _logger.d('使用默认16:9宽高比');
     return 16.0 / 9.0;
   }
 
@@ -269,15 +229,10 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
   /// 处理视频点击
   void _onVideoTap() {
-    _logger.i('👆 用户点击视频', extra: {
-      'messageId': widget.message.messageId,
-      'effectivePath': _effectiveVideoPath,
-    });
-
     try {
       MediaViewer.openMedia(context, widget.message);
     } catch (error) {
-      _logger.e('❌ 打开视频播放器失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('打开视频播放器失败', error: error);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -292,7 +247,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
   /// 重试加载
   void _retryLoad() {
-    _logger.i('🔄 用户点击重试加载视频');
     _initializeVideo();
   }
 
@@ -358,7 +312,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
         width: double.infinity,
         height: double.infinity,
         errorBuilder: (context, error, stackTrace) {
-          _logger.w('⚠️ 缩略图显示失败，使用默认背景', stackTrace: stackTrace);
           return _buildDefaultVideoBackground();
         },
       );

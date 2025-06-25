@@ -36,7 +36,7 @@ class MessageItem extends StatelessWidget {
   final VoidCallback? onCopy;
   final VoidCallback? onRevoke;
   final VoidCallback? onDelete;
-
+  
   // 搜索相关参数
   final bool isSearchResult;
   final bool isCurrentSearchResult;
@@ -105,7 +105,7 @@ class MessageItem extends StatelessWidget {
   void _showContextMenu(BuildContext context) {
     HapticFeedback.lightImpact();
     print('🔥 MessageItem: 显示长按菜单');
-
+    
     if (onLongPress == null &&
         onRevoke == null &&
         onDelete == null &&
@@ -127,7 +127,7 @@ class MessageItem extends StatelessWidget {
 
     double menuX;
     double menuY = position.dy + size.height / 2;
-
+    
     if (isCurrentUser) {
       menuX = position.dx + size.width - 200;
       if (menuX < 16) menuX = 16;
@@ -149,33 +149,28 @@ class MessageItem extends StatelessWidget {
     showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(menuX, menuY, menuX + 200, menuY + 40),
-      items: actions
-          .map((action) => PopupMenuItem<String>(
-                value: action.label,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        action.label,
-                        style: TextStyle(
-                          color: action.isDestructive
-                              ? Colors.red
-                              : Colors.black87,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      action.icon,
-                      size: 18,
-                      color:
-                          action.isDestructive ? Colors.red : Colors.grey[600],
-                    ),
-                  ],
+      items: actions.map((action) => PopupMenuItem<String>(
+        value: action.label,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                action.label,
+                style: TextStyle(
+                  color: action.isDestructive ? Colors.red : Colors.black87,
+                  fontSize: 16,
                 ),
-              ))
-          .toList(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              action.icon,
+              size: 18,
+              color: action.isDestructive ? Colors.red : Colors.grey[600],
+            ),
+          ],
+        ),
+      )).toList(),
       elevation: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ).then((selectedAction) {
@@ -215,7 +210,17 @@ class MessageItem extends StatelessWidget {
         message.type == MessageType.text &&
         !message.isMessageDeleted &&
         !message.isMessageRevoked &&
-        (message.text?.isNotEmpty ?? false)) {
+
+    if (message.status == MessageStatus.deleted) {
+      return Text(
+        "此消息已被删除",
+        style: TextStyle(
+          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          fontStyle: FontStyle.italic,
+          fontSize: 14.0,
+        ),
+      );
+    }        (message.text?.isNotEmpty ?? false)) {
       actions.add(_MessageMenuAction(
         icon: Icons.copy,
         label: '复制',
@@ -226,7 +231,17 @@ class MessageItem extends StatelessWidget {
     if (onRevoke != null &&
         isCurrentUser &&
         !message.isMessageRevoked &&
-        !message.isMessageDeleted &&
+
+    if (message.status == MessageStatus.deleted) {
+      return Text(
+        "此消息已被删除",
+        style: TextStyle(
+          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          fontStyle: FontStyle.italic,
+          fontSize: 14.0,
+        ),
+      );
+    }        !message.isMessageDeleted &&
         message.type != MessageType.system &&
         message.type != MessageType.membership) {
       actions.add(_MessageMenuAction(
@@ -265,8 +280,7 @@ class MessageItem extends StatelessWidget {
               message.senderName?.isNotEmpty == true
                   ? message.senderName![0].toUpperCase()
                   : 'X',
-              style:
-                  const TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold),
             )
           : null,
     );
@@ -290,8 +304,7 @@ class MessageItem extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       decoration: BoxDecoration(
-        color:
-            isCurrentUser ? Theme.of(context).primaryColor : Colors.grey[200],
+        color: isCurrentUser ? Theme.of(context).primaryColor : Colors.grey[200],
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18.0),
           topRight: const Radius.circular(18.0),
@@ -371,14 +384,11 @@ class MessageItem extends StatelessWidget {
       case MessageType.text:
         return _buildTextContent(context);
       case MessageType.image:
-        return ImageMessageWidget(
-            message: message, isCurrentUser: isCurrentUser);
+        return ImageMessageWidget(message: message, isCurrentUser: isCurrentUser);
       case MessageType.video:
-        return VideoMessageWidget(
-            message: message, isCurrentUser: isCurrentUser);
+        return VideoMessageWidget(message: message, isCurrentUser: isCurrentUser);
       case MessageType.voice:
-        return VoiceMessageWidget(
-            message: message, isCurrentUser: isCurrentUser);
+        return VoiceMessageWidget(message: message, isCurrentUser: isCurrentUser);
       case MessageType.file:
         return _buildFileContent(context);
       default:
@@ -388,7 +398,17 @@ class MessageItem extends StatelessWidget {
 
   Widget _buildTextContent(BuildContext context) {
     if (message.isMessageRevoked) {
+
+    if (message.status == MessageStatus.deleted) {
       return Text(
+        "此消息已被删除",
+        style: TextStyle(
+          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          fontStyle: FontStyle.italic,
+          fontSize: 14.0,
+        ),
+      );
+    }      return Text(
         '此消息已被撤回',
         style: TextStyle(
           color: isCurrentUser ? Colors.white70 : Colors.grey[600],
@@ -499,7 +519,10 @@ class MessageItem extends StatelessWidget {
           return const Icon(Icons.done, size: 14.0, color: Colors.white70);
         }
       case MessageStatus.failed:
-        return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);
+      case MessageStatus.revoked:
+        return const Icon(Icons.undo, size: 14.0, color: Colors.orange);
+      case MessageStatus.deleted:
+        return const Icon(Icons.delete_outline, size: 14.0, color: Colors.red);        return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);
       default:
         return const SizedBox.shrink();
     }
@@ -508,8 +531,7 @@ class MessageItem extends StatelessWidget {
   String _formatMessageTime(DateTime timestamp) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDate =
-        DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
 
     if (messageDate == today) {
       return DateFormat('HH:mm').format(timestamp);

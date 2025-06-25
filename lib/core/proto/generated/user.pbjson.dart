@@ -80,6 +80,69 @@ final $typed_data.Uint8List currentUserProtoDescriptor = $convert.base64Decode(
     'lyZV90aW1lGAcgASgDUg90b2tlbkV4cGlyZVRpbWUSJgoPbGFzdF9sb2dpbl90aW1lGAggASgD'
     'Ug1sYXN0TG9naW5UaW1lEhYKBnN0YXR1cxgJIAEoCVIGc3RhdHVz');
 
+@$core.Deprecated('Use setCurrentUserRequestDescriptor instead')
+const SetCurrentUserRequest$json = {
+  '1': 'SetCurrentUserRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {'1': 'avatar', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'avatar', '17': true},
+    {'1': 'phone', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'phone', '17': true},
+    {'1': 'email', '3': 4, '4': 1, '5': 9, '9': 3, '10': 'email', '17': true},
+    {'1': 'status', '3': 5, '4': 1, '5': 9, '9': 4, '10': 'status', '17': true},
+    {'1': 'timestamp', '3': 6, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_avatar'},
+    {'1': '_phone'},
+    {'1': '_email'},
+    {'1': '_status'},
+  ],
+};
+
+/// Descriptor for `SetCurrentUserRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setCurrentUserRequestDescriptor = $convert.base64Decode(
+    'ChVTZXRDdXJyZW50VXNlclJlcXVlc3QSFwoEbmFtZRgBIAEoCUgAUgRuYW1liAEBEhsKBmF2YX'
+    'RhchgCIAEoCUgBUgZhdmF0YXKIAQESGQoFcGhvbmUYAyABKAlIAlIFcGhvbmWIAQESGQoFZW1h'
+    'aWwYBCABKAlIA1IFZW1haWyIAQESGwoGc3RhdHVzGAUgASgJSARSBnN0YXR1c4gBARIcCgl0aW'
+    '1lc3RhbXAYBiABKANSCXRpbWVzdGFtcEIHCgVfbmFtZUIJCgdfYXZhdGFyQggKBl9waG9uZUII'
+    'CgZfZW1haWxCCQoHX3N0YXR1cw==');
+
+@$core.Deprecated('Use setCurrentUserResponseDescriptor instead')
+const SetCurrentUserResponse$json = {
+  '1': 'SetCurrentUserResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'user', '3': 3, '4': 1, '5': 11, '6': '.cc.CurrentUserProto', '10': 'user'},
+    {'1': 'timestamp', '3': 4, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `SetCurrentUserResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setCurrentUserResponseDescriptor = $convert.base64Decode(
+    'ChZTZXRDdXJyZW50VXNlclJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSGAoHbW'
+    'Vzc2FnZRgCIAEoCVIHbWVzc2FnZRIoCgR1c2VyGAMgASgLMhQuY2MuQ3VycmVudFVzZXJQcm90'
+    'b1IEdXNlchIcCgl0aW1lc3RhbXAYBCABKANSCXRpbWVzdGFtcA==');
+
+@$core.Deprecated('Use currentUserUpdateEventDescriptor instead')
+const CurrentUserUpdateEvent$json = {
+  '1': 'CurrentUserUpdateEvent',
+  '2': [
+    {'1': 'user', '3': 1, '4': 1, '5': 11, '6': '.cc.CurrentUserProto', '10': 'user'},
+    {'1': 'updated_fields', '3': 2, '4': 3, '5': 9, '10': 'updatedFields'},
+    {'1': 'timestamp', '3': 3, '4': 1, '5': 3, '10': 'timestamp'},
+    {'1': 'update_source', '3': 4, '4': 1, '5': 9, '10': 'updateSource'},
+  ],
+};
+
+/// Descriptor for `CurrentUserUpdateEvent`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List currentUserUpdateEventDescriptor = $convert.base64Decode(
+    'ChZDdXJyZW50VXNlclVwZGF0ZUV2ZW50EigKBHVzZXIYASABKAsyFC5jYy5DdXJyZW50VXNlcl'
+    'Byb3RvUgR1c2VyEiUKDnVwZGF0ZWRfZmllbGRzGAIgAygJUg11cGRhdGVkRmllbGRzEhwKCXRp'
+    'bWVzdGFtcBgDIAEoA1IJdGltZXN0YW1wEiMKDXVwZGF0ZV9zb3VyY2UYBCABKAlSDHVwZGF0ZV'
+    'NvdXJjZQ==');
+
 @$core.Deprecated('Use userStatusUpdateDescriptor instead')
 const UserStatusUpdate$json = {
   '1': 'UserStatusUpdate',
@@ -232,4 +295,104 @@ const ThemeSettings$json = {
 final $typed_data.Uint8List themeSettingsDescriptor = $convert.base64Decode(
     'Cg1UaGVtZVNldHRpbmdzEh0KCnRoZW1lX21vZGUYASABKAlSCXRoZW1lTW9kZRIfCgt0aGVtZV'
     '9jb2xvchgCIAEoCVIKdGhlbWVDb2xvchIbCglmb250X3NpemUYAyABKAlSCGZvbnRTaXpl');
+
+@$core.Deprecated('Use searchUserRequestDescriptor instead')
+const SearchUserRequest$json = {
+  '1': 'SearchUserRequest',
+  '2': [
+    {'1': 'query', '3': 1, '4': 1, '5': 9, '10': 'query'},
+    {'1': 'search_type', '3': 2, '4': 1, '5': 9, '10': 'searchType'},
+    {'1': 'timestamp', '3': 3, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `SearchUserRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List searchUserRequestDescriptor = $convert.base64Decode(
+    'ChFTZWFyY2hVc2VyUmVxdWVzdBIUCgVxdWVyeRgBIAEoCVIFcXVlcnkSHwoLc2VhcmNoX3R5cG'
+    'UYAiABKAlSCnNlYXJjaFR5cGUSHAoJdGltZXN0YW1wGAMgASgDUgl0aW1lc3RhbXA=');
+
+@$core.Deprecated('Use searchUserResponseDescriptor instead')
+const SearchUserResponse$json = {
+  '1': 'SearchUserResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'user', '3': 3, '4': 1, '5': 11, '6': '.cc.UserProto', '10': 'user'},
+    {'1': 'query', '3': 4, '4': 1, '5': 9, '10': 'query'},
+    {'1': 'is_friend', '3': 5, '4': 1, '5': 8, '10': 'isFriend'},
+    {'1': 'timestamp', '3': 6, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `SearchUserResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List searchUserResponseDescriptor = $convert.base64Decode(
+    'ChJTZWFyY2hVc2VyUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIYCgdtZXNzYW'
+    'dlGAIgASgJUgdtZXNzYWdlEiEKBHVzZXIYAyABKAsyDS5jYy5Vc2VyUHJvdG9SBHVzZXISFAoF'
+    'cXVlcnkYBCABKAlSBXF1ZXJ5EhsKCWlzX2ZyaWVuZBgFIAEoCFIIaXNGcmllbmQSHAoJdGltZX'
+    'N0YW1wGAYgASgDUgl0aW1lc3RhbXA=');
+
+@$core.Deprecated('Use searchConversationResultDescriptor instead')
+const SearchConversationResult$json = {
+  '1': 'SearchConversationResult',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
+    {'1': 'type', '3': 4, '4': 1, '5': 9, '10': 'type'},
+    {'1': 'participant_count', '3': 5, '4': 1, '5': 5, '10': 'participantCount'},
+    {'1': 'description', '3': 6, '4': 1, '5': 9, '10': 'description'},
+    {'1': 'is_joined', '3': 7, '4': 1, '5': 8, '10': 'isJoined'},
+  ],
+};
+
+/// Descriptor for `SearchConversationResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List searchConversationResultDescriptor = $convert.base64Decode(
+    'ChhTZWFyY2hDb252ZXJzYXRpb25SZXN1bHQSJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg5jb2'
+    '52ZXJzYXRpb25JZBISCgRuYW1lGAIgASgJUgRuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFy'
+    'EhIKBHR5cGUYBCABKAlSBHR5cGUSKwoRcGFydGljaXBhbnRfY291bnQYBSABKAVSEHBhcnRpY2'
+    'lwYW50Q291bnQSIAoLZGVzY3JpcHRpb24YBiABKAlSC2Rlc2NyaXB0aW9uEhsKCWlzX2pvaW5l'
+    'ZBgHIAEoCFIIaXNKb2luZWQ=');
+
+@$core.Deprecated('Use universalSearchRequestDescriptor instead')
+const UniversalSearchRequest$json = {
+  '1': 'UniversalSearchRequest',
+  '2': [
+    {'1': 'query', '3': 1, '4': 1, '5': 9, '10': 'query'},
+    {'1': 'search_types', '3': 2, '4': 3, '5': 9, '10': 'searchTypes'},
+    {'1': 'limit', '3': 3, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'timestamp', '3': 4, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `UniversalSearchRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List universalSearchRequestDescriptor = $convert.base64Decode(
+    'ChZVbml2ZXJzYWxTZWFyY2hSZXF1ZXN0EhQKBXF1ZXJ5GAEgASgJUgVxdWVyeRIhCgxzZWFyY2'
+    'hfdHlwZXMYAiADKAlSC3NlYXJjaFR5cGVzEhQKBWxpbWl0GAMgASgFUgVsaW1pdBIcCgl0aW1l'
+    'c3RhbXAYBCABKANSCXRpbWVzdGFtcA==');
+
+@$core.Deprecated('Use universalSearchResponseDescriptor instead')
+const UniversalSearchResponse$json = {
+  '1': 'UniversalSearchResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'users', '3': 3, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'users'},
+    {'1': 'conversations', '3': 4, '4': 3, '5': 11, '6': '.cc.SearchConversationResult', '10': 'conversations'},
+    {'1': 'query', '3': 5, '4': 1, '5': 9, '10': 'query'},
+    {'1': 'searched_types', '3': 6, '4': 3, '5': 9, '10': 'searchedTypes'},
+    {'1': 'user_count', '3': 7, '4': 1, '5': 5, '10': 'userCount'},
+    {'1': 'conversation_count', '3': 8, '4': 1, '5': 5, '10': 'conversationCount'},
+    {'1': 'timestamp', '3': 9, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `UniversalSearchResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List universalSearchResponseDescriptor = $convert.base64Decode(
+    'ChdVbml2ZXJzYWxTZWFyY2hSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEhgKB2'
+    '1lc3NhZ2UYAiABKAlSB21lc3NhZ2USIwoFdXNlcnMYAyADKAsyDS5jYy5Vc2VyUHJvdG9SBXVz'
+    'ZXJzEkIKDWNvbnZlcnNhdGlvbnMYBCADKAsyHC5jYy5TZWFyY2hDb252ZXJzYXRpb25SZXN1bH'
+    'RSDWNvbnZlcnNhdGlvbnMSFAoFcXVlcnkYBSABKAlSBXF1ZXJ5EiUKDnNlYXJjaGVkX3R5cGVz'
+    'GAYgAygJUg1zZWFyY2hlZFR5cGVzEh0KCnVzZXJfY291bnQYByABKAVSCXVzZXJDb3VudBItCh'
+    'Jjb252ZXJzYXRpb25fY291bnQYCCABKAVSEWNvbnZlcnNhdGlvbkNvdW50EhwKCXRpbWVzdGFt'
+    'cBgJIAEoA1IJdGltZXN0YW1w');
 

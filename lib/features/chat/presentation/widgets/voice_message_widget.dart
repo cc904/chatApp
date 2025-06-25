@@ -34,7 +34,6 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
 
   // 本地UI状态
   bool _isPlaying = false;
-  bool _isPaused = false;
   bool _isLoading = false;
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
@@ -70,10 +69,8 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   void _initializeDuration() {
     if (widget.message.duration != null) {
       _totalDuration = Duration(milliseconds: widget.message.duration!);
-      _logger.i('✅ 从消息初始化时长: ${_totalDuration.inSeconds}秒');
     } else {
       _totalDuration = const Duration(seconds: 1);
-      _logger.w('⚠️ 消息中没有时长信息');
     }
   }
 
@@ -87,7 +84,6 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
 
       setState(() {
         _isPlaying = isThisMessage && state.isPlaying && !state.isPaused;
-        _isPaused = isThisMessage && !state.isPlaying && state.isPaused;
         _isLoading = false; // 全局状态更新时清除加载状态
 
         if (isThisMessage) {
@@ -99,7 +95,6 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
         } else {
           // 不是当前消息，重置播放状态但保持进度
           _isPlaying = false;
-          _isPaused = false;
         }
       });
 
@@ -117,7 +112,6 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     if (currentState.messageId == messageId) {
       setState(() {
         _isPlaying = currentState.isPlaying && !currentState.isPaused;
-        _isPaused = !currentState.isPlaying && currentState.isPaused;
         _currentPosition = currentState.position;
         _progress = currentState.progress;
         if (currentState.duration.inMilliseconds > 0) {
@@ -150,8 +144,6 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
       return;
     }
 
-    _logger.i('🎯 用户点击语音: $messageId');
-
     // 显示短暂加载状态
     setState(() {
       _isLoading = true;
@@ -161,7 +153,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
       // 调用全局管理器，它会自动处理播放/暂停/切换逻辑
       await _audioManager.playVoice(messageId, audioPath);
     } catch (error) {
-      _logger.e('❌ 播放控制失败', error: error);
+      _logger.e('播放控制失败', error: error);
       _showErrorSnackBar('播放失败: $error');
 
       setState(() {
@@ -226,13 +218,6 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     const maxDuration = VoiceRecordService.maxRecordingDuration;
     final ratio = (_totalDuration.inSeconds / maxDuration).clamp(0.0, 1.0);
     final calculatedWidth = minWidth + (maxWidth - minWidth) * ratio;
-
-    _logger.d('计算语音UI宽度', extra: {
-      'duration': _totalDuration.inSeconds,
-      'maxDuration': maxDuration,
-      'ratio': ratio,
-      'width': calculatedWidth,
-    });
 
     return calculatedWidth;
   }

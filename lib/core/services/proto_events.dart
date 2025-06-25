@@ -9,6 +9,15 @@ import '../proto/generated/conversation.pb.dart' as conversation;
 class ProtoEvents {
   /// 消息事件映射表
   static final Map<String, GeneratedMessage Function()> _eventTypeMap = {
+    // 用户相关事件
+    'user:set': () => user.SetCurrentUserRequest(),
+    'user:set:response': () => user.SetCurrentUserResponse(),
+    'user:updated': () => user.CurrentUserUpdateEvent(),
+
+    // 搜索相关事件
+    'search:universal': () => user.UniversalSearchRequest(),
+    'search:universal:response': () => user.UniversalSearchResponse(),
+
     // 消息相关事件
     'message:new': () => message.MessageProto(),
     'message:delivered': () => message.MessageProto(),
@@ -56,7 +65,7 @@ class ProtoEvents {
     'user:offline': () => user.UserStatusUpdate(),
     'user:typing': () => user.UserTypingUpdate(),
     'user:typing:stop': () => user.UserTypingUpdate(),
-    'user:updated': () => user.UserProto(),
+    'user:profile:updated': () => user.UserProto(),
     'contact:synced': () => user.UserCollection(),
 
     // 联系人相关事件

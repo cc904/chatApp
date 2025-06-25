@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 // import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:fixnum/fixnum.dart';
 
 /// 认证响应模型
 class AuthResponse {
@@ -22,9 +23,21 @@ class AuthResponse {
 
     if (userData != null) {
       currentUser = CurrentUserProto(
-        userId: userData['userId'],
-        token: userData['token'],
-        name: userData['nickname'] ?? '',
+        userId: userData['userId'] ?? '',
+        token: userData['token'] ?? '',
+        name: userData['nickname'] ?? userData['name'] ?? '',
+        phone: userData['phone'] ?? '',
+        email: userData['email'] ?? '',
+        avatar: userData['avatar'] ?? '',
+        status: userData['status'] ?? '',
+        lastLoginTime: userData['lastLoginTime'] != null
+            ? Int64(userData['lastLoginTime'])
+            : null,
+        tokenExpireTime: userData['tokenExpireTime'] != null
+            ? Int64(userData['tokenExpireTime'])
+            : json['tokenExpiresAt'] != null
+                ? Int64(json['tokenExpiresAt'])
+                : null,
       );
     }
 

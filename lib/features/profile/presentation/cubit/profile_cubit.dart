@@ -32,6 +32,11 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
+  /// 公有方法：刷新用户信息
+  Future<void> refreshUserInfo() async {
+    await _loadUserInfo();
+  }
+
   Future<void> updateUserInfo({
     String? nickname,
     String? avatar,

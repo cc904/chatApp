@@ -266,6 +266,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     $core.String? lastMessagePreview,
     $core.String? lastMessageName,
     $core.Iterable<ParticipantProto>? participants,
+    $core.String? description,
   }) {
     final $result = create();
     if (conversationId != null) {
@@ -304,6 +305,9 @@ class ConversationProto extends $pb.GeneratedMessage {
     if (participants != null) {
       $result.participants.addAll(participants);
     }
+    if (description != null) {
+      $result.description = description;
+    }
     return $result;
   }
   ConversationProto._() : super();
@@ -323,6 +327,7 @@ class ConversationProto extends $pb.GeneratedMessage {
     ..aOS(10, _omitFieldNames ? '' : 'lastMessagePreview')
     ..aOS(11, _omitFieldNames ? '' : 'lastMessageName')
     ..pc<ParticipantProto>(12, _omitFieldNames ? '' : 'participants', $pb.PbFieldType.PM, subBuilder: ParticipantProto.create)
+    ..aOS(13, _omitFieldNames ? '' : 'description')
     ..hasRequiredFields = false
   ;
 
@@ -461,6 +466,16 @@ class ConversationProto extends $pb.GeneratedMessage {
   /// 参与者详细信息，包含所有参与者的完整信息
   @$pb.TagNumber(12)
   $pb.PbList<ParticipantProto> get participants => $_getList(11);
+
+  /// 会话描述（群聊/频道可选）
+  @$pb.TagNumber(13)
+  $core.String get description => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set description($core.String v) { $_setString(12, v); }
+  @$pb.TagNumber(13)
+  $core.bool hasDescription() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearDescription() => $_clearField(13);
 }
 
 /// 会话更新
@@ -1239,6 +1254,7 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
     ConversationType? type,
     $core.Iterable<$core.String>? participantIds,
     $core.String? contactUserId,
+    $core.String? description,
   }) {
     final $result = create();
     if (name != null) {
@@ -1256,6 +1272,9 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
     if (contactUserId != null) {
       $result.contactUserId = contactUserId;
     }
+    if (description != null) {
+      $result.description = description;
+    }
     return $result;
   }
   ConversationCreateRequest._() : super();
@@ -1268,6 +1287,7 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
     ..e<ConversationType>(3, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: ConversationType.PRIVATE, valueOf: ConversationType.valueOf, enumValues: ConversationType.values)
     ..pPS(4, _omitFieldNames ? '' : 'participantIds')
     ..aOS(5, _omitFieldNames ? '' : 'contactUserId')
+    ..aOS(6, _omitFieldNames ? '' : 'description')
     ..hasRequiredFields = false
   ;
 
@@ -1335,6 +1355,16 @@ class ConversationCreateRequest extends $pb.GeneratedMessage {
   $core.bool hasContactUserId() => $_has(4);
   @$pb.TagNumber(5)
   void clearContactUserId() => $_clearField(5);
+
+  /// 会话描述（群聊/频道可选）
+  @$pb.TagNumber(6)
+  $core.String get description => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set description($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasDescription() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDescription() => $_clearField(6);
 }
 
 /// 新增：用户加入会话通知

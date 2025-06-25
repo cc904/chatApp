@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 /// 联系人详情页面
 /// 显示联系人的详细信息，提供聊天、音视频通话等操作
@@ -71,17 +72,10 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 头像
-          CircleAvatar(
+          UserAvatar(
+            avatarUrl: widget.contact.avatar,
+            name: widget.contact.name,
             radius: 40,
-            backgroundImage: widget.contact.avatar != null
-                ? NetworkImage(widget.contact.avatar!)
-                : null,
-            child: widget.contact.avatar == null
-                ? Text(
-                    widget.contact.name[0],
-                    style: const TextStyle(fontSize: 30),
-                  )
-                : null,
           ),
           const SizedBox(width: 20),
           // 名称和其他基本信息
@@ -213,7 +207,6 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
           const SizedBox(height: 12),
           _buildInfoItem('备注', ''),
           _buildInfoItem('标签', ''),
-          _buildInfoItem('个性签名', widget.contact.status ?? '这个人很懒，什么都没写'),
         ],
       ),
     );

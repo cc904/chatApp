@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/constants/app_config.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -179,6 +180,20 @@ class ProtoSocketService {
 
       if (!success) {
         _logger.i('❌ 连接失败');
+
+        // 如果连接失败且当前URL是配置中的服务器，尝试故障转移
+        final appConfig = AppConfig();
+        if (serverUrl == appConfig.serverUrl && appConfig.hasNextServer()) {
+          _logger.i('🔄 尝试故障转移到备用服务器');
+          appConfig.switchToNextServer();
+          final newServerUrl = appConfig.serverUrl;
+          _logger
+              .i('🔄 切换到备用服务器: $newServerUrl (${appConfig.currentServerName})');
+
+          // 递归尝试连接新服务器
+          return await connect(serverUrl: newServerUrl, token: token);
+        }
+
         return false;
       }
 

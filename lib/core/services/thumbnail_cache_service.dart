@@ -52,7 +52,7 @@ class ThumbnailCacheService {
       final file = File(filePath);
 
       if (await file.exists()) {
-        _logger.d('🎯 找到缓存的缩略图: $filePath');
+        // _logger.d('🎯 找到缓存的缩略图: $filePath');
         return filePath;
       }
 

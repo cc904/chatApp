@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 /// 联系人列表显示模式
 enum ContactListMode {
@@ -201,7 +202,8 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     } else {
       final index = _sortedKeys.indexOf(letter);
       if (index != -1) {
-        double offset = widget.showSearchBox ? 60 : 0;
+        // 💢💢💢 直接计算目标分组在ListView中的位置
+        double offset = 0;
 
         for (int i = 0; i < index; i++) {
           final key = _sortedKeys[i];
@@ -347,18 +349,21 @@ class _ContactListWidgetState extends State<ContactListWidget> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.errorMessage != null) {
+    if (state.errorMessage != null && state.contacts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 8),
-            Text('加载联系人失败', style: TextStyle(color: Colors.grey[600])),
+            Text('无法加载联系人', style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(height: 4),
+            Text('请检查网络连接',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12)),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => context.read<ContactCubit>().loadContacts(),
-              child: const Text('重试'),
+              onPressed: () => context.read<ContactCubit>().syncContacts(),
+              child: const Text('重新同步'),
             ),
           ],
         ),
@@ -519,22 +524,10 @@ class _ContactListWidgetState extends State<ContactListWidget> {
   Widget _buildContactAvatar(User contact) {
     return Stack(
       children: [
-        CircleAvatar(
+        UserAvatar(
+          avatarUrl: contact.avatar,
+          name: contact.name,
           radius: 20,
-          backgroundColor: Colors.grey[300],
-          backgroundImage: contact.avatar?.isNotEmpty == true
-              ? NetworkImage(contact.avatar!)
-              : null,
-          child: contact.avatar?.isEmpty != false
-              ? Text(
-                  contact.name.isNotEmpty ? contact.name[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                )
-              : null,
         ),
         // 在线状态指示器
         if (_isContactOnline(contact))

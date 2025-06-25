@@ -9,6 +9,12 @@ import 'package:cc/core/database/models/current_user.dart';
 /// 使用Flutter Secure Storage加密保存敏感数据
 /// 提供读取、写入和删除操作的便捷方法
 /// 在macOS等平台出现权限问题时回退到SharedPreferences（数据将进行简单编码但不加密）
+/// 
+/// 📝 存储策略：
+/// - SecureStorage：只存储敏感认证信息（userId, token, tokenExpireTime）
+/// - Isar数据库：存储用户基本信息（昵称、头像、手机号等）用于快速UI显示
+/// 
+/// ⚠️ 注意：避免在SecureStorage中存储大量非敏感数据，优先使用数据库
 class SecureStorageService {
   static final SecureStorageService _instance =
       SecureStorageService._internal();

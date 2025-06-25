@@ -47,31 +47,21 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
   /// 初始化图片
   void _initializeImage() {
-    _logger.i('🖼️ 初始化图片消息', extra: {
-      'messageId': widget.message.messageId,
-      'mediaUrl': widget.message.mediaUrl,
-      'localPath': widget.message.localPath,
-      'width': widget.message.width,
-      'height': widget.message.height,
-    });
-
     try {
       // 确定图片路径优先级：localPath > mediaUrl（优先使用本地文件）
       if (widget.message.localPath != null &&
           widget.message.localPath!.isNotEmpty) {
         _effectiveImagePath = widget.message.localPath!;
-        _logger.i('📁 使用本地图片: $_effectiveImagePath');
       } else if (widget.message.mediaUrl != null &&
           widget.message.mediaUrl!.isNotEmpty) {
         _effectiveImagePath = widget.message.mediaUrl!;
-        _logger.i('📡 使用网络图片: $_effectiveImagePath');
       } else {
         throw Exception('图片路径为空');
       }
 
       _loadImage();
     } catch (error) {
-      _logger.e('❌ 图片初始化失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('图片初始化失败', error: error);
       _setError('图片初始化失败: $error');
     }
   }
@@ -95,14 +85,12 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
           _effectiveImagePath!.startsWith('https://')) {
         // 网络图片
         _imageProvider = NetworkImage(_effectiveImagePath!);
-        _logger.i('🌐 加载网络图片: $_effectiveImagePath');
       } else if (_effectiveImagePath!.startsWith('file://')) {
         // file:// 协议的本地文件
         final filePath = _effectiveImagePath!.substring(7);
         final file = File(filePath);
         if (file.existsSync()) {
           _imageProvider = FileImage(file);
-          _logger.i('📄 加载本地文件: $filePath');
         } else {
           throw Exception('本地文件不存在: $filePath');
         }
@@ -111,7 +99,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         final file = File(_effectiveImagePath!);
         if (file.existsSync()) {
           _imageProvider = FileImage(file);
-          _logger.i('📁 加载本地文件: $_effectiveImagePath');
         } else {
           throw Exception('本地文件不存在: $_effectiveImagePath');
         }
@@ -120,8 +107,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       // 预加载图片
       _preloadImage();
     } catch (error) {
-      _logger.e('❌ 创建ImageProvider失败',
-          error: error, stackTrace: StackTrace.current);
+      _logger.e('创建ImageProvider失败', error: error);
       _setError('加载图片失败: $error');
     }
   }
@@ -140,13 +126,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
           // 计算实际的宽高比
           final actualRatio = info.image.width / info.image.height;
 
-          _logger.i('✅ 图片加载成功', extra: {
-            'width': info.image.width,
-            'height': info.image.height,
-            'aspectRatio': actualRatio,
-            'synchronousCall': synchronousCall,
-          });
-
           setState(() {
             _isLoading = false;
             _hasError = false;
@@ -157,7 +136,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       },
       onError: (exception, stackTrace) {
         if (mounted) {
-          _logger.e('❌ 图片加载失败', error: exception, stackTrace: stackTrace);
+          _logger.e('图片加载失败', error: exception);
           _setError('图片加载失败: $exception');
         }
         stream.removeListener(listener);
@@ -182,9 +161,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   double _calculateAspectRatio() {
     // 1. 优先使用实际图片的宽高比
     if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
-      _logger.d('使用实际图片宽高比', extra: {
-        'aspectRatio': _actualAspectRatio,
-      });
       return _actualAspectRatio!;
     }
 
@@ -194,11 +170,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         widget.message.width! > 0 &&
         widget.message.height! > 0) {
       final ratio = widget.message.width! / widget.message.height!;
-      _logger.d('使用消息中的宽高比', extra: {
-        'width': widget.message.width,
-        'height': widget.message.height,
-        'ratio': ratio,
-      });
       return ratio;
     }
 
@@ -207,42 +178,31 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       final path = _effectiveImagePath!.toLowerCase();
 
       if (path.contains('portrait') || path.contains('vertical')) {
-        _logger.d('根据路径推测为竖图比例');
         return 0.75; // 3:4 竖图比例
       } else if (path.contains('landscape') || path.contains('horizontal')) {
-        _logger.d('根据路径推测为横图比例');
         return 1.5; // 3:2 横图比例
       } else if (path.contains('square')) {
-        _logger.d('根据路径推测为正方形');
         return 1.0; // 1:1 正方形
       }
 
       // 根据文件扩展名推测
       if (path.contains('.jpg') || path.contains('.jpeg')) {
-        _logger.d('根据JPEG扩展名推测为4:3比例');
         return 1.33; // 4:3 比例，常见于相机拍摄
       } else if (path.contains('.png')) {
-        _logger.d('根据PNG扩展名推测为正方形');
         return 1.0; // PNG 通常接近正方形
       }
     }
 
     // 4. 默认比例
-    _logger.d('使用默认4:3宽高比');
     return 1.33; // 4:3 比例
   }
 
   /// 处理图片点击
   void _onImageTap() {
-    _logger.i('👆 用户点击图片', extra: {
-      'messageId': widget.message.messageId,
-      'effectivePath': _effectiveImagePath,
-    });
-
     try {
       MediaViewer.openMedia(context, widget.message);
     } catch (error) {
-      _logger.e('❌ 打开图片查看器失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('打开图片查看器失败', error: error);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -257,7 +217,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
   /// 重试加载
   void _retryLoad() {
-    _logger.i('🔄 用户点击重试加载图片');
     _initializeImage();
   }
 
@@ -313,7 +272,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (context, error, stackTrace) {
-        _logger.e('❌ Image组件加载失败', error: error, stackTrace: stackTrace);
         return _buildErrorWidget();
       },
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {

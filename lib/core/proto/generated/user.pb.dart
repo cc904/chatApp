@@ -411,6 +411,334 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   void clearStatus() => $_clearField(9);
 }
 
+/// 设置当前用户信息请求
+/// 用于更新当前登录用户的个人信息
+class SetCurrentUserRequest extends $pb.GeneratedMessage {
+  factory SetCurrentUserRequest({
+    $core.String? name,
+    $core.String? avatar,
+    $core.String? phone,
+    $core.String? email,
+    $core.String? status,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (name != null) {
+      $result.name = name;
+    }
+    if (avatar != null) {
+      $result.avatar = avatar;
+    }
+    if (phone != null) {
+      $result.phone = phone;
+    }
+    if (email != null) {
+      $result.email = email;
+    }
+    if (status != null) {
+      $result.status = status;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  SetCurrentUserRequest._() : super();
+  factory SetCurrentUserRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SetCurrentUserRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SetCurrentUserRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'avatar')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'email')
+    ..aOS(5, _omitFieldNames ? '' : 'status')
+    ..aInt64(6, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SetCurrentUserRequest clone() => SetCurrentUserRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SetCurrentUserRequest copyWith(void Function(SetCurrentUserRequest) updates) => super.copyWith((message) => updates(message as SetCurrentUserRequest)) as SetCurrentUserRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetCurrentUserRequest create() => SetCurrentUserRequest._();
+  SetCurrentUserRequest createEmptyInstance() => create();
+  static $pb.PbList<SetCurrentUserRequest> createRepeated() => $pb.PbList<SetCurrentUserRequest>();
+  @$core.pragma('dart2js:noInline')
+  static SetCurrentUserRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetCurrentUserRequest>(create);
+  static SetCurrentUserRequest? _defaultInstance;
+
+  /// 用户名称（可选）
+  /// 如果为空则不更新此字段
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  /// 头像URL（可选）
+  /// 如果为空则不更新此字段
+  @$pb.TagNumber(2)
+  $core.String get avatar => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set avatar($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasAvatar() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAvatar() => $_clearField(2);
+
+  /// 手机号（可选）
+  /// 如果为空则不更新此字段
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+
+  /// 电子邮箱（可选）
+  /// 如果为空则不更新此字段
+  @$pb.TagNumber(4)
+  $core.String get email => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set email($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasEmail() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEmail() => $_clearField(4);
+
+  /// 状态（可选）
+  /// 如果为空则不更新此字段
+  @$pb.TagNumber(5)
+  $core.String get status => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set status($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasStatus() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStatus() => $_clearField(5);
+
+  /// 时间戳
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get timestamp => $_getI64(5);
+  @$pb.TagNumber(6)
+  set timestamp($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasTimestamp() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTimestamp() => $_clearField(6);
+}
+
+/// 设置当前用户信息响应
+class SetCurrentUserResponse extends $pb.GeneratedMessage {
+  factory SetCurrentUserResponse({
+    $core.bool? success,
+    $core.String? message,
+    CurrentUserProto? user,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (user != null) {
+      $result.user = user;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  SetCurrentUserResponse._() : super();
+  factory SetCurrentUserResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SetCurrentUserResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SetCurrentUserResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOM<CurrentUserProto>(3, _omitFieldNames ? '' : 'user', subBuilder: CurrentUserProto.create)
+    ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SetCurrentUserResponse clone() => SetCurrentUserResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SetCurrentUserResponse copyWith(void Function(SetCurrentUserResponse) updates) => super.copyWith((message) => updates(message as SetCurrentUserResponse)) as SetCurrentUserResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetCurrentUserResponse create() => SetCurrentUserResponse._();
+  SetCurrentUserResponse createEmptyInstance() => create();
+  static $pb.PbList<SetCurrentUserResponse> createRepeated() => $pb.PbList<SetCurrentUserResponse>();
+  @$core.pragma('dart2js:noInline')
+  static SetCurrentUserResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetCurrentUserResponse>(create);
+  static SetCurrentUserResponse? _defaultInstance;
+
+  /// 操作是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 更新后的用户信息
+  @$pb.TagNumber(3)
+  CurrentUserProto get user => $_getN(2);
+  @$pb.TagNumber(3)
+  set user(CurrentUserProto v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+  @$pb.TagNumber(3)
+  CurrentUserProto ensureUser() => $_ensure(2);
+
+  /// 操作时间戳
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get timestamp => $_getI64(3);
+  @$pb.TagNumber(4)
+  set timestamp($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasTimestamp() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTimestamp() => $_clearField(4);
+}
+
+/// 当前用户信息更新事件
+/// 当用户信息发生变化时广播给相关客户端
+class CurrentUserUpdateEvent extends $pb.GeneratedMessage {
+  factory CurrentUserUpdateEvent({
+    CurrentUserProto? user,
+    $core.Iterable<$core.String>? updatedFields,
+    $fixnum.Int64? timestamp,
+    $core.String? updateSource,
+  }) {
+    final $result = create();
+    if (user != null) {
+      $result.user = user;
+    }
+    if (updatedFields != null) {
+      $result.updatedFields.addAll(updatedFields);
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    if (updateSource != null) {
+      $result.updateSource = updateSource;
+    }
+    return $result;
+  }
+  CurrentUserUpdateEvent._() : super();
+  factory CurrentUserUpdateEvent.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory CurrentUserUpdateEvent.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CurrentUserUpdateEvent', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOM<CurrentUserProto>(1, _omitFieldNames ? '' : 'user', subBuilder: CurrentUserProto.create)
+    ..pPS(2, _omitFieldNames ? '' : 'updatedFields')
+    ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
+    ..aOS(4, _omitFieldNames ? '' : 'updateSource')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  CurrentUserUpdateEvent clone() => CurrentUserUpdateEvent()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  CurrentUserUpdateEvent copyWith(void Function(CurrentUserUpdateEvent) updates) => super.copyWith((message) => updates(message as CurrentUserUpdateEvent)) as CurrentUserUpdateEvent;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CurrentUserUpdateEvent create() => CurrentUserUpdateEvent._();
+  CurrentUserUpdateEvent createEmptyInstance() => create();
+  static $pb.PbList<CurrentUserUpdateEvent> createRepeated() => $pb.PbList<CurrentUserUpdateEvent>();
+  @$core.pragma('dart2js:noInline')
+  static CurrentUserUpdateEvent getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CurrentUserUpdateEvent>(create);
+  static CurrentUserUpdateEvent? _defaultInstance;
+
+  /// 更新的用户信息
+  @$pb.TagNumber(1)
+  CurrentUserProto get user => $_getN(0);
+  @$pb.TagNumber(1)
+  set user(CurrentUserProto v) { $_setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasUser() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUser() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CurrentUserProto ensureUser() => $_ensure(0);
+
+  /// 更新的字段列表
+  /// 用于标识哪些字段发生了变化
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get updatedFields => $_getList(1);
+
+  /// 更新时间戳
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get timestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTimestamp() => $_clearField(3);
+
+  /// 更新来源
+  /// 如：user_action, admin_action, system_sync等
+  @$pb.TagNumber(4)
+  $core.String get updateSource => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set updateSource($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasUpdateSource() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearUpdateSource() => $_clearField(4);
+}
+
 /// 用户在线状态更新
 class UserStatusUpdate extends $pb.GeneratedMessage {
   factory UserStatusUpdate({
@@ -1258,6 +1586,612 @@ class ThemeSettings extends $pb.GeneratedMessage {
   $core.bool hasFontSize() => $_has(2);
   @$pb.TagNumber(3)
   void clearFontSize() => $_clearField(3);
+}
+
+/// 搜索用户请求
+/// 通过ID或手机号搜索用户
+class SearchUserRequest extends $pb.GeneratedMessage {
+  factory SearchUserRequest({
+    $core.String? query,
+    $core.String? searchType,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (query != null) {
+      $result.query = query;
+    }
+    if (searchType != null) {
+      $result.searchType = searchType;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  SearchUserRequest._() : super();
+  factory SearchUserRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SearchUserRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchUserRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'query')
+    ..aOS(2, _omitFieldNames ? '' : 'searchType')
+    ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SearchUserRequest clone() => SearchUserRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SearchUserRequest copyWith(void Function(SearchUserRequest) updates) => super.copyWith((message) => updates(message as SearchUserRequest)) as SearchUserRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SearchUserRequest create() => SearchUserRequest._();
+  SearchUserRequest createEmptyInstance() => create();
+  static $pb.PbList<SearchUserRequest> createRepeated() => $pb.PbList<SearchUserRequest>();
+  @$core.pragma('dart2js:noInline')
+  static SearchUserRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchUserRequest>(create);
+  static SearchUserRequest? _defaultInstance;
+
+  /// 搜索关键字（用户ID或手机号）
+  @$pb.TagNumber(1)
+  $core.String get query => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set query($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasQuery() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearQuery() => $_clearField(1);
+
+  /// 搜索类型
+  /// "user_id" - 按用户ID搜索
+  /// "phone" - 按手机号搜索
+  /// "auto" - 自动判断类型
+  @$pb.TagNumber(2)
+  $core.String get searchType => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set searchType($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasSearchType() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSearchType() => $_clearField(2);
+
+  /// 时间戳
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get timestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTimestamp() => $_clearField(3);
+}
+
+/// 搜索用户响应
+class SearchUserResponse extends $pb.GeneratedMessage {
+  factory SearchUserResponse({
+    $core.bool? success,
+    $core.String? message,
+    UserProto? user,
+    $core.String? query,
+    $core.bool? isFriend,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (user != null) {
+      $result.user = user;
+    }
+    if (query != null) {
+      $result.query = query;
+    }
+    if (isFriend != null) {
+      $result.isFriend = isFriend;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  SearchUserResponse._() : super();
+  factory SearchUserResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SearchUserResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchUserResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOM<UserProto>(3, _omitFieldNames ? '' : 'user', subBuilder: UserProto.create)
+    ..aOS(4, _omitFieldNames ? '' : 'query')
+    ..aOB(5, _omitFieldNames ? '' : 'isFriend')
+    ..aInt64(6, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SearchUserResponse clone() => SearchUserResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SearchUserResponse copyWith(void Function(SearchUserResponse) updates) => super.copyWith((message) => updates(message as SearchUserResponse)) as SearchUserResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SearchUserResponse create() => SearchUserResponse._();
+  SearchUserResponse createEmptyInstance() => create();
+  static $pb.PbList<SearchUserResponse> createRepeated() => $pb.PbList<SearchUserResponse>();
+  @$core.pragma('dart2js:noInline')
+  static SearchUserResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchUserResponse>(create);
+  static SearchUserResponse? _defaultInstance;
+
+  /// 操作是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 找到的用户信息（如果成功找到）
+  @$pb.TagNumber(3)
+  UserProto get user => $_getN(2);
+  @$pb.TagNumber(3)
+  set user(UserProto v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+  @$pb.TagNumber(3)
+  UserProto ensureUser() => $_ensure(2);
+
+  /// 搜索关键字
+  @$pb.TagNumber(4)
+  $core.String get query => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set query($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasQuery() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearQuery() => $_clearField(4);
+
+  /// 是否已经是好友
+  @$pb.TagNumber(5)
+  $core.bool get isFriend => $_getBF(4);
+  @$pb.TagNumber(5)
+  set isFriend($core.bool v) { $_setBool(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasIsFriend() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIsFriend() => $_clearField(5);
+
+  /// 时间戳
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get timestamp => $_getI64(5);
+  @$pb.TagNumber(6)
+  set timestamp($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasTimestamp() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTimestamp() => $_clearField(6);
+}
+
+/// 搜索结果 - 会话信息
+class SearchConversationResult extends $pb.GeneratedMessage {
+  factory SearchConversationResult({
+    $core.String? conversationId,
+    $core.String? name,
+    $core.String? avatar,
+    $core.String? type,
+    $core.int? participantCount,
+    $core.String? description,
+    $core.bool? isJoined,
+  }) {
+    final $result = create();
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (name != null) {
+      $result.name = name;
+    }
+    if (avatar != null) {
+      $result.avatar = avatar;
+    }
+    if (type != null) {
+      $result.type = type;
+    }
+    if (participantCount != null) {
+      $result.participantCount = participantCount;
+    }
+    if (description != null) {
+      $result.description = description;
+    }
+    if (isJoined != null) {
+      $result.isJoined = isJoined;
+    }
+    return $result;
+  }
+  SearchConversationResult._() : super();
+  factory SearchConversationResult.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SearchConversationResult.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchConversationResult', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'avatar')
+    ..aOS(4, _omitFieldNames ? '' : 'type')
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'participantCount', $pb.PbFieldType.O3)
+    ..aOS(6, _omitFieldNames ? '' : 'description')
+    ..aOB(7, _omitFieldNames ? '' : 'isJoined')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SearchConversationResult clone() => SearchConversationResult()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SearchConversationResult copyWith(void Function(SearchConversationResult) updates) => super.copyWith((message) => updates(message as SearchConversationResult)) as SearchConversationResult;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SearchConversationResult create() => SearchConversationResult._();
+  SearchConversationResult createEmptyInstance() => create();
+  static $pb.PbList<SearchConversationResult> createRepeated() => $pb.PbList<SearchConversationResult>();
+  @$core.pragma('dart2js:noInline')
+  static SearchConversationResult getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchConversationResult>(create);
+  static SearchConversationResult? _defaultInstance;
+
+  /// 会话ID
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  /// 会话名称
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  /// 会话头像
+  @$pb.TagNumber(3)
+  $core.String get avatar => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set avatar($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasAvatar() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAvatar() => $_clearField(3);
+
+  /// 会话类型 ("group" 或 "channel")
+  @$pb.TagNumber(4)
+  $core.String get type => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set type($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearType() => $_clearField(4);
+
+  /// 参与者数量
+  @$pb.TagNumber(5)
+  $core.int get participantCount => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set participantCount($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasParticipantCount() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearParticipantCount() => $_clearField(5);
+
+  /// 会话描述
+  @$pb.TagNumber(6)
+  $core.String get description => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set description($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasDescription() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDescription() => $_clearField(6);
+
+  /// 是否已加入
+  @$pb.TagNumber(7)
+  $core.bool get isJoined => $_getBF(6);
+  @$pb.TagNumber(7)
+  set isJoined($core.bool v) { $_setBool(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasIsJoined() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearIsJoined() => $_clearField(7);
+}
+
+/// 统一搜索请求
+/// 支持搜索用户、群聊、频道的综合搜索接口
+class UniversalSearchRequest extends $pb.GeneratedMessage {
+  factory UniversalSearchRequest({
+    $core.String? query,
+    $core.Iterable<$core.String>? searchTypes,
+    $core.int? limit,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (query != null) {
+      $result.query = query;
+    }
+    if (searchTypes != null) {
+      $result.searchTypes.addAll(searchTypes);
+    }
+    if (limit != null) {
+      $result.limit = limit;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  UniversalSearchRequest._() : super();
+  factory UniversalSearchRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UniversalSearchRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UniversalSearchRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'query')
+    ..pPS(2, _omitFieldNames ? '' : 'searchTypes')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
+    ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UniversalSearchRequest clone() => UniversalSearchRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UniversalSearchRequest copyWith(void Function(UniversalSearchRequest) updates) => super.copyWith((message) => updates(message as UniversalSearchRequest)) as UniversalSearchRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UniversalSearchRequest create() => UniversalSearchRequest._();
+  UniversalSearchRequest createEmptyInstance() => create();
+  static $pb.PbList<UniversalSearchRequest> createRepeated() => $pb.PbList<UniversalSearchRequest>();
+  @$core.pragma('dart2js:noInline')
+  static UniversalSearchRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UniversalSearchRequest>(create);
+  static UniversalSearchRequest? _defaultInstance;
+
+  /// 搜索关键字（用户ID/群聊ID/频道ID）
+  @$pb.TagNumber(1)
+  $core.String get query => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set query($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasQuery() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearQuery() => $_clearField(1);
+
+  /// 搜索类型列表
+  /// "user" - 搜索用户
+  /// "group" - 搜索群聊
+  /// "channel" - 搜索频道
+  /// "all" - 搜索所有类型
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get searchTypes => $_getList(1);
+
+  /// 结果数量限制（每种类型的最大结果数）
+  @$pb.TagNumber(3)
+  $core.int get limit => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set limit($core.int v) { $_setSignedInt32(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasLimit() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLimit() => $_clearField(3);
+
+  /// 时间戳
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get timestamp => $_getI64(3);
+  @$pb.TagNumber(4)
+  set timestamp($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasTimestamp() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTimestamp() => $_clearField(4);
+}
+
+/// 统一搜索响应
+class UniversalSearchResponse extends $pb.GeneratedMessage {
+  factory UniversalSearchResponse({
+    $core.bool? success,
+    $core.String? message,
+    $core.Iterable<UserProto>? users,
+    $core.Iterable<SearchConversationResult>? conversations,
+    $core.String? query,
+    $core.Iterable<$core.String>? searchedTypes,
+    $core.int? userCount,
+    $core.int? conversationCount,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (users != null) {
+      $result.users.addAll(users);
+    }
+    if (conversations != null) {
+      $result.conversations.addAll(conversations);
+    }
+    if (query != null) {
+      $result.query = query;
+    }
+    if (searchedTypes != null) {
+      $result.searchedTypes.addAll(searchedTypes);
+    }
+    if (userCount != null) {
+      $result.userCount = userCount;
+    }
+    if (conversationCount != null) {
+      $result.conversationCount = conversationCount;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  UniversalSearchResponse._() : super();
+  factory UniversalSearchResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UniversalSearchResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UniversalSearchResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..pc<UserProto>(3, _omitFieldNames ? '' : 'users', $pb.PbFieldType.PM, subBuilder: UserProto.create)
+    ..pc<SearchConversationResult>(4, _omitFieldNames ? '' : 'conversations', $pb.PbFieldType.PM, subBuilder: SearchConversationResult.create)
+    ..aOS(5, _omitFieldNames ? '' : 'query')
+    ..pPS(6, _omitFieldNames ? '' : 'searchedTypes')
+    ..a<$core.int>(7, _omitFieldNames ? '' : 'userCount', $pb.PbFieldType.O3)
+    ..a<$core.int>(8, _omitFieldNames ? '' : 'conversationCount', $pb.PbFieldType.O3)
+    ..aInt64(9, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UniversalSearchResponse clone() => UniversalSearchResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UniversalSearchResponse copyWith(void Function(UniversalSearchResponse) updates) => super.copyWith((message) => updates(message as UniversalSearchResponse)) as UniversalSearchResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UniversalSearchResponse create() => UniversalSearchResponse._();
+  UniversalSearchResponse createEmptyInstance() => create();
+  static $pb.PbList<UniversalSearchResponse> createRepeated() => $pb.PbList<UniversalSearchResponse>();
+  @$core.pragma('dart2js:noInline')
+  static UniversalSearchResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UniversalSearchResponse>(create);
+  static UniversalSearchResponse? _defaultInstance;
+
+  /// 操作是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 用户搜索结果
+  @$pb.TagNumber(3)
+  $pb.PbList<UserProto> get users => $_getList(2);
+
+  /// 会话搜索结果（群聊和频道）
+  @$pb.TagNumber(4)
+  $pb.PbList<SearchConversationResult> get conversations => $_getList(3);
+
+  /// 搜索关键字
+  @$pb.TagNumber(5)
+  $core.String get query => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set query($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasQuery() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearQuery() => $_clearField(5);
+
+  /// 搜索的类型
+  @$pb.TagNumber(6)
+  $pb.PbList<$core.String> get searchedTypes => $_getList(5);
+
+  /// 各类型的结果数量
+  @$pb.TagNumber(7)
+  $core.int get userCount => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set userCount($core.int v) { $_setSignedInt32(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasUserCount() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearUserCount() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get conversationCount => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set conversationCount($core.int v) { $_setSignedInt32(7, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasConversationCount() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearConversationCount() => $_clearField(8);
+
+  /// 时间戳
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get timestamp => $_getI64(8);
+  @$pb.TagNumber(9)
+  set timestamp($fixnum.Int64 v) { $_setInt64(8, v); }
+  @$pb.TagNumber(9)
+  $core.bool hasTimestamp() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearTimestamp() => $_clearField(9);
 }
 
 

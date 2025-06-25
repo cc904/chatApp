@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,7 +23,9 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/media_upload_integration_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
+import 'package:cc/features/chat/presentation/widgets/unread_indicator_button.dart';
 import 'package:mime/mime.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 /// 聊天页面
 ///
@@ -408,6 +411,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               ),
               // 录制动画覆盖层
               if (_isRecording) _buildRecordingOverlay(),
+              // 🆕 未读消息指示器
+              _buildUnreadIndicator(state),
             ],
           ),
         );
@@ -422,11 +427,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 主标题行：会话名称 + 静音图标
+          // 主标题行：连接状态 + 会话名称 + 静音图标
           Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const ConnectionStatusIndicator(size: 14),
+              const SizedBox(width: 4),
               Hero(
                 tag: 'chat_title_${state.conversation.conversationId}',
                 child: Material(
@@ -489,23 +496,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             },
             child: Hero(
               tag: 'chat_avatar_${state.conversation.conversationId}',
-              child: CircleAvatar(
+              child: UserAvatar(
+                avatarUrl: state.conversation.avatar,
+                name: state.conversation.name ?? '未知联系人',
                 radius: 18.0,
-                backgroundColor: Colors.grey[300],
-                backgroundImage: state.conversation.avatar != null
-                    ? NetworkImage(state.conversation.avatar!)
-                    : null,
-                child: state.conversation.avatar == null
-                    ? Text(
-                        state.conversation.name?.isNotEmpty == true
-                            ? state.conversation.name![0].toUpperCase()
-                            : 'X',
-                        style: const TextStyle(
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
               ),
             ),
           ),
@@ -743,6 +737,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                             // 💢💢💢 新增搜索相关参数
                             isSearchResult: isSearchResult,
                             isCurrentSearchResult: isCurrentSearchResult,
+                            // 🔥 新增：长按菜单回调
+                            onReply: () => _onReplyMessage(message),
+                            onForward: () => _onForwardMessage(message),
+                            onCopy: () => _onCopyMessage(message),
+                            onRevoke: () => _onRevokeMessage(message),
+                            onDelete: () => _onDeleteMessage(message),
                             searchQuery: searchQuery,
                             displayStatus: displayStatus, // 💢💢💢 新增：预计算的显示状态
                           );
@@ -2127,6 +2127,91 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     // TODO 实现消息点击逻辑，如显示消息详情、复制等
   }
 
+  // 🔥 长按菜单回调方法
+
+  /// 回复消息
+  void _onReplyMessage(Message message) {
+    print("🔥 回复消息: ${message.messageId}");
+    // TODO: 实现回复功能
+  }
+
+  /// 转发消息
+  void _onForwardMessage(Message message) {
+    print("🔥 转发消息: ${message.messageId}");
+    // TODO: 实现转发功能
+  }
+
+  /// 复制消息
+  void _onCopyMessage(Message message) {
+    print("🔥 复制消息: ${message.text}");
+    if (message.text?.isNotEmpty == true) {
+      Clipboard.setData(ClipboardData(text: message.text!));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("已复制到剪贴板")),
+      );
+    }
+  }
+
+  /// 撤回消息
+  void _onRevokeMessage(Message message) {
+    print("🔥 撤回消息: ${message.messageId}");
+    // 显示确认对话框
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("撤回消息"),
+        content: const Text("确定要撤回这条消息吗？"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("取消"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // TODO: 实现撤回功能
+              // context.read<ChatCubit>().revokeMessage(message.messageId);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("撤回功能待实现")),
+              );
+            },
+            child: const Text("确定"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 删除消息
+  void _onDeleteMessage(Message message) {
+    print("🔥 删除消息: ${message.messageId}");
+    // 显示确认对话框
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("删除消息"),
+        content: const Text("确定要删除这条消息吗？"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("取消"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // TODO: 实现删除功能
+              // context.read<ChatCubit>().deleteMessage(message.messageId);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("删除功能待实现")),
+              );
+            },
+            child: const Text("确定"),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 获取最后在线时间文本
   String _getLastSeenText(ChatState state) {
     if (state.networkStatus == ChatState.kNetworkStatusConnected) {
@@ -2141,28 +2226,33 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 构建搜索模式的应用栏
   PreferredSizeWidget _buildSearchAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 1,
-      automaticallyImplyLeading: false, // 禁用自动添加的leading按钮
-      title: TextField(
-        controller: _searchController, // 💢💢💢 使用专用的搜索控制器
-        autofocus: true,
-        decoration: const InputDecoration(
-          hintText: '搜索消息...',
-          border: InputBorder.none,
-          hintStyle: TextStyle(color: Colors.grey),
-        ),
-        style: const TextStyle(color: Colors.black, fontSize: 16),
-        onChanged: (query) {
-          // 💢💢💢 实现搜索防抖（1秒）
-          _searchDebounceTimer?.cancel();
-          _searchDebounceTimer = Timer(
-            const Duration(milliseconds: 1000),
-            () {
-              context.read<ChatCubit>().performSearch(query);
-            },
-          );
-        },
+      title: Row(
+        children: [
+          const ConnectionStatusIndicator(size: 14),
+          const SizedBox(width: 4),
+          Expanded(
+            child: TextField(
+              controller: _searchController, // 💢💢💢 使用专用的搜索控制器
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '搜索消息...',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: Colors.grey),
+              ),
+              style: const TextStyle(color: Colors.black, fontSize: 16),
+              onChanged: (query) {
+                // 💢💢💢 实现搜索防抖（1秒）
+                _searchDebounceTimer?.cancel();
+                _searchDebounceTimer = Timer(
+                  const Duration(milliseconds: 1000),
+                  () {
+                    context.read<ChatCubit>().performSearch(query);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -2557,6 +2647,193 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           message.status == MessageStatus.read,
       messageStatus: message.status,
     );
+  }
+
+  /// 🆕 构建未读消息指示器
+  Widget _buildUnreadIndicator(ChatState state) {
+    // 在搜索模式下不显示未读指示器
+    if (state.isSearchMode) {
+      return const SizedBox.shrink();
+    }
+
+    // 计算未读消息信息
+    final unreadInfo = _calculateUnreadIndicatorInfo(state);
+
+    // 如果没有未读消息，不显示指示器
+    if (!unreadInfo.hasUnread) {
+      return const SizedBox.shrink();
+    }
+
+    // 获取输入框区域的高度估算
+    // 基础输入框高度：padding(16) + 内容(52) + padding(16) = 84
+    // 如果有表情面板或功能面板，还需要加上面板高度
+    double inputAreaHeight = 84;
+    if (_showMoreOptions || _showEmojiPanel) {
+      inputAreaHeight += 120; // 面板高度估算
+    }
+
+    return Positioned(
+      bottom: inputAreaHeight + 50, // 相对于输入框顶部向上16像素
+      right: 0,
+      child: UnreadIndicatorButton(
+        unreadCount: unreadInfo.unreadCount,
+        text: unreadInfo.indicatorText,
+        isVisible: true,
+        onTap: () => _scrollToFirstUnreadMessage(state),
+      ),
+    );
+  }
+
+  /// 🆕 计算未读指示器信息
+  _UnreadIndicatorInfo _calculateUnreadIndicatorInfo(ChatState state) {
+    final currentUserId = state.currentUser.userId;
+    final conversation = state.conversation;
+
+    // 获取未读数量
+    final unreadCount = conversation.unreadCount(currentUserId);
+    if (unreadCount <= 0) {
+      return const _UnreadIndicatorInfo(
+        hasUnread: false,
+        unreadCount: 0,
+        direction: _UnreadDirection.none,
+        indicatorText: '',
+      );
+    }
+
+    // 获取第一条未读消息的索引
+    final firstUnreadIndex =
+        conversation.getFirstUnreadMessageIndex(currentUserId);
+    if (firstUnreadIndex == null) {
+      return const _UnreadIndicatorInfo(
+        hasUnread: false,
+        unreadCount: 0,
+        direction: _UnreadDirection.none,
+        indicatorText: '',
+      );
+    }
+
+    // 判断未读消息相对于当前滚动位置的方向
+    final direction = _determineUnreadDirection(state, firstUnreadIndex);
+
+    // 生成指示器文本
+    final indicatorText = _generateUnreadIndicatorText(unreadCount, direction);
+
+    return _UnreadIndicatorInfo(
+      hasUnread: true,
+      unreadCount: unreadCount,
+      direction: direction,
+      indicatorText: indicatorText,
+      firstUnreadIndex: firstUnreadIndex,
+    );
+  }
+
+  /// 🆕 判断未读消息相对于当前滚动位置的方向
+  _UnreadDirection _determineUnreadDirection(
+      ChatState state, int firstUnreadIndex) {
+    // 如果没有当前滚动位置信息，认为未读消息在上方（历史消息方向）
+    if (state.currentScrollPosition.messageId == null) {
+      return _UnreadDirection.up;
+    }
+
+    // 获取当前滚动位置的消息索引
+    final currentScrollIndex =
+        state.currentScrollPosition.getListIndex(state.messages);
+    if (currentScrollIndex == -1) {
+      return _UnreadDirection.up;
+    }
+
+    final currentMessage = state.messages[currentScrollIndex];
+    final currentMessageIndex = currentMessage.messageIndex;
+
+    // 比较消息索引来判断方向
+    if (firstUnreadIndex > currentMessageIndex) {
+      // 第一条未读消息的索引更大，说明在更新的位置（下方）
+      return _UnreadDirection.down;
+    } else {
+      // 第一条未读消息的索引更小，说明在更老的位置（上方）
+      return _UnreadDirection.up;
+    }
+  }
+
+  /// 🆕 生成未读指示器文本
+  String _generateUnreadIndicatorText(
+      int unreadCount, _UnreadDirection direction) {
+    final countText = unreadCount.toString();
+
+    switch (direction) {
+      case _UnreadDirection.up:
+        return '$countText ↑';
+      case _UnreadDirection.down:
+        return '$countText ↓';
+      case _UnreadDirection.none:
+        return countText;
+    }
+  }
+
+  /// 🆕 滚动到第一条未读消息
+  Future<void> _scrollToFirstUnreadMessage(ChatState state) async {
+    try {
+      final currentUserId = state.currentUser.userId;
+      final conversation = state.conversation;
+
+      // 获取第一条未读消息的索引
+      final firstUnreadIndex =
+          conversation.getFirstUnreadMessageIndex(currentUserId);
+      if (firstUnreadIndex == null) {
+        _logger.w('没有找到第一条未读消息的索引');
+        return;
+      }
+
+      // 在当前消息列表中查找对应的消息
+      final firstUnreadMessage = state.messages
+          .where((msg) => msg.messageIndex == firstUnreadIndex)
+          .firstOrNull;
+
+      if (firstUnreadMessage != null) {
+        // 如果消息在当前列表中，直接滚动到该消息
+        await _scrollToMessage(
+          firstUnreadMessage.messageId,
+          alignment: 0.5, // 在屏幕中央显示
+          showHighlight: true,
+        );
+
+        _logger.i('滚动到第一条未读消息成功', extra: {
+          'messageId': firstUnreadMessage.messageId,
+          'messageIndex': firstUnreadIndex,
+        });
+      } else {
+        _logger.w('第一条未读消息不在当前列表中', extra: {
+          'firstUnreadIndex': firstUnreadIndex,
+          'messageRange': state.messages.isEmpty
+              ? 'empty'
+              : '${state.messages.last.messageIndex}-${state.messages.first.messageIndex}',
+        });
+
+        // 显示提示
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('未读消息不在当前列表中，正在加载...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
+      // 触觉反馈
+      HapticFeedback.lightImpact();
+    } catch (error) {
+      _logger.e('滚动到第一条未读消息失败', error: error);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('跳转失败，请重试'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -3248,4 +3525,28 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
           : _captionController.text.trim(),
     });
   }
+}
+
+/// 🆕 未读指示器信息
+class _UnreadIndicatorInfo {
+  final bool hasUnread;
+  final int unreadCount;
+  final _UnreadDirection direction;
+  final String indicatorText;
+  final int? firstUnreadIndex;
+
+  const _UnreadIndicatorInfo({
+    required this.hasUnread,
+    required this.unreadCount,
+    required this.direction,
+    required this.indicatorText,
+    this.firstUnreadIndex,
+  });
+}
+
+/// 🆕 未读消息方向
+enum _UnreadDirection {
+  up, // 未读消息在当前位置上方（历史消息方向）
+  down, // 未读消息在当前位置下方（新消息方向）
+  none, // 无方向或无法确定
 }

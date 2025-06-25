@@ -102,6 +102,9 @@ class DatabaseInitializer {
       // 创建索引
       await _createIndexes();
 
+      // 💢💢 重要：将当前用户信息保存到数据库中
+      await _saveCurrentUserToDatabase(currentUser);
+
       // 💢💢💢 已移除：数据库迁移（开发阶段直接修改代码）
       // await _runMigrations(currentUser.userId);
     } catch (error) {
@@ -110,6 +113,28 @@ class DatabaseInitializer {
       _currentUser = null;
       _logger.e('数据库初始化失败', error: error, stackTrace: StackTrace.current);
       rethrow;
+    }
+  }
+
+  /// 保存当前用户信息到数据库
+  ///
+  /// 确保HomeLage传递的currentUser信息能够被ProfileRepository等其他组件读取到
+  static Future<void> _saveCurrentUserToDatabase(
+      CurrentUser currentUser) async {
+    try {
+      _logger.i('保存当前用户信息到数据库', extra: {'userId': currentUser.userId});
+
+      await _isar!.writeTxn(() async {
+        // 清除旧的用户数据
+        await _isar!.currentUsers.clear();
+        // 保存新的用户数据
+        await _isar!.currentUsers.put(currentUser);
+      });
+
+      _logger.i('当前用户信息已保存到数据库');
+    } catch (error) {
+      _logger.e('保存当前用户信息到数据库失败', error: error, stackTrace: StackTrace.current);
+      // 不抛出异常，因为这不影响数据库的正常使用
     }
   }
 

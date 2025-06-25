@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/user_service.dart';
+import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -105,19 +107,26 @@ class ProfileRepository {
         throw Exception('用户未登录');
       }
 
-      // 创建更新后的用户对象
-      final updatedUser = CurrentUser()
-        ..userId = currentUser.userId
-        ..token = currentUser.token
-        ..name = nickname ?? currentUser.name
-        ..avatar = avatar ?? currentUser.avatar
-        ..phone = currentUser.phone
-        ..email = currentUser.email
-        ..tokenExpireTime = currentUser.tokenExpireTime
-        ..lastLoginTime = currentUser.lastLoginTime
-        ..status = status ?? currentUser.status;
+      // 使用新的UserService来更新用户信息
+      final UserService userService = UserService.instance;
 
-      await saveUser(updatedUser);
+      final response = await userService.updateCurrentUser(
+        name: nickname,
+        avatar: avatar,
+        status: status,
+      );
+
+      if (response == null || !response.success) {
+        throw Exception('更新用户信息失败: ${response?.message ?? '未知错误'}');
+      }
+
+      // 服务器更新成功后，更新本地数据库
+      if (response.hasUser()) {
+        final updatedUser = userService.currentUserFromProto(response.user);
+        await saveUser(updatedUser);
+        _logger.i('本地用户信息已同步更新', extra: {'userId': updatedUser.userId});
+      }
+
       _logger.i('用户信息更新成功', extra: {'userId': currentUser.userId});
     } catch (e) {
       _logger.e('更新用户信息失败', error: e);
@@ -143,7 +152,9 @@ class ProfileRepository {
   ///   - url: 新的服务器URL地址
   Future<void> updateServerUrl(String url) async {
     try {
-      AppConfig().serverUrl = url;
+      AppConfig().setServerUrl(url);
+      // 保存到安全存储
+      await SecureStorageService.instance.saveServerUrl(url);
       _logger.i('服务器URL已更新', extra: {'serverUrl': url});
     } catch (e) {
       _logger.e('更新服务器URL失败', error: e);

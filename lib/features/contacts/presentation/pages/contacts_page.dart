@@ -6,10 +6,14 @@ import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
 import 'package:cc/features/contacts/presentation/widgets/contact_list_widget.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
-import 'package:cc/features/contacts/presentation/pages/contact_detail_page.dart';
-import 'package:cc/features/home/presentation/widgets/network_status_indicator.dart';
-import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
-import 'package:cc/features/home/presentation/cubit/home_state.dart';
+import 'package:cc/features/contacts/presentation/pages/add_contact_page.dart';
+import 'package:cc/features/chat/presentation/pages/chat_page.dart';
+import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/widgets/connection_status_indicator.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -26,12 +30,7 @@ class _ContactsPageState extends State<ContactsPage>
   @override
   void initState() {
     super.initState();
-    // 确保ContactCubit已加载联系人数据
-    _ensureContactsLoaded();
-  }
-
-  /// 确保联系人数据已加载
-  void _ensureContactsLoaded() {
+    _logger.d('ContactsPage initState');
     final contactCubit = context.read<ContactCubit>();
     if (contactCubit.state.contacts.isEmpty && !contactCubit.state.isLoading) {
       _logger.i('加载联系人数据');
@@ -39,27 +38,95 @@ class _ContactsPageState extends State<ContactsPage>
     }
   }
 
-  /// 同步联系人
-  Future<void> _syncContacts() async {
-    final contactCubit = context.read<ContactCubit>();
-    await contactCubit.syncContacts();
-  }
+  /// 处理联系人点击 - 进入聊天页面
+  Future<void> _handleContactTap(User contact) async {
+    try {
+      _logger.i('点击联系人，创建或查找会话', extra: {'contactName': contact.name});
 
-  /// 处理联系人点击 - 进入联系人详情页
-  void _handleContactTap(User contact) {
-    _logger.i('打开联系人详情页：${contact.name}');
-    final contactCubit = context.read<ContactCubit>();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BlocProvider.value(
-          value: contactCubit,
-          child: ContactDetailPage(
-            contact: contact,
-          ),
+      // 获取必要的依赖
+      final chatsRepository = context.read<ChatsRepository>();
+      final chatRepository = context.read<ChatRepository>();
+      final chatRepositorySend = context.read<ChatRepositorySend>();
+      final currentUser = context.read<CurrentUser>();
+
+      // 显示加载状态
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
         ),
-      ),
-    );
+      );
+
+      try {
+        // 获取或创建私聊会话
+        final conversation = await chatsRepository
+            .getOrCreatePrivateConversation(contact.userId);
+
+        // 隐藏加载对话框
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+
+        // 先清理过期快照
+        await chatsRepository.cleanupExpiredSnapshots();
+
+        // 获取状态快照（如果存在）
+        final snapshot =
+            await chatsRepository.getStateSnapshot(conversation.conversationId);
+
+        if (mounted) {
+          // 进入聊天页面
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MultiRepositoryProvider(
+                providers: [
+                  RepositoryProvider<ChatRepository>.value(
+                      value: chatRepository),
+                  RepositoryProvider<ChatsRepository>.value(
+                      value: chatsRepository),
+                  RepositoryProvider<ChatRepositorySend>.value(
+                      value: chatRepositorySend),
+                ],
+                child: BlocProvider<ChatCubit>(
+                  create: (context) => ChatCubit(
+                    chatRepository: context.read<ChatRepository>(),
+                    chatRepositorySend: context.read<ChatRepositorySend>(),
+                    chatsRepository: context.read<ChatsRepository>(),
+                    currentUser: currentUser,
+                    initialSnapshot: snapshot, // 传入预获取的快照
+                    initialConversation: conversation, // 传入初始会话信息
+                  ),
+                  child: ChatPage(
+                    conversationId: conversation.conversationId,
+                    initialConversation: conversation,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      } catch (error) {
+        // 隐藏加载对话框
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+
+        _logger.e('创建或获取会话失败', error: error);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('无法打开与${contact.name}的聊天: ${error.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      _logger.e('处理联系人点击失败', error: error);
+    }
   }
 
   @override
@@ -112,41 +179,48 @@ class _ContactsPageState extends State<ContactsPage>
       builder: (context, state) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('联系人'),
+            title: const Row(
+              children: [
+                ConnectionStatusIndicator(size: 14),
+                SizedBox(width: 4),
+                Text('联系人'),
+              ],
+            ),
             actions: [
-              // 同步按钮
-              IconButton(
-                icon: Icon(
-                  Icons.sync,
-                  color: state.syncStatus == ContactsSyncStatus.syncing
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                onPressed: state.syncStatus == ContactsSyncStatus.syncing
-                    ? null
-                    : _syncContacts,
-              ),
               // 添加联系人按钮
               IconButton(
                 icon: const Icon(Icons.person_add),
                 onPressed: () {
-                  // TODO 实现添加联系人功能
-                },
-              ),
-            ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1.0),
-              child: BlocBuilder<HomeCubit, HomeState>(
-                builder: (context, homeState) {
-                  return NetworkStatusIndicator(
-                    networkStatus: homeState.networkStatus,
-                    onRetry: () {
-                      context.read<HomeCubit>().reconnect();
-                    },
+                  _logger.i('打开添加联系人页面');
+
+                  // 获取必要的Repository依赖
+                  final chatsRepository = context.read<ChatsRepository>();
+                  final chatRepository = context.read<ChatRepository>();
+                  final chatRepositorySend = context.read<ChatRepositorySend>();
+                  final contactCubit = context.read<ContactCubit>();
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MultiRepositoryProvider(
+                        providers: [
+                          RepositoryProvider<ChatsRepository>.value(
+                              value: chatsRepository),
+                          RepositoryProvider<ChatRepository>.value(
+                              value: chatRepository),
+                          RepositoryProvider<ChatRepositorySend>.value(
+                              value: chatRepositorySend),
+                        ],
+                        child: BlocProvider<ContactCubit>.value(
+                          value: contactCubit,
+                          child: const AddContactPage(),
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),
-            ),
+            ],
           ),
           body: Column(
             children: [
@@ -164,14 +238,6 @@ class _ContactsPageState extends State<ContactsPage>
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton(
-            backgroundColor: Colors.green,
-            child: const Icon(Icons.person_add),
-            onPressed: () {
-              _logger.i('打开添加联系人页面');
-              // TODO: 实现添加联系人功能
-            },
-          ),
         );
       },
     );
@@ -182,14 +248,16 @@ class _ContactsPageState extends State<ContactsPage>
     return BlocBuilder<ContactCubit, ContactState>(
       buildWhen: (previous, current) =>
           previous.syncStatus != current.syncStatus ||
-          previous.errorMessage != current.errorMessage,
+          previous.errorMessage != current.errorMessage ||
+          previous.contacts.length != current.contacts.length,
       builder: (context, state) {
         if (state.syncStatus == ContactsSyncStatus.syncing) {
           return const LinearProgressIndicator(
             backgroundColor: Colors.white,
             valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
           );
-        } else if (state.errorMessage != null) {
+        } else if (state.errorMessage != null && state.contacts.isEmpty) {
+          // 只在没有本地数据时显示错误
           return Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -198,17 +266,15 @@ class _ContactsPageState extends State<ContactsPage>
               children: [
                 const Icon(Icons.error_outline, color: Colors.red, size: 18),
                 const SizedBox(width: 8),
-                Expanded(
+                const Expanded(
                   child: Text(
-                    state.errorMessage ?? '同步联系人失败',
-                    style: const TextStyle(color: Colors.red),
+                    '无法连接服务器',
+                    style: TextStyle(color: Colors.red),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.red, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: _syncContacts,
+                TextButton(
+                  onPressed: () => context.read<ContactCubit>().syncContacts(),
+                  child: const Text('重试', style: TextStyle(color: Colors.red)),
                 ),
               ],
             ),

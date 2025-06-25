@@ -8,6 +8,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
+import 'package:cc/core/services/proto_socket_service.dart';
 
 /// 联系人相关的业务逻辑Cubit
 class ContactCubit extends Cubit<ContactState> {
@@ -18,6 +19,10 @@ class ContactCubit extends Cubit<ContactState> {
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
 
+  // 定期同步定时器
+  Timer? _periodicSyncTimer;
+  static const Duration _syncInterval = Duration(minutes: 30); // 30分钟同步一次
+
   /// 获取联系人仓库实例
   ContactsRepository get repository => _contactsRepository;
 
@@ -27,6 +32,7 @@ class ContactCubit extends Cubit<ContactState> {
         super(ContactState.initial()) {
     _setupLocalDataSubscriptions();
     _registerProtoEventHandlers();
+    _startPeriodicSync();
   }
 
   /// 设置事件订阅
@@ -93,6 +99,17 @@ class ContactCubit extends Cubit<ContactState> {
     try {
       // 使用链式调用方式添加订阅
       _subscriptions.addAll({
+        // 🔄 监听连接状态变化，重连成功后自动同步联系人
+        'reconnection':
+            communicationService.connectionStateStream.listen((status) {
+          if (status == SocketConnectionStatus.connected) {
+            _logger.i('网络重连成功，自动同步联系人');
+            Future.delayed(const Duration(seconds: 2), () {
+              syncContacts();
+            });
+          }
+        }),
+
         // 订阅用户在线状态事件
         'userOnline': communicationService
             .onProto<UserStatusUpdate>('user:online')
@@ -152,7 +169,16 @@ class ContactCubit extends Cubit<ContactState> {
       _logger.i('联系人加载成功', extra: {'count': contacts.length});
     } catch (e) {
       _logger.e('加载联系人失败', error: e);
-      emit(state.toErrorState('加载联系人失败: ${e.toString()}'));
+      // 如果是本地数据库访问失败，尝试返回空列表而非错误状态
+      if (e.toString().contains('database') || e.toString().contains('isar')) {
+        _logger.w('本地数据库访问失败，返回空联系人列表');
+        emit(state.toLoadedState(
+          contacts: [],
+          lastSyncTime: DateTime.now(),
+        ));
+      } else {
+        emit(state.toErrorState('本地数据访问失败: ${e.toString()}'));
+      }
     }
   }
 
@@ -284,6 +310,21 @@ class ContactCubit extends Cubit<ContactState> {
       subscription.cancel();
     }
     _subscriptions.clear();
+
+    // 取消定期同步定时器
+    _periodicSyncTimer?.cancel();
+
     return super.close();
+  }
+
+  /// 启动定期同步
+  void _startPeriodicSync() {
+    _logger.i('启动联系人定期同步', extra: {'interval': '${_syncInterval.inMinutes}分钟'});
+    _periodicSyncTimer = Timer.periodic(_syncInterval, (timer) {
+      if (!isClosed) {
+        _logger.d('定期同步联系人');
+        syncContacts();
+      }
+    });
   }
 }

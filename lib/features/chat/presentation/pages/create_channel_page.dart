@@ -128,9 +128,9 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
       return;
     }
 
-    if (channelName.length > 8) {
+    if (channelName.length > 24) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('频道名称不能超过8个字符')),
+        const SnackBar(content: Text('频道名称不能超过24个字符')),
       );
       return;
     }
@@ -409,7 +409,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),
-                  maxLength: 8, // 限制频道名称长度为8个字符
+                  maxLength: 24, // 限制频道名称长度为24个字符
                   onChanged: (value) {
                     setState(() {}); // 更新清除按钮的显示状态
                   },

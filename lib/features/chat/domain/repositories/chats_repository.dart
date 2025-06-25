@@ -1,5 +1,6 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
@@ -109,6 +110,38 @@ abstract class ChatsRepository {
   /// 返回第一条未读消息的ID，如果没有未读消息则返回null
   Future<String?> getFirstUnreadMessageId(
       String conversationId, String currentUserId);
+
+  /// 💢💢💢 新增：获取会话中的媒体消息（图片、视频）
+  /// [conversationId] - 会话ID
+  /// [limit] - 限制数量，默认50
+  /// [offset] - 偏移量，默认0
+  /// 返回媒体消息列表
+  Future<List<Message>> getMediaMessages(String conversationId,
+      {int limit = 50, int offset = 0});
+
+  /// 💢💢💢 新增：获取会话中的文件消息
+  /// [conversationId] - 会话ID
+  /// [limit] - 限制数量，默认50
+  /// [offset] - 偏移量，默认0
+  /// 返回文件消息列表
+  Future<List<Message>> getFileMessages(String conversationId,
+      {int limit = 50, int offset = 0});
+
+  /// 💢💢💢 新增：获取会话中的语音消息
+  /// [conversationId] - 会话ID
+  /// [limit] - 限制数量，默认50
+  /// [offset] - 偏移量，默认0
+  /// 返回语音消息列表
+  Future<List<Message>> getVoiceMessages(String conversationId,
+      {int limit = 50, int offset = 0});
+
+  /// 💢💢💢 新增：获取会话中包含链接的消息
+  /// [conversationId] - 会话ID
+  /// [limit] - 限制数量，默认50
+  /// [offset] - 偏移量，默认0
+  /// 返回包含链接的消息列表
+  Future<List<Message>> getLinkMessages(String conversationId,
+      {int limit = 50, int offset = 0});
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   状态快照管理   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 

@@ -16,6 +16,7 @@ import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -34,6 +35,7 @@ class _HomePageState extends State<HomePage>
   ChatRepository? _chatRepository;
   ChatsRepository? _chatsRepository;
   ChatRepositorySend? _chatRepositorySend;
+  CurrentUser? _currentUser;
   Timer? _cleanupTimer;
 
   final _secureStorage = SecureStorageService.instance;
@@ -43,11 +45,6 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      setState(() {
-        _currentIndex = _tabController.index;
-      });
-    });
 
     _init();
   }
@@ -57,10 +54,8 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _initCubit() async {
-    // 避免重复初始化
     if (_homeCubit != null) return;
 
-    // 直接创建所需服务
     final currentUser = await _secureStorage.getFullUserInfo();
 
     if (currentUser == null) {
@@ -73,6 +68,7 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
+    _currentUser = currentUser;
     _homeCubit = HomeCubit(currentUser: currentUser);
 
     // 初始化用户会话
@@ -107,6 +103,12 @@ class _HomePageState extends State<HomePage>
     _contactCubit = ContactCubit(
       contactsRepository: ContactsRepositoryImpl(currentUser: currentUser),
     );
+
+    // 🔄 登录成功后自动同步联系人
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _logger.i('登录成功，开始自动同步联系人');
+      _contactCubit?.syncContacts();
+    });
 
     if (mounted) {
       setState(() {});
@@ -155,6 +157,9 @@ class _HomePageState extends State<HomePage>
         RepositoryProvider<ChatRepositorySend>.value(
             value: _chatRepositorySend!),
 
+        // CurrentUser provider - 提供当前用户信息
+        RepositoryProvider<CurrentUser>.value(value: _currentUser!),
+
         // BLoC providers - 状态管理
         BlocProvider<HomeCubit>.value(value: _homeCubit!),
         BlocProvider<ChatsCubit>.value(value: _chatsCubit!),
@@ -181,10 +186,13 @@ class _HomePageState extends State<HomePage>
           unselectedItemColor: Colors.grey,
           type: BottomNavigationBarType.fixed,
           onTap: (index) {
-            setState(() {
-              _currentIndex = index;
+            // 只有真正切换页面时才触发setState，避免重复build
+            if (_currentIndex != index) {
+              setState(() {
+                _currentIndex = index;
+              });
               _tabController.animateTo(index);
-            });
+            }
           },
           items: const [
             BottomNavigationBarItem(

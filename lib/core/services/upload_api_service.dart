@@ -169,6 +169,20 @@ class UploadApiService {
     );
   }
 
+  /// 头像上传
+  Future<UploadApiResult> uploadAvatar(
+    File avatarFile, {
+    Function(int)? onProgress,
+  }) async {
+    return _uploadFile(
+      file: avatarFile,
+      type: 'avatar',
+      conversationId: null, // 头像上传不需要conversationId
+      metadata: null,
+      onProgress: onProgress,
+    );
+  }
+
   /// 通用文件上传方法
   Future<UploadApiResult> _uploadFile({
     required File file,
@@ -261,6 +275,12 @@ class UploadApiService {
         // 任何文件都可以上传，完全交由服务端处理
         if (fileSize > 500 * 1024 * 1024) {
           throw const UploadException('文件大小不能超过500MB');
+        }
+        break;
+
+      case 'avatar':
+        if (fileSize > 10 * 1024 * 1024) {
+          throw const UploadException('头像大小不能超过10MB');
         }
         break;
     }

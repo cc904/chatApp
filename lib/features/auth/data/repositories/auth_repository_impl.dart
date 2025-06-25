@@ -72,37 +72,58 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// 保存用户凭证到数据库和安全存储
+  /// 从Proto保存用户凭证
+  ///
+  /// 将Proto格式的用户信息转换并保存到安全存储和数据库
   ///
   /// 参数:
-  /// - userProto: 用户信息Proto对象
-  ///
-  /// 返回:
-  /// - 保存成功返回true，失败返回false
-  Future<bool> saveUserCredentialsFromProto(CurrentUserProto userProto) async {
+  /// - userProto: Proto格式的用户信息
+  Future<void> saveUserCredentialsFromProto(CurrentUserProto userProto) async {
     try {
+      _logger.i('开始保存用户凭证从Proto', extra: {'userId': userProto.userId});
+
       // 转换为CurrentUser模型
       final currentUser = CurrentUser.fromProto(userProto);
 
-      // 1. 保存到数据库
-      if (DatabaseInitializer.isInitialized) {
-        await DatabaseInitializer.isar.writeTxn(() async {
-          // 清除旧数据
-          await DatabaseInitializer.isar.currentUsers.clear();
-          // 保存新用户数据
-          await DatabaseInitializer.isar.currentUsers.put(currentUser);
-        });
-        _logger.d('用户信息保存到数据库成功', extra: {'userId': currentUser.userId});
+      // 💡 确保数据库已初始化（以当前用户ID作为数据库名称）
+      try {
+        await DatabaseInitializer.init(currentUser: currentUser);
+      } catch (e) {
+        _logger.w('DatabaseInitializer.init 失败，将跳过数据库保存',
+            extra: {'error': e.toString()});
       }
 
-      // 2. 保存到安全存储 - 现在使用CurrentUser
-      await _secureStorage.saveUserCredentials(currentUser);
+      // 🔐 SecurityStorage：只存储敏感的认证信息
+      await _secureStorage.write(
+          SecureStorageService.keyUserId, currentUser.userId);
+      await _secureStorage.write(
+          SecureStorageService.keyToken, currentUser.token);
 
-      _logger.i('用户凭证保存成功', extra: {'userId': currentUser.userId});
-      return true;
-    } catch (error) {
-      _logger.e('保存用户凭证失败', error: error, stackTrace: StackTrace.current);
-      return false;
+      if (currentUser.tokenExpireTime != null) {
+        await _secureStorage.write(
+          SecureStorageService.keyTokenExpireTime,
+          currentUser.tokenExpireTime!.millisecondsSinceEpoch.toString(),
+        );
+      }
+
+      // 💾 数据库：存储用户基本信息用于快速UI显示
+      if (DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.isar.writeTxn(() async {
+          await DatabaseInitializer.isar.currentUsers.clear();
+          await DatabaseInitializer.isar.currentUsers.put(currentUser);
+        });
+        _logger.i('用户信息已保存到数据库');
+      }
+
+      _logger.i('用户凭证保存成功', extra: {
+        'userId': currentUser.userId,
+        'hasToken': currentUser.token.isNotEmpty,
+        'hasExpireTime': currentUser.tokenExpireTime != null,
+        'savedToDatabase': DatabaseInitializer.isInitialized,
+      });
+    } catch (e) {
+      _logger.e('保存用户凭证失败', error: e, stackTrace: StackTrace.current);
+      rethrow;
     }
   }
 
@@ -275,6 +296,15 @@ class AuthRepositoryImpl implements AuthRepository {
       if (!tokenResponse.success) {
         _logger.w('令牌验证失败，需要重新登录', extra: {'message': tokenResponse.message});
         return tokenResponse;
+      }
+
+      // ⚠️ 确保将服务器返回的完整用户信息保存到本地（数据库 + SecureStorage）
+      if (tokenResponse.currentUser != null) {
+        try {
+          await saveUserCredentialsFromProto(tokenResponse.currentUser!);
+        } catch (e) {
+          _logger.w('保存用户凭证失败（非致命）', extra: {'error': e.toString()});
+        }
       }
 
       // 创建成功响应，包含用户信息
@@ -517,12 +547,91 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _ensureInitialized();
 
-      // TODO 实现令牌刷新API
-      // 目前直接返回当前令牌
-      return _currentToken;
+      // 获取当前token
+      final currentToken = await _secureStorage.getToken();
+      if (currentToken == null) {
+        _logger.w('没有当前Token，无法刷新');
+        return null;
+      }
+
+      _logger.i('开始刷新Token...');
+
+      // 通过验证token接口尝试获取新token
+      final verifyResponse = await _authApiClient.verifyToken(currentToken);
+
+      if (!verifyResponse.success || verifyResponse.currentUser == null) {
+        _logger
+            .w('Token刷新失败，验证响应失败', extra: {'message': verifyResponse.message});
+        return null;
+      }
+
+      final currentUser = verifyResponse.currentUser!;
+      String? newToken;
+      DateTime? newExpireTime;
+
+      // 检查是否返回了新token
+      if (currentUser.hasToken() && currentUser.token != currentToken) {
+        newToken = currentUser.token;
+        _logger.i('获取到新Token');
+      }
+
+      // 检查是否返回了新的过期时间
+      if (currentUser.hasTokenExpireTime()) {
+        newExpireTime = DateTime.fromMillisecondsSinceEpoch(
+            currentUser.tokenExpireTime.toInt());
+        _logger.i('获取到新的过期时间: ${newExpireTime.toIso8601String()}');
+      }
+
+      // 如果有更新，保存新的token信息
+      if (newToken != null || newExpireTime != null) {
+        await _updateStoredToken(newToken ?? currentToken, newExpireTime);
+
+        // 更新内存中的token
+        _currentToken = newToken ?? currentToken;
+
+        _logger.i('Token刷新成功');
+        return newToken ?? currentToken;
+      } else {
+        _logger.d('服务器没有返回新Token，当前Token仍然有效');
+        return currentToken;
+      }
     } catch (error) {
       _logger.e('刷新令牌失败', error: error, stackTrace: StackTrace.current);
       return null;
+    }
+  }
+
+  /// 更新存储中的Token信息
+  Future<void> _updateStoredToken(String token, DateTime? expireTime) async {
+    try {
+      // 获取当前完整用户信息
+      final currentUser = await _secureStorage.getFullUserInfo();
+      if (currentUser == null) {
+        _logger.w('无法获取当前用户信息，跳过Token更新');
+        return;
+      }
+
+      // 更新token和过期时间
+      currentUser.token = token;
+      if (expireTime != null) {
+        currentUser.tokenExpireTime = expireTime;
+      }
+
+      // 保存到安全存储
+      await _secureStorage.saveUserCredentials(currentUser);
+
+      // 更新数据库中的用户信息
+      if (DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.isar.writeTxn(() async {
+          await DatabaseInitializer.isar.currentUsers.clear();
+          await DatabaseInitializer.isar.currentUsers.put(currentUser);
+        });
+      }
+
+      _logger.i('Token信息已更新到存储');
+    } catch (error) {
+      _logger.e('更新Token信息失败', error: error, stackTrace: StackTrace.current);
+      rethrow;
     }
   }
 

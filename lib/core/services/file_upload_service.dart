@@ -140,11 +140,11 @@ class FileUploadService {
         // 同时保存到本地用于缓存
         final localResult = await _saveFileLocally(voiceFile, 'voice');
 
-        return UploadResult(
+    return UploadResult(
           localPath: localResult?.localPath ?? voiceFile.path,
           remoteUrl: apiResult.url!,
           fileId: apiResult.fileId,
-          duration: duration,
+      duration: duration,
           metadata: apiResult.metadata != null
               ? {
                   'originalName': apiResult.metadata!.originalName,
@@ -401,15 +401,15 @@ class FileUploadService {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            primaryColor.withAlpha(204), // 0.8 * 255 = 204
-            secondaryColor,
-            tertiaryColor,
+        primaryColor.withAlpha(204), // 0.8 * 255 = 204
+        secondaryColor,
+        tertiaryColor,
           ],
           stops: const [
-            0.0,
-            0.5,
-            1.0
-          ]);
+        0.0,
+        0.5,
+        1.0
+      ]);
 
       // 获取视频时长
       int videoDurationInSeconds = 0;

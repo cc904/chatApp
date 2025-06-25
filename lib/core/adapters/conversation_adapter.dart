@@ -132,6 +132,7 @@ class ConversationAdapter {
       ..type = convType
       ..name = protoConv.hasName() ? protoConv.name : null
       ..avatar = protoConv.hasAvatar() ? protoConv.avatar : null
+      ..description = protoConv.hasDescription() ? protoConv.description : null
       ..lastMessagePreview = protoConv.hasLastMessagePreview()
           ? protoConv.lastMessagePreview
           : null
@@ -210,6 +211,7 @@ class ConversationAdapter {
       type: protoType,
       name: conversation.name,
       avatar: conversation.avatar,
+      description: conversation.description,
       lastMessagePreview: conversation.lastMessagePreview,
       lastMessageTime: conversation.lastMessageTime != null
           ? Int64(conversation.lastMessageTime!.millisecondsSinceEpoch)

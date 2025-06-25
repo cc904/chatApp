@@ -34,11 +34,9 @@ class UnreadIndicatorButton extends StatefulWidget {
 }
 
 class _UnreadIndicatorButtonState extends State<UnreadIndicatorButton>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _slideController;
-  late AnimationController _pulseController;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -50,12 +48,6 @@ class _UnreadIndicatorButtonState extends State<UnreadIndicatorButton>
       vsync: this,
     );
 
-    // 脉冲动画控制器
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-
     // 滑入动画
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
@@ -64,20 +56,6 @@ class _UnreadIndicatorButtonState extends State<UnreadIndicatorButton>
       parent: _slideController,
       curve: Curves.easeOutBack,
     ));
-
-    // 脉冲动画
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-
-    // 启动脉冲动画循环
-    if (widget.showAnimation) {
-      _pulseController.repeat(reverse: true);
-    }
   }
 
   @override
@@ -92,41 +70,12 @@ class _UnreadIndicatorButtonState extends State<UnreadIndicatorButton>
         _slideController.reverse();
       }
     }
-
-    // 处理动画状态变化
-    if (widget.showAnimation != oldWidget.showAnimation) {
-      if (widget.showAnimation) {
-        _pulseController.repeat(reverse: true);
-      } else {
-        _pulseController.stop();
-        _pulseController.reset();
-      }
-    }
-
-    // 处理未读数量变化
-    if (widget.unreadCount != oldWidget.unreadCount && widget.unreadCount > 0) {
-      // 新的未读消息，触发一次强调动画
-      _triggerEmphasisAnimation();
-    }
   }
 
   @override
   void dispose() {
     _slideController.dispose();
-    _pulseController.dispose();
     super.dispose();
-  }
-
-  void _triggerEmphasisAnimation() {
-    _pulseController.stop();
-    _pulseController.reset();
-    _pulseController.forward().then((_) {
-      _pulseController.reverse().then((_) {
-        if (widget.showAnimation && mounted) {
-          _pulseController.repeat(reverse: true);
-        }
-      });
-    });
   }
 
   @override
@@ -139,105 +88,108 @@ class _UnreadIndicatorButtonState extends State<UnreadIndicatorButton>
       position: _slideAnimation,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16, right: 16),
-        child: AnimatedBuilder(
-          animation: _pulseAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _pulseAnimation.value,
-              child: _buildButton(),
-            );
-          },
-        ),
+        child: _buildButton(),
       ),
     );
   }
 
   Widget _buildButton() {
-    return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(24),
-      color: Colors.blue,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          widget.onTap?.call();
-        },
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
-              colors: [
-                Colors.blue.shade400,
-                Colors.blue.shade600,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 未读数量徽章
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _formatUnreadCount(widget.unreadCount),
-                  style: const TextStyle(
+    return SizedBox(
+      width: 60,
+      height: 60,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // 圆形底部，图标居中
+          Positioned(
+            bottom: 0,
+            left: 5,
+            right: 5,
+            child: Material(
+              elevation: 2,
+              borderRadius: BorderRadius.circular(25),
+              color: Colors.white,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  widget.onTap?.call();
+                },
+                borderRadius: BorderRadius.circular(25),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      _getDirectionIcon(),
+                      color: Colors.grey.shade600,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
-
-              const SizedBox(width: 8),
-
-              // 文本
-              Text(
-                widget.text ?? _getDefaultText(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+            ),
+          ),
+          // 数字徽章，蓝底上浮，水平居中对齐
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 22,
+                  minHeight: 22,
+                ),
+                child: Text(
+                  widget.unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-
-              const SizedBox(width: 4),
-
-              // 箭头图标
-              const Icon(
-                Icons.keyboard_arrow_up,
-                color: Colors.white,
-                size: 20,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  String _formatUnreadCount(int count) {
-    if (count > 99) {
-      return '99+';
+  IconData _getDirectionIcon() {
+    if (widget.text != null) {
+      if (widget.text!.contains('↑')) {
+        return Icons.expand_less;
+      } else if (widget.text!.contains('↓')) {
+        return Icons.expand_more;
+      }
     }
-    return count.toString();
-  }
-
-  String _getDefaultText() {
-    if (widget.unreadCount == 1) {
-      return '1条未读消息';
-    } else if (widget.unreadCount <= 99) {
-      return '${widget.unreadCount}条未读消息';
-    } else {
-      return '99+条未读消息';
-    }
+    return Icons.expand_more; // 默认向下
   }
 }
 

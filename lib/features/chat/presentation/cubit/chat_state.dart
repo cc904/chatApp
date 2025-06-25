@@ -188,6 +188,31 @@ class ChatState extends Equatable {
   /// 总消息数量
   final int totalMessageCount;
 
+  /// 💢💢💢 新增：附件相关字段
+  /// 媒体消息列表（图片、视频）
+  final List<Message> mediaMessages;
+
+  /// 文件消息列表
+  final List<Message> fileMessages;
+
+  /// 语音消息列表
+  final List<Message> voiceMessages;
+
+  /// 链接消息列表
+  final List<Message> linkMessages;
+
+  /// 是否正在加载媒体消息
+  final bool isLoadingMedia;
+
+  /// 是否正在加载文件消息
+  final bool isLoadingFiles;
+
+  /// 是否正在加载语音消息
+  final bool isLoadingVoice;
+
+  /// 是否正在加载链接消息
+  final bool isLoadingLinks;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -221,6 +246,14 @@ class ChatState extends Equatable {
     this.conversationId = '',
     this.isLoading = false,
     this.totalMessageCount = 0,
+    required this.mediaMessages,
+    required this.fileMessages,
+    required this.voiceMessages,
+    required this.linkMessages,
+    required this.isLoadingMedia,
+    required this.isLoadingFiles,
+    required this.isLoadingVoice,
+    required this.isLoadingLinks,
   });
 
   /// 初始状态
@@ -258,6 +291,14 @@ class ChatState extends Equatable {
       conversationId: '',
       isLoading: false,
       totalMessageCount: 0,
+      mediaMessages: const [],
+      fileMessages: const [],
+      voiceMessages: const [],
+      linkMessages: const [],
+      isLoadingMedia: false,
+      isLoadingFiles: false,
+      isLoadingVoice: false,
+      isLoadingLinks: false,
     );
   }
 
@@ -295,6 +336,14 @@ class ChatState extends Equatable {
     String? conversationId,
     bool? isLoading,
     int? totalMessageCount,
+    List<Message>? mediaMessages,
+    List<Message>? fileMessages,
+    List<Message>? voiceMessages,
+    List<Message>? linkMessages,
+    bool? isLoadingMedia,
+    bool? isLoadingFiles,
+    bool? isLoadingVoice,
+    bool? isLoadingLinks,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -336,6 +385,14 @@ class ChatState extends Equatable {
       conversationId: conversationId ?? this.conversationId,
       isLoading: isLoading ?? this.isLoading,
       totalMessageCount: totalMessageCount ?? this.totalMessageCount,
+      mediaMessages: mediaMessages ?? this.mediaMessages,
+      fileMessages: fileMessages ?? this.fileMessages,
+      voiceMessages: voiceMessages ?? this.voiceMessages,
+      linkMessages: linkMessages ?? this.linkMessages,
+      isLoadingMedia: isLoadingMedia ?? this.isLoadingMedia,
+      isLoadingFiles: isLoadingFiles ?? this.isLoadingFiles,
+      isLoadingVoice: isLoadingVoice ?? this.isLoadingVoice,
+      isLoadingLinks: isLoadingLinks ?? this.isLoadingLinks,
     );
   }
 
@@ -400,6 +457,14 @@ class ChatState extends Equatable {
         conversationId,
         isLoading,
         totalMessageCount,
+        mediaMessages,
+        fileMessages,
+        voiceMessages,
+        linkMessages,
+        isLoadingMedia,
+        isLoadingFiles,
+        isLoadingVoice,
+        isLoadingLinks,
       ];
 
   /// 是否正在加载更多之前的消息（向上滚动时）
