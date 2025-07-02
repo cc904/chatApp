@@ -1,8 +1,7 @@
 import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/core/network/auth_api_client.dart';
 
 /// AuthRepository接口
-/// 定义了与认证相关的数据操作方法
+/// 定义了与认证相关的数据操作方法，支持多设备登录
 abstract class AuthRepository {
   /// 初始化AuthRepository
   Future<void> init();
@@ -12,8 +11,29 @@ abstract class AuthRepository {
   /// 使用保存的令牌进行登录
   ///
   /// 返回:
-  /// - 成功返回包含用户信息的AuthResponse，失败返回错误信息的AuthResponse
-  Future<AuthResponse> loginWithToken();
+  /// - 成功返回包含用户信息的Map，失败抛出异常
+  Future<Map<String, dynamic>> loginWithToken();
+
+  /// 使用密码登录
+  ///
+  /// 参数:
+  /// - username: 用户名/手机号
+  /// - password: 密码
+  ///
+  /// 返回:
+  /// - 登录成功返回包含用户信息和tokens的Map
+  Future<Map<String, dynamic>> loginWithPassword(
+      String username, String password);
+
+  /// 使用验证码登录
+  ///
+  /// 参数:
+  /// - username: 用户名/手机号
+  /// - code: 验证码
+  ///
+  /// 返回:
+  /// - 登录成功返回包含用户信息和tokens的Map
+  Future<Map<String, dynamic>> loginWithCode(String username, String code);
 
   /// 注册
   ///
@@ -26,8 +46,8 @@ abstract class AuthRepository {
   /// - name: 用户昵称
   ///
   /// 返回:
-  /// - 注册成功返回包含用户信息的AuthResponse，失败返回错误信息的AuthResponse
-  Future<AuthResponse> register(
+  /// - 注册成功返回包含用户信息和tokens的Map
+  Future<Map<String, dynamic>> register(
       String username, String password, String verificationCode, String name);
 
   /// 登出
@@ -103,30 +123,6 @@ abstract class AuthRepository {
   /// 删除当前用户账户及相关数据
   ///
   /// 返回:
-  /// - 操作成功返回true，失败返回false
+  /// - 操作成功返回true
   Future<bool> deleteAccount();
-
-  /// 使用验证码登录
-  ///
-  /// 使用手机号和验证码进行登录
-  ///
-  /// 参数:
-  /// - username: 用户名/手机号
-  /// - code: 验证码
-  ///
-  /// 返回:
-  /// - 登录成功返回AuthResponse
-  Future<AuthResponse> loginWithCode(String username, String code);
-
-  /// 使用密码登录
-  ///
-  /// 使用用户名和密码进行登录
-  ///
-  /// 参数:
-  /// - username: 用户名/手机号
-  /// - password: 密码
-  ///
-  /// 返回:
-  /// - 登录成功返回AuthResponse
-  Future<AuthResponse> loginWithPassword(String username, String password);
 }

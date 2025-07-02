@@ -1,54 +1,25 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:collection';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/adapters/message_adapter.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
+import 'package:cc/core/utils/message_sort_utils.dart';
+import 'package:fixnum/fixnum.dart';
 
-import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 
 /// 🔥 临时兼容类已全部移除 - Index方案完全替代了复杂的游标系统
-
-/// 信号量类，用于控制并发数量
-class Semaphore {
-  final int maxCount;
-  int _currentCount;
-  final Queue<Completer<void>> _waitQueue = Queue<Completer<void>>();
-
-  Semaphore(this.maxCount) : _currentCount = maxCount;
-
-  Future<void> acquire() async {
-    if (_currentCount > 0) {
-      _currentCount--;
-      return;
-    }
-
-    final completer = Completer<void>();
-    _waitQueue.add(completer);
-    return completer.future;
-  }
-
-  void release() {
-    if (_waitQueue.isNotEmpty) {
-      final completer = _waitQueue.removeFirst();
-      completer.complete();
-    } else {
-      _currentCount++;
-    }
-  }
-}
-
-class LoadType {}
 
 /// 消息异常
 class MessageException implements Exception {
@@ -70,6 +41,7 @@ class ChatRepositoryImpl implements ChatRepository {
   // 获取当前数据库实例，使用DatabaseInitializer
   Isar get _isar => DatabaseInitializer.isar;
   IsarCollection<Message> get _messages => _isar.messages;
+  IsarCollection<db.Conversation> get _conversations => _isar.conversations;
 
   // 输入事件流控制器
   final _typingStatusController =
@@ -81,6 +53,9 @@ class ChatRepositoryImpl implements ChatRepository {
   // 💢💢💢 新Stream架构：会话级加载状态流控制器
   final Map<String, StreamController<LoadingStateUpdate>>
       _conversationLoadingControllers = {};
+  // 💢💢💢 新增：会话更新事件流控制器
+  final Map<String, StreamController<ConversationUpdateEvent>>
+      _conversationUpdateControllers = {};
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -117,7 +92,7 @@ class ChatRepositoryImpl implements ChatRepository {
     return _typingStatusController.stream;
   }
 
-  /// 💢💢💢 新Stream架构：获取消息更新事件流
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新Stream架构：获取消息更新事件流
   @override
   Stream<MessageUpdateEvent> getMessageUpdateStream(String conversationId) {
     _messageUpdateControllers[conversationId] ??=
@@ -125,7 +100,7 @@ class ChatRepositoryImpl implements ChatRepository {
     return _messageUpdateControllers[conversationId]!.stream;
   }
 
-  /// 💢💢💢 新Stream架构：获取会话级加载状态流
+  /// 💢💢💢💢💢💢💢💢💢💢��💢💢💢 新Stream架构：获取会话级加载状态流
   @override
   Stream<LoadingStateUpdate> getConversationLoadingStateStream(
       String conversationId) {
@@ -171,7 +146,22 @@ class ChatRepositoryImpl implements ChatRepository {
             .listen(_handleMessageSendResponse))
         ..add(_communicationService
             .onProto<message_proto.MessageProto>('message:new')
-            .listen(_handleNewMessage));
+            .listen(_handleNewMessage))
+        ..add(_communicationService
+            .onProto<message_proto.MessageEditResponse>('message:edit:response')
+            .listen(_handleMessageEditResponse))
+        ..add(_communicationService
+            .onProto<message_proto.MessageRevokeResponse>(
+                'message:revoke:response')
+            .listen(_handleMessageRevokeResponse))
+        ..add(_communicationService
+            .onProto<message_proto.MessageDeleteResponse>(
+                'message:delete:response')
+            .listen(_handleMessageDeleteResponse))
+        ..add(_communicationService
+            .onProto<conversation_proto.ConversationMemberChangeResponse>(
+                'conversation:member:changed')
+            .listen(_handleMemberChangeNotification));
 
       _logger.i('所有事件处理器已注册', extra: {
         'subscriptionCount': _subscriptions.length,
@@ -210,18 +200,20 @@ class ChatRepositoryImpl implements ChatRepository {
       message_proto.MessagesFetchResponse response) async {
     final conversationId = response.conversationId;
     try {
-      // 💢💢💢 通知开始处理网络响应
-      _notifyConversationLoadingState(LoadingStateUpdate.start(
-        conversationId: conversationId,
-        loadingType: LoadingType.LOAD_MORE_BEFORE,
-      ));
+      // 💢💢💢 修复：响应处理器不应该发送开始状态，只处理数据和发送完成状态
+      _logger.d('开始处理服务器消息响应', extra: {
+        'conversationId': conversationId,
+        'jumpIndex': response.hasJumpIndex() ? response.jumpIndex : null,
+        'messageCount': response.messages.length,
+      });
 
       if (response.messages.isEmpty) {
         _logger.d('收到空的消息响应');
         // 💢💢💢 通知网络请求完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          loadingType: LoadingType.LOAD_MORE_BEFORE,
+          loadingStateType:
+              LoadingStateType.isFetching, // 🆕 _handleMessagesFetchResponse 专用
         ));
         return;
       }
@@ -231,34 +223,40 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 转换消息
-      final messageModels = <Message>[];
+      final messages = <Message>[];
       for (final protoMessage in response.messages) {
-        final messageModel = MessageAdapter.fromProto(protoMessage);
-        messageModels.add(messageModel);
+        final message = MessageAdapter.fromProto(protoMessage);
+        messages.add(message);
       }
 
       // 使用批量事务操作，提高性能和数据一致性
       await _isar.writeTxn(() async {
         // 批量插入/更新消息（自动处理重复，replace: true）
-        await _messages.putAll(messageModels);
+        await _messages.putAll(messages);
       });
 
-      // 💢💢💢 关键：推送精确的消息更新事件，而不是模糊的"数据库变了"信号
+      // 💢💢💢 关键：推送精确的消息更新事件
+      // 提取跳转索引（proto3中，使用hasJumpIndex检查是否设置）
+      final jumpIndex = response.hasJumpIndex() ? response.jumpIndex : null;
+
       _notifyMessageUpdate(MessageAddedEvent(
         conversationId: conversationId,
-        newMessages: messageModels,
-        loadingType: response.loadingType, // 使用LoadingContext
+        newMessages: messages,
+        addedEventType: AddedEventType.load, // 🆕 服务器获取的消息
+        anchorMessageIndex: jumpIndex, // 🆕 使用jumpIndex作为锚点
       ));
 
       // 💢💢💢 通知网络请求完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        loadingType: response.loadingType,
-        metadata: {'messageCount': messageModels.length},
+        loadingStateType:
+            LoadingStateType.isFetching, // 🆕 _handleMessagesFetchResponse 专用
+        metadata: {'messageCount': messages.length},
       ));
 
       _logger.i('消息批量写入数据库完成', extra: {
         'insertedCount': response.messages.length,
+        'jumpIndex': jumpIndex,
       });
     } catch (error) {
       _logger.e('将收到的信息写入数据库失败', error: error, stackTrace: StackTrace.current);
@@ -266,7 +264,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 处理失败时通知错误
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        loadingType: response.loadingType,
+        loadingStateType:
+            LoadingStateType.isFetching, // 🆕 _handleMessagesFetchResponse 专用
         error: error.toString(),
       ));
     }
@@ -276,6 +275,17 @@ class ChatRepositoryImpl implements ChatRepository {
   void _handleMessageSendResponse(
       message_proto.MessageSendResponse response) async {
     try {
+      // 💢💢💢 新增：验证conversationId不能为空
+      if (response.conversationId.isEmpty) {
+        _logger.e('⚠️ 消息发送响应被拒绝：conversationId为空', extra: {
+          'tempId': response.tempId,
+          'messageId': response.messageId,
+          'success': response.success,
+          'hasConversationId': response.hasConversationId(),
+        });
+        return; // 直接返回，不处理空的conversationId
+      }
+
       _logger.i('💌 收到消息发送响应', extra: {
         'success': response.success,
         'tempId': response.tempId,
@@ -293,11 +303,9 @@ class ChatRepositoryImpl implements ChatRepository {
         return;
       }
 
-      // 查找对应的临时消息
-      final tempMessage = await _messages
-          .filter()
-          .messageIdEqualTo(response.tempId)
-          .findFirst();
+      // 💢💢💢 查找对应的临时消息（按tempId查找）
+      final tempMessage =
+          await _messages.filter().tempIdEqualTo(response.tempId).findFirst();
       if (tempMessage == null) {
         _logger.w('💌 找不到对应的临时消息', extra: {
           'tempId': response.tempId,
@@ -307,12 +315,13 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       if (response.success) {
-        // 发送成功，更新消息ID和状态
+        // 💢💢💢 发送成功，更新消息ID、清空tempId并更新状态
         await _isar.writeTxn(() async {
           tempMessage.messageId = response.messageId;
           tempMessage.messageIndex = response.messageIndex.toInt();
           tempMessage.status = MessageStatus.sent;
           tempMessage.updatedAt = DateTime.now();
+          tempMessage.tempId = null; // 💢💢💢 清空临时ID
           await _messages.put(tempMessage);
         });
 
@@ -324,7 +333,7 @@ class ChatRepositoryImpl implements ChatRepository {
           messageIndex: response.messageIndex.toInt(),
         ));
 
-        _logger.i('💌 消息发送成功，已更新本地消息和UI状态', extra: {
+        _logger.i('💌 服务器确认消息发送成功，已更新本地消息和UI状态', extra: {
           'tempId': response.tempId,
           'serverMessageId': response.messageId,
           'messageIndex': response.messageIndex.toInt(),
@@ -341,7 +350,8 @@ class ChatRepositoryImpl implements ChatRepository {
         // 通知UI消息发送失败
         _notifyMessageUpdate(MessageUpdatedEvent(
           conversationId: tempMessage.conversationId,
-          messageId: tempMessage.messageId,
+          messageId: tempMessage.messageId, // 💢💢💢 messageId，可能为空
+          tempId: tempMessage.tempId, // 💢💢💢 传递tempId
           updatedFields: {
             'status': MessageStatus.failed.name,
             'updatedAt': DateTime.now().toIso8601String(),
@@ -362,178 +372,158 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    Request    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   @override
-  Future<bool> requestMoreMessages(
-      String conversationId, LoadingType loadingType, int messageIndex,
-      {int limit = 50}) async {
-    _logger.i('请求服务器获取更多历史消息', extra: {
+  Future<bool> requestMessages(
+      String conversationId, int indexA, int indexB, jumpIndex) async {
+    _logger.i('请求服务器获取指定范围的消息', extra: {
       'conversationId': conversationId,
-      'messageIndex': messageIndex,
-      'loadingType': loadingType,
-      'limit': limit,
+      'indexA': indexA,
+      'indexB': indexB,
+      'jumpIndex': jumpIndex,
+      'rangeSize': indexA > indexB ? indexA - indexB + 1 : indexB - indexA + 1,
     });
 
     try {
-      // 💢💢💢 使用新Stream架构通知网络请求开始
+      // 更新状态
       _notifyConversationLoadingState(LoadingStateUpdate.start(
         conversationId: conversationId,
-        loadingType: loadingType,
+        loadingStateType:
+            LoadingStateType.isFetching, // 🆕 _handleMessagesFetchResponse 专用
       ));
 
-      // 创建请求对象 - 使用新的index字段
+      // 🆕 创建请求对象 - 直接使用新的索引范围字段
       final request = message_proto.MessagesFetchRequest()
         ..conversationId = conversationId
-        ..limit = limit
-        ..messageIndex = $fixnum.Int64(messageIndex)
-        ..loadingType = loadingType;
+        ..indexA = indexA
+        ..indexB = indexB
+        ..jumpIndex = jumpIndex;
 
       // 发送请求到服务器
       await _communicationService.emitProto('messages:fetch', request);
-
       return true;
     } catch (error) {
-      // 💢💢💢 请求失败时通知停止网络请求
-      _notifyConversationLoadingState(LoadingStateUpdate.error(
-        conversationId: conversationId,
-        loadingType: loadingType,
-        error: error.toString(),
-      ));
+      _logger.e('请求服务器获取指定范围的消息失败',
+          error: error, stackTrace: StackTrace.current);
       return false;
     }
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  Get4Database  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 加载本地最新的消息
+  /// 🆕 加载指定范围的消息
   /// [conversationId] - 会话ID
-  /// [loadingContext] - 加载上下文
-  /// [anchorMessageIndex] - 锚点消息Index
-  /// [firstMessageIndex] - 第一条消息Index
-  /// [lastMessageIndex] - 最后一条消息Index
-  /// [limit] - 消息数量限制
+  /// [indexA] - 开始索引（包含）
+  /// [indexB] - 结束索引（包含）
+  /// [jumpIndex] - 跳转目标索引（用于滚动定位，0表示无跳转）
   @override
-  Future<bool> loadMoreMessages(String conversationId, LoadingType loadingType,
-      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
-      {int? limit}) async {
-    _logger.d('加载本地最新的消息', extra: {
-      'conversationId': conversationId,
-      'anchorMessageIndex': anchorMessageIndex,
-      'loadingContext': loadingType,
-    });
-    _notifyConversationLoadingState(LoadingStateUpdate.start(
-      conversationId: conversationId,
-      loadingType: loadingType,
-    ));
+  Future<bool> loadMessages(
+      String conversationId, int indexA, int indexB, int jumpIndex) async {
+    try {
+      _logger.d('🆕 加载指定范围的消息 - 开始', extra: {
+        'conversationId': conversationId,
+        'indexA': indexA,
+        'indexB': indexB,
+        'jumpIndex': jumpIndex,
+        'rangeSize':
+            indexA > indexB ? indexA - indexB + 1 : indexB - indexA + 1,
+      });
 
-    List<Message> messages = [];
+      // 🆕 loadMessages 自有的状态管理 - 发送开始状态
+      _notifyConversationLoadingState(LoadingStateUpdate.start(
+        conversationId: conversationId,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
+      ));
 
-    switch (loadingType) {
-      case LoadingType.INITIAL:
-        // 无新消息,读取最新100条
-        if (anchorMessageIndex == -1) {
-          messages = await _messages
-              .filter()
-              .conversationIdEqualTo(conversationId)
-              .sortByMessageIndexDesc()
-              .limit(limit ?? 100)
-              .findAll();
+      // 🆕 直接基于索引范围加载：加载 [indexA, indexB] 范围内的消息
+      final rawMessages = await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .and()
+          .messageIndexBetween(indexA, indexB)
+          .sortByMessageIndexDesc()
+          .findAll();
 
-          if (messages.isEmpty) {
-            await requestMoreMessages(conversationId, loadingType, -1);
-          } else if (messages.length < 50 &&
-              messages.last.messageIndex > firstMessageIndex) {
-            await requestMoreMessages(
-                conversationId, loadingType, messages.last.messageIndex);
-          }
-        }
-        // 有新消息,锚点为新消息位置,获取范围内的消息
-        else {
-          final rangeSize = limit ?? 50;
-          final startIndex = anchorMessageIndex - rangeSize;
-          final endIndex = anchorMessageIndex + rangeSize;
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(rawMessages);
+      final messages = rawMessages;
 
-          messages = await _messages
-              .filter()
-              .conversationIdEqualTo(conversationId)
-              .and()
-              .messageIndexBetween(startIndex, endIndex)
-              .sortByMessageIndexDesc()
-              .findAll();
+      // 计算期望的消息数量
+      final expectedCount =
+          indexA > indexB ? indexA - indexB + 1 : indexB - indexA + 1;
 
-          if (messages.isEmpty) {
-            await requestMoreMessages(conversationId, loadingType, -1);
-          } else if (messages.length < 50 &&
-              messages.last.messageIndex > firstMessageIndex &&
-              messages.first.messageIndex < lastMessageIndex) {
-            await requestMoreMessages(
-                conversationId, loadingType, anchorMessageIndex);
-          }
-        }
-        break;
-      case LoadingType.LOAD_MORE_BEFORE:
-        messages = await _messages
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .and()
-            .messageIndexLessThan(anchorMessageIndex)
-            .sortByMessageIndexDesc()
-            .limit(limit ?? 50)
-            .findAll();
+      // 检查是否需要请求服务器：如果数据库中的消息数量少于预期
+      if (messages.length < expectedCount) {
+        _logger.i('数据库消息不足，请求服务器', extra: {
+          'localCount': messages.length,
+          'expectedCount': expectedCount,
+          'needFromServer': expectedCount - messages.length,
+        });
 
-        if (messages.isEmpty) {
-          await requestMoreMessages(conversationId, loadingType, -1);
-        } else if (messages.length < 50 &&
-            messages.last.messageIndex > firstMessageIndex) {
-          await requestMoreMessages(
-              conversationId, loadingType, messages.last.messageIndex);
-        }
-        break;
-      case LoadingType.LOAD_MORE_AFTER:
-        messages = await _messages
-            .filter()
-            .conversationIdEqualTo(conversationId)
-            .and()
-            .messageIndexGreaterThan(anchorMessageIndex)
-            .sortByMessageIndex()
-            .limit(limit ?? 50)
-            .findAll();
+        // 请求服务器获取缺失的消息
+        await requestMessages(conversationId, indexA, indexB, jumpIndex);
 
-        if (messages.isEmpty) {
-          await requestMoreMessages(conversationId, loadingType, -1);
-        } else if (messages.length < 50 &&
-            messages.first.messageIndex < lastMessageIndex) {
-          await requestMoreMessages(
-              conversationId, loadingType, messages.first.messageIndex);
-        }
-        break;
-      case LoadingType.SEARCH:
-      case LoadingType.ADD:
-      case LoadingType.UPDATE:
-      case LoadingType.UPDATE_SEND:
-        break;
+        // 🆕 loadMessages 状态管理 - 发送完成状态（本地部分完成）
+        _notifyConversationLoadingState(LoadingStateUpdate.complete(
+          conversationId: conversationId,
+          loadingStateType: LoadingStateType.isLoading, // 🆕 loadMessages 专用类型
+        ));
+
+        return true;
+      }
+
+      // 🆕 数据库中有足够的消息，直接推送并完成
+      _logger.d('数据库消息充足，直接推送', extra: {
+        'messageCount': messages.length,
+      });
+
+      // 推送消息更新事件
+      _messageUpdateControllers[conversationId]!.add(MessageAddedEvent(
+        conversationId: conversationId,
+        newMessages: messages,
+        addedEventType: AddedEventType.load, // 🆕 本地数据库加载的消息
+        anchorMessageIndex:
+            jumpIndex != 0 ? jumpIndex : null, // 🆕 使用jumpIndex作为锚点
+      ));
+
+      // 🆕 loadMessages 状态管理 - 发送完成状态
+      _notifyConversationLoadingState(LoadingStateUpdate.complete(
+        conversationId: conversationId,
+        loadingStateType: LoadingStateType.isLoading, // 🆕 loadMessages 专用类型
+      ));
+
+      return true;
+    } catch (error) {
+      _logger.e('加载指定范围的消息失败',
+          error: error,
+          stackTrace: StackTrace.current,
+          extra: {
+            'conversationId': conversationId,
+            'indexA': indexA,
+            'indexB': indexB,
+            'jumpIndex': jumpIndex,
+          });
+
+      // 🆕 loadMessages 状态管理 - 发送错误状态
+      _notifyConversationLoadingState(LoadingStateUpdate.error(
+        conversationId: conversationId,
+        loadingStateType: LoadingStateType.isLoading, // 🆕 loadMessages 专用类型
+        error: error.toString(),
+      ));
+
+      return false;
     }
-
-    _messageUpdateControllers[conversationId]!.add(MessageAddedEvent(
-      conversationId: conversationId,
-      newMessages: messages,
-      loadingType: loadingType, // 使用LoadingContext
-    ));
-
-    _notifyConversationLoadingState(LoadingStateUpdate.complete(
-      conversationId: conversationId,
-      loadingType: loadingType,
-    ));
-    return true;
   }
 
   /// 获取会话中的消息数量
   @override
   Future<int> getConversationMessageCount(String conversationId) async {
     try {
-      final count = await _messages
+      final allMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
-          .count();
-      return count;
+          .findAll();
+
+      return allMessages.length;
     } catch (error) {
       _logger.e('获取会话中的消息数量失败', error: error, stackTrace: StackTrace.current);
       return 0;
@@ -567,6 +557,9 @@ class ChatRepositoryImpl implements ChatRepository {
 
       final messages = await query.sortByMessageIndexDesc().findAll();
 
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(messages);
+
       _logger.d('搜索消息完成', extra: {
         'keyword': keyword,
         'conversationId': conversationId,
@@ -580,17 +573,189 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 删除消息（标记为删除状态，不物理删除）
-  /// 将消息状态标记为已删除，清空内容但保留消息索引连续性
+  /// 编辑消息 message:edit
+  /// 编辑指定消息的文本内容
   /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  /// [newText] - 新的文本内容
   @override
-  Future<void> deleteMessage(String messageId) async {
+  Future<bool> editMessage(
+      String messageId, String conversationId, String newText) async {
     try {
-      // 使用messageId字段查询，而不是尝试转换为整数ID
-      final message =
+      _logger.i('发送消息编辑请求', extra: {
+        'messageId': messageId,
+        'conversationId': conversationId,
+        'newTextLength': newText.length,
+      });
+
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法编辑消息');
+        return false;
+      }
+
+      // 创建编辑请求
+      final request = message_proto.MessageEditRequest()
+        ..messageId = messageId
+        ..conversationId = conversationId
+        ..newText = newText;
+
+      // 发送编辑请求
+      final success =
+          await _communicationService.emitProto('message:edit', request);
+
+      if (success) {
+        _logger.i('消息编辑请求已发送', extra: {
+          'messageId': messageId,
+          'conversationId': conversationId,
+        });
+      } else {
+        _logger.w('消息编辑请求发送失败', extra: {
+          'messageId': messageId,
+          'conversationId': conversationId,
+        });
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('发送消息编辑请求失败', error: error, stackTrace: StackTrace.current);
+      return false;
+    }
+  }
+
+  /// 撤回消息 message:revoke
+  /// 撤回指定的消息
+  /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
+  @override
+  Future<bool> revokeMessage(String messageId, String conversationId,
+      {String? tempId}) async {
+    try {
+      _logger.i('发送消息撤回请求', extra: {
+        'messageId': messageId,
+        'conversationId': conversationId,
+        'tempId': tempId, // 💢💢💢 添加tempId日志
+      });
+
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法撤回消息');
+        return false;
+      }
+
+      // 创建撤回请求
+      final request = message_proto.MessageRevokeRequest()
+        ..messageId = messageId
+        ..conversationId = conversationId;
+
+      // 💢💢💢 如果有tempId，添加到请求中
+      if (tempId != null && tempId.isNotEmpty) {
+        request.tempId = tempId;
+      }
+
+      // 发送撤回请求
+      final success =
+          await _communicationService.emitProto('message:revoke', request);
+
+      if (success) {
+        _logger.i('消息撤回请求已发送', extra: {
+          'messageId': messageId,
+          'conversationId': conversationId,
+          'tempId': tempId, // 💢💢💢 添加tempId日志
+        });
+      } else {
+        _logger.w('消息撤回请求发送失败', extra: {
+          'messageId': messageId,
+          'conversationId': conversationId,
+          'tempId': tempId, // 💢💢💢 添加tempId日志
+        });
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('发送消息撤回请求失败', error: error, stackTrace: StackTrace.current);
+      return false;
+    }
+  }
+
+  /// 删除消息 message:delete
+  /// 删除指定的消息
+  /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
+  @override
+  Future<bool> deleteMessage(String messageId, String conversationId,
+      {String? tempId}) async {
+    try {
+      _logger.i('发送消息删除请求', extra: {
+        'messageId': messageId,
+        'conversationId': conversationId,
+        'tempId': tempId, // 💢💢💢 添加tempId日志
+      });
+
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法删除消息');
+        return false;
+      }
+
+      // 创建删除请求
+      final request = message_proto.MessageDeleteRequest()
+        ..messageId = messageId
+        ..conversationId = conversationId;
+
+      // 💢💢💢 如果有tempId，添加到请求中
+      if (tempId != null && tempId.isNotEmpty) {
+        request.tempId = tempId;
+      }
+
+      // 发送删除请求
+      final success =
+          await _communicationService.emitProto('message:delete', request);
+
+      if (success) {
+        _logger.i('消息删除请求已发送', extra: {
+          'messageId': messageId,
+          'conversationId': conversationId,
+          'tempId': tempId, // 💢💢💢 添加tempId日志
+        });
+
+        // 💢💢💢 本地也标记为删除状态（根据消息类型决定使用messageId还是tempId）
+        final localMessageId = tempId?.isNotEmpty == true ? tempId! : messageId;
+        await _markMessageAsDeletedLocally(localMessageId);
+      } else {
+        _logger.w('消息删除请求发送失败', extra: {
+          'messageId': messageId,
+          'conversationId': conversationId,
+          'tempId': tempId, // 💢💢💢 添加tempId日志
+        });
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('发送消息删除请求失败', error: error, stackTrace: StackTrace.current);
+      return false;
+    }
+  }
+
+  /// 本地标记消息为删除状态
+  /// 仅用于 for_me 类型的删除，不影响其他用户
+  Future<void> _markMessageAsDeletedLocally(String messageId) async {
+    try {
+      // 💢💢💢 支持基于messageId或tempId查找消息
+      Message? message;
+
+      // 先按messageId查找
+      message =
           await _messages.filter().messageIdEqualTo(messageId).findFirst();
+
+      // 如果找不到，再按tempId查找
+      message ??= await _messages.filter().tempIdEqualTo(messageId).findFirst();
+
       if (message == null) {
-        throw Exception('找不到要删除的消息');
+        _logger.w('找不到要删除的消息', extra: {
+          'messageId': messageId,
+          'searchedBy': 'messageId and tempId'
+        });
+        return;
       }
 
       // 用于存储要删除的文件路径
@@ -599,7 +764,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 在数据库事务中标记消息为删除状态
       await _isar.writeTxn(() async {
         // 标记为删除状态，清空内容字段
-        message.status = MessageStatus.deleted;
+        message!.status = MessageStatus.deleted;
         message.text = null;
         message.mediaUrl = null;
         message.thumbnailUrl = null;
@@ -620,22 +785,22 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 推送消息更新事件，通知UI更新
       _notifyMessageUpdate(MessageUpdatedEvent(
         conversationId: message.conversationId,
-        messageId: message.messageId,
+        messageId: message.messageId, // 💢💢💢 messageId，可能为空
+        tempId: message.tempId, // 💢💢💢 传递tempId
         updatedFields: {
           'status': 'deleted',
-          'updatedAt': message.updatedAt?.toIso8601String(),
+          'deletedAt': message.updatedAt?.toIso8601String(),
         },
       ));
 
-      _logger.i('消息已标记为删除状态', extra: {
+      _logger.i('消息已本地标记为删除状态', extra: {
         'messageId': messageId,
         'conversationId': message.conversationId,
         'messageIndex': message.messageIndex,
-        'action': '标记删除而非物理删除',
+        'action': '本地标记删除',
       });
     } catch (error) {
-      _logger.e('标记消息删除失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      _logger.e('本地标记消息删除失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
@@ -706,7 +871,8 @@ class ChatRepositoryImpl implements ChatRepository {
     // 💢💢💢 使用新Stream架构通知开始加载
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      loadingType: LoadingType.SEARCH,
+      loadingStateType:
+          LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
     ));
 
     try {
@@ -733,7 +899,7 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 查询指定日期范围内的消息
-      final messages = await _messages
+      final rawMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .createdAtBetween(safeStartDate, safeEndDate)
@@ -741,12 +907,16 @@ class ChatRepositoryImpl implements ChatRepository {
           .limit(limit)
           .findAll();
 
+      // 💢💢💢 应用删除消息过滤规则
+      final messages = rawMessages;
+
       _logger.d('按日期范围查询结果', extra: {'找到消息数': messages.length});
 
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
       ));
       return messages;
     } catch (error) {
@@ -755,7 +925,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         error: error.toString(),
       ));
       return [];
@@ -777,7 +948,8 @@ class ChatRepositoryImpl implements ChatRepository {
     // 💢💢💢 使用新Stream架构通知开始加载
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      loadingType: LoadingType.SEARCH,
+      loadingStateType:
+          LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
     ));
 
     try {
@@ -786,7 +958,7 @@ class ChatRepositoryImpl implements ChatRepository {
           DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
 
       // 查询从指定日期开始的消息
-      final messages = await _messages
+      final rawMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .createdAtGreaterThan(
@@ -795,12 +967,16 @@ class ChatRepositoryImpl implements ChatRepository {
           .limit(limit)
           .findAll();
 
+      // 💢💢💢 应用删除消息过滤规则
+      final messages = rawMessages;
+
       _logger.d('从日期获取消息结果', extra: {'找到消息数': messages.length});
 
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
       ));
       return messages;
     } catch (error) {
@@ -809,7 +985,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         error: error.toString(),
       ));
       return [];
@@ -859,7 +1036,7 @@ class ChatRepositoryImpl implements ChatRepository {
             'conversation:join', joinRoomRequest);
 
         if (success) {
-          _logger.i('发送加入会话房间请求成功', extra: {
+          _logger.i('加入会话房间请求已发送', extra: {
             'conversationId': conversationId,
           });
         } else {
@@ -892,10 +1069,6 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<void> leaveConversationRoom(String conversationId) async {
     try {
-      _logger.i('用户离开会话页面', extra: {'conversationId': conversationId});
-
-      // 🔥 退出会话时，同步最后阅读时间到服务器
-      // TODO 需要通过ChatsRepository来更新
       _logger.d('用户离开会话页面，需要同步阅读状态到服务器');
 
       // 通知服务器用户离开会话房间
@@ -991,7 +1164,13 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       // 💢💢💢 先获取所有符合基础条件的消息
-      final allMessages = await queryBuilder.sortByMessageIndexDesc().findAll();
+      final rawMessages = await queryBuilder.sortByMessageIndexDesc().findAll();
+
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(rawMessages);
+
+      // 💢💢💢 应用删除消息过滤规则
+      final allMessages = rawMessages;
 
       _logger.d('获取基础消息列表', extra: {
         'totalMessages': allMessages.length,
@@ -1062,8 +1241,8 @@ class ChatRepositoryImpl implements ChatRepository {
         }
       }
 
-      // 按messageIndex降序排列（最新到最老）
-      matchedMessages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
+      // 💢💢💢 使用自定义排序处理messageIndex为null的情况
+      matchedMessages.sort(MessageSortUtils.compareForDisplay);
 
       // 提取消息ID列表（从新到旧排序）
       final matchedMessageIds =
@@ -1104,7 +1283,8 @@ class ChatRepositoryImpl implements ChatRepository {
     // 💢💢💢 使用新Stream架构通知开始加载
     _notifyConversationLoadingState(LoadingStateUpdate.start(
       conversationId: conversationId,
-      loadingType: LoadingType.SEARCH,
+      loadingStateType:
+          LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
     ));
 
     try {
@@ -1112,7 +1292,8 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知加载完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          loadingType: LoadingType.SEARCH,
+          loadingStateType:
+              LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         ));
         return [];
       }
@@ -1139,7 +1320,8 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知加载完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          loadingType: LoadingType.SEARCH,
+          loadingStateType:
+              LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         ));
         return [];
       }
@@ -1149,13 +1331,19 @@ class ChatRepositoryImpl implements ChatRepository {
       final endTime =
           lastMessage.createdAt.add(const Duration(seconds: 1)); // 包含最后一条消息
 
-      final allMessages = await _messages
+      final rawMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .and()
           .createdAtBetween(startTime, endTime)
           .sortByMessageIndexDesc() // 按messageIndex降序排列（最新到最老，符合聊天界面显示）
           .findAll();
+
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(rawMessages);
+
+      // 💢💢💢 应用删除消息过滤规则
+      final allMessages = rawMessages;
 
       _logger.i('获取搜索范围消息完成', extra: {
         'totalMessages': allMessages.length,
@@ -1166,7 +1354,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
       ));
       return allMessages;
     } catch (error) {
@@ -1175,7 +1364,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         error: error.toString(),
       ));
       return [];
@@ -1200,7 +1390,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 使用新Stream架构通知开始加载
       _notifyConversationLoadingState(LoadingStateUpdate.start(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
       ));
 
       // 获取目标消息
@@ -1217,7 +1408,8 @@ class ChatRepositoryImpl implements ChatRepository {
         // 💢💢💢 通知加载完成
         _notifyConversationLoadingState(LoadingStateUpdate.complete(
           conversationId: conversationId,
-          loadingType: LoadingType.SEARCH,
+          loadingStateType:
+              LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         ));
 
         return (
@@ -1227,7 +1419,7 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       // 获取目标消息之前的消息（按messageIndex升序，取最后contextSize条）
-      final beforeMessages = await _messages
+      final rawBeforeMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .and()
@@ -1235,12 +1427,12 @@ class ChatRepositoryImpl implements ChatRepository {
           .sortByMessageIndex() // 按messageIndex升序
           .findAll();
 
-      final contextBefore = beforeMessages.length > contextSize
-          ? beforeMessages.sublist(beforeMessages.length - contextSize)
-          : beforeMessages;
+      final beforeMessages = rawBeforeMessages.length > contextSize
+          ? rawBeforeMessages.sublist(rawBeforeMessages.length - contextSize)
+          : rawBeforeMessages;
 
       // 获取目标消息之后的消息（按messageIndex升序，取前contextSize条）
-      final afterMessages = await _messages
+      final rawAfterMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .and()
@@ -1249,15 +1441,17 @@ class ChatRepositoryImpl implements ChatRepository {
           .limit(contextSize)
           .findAll();
 
+      final afterMessages = rawAfterMessages;
+
       // 合并所有消息：之前的 + 目标消息 + 之后的
       final allMessages = <Message>[
-        ...contextBefore,
+        ...beforeMessages,
         targetMessage,
         ...afterMessages,
       ];
 
-      // 按messageIndex降序排列（符合聊天界面显示）
-      allMessages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
+      // 💢💢💢 使用自定义排序处理负数messageIndex的情况
+      allMessages.sort(MessageSortUtils.compareForDisplay);
 
       // 计算时间范围
       final startTime =
@@ -1270,12 +1464,13 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
       ));
 
       _logger.i('加载搜索结果附近消息完成', extra: {
         'totalMessages': allMessages.length,
-        'beforeCount': contextBefore.length,
+        'beforeCount': beforeMessages.length,
         'afterCount': afterMessages.length,
         'timeRange':
             '${startTime.toIso8601String()} - ${endTime.toIso8601String()}',
@@ -1288,7 +1483,8 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 出错时通知停止加载
       _notifyConversationLoadingState(LoadingStateUpdate.error(
         conversationId: conversationId,
-        loadingType: LoadingType.SEARCH,
+        loadingStateType:
+            LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
         error: error.toString(),
       ));
 
@@ -1345,7 +1541,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _notifyMessageUpdate(MessageAddedEvent(
         conversationId: message.conversationId,
         newMessages: [message],
-        loadingType: LoadingType.ADD, // 新消息来自网络
+        addedEventType: AddedEventType.newMessage, // 🆕 新消息（实时接收）
       ));
 
       _logger.d('新消息已保存到数据库并推送更新事件', extra: {
@@ -1357,6 +1553,366 @@ class ChatRepositoryImpl implements ChatRepository {
           error: error,
           stackTrace: StackTrace.current,
           extra: {'messageId': newMessage.messageId});
+    }
+  }
+
+  /// 处理消息编辑响应
+  /// 当服务器返回消息编辑结果时触发
+  /// [response] - 编辑响应
+  void _handleMessageEditResponse(
+      message_proto.MessageEditResponse response) async {
+    try {
+      // 💢💢💢 新增：验证conversationId不能为空
+      if (response.conversationId.isEmpty) {
+        _logger.e('⚠️ 消息编辑响应被拒绝：conversationId为空', extra: {
+          'messageId': response.messageId,
+          'success': response.success,
+          'hasConversationId': response.hasConversationId(),
+        });
+        return; // 直接返回，不处理空的conversationId
+      }
+
+      _logger.i('收到消息编辑响应', extra: {
+        'success': response.success,
+        'messageId': response.messageId,
+        'conversationId': response.conversationId,
+        'msg': response.msg,
+      });
+
+      if (response.success) {
+        // 编辑成功，更新本地消息
+        // 💢💢💢 支持多种查找策略：messageId 或 tempId
+        Message? message;
+
+        // 首先按messageId查找
+        if (response.messageId.isNotEmpty) {
+          message = await _messages
+              .filter()
+              .messageIdEqualTo(response.messageId)
+              .findFirst();
+        }
+
+        // 如果按messageId找不到，尝试按tempId查找（可能消息还没有正式ID）
+        if (message == null) {
+          // 查找所有状态为sending且会话匹配的消息，按时间倒序
+          final candidateMessages = await _messages
+              .filter()
+              .conversationIdEqualTo(response.conversationId)
+              .statusEqualTo(MessageStatus.sending)
+              .sortByCreatedAtDesc()
+              .findAll();
+
+          // 在候选消息中查找最近的一条（可能是刚发送的）
+          if (candidateMessages.isNotEmpty) {
+            message = candidateMessages.first;
+            _logger.i('通过候选查找找到要编辑的消息', extra: {
+              'responseMessageId': response.messageId,
+              'foundMessageTempId': message.tempId,
+              'foundMessageId': message.messageId,
+            });
+          }
+        }
+
+        if (message != null) {
+          await _isar.writeTxn(() async {
+            message!.text = response.newText;
+            message.updatedAt = DateTime.fromMillisecondsSinceEpoch(
+                response.editedAt.toInt() * 1000);
+            await _messages.put(message);
+          });
+
+          // 通知UI消息已编辑
+          _notifyMessageUpdate(MessageUpdatedEvent(
+            conversationId: message.conversationId,
+            messageId: message.messageId, // 💢💢💢 messageId，可能为空
+            tempId: message.tempId, // 💢💢💢 传递tempId
+            updatedFields: {
+              'text': response.newText,
+              'editedAt': message.updatedAt?.toIso8601String(),
+            },
+          ));
+
+          _logger.i('服务器确认消息编辑成功，已更新本地数据', extra: {
+            'messageId': response.messageId,
+            'newText': response.newText,
+          });
+        } else {
+          _logger.w('找不到要编辑的消息', extra: {'messageId': response.messageId});
+        }
+      } else {
+        _logger.w('消息编辑失败', extra: {
+          'messageId': response.messageId,
+          'error': response.msg,
+        });
+      }
+    } catch (error) {
+      _logger.e('处理消息编辑响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理消息撤回响应
+  /// 当服务器返回消息撤回结果时触发
+  /// [response] - 撤回响应
+  void _handleMessageRevokeResponse(
+      message_proto.MessageRevokeResponse response) async {
+    try {
+      // 💢💢💢 新增：验证conversationId不能为空
+      if (response.conversationId.isEmpty) {
+        _logger.e('⚠️ 消息撤回响应被拒绝：conversationId为空', extra: {
+          'messageId': response.messageId,
+          'success': response.success,
+          'hasConversationId': response.hasConversationId(),
+        });
+        return; // 直接返回，不处理空的conversationId
+      }
+
+      _logger.i('收到消息撤回响应', extra: {
+        'success': response.success,
+        'messageId': response.messageId,
+        'conversationId': response.conversationId,
+        'msg': response.msg,
+      });
+
+      if (response.success) {
+        // 撤回成功，更新本地消息状态
+        // 💢💢💢 支持多种查找策略：messageId 或 tempId
+        Message? message;
+
+        // 首先按messageId查找
+        if (response.messageId.isNotEmpty) {
+          message = await _messages
+              .filter()
+              .messageIdEqualTo(response.messageId)
+              .findFirst();
+        }
+
+        // 如果按messageId找不到，尝试按tempId查找（可能消息还没有正式ID）
+        if (message == null) {
+          // 查找所有状态为sending且会话匹配的消息，按时间倒序
+          final candidateMessages = await _messages
+              .filter()
+              .conversationIdEqualTo(response.conversationId)
+              .statusEqualTo(MessageStatus.sending)
+              .sortByCreatedAtDesc()
+              .findAll();
+
+          // 在候选消息中查找最近的一条（可能是刚发送的）
+          if (candidateMessages.isNotEmpty) {
+            message = candidateMessages.first;
+            _logger.i('通过候选查找找到要撤回的消息', extra: {
+              'responseMessageId': response.messageId,
+              'foundMessageTempId': message.tempId,
+              'foundMessageId': message.messageId,
+            });
+          }
+        }
+
+        if (message != null) {
+          await _isar.writeTxn(() async {
+            message!.status = MessageStatus.revoked;
+            message.text = null; // 清空文本内容
+            message.mediaUrl = null; // 清空媒体URL
+            message.thumbnailUrl = null; // 清空缩略图URL
+            message.updatedAt = DateTime.fromMillisecondsSinceEpoch(
+                response.revokedAt.toInt() * 1000);
+            await _messages.put(message);
+          });
+
+          // 通知UI消息已撤回
+          _notifyMessageUpdate(MessageUpdatedEvent(
+            conversationId: message.conversationId,
+            messageId: message.messageId, // 💢💢💢 messageId，可能为空
+            tempId: message.tempId, // 💢💢💢 传递tempId
+            updatedFields: {
+              'status': 'revoked',
+              'revokedAt': message.updatedAt?.toIso8601String(),
+            },
+          ));
+
+          _logger.i('服务器确认消息撤回成功，已更新本地数据', extra: {
+            'messageId': response.messageId,
+          });
+        } else {
+          _logger.w('找不到要撤回的消息', extra: {'messageId': response.messageId});
+        }
+      } else {
+        _logger.w('消息撤回失败', extra: {
+          'messageId': response.messageId,
+          'error': response.msg,
+        });
+      }
+    } catch (error) {
+      _logger.e('处理消息撤回响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理消息删除响应
+  void _handleMessageDeleteResponse(
+      message_proto.MessageDeleteResponse response) async {
+    try {
+      _logger.i('💌 收到消息删除响应', extra: {
+        'success': response.success,
+        'messageId': response.messageId,
+        'msg': response.msg,
+      });
+
+      if (response.success) {
+        // 从数据库中查找对应消息并更新状态
+        final message = await _messages
+            .filter()
+            .messageIdEqualTo(response.messageId)
+            .findFirst();
+
+        if (message != null) {
+          // 更新消息状态为已删除
+          await _isar.writeTxn(() async {
+            message.status = MessageStatus.deleted;
+            message.updatedAt = DateTime.now();
+            await _messages.put(message);
+          });
+
+          // 💢💢💢 触发消息更新事件通知UI
+          _notifyMessageUpdate(MessageUpdatedEvent(
+            conversationId: message.conversationId,
+            messageId: message.messageId,
+            updatedFields: {
+              'status': 'deleted',
+              'deletedAt': message.updatedAt?.toIso8601String(),
+            },
+          ));
+
+          _logger.i('服务器确认消息删除成功，已更新本地数据', extra: {
+            'messageId': response.messageId,
+          });
+        } else {
+          _logger.w('找不到要删除的消息', extra: {'messageId': response.messageId});
+        }
+      } else {
+        _logger.w('消息删除失败', extra: {
+          'messageId': response.messageId,
+          'error': response.msg,
+        });
+      }
+    } catch (error) {
+      _logger.e('处理消息删除响应失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 处理会话成员变更通知 (conversation:member:changed)
+  void _handleMemberChangeNotification(
+      conversation_proto.ConversationMemberChangeResponse notification) async {
+    try {
+      _logger.i('💥 收到会话成员变更通知 (conversation:member:changed)', extra: {
+        'conversationId': notification.conversationId,
+        'userId': notification.member.userId,
+        'memberName': notification.member.name,
+        'action': notification.action,
+        'actionBy': notification.actionBy,
+        'timestamp': notification.timestamp,
+      });
+
+      await _isar.writeTxn(() async {
+        // 1. 更新本地会话数据中的参与者信息
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(notification.conversationId)
+            .findFirst();
+
+        if (conversation == null) {
+          _logger.w('本地找不到对应的会话，跳过处理', extra: {
+            'conversationId': notification.conversationId,
+          });
+          return;
+        }
+
+        // 转换ParticipantProto为Participant
+        final updatedParticipant =
+            ConversationAdapter.participantFromProto(notification.member);
+
+        // 根据action类型更新参与者信息
+        switch (notification.action) {
+          case 'added':
+            // 新成员加入：添加到参与者列表
+            conversation.addParticipant(updatedParticipant);
+            _logger.i('成员加入会话', extra: {
+              'memberName': notification.member.name,
+              'conversationId': notification.conversationId,
+            });
+            break;
+
+          case 'removed':
+            // 成员被移除：从参与者列表删除
+            conversation.removeParticipant(notification.member.userId);
+            _logger.i('成员离开会话', extra: {
+              'memberName': notification.member.name,
+              'conversationId': notification.conversationId,
+            });
+            break;
+
+          case 'promoted':
+            // 成员权限提升：更新角色信息
+            conversation.updateParticipant(updatedParticipant);
+            _logger.i('成员权限提升', extra: {
+              'memberName': notification.member.name,
+              'newRole': notification.member.role.toString(),
+              'conversationId': notification.conversationId,
+            });
+            break;
+
+          case 'demoted':
+            // 成员权限降级：更新角色信息
+            conversation.updateParticipant(updatedParticipant);
+            _logger.i('成员权限降级', extra: {
+              'memberName': notification.member.name,
+              'newRole': notification.member.role.toString(),
+              'conversationId': notification.conversationId,
+            });
+            break;
+
+          case 'blocked':
+            // 成员被屏蔽：标记为非活跃状态
+            updatedParticipant.isActive = false;
+            conversation.updateParticipant(updatedParticipant);
+            _logger.i('成员被屏蔽', extra: {
+              'memberName': notification.member.name,
+              'conversationId': notification.conversationId,
+            });
+            break;
+
+          default:
+            _logger.w('未知的成员变更操作', extra: {
+              'action': notification.action,
+              'conversationId': notification.conversationId,
+            });
+            return; // 未知操作，跳过后续处理
+        }
+
+        // 保存更新后的会话
+        await _conversations.put(conversation);
+
+        // 2. 发送会话更新事件通知UI更新参与者列表
+        final notifyController =
+            _conversationUpdateControllers[notification.conversationId];
+        if (notifyController != null && !notifyController.isClosed) {
+          notifyController.add(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: ['participants'],
+            timestamp: DateTime.now(),
+          ));
+        }
+
+        // 3. 创建系统消息显示成员变更信息
+        await _createMemberChangeSystemMessage(
+          conversationId: notification.conversationId,
+          member: notification.member,
+          action: notification.action,
+          actionBy: notification.actionBy,
+          timestamp: notification.timestamp,
+          conversation: conversation,
+        );
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话成员变更通知失败', error: error, stackTrace: stackTrace);
     }
   }
 
@@ -1388,19 +1944,286 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢 新Stream架构：通知会话级加载状态变化
   void _notifyConversationLoadingState(LoadingStateUpdate update) {
     try {
+      // 💢💢💢 新增：验证conversationId不能为空
+      if (update.conversationId.isEmpty) {
+        _logger.e('⚠️ 加载状态更新被拒绝：conversationId为空', extra: {
+          'loadingStateType': update.loadingStateType.toString(),
+          'isLoading': update.isLoading,
+          'error': update.error,
+          'stackTrace':
+              StackTrace.current.toString().split('\n').take(5).join('\n'),
+        });
+        return; // 直接返回，不处理空的conversationId
+      }
+
       final controller = _conversationLoadingControllers[update.conversationId];
+
       if (controller != null && !controller.isClosed) {
         controller.add(update);
 
         _logger.d('通知会话级加载状态变化', extra: {
           'conversationId': update.conversationId,
-          'loadingType': update.loadingType.toString(),
+          'loadingStateType': update.loadingStateType.toString(),
           'isLoading': update.isLoading,
           'error': update.error,
         });
+      } else {
+        _logger.w('无法发送加载状态更新：控制器无效', extra: {
+          'conversationId': update.conversationId,
+          'hasController': controller != null,
+          'controllerClosed': controller?.isClosed ?? true,
+          'loadingStateType': update.loadingStateType.toString(),
+          'isLoading': update.isLoading,
+        });
       }
     } catch (error) {
-      _logger.e('通知会话级加载状态失败', error: error);
+      _logger.e('通知会话级加载状态失败', error: error, extra: {
+        'conversationId': update.conversationId,
+        'loadingStateType': update.loadingStateType.toString(),
+        'isLoading': update.isLoading,
+      });
+    }
+  }
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  会话成员管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  @override
+  Future<bool> updateMemberRole(
+      String conversationId, String userId, String action) async {
+    try {
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法更新成员角色');
+        return false;
+      }
+
+      final memberRequest = conversation_proto.ConversationMemberChangeRequest()
+        ..conversationId = conversationId
+        ..userId = userId
+        ..action = action;
+
+      final success = await _communicationService.emitProto(
+        'conversation:member:change',
+        memberRequest,
+      );
+
+      if (success) {
+        _logger.i('成员角色更新请求已发送', extra: {
+          'conversationId': conversationId,
+          'userId': userId,
+          'action': action,
+        });
+      } else {
+        _logger.w('发送成员角色更新请求失败');
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('更新成员角色失败', error: error);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> removeMemberFromConversation(
+      String conversationId, String userId) async {
+    try {
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法移除会话成员');
+        return false;
+      }
+
+      final memberRequest = conversation_proto.ConversationMemberChangeRequest()
+        ..conversationId = conversationId
+        ..userId = userId
+        ..action = 'remove';
+
+      final success = await _communicationService.emitProto(
+        'conversation:member:change',
+        memberRequest,
+      );
+
+      if (success) {
+        _logger.i('成员移除请求已发送', extra: {
+          'conversationId': conversationId,
+          'userId': userId,
+        });
+      } else {
+        _logger.w('发送成员移除请求失败');
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('移除会话成员失败', error: error);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> blockMemberInConversation(
+      String conversationId, String userId) async {
+    try {
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法屏蔽会话成员');
+        return false;
+      }
+
+      final memberRequest = conversation_proto.ConversationMemberChangeRequest()
+        ..conversationId = conversationId
+        ..userId = userId
+        ..action = 'block';
+
+      final success = await _communicationService.emitProto(
+        'conversation:member:change',
+        memberRequest,
+      );
+
+      if (success) {
+        _logger.i('成员屏蔽请求已发送', extra: {
+          'conversationId': conversationId,
+          'userId': userId,
+        });
+      } else {
+        _logger.w('发送成员屏蔽请求失败');
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('屏蔽会话成员失败', error: error);
+      return false;
+    }
+  }
+
+  /// 创建成员变更系统消息
+  /// 根据成员变更类型创建相应的系统消息提示用户
+  Future<void> _createMemberChangeSystemMessage({
+    required String conversationId,
+    required conversation_proto.ParticipantProto member,
+    required String action,
+    required String actionBy,
+    required Int64 timestamp,
+    required db.Conversation conversation,
+  }) async {
+    try {
+      // 确定系统事件类型
+      message_proto.SystemEventType eventType;
+      String messageText;
+
+      // 获取操作者名称
+      final actionByParticipant = conversation.getParticipant(actionBy);
+      final actionByName = actionByParticipant?.name ?? '系统';
+
+      switch (action) {
+        case 'added':
+          eventType = message_proto.SystemEventType.MEMBER_JOINED;
+          if (member.userId == actionBy) {
+            messageText = '${member.name} 加入了群聊';
+          } else {
+            messageText = '$actionByName 邀请 ${member.name} 加入了群聊';
+          }
+          break;
+
+        case 'removed':
+          eventType = message_proto.SystemEventType.MEMBER_REMOVED;
+          if (member.userId == actionBy) {
+            messageText = '${member.name} 离开了群聊';
+          } else {
+            messageText = '$actionByName 将 ${member.name} 移出了群聊';
+          }
+          break;
+
+        case 'promoted':
+          eventType = message_proto.SystemEventType.MEMBER_PROMOTED;
+          final roleText = _getMemberRoleText(member.role);
+          messageText = '$actionByName 将 ${member.name} 设为$roleText';
+          break;
+
+        case 'demoted':
+          eventType = message_proto.SystemEventType.MEMBER_DEMOTED;
+          messageText = '$actionByName 取消了 ${member.name} 的管理员权限';
+          break;
+
+        case 'blocked':
+          // 屏蔽操作通常不显示系统消息，直接返回
+          return;
+
+        default:
+          _logger.w('未知的成员变更操作，跳过创建系统消息', extra: {'action': action});
+          return;
+      }
+
+      // 创建系统消息
+      final systemMessage = Message()
+        ..messageId = '' // 系统消息暂时不需要服务器ID
+        ..tempId =
+            'system_${DateTime.now().millisecondsSinceEpoch}_${member.userId}'
+        ..conversationId = conversationId
+        ..senderId = 'system'
+        ..senderName = '系统'
+        ..type = MessageType.membership
+        ..text = messageText
+        ..createdAt = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt())
+        ..status = MessageStatus.sent
+        ..membershipEventType = eventType.name
+        ..actorUserId = actionBy
+        ..eventTimestamp =
+            DateTime.fromMillisecondsSinceEpoch(timestamp.toInt())
+        ..affectedUserIdsList = [member.userId]
+        ..membershipActorMap = {
+          'userId': actionBy,
+          'userName': actionByName,
+          'userAvatar': actionByParticipant?.avatar ?? '',
+          'role': actionByParticipant?.role.index ?? 0,
+        }
+        ..membershipAffectedMembersList = [
+          {
+            'userId': member.userId,
+            'userName': member.name,
+            'userAvatar': member.avatar,
+            'role': member.role.value,
+            'joinedAt': member.hasJoinedAt() ? member.joinedAt.toInt() : null,
+          }
+        ];
+
+      // 保存系统消息到数据库
+      await _messages.put(systemMessage);
+
+      // 链接消息到会话
+      systemMessage.conversation.value = conversation;
+      await systemMessage.conversation.save();
+
+      _logger.d('创建成员变更系统消息成功', extra: {
+        'conversationId': conversationId,
+        'action': action,
+        'memberName': member.name,
+        'messageText': messageText,
+      });
+
+      // 通知UI有新消息
+      final messageController = _messageUpdateControllers[conversationId];
+      if (messageController != null && !messageController.isClosed) {
+        messageController.add(MessageAddedEvent(
+          conversationId: conversationId,
+          newMessages: [systemMessage],
+          addedEventType: AddedEventType.newMessage,
+          timestamp: DateTime.now(),
+        ));
+      }
+    } catch (error, stackTrace) {
+      _logger.e('创建成员变更系统消息失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 获取成员角色的中文文本
+  String _getMemberRoleText(conversation_proto.MemberRole role) {
+    switch (role) {
+      case conversation_proto.MemberRole.OWNER:
+        return '群主';
+      case conversation_proto.MemberRole.ADMIN:
+        return '管理员';
+      case conversation_proto.MemberRole.MEMBER:
+        return '成员';
+      default:
+        return '成员';
     }
   }
 }

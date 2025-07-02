@@ -1,20 +1,55 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/services/language_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
-import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
+
+/// 检查和修复Token状态
+Future<void> _checkAndFixTokenStatus() async {
+  try {
+    final logger = LogService.instance;
+    final secureStorage = SecureStorageService();
+
+    logger.i('🔍 启动时检查Token状态');
+
+    // // 调试存储状态
+    // await secureStorage.debugStorageStatus();
+
+    // 检查是否有用户ID但没有Token的情况
+    final userId = await secureStorage.read('user_id');
+    final hasAccessToken = await secureStorage.getAccessToken() != null;
+
+    if (userId != null && userId.isNotEmpty && !hasAccessToken) {
+      logger.w('⚠️ 发现用户ID存在但Token缺失的情况', extra: {
+        'userId': userId,
+        'hasAccessToken': hasAccessToken,
+      });
+
+      // 这种情况下，清除用户状态，要求重新登录
+      logger.i('🧹 清除不完整的认证状态，要求用户重新登录');
+      await secureStorage.clearUserCredentials();
+      await secureStorage.clearAllTokens();
+    }
+
+    logger.i('✅ Token状态检查完成');
+  } catch (error) {
+    LogService.instance.e('Token状态检查失败', error: error);
+  }
+}
 
 void main() async {
   // 确保Flutter绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔍 检查和修复Token状态
+  await _checkAndFixTokenStatus();
 
   // 创建日志记录器
   final logger = LogService.instance;
@@ -25,12 +60,21 @@ void main() async {
   logger.x('应用配置加载完成', extra: {'serverUrl': appConfig.serverUrl});
 
   try {
-    // 初始化日期格式化的本地化数据
-    await initializeDateFormatting('zh_CN', null);
+    // 初始化语言服务
+    final languageService = LanguageService();
+    await languageService.init();
+    final currentLocale = languageService.currentLocale;
 
-    // 初始化timeago中文本地化
-    timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
-    timeago.setDefaultLocale('zh');
+    // 初始化日期格式化的本地化数据
+    await initializeDateFormatting(currentLocale.languageCode, null);
+
+    // 初始化timeago本地化
+    if (currentLocale.languageCode == 'zh') {
+      timeago.setLocaleMessages('zh', timeago.ZhCnMessages());
+      timeago.setDefaultLocale('zh');
+    } else {
+      timeago.setDefaultLocale('en');
+    }
 
     // 初始化必要的文件目录
     final appDocDir = await getApplicationDocumentsDirectory();
@@ -45,15 +89,15 @@ void main() async {
 
     // 初始化安全存储服务并检查是否有保存的服务器URL
     try {
-      final secureStorage = SecureStorageService.instance;
-      final savedServerUrl = await secureStorage.getServerUrl();
+      final secureStorage = SecureStorageService();
+      final savedServerUrl = await secureStorage.read('server_url');
       if (savedServerUrl != null && savedServerUrl.isNotEmpty) {
         appConfig.setServerUrl(savedServerUrl);
         logger.x('从安全存储加载服务器URL', extra: {'serverUrl': savedServerUrl});
       } else {
         // 保存当前服务器URL到安全存储
         try {
-          await secureStorage.saveServerUrl(appConfig.serverUrl);
+          await secureStorage.write('server_url', appConfig.serverUrl);
         } catch (e) {
           // 保存服务器URL失败，但不影响应用启动
           logger.w('保存服务器URL到安全存储失败，将使用默认URL', extra: {'error': e.toString()});
@@ -153,6 +197,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _logger = LogService.instance;
+  final _languageService = LanguageService();
 
   @override
   void initState() {
@@ -170,31 +215,27 @@ class _MyAppState extends State<MyApp> {
       AppLifecycleObserver.initialize();
     });
 
-    return MaterialApp(
-      title: 'WhatsApp',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.grey[200],
-          foregroundColor: Colors.black,
-          elevation: 0,
-          centerTitle: true,
-        ),
-      ),
-      // 添加本地化配置
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('zh', 'CN'), // 中文简体
-        Locale('en', 'US'), // 英文
-      ],
-      locale: const Locale('zh', 'CN'), // 默认使用中文
-      scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
-      home: const AuthPage(),
-    );
+    return ValueListenableBuilder<Locale>(
+        valueListenable: _languageService.localeNotifier,
+        builder: (context, locale, child) {
+          return MaterialApp(
+            title: 'WhatsApp',
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+              useMaterial3: true,
+              appBarTheme: AppBarTheme(
+                backgroundColor: Colors.grey[200],
+                foregroundColor: Colors.black,
+                elevation: 0,
+                centerTitle: true,
+              ),
+            ),
+            // 添加本地化配置
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: locale,
+            home: const AuthPage(),
+          );
+        });
   }
 }

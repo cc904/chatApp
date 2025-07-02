@@ -5,9 +5,9 @@ import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:cc/core/adapters/user_adapter.dart';
-import 'package:cc/core/network/auth_api_client.dart';
+
 import 'package:cc/core/services/auth_token_sync_service.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
 
 part 'auth_state.dart';
 
@@ -19,6 +19,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   // 认证仓库
   final AuthRepository _authRepository;
+  final EnhancedTokenManager _tokenManager = EnhancedTokenManager.instance;
 
   // 服务器URL
 
@@ -31,9 +32,9 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// 初始化
   Future<void> _init() async {
-    _logger.x('初始化AuthCubit');
+    _logger.x('初始化AuthCubit (新认证模式)');
     try {
-      // 初始authRepository
+      // 初始化认证仓库
       await _authRepository.init();
       await loginWithToken();
     } catch (error) {
@@ -68,50 +69,39 @@ class AuthCubit extends Cubit<AuthState> {
   ///
   /// 参数:
   /// - purpose: 验证码用途 (login/register/reset)
-  Future<void> sendVerificationCode({required String purpose}) async {
-    _logger.x('发送验证码',
-        extra: {'purpose': purpose, 'phoneNumber': state.phoneNumber});
-
-    // 检查手机号是否有效
-    if (state.phoneNumber?.isEmpty ?? true) {
-      _logger.i('手机号为空');
-      emit(state.toErrorState('请输入手机号码'));
-      return;
-    }
-    if (state.phoneNumber!.length != 11) {
-      _logger.e('手机号错误: ${state.phoneNumber}', stackTrace: StackTrace.current);
-      emit(state.toErrorState('请输入正确的手机号码'));
-      return;
-    }
-
+  Future<void> sendVerificationCode(String purpose) async {
     try {
-      _logger.x('发送验证码中...', extra: {'phoneNumber': state.phoneNumber});
-      if (isClosed) return;
+      if (state.phoneNumber?.isEmpty ?? true) {
+        _logger.i('手机号为空');
+        emit(state.toErrorState('请输入手机号码'));
+        return;
+      }
+
+      _logger.x('发送验证码', extra: {
+        'phoneNumber': state.phoneNumber,
+        'purpose': purpose,
+      });
+
       emit(state.toLoadingState());
 
-      // 使用认证仓库发送验证码
       final success = await _authRepository.sendVerificationCode(
         state.phoneNumber!,
         purpose,
       );
 
-      if (!success) {
-        throw '发送验证码失败,请稍后再试';
+      if (success) {
+        emit(state.updateCodeSentStatus(
+          isCodeSent: true,
+          countdown: countdownDuration,
+        ));
+        _startCountdown();
+        _logger.i('验证码发送成功');
+      } else {
+        emit(state.toErrorState('验证码发送失败，请重试'));
       }
-
-      if (isClosed) return;
-      emit(state.updateCodeSentStatus(
-        isCodeSent: true,
-        countdown: countdownDuration,
-      ));
-      _logger.i('验证码已发送,倒计时: $countdownDuration');
-
-      _startCountdown();
     } catch (error) {
-      _logger.e('发送验证码错误: $error',
-          error: error, stackTrace: StackTrace.current);
-      if (isClosed) return;
-      emit(state.toErrorState(error.toString()));
+      _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState('发送验证码失败：${error.toString()}'));
     }
   }
 
@@ -148,29 +138,38 @@ class AuthCubit extends Cubit<AuthState> {
 
       final response = await _authRepository.loginWithToken();
 
-      if (response.success && response.currentUser != null) {
-        _logger.i('令牌登录成功', extra: {'userId': response.currentUser!.userId});
+      // 提取用户信息
+      final userData = response['currentUser'] ?? response['user'];
+      if (userData != null) {
+        _logger.i('令牌登录成功', extra: {'userId': userData['userId']});
 
-        final authToken = UserAdapter.extractToken(response.currentUser!);
+        // 创建CurrentUser对象
+        final currentUser = CurrentUser()
+          ..userId = userData['userId'] ?? ''
+          ..name = userData['nickname'] ?? userData['name'] ?? ''
+          ..phone = userData['phone'] ?? ''
+          ..email = userData['email'] ?? ''
+          ..avatar = userData['avatar'] ?? ''
+          ..status = userData['status'] ?? ''
+          ..lastLoginTime = userData['lastLoginTime'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
+              : DateTime.now();
 
         // 🔑 自动同步Token到所有需要认证的服务
-        AuthTokenSyncService.instance.syncTokenToAllServices(authToken);
+        await AuthTokenSyncService.instance.syncTokenToAllServices();
 
         emit(state.toAuthenticatedState(
-          currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
-          authToken: authToken,
+          currentUser: currentUser,
         ));
         return true;
       } else {
-        _logger.i('令牌登录失败：${response.message}');
-        emit(state.copyWith(
-          isLoading: false,
-        ));
+        _logger.i('令牌登录失败：未返回用户信息');
+        emit(state.copyWith(isLoading: false));
         return false;
       }
     } catch (error) {
-      _logger.e('令牌登录过程中发生错误', error: error);
-      emit(state.toErrorState(error.toString()));
+      _logger.i('令牌登录失败：${error.toString()}');
+      emit(state.copyWith(isLoading: false));
       return false;
     }
   }
@@ -202,7 +201,7 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.toLoadingState());
       // _logger.i('登录中...');
 
-      AuthResponse response;
+      Map<String, dynamic> response;
 
       if (isQuickLogin) {
         // 验证码登录
@@ -226,173 +225,165 @@ class AuthCubit extends Cubit<AuthState> {
             state.phoneNumber!, state.password!);
       }
 
-      // 检查登录结果
-      if (!response.success) {
-        throw response.message;
-      }
-
-      // 检查返回的用户信息
-      if (!response.hasUserId()) {
+      // 提取用户信息
+      final userData = response['currentUser'] ?? response['user'];
+      if (userData == null) {
         throw '登录成功但未返回用户信息';
       }
 
       // 登录成功
-      _logger.i('登录成功，用户信息: ${response.currentUser!.userId}');
+      _logger.i('登录成功，用户信息: ${userData['userId']}');
 
-      final authToken = UserAdapter.extractToken(response.currentUser!);
+      // 创建CurrentUser对象
+      final currentUser = CurrentUser()
+        ..userId = userData['userId'] ?? ''
+        ..name = userData['nickname'] ?? userData['name'] ?? ''
+        ..phone = userData['phone'] ?? ''
+        ..email = userData['email'] ?? ''
+        ..avatar = userData['avatar'] ?? ''
+        ..status = userData['status'] ?? ''
+        ..lastLoginTime = userData['lastLoginTime'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
+            : DateTime.now();
 
       // 🔑 自动同步Token到所有需要认证的服务
-      AuthTokenSyncService.instance.syncTokenToAllServices(authToken);
+      await AuthTokenSyncService.instance.syncTokenToAllServices();
 
       emit(state.toAuthenticatedState(
-        currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
-        authToken: authToken,
+        currentUser: currentUser,
       ));
     } catch (error) {
-      _logger.e('登录错误: $error', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState(error.toString()));
+      _logger.e('登录失败', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState('登录失败: ${error.toString()}'));
     }
   }
 
-  Future<void> register(String phoneNumber, String password,
-      String verificationCode, String nickname) async {
-    _logger
-        .x('注册请求', extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
+  /// 用户注册
+  ///
+  /// 使用手机号、密码、验证码和昵称注册
+  Future<void> register() async {
+    _logger.x('注册请求', extra: {'phoneNumber': state.phoneNumber});
+
     try {
-      // 验证手机号
-      if (phoneNumber.isEmpty) {
-        _logger.i('手机号为空');
+      // 验证输入
+      if (state.phoneNumber?.isEmpty ?? true) {
         throw '请输入手机号码';
       }
-      if (phoneNumber.length != 11) {
-        _logger.e('手机号错误: $phoneNumber', stackTrace: StackTrace.current);
+      if (state.phoneNumber!.length != 11) {
         throw '请输入正确的手机号码';
       }
-
-      // 验证验证码
-      if (verificationCode.isEmpty) {
-        _logger.i('验证码为空');
-        throw '请输入验证码';
-      }
-
-      // 验证密码
-      if (password.isEmpty) {
-        _logger.i('密码为空');
+      if (state.password?.isEmpty ?? true) {
         throw '请输入密码';
       }
-      if (password.length < 6) {
-        _logger.i('密码不符合要求');
-        throw '密码长度至少6位';
+      if (state.verificationCode?.isEmpty ?? true) {
+        throw '请输入验证码';
       }
-
-      // 验证昵称
-      if (nickname.isEmpty) {
-        _logger.i('昵称为空');
+      if (state.nickname?.isEmpty ?? true) {
         throw '请输入昵称';
       }
 
-      // 更新表单数据
-      emit(state.copyWith(
-        phoneNumber: phoneNumber,
-        password: password,
-        verificationCode: verificationCode,
-        nickname: nickname,
-      ));
-
       emit(state.toLoadingState());
-      _logger.x('注册中...',
-          extra: {'phoneNumber': phoneNumber, 'nickname': nickname});
 
-      // 使用认证仓库注册
+      _logger.x('开始注册', extra: {
+        'phoneNumber': state.phoneNumber,
+        'nickname': state.nickname,
+      });
+
       final response = await _authRepository.register(
-        phoneNumber,
-        password,
-        verificationCode,
-        nickname,
+        state.phoneNumber!,
+        state.password!,
+        state.verificationCode!,
+        state.nickname!,
       );
 
-      // 检查注册是否成功
-      if (!response.success) {
-        throw response.message;
+      // 提取用户信息
+      final userData = response['currentUser'] ?? response['user'];
+      if (userData == null) {
+        throw '注册成功但未返回用户信息';
       }
 
       // 注册成功
-      _logger.i('注册成功，用户ID: ${response.currentUser!.userId}');
+      _logger.i('注册成功，用户信息: ${userData['userId']}');
 
-      final authToken = UserAdapter.extractToken(response.currentUser!);
+      // 创建CurrentUser对象
+      final currentUser = CurrentUser()
+        ..userId = userData['userId'] ?? ''
+        ..name = userData['nickname'] ?? userData['name'] ?? ''
+        ..phone = userData['phone'] ?? ''
+        ..email = userData['email'] ?? ''
+        ..avatar = userData['avatar'] ?? ''
+        ..status = userData['status'] ?? ''
+        ..lastLoginTime = userData['lastLoginTime'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
+            : DateTime.now();
 
       // 🔑 自动同步Token到所有需要认证的服务
-      AuthTokenSyncService.instance.syncTokenToAllServices(authToken);
+      await AuthTokenSyncService.instance.syncTokenToAllServices();
 
       emit(state.toAuthenticatedState(
-        currentUser: UserAdapter.fromCurrentUserProto(response.currentUser!),
-        authToken: authToken,
+        currentUser: currentUser,
       ));
     } catch (error) {
-      _logger.e('注册错误: $error', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState(error.toString()));
+      _logger.e('注册失败', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState('注册失败: ${error.toString()}'));
     }
   }
 
-  Future<void> resetPassword(
-      String phoneNumber, String newPassword, String verificationCode) async {
-    _logger.x('重置密码请求', extra: {'phoneNumber': phoneNumber});
+  /// 用户登出
+  Future<void> logout() async {
     try {
-      // 验证手机号
-      if (phoneNumber.isEmpty) {
-        _logger.i('手机号为空');
+      _logger.i('开始登出操作');
+
+      // 停止Token管理
+      _tokenManager.stopTokenManagement();
+
+      // 调用仓库登出
+      await _authRepository.logout();
+
+      // 清除所有服务的Token
+      AuthTokenSyncService.instance.clearTokenFromAllServices();
+
+      emit(AuthState.initial());
+      _logger.i('用户已登出');
+    } catch (error) {
+      _logger.e('登出失败', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState('登出失败: ${error.toString()}'));
+    }
+  }
+
+  /// 重置密码
+  Future<void> resetPassword() async {
+    try {
+      if (state.phoneNumber?.isEmpty ?? true) {
         throw '请输入手机号码';
       }
-      if (phoneNumber.length != 11) {
-        _logger.e('手机号错误: $phoneNumber', stackTrace: StackTrace.current);
-        throw '请输入正确的手机号码';
-      }
-
-      // 验证验证码
-      if (verificationCode.isEmpty) {
-        _logger.i('验证码为空');
+      if (state.verificationCode?.isEmpty ?? true) {
         throw '请输入验证码';
       }
-
-      // 验证密码
-      if (newPassword.isEmpty) {
-        _logger.i('密码为空');
+      if (state.password?.isEmpty ?? true) {
         throw '请输入新密码';
       }
-      if (newPassword.length < 6) {
-        _logger.i('密码不符合要求');
-        throw '密码长度至少6位';
-      }
-
-      // 更新表单数据
-      emit(state.copyWith(
-        phoneNumber: phoneNumber,
-        password: newPassword,
-        verificationCode: verificationCode,
-      ));
 
       emit(state.toLoadingState());
-      _logger.x('重置密码中...', extra: {'phoneNumber': phoneNumber});
 
-      // 使用认证仓库重置密码
       final success = await _authRepository.resetPassword(
-        phoneNumber,
-        verificationCode,
-        newPassword,
+        state.phoneNumber!,
+        state.verificationCode!,
+        state.password!,
       );
 
-      if (!success) {
-        throw '重置密码失败';
+      if (success) {
+        emit(state.copyWith(
+          isLoading: false,
+          errorMessage: null,
+        ));
+        _logger.i('密码重置成功');
+      } else {
+        throw '密码重置失败';
       }
-
-      // 重置成功
-      _logger.i('重置密码成功');
-      emit(state.copyWith(isLoading: false));
     } catch (error) {
-      _logger.e('重置密码错误: $error', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState(error.toString()));
-      // 重新抛出异常,以便上层代码捕获
-      rethrow;
+      _logger.e('重置密码失败', error: error, stackTrace: StackTrace.current);
+      emit(state.toErrorState('重置密码失败: ${error.toString()}'));
     }
   }
 
@@ -401,24 +392,5 @@ class AuthCubit extends Cubit<AuthState> {
     _logger.x('关闭AuthCubit');
     _countdownTimer?.cancel();
     return super.close();
-  }
-
-  /// 退出登录
-  Future<void> logout() async {
-    _logger.x('退出登录');
-    try {
-      // 使用认证仓库登出
-      final success = await _authRepository.logout();
-      if (!success) {
-        throw '退出登录失败';
-      }
-
-      // 重置状态
-      emit(AuthState.initial());
-      _logger.i('退出登录成功');
-    } catch (error) {
-      _logger.e('退出登录失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState('退出登录失败: ${error.toString()}'));
-    }
   }
 }

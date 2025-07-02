@@ -167,6 +167,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   /// 返回数据库中的所有联系人列表
   @override
   Future<List<db_user.User>> getAllContacts() async {
+    _logger.w('获取所有联系人', stackTrace: StackTrace.current);
     try {
       // 返回本地数据库中的联系人列表
       final users = await _users.where().findAll();
@@ -285,11 +286,11 @@ class ContactsRepositoryImpl implements ContactsRepository {
       _syncContactsStatusController.add(ContactsSyncStatus.syncing);
       _logger.i('开始联系人同步流程');
 
-      // 验证当前用户信息
-      if (_currentUser.userId.isEmpty || _currentUser.token.isEmpty) {
-        _logger.e('当前用户信息不完整，无法同步联系人', extra: {
+      // 🆕 使用新的多Token系统验证用户信息
+      if (!await _currentUser.isFullyAuthenticated()) {
+        _logger.e('当前用户信息不完整或Token无效，无法同步联系人', extra: {
           'userId': _currentUser.userId,
-          'hasToken': _currentUser.token.isNotEmpty
+          'hasUserId': _currentUser.userId.isNotEmpty,
         });
         _syncContactsStatusController.add(ContactsSyncStatus.error);
         return;

@@ -12,6 +12,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 /// 新建对话底部弹窗
 class NewConversationBottomSheet extends StatefulWidget {
@@ -237,6 +238,8 @@ class _NewConversationBottomSheetState
 
   /// 构建标题栏
   Widget _buildTitleBar() {
+    final l10n = AppLocalizations.of(context);
+
     if (_currentPageIndex == 0) {
       // 主页面标题栏
       return Container(
@@ -248,10 +251,10 @@ class _NewConversationBottomSheetState
         ),
         child: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'New Message',
-                style: TextStyle(
+                l10n.newMessage,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -259,9 +262,9 @@ class _NewConversationBottomSheetState
             ),
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
+              child: Text(
+                l10n.cancel,
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.blue,
                 ),
@@ -286,10 +289,10 @@ class _NewConversationBottomSheetState
               child: const Icon(Icons.arrow_back, color: Colors.blue),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'New Group',
-                style: TextStyle(
+                l10n.newGroup,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -305,9 +308,9 @@ class _NewConversationBottomSheetState
             const SizedBox(width: 8),
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
+              child: Text(
+                l10n.cancel,
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.blue,
                 ),
@@ -317,7 +320,7 @@ class _NewConversationBottomSheetState
             TextButton(
               onPressed: _selectedContacts.isNotEmpty ? _createGroup : null,
               child: Text(
-                'Next',
+                l10n.next,
                 style: TextStyle(
                   color:
                       _selectedContacts.isNotEmpty ? Colors.blue : Colors.grey,
@@ -333,6 +336,8 @@ class _NewConversationBottomSheetState
 
   /// 构建主页面
   Widget _buildMainPage() {
+    final l10n = AppLocalizations.of(context);
+
     return Column(
       children: [
         // 新建群聊按钮
@@ -344,9 +349,9 @@ class _NewConversationBottomSheetState
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: _switchToGroupPage,
-                child: const Text(
-                  'New Group',
-                  style: TextStyle(
+                child: Text(
+                  l10n.newGroup,
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Colors.blue,
                   ),
@@ -368,9 +373,9 @@ class _NewConversationBottomSheetState
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: _navigateToChannelInfo,
-                child: const Text(
-                  'New Channel',
-                  style: TextStyle(
+                child: Text(
+                  l10n.newChannel,
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Colors.blue,
                   ),
@@ -390,7 +395,7 @@ class _NewConversationBottomSheetState
             shrinkWrap: false,
             scrollController: widget.scrollController,
             onContactTap: _handleMainPageContactTap,
-            searchHint: 'Search',
+            searchHint: l10n.searchContacts,
           ),
         ),
       ],
@@ -399,6 +404,8 @@ class _NewConversationBottomSheetState
 
   /// 构建新建群聊页面
   Widget _buildNewGroupPage() {
+    final l10n = AppLocalizations.of(context);
+
     return Column(
       children: [
         // Who would you like to add? 提示文字
@@ -406,7 +413,7 @@ class _NewConversationBottomSheetState
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           alignment: Alignment.centerLeft,
           child: Text(
-            'Who would you like to add?',
+            l10n.whoToAdd,
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -433,6 +440,8 @@ class _NewConversationBottomSheetState
 
   /// 构建已选联系人显示区域
   Widget _buildSelectedContactsArea() {
+    final l10n = AppLocalizations.of(context);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
@@ -444,7 +453,7 @@ class _NewConversationBottomSheetState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Selected (${_selectedContacts.length})',
+            '${l10n.selected} (${_selectedContacts.length})',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],

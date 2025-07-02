@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:mime/mime.dart';
 import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 
 /// 媒体上传集成服务
 /// 将Upload API与现有消息系统集成的高级服务
@@ -70,7 +73,7 @@ class MediaUploadIntegrationService {
         onProgress: onUploadProgress,
       );
 
-      // 3. 发送消息
+      // 3. 发送消息 - 💢💢💢 立即设置宽高信息，避免布局跳动
       onStatusUpdate?.call('正在发送消息...');
       final message = await _chatRepo.sendImageMessage(
         conversationId,
@@ -79,15 +82,30 @@ class MediaUploadIntegrationService {
         caption: caption,
       );
 
+      // 💢💢💢 立即设置图片尺寸信息，避免等待图片加载后布局变化
+      if (dimensions != null) {
+        message.width = dimensions.width;
+        message.height = dimensions.height;
+        _logger.d('设置图片尺寸到消息', extra: {
+          'messageId':
+              message.messageId.isNotEmpty ? message.messageId : message.tempId,
+          'width': dimensions.width,
+          'height': dimensions.height,
+        });
+      }
+
       // 4. 更新消息的服务器信息
       if (uploadResult.metadata != null) {
         message.fileSize = uploadResult.metadata!.size.toDouble();
         message.mimeType = uploadResult.metadata!.mimeType;
-        if (uploadResult.metadata!.width != null) {
-          message.width = uploadResult.metadata!.width!;
-        }
-        if (uploadResult.metadata!.height != null) {
-          message.height = uploadResult.metadata!.height!;
+        // 只有在本地没有获取到尺寸时，才使用服务器返回的尺寸
+        if (dimensions == null) {
+          if (uploadResult.metadata!.width != null) {
+            message.width = uploadResult.metadata!.width!;
+          }
+          if (uploadResult.metadata!.height != null) {
+            message.height = uploadResult.metadata!.height!;
+          }
         }
         if (uploadResult.thumbnailUrl != null) {
           message.thumbnailUrl = uploadResult.thumbnailUrl!;
@@ -100,6 +118,8 @@ class MediaUploadIntegrationService {
         'messageId': message.messageId,
         'fileId': uploadResult.fileId,
         'url': uploadResult.url,
+        'width': message.width,
+        'height': message.height,
       });
 
       return message;
@@ -408,9 +428,49 @@ class MediaUploadIntegrationService {
   /// 获取图片尺寸
   Future<ImageDimensions?> _getImageDimensions(File imageFile) async {
     try {
-      // 这里应该使用适当的图片处理库来获取尺寸
-      // 暂时返回null，实际实现需要添加image库依赖
-      return null;
+      _logger.d('开始获取图片尺寸', extra: {'filePath': imageFile.path});
+
+      // 使用Flutter的Image类获取图片尺寸
+      final imageProvider = FileImage(imageFile);
+      final ImageStream stream =
+          imageProvider.resolve(ImageConfiguration.empty);
+
+      // 创建一个Completer来等待图片加载完成
+      final completer = Completer<ImageDimensions?>();
+      late ImageStreamListener listener;
+
+      listener = ImageStreamListener(
+        (ImageInfo info, bool synchronousCall) {
+          final width = info.image.width;
+          final height = info.image.height;
+
+          _logger.d('成功获取图片尺寸', extra: {
+            'width': width,
+            'height': height,
+            'filePath': imageFile.path,
+          });
+
+          stream.removeListener(listener);
+          completer.complete(ImageDimensions(width: width, height: height));
+        },
+        onError: (exception, stackTrace) {
+          _logger.w('获取图片尺寸失败: $exception');
+          stream.removeListener(listener);
+          completer.complete(null);
+        },
+      );
+
+      stream.addListener(listener);
+
+      // 等待图片加载完成，最多等待5秒
+      return await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _logger.w('获取图片尺寸超时');
+          stream.removeListener(listener);
+          return null;
+        },
+      );
     } catch (error) {
       _logger.w('获取图片尺寸失败: $error');
       return null;

@@ -274,5 +274,58 @@ void main() {
       // 💢💢💢 已修改：参与者模型中已移除unreadCount字段，无需测试proto的unreadCount
       expect(protoParticipant.role, equals(proto.MemberRole.ADMIN));
     });
+
+    test('应该保留现有会话的lastReadTime字段', () {
+      // 创建现有会话，包含lastReadTime
+      final existingLastReadTime =
+          DateTime.now().subtract(const Duration(hours: 1));
+      final existingConversation = Conversation()
+        ..conversationId = 'test_conversation_id'
+        ..type = ConversationType.private
+        ..name = 'Existing Conversation'
+        ..lastReadTime = existingLastReadTime;
+
+      // 创建Proto对象（来自服务器，不包含lastReadTime）
+      final protoConversation = proto.ConversationProto(
+        conversationId: 'test_conversation_id',
+        type: proto.ConversationType.PRIVATE,
+        name: 'Updated Conversation', // 服务器返回的更新名称
+        avatar: 'new_avatar_url',
+      );
+
+      // 转换时传递现有会话以保留本地字段
+      final updatedConversation = ConversationAdapter.fromProto(
+        protoConversation,
+        currentUserId: 'test_user',
+        existingConversation: existingConversation,
+      );
+
+      // 验证服务器数据被正确更新
+      expect(
+          updatedConversation.conversationId, equals('test_conversation_id'));
+      expect(updatedConversation.name, equals('Updated Conversation'));
+      expect(updatedConversation.avatar, equals('new_avatar_url'));
+
+      // 验证本地的lastReadTime字段被保留
+      expect(updatedConversation.lastReadTime, equals(existingLastReadTime));
+    });
+
+    test('应该在没有现有会话时正确设置lastReadTime为null', () {
+      // 创建Proto对象（新会话）
+      final protoConversation = proto.ConversationProto(
+        conversationId: 'new_conversation_id',
+        type: proto.ConversationType.PRIVATE,
+        name: 'New Conversation',
+      );
+
+      // 转换时不传递现有会话
+      final newConversation = ConversationAdapter.fromProto(
+        protoConversation,
+        currentUserId: 'test_user',
+      );
+
+      // 验证新会话的lastReadTime为null
+      expect(newConversation.lastReadTime, isNull);
+    });
   });
 }

@@ -36,7 +36,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   final TextEditingController _groupNameController = TextEditingController();
   final FocusNode _groupNameFocusNode = FocusNode();
   final CommunicationService _communicationService = CommunicationService();
-  final SecureStorageService _secureStorage = SecureStorageService.instance;
+  final SecureStorageService _secureStorage = SecureStorageService();
 
   bool _autoDeleteMessages = false;
   String? _groupAvatarPath;
@@ -53,7 +53,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   Future<void> _initializeUserAndGroupName() async {
     try {
       // 获取当前用户信息
-      _currentUser = await _secureStorage.getFullUserInfo();
+      _currentUser = await _secureStorage.readUserCredentials();
 
       // 设置默认群名：XXX(创建者)的群
       if (_currentUser != null) {

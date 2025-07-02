@@ -96,10 +96,12 @@ class _RegisterPageState extends State<RegisterPage> {
                     decoration: const InputDecoration(
                       labelText: '手机号码',
                       prefixIcon: Icon(Icons.phone),
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                     keyboardType: TextInputType.phone,
-                    onChanged: (value) => context.read<AuthCubit>().updatePhoneNumber(value),
+                    onChanged: (value) =>
+                        context.read<AuthCubit>().updatePhoneNumber(value),
                   ),
                   const SizedBox(height: 20),
 
@@ -112,19 +114,27 @@ class _RegisterPageState extends State<RegisterPage> {
                           decoration: const InputDecoration(
                             labelText: '验证码',
                             prefixIcon: Icon(Icons.message),
-                            contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                            contentPadding: EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 16),
                           ),
-                          onChanged: (value) => context.read<AuthCubit>().updateVerificationCode(value),
+                          onChanged: (value) => context
+                              .read<AuthCubit>()
+                              .updateVerificationCode(value),
                         ),
                       ),
                       const SizedBox(width: 8),
                       BlocBuilder<AuthCubit, AuthState>(
                         builder: (context, state) {
                           return ElevatedButton(
-                            onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(purpose: 'register'),
+                            onPressed: state.isCodeSent || state.isLoading
+                                ? null
+                                : () => context
+                                    .read<AuthCubit>()
+                                    .sendVerificationCode('register'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
-                              disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                              disabledBackgroundColor:
+                                  Colors.green.withValues(alpha: 0.5),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
@@ -148,9 +158,11 @@ class _RegisterPageState extends State<RegisterPage> {
                     decoration: const InputDecoration(
                       labelText: '昵称',
                       prefixIcon: Icon(Icons.person),
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
-                    onChanged: (value) => context.read<AuthCubit>().updateNickname(value),
+                    onChanged: (value) =>
+                        context.read<AuthCubit>().updateNickname(value),
                   ),
                   const SizedBox(height: 20),
 
@@ -161,10 +173,12 @@ class _RegisterPageState extends State<RegisterPage> {
                       labelText: '密码',
                       prefixIcon: Icon(Icons.lock),
                       helperText: '密码长度至少6位',
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                     obscureText: true,
-                    onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
+                    onChanged: (value) =>
+                        context.read<AuthCubit>().updatePassword(value),
                   ),
                   const SizedBox(height: 20),
 
@@ -174,7 +188,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     decoration: const InputDecoration(
                       labelText: '确认密码',
                       prefixIcon: Icon(Icons.lock_outline),
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                     obscureText: true,
                   ),
@@ -185,7 +200,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     listener: (context, state) {
                       if (state.isAuthenticated) {
                         UINotificationHelper.showSuccess('注册成功');
-                        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                        Navigator.of(context)
+                            .pushNamedAndRemoveUntil('/home', (route) => false);
                       } else if (state.hasError) {
                         UINotificationHelper.showError(state.errorMessage!);
                       }
@@ -200,9 +216,11 @@ class _RegisterPageState extends State<RegisterPage> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white),
                                 )
-                              : const Text('注册', style: TextStyle(fontSize: 16)),
+                              : const Text('注册',
+                                  style: TextStyle(fontSize: 16)),
                         ),
                       );
                     },
@@ -254,11 +272,6 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    context.read<AuthCubit>().register(
-          _phoneController.text,
-          _passwordController.text,
-          _verificationCodeController.text,
-          _nicknameController.text,
-        );
+    context.read<AuthCubit>().register();
   }
 }

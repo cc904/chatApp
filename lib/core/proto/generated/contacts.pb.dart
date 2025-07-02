@@ -172,6 +172,7 @@ class FriendRequestProto extends $pb.GeneratedMessage {
 /// 客户端请求同步联系人列表时使用
 /// 在服务端实现中，用户ID直接从 socket 中获取，不需要客户端提供
 /// 采用全量同步策略，确保客户端和服务器数据一致性
+/// Socket.io事件: contact:sync
 class SyncContactsRequest extends $pb.GeneratedMessage {
   factory SyncContactsRequest() => create();
   SyncContactsRequest._() : super();
@@ -206,6 +207,7 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
 
 /// 同步联系人响应消息
 /// 服务器返回同步结果
+/// Socket.io事件: contact:sync:response
 class SyncContactsResponse extends $pb.GeneratedMessage {
   factory SyncContactsResponse({
     $core.Iterable<$0.UserProto>? contacts,
@@ -770,6 +772,346 @@ class DeleteFriendResponse extends $pb.GeneratedMessage {
   $core.bool hasErrorMessage() => $_has(1);
   @$pb.TagNumber(2)
   void clearErrorMessage() => $_clearField(2);
+}
+
+/// 更新联系人信息请求消息
+/// 客户端更新联系人信息时使用
+/// Socket.io事件: contact:update
+class UpdateContactRequest extends $pb.GeneratedMessage {
+  factory UpdateContactRequest({
+    $core.String? contactId,
+    $core.String? nickname,
+    $core.String? remark,
+    $core.bool? blocked,
+    $core.bool? isFavorite,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (contactId != null) {
+      $result.contactId = contactId;
+    }
+    if (nickname != null) {
+      $result.nickname = nickname;
+    }
+    if (remark != null) {
+      $result.remark = remark;
+    }
+    if (blocked != null) {
+      $result.blocked = blocked;
+    }
+    if (isFavorite != null) {
+      $result.isFavorite = isFavorite;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  UpdateContactRequest._() : super();
+  factory UpdateContactRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UpdateContactRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateContactRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'contactId')
+    ..aOS(2, _omitFieldNames ? '' : 'nickname')
+    ..aOS(3, _omitFieldNames ? '' : 'remark')
+    ..aOB(4, _omitFieldNames ? '' : 'blocked')
+    ..aOB(5, _omitFieldNames ? '' : 'isFavorite')
+    ..aInt64(6, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UpdateContactRequest clone() => UpdateContactRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UpdateContactRequest copyWith(void Function(UpdateContactRequest) updates) => super.copyWith((message) => updates(message as UpdateContactRequest)) as UpdateContactRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateContactRequest create() => UpdateContactRequest._();
+  UpdateContactRequest createEmptyInstance() => create();
+  static $pb.PbList<UpdateContactRequest> createRepeated() => $pb.PbList<UpdateContactRequest>();
+  @$core.pragma('dart2js:noInline')
+  static UpdateContactRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateContactRequest>(create);
+  static UpdateContactRequest? _defaultInstance;
+
+  /// 联系人ID
+  @$pb.TagNumber(1)
+  $core.String get contactId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set contactId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasContactId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContactId() => $_clearField(1);
+
+  /// 自定义昵称（可选）
+  /// 如果不提供则不更新此字段
+  @$pb.TagNumber(2)
+  $core.String get nickname => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set nickname($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasNickname() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNickname() => $_clearField(2);
+
+  /// 备注信息（可选）
+  /// 如果不提供则不更新此字段
+  @$pb.TagNumber(3)
+  $core.String get remark => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set remark($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasRemark() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRemark() => $_clearField(3);
+
+  /// 是否拉黑（可选）
+  /// 如果不提供则不更新此字段
+  @$pb.TagNumber(4)
+  $core.bool get blocked => $_getBF(3);
+  @$pb.TagNumber(4)
+  set blocked($core.bool v) { $_setBool(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasBlocked() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearBlocked() => $_clearField(4);
+
+  /// 是否收藏（可选）
+  /// 如果不提供则不更新此字段
+  @$pb.TagNumber(5)
+  $core.bool get isFavorite => $_getBF(4);
+  @$pb.TagNumber(5)
+  set isFavorite($core.bool v) { $_setBool(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasIsFavorite() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIsFavorite() => $_clearField(5);
+
+  /// 更新时间戳
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get timestamp => $_getI64(5);
+  @$pb.TagNumber(6)
+  set timestamp($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasTimestamp() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTimestamp() => $_clearField(6);
+}
+
+/// 更新联系人信息响应消息
+/// 服务器返回更新结果
+/// Socket.io事件: contact:update:response
+class UpdateContactResponse extends $pb.GeneratedMessage {
+  factory UpdateContactResponse({
+    $core.bool? success,
+    $core.String? message,
+    $0.UserProto? contact,
+    $core.Iterable<$core.String>? updatedFields,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (contact != null) {
+      $result.contact = contact;
+    }
+    if (updatedFields != null) {
+      $result.updatedFields.addAll(updatedFields);
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  UpdateContactResponse._() : super();
+  factory UpdateContactResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UpdateContactResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateContactResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOM<$0.UserProto>(3, _omitFieldNames ? '' : 'contact', subBuilder: $0.UserProto.create)
+    ..pPS(4, _omitFieldNames ? '' : 'updatedFields')
+    ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UpdateContactResponse clone() => UpdateContactResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UpdateContactResponse copyWith(void Function(UpdateContactResponse) updates) => super.copyWith((message) => updates(message as UpdateContactResponse)) as UpdateContactResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateContactResponse create() => UpdateContactResponse._();
+  UpdateContactResponse createEmptyInstance() => create();
+  static $pb.PbList<UpdateContactResponse> createRepeated() => $pb.PbList<UpdateContactResponse>();
+  @$core.pragma('dart2js:noInline')
+  static UpdateContactResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateContactResponse>(create);
+  static UpdateContactResponse? _defaultInstance;
+
+  /// 操作是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 更新后的联系人信息
+  @$pb.TagNumber(3)
+  $0.UserProto get contact => $_getN(2);
+  @$pb.TagNumber(3)
+  set contact($0.UserProto v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasContact() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearContact() => $_clearField(3);
+  @$pb.TagNumber(3)
+  $0.UserProto ensureContact() => $_ensure(2);
+
+  /// 更新的字段列表
+  /// 用于标识哪些字段发生了变化
+  @$pb.TagNumber(4)
+  $pb.PbList<$core.String> get updatedFields => $_getList(3);
+
+  /// 操作时间戳
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get timestamp => $_getI64(4);
+  @$pb.TagNumber(5)
+  set timestamp($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTimestamp() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTimestamp() => $_clearField(5);
+}
+
+/// 联系人信息更新事件
+/// 当联系人信息发生变化时通知客户端
+/// Socket.io事件: contact:updated
+class ContactUpdateEvent extends $pb.GeneratedMessage {
+  factory ContactUpdateEvent({
+    $0.UserProto? contact,
+    $core.Iterable<$core.String>? updatedFields,
+    $fixnum.Int64? timestamp,
+    $core.String? updateSource,
+  }) {
+    final $result = create();
+    if (contact != null) {
+      $result.contact = contact;
+    }
+    if (updatedFields != null) {
+      $result.updatedFields.addAll(updatedFields);
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    if (updateSource != null) {
+      $result.updateSource = updateSource;
+    }
+    return $result;
+  }
+  ContactUpdateEvent._() : super();
+  factory ContactUpdateEvent.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ContactUpdateEvent.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ContactUpdateEvent', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOM<$0.UserProto>(1, _omitFieldNames ? '' : 'contact', subBuilder: $0.UserProto.create)
+    ..pPS(2, _omitFieldNames ? '' : 'updatedFields')
+    ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
+    ..aOS(4, _omitFieldNames ? '' : 'updateSource')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ContactUpdateEvent clone() => ContactUpdateEvent()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ContactUpdateEvent copyWith(void Function(ContactUpdateEvent) updates) => super.copyWith((message) => updates(message as ContactUpdateEvent)) as ContactUpdateEvent;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ContactUpdateEvent create() => ContactUpdateEvent._();
+  ContactUpdateEvent createEmptyInstance() => create();
+  static $pb.PbList<ContactUpdateEvent> createRepeated() => $pb.PbList<ContactUpdateEvent>();
+  @$core.pragma('dart2js:noInline')
+  static ContactUpdateEvent getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ContactUpdateEvent>(create);
+  static ContactUpdateEvent? _defaultInstance;
+
+  /// 更新的联系人信息
+  @$pb.TagNumber(1)
+  $0.UserProto get contact => $_getN(0);
+  @$pb.TagNumber(1)
+  set contact($0.UserProto v) { $_setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasContact() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContact() => $_clearField(1);
+  @$pb.TagNumber(1)
+  $0.UserProto ensureContact() => $_ensure(0);
+
+  /// 更新的字段列表
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get updatedFields => $_getList(1);
+
+  /// 更新时间戳
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get timestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTimestamp() => $_clearField(3);
+
+  /// 更新来源
+  /// 如：user_action, system_sync等
+  @$pb.TagNumber(4)
+  $core.String get updateSource => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set updateSource($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasUpdateSource() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearUpdateSource() => $_clearField(4);
 }
 
 

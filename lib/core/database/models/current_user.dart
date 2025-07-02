@@ -1,13 +1,14 @@
 import 'package:isar/isar.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
 
 part 'current_user.g.dart';
 
 /// CurrentUserProto的Isar适配器
 ///
-/// 这是一个适配器类，将CurrentUserProto对象适配为Isar数据库可用的格式
-/// 不直接存储用户数据，而是作为CurrentUserProto和Isar之间的桥梁
+/// 适配新的多Token认证系统，不再存储Token字段
+/// 所有Token操作通过 EnhancedTokenManager 进行
 @collection
 class CurrentUser {
   // Isar ID
@@ -15,9 +16,6 @@ class CurrentUser {
 
   // 用户ID (来自服务器)
   late String userId;
-
-  // 认证令牌
-  late String token;
 
   // 用户名称/昵称
   late String name;
@@ -31,9 +29,6 @@ class CurrentUser {
   // 电子邮箱
   String? email;
 
-  // 令牌过期时间
-  DateTime? tokenExpireTime;
-
   // 最后登录时间
   DateTime? lastLoginTime;
 
@@ -46,36 +41,64 @@ class CurrentUser {
     return name.substring(0, 1).toUpperCase();
   }
 
-  /// 从CurrentUserProto创建CurrentUser
+  /// 检查是否有有效的认证Token
+  Future<bool> hasValidToken() async {
+    try {
+      final tokenManager = EnhancedTokenManager.instance;
+      final accessToken = await tokenManager.getApiToken();
+      return accessToken != null && accessToken.isNotEmpty;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /// 获取当前有效的API Token
+  Future<String?> getValidApiToken() async {
+    try {
+      final tokenManager = EnhancedTokenManager.instance;
+      return await tokenManager.getApiToken();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /// 获取当前有效的Socket Token
+  Future<String?> getValidSocketToken() async {
+    try {
+      final tokenManager = EnhancedTokenManager.instance;
+      return await tokenManager.getSocketToken();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /// 检查用户是否已完整登录
+  Future<bool> isFullyAuthenticated() async {
+    return userId.isNotEmpty && await hasValidToken();
+  }
+
+  /// 从CurrentUserProto创建CurrentUser（移除token字段）
   static CurrentUser fromProto(CurrentUserProto proto) {
     return CurrentUser()
       ..userId = proto.userId
-      ..token = proto.token
       ..name = proto.name
       ..avatar = proto.avatar
       ..phone = proto.phone
       ..email = proto.email
-      ..tokenExpireTime = proto.hasTokenExpireTime()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.tokenExpireTime.toInt())
-          : null
       ..lastLoginTime = proto.hasLastLoginTime()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastLoginTime.toInt())
           : null
       ..status = proto.status;
   }
 
-  /// 转换为CurrentUserProto
+  /// 转换为CurrentUserProto（不包含token字段）
   CurrentUserProto toProto() {
     return CurrentUserProto(
       userId: userId,
-      token: token,
       name: name,
       avatar: avatar,
       phone: phone,
       email: email,
-      tokenExpireTime: tokenExpireTime != null
-          ? Int64(tokenExpireTime!.millisecondsSinceEpoch)
-          : null,
       lastLoginTime: lastLoginTime != null
           ? Int64(lastLoginTime!.millisecondsSinceEpoch)
           : null,

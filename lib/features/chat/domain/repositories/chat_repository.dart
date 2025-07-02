@@ -1,7 +1,6 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
-import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 
 /// 搜索结果类
 /// 包含搜索相关的所有信息
@@ -83,25 +82,21 @@ class ConversationInfo {
 abstract class ChatRepository {
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息相关    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
-  /// 请求服务器获取更多消息
+  /// 请求服务器获取指定范围的消息
   /// [conversationId] - 会话ID
-  /// [messageIndex] - 起始消息索引
-  /// [limit] - 获取消息数量限制
-  /// [loadingType] - 加载类型
-  Future<bool> requestMoreMessages(
-      String conversationId, LoadingType loadingType, int messageIndex,
-      {int limit = 50});
+  /// [indexA] - 开始索引（包含）
+  /// [indexB] - 结束索引（包含）
+  /// [jumpIndex] - 必选,不需要传入0
+  Future<bool> requestMessages(
+      String conversationId, int indexA, int indexB, jumpIndex);
 
-  /// 加载本地最新的消息 前50条 后50条
+  /// 加载指定范围的消息
   /// [conversationId] - 会话ID
-  /// [anchorMessageIndex] - 锚点消息Index
-  /// [firstMessageIndex] - 会话中的第一条消息的索引
-  /// [lastMessageIndex] - 会话中的最后一条消息的索引
-  /// [limit] - 获取消息数量限制
-  /// [isBefore] - 是否获取指定索引之前的消息
-  Future<bool> loadMoreMessages(String conversationId, LoadingType loadingType,
-      int anchorMessageIndex, int firstMessageIndex, int lastMessageIndex,
-      {int? limit});
+  /// [indexA] - 开始索引（包含）
+  /// [indexB] - 结束索引（包含）
+  /// [jumpIndex] - 跳转目标索引（用于滚动定位，0表示无跳转）
+  Future<bool> loadMessages(
+      String conversationId, int indexA, int indexB, int jumpIndex);
 
   /// 获取会话中的消息数量
   Future<int> getConversationMessageCount(String conversationId);
@@ -145,8 +140,26 @@ abstract class ChatRepository {
     int contextSize = 25,
   });
 
+  /// 编辑消息
+  /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  /// [newText] - 新的文本内容
+  Future<bool> editMessage(
+      String messageId, String conversationId, String newText);
+
+  /// 撤回消息
+  /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
+  Future<bool> revokeMessage(String messageId, String conversationId,
+      {String? tempId});
+
   /// 删除消息
-  Future<void> deleteMessage(String messageId);
+  /// [messageId] - 消息ID
+  /// [conversationId] - 会话ID
+  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
+  Future<bool> deleteMessage(String messageId, String conversationId,
+      {String? tempId});
 
   /// 按日期范围获取消息
   Future<List<Message>> getMessagesByDateRange(
@@ -185,6 +198,26 @@ abstract class ChatRepository {
   /// 返回该会话的加载状态更新流
   Stream<LoadingStateUpdate> getConversationLoadingStateStream(
       String conversationId);
+
+  /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  会话成员管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+
+  /// 更新成员角色
+  /// [conversationId] - 会话ID
+  /// [userId] - 用户ID
+  /// [action] - 操作类型 (promote/demote)
+  Future<bool> updateMemberRole(
+      String conversationId, String userId, String action);
+
+  /// 移除会话成员
+  /// [conversationId] - 会话ID
+  /// [userId] - 用户ID
+  Future<bool> removeMemberFromConversation(
+      String conversationId, String userId);
+
+  /// 屏蔽会话成员
+  /// [conversationId] - 会话ID
+  /// [userId] - 用户ID
+  Future<bool> blockMemberInConversation(String conversationId, String userId);
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 

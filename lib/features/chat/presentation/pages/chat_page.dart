@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/database/models/current_user.dart';
@@ -26,6 +27,11 @@ import 'package:cc/core/services/audio_player_manager.dart';
 import 'package:cc/features/chat/presentation/widgets/unread_indicator_button.dart';
 import 'package:mime/mime.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
+import 'package:cc/core/utils/debug_commands.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 /// 聊天页面
 ///
@@ -69,6 +75,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 焦点控制器
   final FocusNode _focusNode = FocusNode();
+
+  /// 输入框文本变化通知器
+  final ValueNotifier<String> _textNotifier = ValueNotifier<String>('');
 
   /// 新增：输入模式状态
   bool _isVoiceMode = false;
@@ -116,6 +125,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     // 监听滚动位置变化
     _itemPositionsListener.itemPositions.addListener(_onScrollPositionChanged);
 
+    // 监听文本控制器变化
+    _textController.addListener(() {
+      _textNotifier.value = _textController.text;
+    });
+
     // 初始化媒体上传服务
     _initializeMediaServices();
   }
@@ -142,6 +156,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _textController.dispose();
     _searchController.dispose();
     _focusNode.dispose();
+    _textNotifier.dispose();
     _waveAnimationController.dispose();
     _scrollDebounceTimer?.cancel();
     _searchDebounceTimer?.cancel();
@@ -153,10 +168,38 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// 调试ChatState状态
+  void _debugChatState() {
+    try {
+      final chatCubit = context.read<ChatCubit>();
+      DebugCommands.diagnoseChatStateWithCubit(chatCubit);
+      final localizations = AppLocalizations.of(context);
+
+      // 显示提示
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(localizations.debugStateOutputToConsole),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (error) {
+      _logger.e('调试ChatState失败', error: error);
+      final localizations = AppLocalizations.of(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${localizations.debugStateFailed}: $error'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   /// 💢💢💢 滚动位置变化监听
   void _onScrollPositionChanged() {
     final positions = _itemPositionsListener.itemPositions.value;
     if (positions.isNotEmpty) {
+      // 💢💢💢 保留基本防抖，ChatCubit层的去重逻辑已足够防止不必要的重绘
       _scrollDebounceTimer?.cancel();
       _scrollDebounceTimer = Timer(const Duration(milliseconds: 200), () {
         context.read<ChatCubit>().updateCurrentScrollPosition(positions);
@@ -306,11 +349,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
         // 显示提示信息
         if (mounted) {
+          final localizations = AppLocalizations.of(context);
           final messenger = ScaffoldMessenger.of(context);
           messenger.showSnackBar(
-            const SnackBar(
-              content: Text('无法定位到该消息'),
-              duration: Duration(seconds: 2),
+            SnackBar(
+              content: Text(localizations.cannotLocateMessage),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -342,10 +386,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     // 验证文本长度
     if (text.length > 4000) {
+      final localizations = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('消息内容过长，请控制在4000字符以内'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(localizations.messageTooLongDetails),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -366,12 +411,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 显示错误提示
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('发送失败: ${error.toString()}'),
+            content: Text('${localizations.sendFailed}: ${error.toString()}'),
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
-              label: '重试',
+              label: localizations.retry,
               onPressed: () {
                 _textController.text = text;
                 _sendMessage();
@@ -439,7 +485,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 child: Material(
                   color: Colors.transparent,
                   child: Text(
-                    state.conversation.name ?? '未知联系人',
+                    state.conversation.name ??
+                        AppLocalizations.of(context).unknownContact,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -478,18 +525,39 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ],
       ),
       actions: [
+        // 调试按钮
+        if (kDebugMode)
+          IconButton(
+            icon: const Icon(Icons.bug_report, size: 20),
+            onPressed: () => _debugChatState(),
+            tooltip: 'Debug Chat State',
+          ),
         // 会话头像
         Padding(
           padding: const EdgeInsets.only(right: 8.0),
           child: GestureDetector(
             onTap: () {
               final chatCubit = context.read<ChatCubit>();
+              final chatRepository = context.read<ChatRepository>();
+              final chatsRepository = context.read<ChatsRepository>();
+              final chatRepositorySend = context.read<ChatRepositorySend>();
+
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => BlocProvider<ChatCubit>.value(
-                    value: chatCubit,
-                    child: const ChatInfoPage(),
+                  builder: (context) => MultiRepositoryProvider(
+                    providers: [
+                      RepositoryProvider<ChatRepository>.value(
+                          value: chatRepository),
+                      RepositoryProvider<ChatsRepository>.value(
+                          value: chatsRepository),
+                      RepositoryProvider<ChatRepositorySend>.value(
+                          value: chatRepositorySend),
+                    ],
+                    child: BlocProvider<ChatCubit>.value(
+                      value: chatCubit,
+                      child: const ChatInfoPage(),
+                    ),
                   ),
                 ),
               );
@@ -548,25 +616,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         final shouldListen =
             searchResultChanged || scrollPositionChanged || messageListUpdated;
 
-        if (shouldListen) {
-          _logger.d('💢 BlocListener 条件满足', extra: {
-            'searchResultChanged': searchResultChanged,
-            'scrollPositionChanged': scrollPositionChanged,
-            'messageListUpdated': messageListUpdated,
-            'prevLength': previous.messages.length,
-            'currentLength': current.messages.length,
-            'prevScrollMessageId': previous.currentScrollPosition.messageId,
-            'currentScrollMessageId': current.currentScrollPosition.messageId,
-            'prevIndex': previous.currentSearchResultIndex,
-            'currentIndex': current.currentSearchResultIndex,
-          });
-        }
+        // if (shouldListen) {
+        //   _logger.d('💢 BlocListener 条件满足', extra: {
+        //     'searchResultChanged': searchResultChanged,
+        //     'scrollPositionChanged': scrollPositionChanged,
+        //     'messageListUpdated': messageListUpdated,
+        //     'prevLength': previous.messages.length,
+        //     'currentLength': current.messages.length,
+        //     'prevScrollMessageId': previous.currentScrollPosition.messageId,
+        //     'currentScrollMessageId': current.currentScrollPosition.messageId,
+        //     'prevIndex': previous.currentSearchResultIndex,
+        //     'currentIndex': current.currentSearchResultIndex,
+        //   });
+        // }
 
         return shouldListen;
       },
       listener: (context, state) {
-        _logger.d('💢 BlocListener 被触发');
-
         // 💢💢💢 自动滚动到当前搜索结果
         if (state.isSearchMode &&
             state.searchResultMessageIds.isNotEmpty &&
@@ -587,35 +653,22 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           });
         }
         // 💢💢💢 自动滚动到设置的位置（初始化或消息列表更新时恢复滚动位置）
-        else if (!state.isSearchMode &&
-            state.currentScrollPosition.messageId != null) {
-          final targetMessageId = state.currentScrollPosition.messageId!;
-          final targetIndex =
-              state.currentScrollPosition.getListIndex(state.messages);
-          final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
+        // else if (!state.isSearchMode &&
+        //     state.currentScrollPosition.messageId != null) {
+        //   final targetMessageId = state.currentScrollPosition.messageId!;
+        //   final targetIndex =
+        //       state.currentScrollPosition.getListIndex(state.messages);
+        //   final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
 
-          _logger
-              .i('💢 BlocListener 消息列表更新，依赖 initialScrollIndex 自动定位', extra: {
-            'targetMessageId': targetMessageId,
-            'targetIndex': targetIndex,
-            'alignment': alignment,
-            'messageCount': state.messages.length,
-            'reason': '消息列表更新后，Widget重建时自动恢复滚动位置',
-          });
-
-          // 💢💢💢 注释：不再需要手动调用滚动方法
-          // 动态key会触发Widget重建，initialScrollIndex会自动处理滚动定位
-          // 延迟执行滚动，等待UI更新完成
-          // WidgetsBinding.instance.addPostFrameCallback((_) {
-          //   _logger.d('💢 BlocListener 执行滚动恢复回调');
-
-          //   // _scrollToMessage(
-          //   //   targetMessageId,
-          //   //   alignment: alignment,
-          //   //   jumpImmediately: true, // 💢💢💢 使用立即跳转，无动画时差
-          //   // );
-          // });
-        }
+        //   _logger
+        //       .i('💢 BlocListener 消息列表更新，依赖 initialScrollIndex 自动定位', extra: {
+        //     'targetMessageId': targetMessageId,
+        //     'targetIndex': targetIndex,
+        //     'alignment': alignment,
+        //     'messageCount': state.messages.length,
+        //     'reason': '消息列表更新后，Widget重建时自动恢复滚动位置',
+        //   });
+        // }
       },
       child: BlocBuilder<ChatCubit, ChatState>(
         buildWhen: (previous, current) {
@@ -920,9 +973,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     const SizedBox(width: 8),
 
                     // 发送按钮或添加按钮
-                    _textController.text.isNotEmpty && !_isVoiceMode
-                        ? _buildSendButton(state, isEnabled)
-                        : _buildAddButton(),
+                    ValueListenableBuilder<String>(
+                      valueListenable: _textNotifier,
+                      builder: (context, text, child) {
+                        return text.isNotEmpty && !_isVoiceMode
+                            ? _buildSendButton(state, isEnabled)
+                            : _buildAddButton();
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -957,7 +1015,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         maxLines: 5,
         minLines: 1,
         decoration: InputDecoration(
-          hintText: isEnabled ? '输入消息...' : '连接中...',
+          hintText: isEnabled
+              ? AppLocalizations.of(context).inputMessage
+              : AppLocalizations.of(context).connecting,
           hintStyle: TextStyle(
             color: Colors.grey.shade500,
             fontSize: 16,
@@ -976,7 +1036,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         textInputAction: TextInputAction.send,
         onSubmitted: isEnabled ? (text) => _sendMessage() : null,
         onChanged: (text) {
-          setState(() {}); // 更新发送按钮显示状态
+          // 文本变化已通过ValueNotifier自动处理，无需setState
         },
         onTap: () {
           setState(() {
@@ -1016,7 +1076,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ),
         child: Center(
           child: Text(
-            _isRecording ? '松开结束' : '按住 说话',
+            _isRecording
+                ? AppLocalizations.of(context).releaseToFinish
+                : AppLocalizations.of(context).holdToSpeakButtonText,
             style: TextStyle(
               fontSize: 16,
               color:
@@ -1055,11 +1117,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               _stopRecording();
 
               // 显示提示
+              final localizations = AppLocalizations.of(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text(
-                      '录音已达到最大时长(${VoiceRecordService.maxRecordingDuration}秒)，自动发送'),
-                  duration: Duration(seconds: 2),
+                      '${localizations.recordingAutoSend}(${VoiceRecordService.maxRecordingDuration}秒)'),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             }
@@ -1071,10 +1134,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       } else {
         _logger.w('录音开始失败');
         if (mounted) {
+          final localizations = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('录音失败，请检查麦克风权限'),
-              duration: Duration(seconds: 2),
+            SnackBar(
+              content: Text(localizations.recordingFailedPermission),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -1082,9 +1146,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     } catch (e) {
       _logger.e('录音开始异常', error: e);
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('录音失败: $e'),
+            content: Text('${localizations.recordingFailed}: $e'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1096,10 +1161,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Future<void> _startVideoRecording() async {
     _logger.w('视频录制功能暂时禁用');
     if (mounted) {
+      final localizations = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('视频录制功能开发中，敬请期待'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(localizations.videoRecordingComingSoon),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -1119,7 +1185,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library, color: Colors.blue),
-              title: const Text('从相册选择'),
+              title: Text(AppLocalizations.of(context).selectFromGallery),
               onTap: () {
                 Navigator.pop(context);
                 _pickImageFromGallery();
@@ -1127,7 +1193,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: Colors.green),
-              title: const Text('拍照'),
+              title: Text(AppLocalizations.of(context).takePhoto),
               onTap: () {
                 Navigator.pop(context);
                 _takePicture();
@@ -1159,9 +1225,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     } catch (error) {
       _logger.e('选择图片失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('选择图片失败: $error'),
+            content: Text('${localizations.imageSendFailed}: $error'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -1176,10 +1243,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 在macOS上提示用户将从相册选择
       if (Platform.isMacOS && mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('macOS平台将从相册选择图片'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(localizations.macOSGalleryTip),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -1198,9 +1266,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     } catch (error) {
       _logger.e('图片选择失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('图片选择失败: $error'),
+            content: Text('${localizations.imageSelectionFailed}: $error'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -1230,7 +1299,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       });
 
       // 显示上传进度
-      _showUploadProgress('正在发送图片...');
+      final localizations = AppLocalizations.of(context);
+      _showUploadProgress(localizations.sendingImage);
 
       // 使用MediaUploadIntegrationService发送图片消息
       await _mediaUploadIntegrationService.sendImageMessage(
@@ -1238,7 +1308,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         conversationId: widget.conversationId,
         caption: caption,
         onUploadProgress: (progress) {
-          _updateUploadProgress('正在上传图片... $progress%');
+          _updateUploadProgress('${localizations.uploadingImage} $progress%');
         },
         onStatusUpdate: (status) {
           _updateUploadProgress(status);
@@ -1258,12 +1328,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _hideUploadProgress();
 
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('图片发送失败: $error'),
+            content: Text('${localizations.imageSendFailed}: $error'),
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
-              label: '重试',
+              label: localizations.retry,
               onPressed: () => _uploadAndSendImage(imageFile, caption: caption),
             ),
           ),
@@ -1340,10 +1411,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           }
 
           if (mounted) {
+            final localizations = AppLocalizations.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('录音时间太短'),
-                duration: Duration(seconds: 1),
+              SnackBar(
+                content: Text(localizations.recordingTooShort),
+                duration: const Duration(seconds: 1),
               ),
             );
           }
@@ -1355,10 +1427,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       } else {
         _logger.w('录音结果为空');
         if (mounted) {
+          final localizations = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('录音失败'),
-              duration: Duration(seconds: 1),
+            SnackBar(
+              content: Text(localizations.recordingFailed),
+              duration: const Duration(seconds: 1),
             ),
           );
         }
@@ -1374,9 +1447,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _recordingTimer = null;
 
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('录音失败: $e'),
+            content: Text('${localizations.recordingFailed}: $e'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1398,20 +1472,21 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 显示上传中提示
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                SizedBox(width: 12),
-                Text('正在发送语音...'),
+                const SizedBox(width: 12),
+                Text(localizations.sendingVoice),
               ],
             ),
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -1446,7 +1521,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 触觉反馈
         HapticFeedback.lightImpact();
       } else {
-        throw Exception('文件上传失败');
+        final localizations = AppLocalizations.of(context);
+        throw Exception(localizations.fileUploadFailed);
       }
     } catch (e) {
       _logger.e('语音消息发送失败', error: e);
@@ -1465,13 +1541,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       }
 
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('语音发送失败: $e'),
+            content: Text('${localizations.voiceSendFailed}: $e'),
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
-              label: '重试',
+              label: localizations.retry,
               onPressed: () => _uploadAndSendVoice(recordResult),
             ),
           ),
@@ -1503,9 +1580,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     } catch (error) {
       _logger.e('文件选择失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('文件选择失败: $error'),
+            content: Text('${localizations.fileSelectionFailed}: $error'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -1535,7 +1613,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       });
 
       // 显示上传进度
-      _showUploadProgress('正在发送文件...');
+      final localizations = AppLocalizations.of(context);
+      _showUploadProgress(localizations.sendingFile);
 
       // 使用MediaUploadIntegrationService发送文件消息
       await _mediaUploadIntegrationService.sendDocumentMessage(
@@ -1543,7 +1622,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         conversationId: widget.conversationId,
         caption: caption,
         onUploadProgress: (progress) {
-          _updateUploadProgress('正在上传文件... $progress%');
+          _updateUploadProgress('${localizations.uploadingFile} $progress%');
         },
         onStatusUpdate: (status) {
           _updateUploadProgress(status);
@@ -1563,12 +1642,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _hideUploadProgress();
 
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('文件发送失败: $error'),
+            content: Text('${localizations.fileSendFailed}: $error'),
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
-              label: '重试',
+              label: localizations.retry,
               onPressed: () => _uploadAndSendFile(file, caption: caption),
             ),
           ),
@@ -1630,11 +1710,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 构建功能面板
   Widget _buildMoreOptionsPanel() {
+    final localizations = AppLocalizations.of(context);
     final options = [
-      {'icon': Icons.photo_library, 'label': '图片'},
-      {'icon': Icons.camera_alt, 'label': '拍摄'},
-      {'icon': Icons.insert_drive_file, 'label': '文件'},
-      {'icon': Icons.person, 'label': '联系人'},
+      {'icon': Icons.photo_library, 'label': localizations.picture},
+      {'icon': Icons.camera_alt, 'label': localizations.shoot},
+      {'icon': Icons.insert_drive_file, 'label': localizations.fileOption},
+      {'icon': Icons.person, 'label': localizations.contactOption},
     ];
 
     return Container(
@@ -1802,9 +1883,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '所有表情',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).allEmojis,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
                     fontWeight: FontWeight.w500,
@@ -1896,7 +1977,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '正在录音...',
+                    AppLocalizations.of(context).recording,
                     style: TextStyle(
                       color: Colors.green.shade700,
                       fontSize: 16,
@@ -2012,27 +2093,25 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _showMoreOptions = false;
     });
 
-    switch (label) {
-      case '图片':
-        _showImagePickerOptions();
-        break;
-      case '拍摄':
-        _showMediaCaptureOptions();
-        break;
-      case '文件':
-        _pickAndSendFile();
-        break;
-      case '联系人':
-        // TODO: 分享联系人
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('联系人功能开发中...')),
-        );
-        break;
+    final localizations = AppLocalizations.of(context);
+
+    if (label == localizations.picture) {
+      _showImagePickerOptions();
+    } else if (label == localizations.shoot) {
+      _showMediaCaptureOptions();
+    } else if (label == localizations.fileOption) {
+      _pickAndSendFile();
+    } else if (label == localizations.contactOption) {
+      // TODO: 分享联系人
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizations.contactFeatureComingSoon)),
+      );
     }
   }
 
   /// 显示媒体拍摄选项
   void _showMediaCaptureOptions() {
+    final localizations = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -2045,7 +2124,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt, color: Colors.blue),
-              title: const Text('拍照'),
+              title: Text(localizations.takePhoto),
               onTap: () {
                 Navigator.pop(context);
                 _takePicture();
@@ -2053,7 +2132,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
             ListTile(
               leading: const Icon(Icons.videocam, color: Colors.red),
-              title: const Text('录制视频'),
+              title: Text(localizations.recordVideo),
               onTap: () {
                 Navigator.pop(context);
                 _showVideoRecordingDialog();
@@ -2068,15 +2147,16 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 显示视频录制对话框
   void _showVideoRecordingDialog() {
+    final localizations = AppLocalizations.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('录制视频'),
+        title: Text(localizations.recordVideo),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('长按下方按钮开始录制视频'),
+            Text(localizations.longPressToRecord),
             const SizedBox(height: 20),
             GestureDetector(
               onLongPressStart: (_) => _startVideoRecording(),
@@ -2097,7 +2177,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 10),
             Text(
-              _isRecording ? '正在录制...' : '长按录制',
+              _isRecording
+                  ? localizations.recordingInProgress
+                  : localizations.longPressRecord,
               style: TextStyle(
                 color: _isRecording ? Colors.red : Colors.grey,
               ),
@@ -2106,16 +2188,34 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              if (_isRecording) {
-                _voiceRecordService.cancelRecording();
-                setState(() {
-                  _isRecording = false;
-                });
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(localizations.cancel),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              try {
+                // TODO: 实现撤回功能
+                // context.read<ChatCubit>().revokeMessage(message.messageId);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(localizations.revokeFeatureComingSoon)),
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(localizations.messageRevoked)),
+                  );
+                }
+              } catch (error) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text("${localizations.revokeFailed}: $error")),
+                  );
+                }
               }
-              Navigator.pop(context);
             },
-            child: const Text('取消'),
+            child: Text(localizations.confirm),
           ),
         ],
       ),
@@ -2127,55 +2227,201 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     // TODO 实现消息点击逻辑，如显示消息详情、复制等
   }
 
-  // 🔥 长按菜单回调方法
-
   /// 回复消息
   void _onReplyMessage(Message message) {
-    print("🔥 回复消息: ${message.messageId}");
+    _logger.d('回复消息', extra: {'messageId': message.messageId});
     // TODO: 实现回复功能
   }
 
   /// 转发消息
   void _onForwardMessage(Message message) {
-    print("🔥 转发消息: ${message.messageId}");
+    _logger.d('转发消息', extra: {'messageId': message.messageId});
     // TODO: 实现转发功能
   }
 
   /// 复制消息
   void _onCopyMessage(Message message) {
-    print("🔥 复制消息: ${message.text}");
+    _logger.d('复制消息', extra: {'messageText': message.text});
     if (message.text?.isNotEmpty == true) {
       Clipboard.setData(ClipboardData(text: message.text!));
+      final localizations = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("已复制到剪贴板")),
+        SnackBar(content: Text(localizations.copiedToClipboard)),
       );
     }
   }
 
   /// 撤回消息
   void _onRevokeMessage(Message message) {
-    print("🔥 撤回消息: ${message.messageId}");
+    _logger.d('撤回消息', extra: {'messageId': message.messageId});
+
+    // 💢💢💢 检查撤回时间限制（2分钟内可撤回）
+    const revokeTimeLimit = Duration(minutes: 2);
+    final timeSinceMessage = DateTime.now().difference(message.createdAt);
+
+    if (timeSinceMessage > revokeTimeLimit) {
+      // 超过时间限制，显示提示
+      final localizations = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(localizations.messageExpiredCannotRevoke),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // 💢💢💢 检查网络连接状态
+    final chatCubit = context.read<ChatCubit>();
+    final state = chatCubit.state;
+
+    // 💢💢💢 预先获取messenger引用，避免Provider上下文问题
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (state.networkStatus != ChatState.kNetworkStatusConnected) {
+      final localizations = AppLocalizations.of(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(localizations.networkErrorCannotRevoke),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // 💢💢💢 计算剩余撤回时间
+    final remainingTime = revokeTimeLimit - timeSinceMessage;
+    final remainingMinutes = remainingTime.inMinutes;
+    final remainingSeconds = remainingTime.inSeconds % 60;
+
+    String timeText;
+    if (remainingMinutes > 0) {
+      timeText = '$remainingMinutes分$remainingSeconds秒';
+    } else {
+      timeText = '$remainingSeconds秒';
+    }
+
     // 显示确认对话框
+    final localizations = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("撤回消息"),
-        content: const Text("确定要撤回这条消息吗？"),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(localizations.revokeMessage),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(localizations.confirmRevokeMessage),
+            const SizedBox(height: 8),
+            Text(
+              "${localizations.revokeTimeRemaining}：$timeText",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              localizations.revokeInstructions,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("取消"),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(localizations.cancel),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: 实现撤回功能
-              // context.read<ChatCubit>().revokeMessage(message.messageId);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("撤回功能待实现")),
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+
+              // 💢💢💢 显示撤回中状态
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(localizations.revokingMessage),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 10), // 给撤回操作足够时间
+                ),
               );
+
+              try {
+                // 💢💢💢 调用ChatCubit的撤回方法（使用tempId或messageId）
+                final messageIdToRevoke = message.tempId?.isNotEmpty == true
+                    ? message.tempId!
+                    : message.messageId;
+                await chatCubit.revokeMessage(messageIdToRevoke);
+
+                // 💢💢💢 撤回成功
+                if (mounted) {
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 20),
+                          const SizedBox(width: 8),
+                          Text(localizations.messageRevoked),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+
+                // 💢💢💢 触觉反馈
+                HapticFeedback.lightImpact();
+
+                _logger.i('消息撤回成功', extra: {
+                  'messageId': message.messageId,
+                });
+              } catch (error) {
+                _logger.e('撤回消息失败', error: error, extra: {
+                  'messageId': message.messageId,
+                });
+
+                if (mounted) {
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error,
+                              color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                                '${localizations.revokeFailed}: ${error.toString()}'),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 3),
+                      backgroundColor: Colors.red,
+                      action: SnackBarAction(
+                        label: localizations.retry,
+                        textColor: Colors.white,
+                        onPressed: () => _onRevokeMessage(message),
+                      ),
+                    ),
+                  );
+                }
+              }
             },
-            child: const Text("确定"),
+            child: Text(localizations.confirm),
           ),
         ],
       ),
@@ -2184,28 +2430,111 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 删除消息
   void _onDeleteMessage(Message message) {
-    print("🔥 删除消息: ${message.messageId}");
+    _logger.d('删除消息', extra: {'messageId': message.messageId});
+
+    // 💢💢💢 在对话框外部获取ChatCubit引用，避免Provider上下文问题
+    final chatCubit = context.read<ChatCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final localizations = AppLocalizations.of(context);
+
     // 显示确认对话框
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("删除消息"),
-        content: const Text("确定要删除这条消息吗？"),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(localizations.deleteMessage),
+        content: Text(localizations.confirmDeleteMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("取消"),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(localizations.cancel),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: 实现删除功能
-              // context.read<ChatCubit>().deleteMessage(message.messageId);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("删除功能待实现")),
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+
+              // 💢💢💢 显示删除中状态
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(localizations.deletingMessage),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 10),
+                ),
               );
+
+              try {
+                // 💢💢💢 使用预先获取的ChatCubit引用（使用tempId或messageId）
+                final messageIdToDelete = message.tempId?.isNotEmpty == true
+                    ? message.tempId!
+                    : message.messageId;
+                await chatCubit.deleteMessage(messageIdToDelete);
+
+                // 💢💢💢 删除成功
+                if (mounted) {
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 20),
+                          const SizedBox(width: 8),
+                          Text(localizations.messageDeleted),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+
+                // 💢💢💢 触觉反馈
+                HapticFeedback.lightImpact();
+
+                _logger.i('消息删除成功', extra: {
+                  'messageId': message.messageId,
+                });
+              } catch (error) {
+                _logger.e('删除消息失败', error: error, extra: {
+                  'messageId': message.messageId,
+                });
+
+                if (mounted) {
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error,
+                              color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                                '${localizations.deleteFailed}: ${error.toString()}'),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 3),
+                      backgroundColor: Colors.red,
+                      action: SnackBarAction(
+                        label: localizations.retry,
+                        textColor: Colors.white,
+                        onPressed: () => _onDeleteMessage(message),
+                      ),
+                    ),
+                  );
+                }
+              }
             },
-            child: const Text("确定"),
+            child: Text(localizations.confirm),
           ),
         ],
       ),
@@ -2214,12 +2543,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 获取最后在线时间文本
   String _getLastSeenText(ChatState state) {
+    final localizations = AppLocalizations.of(context);
     if (state.networkStatus == ChatState.kNetworkStatusConnected) {
-      return '在线';
+      return localizations.onlineStatus;
     } else if (state.networkStatus == ChatState.kNetworkStatusConnecting) {
-      return '连接中...';
+      return localizations.connecting;
     } else {
-      return '离线';
+      return localizations.offlineStatus;
     }
   }
 
@@ -2234,10 +2564,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             child: TextField(
               controller: _searchController, // 💢💢💢 使用专用的搜索控制器
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: '搜索消息...',
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context).searchMessages,
                 border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.grey),
+                hintStyle: const TextStyle(color: Colors.grey),
               ),
               style: const TextStyle(color: Colors.black, fontSize: 16),
               onChanged: (query) {
@@ -2262,9 +2592,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             _searchDebounceTimer?.cancel();
             context.read<ChatCubit>().exitSearchMode();
           },
-          child: const Text(
-            '取消',
-            style: TextStyle(color: Colors.blue, fontSize: 16),
+          child: Text(
+            AppLocalizations.of(context).cancel,
+            style: const TextStyle(color: Colors.blue, fontSize: 16),
           ),
         ),
       ],
@@ -2354,7 +2684,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '跳转到日期',
+                      AppLocalizations.of(context).jumpToDate,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -2385,7 +2715,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '搜索中...',
+                  AppLocalizations.of(context).searching,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade600,
@@ -2404,7 +2734,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '无匹配结果',
+                  AppLocalizations.of(context).noMatchFound,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade600,
@@ -2521,7 +2851,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 如果没有可用日期，显示提示
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前会话暂无消息')),
+          SnackBar(
+              content: Text(AppLocalizations.of(context).noMessagesInChat)),
         );
       }
       return;
@@ -2562,8 +2893,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         if (mounted) {
           messenger.showSnackBar(
             SnackBar(
-              content:
-                  Text('已跳转到 ${selectedDate.month}/${selectedDate.day} 的第一条消息'),
+              content: Text(AppLocalizations.of(context).jumpedToFirstMessage),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -2571,9 +2901,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       } else {
         // 如果没有找到消息，显示提示
         if (mounted) {
+          final localizations = AppLocalizations.of(context);
           messenger.showSnackBar(
             SnackBar(
-              content: Text('${selectedDate.month}/${selectedDate.day} 没有找到消息'),
+              content: Text(
+                  '${selectedDate.month}/${selectedDate.day} ${localizations.noMessagesFoundOnDate}'),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -2582,10 +2914,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     } catch (error) {
       _logger.e('跳转到日期消息失败', error: error);
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('跳转失败，请重试'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(localizations.jumpFailed),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -2602,10 +2935,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     context.read<ChatCubit>().resendMessage(messageId);
 
     // 提供用户反馈
+    final localizations = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('正在重发消息...'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(localizations.resendingMessage),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -2679,7 +3013,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         unreadCount: unreadInfo.unreadCount,
         text: unreadInfo.indicatorText,
         isVisible: true,
-        onTap: () => _scrollToFirstUnreadMessage(state),
+        onTap: () => _scrollToLastUnreadMessage(state), // 🔄 修改：点击跳转到最新未读消息
       ),
     );
   }
@@ -2700,10 +3034,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     }
 
-    // 获取第一条未读消息的索引
-    final firstUnreadIndex =
-        conversation.getFirstUnreadMessageIndex(currentUserId);
-    if (firstUnreadIndex == null) {
+    // 获取最新未读消息的索引（用于方向判断）
+    final lastUnreadIndex =
+        conversation.getLastUnreadMessageIndex(currentUserId);
+    if (lastUnreadIndex == null) {
       return const _UnreadIndicatorInfo(
         hasUnread: false,
         unreadCount: 0,
@@ -2712,8 +3046,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     }
 
-    // 判断未读消息相对于当前滚动位置的方向
-    final direction = _determineUnreadDirection(state, firstUnreadIndex);
+    // 判断未读消息相对于当前滚动位置的方向（基于最新未读消息）
+    final direction = _determineUnreadDirection(state, lastUnreadIndex);
 
     // 生成指示器文本
     final indicatorText = _generateUnreadIndicatorText(unreadCount, direction);
@@ -2723,7 +3057,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       unreadCount: unreadCount,
       direction: direction,
       indicatorText: indicatorText,
-      firstUnreadIndex: firstUnreadIndex,
+      firstUnreadIndex: lastUnreadIndex, // 🔄 现在存储最新未读消息索引
     );
   }
 
@@ -2770,7 +3104,73 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
-  /// 🆕 滚动到第一条未读消息
+  /// 🆕 滚动到最新的未读消息（会话中的最后一条消息）
+  Future<void> _scrollToLastUnreadMessage(ChatState state) async {
+    try {
+      final currentUserId = state.currentUser.userId;
+      final conversation = state.conversation;
+
+      // 获取最新未读消息的索引（即最后一条消息的索引）
+      final lastUnreadIndex =
+          conversation.getLastUnreadMessageIndex(currentUserId);
+      if (lastUnreadIndex == null) {
+        _logger.w('没有找到最新未读消息的索引');
+        return;
+      }
+
+      // 在当前消息列表中查找对应的消息
+      final lastUnreadMessage = state.messages
+          .where((msg) => msg.messageIndex == lastUnreadIndex)
+          .firstOrNull;
+
+      if (lastUnreadMessage != null) {
+        // 如果消息在当前列表中，直接滚动到该消息
+        await _scrollToMessage(
+          lastUnreadMessage.messageId,
+          alignment: 0.5, // 在屏幕中央显示
+          showHighlight: true,
+        );
+
+        _logger.i('滚动到最新未读消息成功', extra: {
+          'messageId': lastUnreadMessage.messageId,
+          'messageIndex': lastUnreadIndex,
+          'isLastMessage': true,
+        });
+      } else {
+        _logger.w('最新未读消息不在当前列表中，使用jumpToMessageIndex加载', extra: {
+          'lastUnreadIndex': lastUnreadIndex,
+          'messageRange': state.messages.isEmpty
+              ? 'empty'
+              : '${state.messages.last.messageIndex}-${state.messages.first.messageIndex}',
+        });
+
+        // 使用jumpToMessageIndex来加载并跳转到最新未读消息
+        await context.read<ChatCubit>().jumpToMessageIndex(lastUnreadIndex);
+
+        _logger.i('已请求跳转到最新未读消息', extra: {
+          'targetIndex': lastUnreadIndex,
+        });
+      }
+
+      // 触觉反馈
+      HapticFeedback.lightImpact();
+    } catch (error) {
+      _logger.e('滚动到最新未读消息失败', error: error);
+
+      if (mounted) {
+        final localizations = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(localizations.jumpToLatestFailed),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 🆕 滚动到第一条未读消息（备用方法，暂时保留以备将来双重跳转功能使用）
+  // ignore: unused_element
   Future<void> _scrollToFirstUnreadMessage(ChatState state) async {
     try {
       final currentUserId = state.currentUser.userId;
@@ -2811,10 +3211,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
         // 显示提示
         if (mounted) {
+          final localizations = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('未读消息不在当前列表中，正在加载...'),
-              duration: Duration(seconds: 2),
+            SnackBar(
+              content: Text(localizations.unreadNotInList),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -2826,10 +3227,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _logger.e('滚动到第一条未读消息失败', error: error);
 
       if (mounted) {
+        final localizations = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('跳转失败，请重试'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(localizations.jumpToUnreadFailed),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -2875,7 +3277,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('选择日期'),
+      title: Text(AppLocalizations.of(context).selectDate),
       content: SizedBox(
         width: 300,
         height: 450,
@@ -2917,11 +3319,11 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(AppLocalizations.of(context).cancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _currentDate),
-          child: const Text('确定'),
+          child: Text(AppLocalizations.of(context).confirm),
         ),
       ],
     );
@@ -3207,15 +3609,15 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                           color: Colors.grey[300],
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.broken_image,
+                              const Icon(Icons.broken_image,
                                   size: 48, color: Colors.grey),
-                              SizedBox(height: 8),
-                              Text('图片加载失败',
-                                  style: TextStyle(color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              Text(AppLocalizations.of(context).imageLoadFailed,
+                                  style: const TextStyle(color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -3231,10 +3633,10 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _captionController,
-                decoration: const InputDecoration(
-                  hintText: '添加图片说明...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).addImageCaption,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
@@ -3254,7 +3656,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                     child: OutlinedButton(
                       onPressed:
                           _isLoading ? null : () => Navigator.of(context).pop(),
-                      child: const Text('取消'),
+                      child: Text(AppLocalizations.of(context).cancel),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -3267,7 +3669,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('发送'),
+                          : Text(AppLocalizations.of(context).send),
                     ),
                   ),
                 ],
@@ -3372,9 +3774,9 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '发送文件',
-                    style: TextStyle(
+                  Text(
+                    AppLocalizations.of(context).sendFile,
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -3464,10 +3866,10 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _captionController,
-                decoration: const InputDecoration(
-                  hintText: '添加文件说明...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).addFileCaption,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
@@ -3487,7 +3889,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                     child: OutlinedButton(
                       onPressed:
                           _isLoading ? null : () => Navigator.of(context).pop(),
-                      child: const Text('取消'),
+                      child: Text(AppLocalizations.of(context).cancel),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -3500,7 +3902,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('发送'),
+                          : Text(AppLocalizations.of(context).send),
                     ),
                   ),
                 ],
@@ -3533,7 +3935,7 @@ class _UnreadIndicatorInfo {
   final int unreadCount;
   final _UnreadDirection direction;
   final String indicatorText;
-  final int? firstUnreadIndex;
+  final int? firstUnreadIndex; // 💡 注意：现在实际存储的是最新未读消息索引，保持向后兼容
 
   const _UnreadIndicatorInfo({
     required this.hasUnread,

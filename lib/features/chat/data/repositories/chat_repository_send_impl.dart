@@ -8,7 +8,6 @@ import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
-import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 import 'package:isar/isar.dart';
 
 /// ChatRepositorySend的实现类
@@ -124,8 +123,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         await _communicationService.emitProto('message:send', protoMsg);
 
     _logger.i('💌 消息发送请求已发出', extra: {
-      'messageId': message.messageId,
-      'tempId': message.messageId,
+      'tempId': message.tempId, // 💢💢💢 使用临时ID
       'sendSuccess': sendSuccess,
       'conversationId': message.conversationId,
       'type': message.type.name,
@@ -134,22 +132,23 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
     // 如果立即发送失败（如网络断开），直接标记为失败
     if (!sendSuccess) {
       _logger.w('💌 消息发送立即失败，网络连接问题', extra: {
-        'messageId': message.messageId,
+        'tempId': message.tempId, // 💢💢💢 使用临时ID
       });
-      await markMessageAsFailed(message.messageId, '网络连接失败');
+      await markMessageAsFailed(message.tempId!, '网络连接失败'); // 💢💢💢 传递tempId
       return;
     }
 
     // 超时处理 - 延长超时时间到10秒，给网络更多时间
     Timer(timeout, () async {
-      final currentMessage = await getMessageById(message.messageId);
+      final currentMessage =
+          await getMessageById(message.tempId!); // 💢💢💢 使用tempId查找
       if (currentMessage?.status == MessageStatus.sending) {
         _logger.w('💌 消息发送超时', extra: {
-          'messageId': message.messageId,
+          'tempId': message.tempId, // 💢💢💢 使用临时ID
           'timeoutSeconds': timeout.inSeconds,
         });
         await markMessageAsFailed(
-            message.messageId, '发送超时(${timeout.inSeconds}秒)');
+            message.tempId!, '发送超时(${timeout.inSeconds}秒)'); // 💢💢💢 传递tempId
       }
     });
   }
@@ -174,6 +173,11 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 根据消息ID获取消息
   @override
   Future<Message?> getMessageById(String messageId) async {
+    // 💢💢💢 如果是临时ID，按tempId查找
+    if (messageId.startsWith('temp_')) {
+      return await _messages.filter().tempIdEqualTo(messageId).findFirst();
+    }
+    // 否则按正常messageId查找
     return await _messages.filter().messageIdEqualTo(messageId).findFirst();
   }
 
@@ -184,8 +188,30 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
     final message = await getMessageById(messageId);
     if (message == null) return;
 
+    // 💢💢💢 检查是否可以更新状态：已删除或撤回的消息状态不能被其他状态覆盖
+    bool shouldUpdateStatus = true;
+    if (message.status == MessageStatus.deleted ||
+        message.status == MessageStatus.revoked) {
+      if (status == MessageStatus.deleted || status == MessageStatus.revoked) {
+        // 允许删除/撤回状态之间的转换
+        shouldUpdateStatus = true;
+      } else {
+        // 不允许从删除/撤回状态变为其他状态
+        shouldUpdateStatus = false;
+        _logger.w('消息已删除或撤回，跳过状态更新', extra: {
+          'messageId': messageId,
+          'currentStatus': message.status.name,
+          'attemptedStatus': status.name,
+        });
+      }
+    }
+
     await _isar.writeTxn(() async {
-      message.status = status;
+      if (shouldUpdateStatus) {
+        message.status = status;
+      }
+      // 更新其他字段，如更新时间
+      message.updatedAt = DateTime.now();
       await _messages.put(message);
     });
 
@@ -201,35 +227,23 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 创建消息
   Future<Message> _createMessage(
       String conversationId, String text, MessageType type) async {
-    // 💢💢💢 获取当前会话中最大的messageIndex
-    final maxMessageIndex = await _getMaxMessageIndex(conversationId);
-    final newMessageIndex = maxMessageIndex + 100;
+    // 💢💢💢 生成临时ID，用于客户端本地标识
+    final tempId =
+        'temp_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}';
 
     final message = Message()
-      ..messageId =
-          'temp_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}'
+      ..messageId = '' // 💢💢💢 初始时为空，等待服务器返回真实ID
+      ..tempId = tempId // 💢💢💢 设置临时ID
       ..conversationId = conversationId
       ..senderId = _currentUser.userId
       ..senderName = _currentUser.name
       ..type = type
       ..text = text.isEmpty ? null : text
       ..status = MessageStatus.sending
-      ..messageIndex = newMessageIndex // 💢💢💢 设置messageIndex
+      ..messageIndex = 0 // 💢💢💢 临时消息使用0值，排序时0值排在最前面
       ..createdAt = DateTime.now();
 
     return message;
-  }
-
-  /// 💢💢💢 新增：获取会话中最大的messageIndex
-  Future<int> _getMaxMessageIndex(String conversationId) async {
-    final maxMessage = await _messages
-        .filter()
-        .conversationIdEqualTo(conversationId)
-        .sortByMessageIndexDesc()
-        .limit(1)
-        .findFirst();
-
-    return maxMessage?.messageIndex ?? 0;
   }
 
   /// 💢💢💢 新增：通知ChatRepository发出消息添加事件
@@ -239,7 +253,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       _chatRepository.notifyMessageUpdate(MessageAddedEvent(
         conversationId: message.conversationId,
         newMessages: [message],
-        loadingType: LoadingType.ADD, // 新发送的消息
+        addedEventType: AddedEventType.newMessage, // 🆕 新发送的消息
       ));
     } catch (error) {
       // 如果通知失败，记录错误但不影响消息发送
@@ -250,10 +264,25 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 💢💢💢 新增：通知ChatRepository发出消息更新事件
   Future<void> _notifyMessageUpdated(Message message) async {
     try {
-      // 💢💢💢 使用公共接口方法，传递messageId和更新的字段
+      // 💢💢💢 修复：如果messageId为空，使用tempId
+      final messageIdentifier =
+          message.messageId.isNotEmpty ? message.messageId : message.tempId;
+
+      if (messageIdentifier == null || messageIdentifier.isEmpty) {
+        _logger.w('消息缺少有效标识符，无法发送更新事件', extra: {
+          'messageId': message.messageId,
+          'tempId': message.tempId,
+        });
+        return;
+      }
+
+      // 💢💢💢 使用公共接口方法，传递messageId和tempId
       _chatRepository.notifyMessageUpdate(MessageUpdatedEvent(
         conversationId: message.conversationId,
-        messageId: message.messageId,
+        messageId: message.messageId.isNotEmpty
+            ? message.messageId
+            : '', // 💢💢💢 messageId，可能为空
+        tempId: message.tempId, // 💢💢💢 传递tempId
         updatedFields: {
           'status': message.status.name,
           'updatedAt': message.updatedAt?.toIso8601String(),

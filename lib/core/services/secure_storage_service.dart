@@ -1,257 +1,109 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:cc/core/services/log_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cc/core/database/models/current_user.dart';
 
-/// 安全存储服务
+import '../database/models/current_user.dart';
+import 'log_service.dart';
+
+/// 安全存储服务单例类
 ///
-/// 使用Flutter Secure Storage加密保存敏感数据
-/// 提供读取、写入和删除操作的便捷方法
-/// 在macOS等平台出现权限问题时回退到SharedPreferences（数据将进行简单编码但不加密）
-/// 
-/// 📝 存储策略：
-/// - SecureStorage：只存储敏感认证信息（userId, token, tokenExpireTime）
-/// - Isar数据库：存储用户基本信息（昵称、头像、手机号等）用于快速UI显示
-/// 
-/// ⚠️ 注意：避免在SecureStorage中存储大量非敏感数据，优先使用数据库
+/// 提供跨平台的安全存储功能，仅使用系统提供的安全存储：
+/// - iOS: Keychain
+/// - Android: Keystore + EncryptedSharedPreferences
+/// - 其他平台: FlutterSecureStorage默认实现
 class SecureStorageService {
+  // 单例实例
   static final SecureStorageService _instance =
       SecureStorageService._internal();
-  final _logger = LogService.instance;
 
-  // 存储键名常量
-  static const String keyUserId = 'user_id';
-  static const String keyToken = 'token';
-  static const String keyUserInfo = 'user_info';
-  static const String keyTokenExpireTime = 'token_expire_time';
-  static const String keyServerUrl = 'server_url';
+  /// 获取单例实例
+  factory SecureStorageService() => _instance;
 
-  // 单例访问器
-  static SecureStorageService get instance => _instance;
+  // 日志器
+  static final _logger = LogService.instance;
 
   // Flutter Secure Storage实例
-  late final FlutterSecureStorage _storage;
-
-  // 是否使用回退存储(SharedPreferences)
-  bool _useFallbackStorage = false;
-  late SharedPreferences _prefs;
+  static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+      synchronizable: false,
+      accountName: 'cc_app',
+    ),
+  );
 
   // 私有构造函数
-  SecureStorageService._internal() {
-    _initializeStorage();
-  }
-
-  void _initializeStorage() {
-    try {
-      // 配置安全存储选项
-      final options = _getPlatformOptions();
-      _storage = FlutterSecureStorage(
-        aOptions: options.android,
-        iOptions: options.iOS,
-      );
-      _logger.x('安全存储服务初始化完成');
-    } catch (e) {
-      _logger.e('安全存储服务初始化失败，将使用SharedPreferences作为回退方案',
-          error: e, stackTrace: StackTrace.current);
-      _useFallbackStorage = true;
-      _initializeFallbackStorage();
-    }
-  }
-
-  // 初始化回退存储(SharedPreferences)
-  Future<void> _initializeFallbackStorage() async {
-    try {
-      _prefs = await SharedPreferences.getInstance();
-      _logger.i('回退存储(SharedPreferences)初始化完成');
-    } catch (e) {
-      _logger.e('回退存储初始化失败', error: e, stackTrace: StackTrace.current);
-    }
-  }
-
-  // 获取各平台的安全存储选项
-  _SecureStorageOptions _getPlatformOptions() {
-    return _SecureStorageOptions(
-      android: const AndroidOptions(
-        encryptedSharedPreferences: true,
-      ),
-      iOS: const IOSOptions(
-        accessibility: KeychainAccessibility.first_unlock,
-      ),
-    );
-  }
+  SecureStorageService._internal();
 
   /// 存储字符串值
   ///
-  /// 将键值对安全存储
+  /// 将键值对安全存储到Keychain
   ///
   /// 参数:
   /// - key: 存储键名
   /// - value: 存储的字符串值
   Future<void> write(String key, String value) async {
     try {
-      if (_useFallbackStorage) {
-        // 使用回退存储
-        await _writeFallback(key, value);
-        return;
-      }
-
-      try {
-        await _storage.write(key: key, value: value);
-        _logger.d('安全存储写入成功', extra: {'key': key});
-      } catch (e) {
-        // 如果安全存储失败，切换到回退存储
-        _logger.w('安全存储写入失败，切换到回退存储', extra: {'error': e.toString()});
-        _useFallbackStorage = true;
-        await _initializeFallbackStorage();
-        await _writeFallback(key, value);
-      }
+      await _storage.write(key: key, value: value);
+      _logger.d('Keychain写入成功', extra: {'key': key});
     } catch (e) {
-      _logger.e('存储写入失败', error: e, stackTrace: StackTrace.current);
+      _logger.e('Keychain写入失败', error: e, stackTrace: StackTrace.current);
       rethrow;
-    }
-  }
-
-  // 使用回退存储(SharedPreferences)写入
-  Future<void> _writeFallback(String key, String value) async {
-    final fallbackKey = 'secure_$key';
-    final encodedValue = _encodeFallbackValue(value);
-    await _prefs.setString(fallbackKey, encodedValue);
-    _logger.d('回退存储写入成功', extra: {'key': key});
-  }
-
-  // 简单编码回退存储的值
-  String _encodeFallbackValue(String value) {
-    // 简单的Base64编码，不是真正的加密
-    final bytes = utf8.encode(value);
-    return base64Encode(bytes);
-  }
-
-  // 解码回退存储的值
-  String _decodeFallbackValue(String encodedValue) {
-    try {
-      final bytes = base64Decode(encodedValue);
-      return utf8.decode(bytes);
-    } catch (e) {
-      _logger.e('解码回退存储值失败', error: e);
-      return '';
     }
   }
 
   /// 读取字符串值
   ///
-  /// 根据键名读取安全存储的值
+  /// 根据键名从Keychain读取值
   ///
   /// 参数:
   /// - key: 存储键名
   ///
   /// 返回:
-  /// - 字符串值，如果不存在则返回null
+  /// - 字符串值，如果不存在或Keychain不可访问则返回null
   Future<String?> read(String key) async {
     try {
-      if (_useFallbackStorage) {
-        // 使用回退存储
-        return _readFallback(key);
-      }
-
-      try {
-        final value = await _storage.read(key: key);
-        return value;
-      } catch (e) {
-        // 如果安全存储读取失败，尝试从回退存储读取
-        _logger.w('安全存储读取失败，尝试从回退存储读取', extra: {'error': e.toString()});
-        _useFallbackStorage = true;
-        await _initializeFallbackStorage();
-        return _readFallback(key);
-      }
+      final value = await _storage.read(key: key);
+      return value;
     } catch (e) {
-      _logger.e('存储读取失败', error: e, stackTrace: StackTrace.current);
+      _logger.w('Keychain读取失败', extra: {
+        'key': key,
+        'error': e.toString(),
+        'errorCode': e is PlatformException ? e.code : 'unknown'
+      });
       return null;
     }
   }
 
-  // 从回退存储(SharedPreferences)读取
-  String? _readFallback(String key) {
-    final fallbackKey = 'secure_$key';
-    final encodedValue = _prefs.getString(fallbackKey);
-    if (encodedValue == null) return null;
-
-    return _decodeFallbackValue(encodedValue);
-  }
-
   /// 删除存储的值
   ///
-  /// 根据键名删除安全存储的值
+  /// 根据键名从Keychain删除值
   ///
   /// 参数:
   /// - key: 存储键名
   Future<void> delete(String key) async {
     try {
-      if (_useFallbackStorage) {
-        // 使用回退存储
-        await _deleteFallback(key);
-        return;
-      }
-
-      try {
-        await _storage.delete(key: key);
-        _logger.d('安全存储删除成功', extra: {'key': key});
-      } catch (e) {
-        // 如果安全存储删除失败，尝试从回退存储删除
-        _logger.w('安全存储删除失败，尝试从回退存储删除', extra: {'error': e.toString()});
-        _useFallbackStorage = true;
-        await _initializeFallbackStorage();
-        await _deleteFallback(key);
-      }
+      await _storage.delete(key: key);
+      _logger.d('Keychain删除成功', extra: {'key': key});
     } catch (e) {
-      _logger.e('存储删除失败', error: e, stackTrace: StackTrace.current);
+      _logger.e('Keychain删除失败', error: e, stackTrace: StackTrace.current);
       rethrow;
     }
-  }
-
-  // 从回退存储(SharedPreferences)删除
-  Future<void> _deleteFallback(String key) async {
-    final fallbackKey = 'secure_$key';
-    await _prefs.remove(fallbackKey);
-    _logger.d('回退存储删除成功', extra: {'key': key});
   }
 
   /// 清除所有存储的值
   ///
-  /// 删除安全存储中的所有数据
+  /// 删除Keychain中的所有应用数据
   Future<void> deleteAll() async {
     try {
-      if (_useFallbackStorage) {
-        // 使用回退存储
-        await _deleteAllFallback();
-        return;
-      }
-
-      try {
-        await _storage.deleteAll();
-        _logger.i('安全存储已清空');
-      } catch (e) {
-        // 如果安全存储清空失败，尝试清空回退存储
-        _logger.w('安全存储清空失败，尝试清空回退存储', extra: {'error': e.toString()});
-        _useFallbackStorage = true;
-        await _initializeFallbackStorage();
-        await _deleteAllFallback();
-      }
+      await _storage.deleteAll();
+      _logger.i('Keychain已清空');
     } catch (e) {
-      _logger.e('清空存储失败', error: e, stackTrace: StackTrace.current);
+      _logger.e('清空Keychain失败', error: e, stackTrace: StackTrace.current);
       rethrow;
     }
-  }
-
-  // 清空回退存储(SharedPreferences)中相关的键
-  Future<void> _deleteAllFallback() async {
-    final allKeys = _prefs.getKeys();
-    for (final key in allKeys) {
-      if (key.startsWith('secure_')) {
-        await _prefs.remove(key);
-      }
-    }
-    _logger.i('回退存储已清空');
   }
 
   /// 存储对象
@@ -266,7 +118,7 @@ class SecureStorageService {
       final jsonString = jsonEncode(value);
       await write(key, jsonString);
     } catch (e) {
-      _logger.e('安全存储对象写入失败', error: e, stackTrace: StackTrace.current);
+      _logger.e('Keychain对象写入失败', error: e, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -286,7 +138,7 @@ class SecureStorageService {
       if (jsonString == null) return null;
       return jsonDecode(jsonString) as Map<String, dynamic>;
     } catch (e) {
-      _logger.e('安全存储对象读取失败', error: e, stackTrace: StackTrace.current);
+      _logger.e('Keychain对象读取失败', error: e, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -301,276 +153,319 @@ class SecureStorageService {
     try {
       // 保存基本凭证
       await write(keyUserId, currentUser.userId);
-      await write(keyToken, currentUser.token);
 
-      // 保存过期时间
-      if (currentUser.tokenExpireTime != null) {
-        await write(keyTokenExpireTime,
-            currentUser.tokenExpireTime!.millisecondsSinceEpoch.toString());
-      }
-
-      // 保存用户信息详情
+      // 保存完整的用户信息详情
       final userInfo = {
         'userId': currentUser.userId,
-        'token': currentUser.token,
+        'name': currentUser.name,
+        'avatar': currentUser.avatar,
+        'phone': currentUser.phone,
+        'email': currentUser.email,
+        'status': currentUser.status,
+        'lastLoginTime': currentUser.lastLoginTime?.millisecondsSinceEpoch,
       };
 
-      // 添加可选字段
-      if (currentUser.name.isNotEmpty) {
-        userInfo['name'] = currentUser.name;
-        await write('userName', currentUser.name);
-      }
-
-      if (currentUser.avatar != null && currentUser.avatar!.isNotEmpty) {
-        userInfo['avatar'] = currentUser.avatar!;
-        await write('userAvatar', currentUser.avatar!);
-      }
-
-      if (currentUser.phone != null && currentUser.phone!.isNotEmpty) {
-        userInfo['phone'] = currentUser.phone!;
-        await write('userPhone', currentUser.phone!);
-      }
-
-      if (currentUser.email != null && currentUser.email!.isNotEmpty) {
-        userInfo['email'] = currentUser.email!;
-        await write('userEmail', currentUser.email!);
-      }
-
-      if (currentUser.status != null && currentUser.status!.isNotEmpty) {
-        userInfo['status'] = currentUser.status!;
-        await write('userStatus', currentUser.status!);
-      }
-
-      if (currentUser.lastLoginTime != null) {
-        userInfo['lastLoginTime'] =
-            currentUser.lastLoginTime!.millisecondsSinceEpoch.toString();
-        await write('lastLoginTime',
-            currentUser.lastLoginTime!.millisecondsSinceEpoch.toString());
-      }
-
       await writeObject(keyUserInfo, userInfo);
-
-      _logger.i('用户凭证保存成功', extra: {'userId': currentUser.userId});
+      _logger.i('用户凭证已保存到Keychain', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'hasAvatar': currentUser.avatar != null,
+        'hasPhone': currentUser.phone != null,
+        'hasEmail': currentUser.email != null,
+      });
     } catch (e) {
       _logger.e('保存用户凭证失败', error: e, stackTrace: StackTrace.current);
       rethrow;
     }
   }
 
-  /// 获取完整用户信息
+  /// 读取用户凭证
   ///
-  /// 从安全存储中读取完整的用户信息
+  /// 从安全存储中读取用户信息
   ///
   /// 返回:
-  /// - 完整的用户信息对象，如果不存在则返回null
-  Future<CurrentUser?> getFullUserInfo() async {
+  /// - CurrentUser对象，如果不存在则返回null
+  Future<CurrentUser?> readUserCredentials() async {
     try {
-      // 获取基本凭证
-      final userId = await getUserId();
-      final token = await getToken();
-
-      if (userId == null || token == null) {
-        _logger.i('安全存储中未找到用户ID或令牌');
+      final userId = await read(keyUserId);
+      if (userId == null) {
+        _logger.d('Keychain中无用户凭证');
         return null;
       }
 
-      // 创建用户对象
-      final user = CurrentUser()
+      final userInfo = await readObject(keyUserInfo);
+      if (userInfo == null) {
+        _logger.w('用户信息缺失，清理孤立的userId');
+        await delete(keyUserId);
+        return null;
+      }
+
+      // 从存储的信息中恢复完整的用户对象
+      final currentUser = CurrentUser()
         ..userId = userId
-        ..token = token;
+        ..name = userInfo['name'] ?? '未知用户' // 提供默认值以避免late初始化错误
+        ..avatar = userInfo['avatar']
+        ..phone = userInfo['phone']
+        ..email = userInfo['email']
+        ..status = userInfo['status']
+        ..lastLoginTime = userInfo['lastLoginTime'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(userInfo['lastLoginTime'])
+            : null;
 
-      // 获取可选字段
-      final name = await read('userName');
-      if (name != null && name.isNotEmpty) {
-        user.name = name;
-      } else {
-        user.name = ''; // 确保name不为null
-      }
+      _logger.d('从Keychain读取用户凭证成功', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'hasAvatar': currentUser.avatar != null,
+        'hasPhone': currentUser.phone != null,
+        'hasEmail': currentUser.email != null,
+      });
 
-      final avatar = await read('userAvatar');
-      if (avatar != null && avatar.isNotEmpty) {
-        user.avatar = avatar;
-      }
-
-      final phone = await read('userPhone');
-      if (phone != null && phone.isNotEmpty) {
-        user.phone = phone;
-      }
-
-      final email = await read('userEmail');
-      if (email != null && email.isNotEmpty) {
-        user.email = email;
-      }
-
-      final statusStr = await read('userStatus');
-      if (statusStr != null && statusStr.isNotEmpty) {
-        user.status = statusStr;
-      }
-
-      final lastLoginTimeStr = await read('lastLoginTime');
-      if (lastLoginTimeStr != null) {
-        try {
-          final lastLoginTime = int.parse(lastLoginTimeStr);
-          user.lastLoginTime =
-              DateTime.fromMillisecondsSinceEpoch(lastLoginTime);
-        } catch (e) {
-          _logger.w('解析lastLoginTime失败', extra: {'error': e.toString()});
-        }
-      }
-
-      // 获取令牌过期时间
-      final expireTime = await getTokenExpireTime();
-      if (expireTime != null) {
-        user.tokenExpireTime = expireTime;
-      }
-
-      _logger.i('从安全存储获取完整用户信息成功', extra: {'userId': userId});
-      return user;
+      return currentUser;
     } catch (e) {
-      _logger.e('从安全存储获取完整用户信息失败', error: e, stackTrace: StackTrace.current);
+      _logger.e('读取用户凭证失败', error: e, stackTrace: StackTrace.current);
       return null;
-    }
-  }
-
-  /// 获取用户ID
-  ///
-  /// 从安全存储中读取用户ID
-  ///
-  /// 返回:
-  /// - 用户ID，如果不存在则返回null
-  Future<String?> getUserId() async {
-    return read(keyUserId);
-  }
-
-  /// 获取认证令牌
-  ///
-  /// 从安全存储中读取认证令牌
-  ///
-  /// 返回:
-  /// - 认证令牌，如果不存在则返回null
-  Future<String?> getToken() async {
-    return read(keyToken);
-  }
-
-  /// 获取令牌过期时间
-  ///
-  /// 从安全存储中读取令牌过期时间
-  ///
-  /// 返回:
-  /// - 令牌过期时间，如果不存在则返回null
-  Future<DateTime?> getTokenExpireTime() async {
-    try {
-      final timeStr = await read(keyTokenExpireTime);
-      if (timeStr == null) return null;
-
-      final timestamp = int.parse(timeStr);
-      return DateTime.fromMillisecondsSinceEpoch(timestamp);
-    } catch (e) {
-      _logger.e('读取令牌过期时间失败', error: e, stackTrace: StackTrace.current);
-      return null;
-    }
-  }
-
-  /// 检查令牌是否有效
-  ///
-  /// 检查存储的令牌是否存在且未过期
-  ///
-  /// 返回:
-  /// - true: 令牌有效
-  /// - false: 令牌不存在或已过期
-  Future<bool> isTokenValid() async {
-    try {
-      final token = await getToken();
-      if (token == null || token.isEmpty) {
-        return false;
-      }
-
-      final expireTime = await getTokenExpireTime();
-      if (expireTime != null) {
-        return expireTime.isAfter(DateTime.now());
-      }
-
-      // 如果没有过期时间，假设令牌有效
-      return true;
-    } catch (e) {
-      _logger.e('检查令牌有效性失败', error: e, stackTrace: StackTrace.current);
-      return false;
     }
   }
 
   /// 清除用户凭证
   ///
-  /// 从安全存储中删除用户ID和认证令牌
+  /// 从安全存储中删除所有用户相关信息
   Future<void> clearUserCredentials() async {
     try {
       await delete(keyUserId);
-      await delete(keyToken);
-      await delete(keyTokenExpireTime);
       await delete(keyUserInfo);
-
-      // 清除扩展的用户信息字段
-      await delete('userName');
-      await delete('userAvatar');
-      await delete('userPhone');
-      await delete('userEmail');
-      await delete('userStatus');
-      await delete('lastLoginTime');
-
-      _logger.i('用户凭证已清除');
+      _logger.i('用户凭证已从Keychain清除');
     } catch (e) {
       _logger.e('清除用户凭证失败', error: e, stackTrace: StackTrace.current);
       rethrow;
     }
   }
 
-  /// 保存用户信息
-  ///
-  /// 将用户详细信息保存为JSON对象
-  ///
-  /// 参数:
-  /// - userInfo: 包含用户详细信息的Map
-  Future<void> saveUserInfo(Map<String, dynamic> userInfo) async {
-    await writeObject(keyUserInfo, userInfo);
+  // === Token 管理 ===
+
+  /// 保存 Access Token
+  Future<void> saveAccessToken(String token, DateTime expireTime) async {
+    try {
+      await write(keyAccessToken, token);
+      await write(keyAccessTokenExpireTime, expireTime.toIso8601String());
+      _logger.d('Access Token已保存到Keychain');
+    } catch (e) {
+      _logger.e('保存Access Token失败', error: e, stackTrace: StackTrace.current);
+      rethrow;
+    }
   }
 
-  /// 获取用户信息
-  ///
-  /// 读取存储的用户详细信息
-  ///
-  /// 返回:
-  /// - 用户信息Map，如果不存在则返回null
-  Future<Map<String, dynamic>?> getUserInfo() async {
-    return readObject(keyUserInfo);
+  /// 保存 Refresh Token
+  Future<void> saveRefreshToken(String token, DateTime expireTime) async {
+    try {
+      await write(keyRefreshToken, token);
+      await write(keyRefreshTokenExpireTime, expireTime.toIso8601String());
+      _logger.d('Refresh Token已保存到Keychain');
+    } catch (e) {
+      _logger.e('保存Refresh Token失败', error: e, stackTrace: StackTrace.current);
+      rethrow;
+    }
   }
 
-  /// 保存服务器URL
-  ///
-  /// 存储应用服务器的URL
-  ///
-  /// 参数:
-  /// - url: 服务器URL
-  Future<void> saveServerUrl(String url) async {
-    await write(keyServerUrl, url);
+  /// 保存 Socket Token
+  Future<void> saveSocketToken(String token, DateTime expireTime) async {
+    try {
+      await write(keySocketToken, token);
+      await write(keySocketTokenExpireTime, expireTime.toIso8601String());
+      _logger.d('Socket Token已保存到Keychain');
+    } catch (e) {
+      _logger.e('保存Socket Token失败', error: e, stackTrace: StackTrace.current);
+      rethrow;
+    }
   }
 
-  /// 获取服务器URL
-  ///
-  /// 读取存储的服务器URL
-  ///
-  /// 返回:
-  /// - 服务器URL，如果不存在则返回null
-  Future<String?> getServerUrl() async {
-    return read(keyServerUrl);
+  /// 获取 Access Token
+  Future<String?> getAccessToken() async {
+    return await read(keyAccessToken);
   }
-}
 
-// 平台选项辅助类
-class _SecureStorageOptions {
-  final AndroidOptions android;
-  final IOSOptions iOS;
+  /// 获取 Access Token 过期时间
+  Future<DateTime?> getAccessTokenExpireTime() async {
+    final expireTimeStr = await read(keyAccessTokenExpireTime);
+    if (expireTimeStr == null) return null;
+    try {
+      return DateTime.parse(expireTimeStr);
+    } catch (e) {
+      _logger.e('解析Access Token过期时间失败', error: e);
+      return null;
+    }
+  }
 
-  _SecureStorageOptions({
-    required this.android,
-    required this.iOS,
-  });
+  /// 获取 Refresh Token
+  Future<String?> getRefreshToken() async {
+    return await read(keyRefreshToken);
+  }
+
+  /// 获取 Refresh Token 过期时间
+  Future<DateTime?> getRefreshTokenExpireTime() async {
+    final expireTimeStr = await read(keyRefreshTokenExpireTime);
+    if (expireTimeStr == null) return null;
+    try {
+      return DateTime.parse(expireTimeStr);
+    } catch (e) {
+      _logger.e('解析Refresh Token过期时间失败', error: e);
+      return null;
+    }
+  }
+
+  /// 获取 Socket Token
+  Future<String?> getSocketToken() async {
+    return await read(keySocketToken);
+  }
+
+  /// 获取 Socket Token 过期时间
+  Future<DateTime?> getSocketTokenExpireTime() async {
+    final expireTimeStr = await read(keySocketTokenExpireTime);
+    if (expireTimeStr == null) return null;
+    try {
+      return DateTime.parse(expireTimeStr);
+    } catch (e) {
+      _logger.e('解析Socket Token过期时间失败', error: e);
+      return null;
+    }
+  }
+
+  /// 检查 Access Token 是否有效
+  Future<bool> isAccessTokenValid() async {
+    try {
+      final token = await getAccessToken();
+      if (token == null) return false;
+
+      final expireTime = await getAccessTokenExpireTime();
+      if (expireTime == null) return false;
+
+      final isValid = DateTime.now().isBefore(expireTime);
+      final timeUntilExpiry = expireTime.difference(DateTime.now()).inMinutes;
+
+      _logger.d('Access Token有效性检查', extra: {
+        'hasToken': true,
+        'expireTime': expireTime.toIso8601String(),
+        'currentTime': DateTime.now().toIso8601String(),
+        'isValid': isValid,
+        'timeUntilExpiry': timeUntilExpiry,
+      });
+
+      return isValid;
+    } catch (e) {
+      _logger.e('检查Access Token有效性失败', error: e);
+      return false;
+    }
+  }
+
+  /// 检查 Refresh Token 是否有效
+  Future<bool> isRefreshTokenValid() async {
+    try {
+      final token = await getRefreshToken();
+      if (token == null) return false;
+
+      final expireTime = await getRefreshTokenExpireTime();
+      if (expireTime == null) return false;
+
+      final isValid = DateTime.now().isBefore(expireTime);
+      final timeUntilExpiry = expireTime.difference(DateTime.now()).inDays;
+
+      _logger.d('Refresh Token有效性检查', extra: {
+        'hasToken': true,
+        'expireTime': expireTime.toIso8601String(),
+        'currentTime': DateTime.now().toIso8601String(),
+        'isValid': isValid,
+        'timeUntilExpiry': timeUntilExpiry,
+      });
+
+      return isValid;
+    } catch (e) {
+      _logger.e('检查Refresh Token有效性失败', error: e);
+      return false;
+    }
+  }
+
+  /// 检查 Socket Token 是否有效
+  Future<bool> isSocketTokenValid() async {
+    try {
+      final token = await getSocketToken();
+      if (token == null) return false;
+
+      final expireTime = await getSocketTokenExpireTime();
+      if (expireTime == null) return false;
+
+      final isValid = DateTime.now().isBefore(expireTime);
+      final timeUntilExpiry = expireTime.difference(DateTime.now()).inDays;
+
+      _logger.d('Socket Token有效性检查', extra: {
+        'hasToken': true,
+        'expireTime': expireTime.toIso8601String(),
+        'currentTime': DateTime.now().toIso8601String(),
+        'isValid': isValid,
+        'timeUntilExpiry': timeUntilExpiry,
+      });
+
+      return isValid;
+    } catch (e) {
+      _logger.e('检查Socket Token有效性失败', error: e);
+      return false;
+    }
+  }
+
+  /// 清除所有Token
+  Future<void> clearAllTokens() async {
+    try {
+      await delete(keyAccessToken);
+      await delete(keyAccessTokenExpireTime);
+      await delete(keyRefreshToken);
+      await delete(keyRefreshTokenExpireTime);
+      await delete(keySocketToken);
+      await delete(keySocketTokenExpireTime);
+      _logger.i('所有Token已从Keychain清除');
+    } catch (e) {
+      _logger.e('清除所有Token失败', error: e, stackTrace: StackTrace.current);
+      rethrow;
+    }
+  }
+
+  /// 一次性清理方法
+  ///
+  /// 彻底清除可能残留的旧数据和冗余数据
+  Future<void> performOneTimeCleanup() async {
+    try {
+      // 清理可能残留的旧JWT字段
+      await delete('keyToken');
+      await delete('keyTokenExpireTime');
+
+      _logger.i('一次性清理完成');
+    } catch (e) {
+      _logger.w('一次性清理过程中发生错误', extra: {'error': e.toString()});
+      // 不抛出异常，清理错误不应影响应用启动
+    }
+  }
+
+  // === 存储键名常量 ===
+
+  /// 用户ID存储键
+  static const String keyUserId = 'user_id';
+
+  /// 用户信息存储键
+  static const String keyUserInfo = 'user_info';
+
+  /// Access Token存储键
+  static const String keyAccessToken = 'access_token';
+
+  /// Access Token过期时间存储键
+  static const String keyAccessTokenExpireTime = 'access_token_expire_time';
+
+  /// Refresh Token存储键
+  static const String keyRefreshToken = 'refresh_token';
+
+  /// Refresh Token过期时间存储键
+  static const String keyRefreshTokenExpireTime = 'refresh_token_expire_time';
+
+  /// Socket Token存储键
+  static const String keySocketToken = 'socket_token';
+
+  /// Socket Token过期时间存储键
+  static const String keySocketTokenExpireTime = 'socket_token_expire_time';
 }

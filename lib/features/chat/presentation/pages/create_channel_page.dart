@@ -12,6 +12,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 /// 创建频道页面
 /// 设置频道信息：名称、描述、头像等
@@ -29,7 +30,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
   final FocusNode _channelNameFocusNode = FocusNode();
   final FocusNode _descriptionFocusNode = FocusNode();
   final CommunicationService _communicationService = CommunicationService();
-  final SecureStorageService _secureStorage = SecureStorageService.instance;
+  final SecureStorageService _secureStorage = SecureStorageService();
 
   String? _channelAvatarPath;
   bool _isCreating = false;
@@ -45,7 +46,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
   Future<void> _initializeUserAndChannelName() async {
     try {
       // 获取当前用户信息
-      _currentUser = await _secureStorage.getFullUserInfo();
+      _currentUser = await _secureStorage.readUserCredentials();
 
       // 设置默认频道名：XXX(创建者)的频道
       if (_currentUser != null) {
@@ -98,7 +99,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('拍照'),
+              title: Text(AppLocalizations.of(context).camera),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: 调用相机
@@ -106,7 +107,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
+              title: Text(AppLocalizations.of(context).gallery),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: 从相册选择
@@ -123,7 +124,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
     final channelName = _channelNameController.text.trim();
     if (channelName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入频道名称')),
+        SnackBar(content: Text(AppLocalizations.of(context).errorOccurred)),
       );
       return;
     }
@@ -151,7 +152,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
       // 检查通信服务是否可用
       if (!_communicationService.isInitialized ||
           !_communicationService.isConnected) {
-        throw Exception('网络连接不可用，请检查网络状态');
+        throw Exception(AppLocalizations.of(context).networkError);
       }
 
       // 构建频道创建请求
@@ -174,7 +175,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
           'conversation:create', createRequest);
 
       if (!success) {
-        throw Exception('发送创建频道请求失败');
+        throw Exception(AppLocalizations.of(context).errorOccurred);
       }
 
       // 等待服务器响应
@@ -185,11 +186,12 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
           .first;
 
       if (!response.success) {
-        throw Exception('创建频道失败: ${response.message}');
+        throw Exception(
+            '${AppLocalizations.of(context).errorOccurred}: ${response.message}');
       }
 
       if (!response.hasConversation()) {
-        throw Exception('服务器响应中缺少会话数据');
+        throw Exception(AppLocalizations.of(context).errorOccurred);
       }
 
       final conversationId = response.conversation.conversationId;
@@ -280,7 +282,8 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('创建频道失败: ${error.toString()}'),
+            content: Text(
+                '${AppLocalizations.of(context).errorOccurred}: ${error.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -296,6 +299,8 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -305,9 +310,9 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Create Channel',
-          style: TextStyle(
+        title: Text(
+          localizations.createChannel,
+          style: const TextStyle(
             color: Colors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -325,9 +330,9 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
                     ),
                   )
-                : const Text(
-                    'Next',
-                    style: TextStyle(
+                : Text(
+                    localizations.next,
+                    style: const TextStyle(
                       color: Colors.blue,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -356,6 +361,8 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
 
   /// 构建频道信息设置区域
   Widget _buildChannelInfoSection() {
+    final localizations = AppLocalizations.of(context);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -400,8 +407,8 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                 TextField(
                   controller: _channelNameController,
                   focusNode: _channelNameFocusNode,
-                  decoration: const InputDecoration(
-                    hintText: 'Channel Name',
+                  decoration: InputDecoration(
+                    hintText: localizations.channelTitle,
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -446,6 +453,8 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
 
   /// 构建频道描述设置区域
   Widget _buildDescriptionSection() {
+    final localizations = AppLocalizations.of(context);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -456,9 +465,9 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Description',
-            style: TextStyle(
+          Text(
+            localizations.whatIsChannel,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
@@ -468,9 +477,8 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
           TextField(
             controller: _descriptionController,
             focusNode: _descriptionFocusNode,
-            decoration: const InputDecoration(
-              hintText:
-                  'You can provide an optional description for your channel.',
+            decoration: InputDecoration(
+              hintText: localizations.channelDescription,
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
             ),

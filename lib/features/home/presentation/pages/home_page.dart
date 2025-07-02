@@ -17,6 +17,7 @@ import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -38,7 +39,7 @@ class _HomePageState extends State<HomePage>
   CurrentUser? _currentUser;
   Timer? _cleanupTimer;
 
-  final _secureStorage = SecureStorageService.instance;
+  final _secureStorage = SecureStorageService();
   late TabController _tabController;
   int _currentIndex = 0;
   @override
@@ -56,7 +57,7 @@ class _HomePageState extends State<HomePage>
   Future<void> _initCubit() async {
     if (_homeCubit != null) return;
 
-    final currentUser = await _secureStorage.getFullUserInfo();
+    final currentUser = await _secureStorage.readUserCredentials();
 
     if (currentUser == null) {
       _logger.e('无法获取用户信息，返回登录页面');
@@ -135,6 +136,7 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     _logger.d('HomePage build');
+    final localizations = AppLocalizations.of(context);
 
     // 如果HomeCubit还未初始化，显示加载指示器
     if (_homeCubit == null ||
@@ -194,18 +196,18 @@ class _HomePageState extends State<HomePage>
               _tabController.animateTo(index);
             }
           },
-          items: const [
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat),
-              label: '消息',
+              icon: const Icon(Icons.chat),
+              label: localizations.chats,
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.contacts),
-              label: '联系人',
+              icon: const Icon(Icons.contacts),
+              label: localizations.contacts,
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person),
-              label: '我的',
+              icon: const Icon(Icons.person),
+              label: localizations.profile,
             ),
           ],
         ),

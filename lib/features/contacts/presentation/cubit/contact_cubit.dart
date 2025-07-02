@@ -49,7 +49,11 @@ class ContactCubit extends Cubit<ContactState> {
               emit(state.toSyncingState());
               break;
             case ContactsSyncStatus.success:
-              _loadContacts(); // 同步成功后重新加载联系人
+              // 同步成功，数据库监听会自动更新联系人列表
+              emit(state.copyWith(
+                syncStatus: ContactsSyncStatus.success,
+                errorMessage: null,
+              ));
               break;
             case ContactsSyncStatus.error:
               emit(state.toErrorState('联系人同步失败'));
@@ -67,7 +71,8 @@ class ContactCubit extends Cubit<ContactState> {
       // 监听联系人变化
       _subscriptions['contacts'] = _contactsRepository.watchContacts().listen(
         (_) {
-          _loadContacts(); // 联系人变化时重新加载
+          // 数据库有变化时，直接从数据库获取最新数据
+          _refreshContactsFromDatabase();
         },
         onError: (error) {
           _logger.e('联系人变化监听错误', error: error);
@@ -154,9 +159,39 @@ class ContactCubit extends Cubit<ContactState> {
     _loadContacts();
   }
 
+  // 防止重复加载的标志
+  bool _isLoadingContacts = false;
+
+  /// 从数据库刷新联系人数据（不触发加载状态）
+  Future<void> _refreshContactsFromDatabase() async {
+    try {
+      _logger.d('从数据库刷新联系人数据');
+      final contacts = await _contactsRepository.getAllContacts();
+
+      // 直接更新联系人列表，不改变加载状态
+      emit(state.copyWith(
+        contacts: contacts,
+        lastSyncTime: DateTime.now(),
+        errorMessage: null,
+      ));
+
+      _logger.d('联系人数据刷新成功', extra: {'count': contacts.length});
+    } catch (e) {
+      _logger.e('从数据库刷新联系人数据失败', error: e);
+      // 数据库刷新失败不要改变UI状态，保持当前状态
+    }
+  }
+
   /// 内部加载联系人方法
   Future<void> _loadContacts() async {
+    // 防止重复加载
+    if (_isLoadingContacts) {
+      _logger.d('联系人正在加载中，跳过重复请求');
+      return;
+    }
+
     try {
+      _isLoadingContacts = true;
       emit(state.toLoadingState());
 
       final contacts = await _contactsRepository.getAllContacts();
@@ -179,6 +214,8 @@ class ContactCubit extends Cubit<ContactState> {
       } else {
         emit(state.toErrorState('本地数据访问失败: ${e.toString()}'));
       }
+    } finally {
+      _isLoadingContacts = false;
     }
   }
 

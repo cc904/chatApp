@@ -5,6 +5,9 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
+import 'package:cc/core/services/auth_token_sync_service.dart';
+import 'package:cc/core/utils/debug_commands.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:cc/features/profile/presentation/pages/edit_profile_page.dart';
@@ -12,6 +15,10 @@ import 'package:cc/features/profile/presentation/pages/my_qr_code_page.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:flutter/foundation.dart';
+import 'package:cc/features/profile/presentation/pages/language_settings_page.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -61,15 +68,17 @@ class _ProfilePageState extends State<ProfilePage>
               _logger.d(
                   'ProfilePage state: ${state.status}, user: ${state.user?.name}');
 
+              final localizations = AppLocalizations.of(context);
+
               // 如果正在加载且没有用户数据，显示加载指示器
               if (state.status == ProfileStatus.loading && state.user == null) {
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('加载用户信息中...'),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(localizations.loadingUserInfo),
                     ],
                   ),
                 );
@@ -88,7 +97,7 @@ class _ProfilePageState extends State<ProfilePage>
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '加载失败: ${state.error ?? "未知错误"}',
+                        '${localizations.loadFailed}: ${state.error ?? localizations.unknownError}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 16),
                       ),
@@ -98,7 +107,7 @@ class _ProfilePageState extends State<ProfilePage>
                           _logger.i('用户点击重试按钮');
                           _profileCubit.refreshUserInfo();
                         },
-                        child: const Text('重试'),
+                        child: Text(localizations.retry),
                       ),
                     ],
                   ),
@@ -110,22 +119,55 @@ class _ProfilePageState extends State<ProfilePage>
                 child: Column(
                   children: [
                     // 标题和操作按钮
-                    _buildHeader(),
+                    _buildHeader(localizations),
 
                     // 个人信息卡片
-                    _buildProfileCard(state.user),
+                    _buildProfileCard(state.user, localizations),
 
                     const SizedBox(height: 16),
 
                     // 功能列表
-                    _buildFunctionList(),
+                    _buildFunctionList(localizations),
 
                     const SizedBox(height: 16),
 
                     // 开发者选项
-                    _buildDeveloperOptions(),
+                    _buildDeveloperOptions(localizations),
 
                     const SizedBox(height: 24),
+
+                    // 调试模式下显示用户信息诊断按钮
+                    if (kDebugMode)
+                      ListTile(
+                        leading: const Icon(Icons.bug_report),
+                        title: Text(localizations.userInfoDiagnosis),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          await _showUserInfoDiagnostic(context);
+                        },
+                      ),
+
+                    // 调试模式下显示消息排序测试按钮
+                    if (kDebugMode)
+                      ListTile(
+                        leading: const Icon(Icons.sort),
+                        title: Text(localizations.messageSort),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          await _testMessageSorting(context);
+                        },
+                      ),
+
+                    // 调试模式下显示同步时间管理按钮
+                    if (kDebugMode)
+                      ListTile(
+                        leading: const Icon(Icons.sync),
+                        title: Text(localizations.conversationSyncManagement),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          await _showSyncManagement(context);
+                        },
+                      ),
                   ],
                 ),
               );
@@ -136,93 +178,101 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AppLocalizations localizations) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
         children: [
-          const Text(
-            '我的',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          // 居中的标题
+          Align(
+            alignment: Alignment.center,
+            child: Text(
+              localizations.myProfile,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'refresh':
-                  _logger.i('用户手动刷新个人信息');
-                  _profileCubit.refreshUserInfo();
-                  break;
-                case 'logout':
-                  _handleLogout();
-                  break;
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'refresh',
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh, size: 20),
-                      SizedBox(width: 8),
-                      Text('刷新'),
-                    ],
+          // 右侧的菜单按钮
+          Positioned(
+            right: 0,
+            child: PopupMenuButton<String>(
+              onSelected: (value) {
+                switch (value) {
+                  case 'refresh':
+                    _logger.i('用户手动刷新个人信息');
+                    _profileCubit.refreshUserInfo();
+                    break;
+                  case 'logout':
+                    _handleLogout();
+                    break;
+                }
+              },
+              itemBuilder: (BuildContext context) {
+                return [
+                  PopupMenuItem<String>(
+                    value: 'refresh',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.refresh, size: 20),
+                        const SizedBox(width: 8),
+                        Text(localizations.refreshProfile),
+                      ],
+                    ),
                   ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'settings',
-                  child: Row(
-                    children: [
-                      Icon(Icons.settings, size: 20),
-                      SizedBox(width: 8),
-                      Text('账号设置'),
-                    ],
+                  PopupMenuItem<String>(
+                    value: 'settings',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.settings, size: 20),
+                        const SizedBox(width: 8),
+                        Text(localizations.accountSecurity),
+                      ],
+                    ),
                   ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'privacy',
-                  child: Row(
-                    children: [
-                      Icon(Icons.privacy_tip, size: 20),
-                      SizedBox(width: 8),
-                      Text('隐私设置'),
-                    ],
+                  PopupMenuItem<String>(
+                    value: 'privacy',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.privacy_tip, size: 20),
+                        const SizedBox(width: 8),
+                        Text(localizations.privacySettings),
+                      ],
+                    ),
                   ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'feedback',
-                  child: Row(
-                    children: [
-                      Icon(Icons.feedback, size: 20),
-                      SizedBox(width: 8),
-                      Text('反馈建议'),
-                    ],
+                  PopupMenuItem<String>(
+                    value: 'feedback',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.feedback, size: 20),
+                        const SizedBox(width: 8),
+                        Text(localizations.feedback),
+                      ],
+                    ),
                   ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, size: 20, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('退出登录', style: TextStyle(color: Colors.red)),
-                    ],
+                  PopupMenuItem<String>(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.logout, size: 20, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Text(localizations.logout,
+                            style: const TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
-                ),
-              ];
-            },
-            icon: const Icon(Icons.more_vert),
+                ];
+              },
+              icon: const Icon(Icons.more_vert),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildProfileCard(CurrentUser? user) {
+  Widget _buildProfileCard(CurrentUser? user, AppLocalizations localizations) {
     _logger.d('构建个人信息卡片, user: ${user?.name}');
 
     return GestureDetector(
@@ -278,8 +328,8 @@ class _ProfilePageState extends State<ProfilePage>
                   const SizedBox(height: 4),
                   Text(
                     user?.phone?.isNotEmpty == true
-                        ? '手机号: ${user!.phone}'
-                        : '手机号: 未绑定',
+                        ? '${localizations.phoneNumber}: ${user!.phone}'
+                        : '${localizations.phoneNumber}: ${localizations.phoneNotBound}',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -318,7 +368,7 @@ class _ProfilePageState extends State<ProfilePage>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '我的二维码',
+                            localizations.myQRCode,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.green[700],
@@ -343,114 +393,200 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildFunctionList() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+  Widget _buildFunctionList(AppLocalizations localizations) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+          child: Text(
+            localizations.settings,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black54,
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildListTile(
-            icon: Icons.photo_album,
-            title: '相册',
-            subtitle: '查看您的共享相册',
-            onTap: () {
-              _logger.d('点击相册');
-            },
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
           ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.favorite,
-            title: '收藏',
-            subtitle: '查看您的收藏内容',
-            onTap: () {
-              _logger.d('点击收藏');
-            },
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              // 账号与安全
+              ListTile(
+                leading: const Icon(Icons.security),
+                title: Text(localizations.accountSecurity),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _logger.d('点击账号与安全');
+                  // TODO: 导航到账号与安全页面
+                },
+              ),
+              const Divider(height: 1),
+
+              // 隐私设置
+              ListTile(
+                leading: const Icon(Icons.privacy_tip),
+                title: Text(localizations.privacySettings),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _logger.d('点击隐私设置');
+                  // TODO: 导航到隐私设置页面
+                },
+              ),
+              const Divider(height: 1),
+
+              // 通知设置
+              ListTile(
+                leading: const Icon(Icons.notifications),
+                title: Text(localizations.notificationSettings),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _logger.d('点击通知设置');
+                  // TODO: 导航到通知设置页面
+                },
+              ),
+              const Divider(height: 1),
+
+              // 语言设置
+              ListTile(
+                leading: const Icon(Icons.language),
+                title: Text(localizations.language),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _logger.d('点击语言设置');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LanguageSettingsPage(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+
+              // 关于我们
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(localizations.aboutUs),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _logger.d('点击关于我们');
+                  // TODO: 导航到关于我们页面
+                },
+              ),
+            ],
           ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.settings,
-            title: '设置',
-            subtitle: '隐私、安全和通知设置',
-            onTap: () {
-              _logger.d('点击设置');
-            },
-          ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.help_outline,
-            title: '帮助与反馈',
-            subtitle: '常见问题和提交反馈',
-            onTap: () {
-              _logger.d('点击帮助与反馈');
-            },
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildListTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.green[50],
-          shape: BoxShape.circle,
+  // 构建开发者选项
+  Widget _buildDeveloperOptions(AppLocalizations localizations) {
+    if (!kDebugMode) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+          child: Text(
+            localizations.developerOptions,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black54,
+            ),
+          ),
         ),
-        child: Icon(
-          icon,
-          color: Colors.green,
-          size: 24,
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(localizations.viewUserInfo),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _showCurrentUserInfo(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.storage),
+                title: Text(localizations.debugDatabaseStatus),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _debugDatabaseStatus(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.token),
+                title: Text(localizations.tokenStatusDiagnosis),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _diagnoseTokenStatus(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.cleaning_services),
+                title: Text(localizations.resetData),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _showResetDataDialog(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: Text(localizations.refreshToken),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _performTokenRefreshTest(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.dns),
+                title: Text(localizations.serverSettings),
+                subtitle: Text(
+                    '${localizations.currentServer}: ${AppConfig().currentServerName}'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _showServerSettingsDialog();
+                },
+              ),
+            ],
+          ),
         ),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: Colors.grey[600],
-          fontSize: 12,
-        ),
-      ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 16,
-        color: Colors.grey,
-      ),
-      onTap: onTap,
+      ],
     );
   }
 
   // 处理用户登出
   void _handleLogout() {
+    final localizations = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗？'),
+        title: Text(localizations.confirmLogout),
+        content: Text(localizations.confirmLogoutMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(localizations.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -468,19 +604,30 @@ class _ProfilePageState extends State<ProfilePage>
               }
 
               try {
-                // 直接使用SecureStorageService清除用户凭据
-                final secureStorage = SecureStorageService.instance;
-                await secureStorage.clearUserCredentials();
+                // 清除所有认证信息
+                final secureStorage = SecureStorageService();
 
-                _logger.i('用户已登出，凭据已清除');
+                // 1. 清除用户凭据
+                await secureStorage.clearUserCredentials();
+                _logger.i('用户凭据已清除');
+
+                // 2. 清除所有Token
+                await secureStorage.clearAllTokens();
+                _logger.i('所有Token已清除');
+
+                // 3. 清除所有服务的Token
+                AuthTokenSyncService.instance.clearTokenFromAllServices();
+                _logger.i('所有服务的Token已清除');
 
                 // 关闭数据库连接
                 if (DatabaseInitializer.isInitialized) {
                   await DatabaseInitializer.close();
                   _logger.i('数据库连接已关闭');
                 }
+
+                _logger.i('用户已完全登出，所有认证信息已清除');
               } catch (e) {
-                _logger.e('登出过程中发生错误', error: e);
+                _logger.e(localizations.logoutFailed, error: e);
               }
 
               // 关闭加载指示器并导航到登录页面
@@ -494,7 +641,8 @@ class _ProfilePageState extends State<ProfilePage>
                 );
               }
             },
-            child: const Text('确定', style: TextStyle(color: Colors.red)),
+            child: Text(localizations.confirm,
+                style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -503,22 +651,25 @@ class _ProfilePageState extends State<ProfilePage>
 
   // 显示重置数据确认对话框
   void _showResetDataDialog(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重置数据'),
-        content: const Text('这将清除所有数据,包括联系人、会话和消息。\n\n此操作不可撤销,确定要继续吗？'),
+        title: Text(localizations.resetData),
+        content: Text(localizations.resetDataWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(localizations.cancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context); // 关闭对话框
               _resetAllData(context);
             },
-            child: const Text('确定重置', style: TextStyle(color: Colors.red)),
+            child: Text(localizations.confirmReset,
+                style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -527,6 +678,8 @@ class _ProfilePageState extends State<ProfilePage>
 
   // 重置所有数据
   Future<void> _resetAllData(BuildContext context) async {
+    final localizations = AppLocalizations.of(context);
+
     try {
       _logger.i('开始重置数据');
 
@@ -551,15 +704,16 @@ class _ProfilePageState extends State<ProfilePage>
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: const Text('数据已重置'),
-            content: const Text('所有数据已清除。为确保重置生效,应用需要重启。'),
+            title: Text(localizations.dataResetComplete),
+            content: Text(localizations.dataResetCompleteMessage),
             actions: [
               TextButton(
                 onPressed: () {
                   // 退出应用
                   exit(0);
                 },
-                child: const Text('立即退出', style: TextStyle(color: Colors.red)),
+                child: Text(localizations.exitNow,
+                    style: const TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -577,7 +731,7 @@ class _ProfilePageState extends State<ProfilePage>
         // 显示错误消息
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('重置数据失败: $error'),
+            content: Text('${localizations.resetDataFailed}: $error'),
             backgroundColor: Colors.red,
           ),
         );
@@ -585,74 +739,9 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  // 构建开发者选项部分
-  Widget _buildDeveloperOptions() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildListTile(
-            icon: Icons.info_outline,
-            title: '查看用户信息',
-            subtitle: '显示当前用户的详细信息',
-            onTap: () {
-              _showCurrentUserInfo(context);
-            },
-          ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.storage,
-            title: '调试数据库状态',
-            subtitle: '检查数据库中的用户信息',
-            onTap: () {
-              _debugDatabaseStatus(context);
-            },
-          ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.cleaning_services,
-            title: '重置数据',
-            subtitle: '清除所有数据,重新开始模拟',
-            onTap: () {
-              _showResetDataDialog(context);
-            },
-          ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.refresh,
-            title: '刷新令牌',
-            subtitle: '测试令牌刷新功能',
-            onTap: () {
-              _testTokenRefresh(context);
-            },
-          ),
-          const Divider(height: 1, indent: 70),
-          _buildListTile(
-            icon: Icons.dns,
-            title: '服务器设置',
-            subtitle: '当前: ${AppConfig().currentServerName}',
-            onTap: () {
-              _showServerSettingsDialog();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   // 显示当前用户信息对话框
   void _showCurrentUserInfo(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final state = _profileCubit.state;
     final user = state.user;
 
@@ -660,12 +749,12 @@ class _ProfilePageState extends State<ProfilePage>
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('错误'),
-          content: const Text('用户信息未加载'),
+          title: Text(localizations.errorOccurred),
+          content: Text(localizations.noUserInfoLoaded),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('关闭'),
+              child: Text(localizations.close),
             ),
           ],
         ),
@@ -676,7 +765,7 @@ class _ProfilePageState extends State<ProfilePage>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('当前用户信息'),
+        title: Text(localizations.currentUserInfo),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -690,7 +779,7 @@ class _ProfilePageState extends State<ProfilePage>
                 _buildInfoRow('手机号', user.phone ?? '未绑定'),
                 _buildInfoRow('邮箱', user.email ?? '未绑定'),
                 _buildInfoRow('状态', user.status ?? '未设置'),
-                _buildInfoRow('令牌', '${user.token.substring(0, 20)}...'),
+                _buildInfoRow('认证状态', '使用新多Token系统'),
                 _buildInfoRow('数据库ID', user.id.toString()),
               ],
             ),
@@ -699,7 +788,7 @@ class _ProfilePageState extends State<ProfilePage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            child: Text(localizations.close),
           ),
         ],
       ),
@@ -736,31 +825,194 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  // 测试令牌刷新功能
-  void _testTokenRefresh(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Token刷新测试'),
-        content: const Text('此功能需要Token刷新服务的支持'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+  // 执行Token刷新测试
+  Future<void> _performTokenRefreshTest(BuildContext context) async {
+    final localizations = AppLocalizations.of(context);
+    _logger.i('测试Token刷新');
+
+    try {
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(localizations.testTokenStatus),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _logger.i('测试Token刷新');
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Token刷新测试功能暂未实现')),
-              );
-            },
-            child: const Text('测试'),
+        ),
+      );
+
+      // 导入EnhancedTokenManager
+      final tokenManager = EnhancedTokenManager.instance;
+
+      // 检查当前Token状态
+      final tokenStatus = await tokenManager.getTokenStatus();
+      final apiToken = await tokenManager.getApiToken();
+      final socketToken = await tokenManager.getSocketToken();
+
+      // 🔍 详细Token状态诊断
+      await DebugCommands.diagnoseTokenStatus();
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 构建测试结果
+      String testResult = '''
+🔍 Token状态测试结果
+===================
+
+📊 Token状态摘要:
+''';
+
+      // 添加Token状态信息
+      if (tokenStatus['accessToken'] != null) {
+        final accessTokenInfo =
+            tokenStatus['accessToken'] as Map<String, dynamic>;
+        testResult += '''
+- Access Token: ${accessTokenInfo['exists'] == true ? '✅存在' : '❌不存在'}
+- 有效性: ${accessTokenInfo['valid'] == true ? '✅有效' : '❌无效'}
+''';
+      }
+
+      if (tokenStatus['refreshToken'] != null) {
+        final refreshTokenInfo =
+            tokenStatus['refreshToken'] as Map<String, dynamic>;
+        testResult += '''
+- Refresh Token: ${refreshTokenInfo['exists'] == true ? '✅存在' : '❌不存在'}
+- 有效性: ${refreshTokenInfo['valid'] == true ? '✅有效' : '❌无效'}
+''';
+      }
+
+      if (tokenStatus['socketToken'] != null) {
+        final socketTokenInfo =
+            tokenStatus['socketToken'] as Map<String, dynamic>;
+        testResult += '''
+- Socket Token: ${socketTokenInfo['exists'] == true ? '✅存在' : '❌不存在'}
+- 有效性: ${socketTokenInfo['valid'] == true ? '✅有效' : '❌无效'}
+''';
+      }
+
+      testResult += '''
+
+🔧 功能测试:
+- API Token获取: ${apiToken != null ? '✅成功' : '❌失败'}
+- Socket Token获取: ${socketToken != null ? '✅成功' : '❌失败'}
+- 刷新定时器: ${tokenStatus['refreshTimer']?['active'] == true ? '✅运行中' : '❌未运行'}
+''';
+
+      // 尝试手动刷新Token
+      testResult += '''
+
+🔄 ${localizations.manualRefreshTest}:
+''';
+
+      try {
+        final refreshSuccess = await tokenManager.manualRefreshToken();
+        testResult +=
+            '''- ${localizations.manualRefreshTest}: ${refreshSuccess ? '✅成功' : '❌失败'}''';
+      } catch (refreshError) {
+        testResult +=
+            '''- ${localizations.manualRefreshTest}: ❌失败 ($refreshError)''';
+      }
+
+      // 显示测试结果
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(localizations.testResults),
+            content: SingleChildScrollView(
+              child: Text(testResult),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(localizations.close),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (error) {
+      _logger.e('Token刷新测试失败', error: error);
+
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${localizations.testFailed}：$error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Token状态诊断
+  Future<void> _diagnoseTokenStatus(BuildContext context) async {
+    final localizations = AppLocalizations.of(context);
+    _logger.i('🔍 开始Token状态诊断');
+
+    try {
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在诊断Token状态...'),
+            ],
+          ),
+        ),
+      );
+
+      // 调用详细Token状态诊断
+      await DebugCommands.diagnoseTokenDetails();
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 显示成功提示
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ${localizations.diagnosisComplete}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      _logger.e('Token状态诊断失败', error: error);
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 显示错误对话框
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('❌ ${localizations.diagnosisFailed}'),
+            content: Text('${localizations.diagnosisFailed}：$error'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(localizations.close),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   // 调试数据库状态
@@ -799,7 +1051,7 @@ class _ProfilePageState extends State<ProfilePage>
 - 手机号: ${user.phone ?? '未设置'}
 - 邮箱: ${user.email ?? '未设置'}
 - 状态: ${user.status ?? '未设置'}
-- Token前缀: ${user.token.length > 20 ? '${user.token.substring(0, 20)}...' : user.token}
+- 认证方式: 新多Token系统
 ''';
         } else {
           debugInfo += '''
@@ -811,20 +1063,31 @@ class _ProfilePageState extends State<ProfilePage>
       }
 
       // 检查安全存储
-      final secureStorage = SecureStorageService.instance;
-      final token = await secureStorage.getToken();
-      final userId = await secureStorage.getUserId();
+      final secureStorage = SecureStorageService();
+      final tokenManager = EnhancedTokenManager.instance;
+
+      // 比较原始Token和自动刷新Token
+      final storedToken = await secureStorage.getAccessToken();
+      final refreshedToken = await tokenManager.getApiToken();
+      final userId = await secureStorage.read('user_id');
 
       debugInfo += '''
 
 🔐 安全存储信息:
-- Token存在: ${token != null ? '✅' : '❌'}
+- 存储Token: ${storedToken != null ? '✅' : '❌'}
+- 刷新Token: ${refreshedToken != null ? '✅' : '❌'}
+- 自动刷新: ${refreshedToken != null ? '✅ 正常' : '❌ 失败'}
 - 用户ID: ${userId ?? '不存在'}
 ''';
 
-      if (token != null) {
+      if (refreshedToken != null) {
         debugInfo += '''
-- Token前缀: ${token.length > 20 ? '${token.substring(0, 20)}...' : token}
+- Token前缀: ${refreshedToken.length > 20 ? '${refreshedToken.substring(0, 20)}...' : refreshedToken}
+''';
+      } else if (storedToken != null) {
+        debugInfo += '''
+- 存储Token前缀: ${storedToken.length > 20 ? '${storedToken.substring(0, 20)}...' : storedToken}
+- 注意: 存储Token存在但自动刷新失败
 ''';
       }
 
@@ -926,8 +1189,8 @@ class _ProfilePageState extends State<ProfilePage>
       );
 
       // 尝试从安全存储恢复用户信息到数据库
-      final secureStorage = SecureStorageService.instance;
-      final userInfo = await secureStorage.getFullUserInfo();
+      final secureStorage = SecureStorageService();
+      final userInfo = await secureStorage.readUserCredentials();
 
       if (userInfo != null && DatabaseInitializer.isInitialized) {
         await DatabaseInitializer.isar.writeTxn(() async {
@@ -1112,5 +1375,380 @@ class _ProfilePageState extends State<ProfilePage>
         ],
       ),
     );
+  }
+
+  // 显示用户信息诊断对话框
+  Future<void> _showUserInfoDiagnostic(BuildContext context) async {
+    final localizations = AppLocalizations.of(context);
+    _logger.i('🔍 开始用户信息诊断');
+
+    try {
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在诊断用户信息...'),
+            ],
+          ),
+        ),
+      );
+
+      // 调用用户信息诊断
+      await DebugCommands.diagnoseUserInfo();
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 显示成功提示
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ${localizations.diagnosisComplete}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      _logger.e('用户信息诊断失败', error: error);
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 显示错误对话框
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('❌ ${localizations.diagnosisFailed}'),
+            content: Text('${localizations.diagnosisFailed}：$error'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(localizations.close),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  // 测试消息排序
+  Future<void> _testMessageSorting(BuildContext context) async {
+    final localizations = AppLocalizations.of(context);
+    _logger.i('🔍 开始测试消息排序');
+
+    try {
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(localizations.messageSortTest),
+            ],
+          ),
+        ),
+      );
+
+      // 调用消息排序测试
+      await DebugCommands.testMessageSorting();
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 显示成功提示
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ ${localizations.diagnosisComplete}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      _logger.e('消息排序测试失败', error: error);
+
+      // 关闭加载对话框
+      if (context.mounted) Navigator.pop(context);
+
+      // 显示错误对话框
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('❌ ${localizations.testFailed}'),
+            content: Text('${localizations.testFailed}：$error'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(localizations.close),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  // 显示同步管理对话框
+  Future<void> _showSyncManagement(BuildContext context) async {
+    _logger.i('🔍 显示会话同步管理');
+
+    try {
+      // 获取ChatsRepository实例
+      final chatsRepository = context.read<ChatsRepository>();
+
+      // 获取当前同步时间
+      final lastSyncTime = await chatsRepository.getLastSyncTime();
+
+      if (!context.mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('🔄 会话同步管理'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '同步状态信息：',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  lastSyncTime != null
+                      ? '上次同步时间：\n${lastSyncTime.toIso8601String()}\n(${_formatTimeAgo(lastSyncTime)})'
+                      : '尚未进行过同步',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: lastSyncTime != null ? Colors.green : Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '操作选项：',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '• 增量同步：只获取自上次同步以来的更新\n'
+                  '• 全量同步：获取所有会话数据\n'
+                  '• 清除记录：清除同步时间，下次将全量同步',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _performIncrementalSync(context, chatsRepository);
+              },
+              child: const Text('增量同步'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _performFullSync(context, chatsRepository);
+              },
+              child: const Text('全量同步'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _clearSyncTime(context, chatsRepository);
+              },
+              child: const Text('清除记录'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      _logger.e('显示同步管理失败', error: error);
+
+      if (!context.mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('❌ 错误'),
+          content: Text('无法显示同步管理：$error'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // 格式化时间差显示
+  String _formatTimeAgo(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}天前';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}小时前';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}分钟前';
+    } else {
+      return '刚刚';
+    }
+  }
+
+  // 执行增量同步
+  Future<void> _performIncrementalSync(
+      BuildContext context, ChatsRepository chatsRepository) async {
+    try {
+      _logger.i('🔄 执行增量同步');
+
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在执行增量同步...'),
+            ],
+          ),
+        ),
+      );
+
+      await chatsRepository.requestSyncConversations();
+
+      // 等待一下让同步完成
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 增量同步已触发，请查看会话列表更新'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      _logger.e('增量同步失败', error: error);
+
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 增量同步失败：$error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 执行全量同步
+  Future<void> _performFullSync(
+      BuildContext context, ChatsRepository chatsRepository) async {
+    try {
+      _logger.i('🔄 执行全量同步');
+
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在执行全量同步...'),
+            ],
+          ),
+        ),
+      );
+
+      await chatsRepository.requestFullSyncConversations();
+
+      // 等待一下让同步完成
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 全量同步已触发，请查看会话列表更新'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (error) {
+      _logger.e('全量同步失败', error: error);
+
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 全量同步失败：$error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 清除同步时间记录
+  Future<void> _clearSyncTime(
+      BuildContext context, ChatsRepository chatsRepository) async {
+    try {
+      _logger.i('🗑️ 清除同步时间记录');
+
+      await chatsRepository.clearSyncTime();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 同步时间记录已清除，下次同步将执行全量同步'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (error) {
+      _logger.e('清除同步时间记录失败', error: error);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 清除失败：$error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

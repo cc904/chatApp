@@ -51,26 +51,6 @@ final $typed_data.Uint8List messageStatusDescriptor = $convert.base64Decode(
     'Cg1NZXNzYWdlU3RhdHVzEgsKB1NFTkRJTkcQABIICgRTRU5UEAESDQoJREVMSVZFUkVEEAISCA'
     'oEUkVBRBADEgoKBkZBSUxFRBAEEgsKB0RFTEVURUQQBRILCgdSRVZPS0VEEAY=');
 
-@$core.Deprecated('Use loadingTypeDescriptor instead')
-const LoadingType$json = {
-  '1': 'LoadingType',
-  '2': [
-    {'1': 'INITIAL', '2': 0},
-    {'1': 'LOAD_MORE_BEFORE', '2': 1},
-    {'1': 'LOAD_MORE_AFTER', '2': 2},
-    {'1': 'ADD', '2': 3},
-    {'1': 'UPDATE', '2': 4},
-    {'1': 'SEARCH', '2': 5},
-    {'1': 'UPDATE_SEND', '2': 6},
-  ],
-};
-
-/// Descriptor for `LoadingType`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List loadingTypeDescriptor = $convert.base64Decode(
-    'CgtMb2FkaW5nVHlwZRILCgdJTklUSUFMEAASFAoQTE9BRF9NT1JFX0JFRk9SRRABEhMKD0xPQU'
-    'RfTU9SRV9BRlRFUhACEgcKA0FERBADEgoKBlVQREFURRAEEgoKBlNFQVJDSBAFEg8KC1VQREFU'
-    'RV9TRU5EEAY=');
-
 @$core.Deprecated('Use systemEventTypeDescriptor instead')
 const SystemEventType$json = {
   '1': 'SystemEventType',
@@ -125,7 +105,8 @@ const MessageProto$json = {
     {'1': 'sender_avatar', '3': 5, '4': 1, '5': 9, '10': 'senderAvatar'},
     {'1': 'created_at', '3': 6, '4': 1, '5': 3, '10': 'createdAt'},
     {'1': 'updated_at', '3': 7, '4': 1, '5': 3, '10': 'updatedAt'},
-    {'1': 'index', '3': 8, '4': 1, '5': 3, '10': 'index'},
+    {'1': 'index', '3': 8, '4': 1, '5': 5, '10': 'index'},
+    {'1': 'temp_id', '3': 11, '4': 1, '5': 9, '9': 1, '10': 'tempId', '17': true},
     {'1': 'type', '3': 9, '4': 1, '5': 14, '6': '.cc.MessageType', '10': 'type'},
     {'1': 'status', '3': 10, '4': 1, '5': 14, '6': '.cc.MessageStatus', '10': 'status'},
     {'1': 'quoted_message_id', '3': 21, '4': 1, '5': 9, '10': 'quotedMessageId'},
@@ -149,6 +130,7 @@ const MessageProto$json = {
   '3': [MessageProto_ReactionsEntry$json],
   '8': [
     {'1': 'content'},
+    {'1': '_temp_id'},
   ],
 };
 
@@ -168,26 +150,27 @@ final $typed_data.Uint8List messageProtoDescriptor = $convert.base64Decode(
     'NhdGlvbl9pZBgCIAEoCVIOY29udmVyc2F0aW9uSWQSGwoJc2VuZGVyX2lkGAMgASgJUghzZW5k'
     'ZXJJZBIfCgtzZW5kZXJfbmFtZRgEIAEoCVIKc2VuZGVyTmFtZRIjCg1zZW5kZXJfYXZhdGFyGA'
     'UgASgJUgxzZW5kZXJBdmF0YXISHQoKY3JlYXRlZF9hdBgGIAEoA1IJY3JlYXRlZEF0Eh0KCnVw'
-    'ZGF0ZWRfYXQYByABKANSCXVwZGF0ZWRBdBIUCgVpbmRleBgIIAEoA1IFaW5kZXgSIwoEdHlwZR'
-    'gJIAEoDjIPLmNjLk1lc3NhZ2VUeXBlUgR0eXBlEikKBnN0YXR1cxgKIAEoDjIRLmNjLk1lc3Nh'
-    'Z2VTdGF0dXNSBnN0YXR1cxIqChFxdW90ZWRfbWVzc2FnZV9pZBgVIAEoCVIPcXVvdGVkTWVzc2'
-    'FnZUlkEhsKCWlzX2VkaXRlZBgYIAEoCFIIaXNFZGl0ZWQSGwoJZWRpdGVkX2F0GBkgASgDUghl'
-    'ZGl0ZWRBdBIxChVyZXBsaWVkX3RvX21lc3NhZ2VfaWQYHyABKAlSEnJlcGxpZWRUb01lc3NhZ2'
-    'VJZBJDCh5mb3J3YXJkZWRfZnJvbV9jb252ZXJzYXRpb25faWQYICABKAlSG2ZvcndhcmRlZEZy'
-    'b21Db252ZXJzYXRpb25JZBI5Chlmb3J3YXJkZWRfZnJvbV9tZXNzYWdlX2lkGCEgASgJUhZmb3'
-    'J3YXJkZWRGcm9tTWVzc2FnZUlkEj0KCXJlYWN0aW9ucxgiIAMoCzIfLmNjLk1lc3NhZ2VQcm90'
-    'by5SZWFjdGlvbnNFbnRyeVIJcmVhY3Rpb25zEhIKBHRhZ3MYJCADKAlSBHRhZ3MSGwoJaXNfcG'
-    'lubmVkGCUgASgIUghpc1Bpbm5lZBI0Cgx0ZXh0X21lc3NhZ2UYJiABKAsyDy5jYy5UZXh0TWVz'
-    'c2FnZUgAUgt0ZXh0TWVzc2FnZRI3Cg1tZWRpYV9tZXNzYWdlGCcgASgLMhAuY2MuTWVkaWFNZX'
-    'NzYWdlSABSDG1lZGlhTWVzc2FnZRI6Cg5zeXN0ZW1fbWVzc2FnZRgpIAEoCzIRLmNjLlN5c3Rl'
-    'bU1lc3NhZ2VIAFINc3lzdGVtTWVzc2FnZRI9Cg9zdGlja2VyX21lc3NhZ2UYKiABKAsyEi5jYy'
-    '5TdGlja2VyTWVzc2FnZUgAUg5zdGlja2VyTWVzc2FnZRI9Cg9jb250YWN0X21lc3NhZ2UYKyAB'
-    'KAsyEi5jYy5Db250YWN0TWVzc2FnZUgAUg5jb250YWN0TWVzc2FnZRI0Cgxwb2xsX21lc3NhZ2'
-    'UYLCABKAsyDy5jYy5Qb2xsTWVzc2FnZUgAUgtwb2xsTWVzc2FnZRI0CgxsaW5rX21lc3NhZ2UY'
-    'LSABKAsyDy5jYy5MaW5rTWVzc2FnZUgAUgtsaW5rTWVzc2FnZRJGChJtZW1iZXJzaGlwX21lc3'
-    'NhZ2UYLiABKAsyFS5jYy5NZW1iZXJzaGlwTWVzc2FnZUgAUhFtZW1iZXJzaGlwTWVzc2FnZRo8'
-    'Cg5SZWFjdGlvbnNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoBVIFdmFsdW'
-    'U6AjgBQgkKB2NvbnRlbnQ=');
+    'ZGF0ZWRfYXQYByABKANSCXVwZGF0ZWRBdBIUCgVpbmRleBgIIAEoBVIFaW5kZXgSHAoHdGVtcF'
+    '9pZBgLIAEoCUgBUgZ0ZW1wSWSIAQESIwoEdHlwZRgJIAEoDjIPLmNjLk1lc3NhZ2VUeXBlUgR0'
+    'eXBlEikKBnN0YXR1cxgKIAEoDjIRLmNjLk1lc3NhZ2VTdGF0dXNSBnN0YXR1cxIqChFxdW90ZW'
+    'RfbWVzc2FnZV9pZBgVIAEoCVIPcXVvdGVkTWVzc2FnZUlkEhsKCWlzX2VkaXRlZBgYIAEoCFII'
+    'aXNFZGl0ZWQSGwoJZWRpdGVkX2F0GBkgASgDUghlZGl0ZWRBdBIxChVyZXBsaWVkX3RvX21lc3'
+    'NhZ2VfaWQYHyABKAlSEnJlcGxpZWRUb01lc3NhZ2VJZBJDCh5mb3J3YXJkZWRfZnJvbV9jb252'
+    'ZXJzYXRpb25faWQYICABKAlSG2ZvcndhcmRlZEZyb21Db252ZXJzYXRpb25JZBI5Chlmb3J3YX'
+    'JkZWRfZnJvbV9tZXNzYWdlX2lkGCEgASgJUhZmb3J3YXJkZWRGcm9tTWVzc2FnZUlkEj0KCXJl'
+    'YWN0aW9ucxgiIAMoCzIfLmNjLk1lc3NhZ2VQcm90by5SZWFjdGlvbnNFbnRyeVIJcmVhY3Rpb2'
+    '5zEhIKBHRhZ3MYJCADKAlSBHRhZ3MSGwoJaXNfcGlubmVkGCUgASgIUghpc1Bpbm5lZBI0Cgx0'
+    'ZXh0X21lc3NhZ2UYJiABKAsyDy5jYy5UZXh0TWVzc2FnZUgAUgt0ZXh0TWVzc2FnZRI3Cg1tZW'
+    'RpYV9tZXNzYWdlGCcgASgLMhAuY2MuTWVkaWFNZXNzYWdlSABSDG1lZGlhTWVzc2FnZRI6Cg5z'
+    'eXN0ZW1fbWVzc2FnZRgpIAEoCzIRLmNjLlN5c3RlbU1lc3NhZ2VIAFINc3lzdGVtTWVzc2FnZR'
+    'I9Cg9zdGlja2VyX21lc3NhZ2UYKiABKAsyEi5jYy5TdGlja2VyTWVzc2FnZUgAUg5zdGlja2Vy'
+    'TWVzc2FnZRI9Cg9jb250YWN0X21lc3NhZ2UYKyABKAsyEi5jYy5Db250YWN0TWVzc2FnZUgAUg'
+    '5jb250YWN0TWVzc2FnZRI0Cgxwb2xsX21lc3NhZ2UYLCABKAsyDy5jYy5Qb2xsTWVzc2FnZUgA'
+    'Ugtwb2xsTWVzc2FnZRI0CgxsaW5rX21lc3NhZ2UYLSABKAsyDy5jYy5MaW5rTWVzc2FnZUgAUg'
+    'tsaW5rTWVzc2FnZRJGChJtZW1iZXJzaGlwX21lc3NhZ2UYLiABKAsyFS5jYy5NZW1iZXJzaGlw'
+    'TWVzc2FnZUgAUhFtZW1iZXJzaGlwTWVzc2FnZRo8Cg5SZWFjdGlvbnNFbnRyeRIQCgNrZXkYAS'
+    'ABKAlSA2tleRIUCgV2YWx1ZRgCIAEoBVIFdmFsdWU6AjgBQgkKB2NvbnRlbnRCCgoIX3RlbXBf'
+    'aWQ=');
 
 @$core.Deprecated('Use textMessageDescriptor instead')
 const TextMessage$json = {
@@ -394,7 +377,7 @@ const MessageSendResponse$json = {
     {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'temp_id', '3': 4, '4': 1, '5': 9, '10': 'tempId'},
     {'1': 'message_id', '3': 5, '4': 1, '5': 9, '10': 'messageId'},
-    {'1': 'message_index', '3': 6, '4': 1, '5': 3, '10': 'messageIndex'},
+    {'1': 'message_index', '3': 6, '4': 1, '5': 5, '10': 'messageIndex'},
   ],
 };
 
@@ -403,7 +386,7 @@ final $typed_data.Uint8List messageSendResponseDescriptor = $convert.base64Decod
     'ChNNZXNzYWdlU2VuZFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSEAoDbXNnGA'
     'IgASgJUgNtc2cSJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5jb252ZXJzYXRpb25JZBIXCgd0'
     'ZW1wX2lkGAQgASgJUgZ0ZW1wSWQSHQoKbWVzc2FnZV9pZBgFIAEoCVIJbWVzc2FnZUlkEiMKDW'
-    '1lc3NhZ2VfaW5kZXgYBiABKANSDG1lc3NhZ2VJbmRleA==');
+    '1lc3NhZ2VfaW5kZXgYBiABKAVSDG1lc3NhZ2VJbmRleA==');
 
 @$core.Deprecated('Use typingProtoDescriptor instead')
 const TypingProto$json = {
@@ -443,18 +426,24 @@ const MessagesFetchRequest$json = {
   '1': 'MessagesFetchRequest',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'message_index', '3': 2, '4': 1, '5': 3, '10': 'messageIndex'},
-    {'1': 'limit', '3': 3, '4': 1, '5': 5, '10': 'limit'},
-    {'1': 'loading_type', '3': 4, '4': 1, '5': 14, '6': '.cc.LoadingType', '10': 'loadingType'},
+    {'1': 'index_a', '3': 2, '4': 1, '5': 5, '10': 'indexA'},
+    {'1': 'index_b', '3': 3, '4': 1, '5': 5, '10': 'indexB'},
+    {'1': 'jump_index', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'jumpIndex', '17': true},
+    {'1': 'anchor_message_index', '3': 5, '4': 1, '5': 5, '9': 1, '10': 'anchorMessageIndex', '17': true},
+  ],
+  '8': [
+    {'1': '_jump_index'},
+    {'1': '_anchor_message_index'},
   ],
 };
 
 /// Descriptor for `MessagesFetchRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List messagesFetchRequestDescriptor = $convert.base64Decode(
     'ChRNZXNzYWdlc0ZldGNoUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
-    'NhdGlvbklkEiMKDW1lc3NhZ2VfaW5kZXgYAiABKANSDG1lc3NhZ2VJbmRleBIUCgVsaW1pdBgD'
-    'IAEoBVIFbGltaXQSMgoMbG9hZGluZ190eXBlGAQgASgOMg8uY2MuTG9hZGluZ1R5cGVSC2xvYW'
-    'RpbmdUeXBl');
+    'NhdGlvbklkEhcKB2luZGV4X2EYAiABKAVSBmluZGV4QRIXCgdpbmRleF9iGAMgASgFUgZpbmRl'
+    'eEISIgoKanVtcF9pbmRleBgEIAEoBUgAUglqdW1wSW5kZXiIAQESNQoUYW5jaG9yX21lc3NhZ2'
+    'VfaW5kZXgYBSABKAVIAVISYW5jaG9yTWVzc2FnZUluZGV4iAEBQg0KC19qdW1wX2luZGV4QhcK'
+    'FV9hbmNob3JfbWVzc2FnZV9pbmRleA==');
 
 @$core.Deprecated('Use messagesFetchResponseDescriptor instead')
 const MessagesFetchResponse$json = {
@@ -464,7 +453,12 @@ const MessagesFetchResponse$json = {
     {'1': 'msg', '3': 2, '4': 1, '5': 9, '10': 'msg'},
     {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'messages', '3': 4, '4': 3, '5': 11, '6': '.cc.MessageProto', '10': 'messages'},
-    {'1': 'loading_type', '3': 5, '4': 1, '5': 14, '6': '.cc.LoadingType', '10': 'loadingType'},
+    {'1': 'jump_index', '3': 5, '4': 1, '5': 5, '9': 0, '10': 'jumpIndex', '17': true},
+    {'1': 'anchor_message_index', '3': 6, '4': 1, '5': 5, '9': 1, '10': 'anchorMessageIndex', '17': true},
+  ],
+  '8': [
+    {'1': '_jump_index'},
+    {'1': '_anchor_message_index'},
   ],
 };
 
@@ -472,8 +466,10 @@ const MessagesFetchResponse$json = {
 final $typed_data.Uint8List messagesFetchResponseDescriptor = $convert.base64Decode(
     'ChVNZXNzYWdlc0ZldGNoUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIQCgNtc2'
     'cYAiABKAlSA21zZxInCg9jb252ZXJzYXRpb25faWQYAyABKAlSDmNvbnZlcnNhdGlvbklkEiwK'
-    'CG1lc3NhZ2VzGAQgAygLMhAuY2MuTWVzc2FnZVByb3RvUghtZXNzYWdlcxIyCgxsb2FkaW5nX3'
-    'R5cGUYBSABKA4yDy5jYy5Mb2FkaW5nVHlwZVILbG9hZGluZ1R5cGU=');
+    'CG1lc3NhZ2VzGAQgAygLMhAuY2MuTWVzc2FnZVByb3RvUghtZXNzYWdlcxIiCgpqdW1wX2luZG'
+    'V4GAUgASgFSABSCWp1bXBJbmRleIgBARI1ChRhbmNob3JfbWVzc2FnZV9pbmRleBgGIAEoBUgB'
+    'UhJhbmNob3JNZXNzYWdlSW5kZXiIAQFCDQoLX2p1bXBfaW5kZXhCFwoVX2FuY2hvcl9tZXNzYW'
+    'dlX2luZGV4');
 
 @$core.Deprecated('Use membershipMessageDescriptor instead')
 const MembershipMessage$json = {
@@ -531,4 +527,116 @@ final $typed_data.Uint8List memberInfoDescriptor = $convert.base64Decode(
     'CgpNZW1iZXJJbmZvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIbCgl1c2VyX25hbWUYAiABKA'
     'lSCHVzZXJOYW1lEh8KC3VzZXJfYXZhdGFyGAMgASgJUgp1c2VyQXZhdGFyEhIKBHJvbGUYBCAB'
     'KAVSBHJvbGUSGwoJam9pbmVkX2F0GAUgASgDUghqb2luZWRBdA==');
+
+@$core.Deprecated('Use messageEditRequestDescriptor instead')
+const MessageEditRequest$json = {
+  '1': 'MessageEditRequest',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'new_text', '3': 3, '4': 1, '5': 9, '10': 'newText'},
+  ],
+};
+
+/// Descriptor for `MessageEditRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageEditRequestDescriptor = $convert.base64Decode(
+    'ChJNZXNzYWdlRWRpdFJlcXVlc3QSHQoKbWVzc2FnZV9pZBgBIAEoCVIJbWVzc2FnZUlkEicKD2'
+    'NvbnZlcnNhdGlvbl9pZBgCIAEoCVIOY29udmVyc2F0aW9uSWQSGQoIbmV3X3RleHQYAyABKAlS'
+    'B25ld1RleHQ=');
+
+@$core.Deprecated('Use messageEditResponseDescriptor instead')
+const MessageEditResponse$json = {
+  '1': 'MessageEditResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'msg', '3': 2, '4': 1, '5': 9, '10': 'msg'},
+    {'1': 'message_id', '3': 3, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 4, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'edited_at', '3': 5, '4': 1, '5': 3, '10': 'editedAt'},
+    {'1': 'new_text', '3': 6, '4': 1, '5': 9, '10': 'newText'},
+  ],
+};
+
+/// Descriptor for `MessageEditResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageEditResponseDescriptor = $convert.base64Decode(
+    'ChNNZXNzYWdlRWRpdFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSEAoDbXNnGA'
+    'IgASgJUgNtc2cSHQoKbWVzc2FnZV9pZBgDIAEoCVIJbWVzc2FnZUlkEicKD2NvbnZlcnNhdGlv'
+    'bl9pZBgEIAEoCVIOY29udmVyc2F0aW9uSWQSGwoJZWRpdGVkX2F0GAUgASgDUghlZGl0ZWRBdB'
+    'IZCghuZXdfdGV4dBgGIAEoCVIHbmV3VGV4dA==');
+
+@$core.Deprecated('Use messageRevokeRequestDescriptor instead')
+const MessageRevokeRequest$json = {
+  '1': 'MessageRevokeRequest',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'temp_id', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'tempId', '17': true},
+  ],
+  '8': [
+    {'1': '_temp_id'},
+  ],
+};
+
+/// Descriptor for `MessageRevokeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageRevokeRequestDescriptor = $convert.base64Decode(
+    'ChRNZXNzYWdlUmV2b2tlUmVxdWVzdBIdCgptZXNzYWdlX2lkGAEgASgJUgltZXNzYWdlSWQSJw'
+    'oPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIcCgd0ZW1wX2lkGAMgASgJ'
+    'SABSBnRlbXBJZIgBAUIKCghfdGVtcF9pZA==');
+
+@$core.Deprecated('Use messageRevokeResponseDescriptor instead')
+const MessageRevokeResponse$json = {
+  '1': 'MessageRevokeResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'msg', '3': 2, '4': 1, '5': 9, '10': 'msg'},
+    {'1': 'message_id', '3': 3, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 4, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'revoked_at', '3': 5, '4': 1, '5': 3, '10': 'revokedAt'},
+  ],
+};
+
+/// Descriptor for `MessageRevokeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageRevokeResponseDescriptor = $convert.base64Decode(
+    'ChVNZXNzYWdlUmV2b2tlUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIQCgNtc2'
+    'cYAiABKAlSA21zZxIdCgptZXNzYWdlX2lkGAMgASgJUgltZXNzYWdlSWQSJwoPY29udmVyc2F0'
+    'aW9uX2lkGAQgASgJUg5jb252ZXJzYXRpb25JZBIdCgpyZXZva2VkX2F0GAUgASgDUglyZXZva2'
+    'VkQXQ=');
+
+@$core.Deprecated('Use messageDeleteRequestDescriptor instead')
+const MessageDeleteRequest$json = {
+  '1': 'MessageDeleteRequest',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'temp_id', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'tempId', '17': true},
+  ],
+  '8': [
+    {'1': '_temp_id'},
+  ],
+};
+
+/// Descriptor for `MessageDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageDeleteRequestDescriptor = $convert.base64Decode(
+    'ChRNZXNzYWdlRGVsZXRlUmVxdWVzdBIdCgptZXNzYWdlX2lkGAEgASgJUgltZXNzYWdlSWQSJw'
+    'oPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBIcCgd0ZW1wX2lkGAMgASgJ'
+    'SABSBnRlbXBJZIgBAUIKCghfdGVtcF9pZA==');
+
+@$core.Deprecated('Use messageDeleteResponseDescriptor instead')
+const MessageDeleteResponse$json = {
+  '1': 'MessageDeleteResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'msg', '3': 2, '4': 1, '5': 9, '10': 'msg'},
+    {'1': 'message_id', '3': 3, '4': 1, '5': 9, '10': 'messageId'},
+    {'1': 'conversation_id', '3': 4, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'deleted_at', '3': 5, '4': 1, '5': 3, '10': 'deletedAt'},
+  ],
+};
+
+/// Descriptor for `MessageDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageDeleteResponseDescriptor = $convert.base64Decode(
+    'ChVNZXNzYWdlRGVsZXRlUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIQCgNtc2'
+    'cYAiABKAlSA21zZxIdCgptZXNzYWdlX2lkGAMgASgJUgltZXNzYWdlSWQSJwoPY29udmVyc2F0'
+    'aW9uX2lkGAQgASgJUg5jb252ZXJzYXRpb25JZBIdCgpkZWxldGVkX2F0GAUgASgDUglkZWxldG'
+    'VkQXQ=');
 

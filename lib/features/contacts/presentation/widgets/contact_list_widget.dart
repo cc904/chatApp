@@ -331,6 +331,16 @@ class _ContactListWidgetState extends State<ContactListWidget> {
           hintText: widget.searchHint,
           hintStyle: TextStyle(color: Colors.grey[600]),
           prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    _searchContacts('');
+                    setState(() {});
+                  },
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -607,8 +617,8 @@ class _ContactListWidgetState extends State<ContactListWidget> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: allIndexes.map((index) {
           return GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
-              // 💢💢💢 确保在 widget 仍然 mounted 的情况下才执行滚动
               if (mounted) {
                 _scrollToLetter(index);
               }

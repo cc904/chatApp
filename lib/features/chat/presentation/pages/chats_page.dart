@@ -1,6 +1,7 @@
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 import 'package:cc/features/chat/presentation/widgets/new_conversation_bottom_sheet.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
@@ -273,14 +274,16 @@ class _ChatsPageState extends State<ChatsPage>
               mainAxisAlignment: MainAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildTabItem('All Chats', 0, 0, false), // All Chats不显示数量
-                _buildTabItem(
-                    '私密', 1, privateUnreadCount, hasNewPrivateMessages),
-                _buildTabItem('群组', 2, groupUnreadCount, hasNewGroupMessages),
-                _buildTabItem(
-                    '频道', 3, channelUnreadCount, hasNewChannelMessages),
-                _buildTabItem('未读', 4, unreadConversationsCount,
-                    unreadConversationsCount > 0),
+                _buildTabItem(AppLocalizations.of(context).allChats, 0, 0,
+                    false), // All Chats不显示数量
+                _buildTabItem(AppLocalizations.of(context).privateChats, 1,
+                    privateUnreadCount, hasNewPrivateMessages),
+                _buildTabItem(AppLocalizations.of(context).groupChats, 2,
+                    groupUnreadCount, hasNewGroupMessages),
+                _buildTabItem(AppLocalizations.of(context).channelChats, 3,
+                    channelUnreadCount, hasNewChannelMessages),
+                _buildTabItem(AppLocalizations.of(context).unreadChats, 4,
+                    unreadConversationsCount, unreadConversationsCount > 0),
               ],
             ),
           ),
@@ -367,12 +370,12 @@ class _ChatsPageState extends State<ChatsPage>
         buildWhen: (previous, current) =>
             previous.conversationSyncStatus != current.conversationSyncStatus,
         builder: (context, state) {
-          return const Row(
+          return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ConnectionStatusIndicator(size: 14),
-              SizedBox(width: 4),
-              Text('Chats'),
+              const ConnectionStatusIndicator(size: 14),
+              const SizedBox(width: 4),
+              Text(AppLocalizations.of(context).chats),
             ],
           );
           // AppBarTitleWithNetworkStatus(
@@ -395,9 +398,9 @@ class _ChatsPageState extends State<ChatsPage>
           _logger.d('编辑按钮点击');
           // TODO: 处理编辑操作
         },
-        child: const Text(
-          'Edit',
-          style: TextStyle(
+        child: Text(
+          AppLocalizations.of(context).edit,
+          style: const TextStyle(
             color: Colors.blue,
             fontWeight: FontWeight.w500,
           ),
@@ -494,7 +497,7 @@ class _ChatsPageState extends State<ChatsPage>
               controller: _searchController,
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
-                hintText: 'Search',
+                hintText: AppLocalizations.of(context).search,
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
@@ -578,9 +581,9 @@ class _ChatsPageState extends State<ChatsPage>
                               horizontal: 12, vertical: 0),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text(
-                          '搜索',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context).searchButton,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                           ),
@@ -649,17 +652,11 @@ class _ChatsPageState extends State<ChatsPage>
                     size: 48, color: Colors.grey),
                 const SizedBox(height: 16),
                 Text(
-                  state.searchQuery.isNotEmpty ? '没有找到匹配的会话' : '没有会话',
+                  state.searchQuery.isNotEmpty
+                      ? AppLocalizations.of(context).noMatchingChats
+                      : AppLocalizations.of(context).noChats,
                   style: const TextStyle(color: Colors.grey),
                 ),
-                // const SizedBox(height: 16),
-                // if (state.searchQuery.isEmpty)
-                //   ElevatedButton(
-                //     onPressed: () {
-                //       _showNewChatOptions();
-                //     },
-                //     child: const Text('新建会话'),
-                //   ),
               ],
             ),
           ),

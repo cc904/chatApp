@@ -191,3 +191,67 @@ final $typed_data.Uint8List deleteFriendResponseDescriptor = $convert.base64Deco
     'ChREZWxldGVGcmllbmRSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEiMKDWVycm'
     '9yX21lc3NhZ2UYAiABKAlSDGVycm9yTWVzc2FnZQ==');
 
+@$core.Deprecated('Use updateContactRequestDescriptor instead')
+const UpdateContactRequest$json = {
+  '1': 'UpdateContactRequest',
+  '2': [
+    {'1': 'contact_id', '3': 1, '4': 1, '5': 9, '10': 'contactId'},
+    {'1': 'nickname', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'nickname', '17': true},
+    {'1': 'remark', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'remark', '17': true},
+    {'1': 'blocked', '3': 4, '4': 1, '5': 8, '9': 2, '10': 'blocked', '17': true},
+    {'1': 'is_favorite', '3': 5, '4': 1, '5': 8, '9': 3, '10': 'isFavorite', '17': true},
+    {'1': 'timestamp', '3': 6, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+  '8': [
+    {'1': '_nickname'},
+    {'1': '_remark'},
+    {'1': '_blocked'},
+    {'1': '_is_favorite'},
+  ],
+};
+
+/// Descriptor for `UpdateContactRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateContactRequestDescriptor = $convert.base64Decode(
+    'ChRVcGRhdGVDb250YWN0UmVxdWVzdBIdCgpjb250YWN0X2lkGAEgASgJUgljb250YWN0SWQSHw'
+    'oIbmlja25hbWUYAiABKAlIAFIIbmlja25hbWWIAQESGwoGcmVtYXJrGAMgASgJSAFSBnJlbWFy'
+    'a4gBARIdCgdibG9ja2VkGAQgASgISAJSB2Jsb2NrZWSIAQESJAoLaXNfZmF2b3JpdGUYBSABKA'
+    'hIA1IKaXNGYXZvcml0ZYgBARIcCgl0aW1lc3RhbXAYBiABKANSCXRpbWVzdGFtcEILCglfbmlj'
+    'a25hbWVCCQoHX3JlbWFya0IKCghfYmxvY2tlZEIOCgxfaXNfZmF2b3JpdGU=');
+
+@$core.Deprecated('Use updateContactResponseDescriptor instead')
+const UpdateContactResponse$json = {
+  '1': 'UpdateContactResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'contact', '3': 3, '4': 1, '5': 11, '6': '.cc.UserProto', '10': 'contact'},
+    {'1': 'updated_fields', '3': 4, '4': 3, '5': 9, '10': 'updatedFields'},
+    {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+};
+
+/// Descriptor for `UpdateContactResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateContactResponseDescriptor = $convert.base64Decode(
+    'ChVVcGRhdGVDb250YWN0UmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIYCgdtZX'
+    'NzYWdlGAIgASgJUgdtZXNzYWdlEicKB2NvbnRhY3QYAyABKAsyDS5jYy5Vc2VyUHJvdG9SB2Nv'
+    'bnRhY3QSJQoOdXBkYXRlZF9maWVsZHMYBCADKAlSDXVwZGF0ZWRGaWVsZHMSHAoJdGltZXN0YW'
+    '1wGAUgASgDUgl0aW1lc3RhbXA=');
+
+@$core.Deprecated('Use contactUpdateEventDescriptor instead')
+const ContactUpdateEvent$json = {
+  '1': 'ContactUpdateEvent',
+  '2': [
+    {'1': 'contact', '3': 1, '4': 1, '5': 11, '6': '.cc.UserProto', '10': 'contact'},
+    {'1': 'updated_fields', '3': 2, '4': 3, '5': 9, '10': 'updatedFields'},
+    {'1': 'timestamp', '3': 3, '4': 1, '5': 3, '10': 'timestamp'},
+    {'1': 'update_source', '3': 4, '4': 1, '5': 9, '10': 'updateSource'},
+  ],
+};
+
+/// Descriptor for `ContactUpdateEvent`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List contactUpdateEventDescriptor = $convert.base64Decode(
+    'ChJDb250YWN0VXBkYXRlRXZlbnQSJwoHY29udGFjdBgBIAEoCzINLmNjLlVzZXJQcm90b1IHY2'
+    '9udGFjdBIlCg51cGRhdGVkX2ZpZWxkcxgCIAMoCVINdXBkYXRlZEZpZWxkcxIcCgl0aW1lc3Rh'
+    'bXAYAyABKANSCXRpbWVzdGFtcBIjCg11cGRhdGVfc291cmNlGAQgASgJUgx1cGRhdGVTb3VyY2'
+    'U=');
+

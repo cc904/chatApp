@@ -163,6 +163,10 @@ class Message {
   @Index(unique: true, replace: true)
   String messageId = '';
 
+  // 💢💢💢 临时消息ID - 用于发送时的临时标识
+  // 发送消息时使用，收到服务器返回的真实ID后清空
+  String? tempId;
+
   // 会话ID和创建时间的复合索引 - 优化按会话查询和时间排序
   @Index(
       composite: [CompositeIndex('messageIndex'), CompositeIndex('createdAt')])
@@ -170,6 +174,7 @@ class Message {
 
   // 消息序列号 - 每个会话内的消息有唯一的递增序列号
   // 服务器分配，用于简化游标管理和排序
+  // 💢💢💢 临时消息使用0值，排序时0值排在最前面，正数按降序排列
   int messageIndex = 0;
 
   late String senderId;
@@ -482,6 +487,16 @@ class Message {
 
   // 与会话的关系
   final conversation = IsarLink<Conversation>();
+
+  /// 💢💢💢 消息排序已迁移到 MessageSortUtils 工具类
+  ///
+  /// 请使用以下方法进行消息排序：
+  /// - MessageSortUtils.sortForDisplay(messages) - 聊天界面显示排序
+  /// - MessageSortUtils.sortForHistory(messages) - 历史消息排序
+  /// - MessageSortUtils.compareForDisplay(a, b) - 显示排序比较器
+  /// - MessageSortUtils.compareForHistory(a, b) - 历史排序比较器
+  ///
+  /// 详细用法请参考 lib/core/utils/message_sort_utils.dart
 }
 
 /*

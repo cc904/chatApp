@@ -20,6 +20,7 @@ export 'user.pbenum.dart';
 
 /// 用户基本信息消息
 /// 包含用户的基本个人信息
+/// Socket.io事件: user:profile:updated
 class UserProto extends $pb.GeneratedMessage {
   factory UserProto({
     $core.String? userId,
@@ -413,6 +414,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
 
 /// 设置当前用户信息请求
 /// 用于更新当前登录用户的个人信息
+/// Socket.io事件: user:set
 class SetCurrentUserRequest extends $pb.GeneratedMessage {
   factory SetCurrentUserRequest({
     $core.String? name,
@@ -545,6 +547,7 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
 }
 
 /// 设置当前用户信息响应
+/// Socket.io事件: user:set:response
 class SetCurrentUserResponse extends $pb.GeneratedMessage {
   factory SetCurrentUserResponse({
     $core.bool? success,
@@ -645,6 +648,7 @@ class SetCurrentUserResponse extends $pb.GeneratedMessage {
 
 /// 当前用户信息更新事件
 /// 当用户信息发生变化时广播给相关客户端
+/// Socket.io事件: user:updated
 class CurrentUserUpdateEvent extends $pb.GeneratedMessage {
   factory CurrentUserUpdateEvent({
     CurrentUserProto? user,
@@ -740,6 +744,7 @@ class CurrentUserUpdateEvent extends $pb.GeneratedMessage {
 }
 
 /// 用户在线状态更新
+/// Socket.io事件: user:online, user:offline
 class UserStatusUpdate extends $pb.GeneratedMessage {
   factory UserStatusUpdate({
     $core.String? userId,
@@ -820,6 +825,7 @@ class UserStatusUpdate extends $pb.GeneratedMessage {
 }
 
 /// 用户打字状态更新
+/// Socket.io事件: user:typing, user:typing:stop
 class UserTypingUpdate extends $pb.GeneratedMessage {
   factory UserTypingUpdate({
     $core.String? userId,
@@ -994,6 +1000,7 @@ class UserResponse extends $pb.GeneratedMessage {
 }
 
 /// 用户列表
+/// Socket.io事件: contact:synced
 class UserCollection extends $pb.GeneratedMessage {
   factory UserCollection({
     $core.Iterable<UserProto>? users,
@@ -1947,6 +1954,7 @@ class SearchConversationResult extends $pb.GeneratedMessage {
 
 /// 统一搜索请求
 /// 支持搜索用户、群聊、频道的综合搜索接口
+/// Socket.io事件: search:universal
 class UniversalSearchRequest extends $pb.GeneratedMessage {
   factory UniversalSearchRequest({
     $core.String? query,
@@ -2042,6 +2050,7 @@ class UniversalSearchRequest extends $pb.GeneratedMessage {
 }
 
 /// 统一搜索响应
+/// Socket.io事件: search:universal:response
 class UniversalSearchResponse extends $pb.GeneratedMessage {
   factory UniversalSearchResponse({
     $core.bool? success,

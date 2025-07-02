@@ -7,7 +7,9 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/utils/date_picker_utility.dart';
 import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 // 导入本地化支持
+import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
+import 'package:cc/core/utils/message_sort_utils.dart';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -67,8 +69,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     context.read<HomeCubit>();
     _allMessages = [];
 
-    // 按时间倒序排序
-    _allMessages.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
+    // 按显示规则排序
+    MessageSortUtils.sortForDisplay(_allMessages);
   }
 
   // 执行搜索
@@ -101,7 +103,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       _logger.e('日期选择失败', error: error, stackTrace: StackTrace.current);
 
       // 使用全局UINotificationService代替直接使用ScaffoldMessenger
-      UINotificationHelper.showError('日期选择失败: $error');
+      UINotificationHelper.showError(
+          AppLocalizations.of(context).errorOccurred);
     }
   }
 
@@ -116,7 +119,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
           try {
             // TODO 需要在HomeCubit中实现跳转到指定日期的功能
             // 目前暂时不实现这个功能
-            UINotificationHelper.showWarning('暂不支持跳转到指定日期');
+            UINotificationHelper.showWarning(
+                AppLocalizations.of(context).errorOccurred);
 
             // 直接返回
             Navigator.of(context).pop();
@@ -126,7 +130,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                 error: error, stackTrace: StackTrace.current);
 
             // 使用UINotificationHelper
-            UINotificationHelper.showError('跳转到聊天界面失败: $error');
+            UINotificationHelper.showError(
+                AppLocalizations.of(context).errorOccurred);
           }
         } else {
           _logger.w('组件已卸载,无法执行导航');
@@ -136,7 +141,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       _logger.e('跳转到日期消息失败', error: error, stackTrace: StackTrace.current);
 
       // 使用UINotificationHelper
-      UINotificationHelper.showError('日期选择失败: $error');
+      UINotificationHelper.showError(
+          AppLocalizations.of(context).errorOccurred);
     }
   }
 
@@ -145,6 +151,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     // 获取主题颜色
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final localizations = AppLocalizations.of(context);
 
     // 使用BlocProvider提供已创建的SearchCubit实例
     return BlocProvider.value(
@@ -158,9 +165,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               title: TextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
-                decoration: const InputDecoration(
-                  hintText: '搜索',
-                  hintStyle: TextStyle(color: Colors.grey),
+                decoration: InputDecoration(
+                  hintText: localizations.search,
+                  hintStyle: const TextStyle(color: Colors.grey),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -239,6 +246,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   Widget _buildFilterChip(
       FilterType type, Color primaryColor, SearchState state) {
     final isSelected = state.currentFilter == type;
+    final localizations = AppLocalizations.of(context);
 
     // 日期筛选器需要特殊处理
     if (type == FilterType.date) {
@@ -262,7 +270,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               Text(
                 state.selectedDate != null
                     ? '${state.selectedDate!.month}/${state.selectedDate!.day}'
-                    : '按日期',
+                    : localizations.today,
                 style: TextStyle(
                   color: isSelected ? Colors.white : Colors.grey[700],
                   fontSize: 14,
@@ -280,19 +288,19 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
     switch (type) {
       case FilterType.all:
-        label = '全部';
+        label = localizations.allChats;
         icon = Icons.list;
         break;
       case FilterType.media:
-        label = '图片和视频';
+        label = localizations.media;
         icon = Icons.image;
         break;
       case FilterType.file:
-        label = '文件';
+        label = localizations.files;
         icon = Icons.insert_drive_file;
         break;
       default:
-        label = '全部';
+        label = localizations.allChats;
         icon = Icons.list;
     }
 
@@ -334,15 +342,17 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
   // 构建空结果视图
   Widget _buildEmptyResults(SearchState state) {
+    final localizations = AppLocalizations.of(context);
+
     if (state.searchQuery == null || state.searchQuery!.isEmpty) {
-      return const Center(child: Text('请输入搜索关键词'));
+      return Center(child: Text(localizations.search));
     }
 
     if (state.isSearching) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return const Center(child: Text('没有找到匹配的结果'));
+    return Center(child: Text(localizations.noMatchingChats));
   }
 
   // 构建搜索结果项
@@ -359,13 +369,16 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         Navigator.pop(context);
 
         // TODO 需要在HomeCubit中实现跳转到指定消息的功能
-        UINotificationHelper.showWarning('暂不支持定位到特定消息');
+        UINotificationHelper.showWarning(
+            AppLocalizations.of(context).errorOccurred);
       },
     );
   }
 
   // 构建媒体网格
   Widget _buildMediaGrid(List<Message> messages) {
+    final localizations = AppLocalizations.of(context);
+
     // 过滤出媒体消息
     final mediaMessages = messages
         .where((msg) =>
@@ -373,7 +386,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
         .toList();
 
     if (mediaMessages.isEmpty) {
-      return const Center(child: Text('没有找到图片或视频'));
+      return Center(child: Text(localizations.noMedia));
     }
 
     return GridView.builder(
@@ -467,15 +480,16 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
   // 格式化消息时间
   String _formatMessageTime(DateTime time) {
+    final localizations = AppLocalizations.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final messageDate = DateTime(time.year, time.month, time.day);
 
     if (messageDate == today) {
-      return '今天 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      return '${localizations.today} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     } else if (messageDate == yesterday) {
-      return '昨天 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      return '${localizations.yesterday} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     } else {
       return '${time.month}月${time.day}日 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     }

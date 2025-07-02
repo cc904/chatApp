@@ -1,11 +1,12 @@
+import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 
 /// 认证调试工具
-/// 提供简单的方法来检查当前用户的认证状态
+/// 提供简单的方法来检查当前用户的认证状态（基于新的多Token系统）
 class AuthDebugUtils {
   static final _logger = LogService.instance;
-  static final _secureStorage = SecureStorageService.instance;
+  static final _secureStorage = SecureStorageService();
 
   /// 检查当前用户认证信息
   static Future<void> checkCurrentAuth() async {
@@ -13,22 +14,22 @@ class AuthDebugUtils {
 
     try {
       // 1. 检查安全存储中的基本信息
-      final userId = await _secureStorage.getUserId();
-      final token = await _secureStorage.getToken();
-      final isTokenValid = await _secureStorage.isTokenValid();
-      final tokenExpireTime = await _secureStorage.getTokenExpireTime();
+      final userId = await _secureStorage.read('user_id');
+
+      // 使用新的Token系统检查状态
+      final tokenStatus = {
+        'accessToken': await _secureStorage.isAccessTokenValid(),
+        'refreshToken': await _secureStorage.isRefreshTokenValid(),
+        'socketToken': await _secureStorage.isSocketTokenValid(),
+      };
 
       _logger.i('📱 安全存储信息:', extra: {
         'userId': userId ?? '❌ 无',
-        'hasToken': token != null,
-        'tokenLength': token?.length ?? 0,
-        'tokenPreview': token != null ? '${token.substring(0, 20)}...' : '❌ 无',
-        'isTokenValid': isTokenValid,
-        'tokenExpireTime': tokenExpireTime?.toIso8601String() ?? '❌ 无',
+        'tokenStatus': tokenStatus,
       });
 
       // 2. 检查完整用户信息
-      final fullUserInfo = await _secureStorage.getFullUserInfo();
+      final fullUserInfo = await _secureStorage.readUserCredentials();
       if (fullUserInfo != null) {
         _logger.i('👤 用户详细信息:', extra: {
           'name': fullUserInfo.name.isNotEmpty ? fullUserInfo.name : '❌ 无',
@@ -44,7 +45,7 @@ class AuthDebugUtils {
       }
 
       // 3. 分析问题
-      await _analyzeAuthProblem(userId, token, isTokenValid, tokenExpireTime);
+      await _analyzeAuthProblem(userId, tokenStatus);
     } catch (error) {
       _logger.e('检查认证状态失败', error: error, stackTrace: StackTrace.current);
     }
@@ -55,9 +56,7 @@ class AuthDebugUtils {
   /// 分析认证问题
   static Future<void> _analyzeAuthProblem(
     String? userId,
-    String? token,
-    bool isTokenValid,
-    DateTime? tokenExpireTime,
+    Map<String, dynamic> tokenStatus,
   ) async {
     final issues = <String>[];
     final solutions = <String>[];
@@ -68,37 +67,25 @@ class AuthDebugUtils {
       solutions.add('💡 需要重新登录');
     }
 
-    if (token == null || token.isEmpty) {
-      issues.add('❌ 认证Token缺失');
-      solutions.add('💡 需要重新登录获取Token');
-    } else {
-      // Token存在，检查有效性
-      if (!isTokenValid) {
-        issues.add('❌ Token无效或已过期');
-        solutions.add('💡 需要刷新Token或重新登录');
-      }
+    // 检查多Token状态
+    final accessToken = tokenStatus['accessToken'] as Map<String, dynamic>?;
+    final refreshToken = tokenStatus['refreshToken'] as Map<String, dynamic>?;
+    // socketToken检查已集成到tokenStatus中，不需要单独获取
 
-      if (tokenExpireTime != null) {
-        final now = DateTime.now();
-        final isExpired = tokenExpireTime.isBefore(now);
-        final timeRemaining = tokenExpireTime.difference(now);
-
-        if (isExpired) {
-          issues.add('❌ Token已过期');
-          solutions.add('💡 Token已过期，需要重新登录');
-        } else if (timeRemaining.inMinutes < 30) {
-          issues.add('⚠️ Token即将过期 (${timeRemaining.inMinutes}分钟)');
-          solutions.add('💡 建议提前刷新Token');
-        }
-      }
+    if (accessToken?['exists'] != true) {
+      issues.add('❌ Access Token缺失');
+      solutions.add('💡 需要重新登录获取Access Token');
+    } else if (accessToken?['valid'] != true) {
+      issues.add('❌ Access Token无效或已过期');
+      solutions.add('💡 需要使用Refresh Token刷新');
     }
 
-    // 针对401错误的特殊分析
-    if (token != null && isTokenValid) {
-      issues.add('🤔 Token看起来正常，但仍然收到401错误');
-      solutions.add('💡 检查文件上传服务是否正确设置了Token');
-      solutions.add('💡 确认服务器端Token验证逻辑');
-      solutions.add('💡 检查API请求头格式是否正确');
+    if (refreshToken?['exists'] != true) {
+      issues.add('❌ Refresh Token缺失');
+      solutions.add('💡 需要重新登录获取Refresh Token');
+    } else if (refreshToken?['valid'] != true) {
+      issues.add('❌ Refresh Token无效或已过期');
+      solutions.add('💡 需要重新登录');
     }
 
     // 输出分析结果
@@ -110,42 +97,52 @@ class AuthDebugUtils {
     }
   }
 
-  /// 检查文件上传Token设置
-  static Future<void> checkFileUploadTokenSetup() async {
-    _logger.i('=== 🔍 检查文件上传Token设置 ===');
+  /// 检查Token可用性
+  static Future<void> checkTokenAvailability() async {
+    _logger.i('=== 🔍 检查Token可用性 ===');
 
     try {
-      final token = await _secureStorage.getToken();
-      final isValid = await _secureStorage.isTokenValid();
+      // 检查存储的Token
+      final storedToken = await _secureStorage.getAccessToken();
 
-      if (token == null || !isValid) {
-        _logger.w('❌ 文件上传Token未准备好:', extra: {
-          'hasToken': token != null,
-          'isValid': isValid,
-          'suggestion': '需要在上传文件前调用 fileUploadService.setAuthToken(token)',
-        });
+      // 检查带自动刷新的Token
+      final tokenManager = EnhancedTokenManager.instance;
+      final refreshedToken = await tokenManager.getApiToken();
+
+      _logger.i('🔑 Token状态对比:', extra: {
+        'storedTokenExists': storedToken != null,
+        'storedTokenLength': storedToken?.length ?? 0,
+        'refreshedTokenExists': refreshedToken != null,
+        'refreshedTokenLength': refreshedToken?.length ?? 0,
+        'autoRefreshWorking': refreshedToken != null,
+      });
+
+      if (refreshedToken != null) {
+        _logger.i('✅ Token自动刷新机制正常工作');
+      } else if (storedToken != null) {
+        _logger.w('⚠️ 存储中有Token但自动刷新失败');
       } else {
-        _logger.i('✅ Token准备就绪，可以进行文件上传:', extra: {
-          'tokenLength': token.length,
-          'isValid': isValid,
-          'tokenPreview': '${token.substring(0, 20)}...',
-          'nextStep': '确保在FileUploadService中调用setAuthToken()',
-        });
-
-        // 提供完整的代码示例
-        _logger.i('🔧 正确设置文件上传认证的代码:', extra: {
-          'step1':
-              'import "package:cc/core/services/file_upload_service.dart";',
-          'step2': 'final fileUploadService = FileUploadService();',
-          'step3':
-              'final token = await SecureStorageService.instance.getToken();',
-          'step4': 'fileUploadService.setAuthToken(token!);',
-          'step5': '// 然后再进行文件上传',
-          'note': '⚠️ 每次应用重启都需要重新设置Token',
-        });
+        _logger.w('❌ 没有可用的Token');
       }
+
+      // 详细状态
+      final tokenStatus = {
+        'accessToken': {
+          'exists': await _secureStorage.getAccessToken() != null,
+          'valid': await _secureStorage.isAccessTokenValid(),
+        },
+        'refreshToken': {
+          'exists': await _secureStorage.getRefreshToken() != null,
+          'valid': await _secureStorage.isRefreshTokenValid(),
+        },
+        'socketToken': {
+          'exists': await _secureStorage.getSocketToken() != null,
+          'valid': await _secureStorage.isSocketTokenValid(),
+        },
+      };
+      _logger.i('📊 详细Token状态:', extra: tokenStatus);
     } catch (error) {
-      _logger.e('检查文件上传Token设置失败', error: error);
+      _logger.e('检查Token可用性失败', error: error);
     }
   }
 
@@ -153,21 +150,23 @@ class AuthDebugUtils {
   static Future<void> suggestFixes() async {
     _logger.i('=== 🔧 认证问题修复建议 ===');
 
-    final token = await _secureStorage.getToken();
-    final isValid = await _secureStorage.isTokenValid();
+    // 使用带自动刷新的Token检查
+    final tokenManager = EnhancedTokenManager.instance;
+    final bestToken = await tokenManager.getApiToken();
 
-    if (token == null || !isValid) {
+    if (bestToken == null) {
       _logger.i('📱 需要重新登录:', extra: {
         'step1': '在AuthCubit中调用登录方法',
         'step2': 'await authCubit.loginWithPassword(phone, password)',
         'step3': '或 await authCubit.loginWithCode(phone, code)',
+        'note': '系统已尝试自动刷新Token但失败',
       });
     } else {
-      _logger.i('🔐 设置文件上传认证:', extra: {
-        'step1': '获取当前Token',
-        'step2': 'final token = await SecureStorageService.instance.getToken()',
-        'step3': 'fileUploadService.setAuthToken(token)',
-        'note': '确保在每次文件上传前都设置Token',
+      _logger.i('🔐 Token自动刷新成功，检查API调用:', extra: {
+        'step1': '确认API请求使用正确的端点',
+        'step2': '检查服务器端Token验证逻辑',
+        'step3': '验证请求头格式是否正确',
+        'note': 'Token自动刷新机制正常工作',
       });
     }
 
@@ -175,29 +174,33 @@ class AuthDebugUtils {
       'check1': '在网络请求中验证Authorization头是否正确',
       'check2': '确认服务器端接收到正确的Bearer token',
       'check3': '验证API端点URL是否正确',
-      'check4': '检查服务器端Token验证逻辑',
+      'check4': '系统会自动处理Token过期和刷新',
     });
   }
 
-  /// 简单的Token格式检查
-  static Future<void> validateTokenFormat() async {
+  /// 检查Token格式（多Token系统）
+  static Future<void> validateTokenFormats() async {
     try {
-      final token = await _secureStorage.getToken();
+      final tokenStatus = {
+        'accessToken': {
+          'exists': await _secureStorage.getAccessToken() != null,
+          'valid': await _secureStorage.isAccessTokenValid(),
+        },
+        'refreshToken': {
+          'exists': await _secureStorage.getRefreshToken() != null,
+          'valid': await _secureStorage.isRefreshTokenValid(),
+        },
+        'socketToken': {
+          'exists': await _secureStorage.getSocketToken() != null,
+          'valid': await _secureStorage.isSocketTokenValid(),
+        },
+      };
 
-      if (token == null) {
-        _logger.w('❌ Token不存在');
-        return;
-      }
-
-      // 简单的JWT格式检查
-      final parts = token.split('.');
-
-      _logger.i('🔍 Token格式检查:', extra: {
-        'tokenLength': token.length,
-        'jwtParts': parts.length,
-        'isValidJWTFormat': parts.length == 3,
-        'headerPreview': parts.isNotEmpty ? parts[0].substring(0, 10) : '无',
-        'recommendation': parts.length != 3 ? 'Token格式不是标准JWT' : 'Token格式正确',
+      _logger.i('🔍 多Token格式检查:', extra: {
+        'accessTokenExists': tokenStatus['accessToken']?['exists'] ?? false,
+        'refreshTokenExists': tokenStatus['refreshToken']?['exists'] ?? false,
+        'socketTokenExists': tokenStatus['socketToken']?['exists'] ?? false,
+        'recommendation': '使用新的多Token认证系统，无需JWT格式检查',
       });
     } catch (error) {
       _logger.e('Token格式检查失败', error: error);

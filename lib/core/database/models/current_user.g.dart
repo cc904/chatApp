@@ -52,18 +52,8 @@ const CurrentUserSchema = CollectionSchema(
       name: r'status',
       type: IsarType.string,
     ),
-    r'token': PropertySchema(
-      id: 7,
-      name: r'token',
-      type: IsarType.string,
-    ),
-    r'tokenExpireTime': PropertySchema(
-      id: 8,
-      name: r'tokenExpireTime',
-      type: IsarType.dateTime,
-    ),
     r'userId': PropertySchema(
-      id: 9,
+      id: 7,
       name: r'userId',
       type: IsarType.string,
     )
@@ -114,7 +104,6 @@ int _currentUserEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
-  bytesCount += 3 + object.token.length * 3;
   bytesCount += 3 + object.userId.length * 3;
   return bytesCount;
 }
@@ -132,9 +121,7 @@ void _currentUserSerialize(
   writer.writeString(offsets[4], object.name);
   writer.writeString(offsets[5], object.phone);
   writer.writeString(offsets[6], object.status);
-  writer.writeString(offsets[7], object.token);
-  writer.writeDateTime(offsets[8], object.tokenExpireTime);
-  writer.writeString(offsets[9], object.userId);
+  writer.writeString(offsets[7], object.userId);
 }
 
 CurrentUser _currentUserDeserialize(
@@ -151,9 +138,7 @@ CurrentUser _currentUserDeserialize(
   object.name = reader.readString(offsets[4]);
   object.phone = reader.readStringOrNull(offsets[5]);
   object.status = reader.readStringOrNull(offsets[6]);
-  object.token = reader.readString(offsets[7]);
-  object.tokenExpireTime = reader.readDateTimeOrNull(offsets[8]);
-  object.userId = reader.readString(offsets[9]);
+  object.userId = reader.readString(offsets[7]);
   return object;
 }
 
@@ -179,10 +164,6 @@ P _currentUserDeserializeProp<P>(
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
-    case 8:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 9:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1276,212 +1257,6 @@ extension CurrentUserQueryFilter
     });
   }
 
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'token',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'token',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenLessThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'token',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenBetween(
-    String lower,
-    String upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'token',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'token',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'token',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenContains(
-      String value,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'token',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'token',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> tokenIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'token',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'token',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenExpireTimeIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'tokenExpireTime',
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenExpireTimeIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'tokenExpireTime',
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenExpireTimeEqualTo(DateTime? value) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'tokenExpireTime',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenExpireTimeGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'tokenExpireTime',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenExpireTimeLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'tokenExpireTime',
-        value: value,
-      ));
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
-      tokenExpireTimeBetween(
-    DateTime? lower,
-    DateTime? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'tokenExpireTime',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
-    });
-  }
-
   QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition> userIdEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1710,31 +1485,6 @@ extension CurrentUserQuerySortBy
     });
   }
 
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> sortByToken() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'token', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> sortByTokenDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'token', Sort.desc);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> sortByTokenExpireTime() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'tokenExpireTime', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy>
-      sortByTokenExpireTimeDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'tokenExpireTime', Sort.desc);
-    });
-  }
-
   QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> sortByUserId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'userId', Sort.asc);
@@ -1847,31 +1597,6 @@ extension CurrentUserQuerySortThenBy
     });
   }
 
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> thenByToken() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'token', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> thenByTokenDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'token', Sort.desc);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> thenByTokenExpireTime() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'tokenExpireTime', Sort.asc);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy>
-      thenByTokenExpireTimeDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'tokenExpireTime', Sort.desc);
-    });
-  }
-
   QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> thenByUserId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'userId', Sort.asc);
@@ -1935,20 +1660,6 @@ extension CurrentUserQueryWhereDistinct
     });
   }
 
-  QueryBuilder<CurrentUser, CurrentUser, QDistinct> distinctByToken(
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'token', caseSensitive: caseSensitive);
-    });
-  }
-
-  QueryBuilder<CurrentUser, CurrentUser, QDistinct>
-      distinctByTokenExpireTime() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'tokenExpireTime');
-    });
-  }
-
   QueryBuilder<CurrentUser, CurrentUser, QDistinct> distinctByUserId(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2005,19 +1716,6 @@ extension CurrentUserQueryProperty
   QueryBuilder<CurrentUser, String?, QQueryOperations> statusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'status');
-    });
-  }
-
-  QueryBuilder<CurrentUser, String, QQueryOperations> tokenProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'token');
-    });
-  }
-
-  QueryBuilder<CurrentUser, DateTime?, QQueryOperations>
-      tokenExpireTimeProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'tokenExpireTime');
     });
   }
 

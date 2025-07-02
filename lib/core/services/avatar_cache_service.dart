@@ -16,7 +16,7 @@ class AvatarCacheService {
   AvatarCacheService._internal();
 
   /// 缓存目录路径
-  late final Directory _cacheDir;
+  Directory? _cacheDir;
   bool _initialized = false;
 
   /// 初始化缓存服务
@@ -27,13 +27,13 @@ class AvatarCacheService {
       final appDocDir = await getApplicationDocumentsDirectory();
       _cacheDir = Directory('${appDocDir.path}/media/avatars');
 
-      if (!await _cacheDir.exists()) {
-        await _cacheDir.create(recursive: true);
-        _logger.i('📁 创建头像缓存目录: ${_cacheDir.path}');
+      if (!await _cacheDir!.exists()) {
+        await _cacheDir!.create(recursive: true);
+        _logger.i('📁 创建头像缓存目录: ${_cacheDir!.path}');
       }
 
       _initialized = true;
-      _logger.i('✅ 头像缓存服务初始化完成');
+      // _logger.i('✅ 头像缓存服务初始化完成');
     } catch (error) {
       _logger.e('❌ 头像缓存服务初始化失败', error: error, stackTrace: StackTrace.current);
       throw Exception('头像缓存服务初始化失败: $error');
@@ -63,8 +63,12 @@ class AvatarCacheService {
     if (!_initialized) await initialize();
 
     try {
+      if (_cacheDir == null) {
+        throw Exception('缓存目录未初始化');
+      }
+
       final fileName = _generateFileName(avatarUrl);
-      final filePath = path.join(_cacheDir.path, fileName);
+      final filePath = path.join(_cacheDir!.path, fileName);
       final file = File(filePath);
 
       if (await file.exists()) {
@@ -103,7 +107,7 @@ class AvatarCacheService {
       if (response.statusCode == 200) {
         // 保存到本地
         final fileName = _generateFileName(avatarUrl);
-        final filePath = path.join(_cacheDir.path, fileName);
+        final filePath = path.join(_cacheDir!.path, fileName);
         final file = File(filePath);
 
         await file.writeAsBytes(response.bodyBytes);

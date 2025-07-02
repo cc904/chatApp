@@ -295,7 +295,7 @@ class MessageAdapter {
     final protoMessage = proto.MessageProto(
       messageId: message.messageId,
       conversationId: message.conversationId,
-      index: Int64(message.messageIndex),
+      index: message.messageIndex,
       senderId: message.senderId,
       senderName: message.senderName,
       senderAvatar: message.senderAvatar,
@@ -316,6 +316,11 @@ class MessageAdapter {
       tags: message.tags != null ? _parseJsonStringList(message.tags!) : [],
       isPinned: message.isPinned,
     );
+
+    // 💢💢💢 如果有临时ID，设置到proto中
+    if (message.tempId != null && message.tempId!.isNotEmpty) {
+      protoMessage.tempId = message.tempId!;
+    }
 
     // 设置reactions字段
     if (message.reactions != null && message.reactions!.isNotEmpty) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/constants/app_config.dart';
 
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
@@ -102,11 +103,20 @@ class HomeRepositoryImpl implements HomeRepository {
       // 初始化通信服务
       final communicationService = CommunicationService();
 
+      // 获取Socket连接用的正确Token
+      final tokenManager = EnhancedTokenManager.instance;
+      final socketToken = await tokenManager.getSocketToken();
+
+      if (socketToken == null) {
+        _logger.e('没有可用的Socket Token，无法连接');
+        return false;
+      }
+
       // 连接到服务器
       final connected = await communicationService.connect(
         serverUrl: serverUrl,
         userId: _currentUser.userId,
-        token: _currentUser.token,
+        token: socketToken, // 使用正确的Socket Token
       );
 
       if (connected) {

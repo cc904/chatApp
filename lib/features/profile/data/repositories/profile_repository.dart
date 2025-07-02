@@ -154,7 +154,7 @@ class ProfileRepository {
     try {
       AppConfig().setServerUrl(url);
       // 保存到安全存储
-      await SecureStorageService.instance.saveServerUrl(url);
+      await SecureStorageService().write('server_url', url);
       _logger.i('服务器URL已更新', extra: {'serverUrl': url});
     } catch (e) {
       _logger.e('更新服务器URL失败', error: e);

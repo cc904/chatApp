@@ -94,9 +94,10 @@ class ConversationAdapter {
   ///
   /// [protoConv] - 原始的Protocol Buffer对象
   /// [currentUserId] - 当前用户ID，用于从参与者中提取个人设置
+  /// [existingConversation] - 现有的会话对象，用于保留本地字段（如lastReadTime）
   /// 返回：转换后的数据库对象
   static Conversation fromProto(proto.ConversationProto protoConv,
-      {String? currentUserId}) {
+      {String? currentUserId, Conversation? existingConversation}) {
     // 确定会话类型
     final protoType = protoConv.type;
     ConversationType convType;
@@ -152,7 +153,9 @@ class ConversationAdapter {
       ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null
       ..participants = participants // 💢💢💢 设置参与者List
       ..contactUserId =
-          _extractContactUserId(protoConv, participants, currentUserId);
+          _extractContactUserId(protoConv, participants, currentUserId)
+      // 💢💢💢 修复：保留现有会话的本地字段
+      ..lastReadTime = existingConversation?.lastReadTime;
 
     return conversation;
   }

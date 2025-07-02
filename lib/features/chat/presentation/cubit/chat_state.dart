@@ -466,10 +466,4 @@ class ChatState extends Equatable {
         isLoadingVoice,
         isLoadingLinks,
       ];
-
-  /// 是否正在加载更多之前的消息（向上滚动时）
-  bool get isLoadingMoreMessagesBefore => isLoadingMoreMessages;
-
-  /// 是否正在加载更多之后的消息（向下滚动时）
-  bool get isLoadingMoreMessagesAfter => isLoadingMoreMessages;
 }

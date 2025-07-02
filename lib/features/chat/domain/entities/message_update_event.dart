@@ -1,6 +1,25 @@
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
+
+/// 加载状态类型枚举
+enum LoadingStateType {
+  /// 本地消息加载（loadMessages方法）
+  isLoading,
+
+  /// 服务器消息获取（requestMessages/_handleMessagesFetchResponse）
+  isFetching,
+}
+
+/// 消息添加事件类型枚举
+enum AddedEventType {
+  load,
+
+  /// 新消息添加（实时接收）
+  newMessage,
+
+  /// 搜索结果消息
+  searchResult,
+}
 
 /// 消息更新事件的基类
 abstract class MessageUpdateEvent extends Equatable {
@@ -19,33 +38,56 @@ abstract class MessageUpdateEvent extends Equatable {
 /// 消息添加事件
 class MessageAddedEvent extends MessageUpdateEvent {
   final List<Message> newMessages;
-  final LoadingType loadingType;
+  final AddedEventType addedEventType; // 🆕 消息添加事件类型
+  final int? anchorMessageIndex; // 🆕 锚点消息索引
 
   MessageAddedEvent({
     required super.conversationId,
     required this.newMessages,
-    required this.loadingType,
+    required this.addedEventType, // 🆕 必需的事件类型
+    this.anchorMessageIndex, // 🆕 可选的锚点索引
     DateTime? timestamp,
   }) : super(timestamp: timestamp ?? DateTime.now());
 
   @override
-  List<Object?> get props => [...super.props, newMessages, loadingType];
+  List<Object?> get props => [
+        ...super.props,
+        newMessages,
+        addedEventType,
+        anchorMessageIndex
+      ];
 }
 
 /// 消息更新事件
 class MessageUpdatedEvent extends MessageUpdateEvent {
   final String messageId;
+  final String? tempId; // 💢💢💢 添加tempId字段，用于只有tempId的消息
   final Map<String, dynamic> updatedFields;
 
   MessageUpdatedEvent({
     required super.conversationId,
     required this.messageId,
+    this.tempId, // 💢💢💢 可选的tempId参数
     required this.updatedFields,
     DateTime? timestamp,
   }) : super(timestamp: timestamp ?? DateTime.now());
 
   @override
-  List<Object?> get props => [...super.props, messageId, updatedFields];
+  List<Object?> get props => [...super.props, messageId, tempId, updatedFields];
+}
+
+/// 消息删除事件
+class MessageRemovedEvent extends MessageUpdateEvent {
+  final String messageId;
+
+  MessageRemovedEvent({
+    required super.conversationId,
+    required this.messageId,
+    DateTime? timestamp,
+  }) : super(timestamp: timestamp ?? DateTime.now());
+
+  @override
+  List<Object?> get props => [...super.props, messageId];
 }
 
 /// 消息发送更新事件
@@ -69,7 +111,7 @@ class UpdateSendEvent extends MessageUpdateEvent {
 /// 详细的加载状态更新
 class LoadingStateUpdate extends Equatable {
   final String conversationId;
-  final LoadingType loadingType;
+  final LoadingStateType loadingStateType; // 🆕 使用独立的状态类型
   final bool isLoading;
   final String? error;
   final Map<String, dynamic>? metadata;
@@ -77,7 +119,7 @@ class LoadingStateUpdate extends Equatable {
 
   LoadingStateUpdate({
     required this.conversationId,
-    required this.loadingType,
+    required this.loadingStateType, // 🆕 使用新的状态类型
     required this.isLoading,
     this.error,
     this.metadata,
@@ -87,12 +129,12 @@ class LoadingStateUpdate extends Equatable {
   /// 开始加载
   factory LoadingStateUpdate.start({
     required String conversationId,
-    required LoadingType loadingType,
+    required LoadingStateType loadingStateType, // 🆕 使用新的状态类型
     Map<String, dynamic>? metadata,
   }) =>
       LoadingStateUpdate(
         conversationId: conversationId,
-        loadingType: loadingType,
+        loadingStateType: loadingStateType, // 🆕 使用新的状态类型
         isLoading: true,
         metadata: metadata,
       );
@@ -100,12 +142,12 @@ class LoadingStateUpdate extends Equatable {
   /// 完成加载
   factory LoadingStateUpdate.complete({
     required String conversationId,
-    required LoadingType loadingType,
+    required LoadingStateType loadingStateType, // 🆕 使用新的状态类型
     Map<String, dynamic>? metadata,
   }) =>
       LoadingStateUpdate(
         conversationId: conversationId,
-        loadingType: loadingType,
+        loadingStateType: loadingStateType, // 🆕 使用新的状态类型
         isLoading: false,
         metadata: metadata,
       );
@@ -113,13 +155,13 @@ class LoadingStateUpdate extends Equatable {
   /// 加载错误
   factory LoadingStateUpdate.error({
     required String conversationId,
-    required LoadingType loadingType,
+    required LoadingStateType loadingStateType, // 🆕 使用新的状态类型
     required String error,
     Map<String, dynamic>? metadata,
   }) =>
       LoadingStateUpdate(
         conversationId: conversationId,
-        loadingType: loadingType,
+        loadingStateType: loadingStateType, // 🆕 使用新的状态类型
         isLoading: false,
         error: error,
         metadata: metadata,
@@ -128,7 +170,7 @@ class LoadingStateUpdate extends Equatable {
   @override
   List<Object?> get props => [
         conversationId,
-        loadingType,
+        loadingStateType, // 🆕 使用新的状态类型
         isLoading,
         error,
         metadata,

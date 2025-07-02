@@ -175,14 +175,10 @@ class UserService {
   CurrentUser currentUserFromProto(CurrentUserProto proto) {
     return CurrentUser()
       ..userId = proto.userId
-      ..token = proto.token
       ..name = proto.name
       ..avatar = proto.avatar.isNotEmpty ? proto.avatar : null
       ..phone = proto.phone.isNotEmpty ? proto.phone : null
       ..email = proto.email.isNotEmpty ? proto.email : null
-      ..tokenExpireTime = proto.hasTokenExpireTime()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.tokenExpireTime.toInt())
-          : null
       ..lastLoginTime = proto.hasLastLoginTime()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastLoginTime.toInt())
           : null
@@ -195,7 +191,6 @@ class UserService {
   CurrentUserProto currentUserToProto(CurrentUser user) {
     final proto = CurrentUserProto()
       ..userId = user.userId
-      ..token = user.token
       ..name = user.name;
 
     if (user.avatar != null && user.avatar!.isNotEmpty) {
@@ -206,10 +201,6 @@ class UserService {
     }
     if (user.email != null && user.email!.isNotEmpty) {
       proto.email = user.email!;
-    }
-    if (user.tokenExpireTime != null) {
-      proto.tokenExpireTime =
-          Int64(user.tokenExpireTime!.millisecondsSinceEpoch);
     }
     if (user.lastLoginTime != null) {
       proto.lastLoginTime = Int64(user.lastLoginTime!.millisecondsSinceEpoch);

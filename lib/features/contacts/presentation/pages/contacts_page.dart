@@ -14,6 +14,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -118,7 +119,8 @@ class _ContactsPageState extends State<ContactsPage>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('无法打开与${contact.name}的聊天: ${error.toString()}'),
+              content: Text(AppLocalizations.of(context)
+                  .cannotOpenChatWith(contact.name)),
               backgroundColor: Colors.red,
             ),
           );
@@ -179,11 +181,13 @@ class _ContactsPageState extends State<ContactsPage>
       builder: (context, state) {
         return Scaffold(
           appBar: AppBar(
-            title: const Row(
+            centerTitle: true,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                ConnectionStatusIndicator(size: 14),
-                SizedBox(width: 4),
-                Text('联系人'),
+                const ConnectionStatusIndicator(size: 14),
+                const SizedBox(width: 4),
+                Text(AppLocalizations.of(context).contacts),
               ],
             ),
             actions: [
@@ -233,7 +237,7 @@ class _ContactsPageState extends State<ContactsPage>
                   mode: ContactListMode.detail,
                   scrollController: _scrollController,
                   onContactTap: _handleContactTap,
-                  searchHint: 'Search',
+                  searchHint: AppLocalizations.of(context).searchContacts,
                 ),
               ),
             ],
@@ -245,6 +249,8 @@ class _ContactsPageState extends State<ContactsPage>
 
   /// 构建同步状态指示器
   Widget _buildSyncStatusIndicator() {
+    final l10n = AppLocalizations.of(context);
+
     return BlocBuilder<ContactCubit, ContactState>(
       buildWhen: (previous, current) =>
           previous.syncStatus != current.syncStatus ||
@@ -266,15 +272,16 @@ class _ContactsPageState extends State<ContactsPage>
               children: [
                 const Icon(Icons.error_outline, color: Colors.red, size: 18),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '无法连接服务器',
-                    style: TextStyle(color: Colors.red),
+                    l10n.serverConnectionError,
+                    style: const TextStyle(color: Colors.red),
                   ),
                 ),
                 TextButton(
                   onPressed: () => context.read<ContactCubit>().syncContacts(),
-                  child: const Text('重试', style: TextStyle(color: Colors.red)),
+                  child: Text(l10n.retry,
+                      style: const TextStyle(color: Colors.red)),
                 ),
               ],
             ),

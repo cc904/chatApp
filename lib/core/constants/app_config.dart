@@ -10,9 +10,6 @@ class AppConfig {
   // 服务器地址列表 (按优先级排序)
   static const List<String> serverUrls = [
     'http://d2.orb.local:3000', // 主域名
-    'http://127.0.0.1:3000', // 本地回退
-    'http://192.168.1.100:3000', // 内网IP回退
-    'https://backup.example.com:3000', // 云端备用
   ];
 
   // 当前使用的服务器索引

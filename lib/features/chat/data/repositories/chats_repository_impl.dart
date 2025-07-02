@@ -13,9 +13,12 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/utils/message_sort_utils.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:fixnum/fixnum.dart';
 
 /// ChatsRepository的实现类
 /// 负责聊天会话列表相关的数据处理、会话管理等功能
@@ -427,35 +430,46 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .findFirst();
 
       if (existingConversation != null) {
-        _logger.i('找到已存在的会话',
-            extra: {'conversationId': existingConversation.conversationId});
+        _logger.i('找到已存在的会话', extra: {
+          'conversationId': existingConversation.conversationId,
+          'id': existingConversation.id,
+          'name': existingConversation.name,
+          'contactUserId': existingConversation.contactUserId,
+          'createdAt': existingConversation.createdAt.toIso8601String(),
+        });
+
+        // 💢💢💢 修复：检查conversationId是否为空
+        if (existingConversation.conversationId.isEmpty) {
+          _logger.w('找到的会话conversationId为空，需要重新创建', extra: {
+            'existingId': existingConversation.id,
+            'userId': userId,
+          });
+
+          // 删除无效的会话记录
+          await _isar.writeTxn(() async {
+            await _conversations.delete(existingConversation.id);
+          });
+
+          // 重新通过服务器创建会话
+          _logger.i('删除无效会话记录，通过服务器重新创建');
+          final conversation = await getOrCreatePrivateConversation(userId);
+
+          _logger.i('重新创建会话成功',
+              extra: {'conversationId': conversation.conversationId});
+          return conversation.conversationId;
+        }
+
         return existingConversation.conversationId;
       }
 
-      // 获取目标用户信息
-      final contactUser =
-          await _users.filter().userIdEqualTo(userId).findFirst();
-      if (contactUser == null) {
-        _logger.e('未找到目标用户信息', extra: {'userId': userId});
-        return null;
-      }
+      // 💢💢💢 修复：通过服务器创建新会话，而不是本地创建
+      _logger.i('未找到已存在会话，通过服务器创建新私聊会话');
 
-      // 创建新会话
-      final conversation = db.Conversation()
-        ..type = db.ConversationType.private
-        ..name = contactUser.name
-        ..contactUserId = userId
-        ..avatar = contactUser.avatar
-        ..createdAt = DateTime.now();
-
-      // 保存会话
-      await _isar.writeTxn(() async {
-        await _conversations.put(conversation);
-        // 参与者信息已经包含在conversation对象中，无需单独保存
-      });
+      // 💢💢💢 使用现有的getOrCreatePrivateConversation方法
+      final conversation = await getOrCreatePrivateConversation(userId);
 
       _logger
-          .i('创建了新会话', extra: {'conversationId': conversation.conversationId});
+          .i('成功创建新会话', extra: {'conversationId': conversation.conversationId});
       return conversation.conversationId;
     } catch (error) {
       _logger.e('创建或获取会话失败', error: error, stackTrace: StackTrace.current);
@@ -473,13 +487,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 请求同步会话列表
   /// 从服务器同步最新的会话数据
   /// 会话数据将通过事件通知并由状态管理系统更新UI
+  /// 💢💢💢 新增：支持增量同步，只获取自上次同步以来有更新的会话
   @override
   Future<void> requestSyncConversations() async {
     try {
       if (_communicationService.isInitialized) {
-        // 发送无参数的同步请求，服务器会根据当前用户ID返回所有会话
-        _communicationService.emitProto(
-            'conversation:sync', conversation_proto.SyncConversationsRequest());
+        // 💢💢💢 新增：获取上次同步时间实现增量同步
+        final lastSyncTime = await _getLastSyncTime();
+
+        // 创建同步请求，包含上次同步时间
+        final syncRequest = conversation_proto.SyncConversationsRequest();
+        if (lastSyncTime != null) {
+          syncRequest.lastSyncTime = Int64(lastSyncTime.millisecondsSinceEpoch);
+          _logger.i('发送增量会话同步请求', extra: {
+            'lastSyncTime': lastSyncTime.toIso8601String(),
+            'lastSyncTimestamp': lastSyncTime.millisecondsSinceEpoch,
+          });
+        } else {
+          _logger.i('发送全量会话同步请求（首次同步）');
+        }
+
+        // 发送同步请求到服务器
+        _communicationService.emitProto('conversation:sync', syncRequest);
         _logger.i('会话同步请求已发送');
       } else {
         _logger.e('通信服务未初始化，无法同步会话');
@@ -487,6 +516,79 @@ class ChatsRepositoryImpl implements ChatsRepository {
     } catch (error, stack) {
       _logger.e('同步会话失败', error: error, stackTrace: stack);
       rethrow;
+    }
+  }
+
+  /// 💢💢💢 新增：获取上次同步时间
+  Future<DateTime?> _getLastSyncTime() async {
+    try {
+      final secureStorage = SecureStorageService();
+      final timestampStr =
+          await secureStorage.read('conversations_last_sync_time');
+      if (timestampStr != null) {
+        final timestamp = int.tryParse(timestampStr);
+        if (timestamp != null) {
+          return DateTime.fromMillisecondsSinceEpoch(timestamp);
+        }
+      }
+      return null;
+    } catch (error) {
+      _logger.w('获取上次同步时间失败: $error');
+      return null;
+    }
+  }
+
+  /// 💢💢💢 新增：保存同步时间
+  Future<void> _saveLastSyncTime(DateTime syncTime) async {
+    try {
+      final secureStorage = SecureStorageService();
+      await secureStorage.write('conversations_last_sync_time',
+          syncTime.millisecondsSinceEpoch.toString());
+      _logger.d('已保存会话同步时间', extra: {
+        'syncTime': syncTime.toIso8601String(),
+        'timestamp': syncTime.millisecondsSinceEpoch,
+      });
+    } catch (error) {
+      _logger.w('保存同步时间失败: $error');
+    }
+  }
+
+  /// 💢💢💢 新增：强制全量同步会话列表
+  @override
+  Future<void> requestFullSyncConversations() async {
+    try {
+      if (_communicationService.isInitialized) {
+        // 发送不包含同步时间的请求，强制全量同步
+        final syncRequest = conversation_proto.SyncConversationsRequest();
+        _logger.i('发送强制全量会话同步请求');
+
+        // 发送同步请求到服务器
+        _communicationService.emitProto('conversation:sync', syncRequest);
+        _logger.i('强制全量会话同步请求已发送');
+      } else {
+        _logger.e('通信服务未初始化，无法同步会话');
+      }
+    } catch (error, stack) {
+      _logger.e('强制全量同步会话失败', error: error, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// 💢💢💢 新增：获取上次同步时间（公开方法）
+  @override
+  Future<DateTime?> getLastSyncTime() async {
+    return await _getLastSyncTime();
+  }
+
+  /// 💢💢💢 新增：清除同步时间记录
+  @override
+  Future<void> clearSyncTime() async {
+    try {
+      final secureStorage = SecureStorageService();
+      await secureStorage.delete('conversations_last_sync_time');
+      _logger.i('已清除会话同步时间记录，下次同步将执行全量同步');
+    } catch (error) {
+      _logger.w('清除同步时间记录失败: $error');
     }
   }
 
@@ -826,6 +928,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .limit(limit)
           .findAll();
 
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(messages);
+
       _logger.d('获取媒体消息成功', extra: {
         'conversationId': conversationId,
         'count': messages.length,
@@ -858,6 +963,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .limit(limit)
           .findAll();
 
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(messages);
+
       _logger.d('获取文件消息成功', extra: {
         'conversationId': conversationId,
         'count': messages.length,
@@ -889,6 +997,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .offset(offset)
           .limit(limit)
           .findAll();
+
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(messages);
 
       _logger.d('获取语音消息成功', extra: {
         'conversationId': conversationId,
@@ -929,6 +1040,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .limit(limit)
           .findAll();
 
+      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
+      MessageSortUtils.sortForDisplay(messages);
+
       _logger.d('获取链接消息成功', extra: {
         'conversationId': conversationId,
         'count': messages.length,
@@ -956,19 +1070,37 @@ class ChatsRepositoryImpl implements ChatsRepository {
         return;
       }
 
-      // 转换为数据库对象 - 使用适配器转换方法，完全使用服务器数据
-      final List<db.Conversation> dbConversations = collection.conversations
-          .map((conv) => ConversationAdapter.fromProto(conv))
-          .toList();
+      // 转换为数据库对象 - 使用适配器转换方法，保留本地字段
+      final List<db.Conversation> dbConversations = [];
+      for (final conv in collection.conversations) {
+        // 查找现有会话以保留本地字段（如lastReadTime）
+        final existing = await _conversations
+            .filter()
+            .conversationIdEqualTo(conv.conversationId)
+            .findFirst();
+
+        final dbConversation = ConversationAdapter.fromProto(
+          conv,
+          currentUserId: _currentUser.userId,
+          existingConversation: existing,
+        );
+        dbConversations.add(dbConversation);
+      }
 
       // 更新本地数据库，数据库变化会自动触发UI更新
       await _updateLocalConversations(dbConversations);
 
       // 💢💢💢 新架构：发送会话列表重载事件
+      // 增量同步返回的 dbConversations 只是变更部分，如果直接发送会导致 UI 只拿到部分会话。
+      // 为保证 UI 始终拿到完整列表，这里重新从数据库读取全部会话并发送。
+      final allConversations = await _conversations.where().findAll();
       _notifyConversationUpdate(ConversationsReloadedEvent(
-        conversations: dbConversations,
+        conversations: allConversations,
         timestamp: DateTime.now(),
       ));
+
+      // 💢💢💢 新增：保存同步时间，用于下次增量同步
+      await _saveLastSyncTime(DateTime.now());
 
       _logger.i('会话同步完成，数据库已更新');
     } catch (e, stack) {
@@ -1152,9 +1284,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
   void _handleConversationDetailResponse(
       conversation_proto.ConversationDetailResponse response) async {
     if (response.success && response.hasConversation()) {
+      // 查找现有会话以保留本地字段（如lastReadTime）
+      final existing = await _conversations
+          .filter()
+          .conversationIdEqualTo(response.conversation.conversationId)
+          .findFirst();
+
       final conversation = ConversationAdapter.fromProto(
         response.conversation,
         currentUserId: _currentUser.userId,
+        existingConversation: existing,
       );
 
       _logger.i('成功获取会话详情', extra: {
@@ -1162,6 +1301,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
         'conversationType': conversation.type.name
       });
       await _isar.writeTxn(() async {
+        if (existing != null) {
+          conversation.id = existing.id;
+        }
         await _conversations.put(conversation);
       });
 

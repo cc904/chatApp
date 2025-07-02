@@ -118,9 +118,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
                                   ),
-                                  child: Text(_currentStep == 2 ? '完成重置' : '下一步'),
+                                  child:
+                                      Text(_currentStep == 2 ? '完成重置' : '下一步'),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -130,8 +132,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                     onPressed: details.onStepCancel,
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.grey[700],
-                                      side: BorderSide(color: Colors.grey[300]!),
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      side:
+                                          BorderSide(color: Colors.grey[300]!),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
                                     ),
                                     child: const Text('返回'),
                                   ),
@@ -174,19 +178,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           title: const Text('验证手机号'),
                           content: _buildPhoneVerificationStep(),
                           isActive: _currentStep >= 0,
-                          state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+                          state: _currentStep > 0
+                              ? StepState.complete
+                              : StepState.indexed,
                         ),
                         Step(
                           title: const Text('验证码验证'),
                           content: _buildCodeVerificationStep(),
                           isActive: _currentStep >= 1,
-                          state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+                          state: _currentStep > 1
+                              ? StepState.complete
+                              : StepState.indexed,
                         ),
                         Step(
                           title: const Text('设置新密码'),
                           content: _buildNewPasswordStep(),
                           isActive: _currentStep >= 2,
-                          state: _currentStep > 2 ? StepState.complete : StepState.indexed,
+                          state: _currentStep > 2
+                              ? StepState.complete
+                              : StepState.indexed,
                         ),
                       ],
                     ),
@@ -214,7 +224,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
           keyboardType: TextInputType.phone,
-          onChanged: (value) => context.read<AuthCubit>().updatePhoneNumber(value),
+          onChanged: (value) =>
+              context.read<AuthCubit>().updatePhoneNumber(value),
         ),
         const SizedBox(height: 12),
         Text(
@@ -239,19 +250,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 decoration: const InputDecoration(
                   labelText: '验证码',
                   prefixIcon: Icon(Icons.message),
-                  contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 ),
-                onChanged: (value) => context.read<AuthCubit>().updateVerificationCode(value),
+                onChanged: (value) =>
+                    context.read<AuthCubit>().updateVerificationCode(value),
               ),
             ),
             const SizedBox(width: 8),
             BlocBuilder<AuthCubit, AuthState>(
               builder: (context, state) {
                 return ElevatedButton(
-                  onPressed: state.isCodeSent || state.isLoading ? null : () => context.read<AuthCubit>().sendVerificationCode(purpose: 'reset'),
+                  onPressed: state.isCodeSent || state.isLoading
+                      ? null
+                      : () => context
+                          .read<AuthCubit>()
+                          .sendVerificationCode('reset'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
+                    disabledBackgroundColor:
+                        Colors.green.withValues(alpha: 0.5),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -364,10 +382,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   void _resetPassword() {
     _logger.d('重置密码', extra: {'phoneNumber': _phoneController.text});
 
-    // 保存当前需要的数据
-    final phoneNumber = _phoneController.text;
-    final newPassword = _newPasswordController.text;
-    final verificationCode = _verificationCodeController.text;
+    // 数据已经通过AuthCubit的状态管理，这里不再需要手动传递
 
     // 显示加载指示器
     showDialog(
@@ -378,14 +393,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       ),
     );
 
-    context
-        .read<AuthCubit>()
-        .resetPassword(
-          phoneNumber,
-          newPassword,
-          verificationCode,
-        )
-        .then((_) {
+    context.read<AuthCubit>().resetPassword().then((_) {
       // 关闭加载指示器
       if (!mounted) return;
       Navigator.pop(context);

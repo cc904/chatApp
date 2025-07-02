@@ -33,6 +33,7 @@ enum MessageProto_Content {
 }
 
 /// 基本消息结构
+/// Socket.io事件: message:new, message:delivered, message:read, message:send, message:updated
 class MessageProto extends $pb.GeneratedMessage {
   factory MessageProto({
     $core.String? messageId,
@@ -42,9 +43,10 @@ class MessageProto extends $pb.GeneratedMessage {
     $core.String? senderAvatar,
     $fixnum.Int64? createdAt,
     $fixnum.Int64? updatedAt,
-    $fixnum.Int64? index,
+    $core.int? index,
     MessageType? type,
     MessageStatus? status,
+    $core.String? tempId,
     $core.String? quotedMessageId,
     $core.bool? isEdited,
     $fixnum.Int64? editedAt,
@@ -93,6 +95,9 @@ class MessageProto extends $pb.GeneratedMessage {
     }
     if (status != null) {
       $result.status = status;
+    }
+    if (tempId != null) {
+      $result.tempId = tempId;
     }
     if (quotedMessageId != null) {
       $result.quotedMessageId = quotedMessageId;
@@ -171,9 +176,10 @@ class MessageProto extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'senderAvatar')
     ..aInt64(6, _omitFieldNames ? '' : 'createdAt')
     ..aInt64(7, _omitFieldNames ? '' : 'updatedAt')
-    ..aInt64(8, _omitFieldNames ? '' : 'index')
+    ..a<$core.int>(8, _omitFieldNames ? '' : 'index', $pb.PbFieldType.O3)
     ..e<MessageType>(9, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: MessageType.TEXT, valueOf: MessageType.valueOf, enumValues: MessageType.values)
     ..e<MessageStatus>(10, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: MessageStatus.SENDING, valueOf: MessageStatus.valueOf, enumValues: MessageStatus.values)
+    ..aOS(11, _omitFieldNames ? '' : 'tempId')
     ..aOS(21, _omitFieldNames ? '' : 'quotedMessageId')
     ..aOB(24, _omitFieldNames ? '' : 'isEdited')
     ..aInt64(25, _omitFieldNames ? '' : 'editedAt')
@@ -286,9 +292,9 @@ class MessageProto extends $pb.GeneratedMessage {
   /// 每个会话内的消息有唯一的递增序列号
   /// 服务器分配，客户端不能修改
   @$pb.TagNumber(8)
-  $fixnum.Int64 get index => $_getI64(7);
+  $core.int get index => $_getIZ(7);
   @$pb.TagNumber(8)
-  set index($fixnum.Int64 v) { $_setInt64(7, v); }
+  set index($core.int v) { $_setSignedInt32(7, v); }
   @$pb.TagNumber(8)
   $core.bool hasIndex() => $_has(7);
   @$pb.TagNumber(8)
@@ -314,175 +320,186 @@ class MessageProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearStatus() => $_clearField(10);
 
+  /// 💢💢💢 临时消息ID - 客户端发送时使用
+  /// 发送消息时客户端生成，收到服务器返回的真实ID后使用messageId
+  @$pb.TagNumber(11)
+  $core.String get tempId => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set tempId($core.String v) { $_setString(10, v); }
+  @$pb.TagNumber(11)
+  $core.bool hasTempId() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearTempId() => $_clearField(11);
+
   /// 引用消息
   @$pb.TagNumber(21)
-  $core.String get quotedMessageId => $_getSZ(10);
+  $core.String get quotedMessageId => $_getSZ(11);
   @$pb.TagNumber(21)
-  set quotedMessageId($core.String v) { $_setString(10, v); }
+  set quotedMessageId($core.String v) { $_setString(11, v); }
   @$pb.TagNumber(21)
-  $core.bool hasQuotedMessageId() => $_has(10);
+  $core.bool hasQuotedMessageId() => $_has(11);
   @$pb.TagNumber(21)
   void clearQuotedMessageId() => $_clearField(21);
 
   /// 编辑相关字段
   /// 是否已编辑
   @$pb.TagNumber(24)
-  $core.bool get isEdited => $_getBF(11);
+  $core.bool get isEdited => $_getBF(12);
   @$pb.TagNumber(24)
-  set isEdited($core.bool v) { $_setBool(11, v); }
+  set isEdited($core.bool v) { $_setBool(12, v); }
   @$pb.TagNumber(24)
-  $core.bool hasIsEdited() => $_has(11);
+  $core.bool hasIsEdited() => $_has(12);
   @$pb.TagNumber(24)
   void clearIsEdited() => $_clearField(24);
 
   /// 编辑时间
   @$pb.TagNumber(25)
-  $fixnum.Int64 get editedAt => $_getI64(12);
+  $fixnum.Int64 get editedAt => $_getI64(13);
   @$pb.TagNumber(25)
-  set editedAt($fixnum.Int64 v) { $_setInt64(12, v); }
+  set editedAt($fixnum.Int64 v) { $_setInt64(13, v); }
   @$pb.TagNumber(25)
-  $core.bool hasEditedAt() => $_has(12);
+  $core.bool hasEditedAt() => $_has(13);
   @$pb.TagNumber(25)
   void clearEditedAt() => $_clearField(25);
 
   /// 回复和转发
   /// 回复的消息ID
   @$pb.TagNumber(31)
-  $core.String get repliedToMessageId => $_getSZ(13);
+  $core.String get repliedToMessageId => $_getSZ(14);
   @$pb.TagNumber(31)
-  set repliedToMessageId($core.String v) { $_setString(13, v); }
+  set repliedToMessageId($core.String v) { $_setString(14, v); }
   @$pb.TagNumber(31)
-  $core.bool hasRepliedToMessageId() => $_has(13);
+  $core.bool hasRepliedToMessageId() => $_has(14);
   @$pb.TagNumber(31)
   void clearRepliedToMessageId() => $_clearField(31);
 
   /// 转发来源会话ID
   @$pb.TagNumber(32)
-  $core.String get forwardedFromConversationId => $_getSZ(14);
+  $core.String get forwardedFromConversationId => $_getSZ(15);
   @$pb.TagNumber(32)
-  set forwardedFromConversationId($core.String v) { $_setString(14, v); }
+  set forwardedFromConversationId($core.String v) { $_setString(15, v); }
   @$pb.TagNumber(32)
-  $core.bool hasForwardedFromConversationId() => $_has(14);
+  $core.bool hasForwardedFromConversationId() => $_has(15);
   @$pb.TagNumber(32)
   void clearForwardedFromConversationId() => $_clearField(32);
 
   /// 转发来源消息ID
   @$pb.TagNumber(33)
-  $core.String get forwardedFromMessageId => $_getSZ(15);
+  $core.String get forwardedFromMessageId => $_getSZ(16);
   @$pb.TagNumber(33)
-  set forwardedFromMessageId($core.String v) { $_setString(15, v); }
+  set forwardedFromMessageId($core.String v) { $_setString(16, v); }
   @$pb.TagNumber(33)
-  $core.bool hasForwardedFromMessageId() => $_has(15);
+  $core.bool hasForwardedFromMessageId() => $_has(16);
   @$pb.TagNumber(33)
   void clearForwardedFromMessageId() => $_clearField(33);
 
   /// 消息反应（点赞、表情等）
   /// 反应类型 -> 用户ID列表（逗号分隔）
   @$pb.TagNumber(34)
-  $pb.PbMap<$core.String, $core.int> get reactions => $_getMap(16);
+  $pb.PbMap<$core.String, $core.int> get reactions => $_getMap(17);
 
   /// 消息标记
   /// 消息标签
   @$pb.TagNumber(36)
-  $pb.PbList<$core.String> get tags => $_getList(17);
+  $pb.PbList<$core.String> get tags => $_getList(18);
 
   /// 是否置顶
   @$pb.TagNumber(37)
-  $core.bool get isPinned => $_getBF(18);
+  $core.bool get isPinned => $_getBF(19);
   @$pb.TagNumber(37)
-  set isPinned($core.bool v) { $_setBool(18, v); }
+  set isPinned($core.bool v) { $_setBool(19, v); }
   @$pb.TagNumber(37)
-  $core.bool hasIsPinned() => $_has(18);
+  $core.bool hasIsPinned() => $_has(19);
   @$pb.TagNumber(37)
   void clearIsPinned() => $_clearField(37);
 
   @$pb.TagNumber(38)
-  TextMessage get textMessage => $_getN(19);
+  TextMessage get textMessage => $_getN(20);
   @$pb.TagNumber(38)
   set textMessage(TextMessage v) { $_setField(38, v); }
   @$pb.TagNumber(38)
-  $core.bool hasTextMessage() => $_has(19);
+  $core.bool hasTextMessage() => $_has(20);
   @$pb.TagNumber(38)
   void clearTextMessage() => $_clearField(38);
   @$pb.TagNumber(38)
-  TextMessage ensureTextMessage() => $_ensure(19);
+  TextMessage ensureTextMessage() => $_ensure(20);
 
   @$pb.TagNumber(39)
-  MediaMessage get mediaMessage => $_getN(20);
+  MediaMessage get mediaMessage => $_getN(21);
   @$pb.TagNumber(39)
   set mediaMessage(MediaMessage v) { $_setField(39, v); }
   @$pb.TagNumber(39)
-  $core.bool hasMediaMessage() => $_has(20);
+  $core.bool hasMediaMessage() => $_has(21);
   @$pb.TagNumber(39)
   void clearMediaMessage() => $_clearField(39);
   @$pb.TagNumber(39)
-  MediaMessage ensureMediaMessage() => $_ensure(20);
+  MediaMessage ensureMediaMessage() => $_ensure(21);
 
   @$pb.TagNumber(41)
-  SystemMessage get systemMessage => $_getN(21);
+  SystemMessage get systemMessage => $_getN(22);
   @$pb.TagNumber(41)
   set systemMessage(SystemMessage v) { $_setField(41, v); }
   @$pb.TagNumber(41)
-  $core.bool hasSystemMessage() => $_has(21);
+  $core.bool hasSystemMessage() => $_has(22);
   @$pb.TagNumber(41)
   void clearSystemMessage() => $_clearField(41);
   @$pb.TagNumber(41)
-  SystemMessage ensureSystemMessage() => $_ensure(21);
+  SystemMessage ensureSystemMessage() => $_ensure(22);
 
   @$pb.TagNumber(42)
-  StickerMessage get stickerMessage => $_getN(22);
+  StickerMessage get stickerMessage => $_getN(23);
   @$pb.TagNumber(42)
   set stickerMessage(StickerMessage v) { $_setField(42, v); }
   @$pb.TagNumber(42)
-  $core.bool hasStickerMessage() => $_has(22);
+  $core.bool hasStickerMessage() => $_has(23);
   @$pb.TagNumber(42)
   void clearStickerMessage() => $_clearField(42);
   @$pb.TagNumber(42)
-  StickerMessage ensureStickerMessage() => $_ensure(22);
+  StickerMessage ensureStickerMessage() => $_ensure(23);
 
   @$pb.TagNumber(43)
-  ContactMessage get contactMessage => $_getN(23);
+  ContactMessage get contactMessage => $_getN(24);
   @$pb.TagNumber(43)
   set contactMessage(ContactMessage v) { $_setField(43, v); }
   @$pb.TagNumber(43)
-  $core.bool hasContactMessage() => $_has(23);
+  $core.bool hasContactMessage() => $_has(24);
   @$pb.TagNumber(43)
   void clearContactMessage() => $_clearField(43);
   @$pb.TagNumber(43)
-  ContactMessage ensureContactMessage() => $_ensure(23);
+  ContactMessage ensureContactMessage() => $_ensure(24);
 
   @$pb.TagNumber(44)
-  PollMessage get pollMessage => $_getN(24);
+  PollMessage get pollMessage => $_getN(25);
   @$pb.TagNumber(44)
   set pollMessage(PollMessage v) { $_setField(44, v); }
   @$pb.TagNumber(44)
-  $core.bool hasPollMessage() => $_has(24);
+  $core.bool hasPollMessage() => $_has(25);
   @$pb.TagNumber(44)
   void clearPollMessage() => $_clearField(44);
   @$pb.TagNumber(44)
-  PollMessage ensurePollMessage() => $_ensure(24);
+  PollMessage ensurePollMessage() => $_ensure(25);
 
   @$pb.TagNumber(45)
-  LinkMessage get linkMessage => $_getN(25);
+  LinkMessage get linkMessage => $_getN(26);
   @$pb.TagNumber(45)
   set linkMessage(LinkMessage v) { $_setField(45, v); }
   @$pb.TagNumber(45)
-  $core.bool hasLinkMessage() => $_has(25);
+  $core.bool hasLinkMessage() => $_has(26);
   @$pb.TagNumber(45)
   void clearLinkMessage() => $_clearField(45);
   @$pb.TagNumber(45)
-  LinkMessage ensureLinkMessage() => $_ensure(25);
+  LinkMessage ensureLinkMessage() => $_ensure(26);
 
   @$pb.TagNumber(46)
-  MembershipMessage get membershipMessage => $_getN(26);
+  MembershipMessage get membershipMessage => $_getN(27);
   @$pb.TagNumber(46)
   set membershipMessage(MembershipMessage v) { $_setField(46, v); }
   @$pb.TagNumber(46)
-  $core.bool hasMembershipMessage() => $_has(26);
+  $core.bool hasMembershipMessage() => $_has(27);
   @$pb.TagNumber(46)
   void clearMembershipMessage() => $_clearField(46);
   @$pb.TagNumber(46)
-  MembershipMessage ensureMembershipMessage() => $_ensure(26);
+  MembershipMessage ensureMembershipMessage() => $_ensure(27);
 }
 
 /// 文本消息内容
@@ -1462,6 +1479,7 @@ class LinkPreview extends $pb.GeneratedMessage {
 }
 
 /// 消息响应结构
+/// Socket.io事件: message:send:response
 class MessageSendResponse extends $pb.GeneratedMessage {
   factory MessageSendResponse({
     $core.bool? success,
@@ -1469,7 +1487,7 @@ class MessageSendResponse extends $pb.GeneratedMessage {
     $core.String? conversationId,
     $core.String? tempId,
     $core.String? messageId,
-    $fixnum.Int64? messageIndex,
+    $core.int? messageIndex,
   }) {
     final $result = create();
     if (success != null) {
@@ -1502,7 +1520,7 @@ class MessageSendResponse extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'conversationId')
     ..aOS(4, _omitFieldNames ? '' : 'tempId')
     ..aOS(5, _omitFieldNames ? '' : 'messageId')
-    ..aInt64(6, _omitFieldNames ? '' : 'messageIndex')
+    ..a<$core.int>(6, _omitFieldNames ? '' : 'messageIndex', $pb.PbFieldType.O3)
     ..hasRequiredFields = false
   ;
 
@@ -1576,9 +1594,9 @@ class MessageSendResponse extends $pb.GeneratedMessage {
 
   /// 消息索引
   @$pb.TagNumber(6)
-  $fixnum.Int64 get messageIndex => $_getI64(5);
+  $core.int get messageIndex => $_getIZ(5);
   @$pb.TagNumber(6)
-  set messageIndex($fixnum.Int64 v) { $_setInt64(5, v); }
+  set messageIndex($core.int v) { $_setSignedInt32(5, v); }
   @$pb.TagNumber(6)
   $core.bool hasMessageIndex() => $_has(5);
   @$pb.TagNumber(6)
@@ -1587,6 +1605,7 @@ class MessageSendResponse extends $pb.GeneratedMessage {
 
 /// 输入状态
 /// 只有私聊会话需要同步输入状态
+/// Socket.io事件: user:typing, user:typing:stop
 class TypingProto extends $pb.GeneratedMessage {
   factory TypingProto({
     $core.String? conversationId,
@@ -1666,6 +1685,7 @@ class TypingProto extends $pb.GeneratedMessage {
 }
 
 /// 消息已读
+/// Socket.io事件: message:read
 class MessageReadProto extends $pb.GeneratedMessage {
   factory MessageReadProto({
     $core.String? messageId,
@@ -1758,26 +1778,31 @@ class MessageReadProto extends $pb.GeneratedMessage {
   void clearReadAt() => $_clearField(4);
 }
 
-/// 消息获取请求 - 使用index简化游标管理 messages:fetch
+/// 消息获取请求 - 使用索引范围直接加载
+/// Socket.io事件: messages:fetch
 class MessagesFetchRequest extends $pb.GeneratedMessage {
   factory MessagesFetchRequest({
     $core.String? conversationId,
-    $fixnum.Int64? messageIndex,
-    $core.int? limit,
-    LoadingType? loadingType,
+    $core.int? indexA,
+    $core.int? indexB,
+    $core.int? jumpIndex,
+    $core.int? anchorMessageIndex,
   }) {
     final $result = create();
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (messageIndex != null) {
-      $result.messageIndex = messageIndex;
+    if (indexA != null) {
+      $result.indexA = indexA;
     }
-    if (limit != null) {
-      $result.limit = limit;
+    if (indexB != null) {
+      $result.indexB = indexB;
     }
-    if (loadingType != null) {
-      $result.loadingType = loadingType;
+    if (jumpIndex != null) {
+      $result.jumpIndex = jumpIndex;
+    }
+    if (anchorMessageIndex != null) {
+      $result.anchorMessageIndex = anchorMessageIndex;
     }
     return $result;
   }
@@ -1787,9 +1812,10 @@ class MessagesFetchRequest extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessagesFetchRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aInt64(2, _omitFieldNames ? '' : 'messageIndex')
-    ..a<$core.int>(3, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
-    ..e<LoadingType>(4, _omitFieldNames ? '' : 'loadingType', $pb.PbFieldType.OE, defaultOrMaker: LoadingType.INITIAL, valueOf: LoadingType.valueOf, enumValues: LoadingType.values)
+    ..a<$core.int>(2, _omitFieldNames ? '' : 'indexA', $pb.PbFieldType.O3)
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'indexB', $pb.PbFieldType.O3)
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'jumpIndex', $pb.PbFieldType.O3)
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'anchorMessageIndex', $pb.PbFieldType.O3)
     ..hasRequiredFields = false
   ;
 
@@ -1824,45 +1850,57 @@ class MessagesFetchRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
-  /// 锚点消息Index
+  /// 开始索引（包含）
   @$pb.TagNumber(2)
-  $fixnum.Int64 get messageIndex => $_getI64(1);
+  $core.int get indexA => $_getIZ(1);
   @$pb.TagNumber(2)
-  set messageIndex($fixnum.Int64 v) { $_setInt64(1, v); }
+  set indexA($core.int v) { $_setSignedInt32(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasMessageIndex() => $_has(1);
+  $core.bool hasIndexA() => $_has(1);
   @$pb.TagNumber(2)
-  void clearMessageIndex() => $_clearField(2);
+  void clearIndexA() => $_clearField(2);
 
-  /// 获取消息数量限制，默认50
+  /// 结束索引（包含）
   @$pb.TagNumber(3)
-  $core.int get limit => $_getIZ(2);
+  $core.int get indexB => $_getIZ(2);
   @$pb.TagNumber(3)
-  set limit($core.int v) { $_setSignedInt32(2, v); }
+  set indexB($core.int v) { $_setSignedInt32(2, v); }
   @$pb.TagNumber(3)
-  $core.bool hasLimit() => $_has(2);
+  $core.bool hasIndexB() => $_has(2);
   @$pb.TagNumber(3)
-  void clearLimit() => $_clearField(3);
+  void clearIndexB() => $_clearField(3);
 
-  /// 加载类型
+  /// 可选的跳转目标索引（用于滚动定位）
   @$pb.TagNumber(4)
-  LoadingType get loadingType => $_getN(3);
+  $core.int get jumpIndex => $_getIZ(3);
   @$pb.TagNumber(4)
-  set loadingType(LoadingType v) { $_setField(4, v); }
+  set jumpIndex($core.int v) { $_setSignedInt32(3, v); }
   @$pb.TagNumber(4)
-  $core.bool hasLoadingType() => $_has(3);
+  $core.bool hasJumpIndex() => $_has(3);
   @$pb.TagNumber(4)
-  void clearLoadingType() => $_clearField(4);
+  void clearJumpIndex() => $_clearField(4);
+
+  /// 可选的锚点消息索引（用于JUMP_TO_INDEX加载类型）
+  @$pb.TagNumber(5)
+  $core.int get anchorMessageIndex => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set anchorMessageIndex($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasAnchorMessageIndex() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAnchorMessageIndex() => $_clearField(5);
 }
 
-/// 消息获取请求 - 使用index简化游标管理 messages:fetch:response
+/// 消息获取响应 - 返回索引范围内的消息
+/// Socket.io事件: messages:fetch:response
 class MessagesFetchResponse extends $pb.GeneratedMessage {
   factory MessagesFetchResponse({
     $core.bool? success,
     $core.String? msg,
     $core.String? conversationId,
     $core.Iterable<MessageProto>? messages,
-    LoadingType? loadingType,
+    $core.int? jumpIndex,
+    $core.int? anchorMessageIndex,
   }) {
     final $result = create();
     if (success != null) {
@@ -1877,8 +1915,11 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
     if (messages != null) {
       $result.messages.addAll(messages);
     }
-    if (loadingType != null) {
-      $result.loadingType = loadingType;
+    if (jumpIndex != null) {
+      $result.jumpIndex = jumpIndex;
+    }
+    if (anchorMessageIndex != null) {
+      $result.anchorMessageIndex = anchorMessageIndex;
     }
     return $result;
   }
@@ -1891,7 +1932,8 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'msg')
     ..aOS(3, _omitFieldNames ? '' : 'conversationId')
     ..pc<MessageProto>(4, _omitFieldNames ? '' : 'messages', $pb.PbFieldType.PM, subBuilder: MessageProto.create)
-    ..e<LoadingType>(5, _omitFieldNames ? '' : 'loadingType', $pb.PbFieldType.OE, defaultOrMaker: LoadingType.INITIAL, valueOf: LoadingType.valueOf, enumValues: LoadingType.values)
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'jumpIndex', $pb.PbFieldType.O3)
+    ..a<$core.int>(6, _omitFieldNames ? '' : 'anchorMessageIndex', $pb.PbFieldType.O3)
     ..hasRequiredFields = false
   ;
 
@@ -1950,15 +1992,25 @@ class MessagesFetchResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $pb.PbList<MessageProto> get messages => $_getList(3);
 
-  /// 加载类型
+  /// 可选的跳转目标索引（用于滚动定位）
   @$pb.TagNumber(5)
-  LoadingType get loadingType => $_getN(4);
+  $core.int get jumpIndex => $_getIZ(4);
   @$pb.TagNumber(5)
-  set loadingType(LoadingType v) { $_setField(5, v); }
+  set jumpIndex($core.int v) { $_setSignedInt32(4, v); }
   @$pb.TagNumber(5)
-  $core.bool hasLoadingType() => $_has(4);
+  $core.bool hasJumpIndex() => $_has(4);
   @$pb.TagNumber(5)
-  void clearLoadingType() => $_clearField(5);
+  void clearJumpIndex() => $_clearField(5);
+
+  /// 可选的锚点消息索引（服务器返回，用于客户端定位）
+  @$pb.TagNumber(6)
+  $core.int get anchorMessageIndex => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set anchorMessageIndex($core.int v) { $_setSignedInt32(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasAnchorMessageIndex() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearAnchorMessageIndex() => $_clearField(6);
 }
 
 /// 新增：成员变动消息内容
@@ -2228,6 +2280,609 @@ class MemberInfo extends $pb.GeneratedMessage {
   $core.bool hasJoinedAt() => $_has(4);
   @$pb.TagNumber(5)
   void clearJoinedAt() => $_clearField(5);
+}
+
+/// 消息编辑请求
+/// Socket.io事件: message:edit
+class MessageEditRequest extends $pb.GeneratedMessage {
+  factory MessageEditRequest({
+    $core.String? messageId,
+    $core.String? conversationId,
+    $core.String? newText,
+  }) {
+    final $result = create();
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (newText != null) {
+      $result.newText = newText;
+    }
+    return $result;
+  }
+  MessageEditRequest._() : super();
+  factory MessageEditRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageEditRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageEditRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aOS(2, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(3, _omitFieldNames ? '' : 'newText')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageEditRequest clone() => MessageEditRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageEditRequest copyWith(void Function(MessageEditRequest) updates) => super.copyWith((message) => updates(message as MessageEditRequest)) as MessageEditRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageEditRequest create() => MessageEditRequest._();
+  MessageEditRequest createEmptyInstance() => create();
+  static $pb.PbList<MessageEditRequest> createRepeated() => $pb.PbList<MessageEditRequest>();
+  @$core.pragma('dart2js:noInline')
+  static MessageEditRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageEditRequest>(create);
+  static MessageEditRequest? _defaultInstance;
+
+  /// 消息ID
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  /// 会话ID
+  @$pb.TagNumber(2)
+  $core.String get conversationId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set conversationId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasConversationId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversationId() => $_clearField(2);
+
+  /// 新的文本内容
+  @$pb.TagNumber(3)
+  $core.String get newText => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set newText($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasNewText() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNewText() => $_clearField(3);
+}
+
+/// 消息编辑响应
+/// Socket.io事件: message:edit:response
+class MessageEditResponse extends $pb.GeneratedMessage {
+  factory MessageEditResponse({
+    $core.bool? success,
+    $core.String? msg,
+    $core.String? messageId,
+    $core.String? conversationId,
+    $fixnum.Int64? editedAt,
+    $core.String? newText,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (msg != null) {
+      $result.msg = msg;
+    }
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (editedAt != null) {
+      $result.editedAt = editedAt;
+    }
+    if (newText != null) {
+      $result.newText = newText;
+    }
+    return $result;
+  }
+  MessageEditResponse._() : super();
+  factory MessageEditResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageEditResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageEditResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'msg')
+    ..aOS(3, _omitFieldNames ? '' : 'messageId')
+    ..aOS(4, _omitFieldNames ? '' : 'conversationId')
+    ..aInt64(5, _omitFieldNames ? '' : 'editedAt')
+    ..aOS(6, _omitFieldNames ? '' : 'newText')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageEditResponse clone() => MessageEditResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageEditResponse copyWith(void Function(MessageEditResponse) updates) => super.copyWith((message) => updates(message as MessageEditResponse)) as MessageEditResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageEditResponse create() => MessageEditResponse._();
+  MessageEditResponse createEmptyInstance() => create();
+  static $pb.PbList<MessageEditResponse> createRepeated() => $pb.PbList<MessageEditResponse>();
+  @$core.pragma('dart2js:noInline')
+  static MessageEditResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageEditResponse>(create);
+  static MessageEditResponse? _defaultInstance;
+
+  /// 请求是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息（失败时）
+  @$pb.TagNumber(2)
+  $core.String get msg => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set msg($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMsg() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMsg() => $_clearField(2);
+
+  /// 消息ID
+  @$pb.TagNumber(3)
+  $core.String get messageId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set messageId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasMessageId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessageId() => $_clearField(3);
+
+  /// 会话ID
+  @$pb.TagNumber(4)
+  $core.String get conversationId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set conversationId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasConversationId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearConversationId() => $_clearField(4);
+
+  /// 编辑时间戳
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get editedAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set editedAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasEditedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEditedAt() => $_clearField(5);
+
+  /// 更新后的消息内容
+  @$pb.TagNumber(6)
+  $core.String get newText => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set newText($core.String v) { $_setString(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasNewText() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearNewText() => $_clearField(6);
+}
+
+/// 消息撤回请求
+/// Socket.io事件: message:revoke
+class MessageRevokeRequest extends $pb.GeneratedMessage {
+  factory MessageRevokeRequest({
+    $core.String? messageId,
+    $core.String? conversationId,
+    $core.String? tempId,
+  }) {
+    final $result = create();
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (tempId != null) {
+      $result.tempId = tempId;
+    }
+    return $result;
+  }
+  MessageRevokeRequest._() : super();
+  factory MessageRevokeRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageRevokeRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageRevokeRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aOS(2, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(3, _omitFieldNames ? '' : 'tempId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageRevokeRequest clone() => MessageRevokeRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageRevokeRequest copyWith(void Function(MessageRevokeRequest) updates) => super.copyWith((message) => updates(message as MessageRevokeRequest)) as MessageRevokeRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageRevokeRequest create() => MessageRevokeRequest._();
+  MessageRevokeRequest createEmptyInstance() => create();
+  static $pb.PbList<MessageRevokeRequest> createRepeated() => $pb.PbList<MessageRevokeRequest>();
+  @$core.pragma('dart2js:noInline')
+  static MessageRevokeRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageRevokeRequest>(create);
+  static MessageRevokeRequest? _defaultInstance;
+
+  /// 消息ID
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  /// 会话ID
+  @$pb.TagNumber(2)
+  $core.String get conversationId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set conversationId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasConversationId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversationId() => $_clearField(2);
+
+  /// 💢💢💢 临时消息ID - 当消息还没有正式ID时使用
+  @$pb.TagNumber(3)
+  $core.String get tempId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set tempId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTempId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTempId() => $_clearField(3);
+}
+
+/// 消息撤回响应
+/// Socket.io事件: message:revoke:response
+class MessageRevokeResponse extends $pb.GeneratedMessage {
+  factory MessageRevokeResponse({
+    $core.bool? success,
+    $core.String? msg,
+    $core.String? messageId,
+    $core.String? conversationId,
+    $fixnum.Int64? revokedAt,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (msg != null) {
+      $result.msg = msg;
+    }
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (revokedAt != null) {
+      $result.revokedAt = revokedAt;
+    }
+    return $result;
+  }
+  MessageRevokeResponse._() : super();
+  factory MessageRevokeResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageRevokeResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageRevokeResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'msg')
+    ..aOS(3, _omitFieldNames ? '' : 'messageId')
+    ..aOS(4, _omitFieldNames ? '' : 'conversationId')
+    ..aInt64(5, _omitFieldNames ? '' : 'revokedAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageRevokeResponse clone() => MessageRevokeResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageRevokeResponse copyWith(void Function(MessageRevokeResponse) updates) => super.copyWith((message) => updates(message as MessageRevokeResponse)) as MessageRevokeResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageRevokeResponse create() => MessageRevokeResponse._();
+  MessageRevokeResponse createEmptyInstance() => create();
+  static $pb.PbList<MessageRevokeResponse> createRepeated() => $pb.PbList<MessageRevokeResponse>();
+  @$core.pragma('dart2js:noInline')
+  static MessageRevokeResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageRevokeResponse>(create);
+  static MessageRevokeResponse? _defaultInstance;
+
+  /// 请求是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息（失败时）
+  @$pb.TagNumber(2)
+  $core.String get msg => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set msg($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMsg() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMsg() => $_clearField(2);
+
+  /// 消息ID
+  @$pb.TagNumber(3)
+  $core.String get messageId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set messageId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasMessageId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessageId() => $_clearField(3);
+
+  /// 会话ID
+  @$pb.TagNumber(4)
+  $core.String get conversationId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set conversationId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasConversationId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearConversationId() => $_clearField(4);
+
+  /// 撤回时间戳
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get revokedAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set revokedAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasRevokedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRevokedAt() => $_clearField(5);
+}
+
+/// 消息删除请求
+/// Socket.io事件: message:delete
+class MessageDeleteRequest extends $pb.GeneratedMessage {
+  factory MessageDeleteRequest({
+    $core.String? messageId,
+    $core.String? conversationId,
+    $core.String? tempId,
+  }) {
+    final $result = create();
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (tempId != null) {
+      $result.tempId = tempId;
+    }
+    return $result;
+  }
+  MessageDeleteRequest._() : super();
+  factory MessageDeleteRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageDeleteRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageDeleteRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aOS(2, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(3, _omitFieldNames ? '' : 'tempId')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageDeleteRequest clone() => MessageDeleteRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageDeleteRequest copyWith(void Function(MessageDeleteRequest) updates) => super.copyWith((message) => updates(message as MessageDeleteRequest)) as MessageDeleteRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageDeleteRequest create() => MessageDeleteRequest._();
+  MessageDeleteRequest createEmptyInstance() => create();
+  static $pb.PbList<MessageDeleteRequest> createRepeated() => $pb.PbList<MessageDeleteRequest>();
+  @$core.pragma('dart2js:noInline')
+  static MessageDeleteRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageDeleteRequest>(create);
+  static MessageDeleteRequest? _defaultInstance;
+
+  /// 消息ID
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  /// 会话ID
+  @$pb.TagNumber(2)
+  $core.String get conversationId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set conversationId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasConversationId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConversationId() => $_clearField(2);
+
+  /// 💢💢💢 临时消息ID - 当消息还没有正式ID时使用
+  @$pb.TagNumber(3)
+  $core.String get tempId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set tempId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTempId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTempId() => $_clearField(3);
+}
+
+/// 消息删除响应
+/// Socket.io事件: message:delete:response
+class MessageDeleteResponse extends $pb.GeneratedMessage {
+  factory MessageDeleteResponse({
+    $core.bool? success,
+    $core.String? msg,
+    $core.String? messageId,
+    $core.String? conversationId,
+    $fixnum.Int64? deletedAt,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (msg != null) {
+      $result.msg = msg;
+    }
+    if (messageId != null) {
+      $result.messageId = messageId;
+    }
+    if (conversationId != null) {
+      $result.conversationId = conversationId;
+    }
+    if (deletedAt != null) {
+      $result.deletedAt = deletedAt;
+    }
+    return $result;
+  }
+  MessageDeleteResponse._() : super();
+  factory MessageDeleteResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MessageDeleteResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageDeleteResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'msg')
+    ..aOS(3, _omitFieldNames ? '' : 'messageId')
+    ..aOS(4, _omitFieldNames ? '' : 'conversationId')
+    ..aInt64(5, _omitFieldNames ? '' : 'deletedAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MessageDeleteResponse clone() => MessageDeleteResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MessageDeleteResponse copyWith(void Function(MessageDeleteResponse) updates) => super.copyWith((message) => updates(message as MessageDeleteResponse)) as MessageDeleteResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageDeleteResponse create() => MessageDeleteResponse._();
+  MessageDeleteResponse createEmptyInstance() => create();
+  static $pb.PbList<MessageDeleteResponse> createRepeated() => $pb.PbList<MessageDeleteResponse>();
+  @$core.pragma('dart2js:noInline')
+  static MessageDeleteResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MessageDeleteResponse>(create);
+  static MessageDeleteResponse? _defaultInstance;
+
+  /// 请求是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息（失败时）
+  @$pb.TagNumber(2)
+  $core.String get msg => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set msg($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMsg() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMsg() => $_clearField(2);
+
+  /// 消息ID
+  @$pb.TagNumber(3)
+  $core.String get messageId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set messageId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasMessageId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessageId() => $_clearField(3);
+
+  /// 会话ID
+  @$pb.TagNumber(4)
+  $core.String get conversationId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set conversationId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasConversationId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearConversationId() => $_clearField(4);
+
+  /// 删除时间戳
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get deletedAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set deletedAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasDeletedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDeletedAt() => $_clearField(5);
 }
 
 

@@ -35,7 +35,7 @@
 
 **更新接口定义：** `lib/features/chat/domain/repositories/chat_repository.dart`
 - 添加 LoadingType 导入
-- 更新 `requestMoreMessages` 方法签名：
+- 更新 `requestMessages` 方法签名：
   - 参数从 `bool? isBefore = false` 改为 `LoadingType? loadingType = LoadingType.LOAD_MORE_BEFORE`
 
 **更新实现：** `lib/features/chat/data/repositories/chat_repository_impl.dart`
@@ -48,7 +48,7 @@
   - `LoadingType.update` → `LoadingType.UPDATE`
   - `LoadingType.search` → `LoadingType.SEARCH`
   - `LoadingType.refresh` → `LoadingType.REFRESH`
-- 更新 `requestMoreMessages` 方法实现，使用 `loadingType` 字段替代 `isBefore`
+- 更新 `requestMessages` 方法实现，使用 `loadingType` 字段替代 `isBefore`
 
 **更新业务逻辑：** `lib/features/chat/presentation/cubit/chat_cubit.dart`
 - 添加 LoadingType 导入

@@ -328,34 +328,39 @@ const MessageSchema = CollectionSchema(
       name: r'tags',
       type: IsarType.string,
     ),
-    r'text': PropertySchema(
+    r'tempId': PropertySchema(
       id: 62,
+      name: r'tempId',
+      type: IsarType.string,
+    ),
+    r'text': PropertySchema(
+      id: 63,
       name: r'text',
       type: IsarType.string,
     ),
     r'textForSearch': PropertySchema(
-      id: 63,
+      id: 64,
       name: r'textForSearch',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 64,
+      id: 65,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 65,
+      id: 66,
       name: r'type',
       type: IsarType.string,
       enumMap: _MessagetypeEnumValueMap,
     ),
     r'updatedAt': PropertySchema(
-      id: 66,
+      id: 67,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'width': PropertySchema(
-      id: 67,
+      id: 68,
       name: r'width',
       type: IsarType.long,
     )
@@ -706,6 +711,12 @@ int _messageEstimateSize(
     }
   }
   {
+    final value = object.tempId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.text;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -795,12 +806,13 @@ void _messageSerialize(
   writer.writeString(offsets[59], object.stickerPackName);
   writer.writeString(offsets[60], object.stickerUrl);
   writer.writeString(offsets[61], object.tags);
-  writer.writeString(offsets[62], object.text);
-  writer.writeString(offsets[63], object.textForSearch);
-  writer.writeString(offsets[64], object.thumbnailUrl);
-  writer.writeString(offsets[65], object.type.name);
-  writer.writeDateTime(offsets[66], object.updatedAt);
-  writer.writeLong(offsets[67], object.width);
+  writer.writeString(offsets[62], object.tempId);
+  writer.writeString(offsets[63], object.text);
+  writer.writeString(offsets[64], object.textForSearch);
+  writer.writeString(offsets[65], object.thumbnailUrl);
+  writer.writeString(offsets[66], object.type.name);
+  writer.writeDateTime(offsets[67], object.updatedAt);
+  writer.writeLong(offsets[68], object.width);
 }
 
 Message _messageDeserialize(
@@ -875,13 +887,14 @@ Message _messageDeserialize(
   object.stickerPackName = reader.readStringOrNull(offsets[59]);
   object.stickerUrl = reader.readStringOrNull(offsets[60]);
   object.tags = reader.readStringOrNull(offsets[61]);
-  object.text = reader.readStringOrNull(offsets[62]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[64]);
+  object.tempId = reader.readStringOrNull(offsets[62]);
+  object.text = reader.readStringOrNull(offsets[63]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[65]);
   object.type =
-      _MessagetypeValueEnumMap[reader.readStringOrNull(offsets[65])] ??
+      _MessagetypeValueEnumMap[reader.readStringOrNull(offsets[66])] ??
           MessageType.text;
-  object.updatedAt = reader.readDateTimeOrNull(offsets[66]);
-  object.width = reader.readLongOrNull(offsets[67]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[67]);
+  object.width = reader.readLongOrNull(offsets[68]);
   return object;
 }
 
@@ -1024,11 +1037,13 @@ P _messageDeserializeProp<P>(
     case 64:
       return (reader.readStringOrNull(offset)) as P;
     case 65:
+      return (reader.readStringOrNull(offset)) as P;
+    case 66:
       return (_MessagetypeValueEnumMap[reader.readStringOrNull(offset)] ??
           MessageType.text) as P;
-    case 66:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 67:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 68:
       return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -9542,6 +9557,152 @@ extension MessageQueryFilter
     });
   }
 
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'tempId',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'tempId',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tempId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'tempId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'tempId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'tempId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'tempId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'tempId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'tempId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'tempId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tempId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> tempIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'tempId',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterFilterCondition> textIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -11026,6 +11187,18 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> sortByTempId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tempId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByTempIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tempId', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> sortByText() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'text', Sort.asc);
@@ -11865,6 +12038,18 @@ extension MessageQuerySortThenBy
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> thenByTempId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tempId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByTempIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tempId', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> thenByText() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'text', Sort.asc);
@@ -12376,6 +12561,13 @@ extension MessageQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Message, Message, QDistinct> distinctByTempId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'tempId', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<Message, Message, QDistinct> distinctByText(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -12804,6 +12996,12 @@ extension MessageQueryProperty
   QueryBuilder<Message, String?, QQueryOperations> tagsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'tags');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations> tempIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'tempId');
     });
   }
 

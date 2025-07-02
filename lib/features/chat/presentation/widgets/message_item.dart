@@ -66,10 +66,6 @@ class MessageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.isMessageDeleted) {
-      return const SizedBox.shrink();
-    }
-
     if (message.type == MessageType.system ||
         message.type == MessageType.membership) {
       return _buildSystemMessage(context);
@@ -104,7 +100,7 @@ class MessageItem extends StatelessWidget {
 
   void _showContextMenu(BuildContext context) {
     HapticFeedback.lightImpact();
-    print('🔥 MessageItem: 显示长按菜单');
+    // print('🔥 MessageItem: 显示长按菜单');
 
     if (onLongPress == null &&
         onRevoke == null &&
@@ -367,6 +363,30 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildMessageContent(BuildContext context) {
+    // 💢💢💢 如果消息已撤回，统一显示撤回提示，不管类型
+    if (message.isMessageRevoked) {
+      return Text(
+        '此消息已被撤回',
+        style: TextStyle(
+          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          fontStyle: FontStyle.italic,
+          fontSize: 14.0,
+        ),
+      );
+    }
+
+    // 💢💢💢 如果消息已删除，统一显示删除提示，不管类型
+    if (message.isMessageDeleted) {
+      return Text(
+        '消息已删除',
+        style: TextStyle(
+          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          fontStyle: FontStyle.italic,
+          fontSize: 14.0,
+        ),
+      );
+    }
+
     switch (message.type) {
       case MessageType.text:
         return _buildTextContent(context);
@@ -387,17 +407,8 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildTextContent(BuildContext context) {
-    if (message.isMessageRevoked) {
-      return Text(
-        '此消息已被撤回',
-        style: TextStyle(
-          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
-          fontStyle: FontStyle.italic,
-          fontSize: 14.0,
-        ),
-      );
-    }
-
+    // 💢💢💢 撤回和删除处理已移至_buildMessageContent统一处理
+    // 此方法只处理正常的文本显示
     return Text(
       message.text ?? '',
       style: TextStyle(
@@ -500,6 +511,11 @@ class MessageItem extends StatelessWidget {
         }
       case MessageStatus.failed:
         return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);
+      case MessageStatus.deleted:
+        return const Icon(Icons.delete_outline,
+            size: 14.0, color: Colors.orange);
+      case MessageStatus.revoked:
+        return const Icon(Icons.undo, size: 14.0, color: Colors.orange);
       default:
         return const SizedBox.shrink();
     }

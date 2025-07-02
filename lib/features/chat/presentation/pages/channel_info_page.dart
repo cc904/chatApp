@@ -4,6 +4,7 @@ import 'package:cc/features/chat/presentation/pages/create_channel_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 /// 频道介绍页面
 /// 显示频道的作用和功能介绍，引导用户创建频道
@@ -21,9 +22,9 @@ class ChannelInfoPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Back',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context).back,
+          style: const TextStyle(
             color: Colors.blue,
             fontSize: 16,
           ),
@@ -123,19 +124,19 @@ class ChannelInfoPage extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Column(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Channel',
-                                style: TextStyle(
+                                AppLocalizations.of(context).channelTitle,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
-                                '57k members',
-                                style: TextStyle(
+                                '57k ${AppLocalizations.of(context).channelMembers}',
+                                style: const TextStyle(
                                   color: Colors.grey,
                                   fontSize: 10,
                                 ),
@@ -161,24 +162,24 @@ class ChannelInfoPage extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'views',
-                                style: TextStyle(
+                                AppLocalizations.of(context).channelViews,
+                                style: const TextStyle(
                                   color: Colors.grey,
                                   fontSize: 10,
                                 ),
                               ),
-                              SizedBox(width: 4),
-                              Icon(
+                              const SizedBox(width: 4),
+                              const Icon(
                                 Icons.visibility,
                                 color: Colors.grey,
                                 size: 12,
                               ),
-                              SizedBox(width: 2),
-                              Text(
+                              const SizedBox(width: 2),
+                              const Text(
                                 '1K',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -201,9 +202,9 @@ class ChannelInfoPage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'What is a Channel?',
-                    style: TextStyle(
+                  Text(
+                    AppLocalizations.of(context).whatIsChannel,
+                    style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
@@ -211,9 +212,9 @@ class ChannelInfoPage extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Channels are a one-to-many tool\nfor broadcasting your messages\nto unlimited audiences.',
-                    style: TextStyle(
+                  Text(
+                    AppLocalizations.of(context).channelDescription,
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
                       height: 1.5,
@@ -259,9 +260,9 @@ class ChannelInfoPage extends StatelessWidget {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Create Channel',
-                        style: TextStyle(
+                      child: Text(
+                        AppLocalizations.of(context).createChannel,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),

@@ -351,52 +351,20 @@ class Conversation {
     return firstUnreadIndex;
   }
 
-  /// 💢💢💢 新增：获取第一条未读消息ID的范围信息
+  /// 💢💢💢 新增：获取最新未读消息的索引（即会话中的最后一条消息）
   /// [currentUserId] - 当前用户ID
-  /// 返回包含第一条未读消息索引和ID查询范围的信息
-  /// 注意：此方法只返回索引信息，实际的消息ID需要通过数据库查询获取
-  Map<String, dynamic> getFirstUnreadMessageIdInfo(String? currentUserId) {
-    if (currentUserId == null) {
-      return {
-        'hasUnread': false,
-        'firstUnreadIndex': null,
-        'searchRange': null,
-        'canQuery': false,
-      };
-    }
+  /// 返回最新未读消息的索引，如果没有未读消息则返回null
+  /// 最新未读消息就是会话中的最后一条消息（如果有未读消息的话）
+  int? getLastUnreadMessageIndex(String? currentUserId) {
+    if (currentUserId == null) return null;
 
-    final participant = getParticipant(currentUserId);
-    if (participant == null) {
-      return {
-        'hasUnread': false,
-        'firstUnreadIndex': null,
-        'searchRange': null,
-        'canQuery': false,
-      };
-    }
+    // 如果没有未读消息，返回null
+    if (!hasUnread(currentUserId)) return null;
 
-    final firstUnreadIndex = getFirstUnreadMessageIndex(currentUserId);
-    if (firstUnreadIndex == null) {
-      return {
-        'hasUnread': false,
-        'firstUnreadIndex': null,
-        'searchRange': null,
-        'canQuery': false,
-      };
-    }
-
-    return {
-      'hasUnread': true,
-      'firstUnreadIndex': firstUnreadIndex,
-      'searchRange': {
-        'startIndex': firstUnreadIndex,
-        'endIndex': lastMessageIndex,
-        'conversationId': conversationId,
-      },
-      'canQuery': true,
-      'unreadCount': unreadCount(currentUserId),
-    };
+    // 最新未读消息就是会话的最后一条消息
+    return lastMessageIndex > 0 ? lastMessageIndex : null;
   }
+
 
   /// 💢💢💢 新增：获取用户的新消息数量
   /// [userId] - 用户ID

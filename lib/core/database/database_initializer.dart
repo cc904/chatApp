@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/models/conversation.dart';
@@ -122,7 +123,52 @@ class DatabaseInitializer {
   static Future<void> _saveCurrentUserToDatabase(
       CurrentUser currentUser) async {
     try {
-      _logger.i('保存当前用户信息到数据库', extra: {'userId': currentUser.userId});
+      _logger.i('保存当前用户信息到数据库', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'phone': currentUser.phone,
+        'email': currentUser.email,
+        'avatar': currentUser.avatar,
+        'status': currentUser.status,
+        'hasAvatar':
+            currentUser.avatar != null && currentUser.avatar!.isNotEmpty,
+        'lastLoginTime': currentUser.lastLoginTime?.toIso8601String(),
+      });
+
+      // 验证必需字段是否存在
+      if (currentUser.userId.isEmpty) {
+        throw ArgumentError('用户ID不能为空');
+      }
+
+      // 检查并修复name字段
+      try {
+        final name = currentUser.name; // 尝试访问name字段
+        if (name.isEmpty) {
+          _logger.w('用户名为空，使用默认名称');
+          currentUser.name = '用户${currentUser.userId.substring(0, 6)}';
+        }
+      } catch (e) {
+        // name字段未初始化，设置默认值
+        _logger.w('用户名未初始化，设置默认名称', extra: {'error': e.toString()});
+        currentUser.name = '用户${currentUser.userId.substring(0, 6)}';
+      }
+
+      // 验证其他字段，确保non-null字段有值
+      currentUser.phone ??= '';
+      currentUser.email ??= '';
+      currentUser.avatar ??= '';
+      currentUser.status ??= 'offline';
+
+      // 🔍 记录字段修复后的状态
+      _logger.i('🔧 字段验证和修复完成', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'phone': currentUser.phone,
+        'email': currentUser.email,
+        'avatar': currentUser.avatar,
+        'status': currentUser.status,
+        'allFieldsValid': true,
+      });
 
       await _isar!.writeTxn(() async {
         // 清除旧的用户数据
@@ -131,9 +177,30 @@ class DatabaseInitializer {
         await _isar!.currentUsers.put(currentUser);
       });
 
-      _logger.i('当前用户信息已保存到数据库');
+      _logger.i('当前用户信息已保存到数据库', extra: {
+        'finalUserId': currentUser.userId,
+        'finalName': currentUser.name,
+        'finalPhone': currentUser.phone,
+        'finalEmail': currentUser.email,
+        'finalStatus': currentUser.status,
+      });
     } catch (error) {
       _logger.e('保存当前用户信息到数据库失败', error: error, stackTrace: StackTrace.current);
+
+      // 如果是字段未初始化错误，提供更好的错误处理
+      if (error.toString().contains('has not been initialized')) {
+        _logger.e('检测到用户信息不完整，建议清除存储重新登录');
+
+        // 可以选择清除不完整的用户数据
+        try {
+          final secureStorage = SecureStorageService();
+          await secureStorage.clearUserCredentials();
+          _logger.i('已清除不完整的用户凭证，请重新登录');
+        } catch (clearError) {
+          _logger.e('清除用户凭证失败', error: clearError);
+        }
+      }
+
       // 不抛出异常，因为这不影响数据库的正常使用
     }
   }

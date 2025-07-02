@@ -126,10 +126,27 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
           // 计算实际的宽高比
           final actualRatio = info.image.width / info.image.height;
 
+          // 💢💢💢 优化：如果消息中已有宽高信息，则不更新实际宽高比，避免布局跳动
+          final hasMessageDimensions = widget.message.width != null &&
+              widget.message.height != null &&
+              widget.message.width! > 0 &&
+              widget.message.height! > 0;
+
           setState(() {
             _isLoading = false;
             _hasError = false;
-            _actualAspectRatio = actualRatio;
+            // 只有在消息中没有宽高信息时才使用实际宽高比
+            if (!hasMessageDimensions) {
+              _actualAspectRatio = actualRatio;
+            }
+          });
+
+          _logger.d('图片加载完成', extra: {
+            'actualRatio': actualRatio,
+            'hasMessageDimensions': hasMessageDimensions,
+            'messageWidth': widget.message.width,
+            'messageHeight': widget.message.height,
+            'willUpdateAspectRatio': !hasMessageDimensions,
           });
         }
         stream.removeListener(listener);
@@ -159,18 +176,26 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
   /// 计算图片宽高比
   double _calculateAspectRatio() {
-    // 1. 优先使用实际图片的宽高比
-    if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
-      return _actualAspectRatio!;
-    }
-
-    // 2. 如果消息中有宽高信息，使用它
+    // 1. 优先使用消息中保存的宽高信息（避免布局跳动）
     if (widget.message.width != null &&
         widget.message.height != null &&
         widget.message.width! > 0 &&
         widget.message.height! > 0) {
       final ratio = widget.message.width! / widget.message.height!;
+      _logger.d('使用消息中的宽高比', extra: {
+        'width': widget.message.width,
+        'height': widget.message.height,
+        'aspectRatio': ratio,
+      });
       return ratio;
+    }
+
+    // 2. 如果图片已加载且消息中没有宽高信息，使用实际宽高比
+    if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
+      // _logger.i('使用实际图片宽高比', extra: {
+      //   'aspectRatio': _actualAspectRatio,
+      // });
+      return _actualAspectRatio!;
     }
 
     // 3. 根据图片路径推测可能的宽高比

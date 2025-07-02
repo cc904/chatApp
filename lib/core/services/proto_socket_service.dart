@@ -263,8 +263,12 @@ class ProtoSocketService {
       return;
     }
 
+    // 💢💢💢 修复：重置重连状态，为下次重连做准备
+    _isReconnecting = false;
+    _reconnectingStateController.add(false);
+
     _reconnectTimer?.cancel();
-    _logger.i('⏱️ 安排下一次重连');
+    _logger.i('⏱️ 安排下一次重连，${_reconnectInterval.inSeconds}秒后执行');
     _reconnectTimer = Timer(_reconnectInterval, _attemptReconnect);
   }
 

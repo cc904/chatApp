@@ -7,6 +7,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/features/home/presentation/pages/home_page.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -55,6 +56,8 @@ class _AuthPageState extends State<AuthPage>
   }
 
   Widget _buildAuthPageContent(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(
@@ -86,16 +89,16 @@ class _AuthPageState extends State<AuthPage>
                         color: Colors.green[700],
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        '欢迎使用WhatsApp',
-                        style: TextStyle(
+                      Text(
+                        localizations.appName,
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        '登录您的账号',
+                        localizations.login,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -145,10 +148,10 @@ class _AuthPageState extends State<AuthPage>
                       // 手机号输入框
                       TextField(
                         controller: _phoneController,
-                        decoration: const InputDecoration(
-                          labelText: '请输入您的手机号码',
-                          prefixIcon: Icon(Icons.phone),
-                          contentPadding: EdgeInsets.symmetric(
+                        decoration: InputDecoration(
+                          labelText: localizations.username,
+                          prefixIcon: const Icon(Icons.phone),
+                          contentPadding: const EdgeInsets.symmetric(
                               vertical: 16, horizontal: 16),
                         ),
                         keyboardType: TextInputType.phone,
@@ -196,8 +199,8 @@ class _AuthPageState extends State<AuthPage>
                                       child: CircularProgressIndicator(
                                           color: Colors.white),
                                     )
-                                  : const Text('登录',
-                                      style: TextStyle(fontSize: 16)),
+                                  : Text(localizations.login,
+                                      style: const TextStyle(fontSize: 16)),
                             ),
                           );
                         },
@@ -221,7 +224,7 @@ class _AuthPageState extends State<AuthPage>
                               );
                             },
                             child: Text(
-                              '新用户注册',
+                              localizations.register,
                               style: TextStyle(color: Colors.green[700]),
                             ),
                           ),
@@ -237,7 +240,7 @@ class _AuthPageState extends State<AuthPage>
                               );
                             },
                             child: Text(
-                              '忘记密码？',
+                              localizations.forgotPassword,
                               style: TextStyle(color: Colors.green[700]),
                             ),
                           ),
@@ -270,6 +273,8 @@ class _AuthPageState extends State<AuthPage>
   }
 
   Widget _buildQuickLogin() {
+    AppLocalizations.of(context);
+
     return Row(
       children: [
         Expanded(
@@ -294,7 +299,7 @@ class _AuthPageState extends State<AuthPage>
             return ElevatedButton(
               onPressed: state.isCodeSent || state.isLoading
                   ? null
-                  : () => _authCubit.sendVerificationCode(purpose: 'login'),
+                  : () => _authCubit.sendVerificationCode('login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
@@ -323,17 +328,19 @@ class _AuthPageState extends State<AuthPage>
   }
 
   Widget _buildPasswordLogin() {
+    final localizations = AppLocalizations.of(context);
+
     return SizedBox(
         height: 70,
         child: Align(
           alignment: Alignment.center,
           child: TextField(
             controller: _passwordController,
-            decoration: const InputDecoration(
-              labelText: '请输入密码',
-              prefixIcon: Icon(Icons.lock),
+            decoration: InputDecoration(
+              labelText: localizations.password,
+              prefixIcon: const Icon(Icons.lock),
               contentPadding:
-                  EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
             obscureText: true,
             onChanged: (value) => _authCubit.updatePassword(value),
