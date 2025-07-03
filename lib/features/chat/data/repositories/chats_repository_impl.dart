@@ -9,6 +9,7 @@ import 'package:cc/core/database/models/conversation.dart' as db;
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
@@ -63,6 +64,18 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  事件处理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
+  /// 设置联系人更新监听器
+  void _setupContactUpdateListener() {
+    try {
+      final protoSocketService = ProtoSocketService();
+      protoSocketService.on('local:conversation:contact_updated',
+          _handleContactUpdatedForConversations);
+      _logger.i('联系人更新监听器设置成功');
+    } catch (e) {
+      _logger.e('设置联系人更新监听器失败', extra: {'error': e.toString()});
+    }
+  }
+
   /// 注册事件监听
   Future<void> _registerEventHandlers() async {
     if (!_communicationService.isInitialized) {
@@ -111,6 +124,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .onProto<conversation_proto.ConversationJoinLeaveResponse>(
               'conversation:leave:response')
           .listen(_handleConversationLeaveResponse));
+
+    // 监听本地联系人更新事件，用于更新私聊会话名称
+    _setupContactUpdateListener();
   }
 
   /// 获取联系人信息
@@ -684,6 +700,71 @@ class ChatsRepositoryImpl implements ChatsRepository {
       _logger.e('过滤会话失败', error: error, stackTrace: StackTrace.current);
       // 发生错误时返回空列表
       return [];
+    }
+  }
+
+  /// 更新会话信息
+  ///
+  /// 更新会话的名称或头像（群聊和频道）
+  /// [conversationId] - 会话ID
+  /// [name] - 新的会话名称
+  /// [avatar] - 新的会话头像URL
+  /// 返回是否更新成功
+  @override
+  Future<bool> updateConversationInfo(String conversationId,
+      {String? name, String? avatar}) async {
+    try {
+      _logger.i('更新会话信息', extra: {
+        'conversationId': conversationId,
+        'name': name,
+        'avatar': avatar,
+      });
+
+      // 验证参数
+      if (name == null && avatar == null) {
+        _logger.w('更新会话信息时没有提供有效参数');
+        return false;
+      }
+
+      // 1️⃣ 先更新本地数据库，乐观更新
+      final conversation = await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .findFirst();
+
+      if (conversation != null) {
+        await _isar.writeTxn(() async {
+          if (name != null) conversation.name = name;
+          if (avatar != null) conversation.avatar = avatar;
+          await _conversations.put(conversation);
+        });
+
+        _logger.d('本地会话信息已预更新', extra: {
+          'conversationId': conversationId,
+          'name': name,
+          'avatar': avatar,
+        });
+      }
+
+      // 2️⃣ 同步到服务器
+      if (_communicationService.isInitialized) {
+        _logger.i('开始同步会话信息到服务器');
+
+        final updateRequest = conversation_proto.ConversationUpdateRequest()
+          ..conversationId = conversationId;
+        if (name != null) updateRequest.name = name;
+        if (avatar != null) updateRequest.avatar = avatar;
+
+        _communicationService.emitProto('conversation:update', updateRequest);
+        _logger.i('会话信息更新请求已发送');
+        return true;
+      } else {
+        _logger.w('通信服务未初始化，无法同步会话信息');
+        return true; // 本地已更新，视为成功
+      }
+    } catch (error) {
+      _logger.e('更新会话信息失败', error: error);
+      return false;
     }
   }
 
@@ -1574,6 +1655,100 @@ class ChatsRepositoryImpl implements ChatsRepository {
       online: user.status == 'online',
       isActive: true,
     );
+  }
+
+  /// 处理联系人更新事件，更新相关的私聊会话名称
+  void _handleContactUpdatedForConversations(dynamic data) async {
+    try {
+      final contactId = data['contactId'] as String?;
+      final updatedFields =
+          (data['updatedFields'] as List?)?.cast<String>() ?? [];
+
+      if (contactId == null) {
+        _logger.w('联系人更新事件缺少contactId');
+        return;
+      }
+
+      _logger.i('收到联系人更新事件，准备更新相关会话名称', extra: {
+        'contactId': contactId,
+        'updatedFields': updatedFields,
+      });
+
+      // 只有当名称相关字段更新时才处理
+      if (!updatedFields
+          .any((field) => ['nickname', 'custom_nickname'].contains(field))) {
+        _logger.d('跳过非名称字段更新', extra: {'updatedFields': updatedFields});
+        return;
+      }
+
+      // 查找所有与此联系人相关的私聊会话
+      final relatedConversations = await _conversations
+          .filter()
+          .typeEqualTo(db.ConversationType.private)
+          .and()
+          .contactUserIdEqualTo(contactId)
+          .findAll();
+
+      if (relatedConversations.isEmpty) {
+        _logger.d('未找到与此联系人相关的私聊会话', extra: {'contactId': contactId});
+        return;
+      }
+
+      // 获取更新后的联系人信息
+      final updatedContact = await getContactById(contactId);
+      if (updatedContact == null) {
+        _logger.w('无法获取更新后的联系人信息', extra: {'contactId': contactId});
+        return;
+      }
+
+      // 更新每个相关会话的名称和参与者信息
+      await _isar.writeTxn(() async {
+        for (final conversation in relatedConversations) {
+          final oldName = conversation.name;
+
+          // 更新会话名称
+          conversation.name = updatedContact.name;
+
+          // 更新参与者信息中的名称
+          for (final participant in conversation.participants) {
+            if (participant.userId == contactId) {
+              participant.name = updatedContact.name;
+              if (updatedContact.avatar != null) {
+                participant.avatar = updatedContact.avatar!;
+              }
+              break;
+            }
+          }
+
+          // 保存会话
+          await _conversations.put(conversation);
+
+          // 发出会话更新事件
+          _notifyConversationUpdate(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: ['name', 'participants'],
+            timestamp: DateTime.now(),
+          ));
+
+          _logger.i('已更新私聊会话名称', extra: {
+            'conversationId': conversation.conversationId,
+            'contactId': contactId,
+            'oldName': oldName,
+            'newName': conversation.name,
+          });
+        }
+      });
+
+      _logger.i('联系人更新处理完成', extra: {
+        'contactId': contactId,
+        'updatedConversations': relatedConversations.length,
+      });
+    } catch (e) {
+      _logger.e('处理联系人更新事件失败', extra: {
+        'error': e.toString(),
+        'stackTrace': e is Error ? e.stackTrace.toString() : null,
+      });
+    }
   }
 
   /// 释放资源

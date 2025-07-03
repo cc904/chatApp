@@ -32,29 +32,28 @@ const UserProto$json = {
   '1': 'UserProto',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'nick_name', '3': 2, '4': 1, '5': 9, '10': 'nickName'},
     {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
     {'1': 'phone', '3': 4, '4': 1, '5': 9, '10': 'phone'},
     {'1': 'email', '3': 5, '4': 1, '5': 9, '10': 'email'},
     {'1': 'pinyin', '3': 6, '4': 1, '5': 9, '10': 'pinyin'},
     {'1': 'last_active_time', '3': 7, '4': 1, '5': 3, '10': 'lastActiveTime'},
     {'1': 'status', '3': 8, '4': 1, '5': 9, '10': 'status'},
-    {'1': 'username', '3': 10, '4': 1, '5': 9, '10': 'username'},
-    {'1': 'display_name', '3': 11, '4': 1, '5': 9, '10': 'displayName'},
     {'1': 'is_typing', '3': 12, '4': 1, '5': 8, '10': 'isTyping'},
     {'1': 'typing_in_conversation', '3': 13, '4': 1, '5': 9, '10': 'typingInConversation'},
+    {'1': 'custom_nickname', '3': 14, '4': 1, '5': 9, '10': 'customNickname'},
   ],
 };
 
 /// Descriptor for `UserProto`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List userProtoDescriptor = $convert.base64Decode(
-    'CglVc2VyUHJvdG8SFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEhIKBG5hbWUYAiABKAlSBG5hbW'
-    'USFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISFAoFcGhvbmUYBCABKAlSBXBob25lEhQKBWVtYWls'
-    'GAUgASgJUgVlbWFpbBIWCgZwaW55aW4YBiABKAlSBnBpbnlpbhIoChBsYXN0X2FjdGl2ZV90aW'
-    '1lGAcgASgDUg5sYXN0QWN0aXZlVGltZRIWCgZzdGF0dXMYCCABKAlSBnN0YXR1cxIaCgh1c2Vy'
-    'bmFtZRgKIAEoCVIIdXNlcm5hbWUSIQoMZGlzcGxheV9uYW1lGAsgASgJUgtkaXNwbGF5TmFtZR'
-    'IbCglpc190eXBpbmcYDCABKAhSCGlzVHlwaW5nEjQKFnR5cGluZ19pbl9jb252ZXJzYXRpb24Y'
-    'DSABKAlSFHR5cGluZ0luQ29udmVyc2F0aW9u');
+    'CglVc2VyUHJvdG8SFwoHdXNlcl9pZBgBIAEoCVIGdXNlcklkEhsKCW5pY2tfbmFtZRgCIAEoCV'
+    'IIbmlja05hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISFAoFcGhvbmUYBCABKAlSBXBob25l'
+    'EhQKBWVtYWlsGAUgASgJUgVlbWFpbBIWCgZwaW55aW4YBiABKAlSBnBpbnlpbhIoChBsYXN0X2'
+    'FjdGl2ZV90aW1lGAcgASgDUg5sYXN0QWN0aXZlVGltZRIWCgZzdGF0dXMYCCABKAlSBnN0YXR1'
+    'cxIbCglpc190eXBpbmcYDCABKAhSCGlzVHlwaW5nEjQKFnR5cGluZ19pbl9jb252ZXJzYXRpb2'
+    '4YDSABKAlSFHR5cGluZ0luQ29udmVyc2F0aW9uEicKD2N1c3RvbV9uaWNrbmFtZRgOIAEoCVIO'
+    'Y3VzdG9tTmlja25hbWU=');
 
 @$core.Deprecated('Use currentUserProtoDescriptor instead')
 const CurrentUserProto$json = {

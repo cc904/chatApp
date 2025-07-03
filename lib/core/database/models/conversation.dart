@@ -365,7 +365,6 @@ class Conversation {
     return lastMessageIndex > 0 ? lastMessageIndex : null;
   }
 
-
   /// 💢💢💢 新增：获取用户的新消息数量
   /// [userId] - 用户ID
   /// 返回lastMessageIndex和用户lastReadMessageIndex的差值
@@ -431,7 +430,7 @@ class Conversation {
     return lastMessageTime!.isAfter(lastReadTime!);
   }
 
-  /// 💢��💢 新增：更新用户的最后阅读时间
+  /// 💢💢💢 新增：更新用户的最后阅读时间
   /// [currentUserId] - 当前用户ID
   /// [readTime] - 阅读时间，默认为当前时间
   void updateLastReadTime(String currentUserId, {DateTime? readTime}) {
@@ -591,5 +590,28 @@ class Conversation {
           : List<Participant>.from(this.participants);
 
     return conversation;
+  }
+
+  /// 获取会话显示名称
+  ///
+  /// 私聊：返回对方参与者的名称，忽略 conversation.name
+  /// 群聊/频道：返回 conversation.name，若为空则使用默认占位
+  String displayName(String currentUserId) {
+    if (type == ConversationType.private) {
+      try {
+        final other = participants.firstWhere((p) => p.userId != currentUserId);
+        if (other.name.isNotEmpty) return other.name;
+      } catch (_) {
+        // ignore
+      }
+      return '未知联系人';
+    }
+
+    if (type == ConversationType.group) {
+      return name ?? '群聊';
+    } else if (type == ConversationType.channel) {
+      return name ?? '频道';
+    }
+    return name ?? '未知联系人';
   }
 }

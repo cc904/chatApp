@@ -1289,6 +1289,37 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 更新会话名称（群聊和频道）
+  Future<bool> updateConversationName(
+      String conversationId, String? newName) async {
+    try {
+      _logger.i('更新会话名称', extra: {
+        'conversationId': conversationId,
+        'newName': newName,
+      });
+
+      // 通过 ChatsRepository 更新会话名称
+      final success = await _chatsRepository.updateConversationInfo(
+        conversationId,
+        name: newName,
+      );
+
+      if (success) {
+        _logger.i('会话名称更新请求已发送，等待数据库监听器自动同步状态');
+      } else {
+        _logger.w('会话名称更新请求失败');
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('更新会话名称失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '更新会话名称失败: ${error.toString()}'));
+      }
+      return false;
+    }
+  }
+
   /// 更新成员角色
   Future<void> updateMemberRole(String userId, MemberRole newRole) async {
     try {

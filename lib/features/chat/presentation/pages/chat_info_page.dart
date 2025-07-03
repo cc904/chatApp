@@ -233,12 +233,6 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   // 取消编辑，恢复原始状态
                   setState(() {
                     _isEditMode = false;
-                    // 重新初始化文本控制器
-                    if (state.conversation.name != null) {
-                      _nicknameController.text = state.conversation.name!;
-                      // 备注信息可以从其他地方获取，这里先留空
-                      _remarkController.text = '';
-                    }
                   });
                 } else {
                   // 返回上一页
@@ -299,34 +293,53 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                       'remark': remark,
                     });
 
-                    // 使用联系人服务更新信息
+                    // 根据会话类型采用不同的更新策略
                     final chatCubit = context.read<ChatCubit>();
                     final conversation = chatCubit.state.conversation;
 
-                    // 获取对方用户ID (假设私聊情况下participants[1]是对方)
-                    String? contactId;
-                    if (conversation.participants.length >= 2) {
-                      final currentUserId = chatCubit.state.currentUser.userId;
-                      contactId = conversation.participants
-                          .firstWhere((p) => p.userId != currentUserId)
-                          .userId;
-                    }
+                    if (conversation.type == ConversationType.private) {
+                      // 私聊：修改联系人昵称
+                      String? contactId;
+                      if (conversation.participants.length >= 2) {
+                        final currentUserId =
+                            chatCubit.state.currentUser.userId;
+                        contactId = conversation.participants
+                            .firstWhere((p) => p.userId != currentUserId)
+                            .userId;
+                      }
 
-                    if (contactId != null) {
-                      final success =
-                          await ContactService.instance.updateContact(
-                        contactId: contactId,
-                        nickname: nickname.isNotEmpty ? nickname : null,
-                        remark: remark.isNotEmpty ? remark : null,
+                      if (contactId != null) {
+                        final success =
+                            await ContactService.instance.updateContact(
+                          contactId: contactId,
+                          nickname: nickname.isNotEmpty ? nickname : null,
+                          remark: remark.isNotEmpty ? remark : null,
+                        );
+
+                        if (success) {
+                          UINotificationService().showSuccess('联系人信息已更新');
+                        } else {
+                          UINotificationService().showError('更新失败，请重试');
+                        }
+                      } else {
+                        UINotificationService().showError('无法获取联系人信息');
+                      }
+                    } else {
+                      // 群聊和频道：修改会话名称
+                      final success = await _updateConversationName(
+                        conversation.conversationId,
+                        nickname.isNotEmpty ? nickname : null,
                       );
 
                       if (success) {
-                        UINotificationService().showSuccess('联系人信息已更新');
+                        final typeName =
+                            conversation.type == ConversationType.group
+                                ? '群聊'
+                                : '频道';
+                        UINotificationService().showSuccess('${typeName}名称已更新');
                       } else {
                         UINotificationService().showError('更新失败，请重试');
                       }
-                    } else {
-                      UINotificationService().showError('无法获取联系人信息');
                     }
 
                     setState(() {
@@ -334,6 +347,20 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     });
                   } else {
                     // 进入编辑模式
+                    final chatCubit = context.read<ChatCubit>();
+                    final conversation = chatCubit.state.conversation;
+
+                    // 💡 初始化文本控制器
+                    // 获取当前显示的联系人名称作为昵称的初始值
+                    _nicknameController.text =
+                        conversation.type == ConversationType.private
+                            ? conversation
+                                .displayName(chatCubit.state.currentUser.userId)
+                            : (conversation.name ?? '');
+
+                    // 备注信息暂时留空，未来可以从联系人数据中获取
+                    _remarkController.text = '';
+
                     setState(() {
                       _isEditMode = true;
                     });
@@ -364,6 +391,9 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   Widget _buildEditModeContent(Conversation conversation) {
     final state = context.read<ChatCubit>().state;
     final conversation = state.conversation;
+    final isPrivateChat = conversation.type == ConversationType.private;
+    final isGroup = conversation.type == ConversationType.group;
+    final isChannel = conversation.type == ConversationType.channel;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -378,7 +408,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   tag: 'chat_avatar_${conversation.conversationId}',
                   child: UserAvatar(
                     avatarUrl: conversation.avatar,
-                    name: conversation.name ?? '?',
+                    name: conversation.displayName(state.currentUser.userId),
                     radius: 50,
                     backgroundColor: Colors.cyan,
                   ),
@@ -402,29 +432,36 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     controller: _nicknameController,
                     style: const TextStyle(color: Colors.black),
                     decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context).nickname,
+                      hintText: isPrivateChat
+                          ? AppLocalizations.of(context).nickname
+                          : isGroup
+                              ? '群聊名称'
+                              : '频道名称',
                       hintStyle: const TextStyle(color: Colors.grey),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 16),
                       border: InputBorder.none,
                     ),
                   ),
-                  const Divider(
-                    height: 1,
-                    color: Color(0xFFE0E0E0),
-                    indent: 16,
-                  ),
-                  TextField(
-                    controller: _remarkController,
-                    style: const TextStyle(color: Colors.black),
-                    decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context).remark,
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 16),
-                      border: InputBorder.none,
+                  // 只有私聊才显示备注输入框
+                  if (isPrivateChat) ...[
+                    const Divider(
+                      height: 1,
+                      color: Color(0xFFE0E0E0),
+                      indent: 16,
                     ),
-                  ),
+                    TextField(
+                      controller: _remarkController,
+                      style: const TextStyle(color: Colors.black),
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(context).remark,
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -432,7 +469,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
           const SizedBox(height: 30),
 
-          // 删除联系人按钮
+          // 删除联系人/退出群聊/退出频道按钮
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
@@ -443,7 +480,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
               child: ListTile(
                 title: Center(
                   child: Text(
-                    AppLocalizations.of(context).deleteContact,
+                    isPrivateChat
+                        ? AppLocalizations.of(context).deleteContact
+                        : isGroup
+                            ? '退出群聊'
+                            : '退出频道',
                     style: const TextStyle(
                       color: Colors.red,
                       fontWeight: FontWeight.normal,
@@ -451,8 +492,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   ),
                 ),
                 onTap: () {
-                  // 删除联系人
-                  _showLeaveConfirmation(context, false);
+                  if (isPrivateChat) {
+                    // 删除联系人
+                    _showLeaveConfirmation(context, false);
+                  } else {
+                    // 退出群聊或频道
+                    _showLeaveConfirmation(context, true);
+                  }
                 },
               ),
             ),
@@ -519,7 +565,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             tag: 'chat_avatar_${state.conversation.conversationId}',
             child: UserAvatar(
               avatarUrl: state.conversation.avatar,
-              name: state.conversation.name ?? '?',
+              name: state.conversation.displayName(state.currentUser.userId),
               radius: 50,
               backgroundColor: Colors.cyan,
             ),
@@ -531,7 +577,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             child: Material(
               color: Colors.transparent,
               child: Text(
-                state.conversation.name ?? '未知联系人',
+                state.conversation.displayName(state.currentUser.userId),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -3031,6 +3077,34 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } else {
       return '${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
+  /// 更新会话名称（群聊和频道）
+  Future<bool> _updateConversationName(
+      String conversationId, String? newName) async {
+    try {
+      _logger.i('开始更新会话名称', extra: {
+        'conversationId': conversationId,
+        'newName': newName,
+      });
+
+      final chatCubit = context.read<ChatCubit>();
+      final success =
+          await chatCubit.updateConversationName(conversationId, newName);
+
+      _logger.i('会话名称更新结果', extra: {
+        'conversationId': conversationId,
+        'success': success,
+      });
+
+      return success;
+    } catch (e) {
+      _logger.e('更新会话名称失败', extra: {
+        'conversationId': conversationId,
+        'error': e.toString(),
+      });
+      return false;
     }
   }
 }

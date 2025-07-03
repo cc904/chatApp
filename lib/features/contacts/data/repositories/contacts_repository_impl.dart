@@ -7,6 +7,7 @@ import 'package:cc/core/database/models/friend_request.dart'
     as db_friend_request;
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/contacts.pb.dart';
 
@@ -282,6 +283,16 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<void> syncContacts() async {
     try {
+      // 🔄 检查应用状态，如果在后台则跳过同步
+      final appLifecycleService = AppLifecycleService.instance;
+      if (appLifecycleService.isAppInBackground) {
+        _logger.w('应用在后台状态，跳过联系人同步', extra: {
+          'currentState': appLifecycleService.currentState.toString(),
+        });
+        // 不设置错误状态，保持当前状态
+        return;
+      }
+
       // 通知开始同步
       _syncContactsStatusController.add(ContactsSyncStatus.syncing);
       _logger.i('开始联系人同步流程');
@@ -291,8 +302,13 @@ class ContactsRepositoryImpl implements ContactsRepository {
         _logger.e('当前用户信息不完整或Token无效，无法同步联系人', extra: {
           'userId': _currentUser.userId,
           'hasUserId': _currentUser.userId.isNotEmpty,
+          'appState': appLifecycleService.currentState.toString(),
         });
-        _syncContactsStatusController.add(ContactsSyncStatus.error);
+
+        // 🔄 只在应用活跃时才设置错误状态
+        if (appLifecycleService.isAppActive) {
+          _syncContactsStatusController.add(ContactsSyncStatus.error);
+        }
         return;
       }
 

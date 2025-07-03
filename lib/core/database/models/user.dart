@@ -49,12 +49,30 @@ class User {
   /// 直接从UserProto对象创建User实例
   /// 简化了在仓库中的数据转换逻辑
   ///
+  /// 💡 名称显示优先级：
+  /// 1. 自定义昵称 (customNickname) - 当前用户为此联系人设置的昵称
+  /// 2. 用户真实昵称 (nickName) - 用户本人设置的昵称
+  /// 3. 用户ID - 如果前两者都没有
+  /// 4. "未知联系人" - 兜底显示
+  ///
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
   static User fromProto(proto.UserProto proto) {
+    // 🎯 确定显示名称：优先使用自定义昵称，其次使用真实昵称
+    String displayName;
+    if (proto.hasCustomNickname() && proto.customNickname.isNotEmpty) {
+      displayName = proto.customNickname;
+    } else if (proto.hasNickName() && proto.nickName.isNotEmpty) {
+      displayName = proto.nickName;
+    } else if (proto.hasUserId() && proto.userId.isNotEmpty) {
+      displayName = proto.userId;
+    } else {
+      displayName = '未知联系人';
+    }
+
     final user = User()
       ..userId = proto.userId
-      ..name = proto.name
+      ..name = displayName // 💡 使用计算出的显示名称
       ..avatar = proto.hasAvatar() ? proto.avatar : null
       ..phone = proto.hasPhone() ? proto.phone : null
       ..email = proto.hasEmail() ? proto.email : null
@@ -84,11 +102,14 @@ class User {
   /// 用于将User对象转换为可序列化的Proto对象
   /// 便于网络传输和存储
   ///
+  /// 注意：数据库中的name字段是经过显示优先级处理后的最终显示名称，
+  /// 转换为Proto时暂时放在nickName字段中
+  ///
   /// 返回：转换后的Protocol Buffer对象
   proto.UserProto toProto() {
     return proto.UserProto(
       userId: userId,
-      name: name,
+      nickName: name, // 💡 将显示名称放在nickName字段中
       avatar: avatar,
       phone: phone,
       email: email,

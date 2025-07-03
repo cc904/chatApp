@@ -35,14 +35,25 @@ class EnhancedApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // 自动添加设备相关请求头
-          final headers = await getStandardHeaders();
-          options.headers.addAll(headers);
+          // 判断是否需要附加Token
+          final attachToken = options.extra['attachToken'] != false;
+
+          // 基础请求头（不包含Authorization）
+          final baseHeaders = await getStandardHeaders(attachToken: false);
+          options.headers.addAll(baseHeaders);
+
+          // 可选地附加Authorization
+          if (attachToken) {
+            final token = await _tokenManager.getApiToken();
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          }
 
           _logger.d('🌐 API请求', extra: {
             'method': options.method,
             'url': options.uri.toString(),
-            'deviceId': headers['x-device-id']?.toString().substring(0, 16),
+            'deviceId': baseHeaders['x-device-id']?.toString().substring(0, 16),
           });
 
           handler.next(options);
@@ -69,7 +80,8 @@ class EnhancedApiService {
   /// 获取标准请求头
   ///
   /// 返回包含设备ID、User-Agent、Content-Type等标准请求头
-  Future<Map<String, String>> getStandardHeaders() async {
+  Future<Map<String, String>> getStandardHeaders(
+      {bool attachToken = true}) async {
     try {
       final deviceId = await DeviceManager.getDeviceId();
       final userAgent = await DeviceManager.getUserAgent();
@@ -81,9 +93,11 @@ class EnhancedApiService {
       };
 
       // 如果用户已登录，添加Authorization头
-      final token = await _tokenManager.getApiToken();
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
+      if (attachToken) {
+        final token = await _tokenManager.getApiToken();
+        if (token != null && token.isNotEmpty) {
+          headers['Authorization'] = 'Bearer $token';
+        }
       }
 
       return headers;
@@ -118,12 +132,14 @@ class EnhancedApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     bool requireAuth = false,
+    bool attachToken = true,
   }) async {
     final headers = requireAuth
         ? await getAuthenticatedHeaders()
-        : await getStandardHeaders();
+        : await getStandardHeaders(attachToken: attachToken);
 
-    final requestOptions = Options(headers: headers);
+    final requestOptions =
+        Options(headers: headers, extra: {'attachToken': attachToken});
 
     return _dio.get(
       path,
@@ -139,12 +155,14 @@ class EnhancedApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     bool requireAuth = false,
+    bool attachToken = true,
   }) async {
     final headers = requireAuth
         ? await getAuthenticatedHeaders()
-        : await getStandardHeaders();
+        : await getStandardHeaders(attachToken: attachToken);
 
-    final requestOptions = Options(headers: headers);
+    final requestOptions =
+        Options(headers: headers, extra: {'attachToken': attachToken});
 
     return _dio.post(
       path,
@@ -161,12 +179,14 @@ class EnhancedApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     bool requireAuth = false,
+    bool attachToken = true,
   }) async {
     final headers = requireAuth
         ? await getAuthenticatedHeaders()
-        : await getStandardHeaders();
+        : await getStandardHeaders(attachToken: attachToken);
 
-    final requestOptions = Options(headers: headers);
+    final requestOptions =
+        Options(headers: headers, extra: {'attachToken': attachToken});
 
     return _dio.put(
       path,
@@ -183,12 +203,14 @@ class EnhancedApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     bool requireAuth = false,
+    bool attachToken = true,
   }) async {
     final headers = requireAuth
         ? await getAuthenticatedHeaders()
-        : await getStandardHeaders();
+        : await getStandardHeaders(attachToken: attachToken);
 
-    final requestOptions = Options(headers: headers);
+    final requestOptions =
+        Options(headers: headers, extra: {'attachToken': attachToken});
 
     return _dio.delete(
       path,

@@ -6,10 +6,12 @@ import 'package:cc/core/services/language_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -86,6 +88,10 @@ void main() async {
 
     // 初始化文件上传服务
     FileUploadService();
+
+    // 🔄 初始化应用生命周期服务
+    AppLifecycleService.instance.initialize();
+    logger.i('应用生命周期服务已初始化');
 
     // 初始化安全存储服务并检查是否有保存的服务器URL
     try {
@@ -220,6 +226,8 @@ class _MyAppState extends State<MyApp> {
         builder: (context, locale, child) {
           return MaterialApp(
             title: 'WhatsApp',
+            scaffoldMessengerKey:
+                UINotificationService.instance.scaffoldMessengerKey,
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
               useMaterial3: true,

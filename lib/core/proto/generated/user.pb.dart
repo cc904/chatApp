@@ -24,24 +24,23 @@ export 'user.pbenum.dart';
 class UserProto extends $pb.GeneratedMessage {
   factory UserProto({
     $core.String? userId,
-    $core.String? name,
+    $core.String? nickName,
     $core.String? avatar,
     $core.String? phone,
     $core.String? email,
     $core.String? pinyin,
     $fixnum.Int64? lastActiveTime,
     $core.String? status,
-    $core.String? username,
-    $core.String? displayName,
     $core.bool? isTyping,
     $core.String? typingInConversation,
+    $core.String? customNickname,
   }) {
     final $result = create();
     if (userId != null) {
       $result.userId = userId;
     }
-    if (name != null) {
-      $result.name = name;
+    if (nickName != null) {
+      $result.nickName = nickName;
     }
     if (avatar != null) {
       $result.avatar = avatar;
@@ -61,17 +60,14 @@ class UserProto extends $pb.GeneratedMessage {
     if (status != null) {
       $result.status = status;
     }
-    if (username != null) {
-      $result.username = username;
-    }
-    if (displayName != null) {
-      $result.displayName = displayName;
-    }
     if (isTyping != null) {
       $result.isTyping = isTyping;
     }
     if (typingInConversation != null) {
       $result.typingInConversation = typingInConversation;
+    }
+    if (customNickname != null) {
+      $result.customNickname = customNickname;
     }
     return $result;
   }
@@ -81,17 +77,16 @@ class UserProto extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'nickName')
     ..aOS(3, _omitFieldNames ? '' : 'avatar')
     ..aOS(4, _omitFieldNames ? '' : 'phone')
     ..aOS(5, _omitFieldNames ? '' : 'email')
     ..aOS(6, _omitFieldNames ? '' : 'pinyin')
     ..aInt64(7, _omitFieldNames ? '' : 'lastActiveTime')
     ..aOS(8, _omitFieldNames ? '' : 'status')
-    ..aOS(10, _omitFieldNames ? '' : 'username')
-    ..aOS(11, _omitFieldNames ? '' : 'displayName')
     ..aOB(12, _omitFieldNames ? '' : 'isTyping')
     ..aOS(13, _omitFieldNames ? '' : 'typingInConversation')
+    ..aOS(14, _omitFieldNames ? '' : 'customNickname')
     ..hasRequiredFields = false
   ;
 
@@ -118,7 +113,6 @@ class UserProto extends $pb.GeneratedMessage {
 
   /// 用户ID
   /// 系统分配的唯一标识
-  /// userId
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -128,17 +122,17 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
-  /// name
+  /// 用户昵称（用户真实昵称，对应数据库User.name字段）
   @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
+  $core.String get nickName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set name($core.String v) { $_setString(1, v); }
+  set nickName($core.String v) { $_setString(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
+  $core.bool hasNickName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
+  void clearNickName() => $_clearField(2);
 
-  /// avatar
+  /// 头像
   @$pb.TagNumber(3)
   $core.String get avatar => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -148,7 +142,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearAvatar() => $_clearField(3);
 
-  /// phone
+  /// 手机号
   @$pb.TagNumber(4)
   $core.String get phone => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -158,7 +152,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearPhone() => $_clearField(4);
 
-  /// email
+  /// 邮箱
   @$pb.TagNumber(5)
   $core.String get email => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -168,7 +162,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearEmail() => $_clearField(5);
 
-  /// pinyin
+  /// 拼音
   @$pb.TagNumber(6)
   $core.String get pinyin => $_getSZ(5);
   @$pb.TagNumber(6)
@@ -178,7 +172,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearPinyin() => $_clearField(6);
 
-  /// lastActiveTime
+  /// 最后活跃时间
   @$pb.TagNumber(7)
   $fixnum.Int64 get lastActiveTime => $_getI64(6);
   @$pb.TagNumber(7)
@@ -188,7 +182,7 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearLastActiveTime() => $_clearField(7);
 
-  /// status, 已将字段号8保留给status
+  /// 状态
   @$pb.TagNumber(8)
   $core.String get status => $_getSZ(7);
   @$pb.TagNumber(8)
@@ -199,45 +193,35 @@ class UserProto extends $pb.GeneratedMessage {
   void clearStatus() => $_clearField(8);
 
   /// 扩展字段，用于通信但数据库中没有
-  /// 用户名，可能和name相同
-  @$pb.TagNumber(10)
-  $core.String get username => $_getSZ(8);
-  @$pb.TagNumber(10)
-  set username($core.String v) { $_setString(8, v); }
-  @$pb.TagNumber(10)
-  $core.bool hasUsername() => $_has(8);
-  @$pb.TagNumber(10)
-  void clearUsername() => $_clearField(10);
-
-  /// 显示名称，可能和name相同
-  @$pb.TagNumber(11)
-  $core.String get displayName => $_getSZ(9);
-  @$pb.TagNumber(11)
-  set displayName($core.String v) { $_setString(9, v); }
-  @$pb.TagNumber(11)
-  $core.bool hasDisplayName() => $_has(9);
-  @$pb.TagNumber(11)
-  void clearDisplayName() => $_clearField(11);
-
   /// 是否正在输入
   @$pb.TagNumber(12)
-  $core.bool get isTyping => $_getBF(10);
+  $core.bool get isTyping => $_getBF(8);
   @$pb.TagNumber(12)
-  set isTyping($core.bool v) { $_setBool(10, v); }
+  set isTyping($core.bool v) { $_setBool(8, v); }
   @$pb.TagNumber(12)
-  $core.bool hasIsTyping() => $_has(10);
+  $core.bool hasIsTyping() => $_has(8);
   @$pb.TagNumber(12)
   void clearIsTyping() => $_clearField(12);
 
   /// 在哪个会话中输入
   @$pb.TagNumber(13)
-  $core.String get typingInConversation => $_getSZ(11);
+  $core.String get typingInConversation => $_getSZ(9);
   @$pb.TagNumber(13)
-  set typingInConversation($core.String v) { $_setString(11, v); }
+  set typingInConversation($core.String v) { $_setString(9, v); }
   @$pb.TagNumber(13)
-  $core.bool hasTypingInConversation() => $_has(11);
+  $core.bool hasTypingInConversation() => $_has(9);
   @$pb.TagNumber(13)
   void clearTypingInConversation() => $_clearField(13);
+
+  /// 自定义联系人昵称（当前用户为此联系人设置的昵称，对应数据库Contact.nickname字段）
+  @$pb.TagNumber(14)
+  $core.String get customNickname => $_getSZ(10);
+  @$pb.TagNumber(14)
+  set customNickname($core.String v) { $_setString(10, v); }
+  @$pb.TagNumber(14)
+  $core.bool hasCustomNickname() => $_has(10);
+  @$pb.TagNumber(14)
+  void clearCustomNickname() => $_clearField(14);
 }
 
 /// 当前登录用户信息

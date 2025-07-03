@@ -485,8 +485,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 child: Material(
                   color: Colors.transparent,
                   child: Text(
-                    state.conversation.name ??
-                        AppLocalizations.of(context).unknownContact,
+                    state.conversation.displayName(state.currentUser.userId),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -566,7 +565,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               tag: 'chat_avatar_${state.conversation.conversationId}',
               child: UserAvatar(
                 avatarUrl: state.conversation.avatar,
-                name: state.conversation.name ?? '未知联系人',
+                name: state.conversation.displayName(state.currentUser.userId),
                 radius: 18.0,
               ),
             ),

@@ -785,4 +785,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remark => 'Remark';
+
+  @override
+  String get syncFailed => 'Sync Failed';
+
+  @override
+  String get syncRetrying => 'Retrying Sync';
 }

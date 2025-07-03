@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
@@ -171,11 +172,38 @@ class _ContactsPageState extends State<ContactsPage>
         return shouldRebuild;
       },
       listener: (context, state) {
-        // 处理错误消息
+        // 🔄 智能错误处理：只在应用活跃时显示错误消息
         if (state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
-          );
+          final appLifecycleService = AppLifecycleService.instance;
+
+          // 只在应用活跃时显示错误通知
+          if (appLifecycleService.isAppActive) {
+            // 过滤同步相关的错误，避免频繁弹出
+            final isTokenError = state.errorMessage!.contains('Token') ||
+                state.errorMessage!.contains('认证') ||
+                state.errorMessage!.contains('同步');
+
+            if (!isTokenError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage!),
+                  backgroundColor: Colors.red.shade400,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else {
+              // Token/同步错误只在调试模式下显示
+              _logger.w('联系人同步错误（已过滤UI通知）', extra: {
+                'error': state.errorMessage,
+                'appState': appLifecycleService.currentState.toString(),
+              });
+            }
+          } else {
+            _logger.d('应用在后台，跳过错误通知显示', extra: {
+              'error': state.errorMessage,
+              'appState': appLifecycleService.currentState.toString(),
+            });
+          }
         }
       },
       builder: (context, state) {

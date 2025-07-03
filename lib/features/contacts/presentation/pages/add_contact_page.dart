@@ -148,11 +148,11 @@ class _AddContactPageState extends State<AddContactPage> {
 
   /// 处理用户结果点击
   void _handleUserTap(UserProto user) {
-    _logger.i('点击用户结果', extra: {'userId': user.userId, 'name': user.name});
+    _logger.i('点击用户结果', extra: {'userId': user.userId, 'name': user.nickName});
 
     // TODO: 实现用户详情页面或添加好友逻辑
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('点击了用户: ${user.name}')),
+      SnackBar(content: Text('点击了用户: ${user.nickName}')),
     );
   }
 
@@ -379,7 +379,7 @@ class _AddContactPageState extends State<AddContactPage> {
                 // 用户头像
                 UserAvatar(
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
-                  name: user.name,
+                  name: user.nickName,
                   radius: 20,
                 ),
                 const SizedBox(width: 16),
@@ -388,7 +388,7 @@ class _AddContactPageState extends State<AddContactPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.name.isNotEmpty ? user.name : '未命名用户',
+                        user.nickName.isNotEmpty ? user.nickName : '未命名用户',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,

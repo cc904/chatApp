@@ -430,4 +430,8 @@ abstract class AppLocalizations {
   // 联系人编辑相关
   String get nickname;
   String get remark;
+
+  // 同步状态相关
+  String get syncFailed;
+  String get syncRetrying;
 }

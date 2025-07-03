@@ -121,7 +121,7 @@ class ConversationItem extends StatelessWidget {
         height: 60,
         child: UserAvatar(
           avatarUrl: conversation.avatar,
-          name: conversation.name ?? '未知联系人',
+          name: conversation.displayName(currentUser.userId),
           radius: 60 / 2,
           backgroundColor: Colors.cyan,
         ),
@@ -284,15 +284,8 @@ class ConversationItem extends StatelessWidget {
   /// 获取会话显示名称，对群聊和频道名称进行长度限制
   String _getDisplayName(
       Conversation conversation, bool isGroup, bool isChannel) {
-    String name;
+    String name = conversation.displayName(currentUser.userId);
 
-    if (isGroup || isChannel) {
-      name = conversation.name ?? (isGroup ? '群聊' : '频道');
-    } else {
-      name = conversation.name ?? '未知联系人';
-    }
-
-    // 对群聊和频道名称限制在24个字符内
     if ((isGroup || isChannel) && name.length > 24) {
       return name.substring(0, 24);
     }

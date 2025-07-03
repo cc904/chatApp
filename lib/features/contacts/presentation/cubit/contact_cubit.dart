@@ -5,15 +5,17 @@ import 'package:bloc/bloc.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/contacts.pb.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/app_lifecycle_service.dart';
+import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
-import 'package:cc/core/services/proto_socket_service.dart';
 
 /// 联系人相关的业务逻辑Cubit
 class ContactCubit extends Cubit<ContactState> {
   final ContactsRepository _contactsRepository;
   final LogService _logger = LogService.instance;
+  final ProtoSocketService _protoSocketService = ProtoSocketService();
   // final CurrentUserProto _currentUser;
 
   // 保存订阅，以便在dispose时取消
@@ -32,6 +34,7 @@ class ContactCubit extends Cubit<ContactState> {
         super(ContactState.initial()) {
     _setupLocalDataSubscriptions();
     _registerProtoEventHandlers();
+    _setupAppLifecycleListener();
     _startPeriodicSync();
   }
 
@@ -147,11 +150,37 @@ class ContactCubit extends Cubit<ContactState> {
             'contactsCount': response.contacts.length
           });
           repo.handleContactsSyncResultProto(response);
-        })
+        }),
+      });
+
+      // 🆕 设置本地事件监听器（使用ProtoSocketService的on方法）
+      _setupLocalEventListeners();
+
+      _logger.i('Proto和本地事件订阅设置完成', extra: {
+        'subscribedEvents': _subscriptions.keys.toList(),
       });
     } catch (e, stack) {
       _logger.e('设置Proto事件订阅失败', error: e, stackTrace: stack);
     }
+  }
+
+  /// 设置本地事件监听器
+  void _setupLocalEventListeners() {
+    // 监听本地联系人更新事件（由ContactService发送）
+    _protoSocketService.on('local:contact:updated', (data) {
+      _logger.i('收到本地联系人更新通知', extra: data);
+      // 刷新联系人列表
+      _refreshContactsFromDatabase();
+    });
+
+    // 监听本地头像更新事件
+    _protoSocketService.on('local:avatar:updated', (data) {
+      _logger.i('收到本地头像更新通知', extra: data);
+      // 刷新联系人列表以更新头像
+      _refreshContactsFromDatabase();
+    });
+
+    _logger.d('本地事件监听器设置完成');
   }
 
   /// 加载联系人列表
@@ -354,13 +383,62 @@ class ContactCubit extends Cubit<ContactState> {
     return super.close();
   }
 
+  /// 设置应用生命周期监听
+  void _setupAppLifecycleListener() {
+    try {
+      final appLifecycleService = AppLifecycleService.instance;
+
+      // 监听应用生命周期变化
+      _subscriptions['appLifecycle'] = Stream.periodic(
+        const Duration(seconds: 1),
+        (_) => appLifecycleService.currentState,
+      ).distinct().listen((currentState) {
+        _handleAppLifecycleChange(currentState);
+      });
+
+      _logger.i('应用生命周期监听已设置');
+    } catch (e) {
+      _logger.e('设置应用生命周期监听失败', error: e);
+    }
+  }
+
+  /// 处理应用生命周期变化
+  void _handleAppLifecycleChange(CustomAppLifecycleState newState) {
+    _logger.d('联系人模块收到应用状态变化', extra: {
+      'newState': newState.toString(),
+    });
+
+    // 当应用从后台恢复到前台时
+    if (newState == CustomAppLifecycleState.resumed) {
+      _logger.i('应用恢复到前台，清除错误状态并触发同步');
+
+      // 清除错误状态
+      if (state.errorMessage != null) {
+        emit(state.copyWith(errorMessage: null));
+      }
+
+      // 延迟一段时间后触发同步，避免过于频繁
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!isClosed) {
+          syncContacts();
+        }
+      });
+    }
+  }
+
   /// 启动定期同步
   void _startPeriodicSync() {
     _logger.i('启动联系人定期同步', extra: {'interval': '${_syncInterval.inMinutes}分钟'});
     _periodicSyncTimer = Timer.periodic(_syncInterval, (timer) {
       if (!isClosed) {
-        _logger.d('定期同步联系人');
-        syncContacts();
+        // 🔄 只在应用活跃时进行定期同步
+        final appLifecycleService = AppLifecycleService.instance;
+        if (appLifecycleService.isAppActive) {
+          _logger.d('定期同步联系人');
+          syncContacts();
+        } else {
+          _logger.d('应用在后台，跳过定期同步');
+        }
       }
     });
   }

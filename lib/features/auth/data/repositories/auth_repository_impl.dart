@@ -8,6 +8,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:isar/isar.dart';
+import 'package:dio/dio.dart';
 
 /// AuthRepository的实现类
 /// 负责认证相关的业务逻辑，支持多设备登录和新Token管理
@@ -132,18 +133,20 @@ class AuthRepositoryImpl implements AuthRepository {
       final deviceInfo = await DeviceManager.getDeviceInfo();
 
       // 发送登录请求
-      final response = await _apiService.post('/api/v1/auth/login', data: {
-        'phone': username, // 修复：使用统一的字段名 'phone'
-        'password': password,
-        'loginType': 'password',
-        'device': {
-          'deviceId': deviceInfo.deviceId,
-          'deviceType': deviceInfo.deviceType,
-          'deviceModel': deviceInfo.deviceModel,
-          'osVersion': deviceInfo.osVersion,
-          'appVersion': deviceInfo.appVersion,
-        }
-      });
+      final response = await _apiService.post('/api/v1/auth/login',
+          data: {
+            'phone': username, // 修复：使用统一的字段名 'phone'
+            'password': password,
+            'loginType': 'password',
+            'device': {
+              'deviceId': deviceInfo.deviceId,
+              'deviceType': deviceInfo.deviceType,
+              'deviceModel': deviceInfo.deviceModel,
+              'osVersion': deviceInfo.osVersion,
+              'appVersion': deviceInfo.appVersion,
+            }
+          },
+          attachToken: false);
 
       final data = response.data;
       if (data['success'] != true) {
@@ -182,18 +185,20 @@ class AuthRepositoryImpl implements AuthRepository {
       final deviceInfo = await DeviceManager.getDeviceInfo();
 
       // 发送登录请求
-      final response = await _apiService.post('/api/v1/auth/login', data: {
-        'phone': username, // 修复：使用统一的字段名 'phone'
-        'verificationCode': code,
-        'loginType': 'code',
-        'device': {
-          'deviceId': deviceInfo.deviceId,
-          'deviceType': deviceInfo.deviceType,
-          'deviceModel': deviceInfo.deviceModel,
-          'osVersion': deviceInfo.osVersion,
-          'appVersion': deviceInfo.appVersion,
-        }
-      });
+      final response = await _apiService.post('/api/v1/auth/login',
+          data: {
+            'phone': username, // 修复：使用统一的字段名 'phone'
+            'verificationCode': code,
+            'loginType': 'code',
+            'device': {
+              'deviceId': deviceInfo.deviceId,
+              'deviceType': deviceInfo.deviceType,
+              'deviceModel': deviceInfo.deviceModel,
+              'osVersion': deviceInfo.osVersion,
+              'appVersion': deviceInfo.appVersion,
+            },
+          },
+          attachToken: false);
 
       final data = response.data;
       if (data['success'] != true) {
@@ -462,9 +467,17 @@ class AuthRepositoryImpl implements AuthRepository {
 
       final data = response.data;
       return data['success'] == true;
+    } on DioException catch (dioError) {
+      // 处理HTTP层面的错误
+      if (dioError.response?.statusCode == 429) {
+        // 429: Too Many Requests - 发送过于频繁
+        throw '发送过于频繁，请稍后再试';
+      }
+      _logger.e('发送验证码失败(DioException)', error: dioError);
+      throw '发送验证码失败：${dioError.message}';
     } catch (error) {
       _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
-      return false;
+      throw '发送验证码失败：${error.toString()}';
     }
   }
 

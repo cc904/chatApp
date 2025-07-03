@@ -93,6 +93,16 @@ abstract class ChatsRepository {
   /// 返回过滤后的会话列表
   Future<List<Conversation>> filterConversationsByTab(int tabIndex);
 
+  /// 更新会话信息
+  ///
+  /// 更新会话的名称或头像（群聊和频道）
+  /// [conversationId] - 会话ID
+  /// [name] - 新的会话名称
+  /// [avatar] - 新的会话头像URL
+  /// 返回是否更新成功
+  Future<bool> updateConversationInfo(String conversationId,
+      {String? name, String? avatar});
+
   /// 更新会话设置
   ///
   /// 更新会话的静音或置顶状态

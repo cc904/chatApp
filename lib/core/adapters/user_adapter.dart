@@ -1,7 +1,6 @@
 import 'package:cc/core/database/models/user.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/proto/generated/user.pb.dart' as proto;
-import 'package:fixnum/fixnum.dart';
 
 /// 用户数据适配器
 ///
@@ -22,17 +21,8 @@ class UserAdapter {
   /// [protoUser] - Proto用户对象
   /// 返回：转换后的User对象
   static User fromUserProto(proto.UserProto protoUser) {
-    return User()
-      ..userId = protoUser.userId
-      ..name = protoUser.name
-      ..avatar = protoUser.hasAvatar() ? protoUser.avatar : null
-      ..phone = protoUser.hasPhone() ? protoUser.phone : null
-      ..email = protoUser.hasEmail() ? protoUser.email : null
-      ..status = protoUser.hasStatus() ? protoUser.status : null
-      ..lastActiveTime = protoUser.hasLastActiveTime()
-          ? DateTime.fromMillisecondsSinceEpoch(
-              protoUser.lastActiveTime.toInt())
-          : null;
+    // 💡 直接使用User.fromProto方法，它已经包含了显示优先级逻辑
+    return User.fromProto(protoUser);
   }
 
   /// 将User对象转换为UserProto
@@ -40,17 +30,8 @@ class UserAdapter {
   /// [user] - 数据库用户对象
   /// 返回：转换后的Proto对象
   static proto.UserProto toUserProto(User user) {
-    return proto.UserProto(
-      userId: user.userId,
-      name: user.name,
-      avatar: user.avatar,
-      phone: user.phone,
-      email: user.email,
-      status: user.status,
-      lastActiveTime: user.lastActiveTime != null
-          ? Int64(user.lastActiveTime!.millisecondsSinceEpoch)
-          : null,
-    );
+    // 💡 直接使用User.toProto方法，它已经处理了正确的字段映射
+    return user.toProto();
   }
 
   /// 将CurrentUser对象转换为CurrentUserProto

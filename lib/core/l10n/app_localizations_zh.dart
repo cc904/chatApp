@@ -725,4 +725,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remark => '备注';
+
+  @override
+  String get syncFailed => '同步失败';
+
+  @override
+  String get syncRetrying => '正在重试同步';
 }
