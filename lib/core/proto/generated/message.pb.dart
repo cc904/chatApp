@@ -46,7 +46,6 @@ class MessageProto extends $pb.GeneratedMessage {
     $core.int? index,
     MessageType? type,
     MessageStatus? status,
-    $core.String? tempId,
     $core.String? quotedMessageId,
     $core.bool? isEdited,
     $fixnum.Int64? editedAt,
@@ -95,9 +94,6 @@ class MessageProto extends $pb.GeneratedMessage {
     }
     if (status != null) {
       $result.status = status;
-    }
-    if (tempId != null) {
-      $result.tempId = tempId;
     }
     if (quotedMessageId != null) {
       $result.quotedMessageId = quotedMessageId;
@@ -179,7 +175,6 @@ class MessageProto extends $pb.GeneratedMessage {
     ..a<$core.int>(8, _omitFieldNames ? '' : 'index', $pb.PbFieldType.O3)
     ..e<MessageType>(9, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: MessageType.TEXT, valueOf: MessageType.valueOf, enumValues: MessageType.values)
     ..e<MessageStatus>(10, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: MessageStatus.SENDING, valueOf: MessageStatus.valueOf, enumValues: MessageStatus.values)
-    ..aOS(11, _omitFieldNames ? '' : 'tempId')
     ..aOS(21, _omitFieldNames ? '' : 'quotedMessageId')
     ..aOB(24, _omitFieldNames ? '' : 'isEdited')
     ..aInt64(25, _omitFieldNames ? '' : 'editedAt')
@@ -225,6 +220,9 @@ class MessageProto extends $pb.GeneratedMessage {
   void clearContent() => $_clearField($_whichOneof(0));
 
   /// 主要字段，完全匹配数据库模型
+  /// 🔥🔥🔥 消息ID - 客户端必须提供（UUID格式）
+  /// 支持UUID v4格式或至少15位的字母数字下划线组合
+  /// 示例: "f47ac10b-58cc-4372-a567-0e02b2c3d479" 或 "custom_message_id_1234567890"
   @$pb.TagNumber(1)
   $core.String get messageId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -320,186 +318,175 @@ class MessageProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearStatus() => $_clearField(10);
 
-  /// 💢💢💢 临时消息ID - 客户端发送时使用
-  /// 发送消息时客户端生成，收到服务器返回的真实ID后使用messageId
-  @$pb.TagNumber(11)
-  $core.String get tempId => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set tempId($core.String v) { $_setString(10, v); }
-  @$pb.TagNumber(11)
-  $core.bool hasTempId() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearTempId() => $_clearField(11);
-
   /// 引用消息
   @$pb.TagNumber(21)
-  $core.String get quotedMessageId => $_getSZ(11);
+  $core.String get quotedMessageId => $_getSZ(10);
   @$pb.TagNumber(21)
-  set quotedMessageId($core.String v) { $_setString(11, v); }
+  set quotedMessageId($core.String v) { $_setString(10, v); }
   @$pb.TagNumber(21)
-  $core.bool hasQuotedMessageId() => $_has(11);
+  $core.bool hasQuotedMessageId() => $_has(10);
   @$pb.TagNumber(21)
   void clearQuotedMessageId() => $_clearField(21);
 
   /// 编辑相关字段
   /// 是否已编辑
   @$pb.TagNumber(24)
-  $core.bool get isEdited => $_getBF(12);
+  $core.bool get isEdited => $_getBF(11);
   @$pb.TagNumber(24)
-  set isEdited($core.bool v) { $_setBool(12, v); }
+  set isEdited($core.bool v) { $_setBool(11, v); }
   @$pb.TagNumber(24)
-  $core.bool hasIsEdited() => $_has(12);
+  $core.bool hasIsEdited() => $_has(11);
   @$pb.TagNumber(24)
   void clearIsEdited() => $_clearField(24);
 
   /// 编辑时间
   @$pb.TagNumber(25)
-  $fixnum.Int64 get editedAt => $_getI64(13);
+  $fixnum.Int64 get editedAt => $_getI64(12);
   @$pb.TagNumber(25)
-  set editedAt($fixnum.Int64 v) { $_setInt64(13, v); }
+  set editedAt($fixnum.Int64 v) { $_setInt64(12, v); }
   @$pb.TagNumber(25)
-  $core.bool hasEditedAt() => $_has(13);
+  $core.bool hasEditedAt() => $_has(12);
   @$pb.TagNumber(25)
   void clearEditedAt() => $_clearField(25);
 
   /// 回复和转发
   /// 回复的消息ID
   @$pb.TagNumber(31)
-  $core.String get repliedToMessageId => $_getSZ(14);
+  $core.String get repliedToMessageId => $_getSZ(13);
   @$pb.TagNumber(31)
-  set repliedToMessageId($core.String v) { $_setString(14, v); }
+  set repliedToMessageId($core.String v) { $_setString(13, v); }
   @$pb.TagNumber(31)
-  $core.bool hasRepliedToMessageId() => $_has(14);
+  $core.bool hasRepliedToMessageId() => $_has(13);
   @$pb.TagNumber(31)
   void clearRepliedToMessageId() => $_clearField(31);
 
   /// 转发来源会话ID
   @$pb.TagNumber(32)
-  $core.String get forwardedFromConversationId => $_getSZ(15);
+  $core.String get forwardedFromConversationId => $_getSZ(14);
   @$pb.TagNumber(32)
-  set forwardedFromConversationId($core.String v) { $_setString(15, v); }
+  set forwardedFromConversationId($core.String v) { $_setString(14, v); }
   @$pb.TagNumber(32)
-  $core.bool hasForwardedFromConversationId() => $_has(15);
+  $core.bool hasForwardedFromConversationId() => $_has(14);
   @$pb.TagNumber(32)
   void clearForwardedFromConversationId() => $_clearField(32);
 
   /// 转发来源消息ID
   @$pb.TagNumber(33)
-  $core.String get forwardedFromMessageId => $_getSZ(16);
+  $core.String get forwardedFromMessageId => $_getSZ(15);
   @$pb.TagNumber(33)
-  set forwardedFromMessageId($core.String v) { $_setString(16, v); }
+  set forwardedFromMessageId($core.String v) { $_setString(15, v); }
   @$pb.TagNumber(33)
-  $core.bool hasForwardedFromMessageId() => $_has(16);
+  $core.bool hasForwardedFromMessageId() => $_has(15);
   @$pb.TagNumber(33)
   void clearForwardedFromMessageId() => $_clearField(33);
 
   /// 消息反应（点赞、表情等）
   /// 反应类型 -> 用户ID列表（逗号分隔）
   @$pb.TagNumber(34)
-  $pb.PbMap<$core.String, $core.int> get reactions => $_getMap(17);
+  $pb.PbMap<$core.String, $core.int> get reactions => $_getMap(16);
 
   /// 消息标记
   /// 消息标签
   @$pb.TagNumber(36)
-  $pb.PbList<$core.String> get tags => $_getList(18);
+  $pb.PbList<$core.String> get tags => $_getList(17);
 
   /// 是否置顶
   @$pb.TagNumber(37)
-  $core.bool get isPinned => $_getBF(19);
+  $core.bool get isPinned => $_getBF(18);
   @$pb.TagNumber(37)
-  set isPinned($core.bool v) { $_setBool(19, v); }
+  set isPinned($core.bool v) { $_setBool(18, v); }
   @$pb.TagNumber(37)
-  $core.bool hasIsPinned() => $_has(19);
+  $core.bool hasIsPinned() => $_has(18);
   @$pb.TagNumber(37)
   void clearIsPinned() => $_clearField(37);
 
   @$pb.TagNumber(38)
-  TextMessage get textMessage => $_getN(20);
+  TextMessage get textMessage => $_getN(19);
   @$pb.TagNumber(38)
   set textMessage(TextMessage v) { $_setField(38, v); }
   @$pb.TagNumber(38)
-  $core.bool hasTextMessage() => $_has(20);
+  $core.bool hasTextMessage() => $_has(19);
   @$pb.TagNumber(38)
   void clearTextMessage() => $_clearField(38);
   @$pb.TagNumber(38)
-  TextMessage ensureTextMessage() => $_ensure(20);
+  TextMessage ensureTextMessage() => $_ensure(19);
 
   @$pb.TagNumber(39)
-  MediaMessage get mediaMessage => $_getN(21);
+  MediaMessage get mediaMessage => $_getN(20);
   @$pb.TagNumber(39)
   set mediaMessage(MediaMessage v) { $_setField(39, v); }
   @$pb.TagNumber(39)
-  $core.bool hasMediaMessage() => $_has(21);
+  $core.bool hasMediaMessage() => $_has(20);
   @$pb.TagNumber(39)
   void clearMediaMessage() => $_clearField(39);
   @$pb.TagNumber(39)
-  MediaMessage ensureMediaMessage() => $_ensure(21);
+  MediaMessage ensureMediaMessage() => $_ensure(20);
 
   @$pb.TagNumber(41)
-  SystemMessage get systemMessage => $_getN(22);
+  SystemMessage get systemMessage => $_getN(21);
   @$pb.TagNumber(41)
   set systemMessage(SystemMessage v) { $_setField(41, v); }
   @$pb.TagNumber(41)
-  $core.bool hasSystemMessage() => $_has(22);
+  $core.bool hasSystemMessage() => $_has(21);
   @$pb.TagNumber(41)
   void clearSystemMessage() => $_clearField(41);
   @$pb.TagNumber(41)
-  SystemMessage ensureSystemMessage() => $_ensure(22);
+  SystemMessage ensureSystemMessage() => $_ensure(21);
 
   @$pb.TagNumber(42)
-  StickerMessage get stickerMessage => $_getN(23);
+  StickerMessage get stickerMessage => $_getN(22);
   @$pb.TagNumber(42)
   set stickerMessage(StickerMessage v) { $_setField(42, v); }
   @$pb.TagNumber(42)
-  $core.bool hasStickerMessage() => $_has(23);
+  $core.bool hasStickerMessage() => $_has(22);
   @$pb.TagNumber(42)
   void clearStickerMessage() => $_clearField(42);
   @$pb.TagNumber(42)
-  StickerMessage ensureStickerMessage() => $_ensure(23);
+  StickerMessage ensureStickerMessage() => $_ensure(22);
 
   @$pb.TagNumber(43)
-  ContactMessage get contactMessage => $_getN(24);
+  ContactMessage get contactMessage => $_getN(23);
   @$pb.TagNumber(43)
   set contactMessage(ContactMessage v) { $_setField(43, v); }
   @$pb.TagNumber(43)
-  $core.bool hasContactMessage() => $_has(24);
+  $core.bool hasContactMessage() => $_has(23);
   @$pb.TagNumber(43)
   void clearContactMessage() => $_clearField(43);
   @$pb.TagNumber(43)
-  ContactMessage ensureContactMessage() => $_ensure(24);
+  ContactMessage ensureContactMessage() => $_ensure(23);
 
   @$pb.TagNumber(44)
-  PollMessage get pollMessage => $_getN(25);
+  PollMessage get pollMessage => $_getN(24);
   @$pb.TagNumber(44)
   set pollMessage(PollMessage v) { $_setField(44, v); }
   @$pb.TagNumber(44)
-  $core.bool hasPollMessage() => $_has(25);
+  $core.bool hasPollMessage() => $_has(24);
   @$pb.TagNumber(44)
   void clearPollMessage() => $_clearField(44);
   @$pb.TagNumber(44)
-  PollMessage ensurePollMessage() => $_ensure(25);
+  PollMessage ensurePollMessage() => $_ensure(24);
 
   @$pb.TagNumber(45)
-  LinkMessage get linkMessage => $_getN(26);
+  LinkMessage get linkMessage => $_getN(25);
   @$pb.TagNumber(45)
   set linkMessage(LinkMessage v) { $_setField(45, v); }
   @$pb.TagNumber(45)
-  $core.bool hasLinkMessage() => $_has(26);
+  $core.bool hasLinkMessage() => $_has(25);
   @$pb.TagNumber(45)
   void clearLinkMessage() => $_clearField(45);
   @$pb.TagNumber(45)
-  LinkMessage ensureLinkMessage() => $_ensure(26);
+  LinkMessage ensureLinkMessage() => $_ensure(25);
 
   @$pb.TagNumber(46)
-  MembershipMessage get membershipMessage => $_getN(27);
+  MembershipMessage get membershipMessage => $_getN(26);
   @$pb.TagNumber(46)
   set membershipMessage(MembershipMessage v) { $_setField(46, v); }
   @$pb.TagNumber(46)
-  $core.bool hasMembershipMessage() => $_has(27);
+  $core.bool hasMembershipMessage() => $_has(26);
   @$pb.TagNumber(46)
   void clearMembershipMessage() => $_clearField(46);
   @$pb.TagNumber(46)
-  MembershipMessage ensureMembershipMessage() => $_ensure(27);
+  MembershipMessage ensureMembershipMessage() => $_ensure(26);
 }
 
 /// 文本消息内容
@@ -1485,9 +1472,9 @@ class MessageSendResponse extends $pb.GeneratedMessage {
     $core.bool? success,
     $core.String? msg,
     $core.String? conversationId,
-    $core.String? tempId,
     $core.String? messageId,
     $core.int? messageIndex,
+    $fixnum.Int64? createdAt,
   }) {
     final $result = create();
     if (success != null) {
@@ -1499,14 +1486,14 @@ class MessageSendResponse extends $pb.GeneratedMessage {
     if (conversationId != null) {
       $result.conversationId = conversationId;
     }
-    if (tempId != null) {
-      $result.tempId = tempId;
-    }
     if (messageId != null) {
       $result.messageId = messageId;
     }
     if (messageIndex != null) {
       $result.messageIndex = messageIndex;
+    }
+    if (createdAt != null) {
+      $result.createdAt = createdAt;
     }
     return $result;
   }
@@ -1518,9 +1505,9 @@ class MessageSendResponse extends $pb.GeneratedMessage {
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'msg')
     ..aOS(3, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(4, _omitFieldNames ? '' : 'tempId')
-    ..aOS(5, _omitFieldNames ? '' : 'messageId')
-    ..a<$core.int>(6, _omitFieldNames ? '' : 'messageIndex', $pb.PbFieldType.O3)
+    ..aOS(4, _omitFieldNames ? '' : 'messageId')
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'messageIndex', $pb.PbFieldType.O3)
+    ..aInt64(6, _omitFieldNames ? '' : 'createdAt')
     ..hasRequiredFields = false
   ;
 
@@ -1573,34 +1560,35 @@ class MessageSendResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearConversationId() => $_clearField(3);
 
-  @$pb.TagNumber(4)
-  $core.String get tempId => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set tempId($core.String v) { $_setString(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasTempId() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearTempId() => $_clearField(4);
-
   /// 消息ID
-  @$pb.TagNumber(5)
-  $core.String get messageId => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set messageId($core.String v) { $_setString(4, v); }
-  @$pb.TagNumber(5)
-  $core.bool hasMessageId() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearMessageId() => $_clearField(5);
+  @$pb.TagNumber(4)
+  $core.String get messageId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set messageId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasMessageId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMessageId() => $_clearField(4);
 
   /// 消息索引
+  @$pb.TagNumber(5)
+  $core.int get messageIndex => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set messageIndex($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasMessageIndex() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMessageIndex() => $_clearField(5);
+
+  /// 服务器时间戳 - 用于客户端正确排序消息
   @$pb.TagNumber(6)
-  $core.int get messageIndex => $_getIZ(5);
+  $fixnum.Int64 get createdAt => $_getI64(5);
   @$pb.TagNumber(6)
-  set messageIndex($core.int v) { $_setSignedInt32(5, v); }
+  set createdAt($fixnum.Int64 v) { $_setInt64(5, v); }
   @$pb.TagNumber(6)
-  $core.bool hasMessageIndex() => $_has(5);
+  $core.bool hasCreatedAt() => $_has(5);
   @$pb.TagNumber(6)
-  void clearMessageIndex() => $_clearField(6);
+  void clearCreatedAt() => $_clearField(6);
 }
 
 /// 输入状态
@@ -2499,7 +2487,6 @@ class MessageRevokeRequest extends $pb.GeneratedMessage {
   factory MessageRevokeRequest({
     $core.String? messageId,
     $core.String? conversationId,
-    $core.String? tempId,
   }) {
     final $result = create();
     if (messageId != null) {
@@ -2507,9 +2494,6 @@ class MessageRevokeRequest extends $pb.GeneratedMessage {
     }
     if (conversationId != null) {
       $result.conversationId = conversationId;
-    }
-    if (tempId != null) {
-      $result.tempId = tempId;
     }
     return $result;
   }
@@ -2520,7 +2504,6 @@ class MessageRevokeRequest extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageRevokeRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'messageId')
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(3, _omitFieldNames ? '' : 'tempId')
     ..hasRequiredFields = false
   ;
 
@@ -2564,16 +2547,6 @@ class MessageRevokeRequest extends $pb.GeneratedMessage {
   $core.bool hasConversationId() => $_has(1);
   @$pb.TagNumber(2)
   void clearConversationId() => $_clearField(2);
-
-  /// 💢💢💢 临时消息ID - 当消息还没有正式ID时使用
-  @$pb.TagNumber(3)
-  $core.String get tempId => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set tempId($core.String v) { $_setString(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasTempId() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearTempId() => $_clearField(3);
 }
 
 /// 消息撤回响应
@@ -2695,7 +2668,6 @@ class MessageDeleteRequest extends $pb.GeneratedMessage {
   factory MessageDeleteRequest({
     $core.String? messageId,
     $core.String? conversationId,
-    $core.String? tempId,
   }) {
     final $result = create();
     if (messageId != null) {
@@ -2703,9 +2675,6 @@ class MessageDeleteRequest extends $pb.GeneratedMessage {
     }
     if (conversationId != null) {
       $result.conversationId = conversationId;
-    }
-    if (tempId != null) {
-      $result.tempId = tempId;
     }
     return $result;
   }
@@ -2716,7 +2685,6 @@ class MessageDeleteRequest extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MessageDeleteRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'messageId')
     ..aOS(2, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(3, _omitFieldNames ? '' : 'tempId')
     ..hasRequiredFields = false
   ;
 
@@ -2760,16 +2728,6 @@ class MessageDeleteRequest extends $pb.GeneratedMessage {
   $core.bool hasConversationId() => $_has(1);
   @$pb.TagNumber(2)
   void clearConversationId() => $_clearField(2);
-
-  /// 💢💢💢 临时消息ID - 当消息还没有正式ID时使用
-  @$pb.TagNumber(3)
-  $core.String get tempId => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set tempId($core.String v) { $_setString(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasTempId() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearTempId() => $_clearField(3);
 }
 
 /// 消息删除响应

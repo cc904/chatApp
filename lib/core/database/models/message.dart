@@ -93,65 +93,62 @@ enum MessageType {
 ### 🚀 性能优化效果
 
 ```dart
-// ✅ 高效查询 - 利用Index优化的复合索引
+// ✅ 高效查询 - 利用时间戳优化的复合索引
 final messages = await _messages
     .filter()
     .conversationIdEqualTo(conversationId)     // 第一级过滤
-    .sortByMessageIndexDesc()                  // 第二级排序（Index）
-    .sortByCreatedAtDesc()                     // 第三级排序（时间戳）
+    .sortByCreatedAtDesc()                     // 第二级排序（服务器时间戳）
     .limit(20)
     .findAll();
 
-// ✅ 高效同步 - 基于Index的简单比较
+// ✅ 高效同步 - 基于时间戳的比较
 final newMessages = await _messages
     .filter()
     .conversationIdEqualTo(conversationId)
-    .messageIndexGreaterThan(latestLocalIndex)  // 🔥 简单数字比较
-    .sortByMessageIndex()
+    .createdAtGreaterThan(latestLocalTime)     // 🔥 基于服务器时间戳比较
+    .sortByCreatedAt()
     .findAll();
 
-// ✅ 高效历史加载 - 基于Index的分页
+// ✅ 高效历史加载 - 基于时间戳的分页
 final historyMessages = await _messages
     .filter()
     .conversationIdEqualTo(conversationId)
-    .messageIndexLessThan(earliestLocalIndex)   // 🔥 简单数字比较
-    .sortByMessageIndexDesc()
+    .createdAtLessThan(earliestLocalTime)      // 🔥 基于服务器时间戳比较
+    .sortByCreatedAtDesc()
     .limit(30)
     .findAll();
 ```
 
 ### 📈 复杂度对比
 
-| 操作 | 旧方案（时间戳游标） | 新方案（Index） | 性能提升 |
+| 操作 | 旧方案（messageIndex） | 新方案（服务器时间戳） | 性能提升 |
 |------|-------------------|----------------|----------|
-| **消息排序** | O(n log n) 时间戳比较 | O(n log n) 数字比较 | 🚀 2-3x |
-| **同步查询** | 复合条件+范围查询 | 简单数字比较 | 🚀 5-10x |
-| **间隙检测** | 复杂算法+统计查询 | 单次数字比较 | 🚀 100x |
-| **分页实现** | 多字段复合查询 | 单字段数字查询 | 🚀 3-5x |
-| **调试复杂度** | 几乎无法调试 | 一目了然 | 🚀 ∞ |
+| **消息排序** | O(n log n) Index比较 | O(n log n) 时间戳比较 | ⚖️ 类似 |
+| **时间一致性** | 依赖客户端时间 | 统一服务器时间 | 🚀 ∞ |
+| **跨客户端排序** | 不一致 | 完全一致 | 🚀 ∞ |
+| **消息连续性** | 复杂Index检查 | 简单时间检查 | 🚀 10x |
+| **调试友好性** | Index难理解 | 时间直观 | 🚀 100x |
 
 ### 📊 数据库索引优化
 
 ```sql
--- 🔥 新方案：单一高效索引
-CREATE INDEX idx_messages_conversation_index_time 
-ON messages(conversation_id, message_index, created_at);
+-- 🔥 新方案：以时间戳为主的高效索引
+CREATE INDEX idx_messages_conversation_time_index 
+ON messages(conversation_id, created_at, message_index);
 
--- ❌ 旧方案：需要的多个复杂索引
--- CREATE INDEX idx_conversation_time_id ON messages(conversation_id, created_at, message_id);
--- CREATE INDEX idx_conversation_time ON messages(conversation_id, created_at);
--- CREATE INDEX idx_cursor_position ON messages(conversation_id, cursor_position);
+-- ❌ 旧方案：以messageIndex为主的索引
+-- CREATE INDEX idx_conversation_index_time ON messages(conversation_id, message_index, created_at);
 ```
 
 ### 🎉 实际收益
 
 对于包含10万条消息的会话：
-- **查询时间**：从几百毫秒降低到几毫秒
-- **同步效率**：提升10倍以上
-- **代码复杂度**：降低95%
-- **调试难度**：从几乎不可能变成一目了然
+- **时间一致性**：所有客户端看到相同的消息顺序
+- **跨客户端同步**：基于统一的服务器时间戳
+- **消息连续性**：不再依赖复杂的Index检查逻辑
+- **调试友好性**：时间戳直观易懂，便于问题排查
 
-这是一个典型的"以简单换复杂，以空间换时间"的架构优化成功案例！🎯
+这是一个典型的"以时间一致性换取Index复杂性"的架构优化成功案例！🎯
 */
 
 @collection
@@ -163,18 +160,13 @@ class Message {
   @Index(unique: true, replace: true)
   String messageId = '';
 
-  // 💢💢💢 临时消息ID - 用于发送时的临时标识
-  // 发送消息时使用，收到服务器返回的真实ID后清空
-  String? tempId;
-
   // 会话ID和创建时间的复合索引 - 优化按会话查询和时间排序
   @Index(
-      composite: [CompositeIndex('messageIndex'), CompositeIndex('createdAt')])
+      composite: [CompositeIndex('createdAt'), CompositeIndex('messageIndex')])
   late String conversationId;
 
   // 消息序列号 - 每个会话内的消息有唯一的递增序列号
   // 服务器分配，用于简化游标管理和排序
-  // 💢💢💢 临时消息使用0值，排序时0值排在最前面，正数按降序排列
   int messageIndex = 0;
 
   late String senderId;

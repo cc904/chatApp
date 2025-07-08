@@ -87,8 +87,7 @@ class MediaUploadIntegrationService {
         message.width = dimensions.width;
         message.height = dimensions.height;
         _logger.d('设置图片尺寸到消息', extra: {
-          'messageId':
-              message.messageId.isNotEmpty ? message.messageId : message.tempId,
+          'messageId': message.messageId,
           'width': dimensions.width,
           'height': dimensions.height,
         });
@@ -252,6 +251,7 @@ class MediaUploadIntegrationService {
   }
 
   /// 发送文档消息的完整流程
+  /// 智能识别文件类型，图片文件自动使用图片上传端点
   Future<Message> sendDocumentMessage({
     required File documentFile,
     required String conversationId,
@@ -260,52 +260,139 @@ class MediaUploadIntegrationService {
     Function(String)? onStatusUpdate,
   }) async {
     try {
-      onStatusUpdate?.call('准备上传文档...');
+      onStatusUpdate?.call('准备上传文件...');
 
-      // 1. 获取文件信息
-      final fileSize = documentFile.lengthSync().toDouble();
-      final fileName = documentFile.path.split('/').last;
+      // 智能检测文件类型
+      final mediaType = _getMediaTypeFromFile(documentFile);
 
-      // 2. 上传文档文件
-      onStatusUpdate?.call('正在上传文档...');
-      final uploadResult = await _uploadService.uploadDocument(
-        documentFile,
-        conversationId: conversationId,
-        caption: caption,
-        onProgress: onUploadProgress,
-      );
+      // 根据文件类型选择合适的上传方法
+      UploadApiResult uploadResult;
+      Message message;
 
-      // 3. 发送消息
-      onStatusUpdate?.call('正在发送消息...');
-      final message = await _chatRepo.sendFileMessage(
-        conversationId,
-        documentFile.path,
-        fileName,
-        fileSize,
-        mediaUrl: uploadResult.url,
-      );
+      switch (mediaType) {
+        case MediaType.image:
+          // 图片文件使用图片上传端点，确保生成缩略图
+          _logger.i('检测到图片文件，使用图片上传端点');
+          onStatusUpdate?.call('正在上传图片...');
 
-      // 4. 更新消息的服务器信息
+          final dimensions = await _getImageDimensions(documentFile);
+          uploadResult = await _uploadService.uploadImage(
+            documentFile,
+            conversationId: conversationId,
+            caption: caption,
+            width: dimensions?.width,
+            height: dimensions?.height,
+            onProgress: onUploadProgress,
+          );
+
+          // 发送图片消息
+          onStatusUpdate?.call('正在发送消息...');
+          message = await _chatRepo.sendImageMessage(
+            conversationId,
+            documentFile.path,
+            mediaUrl: uploadResult.url,
+            caption: caption,
+          );
+
+          // 设置图片尺寸信息
+          if (dimensions != null) {
+            message.width = dimensions.width;
+            message.height = dimensions.height;
+          }
+          break;
+
+        case MediaType.video:
+          // 视频文件使用视频上传端点，确保生成缩略图
+          _logger.i('检测到视频文件，使用视频上传端点');
+          onStatusUpdate?.call('正在上传视频...');
+
+          final videoInfo = await _getVideoInfo(documentFile);
+          uploadResult = await _uploadService.uploadVideo(
+            documentFile,
+            conversationId: conversationId,
+            duration: videoInfo['duration'] as int?,
+            width: videoInfo['width'] as int?,
+            height: videoInfo['height'] as int?,
+            caption: caption,
+            onProgress: onUploadProgress,
+          );
+
+          // 发送视频消息
+          onStatusUpdate?.call('正在发送消息...');
+          message = await _chatRepo.sendVideoMessage(
+            conversationId,
+            documentFile.path,
+            (videoInfo['duration'] as int? ?? 0) ~/ 1000,
+            thumbnailUrl: uploadResult.thumbnailUrl,
+            mediaUrl: uploadResult.url,
+            isServerProcessed: true,
+          );
+          break;
+
+        default:
+          // 其他文件类型使用文档上传端点
+          _logger.i('检测到文档文件，使用文档上传端点');
+          onStatusUpdate?.call('正在上传文档...');
+
+          uploadResult = await _uploadService.uploadDocument(
+            documentFile,
+            conversationId: conversationId,
+            caption: caption,
+            onProgress: onUploadProgress,
+          );
+
+          // 发送文档消息
+          onStatusUpdate?.call('正在发送消息...');
+          final fileName = documentFile.path.split('/').last;
+          final fileSize = documentFile.lengthSync().toDouble();
+
+          message = await _chatRepo.sendFileMessage(
+            conversationId,
+            documentFile.path,
+            fileName,
+            fileSize,
+            mediaUrl: uploadResult.url,
+          );
+          break;
+      }
+
+      // 更新消息的服务器信息
       if (uploadResult.metadata != null) {
         message.fileSize = uploadResult.metadata!.size.toDouble();
         message.mimeType = uploadResult.metadata!.mimeType;
-        message.fileName = uploadResult.metadata!.originalName;
-        if (uploadResult.thumbnailUrl != null) {
-          message.thumbnailUrl = uploadResult.thumbnailUrl!;
+
+        // 对于图片和视频，更新尺寸信息
+        if (mediaType == MediaType.image || mediaType == MediaType.video) {
+          if (uploadResult.metadata!.width != null) {
+            message.width = uploadResult.metadata!.width!;
+          }
+          if (uploadResult.metadata!.height != null) {
+            message.height = uploadResult.metadata!.height!;
+          }
+          if (uploadResult.thumbnailUrl != null) {
+            message.thumbnailUrl = uploadResult.thumbnailUrl!;
+          }
+        }
+
+        // 对于视频，更新时长信息
+        if (mediaType == MediaType.video &&
+            uploadResult.metadata!.duration != null) {
+          message.duration = uploadResult.metadata!.duration!;
         }
       }
 
-      onStatusUpdate?.call('文档消息发送成功');
-      _logger.i('文档消息发送完成', extra: {
+      onStatusUpdate?.call('文件消息发送成功');
+      _logger.i('文件消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
         'fileId': uploadResult.fileId,
-        'fileName': fileName,
+        'mediaType': mediaType.toString(),
+        'hasThumbnail': uploadResult.thumbnailUrl != null,
       });
 
       return message;
     } catch (error) {
-      _logger.e('发送文档消息失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('发送文件消息失败', error: error, stackTrace: StackTrace.current);
       onStatusUpdate?.call('发送失败: $error');
       rethrow;
     }

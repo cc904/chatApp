@@ -19,6 +19,7 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/contact_service.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage({
@@ -96,6 +97,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         } else {
           _muteAnimController.value = 0.0;
         }
+      }
+    });
+
+    // 页面加载后同步当前会话详情
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ChatCubit>().syncCurrentConversation();
       }
     });
   }
@@ -255,7 +263,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                           )
                         : const Icon(
                             Icons.arrow_back_ios,
-                            color: Colors.blue,
+                            color: AppColors.primary,
                             size: 18,
                           ),
                     const SizedBox(width: 2),
@@ -266,7 +274,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                             : AppLocalizations.of(context).back,
                         style: TextStyle(
                           fontSize: 17,
-                          color: _isEditMode ? Colors.red : Colors.blue,
+                          color: _isEditMode ? Colors.red : AppColors.primary,
                           fontWeight: FontWeight.normal,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -336,7 +344,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                             conversation.type == ConversationType.group
                                 ? '群聊'
                                 : '频道';
-                        UINotificationService().showSuccess('${typeName}名称已更新');
+                        UINotificationService().showSuccess('$typeName名称已更新');
                       } else {
                         UINotificationService().showError('更新失败，请重试');
                       }
@@ -372,7 +380,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                       : AppLocalizations.of(context).edit,
                   style: const TextStyle(
                     fontSize: 17,
-                    color: Colors.blue,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.normal,
                   ),
                 ),
@@ -393,7 +401,6 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     final conversation = state.conversation;
     final isPrivateChat = conversation.type == ConversationType.private;
     final isGroup = conversation.type == ConversationType.group;
-    final isChannel = conversation.type == ConversationType.channel;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -618,15 +625,15 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         children: [
           // 私聊显示call和video
           if (isPrivate) ...[
-            _buildActionButton(Icons.call, 'call', Colors.blue),
-            _buildActionButton(Icons.videocam, 'video', Colors.blue),
+            _buildActionButton(Icons.call, 'call', AppColors.primary),
+            _buildActionButton(Icons.videocam, 'video', AppColors.primary),
             _buildMuteButton(),
-            _buildActionButton(Icons.search, 'search', Colors.blue),
+            _buildActionButton(Icons.search, 'search', AppColors.primary),
             _buildMoreButton(),
           ] else ...[
             // 群聊和频道只显示4个按钮：mute、search、leave、more
             _buildMuteButton(),
-            _buildActionButton(Icons.search, 'search', Colors.blue),
+            _buildActionButton(Icons.search, 'search', AppColors.primary),
             _buildLeaveButton(),
             _buildMoreButton(),
           ],
@@ -726,7 +733,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                               opacity: 1 - _rotateAnimation.value,
                               child: const Icon(
                                 Icons.notifications_none,
-                                color: Colors.blue,
+                                color: AppColors.primary,
                                 size: 26,
                               ),
                             ),
@@ -734,7 +741,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                               opacity: _rotateAnimation.value,
                               child: const Icon(
                                 Icons.notifications_off_outlined,
-                                color: Colors.blue,
+                                color: AppColors.primary,
                                 size: 26,
                               ),
                             ),
@@ -777,7 +784,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                           key: ValueKey<bool>(isMuted),
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.blue,
+                            color: AppColors.primary,
                           ),
                         );
                       },
@@ -912,13 +919,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.more_horiz, color: Colors.blue, size: 26),
+                    const Icon(Icons.more_horiz, color: AppColors.primary, size: 26),
                     const SizedBox(height: 6),
                     Text(
                       AppLocalizations.of(context).more,
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.blue,
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
@@ -1143,7 +1150,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                     '@$displayId',
                                     style: const TextStyle(
                                       fontSize: 16,
-                                      color: Colors.blue,
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -1183,7 +1190,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                       decoration: BoxDecoration(
                                         color: _isCopied
                                             ? Colors.green.withAlpha(26)
-                                            : Colors.blue.withAlpha(26),
+                                            : AppColors.primary.withAlpha(26),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: AnimatedSwitcher(
@@ -1214,7 +1221,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                             : const Icon(
                                                 key: ValueKey('copy'),
                                                 Icons.copy,
-                                                color: Colors.blue,
+                                                color: AppColors.primary,
                                                 size: 16,
                                               ),
                                       ),
@@ -1243,7 +1250,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   child: IconButton(
                     icon: const Icon(
                       Icons.qr_code,
-                      color: Colors.blue,
+                      color: AppColors.primary,
                       size: 28,
                     ),
                     onPressed: () {
@@ -1330,7 +1337,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                       _isDescriptionExpanded ? 'less' : 'more',
                                       style: const TextStyle(
                                         fontSize: 14,
-                                        color: Colors.blue,
+                                        color: AppColors.primary,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -1402,7 +1409,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 children: [
                   Icon(
                     Icons.person_add,
-                    color: Colors.blue,
+                    color: AppColors.primary,
                     size: 24,
                   ),
                   SizedBox(width: 12),
@@ -1410,7 +1417,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     'Add Members',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.blue,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1558,7 +1565,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       case 'ceo':
         return Colors.purple[100]!;
       case 'admin':
-        return Colors.blue[100]!;
+        return AppColors.primary.withAlpha(26);
       default:
         return Colors.grey[200]!;
     }
@@ -1570,7 +1577,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       case 'ceo':
         return Colors.purple[700]!;
       case 'admin':
-        return Colors.blue[700]!;
+        return AppColors.primary;
       default:
         return Colors.grey[700]!;
     }
@@ -1646,8 +1653,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             TabBar(
               controller: _tabController, // 💢💢💢 使用手动管理的TabController
               isScrollable: true,
-              indicatorColor: Colors.blue,
-              labelColor: Colors.blue,
+              indicatorColor: AppColors.primary,
+              labelColor: AppColors.primary,
               unselectedLabelColor: Colors.grey,
               labelStyle: const TextStyle(
                 fontSize: 16,
@@ -1681,21 +1688,23 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 构建Tab内容
   Widget _buildTabContent(String tabName, Conversation conversation) {
-    switch (tabName) {
-      case 'Members':
-        return _buildMembersTabContent(conversation);
-      case 'Media':
-        return _buildMediaTabContent();
-      case 'Files':
-        return _buildFilesTabContent();
-      case 'Music':
-        return _buildMusicTabContent();
-      case 'Voice':
-        return _buildVoiceTabContent();
-      case 'Links':
-        return _buildLinksTabContent();
-      default:
-        return _buildEmptyTabContent(tabName);
+    // 🔧 修复：使用本地化字符串进行匹配，而不是硬编码的英文字符串
+    final localizations = AppLocalizations.of(context);
+
+    if (tabName == localizations.members) {
+      return _buildMembersTabContent(conversation);
+    } else if (tabName == localizations.media) {
+      return _buildMediaTabContent();
+    } else if (tabName == localizations.files) {
+      return _buildFilesTabContent();
+    } else if (tabName == localizations.music) {
+      return _buildMusicTabContent();
+    } else if (tabName == localizations.chatVoice) {
+      return _buildVoiceTabContent();
+    } else if (tabName == localizations.chatLinks) {
+      return _buildLinksTabContent();
+    } else {
+      return _buildEmptyTabContent(tabName);
     }
   }
 
@@ -1730,7 +1739,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 children: [
                   Icon(
                     Icons.person_add,
-                    color: Colors.blue,
+                    color: AppColors.primary,
                     size: 24,
                   ),
                   SizedBox(width: 12),
@@ -1738,7 +1747,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     'Add Members',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.blue,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1799,8 +1808,9 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       actions.add(
         SlidableAction(
           onPressed: (context) => _toggleAdminRole(participant),
-          backgroundColor:
-              participant.role == MemberRole.admin ? Colors.green : Colors.blue,
+          backgroundColor: participant.role == MemberRole.admin
+              ? Colors.green
+              : AppColors.primary,
           foregroundColor: Colors.white,
           icon: participant.role == MemberRole.admin
               ? Icons.admin_panel_settings
@@ -1991,7 +2001,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: TextButton.styleFrom(
-                foregroundColor: isCurrentlyAdmin ? Colors.orange : Colors.blue,
+                foregroundColor:
+                    isCurrentlyAdmin ? Colors.orange : AppColors.primary,
               ),
               child: Text(confirmText),
             ),
@@ -2262,7 +2273,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       case MemberRole.owner:
         return Colors.orange[100]!;
       case MemberRole.admin:
-        return Colors.blue[100]!;
+        return AppColors.primary.withAlpha(26);
       case MemberRole.member:
         return Colors.grey[200]!;
     }
@@ -2274,7 +2285,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       case MemberRole.owner:
         return Colors.orange[700]!;
       case MemberRole.admin:
-        return Colors.blue[700]!;
+        return AppColors.primary;
       case MemberRole.member:
         return Colors.grey[700]!;
     }
@@ -2806,9 +2817,108 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   /// 构建缩略图图片
   Widget _buildThumbnailImage(Message message) {
     final thumbnailUrl = message.thumbnailUrl;
+    final mediaUrl = message.mediaUrl;
     final localPath = message.localPath;
 
-    // 优先使用本地缩略图文件
+    // 1. 优先使用缩略图URL
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      if (thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://')) {
+        return Image.network(
+          thumbnailUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return _buildFallbackThumbnail(message);
+          },
+        );
+      } else if (thumbnailUrl.startsWith('file://')) {
+        final filePath = thumbnailUrl.substring(7);
+        final file = File(filePath);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackThumbnail(message);
+            },
+          );
+        }
+      } else {
+        // 直接的文件路径
+        final file = File(thumbnailUrl);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackThumbnail(message);
+            },
+          );
+        }
+      }
+    }
+
+    // 2. 如果有媒体URL，尝试加载网络图片
+    if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+        return Image.network(
+          mediaUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return _buildFallbackThumbnail(message);
+          },
+        );
+      } else if (mediaUrl.startsWith('file://')) {
+        final filePath = mediaUrl.substring(7);
+        final file = File(filePath);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackThumbnail(message);
+            },
+          );
+        }
+      } else {
+        // 直接的文件路径
+        final file = File(mediaUrl);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackThumbnail(message);
+            },
+          );
+        }
+      }
+    }
+
+    // 3. 最后才尝试使用本地路径（仅当其他都失败时）
     if (localPath != null && localPath.isNotEmpty) {
       final localFile = File(localPath);
       if (localFile.existsSync()) {
@@ -2820,52 +2930,6 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           },
         );
       }
-    }
-
-    // 如果有缩略图URL，使用网络缩略图
-    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-      return Image.network(
-        thumbnailUrl,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return _buildFallbackThumbnail(message);
-        },
-      );
-    }
-
-    // 如果有媒体URL，尝试加载网络图片
-    if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) {
-      return Image.network(
-        message.mediaUrl!,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return _buildFallbackThumbnail(message);
-        },
-      );
     }
 
     // 兜底方案
@@ -2945,8 +3009,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     switch (message.type) {
       case MessageType.image:
         iconData = Icons.image;
-        iconColor = Colors.blue[700]!;
-        backgroundColor = Colors.blue[100]!;
+        iconColor = AppColors.primary;
+        backgroundColor = AppColors.primary.withAlpha(26);
         break;
       case MessageType.video:
         iconData = Icons.videocam;
@@ -2965,8 +3029,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         break;
       default: // 链接消息（文本类型但包含链接）
         iconData = Icons.link;
-        iconColor = Colors.blue[700]!;
-        backgroundColor = Colors.blue[100]!;
+        iconColor = AppColors.primary;
+        backgroundColor = AppColors.primary.withAlpha(26);
         break;
     }
 

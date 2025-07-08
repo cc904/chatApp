@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 未读消息指示器按钮
 ///
@@ -149,7 +150,7 @@ class _UnreadIndicatorButtonState extends State<UnreadIndicatorButton>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.blue,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
@@ -334,8 +335,8 @@ class _SecondaryJumpButtonState extends State<SecondaryJumpButton>
                   ),
                   child: Text(
                     widget.primaryText,
-                    style: TextStyle(
-                      color: Colors.blue.shade700,
+                    style: const TextStyle(
+                      color: AppColors.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -364,8 +365,8 @@ class _SecondaryJumpButtonState extends State<SecondaryJumpButton>
                   ),
                   child: Text(
                     widget.secondaryText,
-                    style: TextStyle(
-                      color: Colors.blue.shade700,
+                    style: const TextStyle(
+                      color: AppColors.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),

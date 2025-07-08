@@ -15,6 +15,7 @@ import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'dart:io';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 创建群聊页面
 /// 设置群聊信息：头像、名称、设置等
@@ -324,13 +325,14 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
                   )
                 : const Text(
                     'Create',
                     style: TextStyle(
-                      color: Colors.blue,
+                      color: AppColors.primary,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -377,7 +379,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: Colors.blue[100],
+                color: AppColors.primary.withAlpha(25),
                 shape: BoxShape.circle,
               ),
               child: _groupAvatarPath != null
@@ -541,15 +543,15 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
+        color: AppColors.primary.withAlpha(13),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue[200]!),
+        border: Border.all(color: AppColors.primary.withAlpha(51)),
       ),
       child: Text(
         time,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 12,
-          color: Colors.blue[700],
+          color: AppColors.primary,
         ),
       ),
     );

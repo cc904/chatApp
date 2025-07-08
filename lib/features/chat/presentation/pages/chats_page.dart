@@ -2,6 +2,7 @@ import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 import 'package:cc/features/chat/presentation/widgets/new_conversation_bottom_sheet.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
@@ -191,7 +192,7 @@ class _ChatsPageState extends State<ChatsPage>
                   automaticallyImplyLeading: false,
                   floating: true,
                   snap: true,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: AppColors.surfaceVariant,
                   title: _buildSearchBox(),
                   titleSpacing: 0,
                 ),
@@ -263,9 +264,9 @@ class _ChatsPageState extends State<ChatsPage>
 
         return Container(
           decoration: BoxDecoration(
-            color: Colors.grey[200],
-            border: const Border(
-              bottom: BorderSide(color: Colors.grey, width: 0.5),
+            color: AppColors.surfaceVariant,
+            border: Border(
+              bottom: BorderSide(color: AppColors.divider, width: 0.5),
             ),
           ),
           child: SingleChildScrollView(
@@ -309,7 +310,7 @@ class _ChatsPageState extends State<ChatsPage>
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isSelected ? Colors.blue : Colors.transparent,
+              color: isSelected ? AppColors.primary : Colors.transparent,
               width: 2.0,
             ),
           ),
@@ -321,7 +322,7 @@ class _ChatsPageState extends State<ChatsPage>
             // 使用 DefaultTextStyle.merge 确保文本在选中和非选中状态下保持相同宽度
             DefaultTextStyle.merge(
               style: TextStyle(
-                color: isSelected ? Colors.blue : Colors.grey,
+                color: isSelected ? AppColors.primary : AppColors.textTertiary,
                 fontWeight: FontWeight.bold, // 始终使用粗体，但通过不同的透明度区分选中状态
                 fontSize: 14,
               ),
@@ -338,8 +339,8 @@ class _ChatsPageState extends State<ChatsPage>
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: hasNewMessages
-                      ? Colors.blue
-                      : Colors.grey, // 根据是否有新消息决定颜色
+                      ? AppColors.primary
+                      : AppColors.grey500, // 根据是否有新消息决定颜色
                   borderRadius: BorderRadius.circular(10),
                 ),
                 constraints: const BoxConstraints(
@@ -386,8 +387,8 @@ class _ChatsPageState extends State<ChatsPage>
           // );
         },
       ),
-      backgroundColor: Colors.grey[200],
-      foregroundColor: Colors.black,
+      backgroundColor: AppColors.surfaceVariant,
+      foregroundColor: AppColors.textPrimary,
       elevation: 0,
       automaticallyImplyLeading: false, // 禁用默认返回按钮
 
@@ -401,7 +402,7 @@ class _ChatsPageState extends State<ChatsPage>
         child: Text(
           AppLocalizations.of(context).edit,
           style: const TextStyle(
-            color: Colors.blue,
+            color: AppColors.primary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -411,7 +412,7 @@ class _ChatsPageState extends State<ChatsPage>
       actions: [
         // 新建会话按钮
         IconButton(
-          icon: const Icon(Icons.edit_square, color: Colors.blue),
+          icon: const Icon(Icons.edit_square, color: AppColors.primary),
           onPressed: () {
             _logger.d('新建会话按钮点击');
             _showNewConversationBottomSheet();
@@ -573,7 +574,7 @@ class _ChatsPageState extends State<ChatsPage>
                           });
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+                          backgroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),

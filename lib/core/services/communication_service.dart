@@ -21,9 +21,8 @@ class CommunicationService {
   Stream<bool> get isConnectedStream => _socketService.connectionStateStream
       .map((status) => status == SocketConnectionStatus.connected);
 
-  // 获取重连状态流
-  Stream<bool> get reconnectingStateStream =>
-      _socketService.reconnectingStateStream;
+  // 💢💢💢 移除：不再需要单独的重连状态流
+  // Stream<bool> get reconnectingStateStream => ...
 
   // 实例变量
   final Map<String, StreamController<GeneratedMessage>> _eventControllers = {};

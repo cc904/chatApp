@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'package:cc/core/database/models/current_user.dart';
+
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -8,7 +9,9 @@ import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 import 'package:isar/isar.dart';
+import 'package:uuid/uuid.dart';
 
 /// ChatRepositorySend的实现类
 /// 专门负责消息发送相关的功能
@@ -17,6 +20,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   final CurrentUser _currentUser;
   final ChatRepository _chatRepository;
   final LogService _logger = LogService.instance;
+  final Uuid _uuid = const Uuid(); // 💢💢💢 新增UUID生成器
 
   // 数据库实例
   Isar get _isar => DatabaseInitializer.isar;
@@ -123,7 +127,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         await _communicationService.emitProto('message:send', protoMsg);
 
     _logger.i('💌 消息发送请求已发出', extra: {
-      'tempId': message.tempId, // 💢💢💢 使用临时ID
+      'messageId': message.messageId, // 💢💢💢 使用messageId
       'sendSuccess': sendSuccess,
       'conversationId': message.conversationId,
       'type': message.type.name,
@@ -132,23 +136,24 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
     // 如果立即发送失败（如网络断开），直接标记为失败
     if (!sendSuccess) {
       _logger.w('💌 消息发送立即失败，网络连接问题', extra: {
-        'tempId': message.tempId, // 💢💢💢 使用临时ID
+        'messageId': message.messageId, // 💢💢💢 使用messageId
       });
-      await markMessageAsFailed(message.tempId!, '网络连接失败'); // 💢💢💢 传递tempId
+      await markMessageAsFailed(
+          message.messageId, '网络连接失败'); // 💢💢💢 传递messageId
       return;
     }
 
     // 超时处理 - 延长超时时间到10秒，给网络更多时间
     Timer(timeout, () async {
       final currentMessage =
-          await getMessageById(message.tempId!); // 💢💢💢 使用tempId查找
+          await getMessageById(message.messageId); // 💢💢💢 使用messageId查找
       if (currentMessage?.status == MessageStatus.sending) {
         _logger.w('💌 消息发送超时', extra: {
-          'tempId': message.tempId, // 💢💢💢 使用临时ID
+          'messageId': message.messageId, // 💢💢💢 使用messageId
           'timeoutSeconds': timeout.inSeconds,
         });
-        await markMessageAsFailed(
-            message.tempId!, '发送超时(${timeout.inSeconds}秒)'); // 💢💢💢 传递tempId
+        await markMessageAsFailed(message.messageId,
+            '发送超时(${timeout.inSeconds}秒)'); // 💢💢💢 传递messageId
       }
     });
   }
@@ -173,11 +178,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 根据消息ID获取消息
   @override
   Future<Message?> getMessageById(String messageId) async {
-    // 💢💢💢 如果是临时ID，按tempId查找
-    if (messageId.startsWith('temp_')) {
-      return await _messages.filter().tempIdEqualTo(messageId).findFirst();
-    }
-    // 否则按正常messageId查找
+    // 💢💢💢 直接按messageId查找
     return await _messages.filter().messageIdEqualTo(messageId).findFirst();
   }
 
@@ -211,11 +212,11 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         message.status = status;
       }
       // 更新其他字段，如更新时间
-      message.updatedAt = DateTime.now();
+      message.updatedAt = TimezoneUtils.nowUtc(); // 🌍 使用UTC时间
       await _messages.put(message);
     });
 
-    await _notifyMessageUpdated(message);
+    await _notifyMessagesEventd(message);
   }
 
   /// 获取消息发送状态流
@@ -224,24 +225,22 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
     return _messageSendStatusController.stream;
   }
 
-  /// 创建消息
+  /// 创建消息对象
   Future<Message> _createMessage(
       String conversationId, String text, MessageType type) async {
-    // 💢💢💢 生成临时ID，用于客户端本地标识
-    final tempId =
-        'temp_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}';
+    // 💢💢💢 使用UUID生成唯一的消息ID
+    final messageId = _uuid.v4();
 
     final message = Message()
-      ..messageId = '' // 💢💢💢 初始时为空，等待服务器返回真实ID
-      ..tempId = tempId // 💢💢💢 设置临时ID
+      ..messageId = messageId // 💢💢💢 直接使用UUID作为messageId
       ..conversationId = conversationId
       ..senderId = _currentUser.userId
       ..senderName = _currentUser.name
       ..type = type
       ..text = text.isEmpty ? null : text
       ..status = MessageStatus.sending
-      ..messageIndex = 0 // 💢💢💢 临时消息使用0值，排序时0值排在最前面
-      ..createdAt = DateTime.now();
+      ..messageIndex = 0 // 💢💢💢 初始为0，等待服务器返回真实索引
+      ..createdAt = TimezoneUtils.nowUtc(); // 🌍 使用UTC时间创建
 
     return message;
   }
@@ -262,27 +261,12 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   }
 
   /// 💢💢💢 新增：通知ChatRepository发出消息更新事件
-  Future<void> _notifyMessageUpdated(Message message) async {
+  Future<void> _notifyMessagesEventd(Message message) async {
     try {
-      // 💢💢💢 修复：如果messageId为空，使用tempId
-      final messageIdentifier =
-          message.messageId.isNotEmpty ? message.messageId : message.tempId;
-
-      if (messageIdentifier == null || messageIdentifier.isEmpty) {
-        _logger.w('消息缺少有效标识符，无法发送更新事件', extra: {
-          'messageId': message.messageId,
-          'tempId': message.tempId,
-        });
-        return;
-      }
-
-      // 💢💢💢 使用公共接口方法，传递messageId和tempId
+      // 💢💢💢 直接使用messageId
       _chatRepository.notifyMessageUpdate(MessageUpdatedEvent(
         conversationId: message.conversationId,
-        messageId: message.messageId.isNotEmpty
-            ? message.messageId
-            : '', // 💢💢💢 messageId，可能为空
-        tempId: message.tempId, // 💢💢💢 传递tempId
+        messageId: message.messageId, // 💢💢💢 使用messageId
         updatedFields: {
           'status': message.status.name,
           'updatedAt': message.updatedAt?.toIso8601String(),

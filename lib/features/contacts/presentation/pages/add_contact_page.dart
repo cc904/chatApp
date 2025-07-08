@@ -9,6 +9,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/universal_search_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
+import 'package:cc/core/database/models/current_user.dart';
 
 /// 添加联系人页面 - 仿微信风格
 class AddContactPage extends StatefulWidget {
@@ -150,10 +151,246 @@ class _AddContactPageState extends State<AddContactPage> {
   void _handleUserTap(UserProto user) {
     _logger.i('点击用户结果', extra: {'userId': user.userId, 'name': user.nickName});
 
-    // TODO: 实现用户详情页面或添加好友逻辑
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('点击了用户: ${user.nickName}')),
+    // 显示添加好友对话框
+    _showAddFriendDialog(user);
+  }
+
+  /// 显示添加好友对话框
+  void _showAddFriendDialog(UserProto user) {
+    final TextEditingController messageController = TextEditingController();
+    final currentUser = context.read<CurrentUser>();
+    messageController.text = '我是${currentUser.name}'; // 默认消息
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '添加好友',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 用户信息展示
+            Row(
+              children: [
+                UserAvatar(
+                  avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
+                  name: user.nickName,
+                  radius: 25,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.nickName.isNotEmpty ? user.nickName : '未命名用户',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF191919),
+                        ),
+                      ),
+                      Text(
+                        'ID: ${user.userId}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF8A8A8A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 申请消息输入框
+            const Text(
+              '申请理由',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: messageController,
+              maxLength: 100,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: '请输入申请理由...',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF999999),
+                  fontSize: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFE5E5E5),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF07C160),
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              '取消',
+              style: TextStyle(
+                color: Color(0xFF999999),
+                fontSize: 16,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final message = messageController.text.trim();
+              if (message.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('请输入申请理由'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop(); // 关闭对话框
+
+              // 发送好友申请
+              await _sendFriendRequest(user.userId, message, user.nickName);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF07C160),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 10,
+              ),
+            ),
+            child: const Text(
+              '发送',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  /// 发送好友申请
+  Future<void> _sendFriendRequest(
+      String targetUserId, String message, String targetUserName) async {
+    try {
+      _logger.i('发送好友申请', extra: {
+        'targetUserId': targetUserId,
+        'message': message,
+        'targetUserName': targetUserName,
+      });
+
+      // 显示加载状态
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF07C160),
+          ),
+        ),
+      );
+
+      final contactCubit = context.read<ContactCubit>();
+      final success =
+          await contactCubit.sendFriendRequest(targetUserId, message);
+
+      // 关闭加载对话框
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (success) {
+        // 显示成功消息
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('好友申请已发送给 $targetUserName'),
+              backgroundColor: const Color(0xFF07C160),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+
+        _logger.i('好友申请发送成功', extra: {
+          'event': 'friend:request:send',
+          'targetUserId': targetUserId,
+          'targetUserName': targetUserName,
+        });
+      } else {
+        // 显示失败消息
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('好友申请发送失败，请稍后重试'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+
+        _logger.w('好友申请发送失败', extra: {
+          'event': 'friend:request:send',
+          'targetUserId': targetUserId,
+          'targetUserName': targetUserName,
+        });
+      }
+    } catch (error) {
+      // 关闭加载对话框
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      _logger.e('发送好友申请异常', error: error, extra: {
+        'event': 'friend:request:send',
+        'targetUserId': targetUserId,
+        'targetUserName': targetUserName,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送好友申请时出现错误: ${error.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   /// 处理会话结果点击

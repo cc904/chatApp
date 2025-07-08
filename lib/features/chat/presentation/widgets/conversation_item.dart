@@ -8,6 +8,8 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
+import 'package:cc/core/constants/app_colors.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 
 /// 会话列表项组件
 ///
@@ -76,7 +78,7 @@ class ConversationItem extends StatelessWidget {
               width: double.infinity, // 确保宽度占满整行
               // 为置顶会话添加浅色背景
               color: conversation.isPinned(currentUser.userId)
-                  ? Colors.blue.withAlpha(15)
+                  ? AppColors.primary.withAlpha(15)
                   : Colors.transparent,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
@@ -123,7 +125,7 @@ class ConversationItem extends StatelessWidget {
           avatarUrl: conversation.avatar,
           name: conversation.displayName(currentUser.userId),
           radius: 60 / 2,
-          backgroundColor: Colors.cyan,
+          backgroundColor: AppColors.primary,
         ),
       ),
     );
@@ -153,7 +155,7 @@ class ConversationItem extends StatelessWidget {
                       child: Icon(
                         Icons.push_pin,
                         size: 16,
-                        color: Colors.blue,
+                        color: AppColors.primary,
                       ),
                     ),
 
@@ -164,7 +166,7 @@ class ConversationItem extends StatelessWidget {
                       child: Icon(
                         Icons.group,
                         size: 16,
-                        color: Colors.blue,
+                        color: AppColors.primary,
                       ),
                     )
                   else if (isChannel)
@@ -173,7 +175,7 @@ class ConversationItem extends StatelessWidget {
                       child: Icon(
                         Icons.campaign,
                         size: 16,
-                        color: Colors.blue,
+                        color: AppColors.primary,
                       ),
                     ),
 
@@ -240,7 +242,7 @@ class ConversationItem extends StatelessWidget {
               text: '${conversation.lastMessageName}: ',
               style: TextStyle(
                 fontSize: 13,
-                color: isChannel ? Colors.purple : Colors.blue,
+                color: isChannel ? Colors.purple : AppColors.primary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -305,13 +307,18 @@ class ConversationItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly, // 均匀分布
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // 时间
-            Text(
-              _defaultFormatTime(conversation.lastMessageTime),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+            // 时间 - 使用FutureBuilder显示时区转换后的时间
+            FutureBuilder<String>(
+              future: _formatTime(conversation.lastMessageTime),
+              builder: (context, snapshot) {
+                return Text(
+                  snapshot.data ?? '...',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                );
+              },
             ),
             // 未读数
             if (conversation.unreadCount(currentUser.userId) > 0)
@@ -323,6 +330,31 @@ class ConversationItem extends StatelessWidget {
       ),
     );
   }
+
+  /// 格式化时间 - 支持时区转换
+  Future<String> _formatTime(DateTime? time) async {
+    if (time == null) return '';
+
+    // 🌍 使用时区工具进行智能格式化
+    final localTime = await TimezoneUtils.toUserTimezone(time);
+    final now = await TimezoneUtils.toUserTimezone(TimezoneUtils.nowUtc());
+    final difference = now.difference(localTime);
+
+    // 今天内的消息显示时间
+    if (difference.inDays == 0) {
+      return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+    }
+    // 一周内的消息显示星期
+    else if (difference.inDays < 7) {
+      final weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      return weekdays[(localTime.weekday - 1) % 7];
+    }
+    // 更早的消息显示日期
+    else {
+      return '${localTime.year}-${localTime.month.toString().padLeft(2, '0')}-${localTime.day.toString().padLeft(2, '0')}';
+    }
+  }
+
 
   /// 构建未读消息徽章
   Widget _buildUnreadBadge(Conversation conversation) {
@@ -339,7 +371,7 @@ class ConversationItem extends StatelessWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isNewMessage ? Colors.blue : Colors.grey,
+        color: isNewMessage ? AppColors.primary : AppColors.grey500,
         borderRadius: BorderRadius.circular(12),
       ),
       constraints: const BoxConstraints(
@@ -433,27 +465,6 @@ class ConversationItem extends StatelessWidget {
           ),
         );
       }
-    }
-  }
-
-  /// 默认的时间格式化函数
-  String _defaultFormatTime(DateTime? time) {
-    if (time == null) return '';
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    // 今天内的消息显示时间
-    if (difference.inDays == 0) {
-      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    }
-    // 一周内的消息显示星期
-    else if (difference.inDays < 7) {
-      final weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-      return weekdays[(time.weekday - 1) % 7];
-    }
-    // 更早的消息显示日期
-    else {
-      return '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')}';
     }
   }
 

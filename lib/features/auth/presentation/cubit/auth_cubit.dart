@@ -8,15 +8,13 @@ import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
 
 import 'package:cc/core/services/auth_token_sync_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
+import 'package:cc/core/utils/api_error_handler.dart';
 
 part 'auth_state.dart';
 
 final _logger = LogService.instance;
 
 class AuthCubit extends Cubit<AuthState> {
-  Timer? _countdownTimer;
-  static const int countdownDuration = 60;
-
   // 认证仓库
   final AuthRepository _authRepository;
   final EnhancedTokenManager _tokenManager = EnhancedTokenManager.instance;
@@ -92,38 +90,17 @@ class AuthCubit extends Cubit<AuthState> {
       if (success) {
         emit(state.updateCodeSentStatus(
           isCodeSent: true,
-          countdown: countdownDuration,
+          countdown: null,
         ));
-        _startCountdown();
         _logger.i('验证码发送成功');
       } else {
         emit(state.toErrorState('验证码发送失败，请重试'));
       }
     } catch (error) {
       _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState('发送验证码失败：${error.toString()}'));
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      emit(state.toErrorState(errorMessage));
     }
-  }
-
-  void _startCountdown() {
-    _logger.x('开始倒计时', extra: {'duration': countdownDuration});
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (isClosed) {
-        timer.cancel();
-        return;
-      }
-
-      final newCountdown = (state.countdown ?? 0) - 1;
-      if (newCountdown <= 0) {
-        timer.cancel();
-        if (!isClosed) {
-          emit(state.updateCodeSentStatus(isCodeSent: false, countdown: null));
-        }
-      } else {
-        if (!isClosed) emit(state.copyWith(countdown: newCountdown));
-      }
-    });
   }
 
   /// 使用令牌登录
@@ -254,7 +231,8 @@ class AuthCubit extends Cubit<AuthState> {
       ));
     } catch (error) {
       _logger.e('登录失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState('登录失败: ${error.toString()}'));
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      emit(state.toErrorState(errorMessage));
     }
   }
 
@@ -325,7 +303,8 @@ class AuthCubit extends Cubit<AuthState> {
       ));
     } catch (error) {
       _logger.e('注册失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState('注册失败: ${error.toString()}'));
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      emit(state.toErrorState(errorMessage));
     }
   }
 
@@ -347,7 +326,8 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('用户已登出');
     } catch (error) {
       _logger.e('登出失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState('登出失败: ${error.toString()}'));
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      emit(state.toErrorState(errorMessage));
     }
   }
 
@@ -383,14 +363,14 @@ class AuthCubit extends Cubit<AuthState> {
       }
     } catch (error) {
       _logger.e('重置密码失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState('重置密码失败: ${error.toString()}'));
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      emit(state.toErrorState(errorMessage));
     }
   }
 
   @override
   Future<void> close() {
     _logger.x('关闭AuthCubit');
-    _countdownTimer?.cancel();
     return super.close();
   }
 }

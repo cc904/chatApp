@@ -13,6 +13,7 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 新建对话底部弹窗
 class NewConversationBottomSheet extends StatefulWidget {
@@ -266,7 +267,7 @@ class _NewConversationBottomSheetState
                 l10n.cancel,
                 style: const TextStyle(
                   fontSize: 16,
-                  color: Colors.blue,
+                  color: AppColors.primary,
                 ),
               ),
             ),
@@ -286,7 +287,7 @@ class _NewConversationBottomSheetState
           children: [
             GestureDetector(
               onTap: _backToMainPage,
-              child: const Icon(Icons.arrow_back, color: Colors.blue),
+              child: const Icon(Icons.arrow_back, color: AppColors.primary),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -312,7 +313,7 @@ class _NewConversationBottomSheetState
                 l10n.cancel,
                 style: const TextStyle(
                   fontSize: 16,
-                  color: Colors.blue,
+                  color: AppColors.primary,
                 ),
               ),
             ),
@@ -322,8 +323,9 @@ class _NewConversationBottomSheetState
               child: Text(
                 l10n.next,
                 style: TextStyle(
-                  color:
-                      _selectedContacts.isNotEmpty ? Colors.blue : Colors.grey,
+                  color: _selectedContacts.isNotEmpty
+                      ? AppColors.primary
+                      : Colors.grey,
                   fontSize: 16,
                 ),
               ),
@@ -345,7 +347,7 @@ class _NewConversationBottomSheetState
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              const Icon(Icons.group_add, color: Colors.blue),
+              const Icon(Icons.group_add, color: AppColors.primary),
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: _switchToGroupPage,
@@ -353,7 +355,7 @@ class _NewConversationBottomSheetState
                   l10n.newGroup,
                   style: const TextStyle(
                     fontSize: 16,
-                    color: Colors.blue,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -369,7 +371,7 @@ class _NewConversationBottomSheetState
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              const Icon(Icons.campaign, color: Colors.blue),
+              const Icon(Icons.campaign, color: AppColors.primary),
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: _navigateToChannelInfo,
@@ -377,7 +379,7 @@ class _NewConversationBottomSheetState
                   l10n.newChannel,
                   style: const TextStyle(
                     fontSize: 16,
-                    color: Colors.blue,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -468,7 +470,7 @@ class _NewConversationBottomSheetState
               return Chip(
                 avatar: CircleAvatar(
                   radius: 12,
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AppColors.primary,
                   child: Text(
                     contact.name.isNotEmpty
                         ? contact.name[0].toUpperCase()

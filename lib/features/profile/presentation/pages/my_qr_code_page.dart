@@ -16,6 +16,7 @@ class MyQRCodePage extends StatefulWidget {
 
 class _MyQRCodePageState extends State<MyQRCodePage> {
   final _logger = LogService.instance;
+  bool _isCopied = false;
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +109,7 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
                 avatarUrl: user?.avatar,
                 name: user?.name ?? '用户',
                 radius: 30,
-                backgroundColor: Colors.blue,
+                backgroundColor: Colors.green,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -195,17 +196,25 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _copyUserData(qrData),
-                  icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('复制信息'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[50],
-                    foregroundColor: Colors.blue[700],
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _copyUserData(qrData),
+                    icon: Icon(
+                      _isCopied ? Icons.check : Icons.copy,
+                      size: 18,
+                    ),
+                    label: Text(_isCopied ? '已复制' : '复制信息'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _isCopied ? Colors.green[200] : Colors.green[50],
+                      foregroundColor:
+                          _isCopied ? Colors.green[800] : Colors.green[700],
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
@@ -249,7 +258,7 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
             children: [
               Icon(
                 Icons.info_outline,
-                color: Colors.blue[700],
+                color: Colors.green[700],
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -258,7 +267,7 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.blue[700],
+                  color: Colors.green[700],
                 ),
               ),
             ],
@@ -303,29 +312,45 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
   }
 
   void _copyUserData(String qrData) {
-    Clipboard.setData(ClipboardData(text: qrData));
-    UINotificationService().showSuccess('已复制到剪贴板');
+    // 从qrData中提取用户ID (格式: 'user:userId')
+    final userId = qrData.startsWith('user:') ? qrData.substring(5) : qrData;
 
-    _logger.i('复制用户信息', extra: {'qrData': qrData});
+    Clipboard.setData(ClipboardData(text: userId));
+
+    _logger.i('复制用户ID', extra: {'userId': userId});
+
+    // 设置为已复制状态
+    setState(() {
+      _isCopied = true;
+    });
+
+    // 3秒后恢复原状态
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _isCopied = false;
+        });
+      }
+    });
   }
 
   void _shareQRCode(String qrData) {
     // TODO: 实现分享功能
-    UINotificationService().showInfo('分享功能开发中');
+    UINotificationService.instance.showInfo('分享功能开发中');
 
     _logger.i('分享二维码', extra: {'qrData': qrData});
   }
 
   void _saveQRCode() {
     // TODO: 实现保存到相册功能
-    UINotificationService().showInfo('保存功能开发中');
+    UINotificationService.instance.showInfo('保存功能开发中');
 
     _logger.i('保存二维码到相册');
   }
 
   void _shareQRCodeImage() {
     // TODO: 实现二维码图片分享功能
-    UINotificationService().showInfo('图片分享功能开发中');
+    UINotificationService.instance.showInfo('图片分享功能开发中');
 
     _logger.i('分享二维码图片');
   }
@@ -351,12 +376,12 @@ class _InstructionItem extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: Colors.green[50],
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
-            color: Colors.blue[700],
+            color: Colors.green[700],
             size: 18,
           ),
         ),

@@ -120,12 +120,9 @@ class ProfileRepository {
         throw Exception('更新用户信息失败: ${response?.message ?? '未知错误'}');
       }
 
-      // 服务器更新成功后，更新本地数据库
-      if (response.hasUser()) {
-        final updatedUser = userService.currentUserFromProto(response.user);
-        await saveUser(updatedUser);
-        _logger.i('本地用户信息已同步更新', extra: {'userId': updatedUser.userId});
-      }
+      // 🔧 修复：移除手动本地数据同步
+      // UserService的_updateLocalUserInfo已经自动处理了本地数据同步
+      // 不再需要手动调用saveUser，避免双重写入
 
       _logger.i('用户信息更新成功', extra: {'userId': currentUser.userId});
     } catch (e) {

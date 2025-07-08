@@ -70,10 +70,10 @@ class AppLifecycleService with WidgetsBindingObserver {
       final previousState = _currentState;
       _currentState = newState;
 
-      _logger.i('应用生命周期状态变化', extra: {
-        'previousState': previousState.toString(),
-        'newState': newState.toString(),
-      });
+      // _logger.i('应用生命周期状态变化', extra: {
+      //   'previousState': previousState.toString(),
+      //   'newState': newState.toString(),
+      // });
 
       // 通知所有监听器
       for (final listener in _listeners) {

@@ -10,14 +10,14 @@ class CurrentScrollPosition extends Equatable {
   final String? messageId;
 
   /// 消息在屏幕中的相对位置 (0.0 - 1.0)
-  /// 0.0 表示消息顶部对齐屏幕顶部，1.0 表示消息底部对齐屏幕底部
+  /// 在 reverse: true 的列表中：
+  /// - 使用 itemLeadingEdge 表示消息顶部到视口leading edge（屏幕底部）的距离
+  /// - 0.0 表示消息顶部在屏幕底部；1.0 表示消息顶部在屏幕顶部
+  /// - 例如 0.095 表示消息顶部距离屏幕底部9.5%的位置
   final double? relativePosition;
 
-  /// 精确的滚动位置（像素）
-  final double? scrollOffset;
-
-  /// 位置保存时间戳
-  final DateTime? timestamp;
+  /// 是否需要精确的滚动位置（像素级）
+  final bool? needOffset;
 
   /// 是否是有效的位置信息
   /// 只要存在 messageId 即认为有效，listIndex 可以动态计算
@@ -26,43 +26,37 @@ class CurrentScrollPosition extends Equatable {
   const CurrentScrollPosition({
     this.messageId,
     this.relativePosition,
-    this.scrollOffset,
-    this.timestamp,
+    this.needOffset,
   });
 
   /// 创建空的滚动位置
   const CurrentScrollPosition.empty()
       : messageId = null,
         relativePosition = null,
-        scrollOffset = null,
-        timestamp = null;
+        needOffset = null;
 
   /// 从锚点消息创建位置信息
   factory CurrentScrollPosition.fromAnchor({
     required String messageId,
     double? relativePosition,
-    double? scrollOffset,
-    bool includeTimestamp = false,
+    bool? needOffset,
   }) {
     return CurrentScrollPosition(
       messageId: messageId,
       relativePosition: relativePosition ?? 0.0,
-      scrollOffset: scrollOffset,
-      timestamp: includeTimestamp ? DateTime.now() : null,
+      needOffset: needOffset,
     );
   }
 
   CurrentScrollPosition copyWith({
     String? messageId,
     double? relativePosition,
-    double? scrollOffset,
-    DateTime? timestamp,
+    bool? needOffset,
   }) {
     return CurrentScrollPosition(
       messageId: messageId ?? this.messageId,
       relativePosition: relativePosition ?? this.relativePosition,
-      scrollOffset: scrollOffset ?? this.scrollOffset,
-      timestamp: timestamp ?? this.timestamp,
+      needOffset: needOffset ?? this.needOffset,
     );
   }
 
@@ -77,14 +71,13 @@ class CurrentScrollPosition extends Equatable {
   List<Object?> get props => [
         messageId,
         relativePosition,
-        scrollOffset,
+        needOffset,
       ];
 
   @override
   String toString() {
     return 'CurrentScrollPosition(messageId: $messageId, '
-        'relativePos: $relativePosition, offset: $scrollOffset, '
-        'timestamp: $timestamp)';
+        'relativePos: $relativePosition, needOffset: $needOffset)';
   }
 }
 
@@ -150,7 +143,7 @@ class ChatState extends Equatable {
 
   /// 💢💢💢 新增搜索相关字段
   /// 搜索结果中匹配的消息ID列表（按时间顺序排列）
-  final List<String> searchResultMessageIds;
+  final List<int> searchResultMessageIndexes;
 
   /// 当前查看的搜索结果索引（从0开始）
   final int currentSearchResultIndex;
@@ -234,7 +227,7 @@ class ChatState extends Equatable {
     this.searchResults = const [],
     this.isSearching = false,
     this.searchDateFilter,
-    required this.searchResultMessageIds,
+    required this.searchResultMessageIndexes,
     required this.currentSearchResultIndex,
     required this.isShowingSearchAsList,
     required this.searchResultTotalCount,
@@ -279,7 +272,7 @@ class ChatState extends Equatable {
       hasMoreAfter: false,
       currentScrollPosition: const CurrentScrollPosition.empty(),
       currentUser: currentUser,
-      searchResultMessageIds: const [],
+      searchResultMessageIndexes: const [],
       currentSearchResultIndex: 0,
       isShowingSearchAsList: false,
       searchResultTotalCount: 0,
@@ -324,7 +317,7 @@ class ChatState extends Equatable {
     bool? isSearching,
     DateTime? searchDateFilter,
     bool clearSearchDateFilter = false,
-    List<String>? searchResultMessageIds,
+    List<int>? searchResultMessageIndexes,
     int? currentSearchResultIndex,
     bool? isShowingSearchAsList,
     int? searchResultTotalCount,
@@ -369,8 +362,8 @@ class ChatState extends Equatable {
       searchDateFilter: clearSearchDateFilter
           ? null
           : (searchDateFilter ?? this.searchDateFilter),
-      searchResultMessageIds:
-          searchResultMessageIds ?? this.searchResultMessageIds,
+      searchResultMessageIndexes:
+          searchResultMessageIndexes ?? this.searchResultMessageIndexes,
       currentSearchResultIndex:
           currentSearchResultIndex ?? this.currentSearchResultIndex,
       isShowingSearchAsList:
@@ -445,7 +438,7 @@ class ChatState extends Equatable {
         searchResults,
         isSearching,
         searchDateFilter,
-        searchResultMessageIds,
+        searchResultMessageIndexes,
         currentSearchResultIndex,
         isShowingSearchAsList,
         searchResultTotalCount,

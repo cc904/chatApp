@@ -2,7 +2,7 @@
 
 ## 问题背景
 
-用户报告在Flutter WhatsApp克隆项目中，虽然数据库中的`readMessageIndex`和`lastReadTime`已正确更新，但ChatsPage会话列表的未读消息数量显示不正确，总是显示为最大值而非动态计算值。
+用户报告在Flutter ThisApp克隆项目中，虽然数据库中的`readMessageIndex`和`lastReadTime`已正确更新，但ChatsPage会话列表的未读消息数量显示不正确，总是显示为最大值而非动态计算值。
 
 经过深入调查发现，问题根源在于**`ConversationAdapter.fromProto`方法会错误地将`readMessageIndex`重置为0**。
 

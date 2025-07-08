@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -9,7 +10,8 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateMixin {
+class _SearchPageState extends State<SearchPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
@@ -89,7 +91,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.white,
-                  hintText: _tabController.index == 0 ? '输入ID号或手机号搜索' : '输入群ID号搜索',
+                  hintText:
+                      _tabController.index == 0 ? '输入ID号或手机号搜索' : '输入群ID号搜索',
                   hintStyle: TextStyle(color: Colors.grey[400]),
                   prefixIcon: const Icon(Icons.search, color: Colors.green),
                   suffixIcon: _isSearching
@@ -113,7 +116,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                               margin: const EdgeInsets.symmetric(vertical: 8),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.search, color: Colors.green),
+                              icon:
+                                  const Icon(Icons.search, color: Colors.green),
                               onPressed: () {
                                 if (_searchController.text.isNotEmpty) {
                                   setState(() {
@@ -144,7 +148,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 ),
                 textInputAction: TextInputAction.search,
                 style: const TextStyle(fontSize: 16),
@@ -183,13 +188,18 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               ),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _tabController.index == 0 ? _personFilters.length : _groupFilters.length,
+                itemCount: _tabController.index == 0
+                    ? _personFilters.length
+                    : _groupFilters.length,
                 itemBuilder: (context, index) {
-                  final filter = _tabController.index == 0 ? _personFilters[index] : _groupFilters[index];
+                  final filter = _tabController.index == 0
+                      ? _personFilters[index]
+                      : _groupFilters[index];
                   final isSelected = _selectedFilter == filter;
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     child: ChoiceChip(
                       label: Text(filter),
                       selected: isSelected,
@@ -204,7 +214,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                       selectedColor: Colors.green[50],
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.green : Colors.black87,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -244,13 +255,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isPerson ? Colors.blue[50] : Colors.orange[50],
+                  color: isPerson
+                      ? AppColors.primary.withAlpha(13)
+                      : Colors.orange[50],
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   isPerson ? Icons.person_search : Icons.group_add,
                   size: 60,
-                  color: isPerson ? Colors.blue : Colors.orange,
+                  color: isPerson ? AppColors.primary : Colors.orange,
                 ),
               ),
               const SizedBox(height: 24),
@@ -280,7 +293,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
         color: Colors.white,
         child: ListView.separated(
           itemCount: 5, // 模拟5条结果
-          separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
+          separatorBuilder: (context, index) =>
+              const Divider(height: 1, indent: 72),
           itemBuilder: (context, index) {
             return _buildResultItem(index, isPerson);
           },
@@ -290,20 +304,29 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   }
 
   Widget _buildResultItem(int index, bool isPerson) {
-    final name = isPerson ? '用户_${_searchController.text}_$index' : '群聊_${_searchController.text}_$index';
-    final subtitle = isPerson ? 'ID: ${10000 + index}' : '${20 + index}人 | 群主: 管理员$index';
+    final name = isPerson
+        ? '用户_${_searchController.text}_$index'
+        : '群聊_${_searchController.text}_$index';
+    final subtitle =
+        isPerson ? 'ID: ${10000 + index}' : '${20 + index}人 | 群主: 管理员$index';
     final description = isPerson
         ? '地区: ${index % 2 == 0 ? '中国' : '国外'} | 在线状态: ${index % 3 == 0 ? '在线' : '离线'}'
-        : '简介: 这是一个${_selectedFilter == '全部' ? ['游戏', '学习', '旅行', '工作'][index % 4] : _selectedFilter}相关的群聊';
+        : '简介: 这是一个${_selectedFilter == '全部' ? [
+            '游戏',
+            '学习',
+            '旅行',
+            '工作'
+          ][index % 4] : _selectedFilter}相关的群聊';
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
         radius: 28,
-        backgroundColor: isPerson ? Colors.blue[100] : Colors.orange[100],
+        backgroundColor:
+            isPerson ? AppColors.primary.withAlpha(25) : Colors.orange[100],
         child: Icon(
           isPerson ? Icons.person : Icons.group,
-          color: isPerson ? Colors.blue : Colors.orange,
+          color: isPerson ? AppColors.primary : Colors.orange,
           size: 32,
         ),
       ),
@@ -384,7 +407,8 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
 
   void _performSearch(String keyword) {
     final type = _tabController.index == 0 ? '用户' : '群聊';
-    _logger.d('搜索', extra: {'类型': type, '关键词': keyword, '筛选条件': _selectedFilter});
+    _logger
+        .d('搜索', extra: {'类型': type, '关键词': keyword, '筛选条件': _selectedFilter});
     // 这里应该调用API进行实际搜索
   }
 }
@@ -467,11 +491,11 @@ class UserDetailPage extends StatelessWidget {
                         tag: 'avatar-$userId',
                         child: CircleAvatar(
                           radius: 40,
-                          backgroundColor: Colors.blue[100],
+                          backgroundColor: AppColors.primary.withAlpha(25),
                           child: const Icon(
                             Icons.person,
                             size: 50,
-                            color: Colors.blue,
+                            color: AppColors.primary,
                           ),
                         ),
                       ),
@@ -504,7 +528,8 @@ class UserDetailPage extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 InkWell(
                                   onTap: () {
-                                    Clipboard.setData(ClipboardData(text: userId));
+                                    Clipboard.setData(
+                                        ClipboardData(text: userId));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('已复制用户ID到剪贴板'),
@@ -516,7 +541,7 @@ class UserDetailPage extends StatelessWidget {
                                   child: const Icon(
                                     Icons.copy,
                                     size: 16,
-                                    color: Colors.green,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ],
@@ -531,7 +556,8 @@ class UserDetailPage extends StatelessWidget {
                                   height: 8,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: isOnline ? Colors.green : Colors.grey,
+                                    color:
+                                        isOnline ? Colors.green : Colors.grey,
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -680,7 +706,8 @@ class UserDetailPage extends StatelessWidget {
   }
 
   void _showAddFriendDialog(BuildContext context, String name, String userId) {
-    final TextEditingController verificationController = TextEditingController();
+    final TextEditingController verificationController =
+        TextEditingController();
 
     showDialog(
       context: context,
@@ -711,7 +738,8 @@ class UserDetailPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 filled: true,
                 fillColor: Colors.grey[50],
               ),
@@ -729,7 +757,8 @@ class UserDetailPage extends StatelessWidget {
               Navigator.pop(context);
               // 发送请求
               final verification = verificationController.text;
-              _logger.d('添加联系人', extra: {'name': name, 'ID': userId, '验证信息': verification});
+              _logger.d('添加联系人',
+                  extra: {'name': name, 'ID': userId, '验证信息': verification});
 
               // 显示结果提示
               ScaffoldMessenger.of(context).showSnackBar(
@@ -843,7 +872,8 @@ class GroupDetailPage extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 InkWell(
                                   onTap: () {
-                                    Clipboard.setData(ClipboardData(text: groupId));
+                                    Clipboard.setData(
+                                        ClipboardData(text: groupId));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('已复制群ID到剪贴板'),
@@ -855,7 +885,7 @@ class GroupDetailPage extends StatelessWidget {
                                   child: const Icon(
                                     Icons.copy,
                                     size: 16,
-                                    color: Colors.green,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ],
@@ -985,10 +1015,11 @@ class GroupDetailPage extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 24,
-                            backgroundColor: index == 0 ? Colors.red[100] : Colors.blue[100],
+                                                         backgroundColor:
+                                 index == 0 ? Colors.red[100] : AppColors.primary.withAlpha(25),
                             child: Icon(
-                              index == 0 ? Icons.star : Icons.person,
-                              color: index == 0 ? Colors.red : Colors.blue,
+                                                              index == 0 ? Icons.star : Icons.person,
+                                color: index == 0 ? Colors.red : AppColors.primary,
                             ),
                           ),
                           const SizedBox(height: 6),

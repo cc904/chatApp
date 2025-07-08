@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// UI通知服务
 /// 用于在应用程序中显示各种通知,不依赖于BuildContext
@@ -8,7 +9,8 @@ class UINotificationService {
   final LogService _logger = LogService.instance;
 
   // 全局ScaffoldMessengerKey
-  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   // 获取当前的ScaffoldMessengerState
   ScaffoldMessengerState? get _messenger => scaffoldMessengerKey.currentState;
@@ -20,7 +22,8 @@ class UINotificationService {
   /// 显示通知
   /// [title] 通知标题
   /// [body] 通知内容
-  Future<void> showNotification(String title, String body, {required Duration duration}) async {
+  Future<void> showNotification(String title, String body,
+      {required Duration duration}) async {
     try {
       _logger.i('显示通知: $title - $body');
       _showSnackBar(body);
@@ -42,7 +45,7 @@ class UINotificationService {
   /// 显示snackbar通知
   void _showSnackBar(
     String message, {
-    Color backgroundColor = Colors.blue,
+    Color backgroundColor = AppColors.primary,
     Duration duration = const Duration(seconds: 2),
     SnackBarAction? action,
   }) {
@@ -58,7 +61,8 @@ class UINotificationService {
   }
 
   /// 显示成功通知
-  void showSuccess(String message, {Duration duration = const Duration(seconds: 2)}) {
+  void showSuccess(String message,
+      {Duration duration = const Duration(seconds: 2)}) {
     _showSnackBar(
       message,
       backgroundColor: Colors.green,
@@ -67,7 +71,8 @@ class UINotificationService {
   }
 
   /// 显示错误通知
-  void showError(String message, {Duration duration = const Duration(seconds: 3)}) {
+  void showError(String message,
+      {Duration duration = const Duration(seconds: 3)}) {
     _showSnackBar(
       message,
       backgroundColor: Colors.red,
@@ -76,7 +81,8 @@ class UINotificationService {
   }
 
   /// 显示警告通知
-  void showWarning(String message, {Duration duration = const Duration(seconds: 3)}) {
+  void showWarning(String message,
+      {Duration duration = const Duration(seconds: 3)}) {
     _showSnackBar(
       message,
       backgroundColor: Colors.orange,
@@ -85,10 +91,11 @@ class UINotificationService {
   }
 
   /// 显示信息通知
-  void showInfo(String message, {Duration duration = const Duration(seconds: 2)}) {
+  void showInfo(String message,
+      {Duration duration = const Duration(seconds: 2)}) {
     _showSnackBar(
       message,
-      backgroundColor: Colors.blue,
+      backgroundColor: AppColors.primary,
       duration: duration,
     );
   }
@@ -111,7 +118,7 @@ class UINotificationService {
         ],
       ),
       duration: duration ?? const Duration(seconds: 2),
-      backgroundColor: Colors.blue,
+      backgroundColor: AppColors.primary,
     ));
   }
 

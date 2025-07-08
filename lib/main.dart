@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/language_service.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -12,6 +13,7 @@ import 'dart:io';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -59,6 +61,7 @@ void main() async {
 
   // 初始化全局配置
   final appConfig = AppConfig();
+  await appConfig.init(); // 等待配置初始化完成
   logger.x('应用配置加载完成', extra: {'serverUrl': appConfig.serverUrl});
 
   try {
@@ -66,6 +69,9 @@ void main() async {
     final languageService = LanguageService();
     await languageService.init();
     final currentLocale = languageService.currentLocale;
+
+    // 🌍 初始化时区系统
+    await TimezoneUtils.initialize();
 
     // 初始化日期格式化的本地化数据
     await initializeDateFormatting(currentLocale.languageCode, null);
@@ -93,22 +99,10 @@ void main() async {
     AppLifecycleService.instance.initialize();
     logger.i('应用生命周期服务已初始化');
 
-    // 初始化安全存储服务并检查是否有保存的服务器URL
+    // 初始化安全存储服务
     try {
-      final secureStorage = SecureStorageService();
-      final savedServerUrl = await secureStorage.read('server_url');
-      if (savedServerUrl != null && savedServerUrl.isNotEmpty) {
-        appConfig.setServerUrl(savedServerUrl);
-        logger.x('从安全存储加载服务器URL', extra: {'serverUrl': savedServerUrl});
-      } else {
-        // 保存当前服务器URL到安全存储
-        try {
-          await secureStorage.write('server_url', appConfig.serverUrl);
-        } catch (e) {
-          // 保存服务器URL失败，但不影响应用启动
-          logger.w('保存服务器URL到安全存储失败，将使用默认URL', extra: {'error': e.toString()});
-        }
-      }
+      // 移除旧的服务器URL存储逻辑，现在使用AppConfig的SharedPreferences存储
+      logger.i('安全存储服务已初始化');
     } catch (e) {
       // 安全存储服务初始化失败，但不影响应用启动
       logger.w('安全存储服务初始化失败，将使用默认设置', extra: {'error': e.toString()});
@@ -225,15 +219,15 @@ class _MyAppState extends State<MyApp> {
         valueListenable: _languageService.localeNotifier,
         builder: (context, locale, child) {
           return MaterialApp(
-            title: 'WhatsApp',
+            title: 'ThisApp',
             scaffoldMessengerKey:
                 UINotificationService.instance.scaffoldMessengerKey,
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+              colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,
               appBarTheme: AppBarTheme(
-                backgroundColor: Colors.grey[200],
-                foregroundColor: Colors.black,
+                backgroundColor: AppColors.surfaceVariant,
+                foregroundColor: AppColors.textPrimary,
                 elevation: 0,
                 centerTitle: true,
               ),

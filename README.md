@@ -1,6 +1,6 @@
-# Flutter WhatsApp 克隆项目 🚀
+# Flutter ThisApp 克隆项目 🚀
 
-一个高性能的Flutter聊天应用，模仿WhatsApp设计，采用**革命性的Index-based消息同步机制**。
+一个高性能的Flutter聊天应用，模仿ThisApp设计，采用**革命性的Index-based消息同步机制**。
 
 ## 🎯 核心技术亮点
 

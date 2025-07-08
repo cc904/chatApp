@@ -7,6 +7,7 @@ import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/user_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -166,7 +167,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   : const Text(
                       '保存',
                       style: TextStyle(
-                        color: Colors.blue,
+                        color: AppColors.primary,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                       ),
@@ -242,7 +243,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               ? _nicknameController.text
                               : '用户',
                           radius: 60,
-                          backgroundColor: Colors.blue,
+                          backgroundColor: AppColors.primary,
                         ),
                 ),
 
@@ -254,7 +255,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: AppColors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Colors.white,
@@ -341,8 +342,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
               child: Text(
                 _phoneController.text.isEmpty ? '绑定' : '已绑定',
                 style: TextStyle(
-                  color:
-                      _phoneController.text.isEmpty ? Colors.blue : Colors.grey,
+                  color: _phoneController.text.isEmpty
+                      ? AppColors.primary
+                      : Colors.grey,
                 ),
               ),
             ),
@@ -358,8 +360,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
               child: Text(
                 _emailController.text.isEmpty ? '绑定' : '已绑定',
                 style: TextStyle(
-                  color:
-                      _emailController.text.isEmpty ? Colors.blue : Colors.grey,
+                  color: _emailController.text.isEmpty
+                      ? AppColors.primary
+                      : Colors.grey,
                 ),
               ),
             ),
@@ -527,7 +530,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    final optionColor = color ?? Colors.blue;
+    final optionColor = color ?? AppColors.primary;
 
     return GestureDetector(
       onTap: onTap,
@@ -674,11 +677,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               response?.user.avatar.isNotEmpty == true) {
             avatarUrl = response!.user.avatar;
             _logger.i('头像上传成功', extra: {'avatarUrl': avatarUrl});
-
-            // 直接返回，因为UserService已经更新了用户信息
-            UINotificationService().showSuccess('个人信息更新成功');
-            if (mounted) Navigator.pop(context);
-            return;
           } else {
             throw Exception('头像上传失败: ${response?.message ?? "未知错误"}');
           }
@@ -687,19 +685,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
           if (mounted) Navigator.of(context).pop();
           rethrow;
         }
-      } else {
-        // 没有新头像，只更新其他信息
-        profileCubit.updateUserInfo(
-          nickname: _nicknameController.text.trim(),
-          avatar: avatarUrl,
-          status: _statusController.text.trim(),
-        );
       }
+
+      // 🔧 修复：统一通过ProfileCubit处理所有更新
+      // 无论是否有头像更新，都通过ProfileCubit统一处理状态管理
+      profileCubit.updateUserInfo(
+        nickname: _nicknameController.text.trim(),
+        avatar: avatarUrl,
+        status: _statusController.text.trim(),
+      );
 
       _logger.i('保存个人信息', extra: {
         'nickname': _nicknameController.text.trim(),
         'status': _statusController.text.trim(),
         'hasNewAvatar': _selectedAvatarFile != null,
+        'avatarUrl': avatarUrl,
       });
     } catch (error) {
       _logger.e('保存个人信息失败', error: error);

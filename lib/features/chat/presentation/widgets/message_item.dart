@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:intl/intl.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 import 'voice_message_widget.dart';
 import 'image_message_widget.dart';
 import 'video_message_widget.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 消息显示状态
 class MessageDisplayStatus {
@@ -276,7 +277,7 @@ class MessageItem extends StatelessWidget {
       highlightBorderColor = Colors.orange;
       borderWidth = 2.0;
     } else if (isSearchResult) {
-      highlightBorderColor = Colors.blue.shade300;
+      highlightBorderColor = AppColors.primary.withAlpha(128);
       borderWidth = 1.5;
     }
 
@@ -347,10 +348,10 @@ class MessageItem extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 4.0),
               child: Text(
                 message.senderName!,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12.0,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue[700],
+                  color: AppColors.primary,
                 ),
               ),
             ),
@@ -470,12 +471,17 @@ class MessageItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          _formatMessageTime(message.createdAt),
-          style: TextStyle(
-            fontSize: 11.0,
-            color: isCurrentUser ? Colors.white70 : Colors.grey[600],
-          ),
+        FutureBuilder<String>(
+          future: _formatMessageTime(message.createdAt),
+          builder: (context, snapshot) {
+            return Text(
+              snapshot.data ?? '...',
+              style: TextStyle(
+                fontSize: 11.0,
+                color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+              ),
+            );
+          },
         ),
         if (isCurrentUser) ...[
           const SizedBox(width: 4.0),
@@ -503,7 +509,8 @@ class MessageItem extends StatelessWidget {
         return const Icon(Icons.schedule, size: 14.0, color: Colors.white70);
       case MessageStatus.sent:
         if (isRead) {
-          return const Icon(Icons.done_all, size: 14.0, color: Colors.blue);
+          return const Icon(Icons.done_all,
+              size: 14.0, color: AppColors.primary);
         } else if (isDelivered) {
           return const Icon(Icons.done_all, size: 14.0, color: Colors.white70);
         } else {
@@ -521,21 +528,9 @@ class MessageItem extends StatelessWidget {
     }
   }
 
-  String _formatMessageTime(DateTime timestamp) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDate =
-        DateTime(timestamp.year, timestamp.month, timestamp.day);
-
-    if (messageDate == today) {
-      return DateFormat('HH:mm').format(timestamp);
-    } else if (messageDate == today.subtract(const Duration(days: 1))) {
-      return '昨天 ${DateFormat('HH:mm').format(timestamp)}';
-    } else if (timestamp.year == now.year) {
-      return DateFormat('MM/dd HH:mm').format(timestamp);
-    } else {
-      return DateFormat('yyyy/MM/dd HH:mm').format(timestamp);
-    }
+  Future<String> _formatMessageTime(DateTime timestamp) async {
+    // 🌍 使用UTC时间戳，智能格式化为本地时区显示
+    return await TimezoneUtils.formatSmart(timestamp);
   }
 }
 

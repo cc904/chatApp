@@ -75,7 +75,7 @@ const FriendRequestSchema = CollectionSchema(
   getId: _friendRequestGetId,
   getLinks: _friendRequestGetLinks,
   attach: _friendRequestAttach,
-  version: '3.1.0+1',
+  version: '3.1.8',
 );
 
 int _friendRequestEstimateSize(

@@ -5,6 +5,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 频道介绍页面
 /// 显示频道的作用和功能介绍，引导用户创建频道
@@ -19,13 +20,13 @@ class ChannelInfoPage extends StatelessWidget {
         backgroundColor: Colors.grey[50],
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.blue),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           AppLocalizations.of(context).back,
           style: const TextStyle(
-            color: Colors.blue,
+            color: AppColors.primary,
             fontSize: 16,
           ),
         ),
@@ -78,7 +79,7 @@ class ChannelInfoPage extends StatelessWidget {
                                 child: Container(
                                   margin: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue[50],
+                                    color: AppColors.primary.withAlpha(13),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Center(
@@ -95,7 +96,7 @@ class ChannelInfoPage extends StatelessWidget {
                                         // 播放按钮
                                         Icon(
                                           Icons.play_circle_filled,
-                                          color: Colors.blue,
+                                          color: AppColors.primary,
                                           size: 32,
                                         ),
                                       ],
@@ -252,7 +253,7 @@ class ChannelInfoPage extends StatelessWidget {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

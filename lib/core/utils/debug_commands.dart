@@ -5,7 +5,6 @@ import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/utils/message_sort_utils.dart';
 
 /// 调试命令集合
 /// 提供各种调试功能的快捷命令
@@ -267,65 +266,58 @@ class DebugCommands {
       // 创建测试消息数据
       final now = DateTime.now();
       final testMessages = <Message>[
-        // 正常消息（正数messageIndex）
+        // 创建不同时间的消息进行排序测试
         Message()
           ..messageId = 'msg_1'
           ..messageIndex = 100
-          ..text = '正常消息1'
+          ..text = '消息1（最早）'
           ..createdAt = now.subtract(const Duration(minutes: 5)),
         Message()
           ..messageId = 'msg_2'
           ..messageIndex = 200
-          ..text = '正常消息2'
+          ..text = '消息2'
           ..createdAt = now.subtract(const Duration(minutes: 4)),
         Message()
           ..messageId = 'msg_3'
           ..messageIndex = 300
-          ..text = '正常消息3'
+          ..text = '消息3'
           ..createdAt = now.subtract(const Duration(minutes: 3)),
-
-        // 临时消息（0值messageIndex）
         Message()
-          ..messageId = ''
-          ..tempId = 'temp_1'
-          ..messageIndex = 0
-          ..text = '临时消息1（较早）'
+          ..messageId = 'msg_4'
+          ..messageIndex = 400
+          ..text = '消息4'
           ..createdAt = now.subtract(const Duration(minutes: 2)),
         Message()
-          ..messageId = ''
-          ..tempId = 'temp_2'
-          ..messageIndex = 0
-          ..text = '临时消息2（较新）'
+          ..messageId = 'msg_5'
+          ..messageIndex = 500
+          ..text = '消息5'
           ..createdAt = now.subtract(const Duration(minutes: 1)),
         Message()
-          ..messageId = ''
-          ..tempId = 'temp_3'
-          ..messageIndex = 0
-          ..text = '临时消息3（最新）'
+          ..messageId = 'msg_6'
+          ..messageIndex = 600
+          ..text = '消息6（最新）'
           ..createdAt = now,
       ];
 
       _logger.i('📋 排序前的消息顺序', extra: {
         'messages': testMessages
             .map((m) => {
-                  'messageId': m.messageId.isEmpty ? m.tempId : m.messageId,
+                  'messageId': m.messageId,
                   'messageIndex': m.messageIndex,
                   'text': m.text,
-                  'isTemp': m.messageIndex == 0,
+                  'createdAt': m.createdAt.toIso8601String(),
                 })
             .toList(),
       });
 
-      // 使用自定义排序
-      testMessages.sort(MessageSortUtils.compareForDisplay);
 
       _logger.i('✅ 排序后的消息顺序（显示用）', extra: {
         'messages': testMessages
             .map((m) => {
-                  'messageId': m.messageId.isEmpty ? m.tempId : m.messageId,
+                  'messageId': m.messageId,
                   'messageIndex': m.messageIndex,
                   'text': m.text,
-                  'isTemp': m.messageIndex == 0,
+                  'createdAt': m.createdAt.toIso8601String(),
                   'position': testMessages.indexOf(m) + 1,
                 })
             .toList(),
@@ -335,40 +327,15 @@ class DebugCommands {
       bool sortCorrect = true;
       final errors = <String>[];
 
-      // 检查临时消息是否在前面
-      for (int i = 0; i < testMessages.length; i++) {
+      // 检查时间戳排序是否正确（降序，最新的在前）
+      for (int i = 0; i < testMessages.length - 1; i++) {
         final current = testMessages[i];
+        final next = testMessages[i + 1];
 
-        // 前3个应该是临时消息（0值）
-        if (i < 3) {
-          if (current.messageIndex != 0) {
-            sortCorrect = false;
-            errors
-                .add('位置${i + 1}应该是临时消息，但messageIndex=${current.messageIndex}');
-          }
-        }
-        // 后3个应该是正常消息（正数）
-        else {
-          if (current.messageIndex == 0) {
-            sortCorrect = false;
-            errors
-                .add('位置${i + 1}应该是正常消息，但messageIndex=${current.messageIndex}');
-          }
-        }
-      }
-
-      // 检查临时消息内部排序（最新的在前）
-      if (testMessages.length >= 3) {
-        for (int i = 0; i < 2; i++) {
-          final current = testMessages[i];
-          final next = testMessages[i + 1];
-          if (current.messageIndex == 0 && next.messageIndex == 0) {
-            // 都是临时消息，应该按时间降序（最新的在前）
-            if (current.createdAt.isBefore(next.createdAt)) {
-              sortCorrect = false;
-              errors.add('临时消息排序错误：${current.text} 应该比 ${next.text} 更新');
-            }
-          }
+        if (current.createdAt.isBefore(next.createdAt)) {
+          sortCorrect = false;
+          errors
+              .add('位置${i + 1}: 时间排序错误 - ${current.text} 应该比 ${next.text} 更新');
         }
       }
 
@@ -376,12 +343,12 @@ class DebugCommands {
         'sortCorrect': sortCorrect,
         'errors': errors,
         'expectedOrder': [
-          '临时消息3（最新）- messageIndex=0',
-          '临时消息2（较新）- messageIndex=0',
-          '临时消息1（较早）- messageIndex=0',
-          '正常消息3 - messageIndex=300',
-          '正常消息2 - messageIndex=200',
-          '正常消息1 - messageIndex=100',
+          '消息6（最新）',
+          '消息5',
+          '消息4',
+          '消息3',
+          '消息2',
+          '消息1（最早）',
         ],
       });
 

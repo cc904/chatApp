@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/services/verification_code_timer.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -17,9 +19,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _logger = LogService.instance;
+  late VerificationCodeTimer _verificationCodeTimer;
 
   // 重置密码的步骤
   int _currentStep = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificationCodeTimer = VerificationCodeTimer();
+  }
 
   @override
   void dispose() {
@@ -27,6 +36,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     _verificationCodeController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _verificationCodeTimer.dispose();
     super.dispose();
   }
 
@@ -35,11 +45,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   /// 包含三个步骤的Stepper组件：手机号验证、验证码验证和设置新密码
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     _logger.d('ForgotPasswordPage build');
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('忘记密码'),
+        title: Text(localizations.forgotPassword),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -62,30 +73,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
                   // 页面标题
-                  const Center(
+                  Center(
                     child: Column(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.lock_reset,
                           size: 40,
                           color: Colors.green,
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         Text(
-                          '重置密码',
-                          style: TextStyle(
+                          localizations.resetPassword,
+                          style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
-                          '请完成以下步骤重置您的密码',
-                          style: TextStyle(
+                          localizations.resetPasswordInfo,
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Colors.grey,
                           ),
@@ -93,7 +104,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 0),
 
                   // 步骤指示器
                   Theme(
@@ -109,7 +120,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       physics: const NeverScrollableScrollPhysics(),
                       controlsBuilder: (context, details) {
                         return Padding(
-                          padding: const EdgeInsets.only(top: 20.0),
+                          padding: const EdgeInsets.only(top: 8.0),
                           child: Row(
                             children: [
                               Expanded(
@@ -121,8 +132,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 12),
                                   ),
-                                  child:
-                                      Text(_currentStep == 2 ? '完成重置' : '下一步'),
+                                  child: Text(_currentStep == 2
+                                      ? localizations.completeReset
+                                      : localizations.nextStep),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -137,7 +149,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 12),
                                     ),
-                                    child: const Text('返回'),
+                                    child: Text(localizations.back),
                                   ),
                                 ),
                             ],
@@ -153,7 +165,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       },
                       onStepContinue: () {
                         // 验证当前步骤
-                        bool canProceed = _validateCurrentStep();
+                        bool canProceed = _validateCurrentStep(localizations);
                         if (canProceed) {
                           if (_currentStep < 2) {
                             setState(() {
@@ -175,7 +187,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       },
                       steps: [
                         Step(
-                          title: const Text('验证手机号'),
+                          title: Text(localizations.verifyPhone),
                           content: _buildPhoneVerificationStep(),
                           isActive: _currentStep >= 0,
                           state: _currentStep > 0
@@ -183,7 +195,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               : StepState.indexed,
                         ),
                         Step(
-                          title: const Text('验证码验证'),
+                          title: Text(localizations.codeVerification),
                           content: _buildCodeVerificationStep(),
                           isActive: _currentStep >= 1,
                           state: _currentStep > 1
@@ -191,7 +203,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               : StepState.indexed,
                         ),
                         Step(
-                          title: const Text('设置新密码'),
+                          title: Text(localizations.setNewPassword),
                           content: _buildNewPasswordStep(),
                           isActive: _currentStep >= 2,
                           state: _currentStep > 2
@@ -212,24 +224,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   /// 构建手机号验证步骤的UI
   Widget _buildPhoneVerificationStep() {
+    final localizations = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         TextField(
           controller: _phoneController,
-          decoration: const InputDecoration(
-            labelText: '手机号码',
-            prefixIcon: Icon(Icons.phone),
-            contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: InputDecoration(
+            labelText: localizations.phoneNumber,
+            prefixIcon: const Icon(Icons.phone),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
           ),
           keyboardType: TextInputType.phone,
           onChanged: (value) =>
               context.read<AuthCubit>().updatePhoneNumber(value),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 0),
         Text(
-          '我们将向您的手机发送验证码,请确保输入正确的手机号。',
+          localizations.phoneVerificationInfo,
           style: TextStyle(color: Colors.grey[600], fontSize: 13),
         ),
       ],
@@ -238,6 +252,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   /// 构建验证码验证步骤的UI
   Widget _buildCodeVerificationStep() {
+    final localizations = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -247,11 +262,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             Expanded(
               child: TextField(
                 controller: _verificationCodeController,
-                decoration: const InputDecoration(
-                  labelText: '验证码',
-                  prefixIcon: Icon(Icons.message),
+                decoration: InputDecoration(
+                  labelText: localizations.verificationCode,
+                  prefixIcon: const Icon(Icons.message),
                   contentPadding:
-                      EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 ),
                 onChanged: (value) =>
                     context.read<AuthCubit>().updateVerificationCode(value),
@@ -260,26 +275,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             const SizedBox(width: 8),
             BlocBuilder<AuthCubit, AuthState>(
               builder: (context, state) {
-                return ElevatedButton(
-                  onPressed: state.isCodeSent || state.isLoading
-                      ? null
-                      : () => context
-                          .read<AuthCubit>()
-                          .sendVerificationCode('reset'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    disabledBackgroundColor:
-                        Colors.green.withValues(alpha: 0.5),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: Text(
-                    state.isCodeSent && state.countdown != null
-                        ? '${state.countdown}s'
-                        : state.isLoading
-                            ? '发送中...'
-                            : '获取验证码',
-                  ),
+                return ListenableBuilder(
+                  listenable: _verificationCodeTimer,
+                  builder: (context, child) {
+                    return ElevatedButton(
+                      onPressed:
+                          _verificationCodeTimer.isActive || state.isLoading
+                              ? null
+                              : () => _sendVerificationCode(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        disabledBackgroundColor:
+                            Colors.green.withValues(alpha: 0.5),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        _verificationCodeTimer.isActive
+                            ? '${_verificationCodeTimer.countdown}s'
+                            : state.isLoading
+                                ? localizations.sending
+                                : localizations.getVerificationCode,
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -287,7 +306,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
         const SizedBox(height: 12),
         Text(
-          '请输入您收到的验证码,验证码有效期为5分钟。',
+          localizations.codeVerificationInfo,
           style: TextStyle(color: Colors.grey[600], fontSize: 13),
         ),
       ],
@@ -296,17 +315,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   /// 构建设置新密码步骤的UI
   Widget _buildNewPasswordStep() {
+    final localizations = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 4),
         TextField(
           controller: _newPasswordController,
-          decoration: const InputDecoration(
-            labelText: '新密码',
-            prefixIcon: Icon(Icons.lock),
-            helperText: '密码长度至少6位',
-            contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: InputDecoration(
+            labelText: localizations.newPassword,
+            prefixIcon: const Icon(Icons.lock),
+            helperText: localizations.passwordLength,
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
           obscureText: true,
           onChanged: (value) => context.read<AuthCubit>().updatePassword(value),
@@ -314,16 +335,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         const SizedBox(height: 16),
         TextField(
           controller: _confirmPasswordController,
-          decoration: const InputDecoration(
-            labelText: '确认密码',
-            prefixIcon: Icon(Icons.lock_outline),
-            contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: InputDecoration(
+            labelText: localizations.confirmPassword,
+            prefixIcon: const Icon(Icons.lock_outline),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
           obscureText: true,
         ),
         const SizedBox(height: 12),
         Text(
-          '请设置一个安全的新密码,并牢记您的密码。',
+          localizations.newPasswordInfo,
           style: TextStyle(color: Colors.grey[600], fontSize: 13),
         ),
       ],
@@ -334,23 +356,23 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   ///
   /// 根据当前步骤[_currentStep]验证对应的输入字段
   /// 返回bool值表示验证是否通过
-  bool _validateCurrentStep() {
+  bool _validateCurrentStep(AppLocalizations localizations) {
     switch (_currentStep) {
       case 0:
         // 验证手机号
         if (_phoneController.text.isEmpty) {
-          _showErrorMessage('请输入手机号码');
+          _showErrorMessage(localizations.pleaseEnterPhoneNumber);
           return false;
         }
         if (_phoneController.text.length != 11) {
-          _showErrorMessage('请输入正确的手机号码');
+          _showErrorMessage(localizations.pleaseEnterCorrectPhoneNumber);
           return false;
         }
         return true;
       case 1:
         // 验证验证码
         if (_verificationCodeController.text.isEmpty) {
-          _showErrorMessage('请输入验证码');
+          _showErrorMessage(localizations.pleaseEnterVerificationCode);
           return false;
         }
         // 可以添加验证码长度检查
@@ -358,15 +380,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       case 2:
         // 验证新密码
         if (_newPasswordController.text.isEmpty) {
-          _showErrorMessage('请输入新密码');
+          _showErrorMessage(localizations.pleaseEnterNewPassword);
           return false;
         }
         if (_newPasswordController.text.length < 6) {
-          _showErrorMessage('密码长度至少6位');
+          _showErrorMessage(localizations.passwordLengthAtLeast6);
           return false;
         }
         if (_confirmPasswordController.text != _newPasswordController.text) {
-          _showErrorMessage('两次输入的密码不一致');
+          _showErrorMessage(localizations.twoInputPasswordsNotMatch);
           return false;
         }
         return true;
@@ -380,6 +402,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   /// 向AuthCubit发送重置密码请求,并处理成功和失败的情况
   /// 成功时显示成功对话框,失败时显示错误消息
   void _resetPassword() {
+    final localizations = AppLocalizations.of(context);
     _logger.d('重置密码', extra: {'phoneNumber': _phoneController.text});
 
     // 数据已经通过AuthCubit的状态管理，这里不再需要手动传递
@@ -402,8 +425,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('密码重置成功'),
-          content: const Text('您的密码已成功重置,请使用新密码登录。'),
+          title: Text(localizations.passwordResetSuccess),
+          content: Text(localizations.passwordResetSuccessMessage),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -414,7 +437,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 Navigator.pop(context); // 返回登录页
               },
               child: Text(
-                '返回登录',
+                localizations.backToLogin,
                 style: TextStyle(color: Colors.green[700]),
               ),
             ),
@@ -431,6 +454,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       // 出错时不返回登录页,留在当前页面
     });
+  }
+
+  /// 发送验证码
+  Future<void> _sendVerificationCode() async {
+    try {
+      await context.read<AuthCubit>().sendVerificationCode('reset');
+      // 发送成功后开始倒计时
+      _verificationCodeTimer.startCountdown();
+    } catch (error) {
+      // 错误处理已在AuthCubit中处理
+    }
   }
 
   /// 显示错误消息提示

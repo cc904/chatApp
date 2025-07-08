@@ -83,6 +83,49 @@ abstract class AppLocalizations {
   String get username;
   String get password;
   String get forgotPassword;
+  String get quickLogin;
+  String get passwordLogin;
+  String get verificationCode;
+  String get enterVerificationCode;
+  String get getVerificationCode;
+  String get sending;
+  String get resend;
+  String get nickname;
+  String get confirmPassword;
+  String get registerInfo;
+  String get passwordLength;
+  String get passwordMismatch;
+  String get passwordTooShort;
+  String get pleaseEnterNickname;
+  String get registerSuccess;
+  String get alreadyHaveAccount;
+  String get resetPassword;
+  String get resetPasswordInfo;
+  String get verifyPhone;
+  String get codeVerification;
+  String get setNewPassword;
+  String get completeReset;
+  String get nextStep;
+  String get back;
+  String get newPassword;
+  String get pleaseEnterPhoneNumber;
+  String get pleaseEnterCorrectPhoneNumber;
+  String get pleaseEnterVerificationCode;
+  String get pleaseEnterNewPassword;
+  String get passwordLengthAtLeast6;
+  String get twoInputPasswordsNotMatch;
+  String get phoneVerificationInfo;
+  String get codeVerificationInfo;
+  String get newPasswordInfo;
+  String get passwordResetSuccess;
+  String get passwordResetSuccessMessage;
+  String get backToLogin;
+
+  // 服务器切换相关
+  String get switchServer;
+  String get currentServer;
+  String get cloudServer;
+  String get localServer;
 
   // 聊天相关
   String get newMessage;
@@ -110,7 +153,6 @@ abstract class AppLocalizations {
   String get noMatchingChats;
 
   // 聊天信息页面
-  String get back;
   String get chatCancel;
   String get chatDone;
   String get call;
@@ -273,7 +315,6 @@ abstract class AppLocalizations {
   String get currentUserInfo;
   String get noUserInfoLoaded;
   String get close;
-  String get currentServer;
   String get availableServers;
   String get switchTo;
   String get reset;
@@ -428,7 +469,6 @@ abstract class AppLocalizations {
   String get deleteAction;
 
   // 联系人编辑相关
-  String get nickname;
   String get remark;
 
   // 同步状态相关

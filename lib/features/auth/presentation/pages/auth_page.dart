@@ -8,6 +8,7 @@ import 'package:cc/core/utils/ui_notification_helper.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/services/verification_code_timer.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -23,7 +24,9 @@ class _AuthPageState extends State<AuthPage>
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
   final _logger = LogService.instance;
-  late final AuthCubit _authCubit;
+  late AuthCubit _authCubit;
+  late final AppConfig _appConfig;
+  late VerificationCodeTimer _verificationCodeTimer;
 
   @override
   void initState() {
@@ -31,9 +34,12 @@ class _AuthPageState extends State<AuthPage>
     _tabController = TabController(length: 2, vsync: this);
     _logger.d('AuthPage initialized', stackTrace: StackTrace.current);
 
+    // 创建AppConfig实例
+    _appConfig = AppConfig();
     // 创建AuthCubit实例
-    final appConfig = AppConfig();
-    _authCubit = AuthCubit(serverUrl: appConfig.serverUrl);
+    _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
+    // 创建验证码倒计时器实例
+    _verificationCodeTimer = VerificationCodeTimer();
   }
 
   @override
@@ -42,7 +48,10 @@ class _AuthPageState extends State<AuthPage>
     _phoneController.dispose();
     _passwordController.dispose();
     _verificationCodeController.dispose();
-    _authCubit.close(); // 注销AuthCubit
+    if (!_authCubit.isClosed) {
+      _authCubit.close(); // 注销AuthCubit
+    }
+    _verificationCodeTimer.dispose(); // 释放验证码倒计时器
     _logger.d('AuthPage disposed, AuthCubit closed');
     super.dispose();
   }
@@ -104,6 +113,9 @@ class _AuthPageState extends State<AuthPage>
                           color: Colors.grey[600],
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      // 服务器切换按钮
+                      _buildServerSwitchButton(),
                     ],
                   ),
                 ),
@@ -121,9 +133,9 @@ class _AuthPageState extends State<AuthPage>
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    tabs: const [
-                      Tab(text: '快捷登录'),
-                      Tab(text: '密码登录'),
+                    tabs: [
+                      Tab(text: localizations.quickLogin),
+                      Tab(text: localizations.passwordLogin),
                     ],
                     labelColor: Colors.green[800],
                     unselectedLabelColor: Colors.grey,
@@ -149,7 +161,7 @@ class _AuthPageState extends State<AuthPage>
                       TextField(
                         controller: _phoneController,
                         decoration: InputDecoration(
-                          labelText: localizations.username,
+                          labelText: localizations.phoneNumber,
                           prefixIcon: const Icon(Icons.phone),
                           contentPadding: const EdgeInsets.symmetric(
                               vertical: 16, horizontal: 16),
@@ -273,18 +285,18 @@ class _AuthPageState extends State<AuthPage>
   }
 
   Widget _buildQuickLogin() {
-    AppLocalizations.of(context);
+    final localizations = AppLocalizations.of(context);
 
     return Row(
       children: [
         Expanded(
           child: TextField(
             controller: _verificationCodeController,
-            decoration: const InputDecoration(
-              labelText: '请输入验证码',
-              prefixIcon: Icon(Icons.message),
+            decoration: InputDecoration(
+              labelText: localizations.enterVerificationCode,
+              prefixIcon: const Icon(Icons.message),
               contentPadding:
-                  EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
             onChanged: (value) => _authCubit.updateVerificationCode(value),
           ),
@@ -296,28 +308,45 @@ class _AuthPageState extends State<AuthPage>
               current.hasError && current.errorMessage != previous.errorMessage,
           listener: _handleVerificationCodeError,
           builder: (context, state) {
-            return ElevatedButton(
-              onPressed: state.isCodeSent || state.isLoading
-                  ? null
-                  : () => _authCubit.sendVerificationCode('login'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                disabledBackgroundColor: Colors.green.withValues(alpha: 0.5),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: Text(
-                state.isCodeSent && state.countdown != null
-                    ? '${state.countdown}s'
-                    : state.isLoading
-                        ? '发送中...'
-                        : '获取验证码',
-              ),
+            return ListenableBuilder(
+              listenable: _verificationCodeTimer,
+              builder: (context, child) {
+                return ElevatedButton(
+                  onPressed: _verificationCodeTimer.isActive || state.isLoading
+                      ? null
+                      : () => _sendVerificationCode(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    disabledBackgroundColor:
+                        Colors.green.withValues(alpha: 0.5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: Text(
+                    _verificationCodeTimer.isActive
+                        ? '${_verificationCodeTimer.countdown}s'
+                        : state.isLoading
+                            ? localizations.sending
+                            : localizations.getVerificationCode,
+                  ),
+                );
+              },
             );
           },
         ),
       ],
     );
+  }
+
+  /// 发送验证码
+  Future<void> _sendVerificationCode() async {
+    try {
+      await _authCubit.sendVerificationCode('login');
+      // 发送成功后开始倒计时
+      _verificationCodeTimer.startCountdown();
+    } catch (error) {
+      // 错误处理已在AuthCubit中处理
+    }
   }
 
   /// 处理验证码错误
@@ -346,5 +375,134 @@ class _AuthPageState extends State<AuthPage>
             onChanged: (value) => _authCubit.updatePassword(value),
           ),
         ));
+  }
+
+  Widget _buildServerSwitchButton() {
+    return GestureDetector(
+      onTap: _showServerSwitchDialog,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green[200]!),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.dns,
+              size: 16,
+              color: Colors.green[700],
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _appConfig.currentServerName,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down,
+              size: 16,
+              color: Colors.green[700],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showServerSwitchDialog() {
+    final localizations = AppLocalizations.of(context);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(localizations.switchServer),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _appConfig.allServerUrls.asMap().entries.map((entry) {
+              final index = entry.key;
+              final url = entry.value;
+              final isSelected = index == _appConfig.currentServerIndex;
+
+              return ListTile(
+                leading: Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: isSelected ? Colors.green : Colors.grey,
+                ),
+                title: Text(
+                  index == 0
+                      ? localizations.cloudServer
+                      : localizations.localServer,
+                  style: TextStyle(
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                subtitle: Text(
+                  url,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                onTap: () {
+                  if (!isSelected) {
+                    _switchServer(index);
+                  }
+                  Navigator.of(context).pop();
+                },
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                localizations.cancel,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _switchServer(int serverIndex) async {
+    try {
+      // 保存服务器索引到持久化存储
+      await _appConfig.setServerIndex(serverIndex);
+
+      setState(() {
+        // 关闭旧的AuthCubit实例
+        if (!_authCubit.isClosed) {
+          _authCubit.close();
+        }
+        // 重新创建AuthCubit实例以使用新的服务器URL
+        _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
+      });
+
+      UINotificationHelper.showSuccess(
+        '已切换到${_appConfig.currentServerName}',
+      );
+
+      _logger.i('🔄 服务器切换成功', extra: {
+        'serverIndex': serverIndex,
+        'serverUrl': _appConfig.serverUrl,
+        'serverName': _appConfig.currentServerName,
+      });
+    } catch (e) {
+      _logger.e('服务器切换失败', error: e);
+      UINotificationHelper.showError('服务器切换失败: ${e.toString()}');
+    }
   }
 }

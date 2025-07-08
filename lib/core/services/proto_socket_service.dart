@@ -29,12 +29,15 @@ class ProtoSocketService {
   String? _serverUrl;
   String? _token;
 
-  // 重连相关配置
+  // 重连相关配置 - 使用Socket.io内置机制
   static const int _maxReconnectAttempts = 5;
   static const Duration _reconnectInterval = Duration(seconds: 3);
-  int _reconnectAttempts = 0;
-  Timer? _reconnectTimer;
-  bool _isReconnecting = false;
+
+  // 移除自定义重连相关变量
+  // Timer? _reconnectTimer;
+  // bool _isReconnecting = false;
+  // int _consecutiveFailures = 0;
+  // DateTime? _lastReconnectAttempt;
 
   // 标记是否已初始化
   bool _isInitialized = false;
@@ -48,17 +51,14 @@ class ProtoSocketService {
   SocketConnectionStatus _status = SocketConnectionStatus.disconnected;
   SocketConnectionStatus get status => _status;
 
-  // 重连状态流控制器
-  final StreamController<bool> _reconnectingStateController =
-      StreamController<bool>.broadcast();
-  Stream<bool> get reconnectingStateStream =>
-      _reconnectingStateController.stream;
-
   // 连接状态流控制器
   final StreamController<SocketConnectionStatus> _connectionStateController =
       StreamController<SocketConnectionStatus>.broadcast();
   Stream<SocketConnectionStatus> get connectionStateStream =>
       _connectionStateController.stream;
+
+  // 💢💢💢 移除：不再需要单独的重连状态流
+  // Stream<bool> get reconnectingStateStream => ...
 
   // 单例模式
   static final ProtoSocketService _instance = ProtoSocketService._internal();
@@ -102,8 +102,6 @@ class ProtoSocketService {
     _token = token;
 
     try {
-      _reconnectTimer?.cancel();
-
       // 💢💢💢 清理旧的Socket实例和监听器
       if (_socket != null) {
         _logger.i('🧹 清理旧的Socket实例');
@@ -122,9 +120,11 @@ class ProtoSocketService {
         'transports': ['websocket', 'polling'], // 支持两种传输方式
         'autoConnect': true,
         'auth': {'token': token},
-        'reconnection': true,
-        'reconnectionAttempts': 10,
-        'reconnectionDelay': 3000,
+        'reconnection': true, // 启用Socket.io内置重连
+        'reconnectionAttempts': _maxReconnectAttempts, // 最大重连次数
+        'reconnectionDelay': _reconnectInterval.inMilliseconds, // 重连间隔
+        'reconnectionDelayMax': 10000, // 最大重连间隔
+        'maxReconnectionAttempts': _maxReconnectAttempts, // 最大重连次数
         'forceNew': true, // 强制创建新连接
         'timeout': 20000, // 增加超时时间
         'extraHeaders': {
@@ -208,90 +208,31 @@ class ProtoSocketService {
   /// 断开连接
   Future<void> disconnect() async {
     _logger.i('🔌 断开Socket.IO连接');
-    _reconnectTimer?.cancel();
-    _isReconnecting = false;
-    _reconnectAttempts = 0;
     _socket?.disconnect();
     _updateStatus(SocketConnectionStatus.disconnected);
   }
 
-  /// 尝试重新连接
-  Future<void> _attemptReconnect() async {
-    if (_isReconnecting || _reconnectAttempts >= _maxReconnectAttempts) {
-      _logger.w('已达到最大重连次数或正在重连中', extra: {
-        'attempts': _reconnectAttempts,
-        'maxAttempts': _maxReconnectAttempts,
-        'isReconnecting': _isReconnecting
-      });
-      return;
-    }
-
-    _isReconnecting = true;
-    _reconnectingStateController.add(true);
-    _updateStatus(SocketConnectionStatus.reconnecting);
-    _reconnectAttempts++;
-
-    _logger.i('🔄 尝试重新连接 #$_reconnectAttempts');
-
-    try {
-      final result = await connect(
-        serverUrl: _serverUrl!,
-        token: _token!,
-      );
-
-      if (result) {
-        _logger.i('✅ 重连成功');
-        _isReconnecting = false;
-        _reconnectingStateController.add(false);
-        _reconnectAttempts = 0;
-      } else {
-        _scheduleReconnect();
-      }
-    } catch (error) {
-      _logger.i('❌ 重连失败: $error');
-      _scheduleReconnect();
-    }
-  }
-
-  /// 安排下一次重连
-  void _scheduleReconnect() {
-    if (_reconnectAttempts >= _maxReconnectAttempts) {
-      _logger.i('⚠️ 已达到最大重连次数，停止重连');
-      _isReconnecting = false;
-      _reconnectingStateController.add(false);
-      _updateStatus(SocketConnectionStatus.error);
-      return;
-    }
-
-    // 💢💢💢 修复：重置重连状态，为下次重连做准备
-    _isReconnecting = false;
-    _reconnectingStateController.add(false);
-
-    _reconnectTimer?.cancel();
-    _logger.i('⏱️ 安排下一次重连，${_reconnectInterval.inSeconds}秒后执行');
-    _reconnectTimer = Timer(_reconnectInterval, _attemptReconnect);
-  }
+  /// 💢💢💢 简化：移除自定义重连逻辑，Socket.io会自动处理
+  // 移除 _attemptReconnect 和 _scheduleReconnect 方法
 
   /// 设置Socket监听器
   void _setupSocketListeners() {
     _socket?.onDisconnect((reason) {
       _logger.i('🔌 Socket.io断开连接: $reason');
       _updateStatus(SocketConnectionStatus.disconnected);
-      _attemptReconnect();
+      // 移除手动重连触发，让Socket.io自动处理
     });
 
     _socket?.onError((error) {
       _logger.i('⚠️ Socket.io连接错误: $error');
       _updateStatus(SocketConnectionStatus.error);
-      _attemptReconnect();
+      // 移除手动重连触发，让Socket.io自动处理
     });
 
     _socket?.onReconnect((_) {
       _logger.i('🔄 Socket.io重连成功');
       _updateStatus(SocketConnectionStatus.connected);
-      _isReconnecting = false;
-      _reconnectingStateController.add(false);
-      _reconnectAttempts = 0;
+      // Socket.io自动重连成功，无需额外处理
     });
 
     _socket?.onReconnectAttempt((attempt) {
@@ -304,13 +245,23 @@ class ProtoSocketService {
       }
     });
 
+    _socket?.onReconnectError((error) {
+      _logger.i('❌ Socket.io重连错误: $error');
+      _updateStatus(SocketConnectionStatus.error);
+    });
+
+    _socket?.onReconnectFailed((_) {
+      _logger.i('💥 Socket.io重连失败，已达到最大重连次数');
+      _updateStatus(SocketConnectionStatus.error);
+    });
+
     // 添加ping/pong事件监听
     _socket?.on('ping', (_) {
-      _logger.i('📡 Socket.io ping');
+      _logger.d('📡 Socket.io ping');
     });
 
     _socket?.on('pong', (_) {
-      _logger.i('📡 Socket.io pong');
+      _logger.d('📡 Socket.io pong');
     });
   }
 
@@ -335,28 +286,31 @@ class ProtoSocketService {
         return true;
       }
 
-      // 如果正在重连中，等待当前重连完成
-      if (_isReconnecting) {
-        _logger.i('正在重连中，等待当前重连完成');
-        // 等待重连状态变化
-        await reconnectingStateStream
-            .firstWhere((isReconnecting) => !isReconnecting);
-        return _isConnected;
+      // 检查是否有连接信息
+      if (_serverUrl == null || _token == null) {
+        _logger.w('❌ 缺少连接信息，无法重连');
+        return false;
       }
 
-      // 重置重连计数，允许手动重连
-      final originalAttempts = _reconnectAttempts;
-      _reconnectAttempts = 0;
+      _logger.i('🔄 开始执行手动重连', extra: {
+        'serverUrl': _serverUrl,
+        'currentStatus': _status.toString(),
+        'socketConnected': _socket?.connected,
+      });
 
-      // 执行重连
-      await _attemptReconnect();
+      // 💢💢💢 实际执行重连：重新调用connect方法
+      final success = await connect(
+        serverUrl: _serverUrl!,
+        token: _token!,
+      );
 
-      // 如果重连失败，恢复原来的计数
-      if (!_isConnected) {
-        _reconnectAttempts = originalAttempts;
+      if (success) {
+        _logger.i('✅ 手动重连成功');
+      } else {
+        _logger.w('❌ 手动重连失败');
       }
 
-      return _isConnected;
+      return success;
     } catch (error) {
       _logger.e('手动重连异常', error: error, stackTrace: StackTrace.current);
       return false;
@@ -365,8 +319,6 @@ class ProtoSocketService {
 
   /// 释放资源
   void dispose() {
-    _reconnectTimer?.cancel();
-    _reconnectingStateController.close();
     _connectionStateController.close();
     _socket?.disconnect();
     _socket?.dispose();
@@ -438,13 +390,7 @@ class ProtoSocketService {
   Future<bool> emitProto(String eventName, GeneratedMessage message) async {
     if (!_isConnected) {
       _logger.i('❌ Socket未连接，无法发送消息: $eventName');
-
-      // 💢💢💢 新增：发送失败时触发重连
-      if (!_isReconnecting && _reconnectAttempts < _maxReconnectAttempts) {
-        _logger.i('🔄 发送失败，触发自动重连');
-        _attemptReconnect();
-      }
-
+      // Socket.io会自动重连，无需手动触发
       return false;
     }
 
@@ -454,13 +400,7 @@ class ProtoSocketService {
       return true;
     } catch (e) {
       _logger.i('❌ 发送Socket消息失败: $e');
-
-      // 💢💢💢 新增：发送异常时也触发重连
-      if (!_isReconnecting && _reconnectAttempts < _maxReconnectAttempts) {
-        _logger.i('🔄 发送异常，触发自动重连');
-        _attemptReconnect();
-      }
-
+      // Socket.io会自动重连，无需手动触发
       return false;
     }
   }
@@ -473,8 +413,7 @@ class ProtoSocketService {
       'initialized': _isInitialized,
       'serverUrl': _serverUrl,
       'socketId': _socket?.id,
-      'reconnectAttempts': _reconnectAttempts,
-      'isReconnecting': _isReconnecting,
+      'isReconnecting': _socket?.connected == false,
     };
     _logger.i('📊 连接信息: $info');
     return info;

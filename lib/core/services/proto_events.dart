@@ -102,8 +102,8 @@ class ProtoEvents {
     // 会话相关事件 (Conversation Events)
     // ================================
 
-    /// 会话更新通知 → ConversationProto
-    'conversation:update': () => conversation.ConversationProto(),
+    /// 会话更新响应 → ConversationResponse
+    'conversation:update:response': () => conversation.ConversationResponse(),
 
     /// 会话创建通知 → ConversationProto
     'conversation:created': () => conversation.ConversationProto(),
@@ -117,9 +117,9 @@ class ProtoEvents {
     /// 同步会话响应 → ConversationCollection
     'conversation:sync:response': () => conversation.ConversationCollection(),
 
-    /// 会话更新通知 → ConversationUpdateNotification
-    'conversation:update:notification': () =>
-        conversation.ConversationUpdateNotification(),
+    /// 会话预览更新通知 → ConversationPreviewUpdated
+    'conversation:preview:updated': () =>
+        conversation.ConversationPreviewUpdated(),
 
     // ================================
     // 会话设置事件 (Conversation Settings)
@@ -132,6 +132,21 @@ class ProtoEvents {
     /// 会话设置更新响应 → ConversationSettingsUpdateResponse
     'conversation:settings:updated': () =>
         conversation.ConversationSettingsUpdateResponse(),
+
+    // ================================
+    // 会话信息管理 (Conversation Info)
+    // ================================
+
+    /// 会话信息更新请求 → ConversationInfoUpdateRequest
+    'conversation:info:update': () =>
+        conversation.ConversationInfoUpdateRequest(),
+
+    /// 会话信息更新响应 → ConversationInfoUpdateResponse
+    'conversation:info:update:response': () =>
+        conversation.ConversationInfoUpdateResponse(),
+
+    /// 会话信息更新通知 → ConversationInfoUpdated
+    'conversation:info:updated': () => conversation.ConversationInfoUpdated(),
 
     // ================================
     // 会话房间管理 (Room Management)
@@ -224,6 +239,34 @@ class ProtoEvents {
 
     /// 联系人信息更新事件 → ContactUpdateEvent
     'contact:updated': () => contacts.ContactUpdateEvent(),
+
+    // ================================
+    // 好友请求相关事件 (Friend Request Events)
+    // ================================
+
+    /// 发送好友请求 → SendFriendRequestProto
+    'friend:request:send': () => contacts.SendFriendRequestProto(),
+
+    /// 发送好友请求响应 → FriendRequestProto
+    'friend:request:send:response': () => contacts.FriendRequestProto(),
+
+    /// 处理好友请求（接受/拒绝） → ProcessFriendRequestProto
+    'friend:request:process': () => contacts.ProcessFriendRequestProto(),
+
+    /// 处理好友请求响应 → FriendRequestProto
+    'friend:request:process:response': () => contacts.FriendRequestProto(),
+
+    /// 获取好友请求列表请求 → GetFriendRequestsRequest
+    'friend:requests:get': () => contacts.GetFriendRequestsRequest(),
+
+    /// 获取好友请求列表响应 → GetFriendRequestsResponse
+    'friend:requests:get:response': () => contacts.GetFriendRequestsResponse(),
+
+    /// 收到好友请求通知 → FriendRequestProto
+    'friend:request:received': () => contacts.FriendRequestProto(),
+
+    /// 好友请求处理结果通知 → FriendRequestProto
+    'friend:request:processed': () => contacts.FriendRequestProto(),
 
     // ================================
     // 系统相关事件 (System Events)

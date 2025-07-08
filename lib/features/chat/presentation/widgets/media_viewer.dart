@@ -87,7 +87,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
           PhotoView(
             imageProvider: _getImageProvider(),
             errorBuilder: (context, error, stackTrace) {
-              _logger.e('图片查看器加载失败', error: error, stackTrace: StackTrace.current);
+              _logger.e('图片查看器加载失败',
+                  error: error, stackTrace: StackTrace.current);
               if (!_hasError) {
                 setState(() {
                   _hasError = true;
@@ -97,7 +98,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.broken_image, size: 64, color: Colors.white),
+                    const Icon(Icons.broken_image,
+                        size: 64, color: Colors.white),
                     const SizedBox(height: 16),
                     Text(
                       '图片加载失败\n$_effectivePath',
@@ -153,7 +155,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       final file = File(_effectivePath);
       if (file.existsSync()) {
         return FileImage(file);
-      } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty && !widget.mediaUrl!.startsWith('file://')) {
+      } else if (widget.mediaUrl != null &&
+          widget.mediaUrl!.isNotEmpty &&
+          !widget.mediaUrl!.startsWith('file://')) {
         return NetworkImage(widget.mediaUrl!);
       } else {
         _logger.e('图片文件不存在', extra: {'path': _effectivePath});
@@ -323,9 +327,12 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         // 本地文件
         _videoPlayerController = VideoPlayerController.file(file);
         _logger.d('使用本地文件初始化视频', extra: {'path': file.path});
-      } else if (widget.mediaUrl != null && widget.mediaUrl!.isNotEmpty && !widget.mediaUrl!.startsWith('file://')) {
+      } else if (widget.mediaUrl != null &&
+          widget.mediaUrl!.isNotEmpty &&
+          !widget.mediaUrl!.startsWith('file://')) {
         // 网络URL
-        _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
+        _videoPlayerController =
+            VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl!));
         _logger.d('使用网络URL初始化视频', extra: {'url': widget.mediaUrl});
       } else {
         _logger.e('无法找到有效的视频文件', extra: {'path': _effectivePath});
@@ -352,7 +359,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
               children: [
                 const Icon(Icons.error, color: Colors.red, size: 42),
                 const SizedBox(height: 8),
-                Text('视频播放错误: $errorMessage', style: const TextStyle(color: Colors.white)),
+                Text('视频播放错误: $errorMessage',
+                    style: const TextStyle(color: Colors.white)),
               ],
             ),
           );
@@ -417,7 +425,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.video_library_outlined, size: 64, color: Colors.red),
+                  const Icon(Icons.video_library_outlined,
+                      size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
                     '视频加载失败\n$_effectivePath',
@@ -565,7 +574,8 @@ class MediaViewer {
   }
 
   /// 打开媒体查看器（根据消息类型）
-  static void openMedia(BuildContext context, Message message, {VoidCallback? onDelete}) {
+  static void openMedia(BuildContext context, Message message,
+      {VoidCallback? onDelete}) {
     final localPath = message.localPath;
     final mediaUrl = message.mediaUrl;
 
@@ -574,7 +584,27 @@ class MediaViewer {
       return;
     }
 
-    final effectivePath = localPath ?? (mediaUrl != null && mediaUrl.startsWith('file://') ? mediaUrl.substring(7) : '');
+    // 优先使用mediaUrl，只有当mediaUrl为空且localPath存在且文件存在时才使用localPath
+    String effectivePath = '';
+
+    if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      if (mediaUrl.startsWith('file://')) {
+        effectivePath = mediaUrl.substring(7);
+      } else {
+        effectivePath = mediaUrl;
+      }
+    } else if (localPath != null && localPath.isNotEmpty) {
+      // 检查本地文件是否存在
+      final localFile = File(localPath);
+      if (localFile.existsSync()) {
+        effectivePath = localPath;
+      }
+    }
+
+    if (effectivePath.isEmpty) {
+      UINotificationService().showError('无法查看：媒体文件不存在');
+      return;
+    }
 
     if (message.type == MessageType.image) {
       openImage(

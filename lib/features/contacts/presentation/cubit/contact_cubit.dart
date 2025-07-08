@@ -21,10 +21,6 @@ class ContactCubit extends Cubit<ContactState> {
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
 
-  // 定期同步定时器
-  Timer? _periodicSyncTimer;
-  static const Duration _syncInterval = Duration(minutes: 30); // 30分钟同步一次
-
   /// 获取联系人仓库实例
   ContactsRepository get repository => _contactsRepository;
 
@@ -35,7 +31,7 @@ class ContactCubit extends Cubit<ContactState> {
     _setupLocalDataSubscriptions();
     _registerProtoEventHandlers();
     _setupAppLifecycleListener();
-    _startPeriodicSync();
+    // _startPeriodicSync();
   }
 
   /// 设置事件订阅
@@ -377,9 +373,6 @@ class ContactCubit extends Cubit<ContactState> {
     }
     _subscriptions.clear();
 
-    // 取消定期同步定时器
-    _periodicSyncTimer?.cancel();
-
     return super.close();
   }
 
@@ -408,38 +401,30 @@ class ContactCubit extends Cubit<ContactState> {
       'newState': newState.toString(),
     });
 
-    // 当应用从后台恢复到前台时
+    // 当应用从后台恢复到前台时，仅清理错误，不自动同步，由页面切换逻辑决定
     if (newState == CustomAppLifecycleState.resumed) {
-      _logger.i('应用恢复到前台，清除错误状态并触发同步');
+      _logger.i('应用恢复到前台，清除错误状态');
 
-      // 清除错误状态
       if (state.errorMessage != null) {
         emit(state.copyWith(errorMessage: null));
       }
-
-      // 延迟一段时间后触发同步，避免过于频繁
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!isClosed) {
-          syncContacts();
-        }
-      });
     }
   }
 
   /// 启动定期同步
-  void _startPeriodicSync() {
-    _logger.i('启动联系人定期同步', extra: {'interval': '${_syncInterval.inMinutes}分钟'});
-    _periodicSyncTimer = Timer.periodic(_syncInterval, (timer) {
-      if (!isClosed) {
-        // 🔄 只在应用活跃时进行定期同步
-        final appLifecycleService = AppLifecycleService.instance;
-        if (appLifecycleService.isAppActive) {
-          _logger.d('定期同步联系人');
-          syncContacts();
-        } else {
-          _logger.d('应用在后台，跳过定期同步');
-        }
-      }
-    });
-  }
+  // void _startPeriodicSync() {
+  //   _logger.i('启动联系人定期同步', extra: {'interval': '${_syncInterval.inMinutes}分钟'});
+  //   _periodicSyncTimer = Timer.periodic(_syncInterval, (timer) {
+  //     if (!isClosed) {
+  //       // 🔄 只在应用活跃时进行定期同步
+  //       final appLifecycleService = AppLifecycleService.instance;
+  //       if (appLifecycleService.isAppActive) {
+  //         _logger.d('定期同步联系人');
+  //         syncContacts();
+  //       } else {
+  //         _logger.d('应用在后台，跳过定期同步');
+  //       }
+  //     }
+  //   });
+  // }
 }

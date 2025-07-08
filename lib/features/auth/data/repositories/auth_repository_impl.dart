@@ -8,10 +8,12 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:isar/isar.dart';
-import 'package:dio/dio.dart';
+
+import 'package:cc/core/utils/api_error_handler.dart';
 
 /// AuthRepository的实现类
 /// 负责认证相关的业务逻辑，支持多设备登录和新Token管理
+
 class AuthRepositoryImpl implements AuthRepository {
   final LogService _logger = LogService.instance;
   final EnhancedApiService _apiService = EnhancedApiService.instance;
@@ -24,12 +26,19 @@ class AuthRepositoryImpl implements AuthRepository {
   // 存储认证状态
   bool _isInitialized = false;
 
-  // 单例实例
+  // 单例实例和对应的服务器URL
   static AuthRepositoryImpl? _instance;
+  static String? _currentServerUrl;
 
   // 工厂方法，获取单例实例
   static AuthRepositoryImpl getInstance({required String serverUrl}) {
-    _instance ??= AuthRepositoryImpl(serverUrl: serverUrl);
+    // 如果服务器URL发生变化，重新创建实例
+    if (_instance == null || _currentServerUrl != serverUrl) {
+      _instance = AuthRepositoryImpl(serverUrl: serverUrl);
+      _currentServerUrl = serverUrl;
+      // 重置初始化状态，确保新实例会重新初始化
+      _instance!._isInitialized = false;
+    }
     return _instance!;
   }
 
@@ -51,6 +60,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 设置API基础URL
       _apiService.setBaseUrl(_serverUrl);
+
+      // 更新TokenManager的基础URL
+      _tokenManager.updateBaseUrl(_serverUrl);
 
       // 初始化设备管理器
       final deviceId = await DeviceManager.getDeviceId();
@@ -160,7 +172,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return data;
     } catch (error) {
       _logger.e('密码登录失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      // 使用统一的错误处理器提取错误信息
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      throw Exception(errorMessage);
     }
   }
 
@@ -212,7 +226,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return data;
     } catch (error) {
       _logger.e('验证码登录失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      // 使用统一的错误处理器提取错误信息
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      throw Exception(errorMessage);
     }
   }
 
@@ -246,7 +262,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return data;
     } catch (error) {
       _logger.e('Token登录失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      // 使用统一的错误处理器提取错误信息
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      throw Exception(errorMessage);
     }
   }
 
@@ -269,19 +287,23 @@ class AuthRepositoryImpl implements AuthRepository {
       final deviceInfo = await DeviceManager.getDeviceInfo();
 
       // 发送注册请求
-      final response = await _apiService.post('/api/v1/auth/register', data: {
-        'phone': username, // 修复：使用统一的字段名 'phone'
-        'password': password,
-        'verificationCode': verificationCode,
-        'name': name, // 修复：使用正确的字段名 'name'
-        'device': {
-          'deviceId': deviceInfo.deviceId,
-          'deviceType': deviceInfo.deviceType,
-          'deviceModel': deviceInfo.deviceModel,
-          'osVersion': deviceInfo.osVersion,
-          'appVersion': deviceInfo.appVersion,
-        }
-      });
+      final response = await _apiService.post(
+        '/api/v1/auth/register',
+        data: {
+          'phone': username, // 修复：使用统一的字段名 'phone'
+          'password': password,
+          'verificationCode': verificationCode,
+          'name': name, // 修复：使用正确的字段名 'name'
+          'device': {
+            'deviceId': deviceInfo.deviceId,
+            'deviceType': deviceInfo.deviceType,
+            'deviceModel': deviceInfo.deviceModel,
+            'osVersion': deviceInfo.osVersion,
+            'appVersion': deviceInfo.appVersion,
+          }
+        },
+        attachToken: false, // 注册不需要token认证
+      );
 
       final data = response.data;
       if (data['success'] != true) {
@@ -295,7 +317,9 @@ class AuthRepositoryImpl implements AuthRepository {
       return data;
     } catch (error) {
       _logger.e('用户注册失败', error: error, stackTrace: StackTrace.current);
-      rethrow;
+      // 使用统一的错误处理器提取错误信息
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      throw Exception(errorMessage);
     }
   }
 
@@ -436,12 +460,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
       _logger.i('🔄 重置密码', extra: {'phoneOrEmail': phoneOrEmail});
 
-      final response =
-          await _apiService.post('/api/v1/auth/resetPassword', data: {
-        'phone': phoneOrEmail, // 修复：使用正确的字段名 'phone'
-        'code': code, // 修复：使用正确的字段名 'code'
-        'newPassword': newPassword,
-      });
+      final response = await _apiService.post(
+        '/api/v1/auth/resetPassword',
+        data: {
+          'phone': phoneOrEmail, // 修复：使用正确的字段名 'phone'
+          'code': code, // 修复：使用正确的字段名 'code'
+          'newPassword': newPassword,
+        },
+        attachToken: false, // 重置密码不需要token认证
+      );
 
       final data = response.data;
       return data['success'] == true;
@@ -460,24 +487,22 @@ class AuthRepositoryImpl implements AuthRepository {
       _logger
           .i('📨 发送验证码', extra: {'phoneOrEmail': phoneOrEmail, 'type': type});
 
-      final response = await _apiService.post('/api/v1/auth/sendCode', data: {
-        'phone': phoneOrEmail, // 修复：使用正确的字段名 'phone'
-        'purpose': type,
-      });
+      final response = await _apiService.post(
+        '/api/v1/auth/sendCode',
+        data: {
+          'phone': phoneOrEmail, // 修复：使用正确的字段名 'phone'
+          'purpose': type,
+        },
+        attachToken: false, // 发送验证码不需要token认证
+      );
 
       final data = response.data;
       return data['success'] == true;
-    } on DioException catch (dioError) {
-      // 处理HTTP层面的错误
-      if (dioError.response?.statusCode == 429) {
-        // 429: Too Many Requests - 发送过于频繁
-        throw '发送过于频繁，请稍后再试';
-      }
-      _logger.e('发送验证码失败(DioException)', error: dioError);
-      throw '发送验证码失败：${dioError.message}';
     } catch (error) {
       _logger.e('发送验证码失败', error: error, stackTrace: StackTrace.current);
-      throw '发送验证码失败：${error.toString()}';
+      // 使用统一的错误处理器提取错误信息
+      final errorMessage = ApiErrorHandler.extractErrorMessage(error);
+      throw errorMessage;
     }
   }
 

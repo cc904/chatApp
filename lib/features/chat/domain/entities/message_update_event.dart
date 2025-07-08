@@ -22,11 +22,11 @@ enum AddedEventType {
 }
 
 /// 消息更新事件的基类
-abstract class MessageUpdateEvent extends Equatable {
+abstract class MessagesEvent extends Equatable {
   final String conversationId;
   final DateTime timestamp;
 
-  const MessageUpdateEvent({
+  const MessagesEvent({
     required this.conversationId,
     required this.timestamp,
   });
@@ -36,7 +36,7 @@ abstract class MessageUpdateEvent extends Equatable {
 }
 
 /// 消息添加事件
-class MessageAddedEvent extends MessageUpdateEvent {
+class MessageAddedEvent extends MessagesEvent {
   final List<Message> newMessages;
   final AddedEventType addedEventType; // 🆕 消息添加事件类型
   final int? anchorMessageIndex; // 🆕 锚点消息索引
@@ -50,34 +50,28 @@ class MessageAddedEvent extends MessageUpdateEvent {
   }) : super(timestamp: timestamp ?? DateTime.now());
 
   @override
-  List<Object?> get props => [
-        ...super.props,
-        newMessages,
-        addedEventType,
-        anchorMessageIndex
-      ];
+  List<Object?> get props =>
+      [...super.props, newMessages, addedEventType, anchorMessageIndex];
 }
 
 /// 消息更新事件
-class MessageUpdatedEvent extends MessageUpdateEvent {
+class MessageUpdatedEvent extends MessagesEvent {
   final String messageId;
-  final String? tempId; // 💢💢💢 添加tempId字段，用于只有tempId的消息
   final Map<String, dynamic> updatedFields;
 
   MessageUpdatedEvent({
     required super.conversationId,
     required this.messageId,
-    this.tempId, // 💢💢💢 可选的tempId参数
     required this.updatedFields,
     DateTime? timestamp,
   }) : super(timestamp: timestamp ?? DateTime.now());
 
   @override
-  List<Object?> get props => [...super.props, messageId, tempId, updatedFields];
+  List<Object?> get props => [...super.props, messageId, updatedFields];
 }
 
 /// 消息删除事件
-class MessageRemovedEvent extends MessageUpdateEvent {
+class MessageRemovedEvent extends MessagesEvent {
   final String messageId;
 
   MessageRemovedEvent({
@@ -91,21 +85,19 @@ class MessageRemovedEvent extends MessageUpdateEvent {
 }
 
 /// 消息发送更新事件
-class UpdateSendEvent extends MessageUpdateEvent {
-  final String tempId;
+class UpdateSendEvent extends MessagesEvent {
   final String messageId;
   final int messageIndex;
 
   UpdateSendEvent({
     required super.conversationId,
-    required this.tempId,
     required this.messageId,
     required this.messageIndex,
     DateTime? timestamp,
   }) : super(timestamp: timestamp ?? DateTime.now());
 
   @override
-  List<Object?> get props => [...super.props, tempId, messageId, messageIndex];
+  List<Object?> get props => [...super.props, messageId, messageIndex];
 }
 
 /// 详细的加载状态更新

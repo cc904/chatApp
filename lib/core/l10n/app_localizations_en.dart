@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 /// 英文本地化实现
 class AppLocalizationsEn extends AppLocalizations {
   @override
-  String get appName => 'WhatsApp';
+  String get appName => 'ThisApp';
 
   // 按钮文本
   @override
@@ -47,6 +47,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get password => 'Password';
   @override
   String get forgotPassword => 'Forgot Password';
+  @override
+  String get quickLogin => 'Quick Login';
+  @override
+  String get passwordLogin => 'Password Login';
+  @override
+  String get verificationCode => 'Verification Code';
+  @override
+  String get enterVerificationCode => 'Enter verification code';
+  @override
+  String get getVerificationCode => 'Get Code';
+  @override
+  String get sending => 'Sending...';
+  @override
+  String get resend => 'Resend';
 
   // 聊天相关
   @override
@@ -791,4 +805,105 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncRetrying => 'Retrying Sync';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get registerInfo =>
+      'Please fill in the information to complete registration';
+
+  @override
+  String get passwordLength => 'Password must be at least 6 characters';
+
+  @override
+  String get passwordMismatch => 'Passwords do not match';
+
+  @override
+  String get passwordTooShort => 'Password must be at least 6 characters';
+
+  @override
+  String get pleaseEnterNickname => 'Please enter nickname';
+
+  @override
+  String get registerSuccess => 'Registration successful';
+
+  @override
+  String get alreadyHaveAccount => 'Already have an account? Back to login';
+
+  @override
+  String get resetPassword => 'Reset Password';
+
+  @override
+  String get resetPasswordInfo =>
+      'Please complete the following steps to reset your password';
+
+  @override
+  String get verifyPhone => 'Verify Phone Number';
+
+  @override
+  String get codeVerification => 'Code Verification';
+
+  @override
+  String get setNewPassword => 'Set New Password';
+
+  @override
+  String get completeReset => 'Complete Reset';
+
+  @override
+  String get nextStep => 'Next';
+
+  @override
+  String get newPassword => 'New Password';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'Please enter phone number';
+
+  @override
+  String get pleaseEnterCorrectPhoneNumber =>
+      'Please enter correct phone number';
+
+  @override
+  String get pleaseEnterVerificationCode => 'Please enter verification code';
+
+  @override
+  String get pleaseEnterNewPassword => 'Please enter new password';
+
+  @override
+  String get passwordLengthAtLeast6 => 'Password must be at least 6 characters';
+
+  @override
+  String get twoInputPasswordsNotMatch => 'The two passwords do not match';
+
+  @override
+  String get phoneVerificationInfo =>
+      'We will send a verification code to your phone, please make sure to enter the correct phone number.';
+
+  @override
+  String get codeVerificationInfo =>
+      'Please enter the verification code you received, the code is valid for 5 minutes.';
+
+  @override
+  String get newPasswordInfo =>
+      'Please set a secure new password and remember it.';
+
+  @override
+  String get passwordResetSuccess => 'Password Reset Successful';
+
+  @override
+  String get passwordResetSuccessMessage =>
+      'Your password has been successfully reset, please use the new password to login.';
+
+  @override
+  String get backToLogin => 'Back to Login';
+
+  // Server switching related
+  @override
+  String get switchServer => 'Switch Server';
+
+  @override
+  String get cloudServer => 'Cloud Server';
+
+  @override
+  String get localServer => 'Local Server';
 }

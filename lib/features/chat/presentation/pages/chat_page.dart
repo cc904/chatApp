@@ -32,6 +32,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 聊天页面
 ///
@@ -89,6 +90,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
 
+  /// 💢💢💢 首次渲染检查标志
+  bool _hasCheckedInitialPosition = false;
+
   /// 格式化录制时间
   String _formatRecordingTime(int seconds) {
     int minutes = seconds ~/ 60;
@@ -132,6 +136,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     // 初始化媒体上传服务
     _initializeMediaServices();
+
+    // 页面初始化后，同步当前会话详情
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ChatCubit>().syncCurrentConversation();
+      }
+    });
   }
 
   /// 初始化媒体服务
@@ -199,6 +210,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   void _onScrollPositionChanged() {
     final positions = _itemPositionsListener.itemPositions.value;
     if (positions.isNotEmpty) {
+      // 💢💢💢 首次渲染后检查位置
+      _checkInitialPositionAfterRender();
+
       // 💢💢💢 保留基本防抖，ChatCubit层的去重逻辑已足够防止不必要的重绘
       _scrollDebounceTimer?.cancel();
       _scrollDebounceTimer = Timer(const Duration(milliseconds: 200), () {
@@ -207,9 +221,74 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
+  /// 💢💢💢 检查初始渲染后的滚动位置
+  void _checkInitialPositionAfterRender() {
+    if (_hasCheckedInitialPosition) return;
+
+    final state = context.read<ChatCubit>().state;
+    final currentScrollPosition = state.currentScrollPosition;
+
+    // 只在 relativePosition == 1.0 时进行检查
+    if (currentScrollPosition.relativePosition != 1.0) {
+      _hasCheckedInitialPosition = true;
+      return;
+    }
+
+    // 延迟检查，确保列表已完全渲染
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _performInitialPositionCheck();
+    });
+  }
+
+  /// 💢💢💢 执行初始位置检查
+  void _performInitialPositionCheck() {
+    if (_hasCheckedInitialPosition || !_itemScrollController.isAttached) {
+      return;
+    }
+
+    try {
+      final positions = _itemPositionsListener.itemPositions.value;
+      if (positions.isEmpty) return;
+
+      // 查找最新消息（索引为0的项目）
+      final newestItemPosition = positions.cast<ItemPosition?>().firstWhere(
+            (pos) => pos?.index == 0,
+            orElse: () => null,
+          );
+
+      if (newestItemPosition == null) return;
+
+      // 检查最新消息是否贴底
+      // 在 reverse: true 中，itemLeadingEdge 接近 0.0 表示消息在屏幕底部
+      final isAtBottom = newestItemPosition.itemLeadingEdge <= 0.1;
+
+      _logger.d('💢 初始位置检查', extra: {
+        'newestItemIndex': newestItemPosition.index,
+        'itemLeadingEdge': newestItemPosition.itemLeadingEdge,
+        'itemTrailingEdge': newestItemPosition.itemTrailingEdge,
+        'isAtBottom': isAtBottom,
+      });
+
+      if (!isAtBottom) {
+        // 最新消息没有贴底，需要重新滚动到底部
+        _logger.i('检测到消息列表未贴底，执行底部对齐');
+
+        _itemScrollController.jumpTo(
+          index: 0,
+          alignment: 0.0, // 消息顶部对齐屏幕底部
+        );
+      }
+
+      _hasCheckedInitialPosition = true;
+    } catch (e) {
+      _logger.w('初始位置检查失败', extra: {'error': e.toString()});
+      _hasCheckedInitialPosition = true;
+    }
+  }
+
   /// 💢💢💢 完善的滚动到指定消息方法
   Future<void> _scrollToMessage(
-    String messageId, {
+    int targetMessageIndex, {
     Duration? duration,
     Curve? curve,
     double? alignment,
@@ -220,25 +299,25 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final state = context.read<ChatCubit>().state;
 
       _logger.i('开始滚动到消息', extra: {
-        'messageId': messageId,
+        'targetMessageIndex': targetMessageIndex,
         'totalMessages': state.messages.length,
         'showHighlight': showHighlight,
         'jumpImmediately': jumpImmediately,
       });
 
       // 查找消息在当前列表中的索引
-      final messageIndex = state.messages.indexWhere(
-        (message) => message.messageId == messageId,
+      final messageListIndex = state.messages.indexWhere(
+        (message) => message.messageIndex == targetMessageIndex,
       );
 
-      if (messageIndex == -1) {
+      if (messageListIndex == -1) {
         _logger.w('消息未在当前列表中找到', extra: {
-          'messageId': messageId,
+          'targetMessageIndex': targetMessageIndex,
           'searchInDatabase': true,
         });
 
         // 💢💢💢 如果消息不在当前列表中，尝试从数据库加载
-        await _loadMessageAndScroll(messageId);
+        await _loadMessageAndScroll(targetMessageIndex);
         return;
       }
 
@@ -251,16 +330,19 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         isPrivateChat: isPrivateChat,
       );
 
+      // Get the actual message for further operations
+      final targetMessage = state.messages[messageListIndex];
+
       // 💢💢💢 在processedItems中查找对应的索引
       final processedIndex = processedItems.indexWhere((item) {
         return item is MessageListItemData &&
-            item.message.messageId == messageId;
+            item.message.messageIndex == targetMessageIndex;
       });
 
       if (processedIndex == -1) {
         _logger.w('消息在processedItems中未找到', extra: {
-          'messageId': messageId,
-          'messageIndex': messageIndex,
+          'messageId': targetMessage.messageId,
+          'targetMessageIndex': targetMessageIndex,
         });
         return;
       }
@@ -272,7 +354,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 等待下一帧再尝试滚动
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToMessage(
-            messageId,
+            targetMessageIndex,
             duration: duration,
             curve: curve,
             alignment: alignment,
@@ -292,8 +374,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
 
         _logger.i('立即跳转完成', extra: {
-          'messageId': messageId,
-          'messageIndex': messageIndex,
+          'messageId': targetMessage.messageId,
+          'targetMessageIndex': targetMessageIndex,
           'processedIndex': processedIndex,
           'alignment': alignment ?? 0.5,
         });
@@ -307,8 +389,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
 
         _logger.i('动画滚动完成', extra: {
-          'messageId': messageId,
-          'messageIndex': messageIndex,
+          'messageId': targetMessage.messageId,
+          'targetMessageIndex': targetMessageIndex,
           'processedIndex': processedIndex,
           'alignment': alignment ?? 0.5,
         });
@@ -316,35 +398,38 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 💢💢💢 可选的高亮效果
       if (showHighlight) {
-        _highlightMessage(messageId);
+        _highlightMessage(targetMessage.messageId);
       }
     } catch (error) {
       _logger.e('滚动到消息失败', error: error, extra: {
-        'messageId': messageId,
+        'targetMessageIndex': targetMessageIndex,
       });
     }
   }
 
   /// 💢💢💢 新增：加载消息并滚动（当消息不在当前列表中时）
-  Future<void> _loadMessageAndScroll(String messageId) async {
+  Future<void> _loadMessageAndScroll(int messageIndex) async {
     try {
       _logger.i('消息不在当前列表，尝试加载消息', extra: {
-        'messageId': messageId,
+        'messageIndex': messageIndex,
       });
+
+      // 💢💢💢 重置首次位置检查标志，因为要加载新的消息列表
+      _hasCheckedInitialPosition = false;
 
       final chatCubit = context.read<ChatCubit>();
 
       // 💢💢💢 尝试加载包含目标消息的消息段
-      final success = await chatCubit.loadMessagesAroundMessage(messageId);
+      final success = await chatCubit.loadMessagesAroundMessage(messageIndex);
 
       if (success) {
         // 加载成功后，等待UI更新，然后再次尝试滚动
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToMessage(messageId, showHighlight: true);
+          _scrollToMessage(messageIndex, showHighlight: true);
         });
       } else {
         _logger.w('无法加载包含目标消息的消息段', extra: {
-          'messageId': messageId,
+          'messageIndex': messageIndex,
         });
 
         // 显示提示信息
@@ -361,7 +446,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       }
     } catch (error) {
       _logger.e('加载消息并滚动失败', error: error, extra: {
-        'messageId': messageId,
+        'messageIndex': messageIndex,
       });
     }
   }
@@ -373,6 +458,123 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _logger.d('高亮消息', extra: {
       'messageId': messageId,
     });
+  }
+
+  /// 🆕 检查用户是否在聊天底部
+  /// 返回true表示用户在底部，应该在发送新消息时自动滚动
+  bool _isUserAtBottom() {
+    // 如果滚动控制器没有附加，认为在底部（初始状态）
+    if (!_itemScrollController.isAttached) {
+      _logger.d('滚动控制器未附加，认为在底部');
+      return true;
+    }
+
+    try {
+      final state = context.read<ChatCubit>().state;
+      final positions = _itemPositionsListener.itemPositions.value;
+
+      if (positions.isEmpty || state.messages.isEmpty) {
+        _logger.d('没有位置信息或消息为空，认为在底部');
+        return true;
+      }
+
+      // 处理消息列表，获取processedItems
+      final currentUserId = state.currentUser.userId;
+      final isPrivateChat = state.conversation.type == ConversationType.private;
+      final processedItems = MessageListProcessor.processMessages(
+        messages: state.messages,
+        currentUserId: currentUserId,
+        isPrivateChat: isPrivateChat,
+      );
+
+      if (processedItems.isEmpty) {
+        _logger.d('processedItems为空，认为在底部');
+        return true;
+      }
+
+      // 检查第一个item（最新消息）是否可见
+      // 在reverse列表中，index 0 是最新的消息
+      final firstItemPosition =
+          positions.where((pos) => pos.index == 0).firstOrNull;
+
+      if (firstItemPosition != null) {
+        // 如果最新消息可见且其trailing edge >= 0.8，认为用户在底部
+        final isAtBottom = firstItemPosition.itemTrailingEdge >= 0.8;
+
+        _logger.d('检查底部位置', extra: {
+          'firstItemIndex': firstItemPosition.index,
+          'itemTrailingEdge': firstItemPosition.itemTrailingEdge,
+          'isAtBottom': isAtBottom,
+          'threshold': 0.8,
+        });
+
+        return isAtBottom;
+      }
+
+      // 如果第一个item不可见，检查是否有其他靠近顶部的item
+      final topPositions = positions.where((pos) => pos.index <= 2).toList();
+      if (topPositions.isNotEmpty) {
+        // 如果前几个item可见，认为接近底部
+        final isNearBottom =
+            topPositions.any((pos) => pos.itemTrailingEdge >= 0.5);
+
+        _logger.d('检查是否接近底部', extra: {
+          'topPositions': topPositions
+              .map((p) => {
+                    'index': p.index,
+                    'trailingEdge': p.itemTrailingEdge,
+                  })
+              .toList(),
+          'isNearBottom': isNearBottom,
+        });
+
+        return isNearBottom;
+      }
+
+      _logger.d('无法确定位置，认为不在底部');
+      return false;
+    } catch (error) {
+      _logger.e('检查底部位置失败', error: error);
+      // 出错时保守地认为不在底部，避免不必要的滚动
+      return false;
+    }
+  }
+
+  /// 🆕 滚动到最新消息（发送消息后使用）
+  Future<void> _scrollToBottom({bool animated = true}) async {
+    try {
+      final state = context.read<ChatCubit>().state;
+
+      if (state.messages.isEmpty) {
+        _logger.d('没有消息，无需滚动');
+        return;
+      }
+
+      // 获取最新消息
+      final latestMessage = state.messages.first; // messages是按时间降序排列的
+
+      if (animated) {
+        await _scrollToMessage(
+          latestMessage.messageIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          alignment: 1.0, // 💢💢💢 修正：在reverse列表中，1.0表示滚动到物理屏幕顶部
+        );
+      } else {
+        await _scrollToMessage(
+          latestMessage.messageIndex,
+          alignment: 1.0, // 💢💢💢 修正：在reverse列表中，1.0表示滚动到物理屏幕顶部
+          jumpImmediately: true,
+        );
+      }
+
+      _logger.i('滚动到最新消息完成', extra: {
+        'messageId': latestMessage.messageId,
+        'animated': animated,
+      });
+    } catch (error) {
+      _logger.e('滚动到最新消息失败', error: error);
+    }
   }
 
   /// 发送消息
@@ -396,10 +598,31 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       return;
     }
 
+    // 🆕 在发送消息前检查用户是否在底部
+    final wasAtBottom = _isUserAtBottom();
+
+    _logger.i('发送消息前检查位置', extra: {
+      'wasAtBottom': wasAtBottom,
+      'textLength': text.length,
+    });
+
     // 发送消息
     try {
       context.read<ChatCubit>().sendTextMessage(text);
       _textController.clear();
+
+      // 🆕 如果用户在底部，发送成功后自动滚动到新消息
+      if (wasAtBottom) {
+        // 延迟一点时间，确保新消息已经添加到列表中
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // 再次检查确保消息已添加
+          Timer(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              _scrollToBottom(animated: true);
+            }
+          });
+        });
+      }
 
       // 收起键盘
       FocusScope.of(context).unfocus();
@@ -594,9 +817,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 💢💢💢 监听搜索结果索引变化，触发自动滚动
         final searchResultChanged = previous.currentSearchResultIndex !=
                 current.currentSearchResultIndex ||
-            (previous.searchResultMessageIds.length !=
-                    current.searchResultMessageIds.length &&
-                current.searchResultMessageIds.isNotEmpty);
+            (previous.searchResultMessageIndexes.length !=
+                    current.searchResultMessageIndexes.length &&
+                current.searchResultMessageIndexes.isNotEmpty);
 
         // 💢💢💢 监听滚动位置变化（初始化时自动滚动到最新消息）
         final scrollPositionChanged =
@@ -612,62 +835,43 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 !current.isSearchMode &&
                 !current.isCleaningMessages; // 清理消息时不触发
 
-        final shouldListen =
-            searchResultChanged || scrollPositionChanged || messageListUpdated;
+        // 🆕 监听新消息到达（用于自动滚动）
+        final newMessageArrived = !current.isSearchMode &&
+            !current.isCleaningMessages &&
+            current.messages.length > previous.messages.length &&
+            current.messages.isNotEmpty;
 
-        // if (shouldListen) {
-        //   _logger.d('💢 BlocListener 条件满足', extra: {
-        //     'searchResultChanged': searchResultChanged,
-        //     'scrollPositionChanged': scrollPositionChanged,
-        //     'messageListUpdated': messageListUpdated,
-        //     'prevLength': previous.messages.length,
-        //     'currentLength': current.messages.length,
-        //     'prevScrollMessageId': previous.currentScrollPosition.messageId,
-        //     'currentScrollMessageId': current.currentScrollPosition.messageId,
-        //     'prevIndex': previous.currentSearchResultIndex,
-        //     'currentIndex': current.currentSearchResultIndex,
-        //   });
-        // }
+        final shouldListen = searchResultChanged ||
+            scrollPositionChanged ||
+            messageListUpdated ||
+            newMessageArrived;
 
         return shouldListen;
       },
       listener: (context, state) {
         // 💢💢💢 自动滚动到当前搜索结果
         if (state.isSearchMode &&
-            state.searchResultMessageIds.isNotEmpty &&
+            state.searchResultMessageIndexes.isNotEmpty &&
             state.currentSearchResultIndex <
-                state.searchResultMessageIds.length) {
-          final currentResultMessageId =
-              state.searchResultMessageIds[state.currentSearchResultIndex];
+                state.searchResultMessageIndexes.length) {
+          final currentResultMessageIndex =
+              state.searchResultMessageIndexes[state.currentSearchResultIndex];
 
           _logger.d('💢 BlocListener 搜索模式滚动', extra: {
-            'targetMessageId': currentResultMessageId,
+            'targetMessageIndex': currentResultMessageIndex,
             'currentIndex': state.currentSearchResultIndex,
           });
 
           // 延迟执行滚动，等待UI更新完成
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _logger.d('💢 BlocListener 执行搜索滚动回调');
-            _scrollToMessage(currentResultMessageId);
+            _scrollToMessage(currentResultMessageIndex);
           });
         }
-        // 💢💢💢 自动滚动到设置的位置（初始化或消息列表更新时恢复滚动位置）
-        // else if (!state.isSearchMode &&
-        //     state.currentScrollPosition.messageId != null) {
-        //   final targetMessageId = state.currentScrollPosition.messageId!;
-        //   final targetIndex =
-        //       state.currentScrollPosition.getListIndex(state.messages);
-        //   final alignment = state.currentScrollPosition.relativePosition ?? 0.0;
-
-        //   _logger
-        //       .i('💢 BlocListener 消息列表更新，依赖 initialScrollIndex 自动定位', extra: {
-        //     'targetMessageId': targetMessageId,
-        //     'targetIndex': targetIndex,
-        //     'alignment': alignment,
-        //     'messageCount': state.messages.length,
-        //     'reason': '消息列表更新后，Widget重建时自动恢复滚动位置',
-        //   });
-        // }
+        // 🆕 新消息自动滚动逻辑
+        else if (!state.isSearchMode &&
+            !state.isCleaningMessages &&
+            state.messages.isNotEmpty) {}
       },
       child: BlocBuilder<ChatCubit, ChatState>(
         buildWhen: (previous, current) {
@@ -688,8 +892,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               previous.searchQuery != current.searchQuery ||
               previous.currentSearchResultIndex !=
                   current.currentSearchResultIndex ||
-              !identical(previous.searchResultMessageIds,
-                  current.searchResultMessageIds)) {
+              !identical(previous.searchResultMessageIndexes,
+                  current.searchResultMessageIndexes)) {
             _logger.i('💢 BlocBuilder：搜索状态变化');
             return true;
           }
@@ -725,6 +929,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               },
               stackTrace: StackTrace.current);
 
+          // 💢💢💢 每次重建时重置首次位置检查标志
+          _hasCheckedInitialPosition = false;
+
           // 处理消息列表，添加分隔符
           final currentUserId = state.currentUser.userId;
           final isPrivateChat =
@@ -757,9 +964,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           // 💢💢💢 检查消息是否为搜索结果
                           final chatCubit = context.read<ChatCubit>();
                           final isSearchResult =
-                              chatCubit.isSearchResult(message.messageId);
+                              chatCubit.isSearchResult(message.messageIndex);
                           final isCurrentSearchResult = chatCubit
-                              .isCurrentSearchResult(message.messageId);
+                              .isCurrentSearchResult(message.messageIndex);
                           final searchQuery =
                               state.isSearchMode ? state.searchQuery : null;
 
@@ -811,31 +1018,50 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                       },
                       itemScrollController: _itemScrollController,
                       itemPositionsListener: _itemPositionsListener,
-                      // 💢💢💢 动态计算初始滚动索引，响应消息列表变化
+                      // 💢💢💢 动态计算初始滚动索引，确保不返回-1
                       initialScrollIndex: (() {
                         final anchorId = state.currentScrollPosition.messageId;
-                        if (anchorId == null) return 0;
+                        if (anchorId != null) {
+                          // 在 processedItems 中查找锚点消息对应的索引
+                          final anchorIndex = processedItems.indexWhere((item) {
+                            if (item is MessageListItemData) {
+                              if (item.message.messageId == anchorId) {
+                                _logger.d('💢 初始滚动索引计算', extra: {
+                                  'anchorMessageIndex':
+                                      item.message.messageIndex,
+                                  'foundAnchorMessageId': anchorId,
+                                });
+                                return true; // 🔥 找到匹配的消息，返回 true
+                              }
+                            }
+                            return false; // 🔥 没有匹配，返回 false
+                          });
 
-                        // 在 processedItems 中查找锚点消息对应的索引
-                        final anchorIndex = processedItems.indexWhere((item) {
-                          return item is MessageListItemData &&
-                              item.message.messageId == anchorId;
-                        });
-
-                        _logger.d('💢 动态计算初始滚动索引', extra: {
-                          'anchorId': anchorId,
-                          'anchorIndex': anchorIndex,
-                          'processedItemsLength': processedItems.length,
-                          'messageCount': state.messages.length,
-                          'widgetKey':
-                              'message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}_${state.messageUpdateTrigger}',
-                        });
-
-                        return anchorIndex >= 0 ? anchorIndex : 0;
+                          _logger.d('💢 初始滚动索引计算', extra: {
+                            'anchorIndex': anchorIndex,
+                          });
+                          if (anchorIndex >= 0) {
+                            return anchorIndex;
+                          }
+                        }
+                        // 默认返回0，避免-1导致RangeError
+                        return 0;
                       })(),
-                      initialAlignment:
-                          state.currentScrollPosition.relativePosition ??
-                              0.0, // 💢💢💢 使用精确的相对位置
+
+                      // 💢💢💢 计算初始对齐：有锚点使用精确位置；否则让消息贴底
+                      initialAlignment: (() {
+                        final itemLeadingEdge =
+                            state.currentScrollPosition.relativePosition ?? 0.0;
+                        // 💢💢💢 reverse: true 中的对齐恢复逻辑
+                        // 保存的 itemLeadingEdge 表示在反向列表中消息底部的逻辑位置：
+                        // - 0.0: 消息底部在物理屏幕底部（反向列表的逻辑起点）
+                        // - 1.0: 消息底部在物理屏幕顶部（反向列表的逻辑终点）
+                        // - 0.907: 消息底部在物理屏幕顶部附近（90.7%位置）
+                        // 恢复时直接使用 itemLeadingEdge 作为 initialAlignment
+                        _logger.d('💢 初始对齐计算',
+                            extra: {'itemLeadingEdge': itemLeadingEdge});
+                        return itemLeadingEdge;
+                      })(),
                       reverse: true,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 4.0,
@@ -1183,7 +1409,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.blue),
+              leading:
+                  const Icon(Icons.photo_library, color: AppColors.primary),
               title: Text(AppLocalizations.of(context).selectFromGallery),
               onTap: () {
                 Navigator.pop(context);
@@ -1753,7 +1980,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                       children: [
                         Icon(
                           option['icon'] as IconData,
-                          color: Colors.blue,
+                          color: AppColors.primary,
                           size: 26,
                         ),
                         const SizedBox(height: 6),
@@ -1761,7 +1988,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           option['label'] as String,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.blue,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
@@ -2122,7 +2349,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.blue),
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
               title: Text(localizations.takePhoto),
               onTap: () {
                 Navigator.pop(context);
@@ -2164,7 +2391,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: _isRecording ? Colors.red : Colors.blue,
+                  color: _isRecording ? Colors.red : AppColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -2357,11 +2584,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               );
 
               try {
-                // 💢💢💢 调用ChatCubit的撤回方法（使用tempId或messageId）
-                final messageIdToRevoke = message.tempId?.isNotEmpty == true
-                    ? message.tempId!
-                    : message.messageId;
-                await chatCubit.revokeMessage(messageIdToRevoke);
+                // 调用ChatCubit的撤回方法（使用UUID作为messageId）
+                await chatCubit.revokeMessage(message.messageId);
 
                 // 💢💢💢 撤回成功
                 if (mounted) {
@@ -2470,11 +2694,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               );
 
               try {
-                // 💢💢💢 使用预先获取的ChatCubit引用（使用tempId或messageId）
-                final messageIdToDelete = message.tempId?.isNotEmpty == true
-                    ? message.tempId!
-                    : message.messageId;
-                await chatCubit.deleteMessage(messageIdToDelete);
+                // 使用预先获取的ChatCubit引用（使用UUID作为messageId）
+                await chatCubit.deleteMessage(message.messageId);
 
                 // 💢💢💢 删除成功
                 if (mounted) {
@@ -2593,7 +2814,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           },
           child: Text(
             AppLocalizations.of(context).cancel,
-            style: const TextStyle(color: Colors.blue, fontSize: 16),
+            style: const TextStyle(color: AppColors.primary, fontSize: 16),
           ),
         ),
       ],
@@ -2886,7 +3107,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       if (firstMessageOfDate != null) {
         // 如果找到消息，滚动到该消息
-        _scrollToMessage(firstMessageOfDate.messageId);
+        _scrollToMessage(firstMessageOfDate.messageIndex);
 
         // 显示成功提示
         if (mounted) {
@@ -3125,7 +3346,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       if (lastUnreadMessage != null) {
         // 如果消息在当前列表中，直接滚动到该消息
         await _scrollToMessage(
-          lastUnreadMessage.messageId,
+          lastUnreadMessage.messageIndex,
           alignment: 0.5, // 在屏幕中央显示
           showHighlight: true,
         );
@@ -3191,7 +3412,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       if (firstUnreadMessage != null) {
         // 如果消息在当前列表中，直接滚动到该消息
         await _scrollToMessage(
-          firstUnreadMessage.messageId,
+          firstUnreadMessage.messageIndex,
           alignment: 0.5, // 在屏幕中央显示
           showHighlight: true,
         );
@@ -3286,20 +3507,19 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppColors.primary.withAlpha(13),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      size: 16, color: Colors.blue.shade600),
-                  const SizedBox(width: 8),
+                  Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '蓝色标记的日期有消息，选择日期可跳转到当天第一条消息',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.blue.shade600,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -3445,14 +3665,14 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                     color: isSelected
                         ? Theme.of(context).primaryColor
                         : (hasMessages
-                            ? Colors.blue.shade50
+                            ? AppColors.primary.withAlpha(13)
                             : Colors.transparent),
                     borderRadius: BorderRadius.circular(8),
                     border: isToday
                         ? Border.all(
                             color: Theme.of(context).primaryColor, width: 2)
                         : (hasMessages
-                            ? Border.all(color: Colors.blue.shade200)
+                            ? Border.all(color: AppColors.primary.withAlpha(51))
                             : Border.all(color: Colors.grey.shade200)),
                   ),
                   child: Center(
@@ -3464,7 +3684,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                             : (hasMessages
                                 ? (isToday
                                     ? Theme.of(context).primaryColor
-                                    : Colors.blue.shade700)
+                                    : AppColors.primary)
                                 : (isToday
                                     ? Theme.of(context).primaryColor
                                     : Colors.grey.shade600)),

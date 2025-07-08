@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 // import 'dart:typed_data';
 import 'package:flutter/services.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 文件上传服务
 /// 负责处理文件的真实上传到服务器
@@ -140,11 +141,11 @@ class FileUploadService {
         // 同时保存到本地用于缓存
         final localResult = await _saveFileLocally(voiceFile, 'voice');
 
-    return UploadResult(
+        return UploadResult(
           localPath: localResult?.localPath ?? voiceFile.path,
           remoteUrl: apiResult.url!,
           fileId: apiResult.fileId,
-      duration: duration,
+          duration: duration,
           metadata: apiResult.metadata != null
               ? {
                   'originalName': apiResult.metadata!.originalName,
@@ -378,7 +379,7 @@ class FileUploadService {
       // 根据文件名生成一个独特的颜色
       final int hashCode = fileName.hashCode;
       final List<Color> gradientColors = [
-        Colors.blue[700] ?? Colors.blue,
+        AppColors.primary,
         Colors.red[700] ?? Colors.red,
         Colors.green[700] ?? Colors.green,
         Colors.purple[700] ?? Colors.purple,
@@ -401,15 +402,15 @@ class FileUploadService {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-        primaryColor.withAlpha(204), // 0.8 * 255 = 204
-        secondaryColor,
-        tertiaryColor,
+            primaryColor.withAlpha(204), // 0.8 * 255 = 204
+            secondaryColor,
+            tertiaryColor,
           ],
           stops: const [
-        0.0,
-        0.5,
-        1.0
-      ]);
+            0.0,
+            0.5,
+            1.0
+          ]);
 
       // 获取视频时长
       int videoDurationInSeconds = 0;

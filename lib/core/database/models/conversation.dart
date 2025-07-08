@@ -485,15 +485,20 @@ class Conversation {
     final index =
         participants.indexWhere((p) => p.userId == updatedParticipant.userId);
     if (index != -1) {
-      participants[index] = updatedParticipant;
+      // 创建新的可变列表来更新参与者
+      final newParticipants = List<Participant>.from(participants);
+      newParticipants[index] = updatedParticipant;
+      participants = newParticipants;
     } else {
-      participants.add(updatedParticipant);
+      // 创建新的可变列表来添加参与者
+      participants = [...participants, updatedParticipant];
     }
   }
 
   /// 💢💢💢 新增：移除参与者
   void removeParticipant(String userId) {
-    participants.removeWhere((p) => p.userId == userId);
+    // 创建新的可变列表以避免固定长度列表错误
+    participants = participants.where((p) => p.userId != userId).toList();
   }
 
   /// 💢💢💢 新增：添加参与者
@@ -501,9 +506,13 @@ class Conversation {
     final index =
         participants.indexWhere((p) => p.userId == participant.userId);
     if (index == -1) {
-      participants.add(participant);
+      // 创建新的可变列表来添加参与者
+      participants = [...participants, participant];
     } else {
-      participants[index] = participant;
+      // 创建新的可变列表来更新参与者
+      final newParticipants = List<Participant>.from(participants);
+      newParticipants[index] = participant;
+      participants = newParticipants;
     }
   }
 

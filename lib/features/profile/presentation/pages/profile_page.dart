@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -19,6 +20,7 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cc/features/profile/presentation/pages/language_settings_page.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -33,6 +35,9 @@ class _ProfilePageState extends State<ProfilePage>
 
   // 直接创建ProfileCubit，不需要复杂的初始化逻辑
   late final ProfileCubit _profileCubit;
+
+  // 复制按钮状态
+  bool _isCopied = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -79,6 +84,31 @@ class _ProfilePageState extends State<ProfilePage>
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
                       Text(localizations.loadingUserInfo),
+                    ],
+                  ),
+                );
+              }
+
+              // 如果状态为success但没有用户数据，说明数据已被重置，跳转到登录页面
+              if (state.status == ProfileStatus.success && state.user == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _handleDataResetComplete(context);
+                });
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.restart_alt,
+                        size: 64,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        localizations.dataResetComplete,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ],
                   ),
                 );
@@ -275,122 +305,189 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildProfileCard(CurrentUser? user, AppLocalizations localizations) {
     _logger.d('构建个人信息卡片, user: ${user?.name}');
 
-    return GestureDetector(
-      onTap: () {
-        _logger.i('用户点击编辑个人信息');
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BlocProvider.value(
-              value: _profileCubit,
-              child: const EditProfilePage(),
-            ),
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(13),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(13),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // 头像
-            UserAvatar(
-              avatarUrl: user?.avatar,
-              name: user?.name ?? '用户',
-              radius: 40,
-              backgroundColor: Colors.green,
-            ),
-            const SizedBox(width: 20),
-
-            // 个人信息
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user?.name ?? '加载中...',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+        ],
+      ),
+      child: Row(
+        children: [
+          // 头像和编辑按钮
+          Stack(
+            children: [
+              UserAvatar(
+                avatarUrl: user?.avatar,
+                name: user?.name ?? '用户',
+                radius: 40,
+                backgroundColor: Colors.green,
+              ),
+              // 编辑按钮 - 放在头像左下角
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: () {
+                    _logger.i('用户点击编辑个人信息');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BlocProvider.value(
+                          value: _profileCubit,
+                          child: const EditProfilePage(),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.grey[300]!,
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(26),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user?.phone?.isNotEmpty == true
-                        ? '${localizations.phoneNumber}: ${user!.phone}'
-                        : '${localizations.phoneNumber}: ${localizations.phoneNotBound}',
-                    style: TextStyle(
-                      fontSize: 14,
+                    child: Icon(
+                      Icons.edit,
+                      size: 16,
                       color: Colors.grey[600],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      _logger.i('用户点击我的二维码');
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BlocProvider.value(
-                            value: _profileCubit,
-                            child: const MyQRCodePage(),
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.qr_code,
-                            size: 16,
-                            color: Colors.green[700],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            localizations.myQRCode,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.green[700],
-                            ),
-                          ),
-                        ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 20),
+
+          // 个人信息
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.name ?? '加载中...',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user?.phone?.isNotEmpty == true
+                      ? '${localizations.phoneNumber}: ${user!.phone}'
+                      : '${localizations.phoneNumber}: ${localizations.phoneNotBound}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // 用户ID行
+                Row(
+                  children: [
+                    Text(
+                      '${localizations.userId}: ${user?.userId ?? '加载中...'}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
                     ),
+                    if (user != null && user.userId.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _copyUserId(user.userId, localizations),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: _isCopied
+                                ? Colors.green[200]
+                                : Colors.green[50],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Icon(
+                            _isCopied ? Icons.check : Icons.copy,
+                            size: 14,
+                            color: _isCopied
+                                ? Colors.green[800]
+                                : Colors.green[600],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // 二维码按钮 - 替换原来的编辑按钮位置
+          GestureDetector(
+            onTap: () {
+              _logger.i('用户点击我的二维码');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BlocProvider.value(
+                    value: _profileCubit,
+                    child: const MyQRCodePage(),
                   ),
-                ],
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.qr_code,
+                size: 24,
+                color: Colors.green[700],
               ),
             ),
-
-            // 编辑按钮
-            Icon(
-              Icons.edit,
-              color: Colors.grey[400],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  /// 复制用户ID到剪贴板
+  void _copyUserId(String userId, AppLocalizations localizations) {
+    Clipboard.setData(ClipboardData(text: userId));
+    _logger.i('复制用户ID：$userId');
+
+    // 设置为已复制状态
+    setState(() {
+      _isCopied = true;
+    });
+
+    // 3秒后恢复原状态
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _isCopied = false;
+        });
+      }
+    });
   }
 
   Widget _buildFunctionList(AppLocalizations localizations) {
@@ -676,6 +773,31 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
+  // 处理数据重置完成
+  Future<void> _handleDataResetComplete(BuildContext context) async {
+    final localizations = AppLocalizations.of(context);
+
+    // 显示确认对话框告知用户数据已重置
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(localizations.dataResetComplete),
+        content: Text(localizations.dataResetCompleteMessage),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // 退出应用
+              exit(0);
+            },
+            child: Text(localizations.exitNow,
+                style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 重置所有数据
   Future<void> _resetAllData(BuildContext context) async {
     final localizations = AppLocalizations.of(context);
@@ -698,26 +820,7 @@ class _ProfilePageState extends State<ProfilePage>
       // 关闭加载指示器
       if (context.mounted) {
         Navigator.pop(context);
-
-        // 显示确认对话框告知用户数据已重置
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: Text(localizations.dataResetComplete),
-            content: Text(localizations.dataResetCompleteMessage),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  // 退出应用
-                  exit(0);
-                },
-                child: Text(localizations.exitNow,
-                    style: const TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
+        // 数据重置完成后，状态会自动更新，UI会通过BlocBuilder处理后续逻辑
       }
 
       _logger.i('数据重置完成');
@@ -1337,7 +1440,8 @@ class _ProfilePageState extends State<ProfilePage>
             const SizedBox(height: 16),
             Row(
               children: [
-                const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                const Icon(Icons.info_outline,
+                    size: 16, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1362,7 +1466,7 @@ class _ProfilePageState extends State<ProfilePage>
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('已重置到主服务器'),
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AppColors.primary,
                 ),
               );
             },
@@ -1734,7 +1838,7 @@ class _ProfilePageState extends State<ProfilePage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ 同步时间记录已清除，下次同步将执行全量同步'),
-            backgroundColor: Colors.blue,
+            backgroundColor: AppColors.primary,
           ),
         );
       }

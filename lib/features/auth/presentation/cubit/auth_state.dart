@@ -9,7 +9,6 @@ class AuthState extends Equatable {
 
   // 验证码状态
   final bool isCodeSent;
-  final int? countdown;
 
   // 加载状态
   final bool isLoading;
@@ -26,7 +25,6 @@ class AuthState extends Equatable {
     this.password,
     this.nickname,
     this.isCodeSent = false,
-    this.countdown,
     this.isLoading = false,
     this.errorMessage,
     this.currentUser,
@@ -75,7 +73,6 @@ class AuthState extends Equatable {
   AuthState updateCodeSentStatus({required bool isCodeSent, int? countdown}) {
     return copyWith(
       isCodeSent: isCodeSent,
-      countdown: countdown,
       isLoading: false,
     );
   }
@@ -87,7 +84,6 @@ class AuthState extends Equatable {
     String? password,
     String? nickname,
     bool? isCodeSent,
-    int? countdown,
     bool? isLoading,
     String? errorMessage,
     CurrentUser? currentUser,
@@ -98,7 +94,6 @@ class AuthState extends Equatable {
       password: password ?? this.password,
       nickname: nickname ?? this.nickname,
       isCodeSent: isCodeSent ?? this.isCodeSent,
-      countdown: countdown ?? this.countdown,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage, // 特意不使用??,允许设置为null
       currentUser: currentUser ?? this.currentUser,
@@ -112,7 +107,6 @@ class AuthState extends Equatable {
         password,
         nickname,
         isCodeSent,
-        countdown,
         isLoading,
         errorMessage,
         currentUser,

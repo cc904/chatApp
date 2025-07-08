@@ -1,6 +1,7 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
+import 'package:cc/core/utils/timezone_utils.dart';
 
 /// 会话数据转换适配器
 ///
@@ -35,8 +36,8 @@ class ConversationAdapter {
       muted: protoParticipant.hasMuted() ? protoParticipant.muted : false,
       pinned: protoParticipant.hasPinned() ? protoParticipant.pinned : false,
       joinedAt: protoParticipant.hasJoinedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(
-              protoParticipant.joinedAt.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              protoParticipant.joinedAt.toInt()) // 🌍 使用UTC时间戳处理
           : null,
       deliveredMessageIndex: protoParticipant.hasDeliveredMessageIndex()
           ? protoParticipant.deliveredMessageIndex
@@ -138,16 +139,17 @@ class ConversationAdapter {
           ? protoConv.lastMessagePreview
           : null
       ..lastMessageTime = protoConv.hasLastMessageTime()
-          ? DateTime.fromMillisecondsSinceEpoch(
-              protoConv.lastMessageTime.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              protoConv.lastMessageTime.toInt()) // 🌍 使用UTC时间戳处理
           : null
       ..firstMessageIndex =
           protoConv.hasFirstMessageIndex() ? protoConv.firstMessageIndex : 0
       ..lastMessageIndex =
           protoConv.hasLastMessageIndex() ? protoConv.lastMessageIndex : 0
       ..createdAt = protoConv.hasCreatedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoConv.createdAt.toInt())
-          : DateTime.now()
+          ? TimezoneUtils.fromServerTimestamp(
+              protoConv.createdAt.toInt()) // 🌍 使用UTC时间戳处理
+          : TimezoneUtils.nowUtc() // 🌍 使用UTC时间
       ..lastMessageName =
           protoConv.hasLastMessageName() ? protoConv.lastMessageName : null
       ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null

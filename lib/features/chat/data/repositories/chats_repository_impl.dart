@@ -14,7 +14,6 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/utils/message_sort_utils.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
@@ -97,13 +96,21 @@ class ChatsRepositoryImpl implements ChatsRepository {
               'conversation:sync:response')
           .listen(_handleSyncResponseProto))
       ..add(_communicationService
-          .onProto<conversation_proto.ConversationUpdateNotification>(
-              'conversation:update:notification')
-          .listen(_handleConversationUpdateNotification))
+          .onProto<conversation_proto.ConversationPreviewUpdated>(
+              'conversation:preview:updated')
+          .listen(_handleConversationPreviewUpdated))
       ..add(_communicationService
           .onProto<conversation_proto.ConversationSettingsUpdateResponse>(
               'conversation:settings:updated')
           .listen(_handleConversationSettingsUpdate))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationInfoUpdateResponse>(
+              'conversation:info:update:response')
+          .listen(_handleConversationInfoUpdateResponse))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationInfoUpdated>(
+              'conversation:info:updated')
+          .listen(_handleConversationInfoUpdated))
       ..add(_communicationService
           .onProto<conversation_proto.UserJoinedNotification>(
               'conversation:user:joined')
@@ -143,29 +150,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
       return null;
     }
   }
-
-  // /// 获取当前用户ID
-  // /// 直接从数据库获取当前登录用户的ID
-  // /// 返回用户ID,如未找到则抛出异常
-  // Future<String> _getCurrentUserId() async {
-  //   try {
-  //     if (!DatabaseInitializer.isInitialized) {
-  //       throw Exception('数据库未初始化，请确保已登录');
-  //     }
-
-  //     final currentUsers =
-  //         await DatabaseInitializer.isar.currentUsers.where().findAll();
-
-  //     if (currentUsers.isEmpty) {
-  //       throw Exception('找不到当前用户信息，请确保已登录');
-  //     }
-
-  //     // 返回第一个用户的ID（通常只会有一个用户记录）
-  //     return currentUsers.first.userId;
-  //   } catch (e) {
-  //     throw Exception('获取当前用户ID失败: ${e.toString()}');
-  //   }
-  // }
 
   /// 获取所有会话
   /// 从本地数据库获取所有会话
@@ -712,16 +696,17 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 返回是否更新成功
   @override
   Future<bool> updateConversationInfo(String conversationId,
-      {String? name, String? avatar}) async {
+      {String? name, String? avatar, String? description}) async {
     try {
       _logger.i('更新会话信息', extra: {
         'conversationId': conversationId,
         'name': name,
         'avatar': avatar,
+        'description': description,
       });
 
       // 验证参数
-      if (name == null && avatar == null) {
+      if (name == null && avatar == null && description == null) {
         _logger.w('更新会话信息时没有提供有效参数');
         return false;
       }
@@ -736,6 +721,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         await _isar.writeTxn(() async {
           if (name != null) conversation.name = name;
           if (avatar != null) conversation.avatar = avatar;
+          if (description != null) conversation.description = description;
           await _conversations.put(conversation);
         });
 
@@ -743,6 +729,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
           'conversationId': conversationId,
           'name': name,
           'avatar': avatar,
+          'description': description,
         });
       }
 
@@ -750,12 +737,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
       if (_communicationService.isInitialized) {
         _logger.i('开始同步会话信息到服务器');
 
-        final updateRequest = conversation_proto.ConversationUpdateRequest()
+        final updateRequest = conversation_proto.ConversationInfoUpdateRequest()
           ..conversationId = conversationId;
         if (name != null) updateRequest.name = name;
         if (avatar != null) updateRequest.avatar = avatar;
+        if (description != null) updateRequest.description = description;
 
-        _communicationService.emitProto('conversation:update', updateRequest);
+        _communicationService.emitProto(
+            'conversation:info:update', updateRequest);
         _logger.i('会话信息更新请求已发送');
         return true;
       } else {
@@ -1009,9 +998,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .limit(limit)
           .findAll();
 
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(messages);
-
       _logger.d('获取媒体消息成功', extra: {
         'conversationId': conversationId,
         'count': messages.length,
@@ -1044,9 +1030,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .limit(limit)
           .findAll();
 
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(messages);
-
       _logger.d('获取文件消息成功', extra: {
         'conversationId': conversationId,
         'count': messages.length,
@@ -1074,13 +1057,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .filter()
           .conversationIdEqualTo(conversationId)
           .typeEqualTo(MessageType.voice)
-          .sortByMessageIndexDesc()
+          .sortByCreatedAtDesc()
           .offset(offset)
           .limit(limit)
           .findAll();
-
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(messages);
 
       _logger.d('获取语音消息成功', extra: {
         'conversationId': conversationId,
@@ -1116,13 +1096,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
               .textContains('http://', caseSensitive: false)
               .or()
               .textContains('https://', caseSensitive: false))
-          .sortByMessageIndexDesc()
+          .sortByCreatedAtDesc()
           .offset(offset)
           .limit(limit)
           .findAll();
-
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(messages);
 
       _logger.d('获取链接消息成功', extra: {
         'conversationId': conversationId,
@@ -1192,32 +1169,39 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 处理会话更新通知
   /// 根据服务器推送的会话更新通知更新本地会话数据
   /// [notification] - 会话更新通知数据
-  void _handleConversationUpdateNotification(
-      conversation_proto.ConversationUpdateNotification notification) {
+  void _handleConversationPreviewUpdated(
+      conversation_proto.ConversationPreviewUpdated previewInfo) {
     try {
-      _logger.i('收到会话更新通知',
-          extra: {'conversationId': notification.conversationId});
+      _logger
+          .i('收到会话更新通知', extra: {'conversationId': previewInfo.conversationId});
 
       // 更新本地会话数据
       _isar.writeTxn(() async {
         // 查找本地会话
         final conversation = await _conversations
             .filter()
-            .conversationIdEqualTo(notification.conversationId)
+            .conversationIdEqualTo(previewInfo.conversationId)
             .findFirst();
 
         if (conversation != null) {
           // 更新会话信息
-          conversation.lastMessageName = notification.lastMessageName;
-          conversation.lastMessagePreview = notification.lastMessagePreview;
-          conversation.lastMessageIndex = notification.lastMessageIndex.toInt();
+          conversation.lastMessageName = previewInfo.lastMessageName;
+          conversation.lastMessagePreview = previewInfo.lastMessagePreview;
+          conversation.lastMessageIndex = previewInfo.lastMessageIndex.toInt();
+
+          // 💢💢💢 新增：更新最后消息时间
+          if (previewInfo.hasLastMessageTime() &&
+              previewInfo.lastMessageTime.toInt() > 0) {
+            conversation.lastMessageTime = DateTime.fromMillisecondsSinceEpoch(
+                previewInfo.lastMessageTime.toInt());
+          }
 
           // 💢💢💢 已移除：不再需要手动计算unreadCount，使用动态计算
 
           // 保存更新后的会话
           await _conversations.put(conversation);
           _logger.d('已更新本地会话数据', extra: {
-            'conversationId': notification.conversationId,
+            'conversationId': previewInfo.conversationId,
             'unreadCount': conversation.unreadCount(_currentUser.userId),
           });
 
@@ -1227,15 +1211,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
             updatedFields: [
               'lastMessageName',
               'lastMessagePreview',
-              'lastMessageIndex'
+              'lastMessageIndex',
+              'lastMessageTime'
             ],
             timestamp: DateTime.now(),
           ));
         } else {
           _logger.w('本地找不到对应的会话',
-              extra: {'conversationId': notification.conversationId});
+              extra: {'conversationId': previewInfo.conversationId});
 
-          await requestConversationDetail(notification.conversationId);
+          await requestConversationDetail(previewInfo.conversationId);
         }
       });
     } catch (error, stackTrace) {
@@ -1481,6 +1466,90 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
+  /// 处理会话信息更新响应
+  void _handleConversationInfoUpdateResponse(
+      conversation_proto.ConversationInfoUpdateResponse response) async {
+    try {
+      _logger.i('收到会话信息更新响应', extra: {
+        'success': response.success,
+        'message': response.message,
+      });
+
+      if (!response.success) {
+        _logger.w('会话信息更新失败', extra: {
+          'message': response.message,
+        });
+        return;
+      }
+
+      _logger.d('会话信息更新成功');
+    } catch (error, stackTrace) {
+      _logger.e('处理会话信息更新响应失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理会话信息更新通知
+  void _handleConversationInfoUpdated(
+      conversation_proto.ConversationInfoUpdated notification) async {
+    try {
+      _logger.i('收到会话信息更新通知', extra: {
+        'conversationId': notification.conversationId,
+        'name': notification.name,
+        'avatar': notification.avatar,
+        'description': notification.description,
+        'updatedBy': notification.updatedBy,
+        'updatedAt': notification.updatedAt,
+      });
+
+      // 更新本地会话数据
+      await _isar.writeTxn(() async {
+        // 查找本地会话
+        final conversation = await _conversations
+            .filter()
+            .conversationIdEqualTo(notification.conversationId)
+            .findFirst();
+
+        if (conversation != null) {
+          final oldName = conversation.name;
+          final oldAvatar = conversation.avatar;
+          final oldDescription = conversation.description;
+
+          // 更新会话信息
+          conversation.name = notification.name;
+          conversation.avatar = notification.avatar;
+          conversation.description = notification.description;
+
+          // 保存更新后的会话
+          await _conversations.put(conversation);
+
+          // 发出会话更新事件
+          _notifyConversationUpdate(ConversationUpdatedEvent(
+            updatedConversation: conversation,
+            updatedFields: ['name', 'avatar', 'description'],
+            timestamp: DateTime.fromMillisecondsSinceEpoch(
+                notification.updatedAt.toInt()),
+          ));
+
+          _logger.i('已更新会话信息', extra: {
+            'conversationId': notification.conversationId,
+            'oldName': oldName,
+            'newName': conversation.name,
+            'oldAvatar': oldAvatar,
+            'newAvatar': conversation.avatar,
+            'oldDescription': oldDescription,
+            'newDescription': conversation.description,
+          });
+        } else {
+          _logger.w('本地找不到对应的会话', extra: {
+            'conversationId': notification.conversationId,
+          });
+        }
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话信息更新通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
   /// 处理会话离开响应
   void _handleConversationLeaveResponse(
       conversation_proto.ConversationJoinLeaveResponse response) async {
@@ -1584,6 +1653,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         _logger.d('📖 获取会话状态快照', extra: {
           'conversationId': conversationId,
           'messageCount': snapshot.messages.length,
+          'currentScrollPosition': snapshot.currentScrollPosition?.toString(),
         });
         return snapshot;
       }

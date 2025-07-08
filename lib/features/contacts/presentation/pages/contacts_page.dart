@@ -230,6 +230,7 @@ class _ContactsPageState extends State<ContactsPage>
                   final chatRepository = context.read<ChatRepository>();
                   final chatRepositorySend = context.read<ChatRepositorySend>();
                   final contactCubit = context.read<ContactCubit>();
+                  final currentUser = context.read<CurrentUser>();
 
                   Navigator.push(
                     context,
@@ -242,6 +243,8 @@ class _ContactsPageState extends State<ContactsPage>
                               value: chatRepository),
                           RepositoryProvider<ChatRepositorySend>.value(
                               value: chatRepositorySend),
+                          RepositoryProvider<CurrentUser>.value(
+                              value: currentUser),
                         ],
                         child: BlocProvider<ContactCubit>.value(
                           value: contactCubit,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/database/models/message.dart';
-import 'package:intl/intl.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 
 /// 消息列表项的抽象基类
 abstract class MessageListItem {}
@@ -44,43 +44,33 @@ class DateSeparator extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Center(
-            child: Container(
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-              decoration: BoxDecoration(
+          decoration: BoxDecoration(
             color: const Color(0xFFE7F3E7), // 使用和系统消息相同的淡绿色
-                borderRadius: BorderRadius.circular(16.0),
-              ),
-              child: Text(
-                _formatDate(date),
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: FutureBuilder<String>(
+            future: _formatDate(date),
+            builder: (context, snapshot) {
+              return Text(
+                snapshot.data ?? '...',
                 style: TextStyle(
-              fontSize: 11.0, // 和系统消息相同的字体大小
+                  fontSize: 11.0, // 和系统消息相同的字体大小
                   color: Colors.grey[600],
-              fontStyle: FontStyle.normal, // 和系统消息相同的字体样式
-            ),
-            textAlign: TextAlign.center,
+                  fontStyle: FontStyle.normal, // 和系统消息相同的字体样式
+                ),
+                textAlign: TextAlign.center,
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(date.year, date.month, date.day);
-
-    if (messageDate == today) {
-      return '今天';
-    } else if (messageDate == yesterday) {
-      return '昨天';
-    } else if (now.difference(messageDate).inDays < 7) {
-      // 一周内显示星期几
-      final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-      return weekdays[date.weekday - 1];
-    } else {
-      // 超过一周显示具体日期
-      return DateFormat('MM月dd日').format(date);
-    }
+  Future<String> _formatDate(DateTime date) async {
+    // 🌍 使用TimezoneUtils格式化日期分隔符
+    return await TimezoneUtils.formatDateSeparator(date);
   }
 }

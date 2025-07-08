@@ -12,12 +12,13 @@ import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
-import 'package:cc/core/utils/message_sort_utils.dart';
 import 'package:fixnum/fixnum.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
+import 'package:uuid/uuid.dart';
 
 /// 🔥 临时兼容类已全部移除 - Index方案完全替代了复杂的游标系统
 
@@ -48,7 +49,7 @@ class ChatRepositoryImpl implements ChatRepository {
       StreamController<Map<String, dynamic>>.broadcast();
 
   // 💢💢💢 新Stream架构：消息更新事件流控制器
-  final Map<String, StreamController<MessageUpdateEvent>>
+  final Map<String, StreamController<MessagesEvent>>
       _messageUpdateControllers = {};
   // 💢💢💢 新Stream架构：会话级加载状态流控制器
   final Map<String, StreamController<LoadingStateUpdate>>
@@ -59,6 +60,8 @@ class ChatRepositoryImpl implements ChatRepository {
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
+
+  static const Uuid _uuid = Uuid();
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  获取输入状态流  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -94,9 +97,9 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢 新Stream架构：获取消息更新事件流
   @override
-  Stream<MessageUpdateEvent> getMessageUpdateStream(String conversationId) {
+  Stream<MessagesEvent> getMessageUpdateStream(String conversationId) {
     _messageUpdateControllers[conversationId] ??=
-        StreamController<MessageUpdateEvent>.broadcast();
+        StreamController<MessagesEvent>.broadcast();
     return _messageUpdateControllers[conversationId]!.stream;
   }
 
@@ -239,7 +242,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 提取跳转索引（proto3中，使用hasJumpIndex检查是否设置）
       final jumpIndex = response.hasJumpIndex() ? response.jumpIndex : null;
 
-      _notifyMessageUpdate(MessageAddedEvent(
+      _notifyMessagesEvent(MessageAddedEvent( 
         conversationId: conversationId,
         newMessages: messages,
         addedEventType: AddedEventType.load, // 🆕 服务器获取的消息
@@ -278,7 +281,6 @@ class ChatRepositoryImpl implements ChatRepository {
       // 💢💢💢 新增：验证conversationId不能为空
       if (response.conversationId.isEmpty) {
         _logger.e('⚠️ 消息发送响应被拒绝：conversationId为空', extra: {
-          'tempId': response.tempId,
           'messageId': response.messageId,
           'success': response.success,
           'hasConversationId': response.hasConversationId(),
@@ -288,80 +290,97 @@ class ChatRepositoryImpl implements ChatRepository {
 
       _logger.i('💌 收到消息发送响应', extra: {
         'success': response.success,
-        'tempId': response.tempId,
         'messageId': response.messageId,
         'messageIndex': response.messageIndex.toInt(),
         'conversationId': response.conversationId,
         'msg': response.msg,
       });
 
-      if (response.tempId.isEmpty) {
-        _logger.w('💌 消息发送响应缺少临时ID，无法匹配本地消息', extra: {
-          'messageId': response.messageId,
+      if (response.messageId.isEmpty) {
+        _logger.w('💌 消息发送响应缺少消息ID，无法匹配本地消息', extra: {
           'conversationId': response.conversationId,
         });
         return;
       }
 
-      // 💢💢💢 查找对应的临时消息（按tempId查找）
-      final tempMessage =
-          await _messages.filter().tempIdEqualTo(response.tempId).findFirst();
-      if (tempMessage == null) {
-        _logger.w('💌 找不到对应的临时消息', extra: {
-          'tempId': response.tempId,
+      // 💢💢💢 直接按messageId查找消息
+      final message = await _messages
+          .filter()
+          .messageIdEqualTo(response.messageId)
+          .findFirst();
+      if (message == null) {
+        _logger.w('💌 找不到对应的消息', extra: {
           'messageId': response.messageId,
         });
         return;
       }
 
       if (response.success) {
-        // 💢💢💢 发送成功，更新消息ID、清空tempId并更新状态
+        // 💢💢💢 发送成功，更新消息索引、状态和服务器时间戳
         await _isar.writeTxn(() async {
-          tempMessage.messageId = response.messageId;
-          tempMessage.messageIndex = response.messageIndex.toInt();
-          tempMessage.status = MessageStatus.sent;
-          tempMessage.updatedAt = DateTime.now();
-          tempMessage.tempId = null; // 💢💢💢 清空临时ID
-          await _messages.put(tempMessage);
+          message.messageIndex = response.messageIndex.toInt();
+          message.status = MessageStatus.sent;
+          message.updatedAt = TimezoneUtils.nowUtc(); // 🌍 使用UTC时间
+
+          // 🆕 使用服务器时间戳替换本地乐观更新时的时间戳
+          if (response.hasCreatedAt()) {
+            message.createdAt =
+                TimezoneUtils.fromServerTimestamp(response.createdAt.toInt());
+          }
+
+          await _messages.put(message);
         });
 
-        // 💢💢💢 使用新的UpdateSendEvent推送消息发送更新事件
-        _notifyMessageUpdate(UpdateSendEvent(
-          conversationId: tempMessage.conversationId,
-          tempId: response.tempId,
-          messageId: response.messageId,
-          messageIndex: response.messageIndex.toInt(),
+        // 💢💢💢 推送消息更新事件
+        _notifyMessagesEvent(MessageUpdatedEvent(
+          conversationId: message.conversationId,
+          messageId: message.messageId,
+          timestamp: TimezoneUtils.nowUtc(),
+          updatedFields: {
+            'messageIndex': response.messageIndex.toInt(),
+            'status': MessageStatus.sent.name,
+            'updatedAt': TimezoneUtils.nowUtc().toIso8601String(),
+            'createdAt': response.hasCreatedAt()
+                ? TimezoneUtils.fromServerTimestamp(response.createdAt.toInt())
+                    .toIso8601String()
+                : null,
+          }..removeWhere((key, value) => value == null),
         ));
 
         _logger.i('💌 服务器确认消息发送成功，已更新本地消息和UI状态', extra: {
-          'tempId': response.tempId,
-          'serverMessageId': response.messageId,
+          'messageId': response.messageId,
           'messageIndex': response.messageIndex.toInt(),
-          'type': tempMessage.type.name,
+          'type': message.type.name,
+          'hasServerTimestamp': response.hasCreatedAt(),
+          'serverTimestamp': response.hasCreatedAt()
+              ? TimezoneUtils.fromServerTimestamp(response.createdAt.toInt())
+                  .toIso8601String()
+              : null,
+          'originalLocalTimestamp': message.createdAt.toIso8601String(),
         });
       } else {
         // 发送失败，更新状态为失败
         await _isar.writeTxn(() async {
-          tempMessage.status = MessageStatus.failed;
-          tempMessage.updatedAt = DateTime.now();
-          await _messages.put(tempMessage);
+          message.status = MessageStatus.failed;
+          message.updatedAt = TimezoneUtils.nowUtc(); // 🌍 使用UTC时间
+          await _messages.put(message);
         });
 
         // 通知UI消息发送失败
-        _notifyMessageUpdate(MessageUpdatedEvent(
-          conversationId: tempMessage.conversationId,
-          messageId: tempMessage.messageId, // 💢💢💢 messageId，可能为空
-          tempId: tempMessage.tempId, // 💢💢💢 传递tempId
+        _notifyMessagesEvent(MessageUpdatedEvent(
+          conversationId: message.conversationId,
+          messageId: message.messageId,
+          timestamp: TimezoneUtils.nowUtc(),
           updatedFields: {
             'status': MessageStatus.failed.name,
-            'updatedAt': DateTime.now().toIso8601String(),
+            'updatedAt': TimezoneUtils.nowUtc().toIso8601String(),
           },
         ));
 
         _logger.w('💌 消息发送失败，服务器返回错误', extra: {
-          'tempId': response.tempId,
+          'messageId': response.messageId,
           'errorMsg': response.msg,
-          'type': tempMessage.type.name,
+          'type': message.type.name,
         });
       }
     } catch (error) {
@@ -423,8 +442,6 @@ class ChatRepositoryImpl implements ChatRepository {
         'indexA': indexA,
         'indexB': indexB,
         'jumpIndex': jumpIndex,
-        'rangeSize':
-            indexA > indexB ? indexA - indexB + 1 : indexB - indexA + 1,
       });
 
       // 🆕 loadMessages 自有的状态管理 - 发送开始状态
@@ -435,17 +452,13 @@ class ChatRepositoryImpl implements ChatRepository {
       ));
 
       // 🆕 直接基于索引范围加载：加载 [indexA, indexB] 范围内的消息
-      final rawMessages = await _messages
+      final messages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .and()
           .messageIndexBetween(indexA, indexB)
-          .sortByMessageIndexDesc()
+          .sortByCreatedAtDesc()
           .findAll();
-
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(rawMessages);
-      final messages = rawMessages;
 
       // 计算期望的消息数量
       final expectedCount =
@@ -555,10 +568,7 @@ class ChatRepositoryImpl implements ChatRepository {
           .optional(keyword.isNotEmpty,
               (q) => q.textContains(keyword, caseSensitive: false));
 
-      final messages = await query.sortByMessageIndexDesc().findAll();
-
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(messages);
+      final messages = await query.sortByCreatedAtDesc().findAll();
 
       _logger.d('搜索消息完成', extra: {
         'keyword': keyword,
@@ -626,15 +636,12 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 撤回指定的消息
   /// [messageId] - 消息ID
   /// [conversationId] - 会话ID
-  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
   @override
-  Future<bool> revokeMessage(String messageId, String conversationId,
-      {String? tempId}) async {
+  Future<bool> revokeMessage(String messageId, String conversationId) async {
     try {
       _logger.i('发送消息撤回请求', extra: {
         'messageId': messageId,
         'conversationId': conversationId,
-        'tempId': tempId, // 💢💢💢 添加tempId日志
       });
 
       if (!_communicationService.isInitialized) {
@@ -647,11 +654,6 @@ class ChatRepositoryImpl implements ChatRepository {
         ..messageId = messageId
         ..conversationId = conversationId;
 
-      // 💢💢💢 如果有tempId，添加到请求中
-      if (tempId != null && tempId.isNotEmpty) {
-        request.tempId = tempId;
-      }
-
       // 发送撤回请求
       final success =
           await _communicationService.emitProto('message:revoke', request);
@@ -660,13 +662,11 @@ class ChatRepositoryImpl implements ChatRepository {
         _logger.i('消息撤回请求已发送', extra: {
           'messageId': messageId,
           'conversationId': conversationId,
-          'tempId': tempId, // 💢💢💢 添加tempId日志
         });
       } else {
         _logger.w('消息撤回请求发送失败', extra: {
           'messageId': messageId,
           'conversationId': conversationId,
-          'tempId': tempId, // 💢💢💢 添加tempId日志
         });
       }
 
@@ -681,15 +681,12 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 删除指定的消息
   /// [messageId] - 消息ID
   /// [conversationId] - 会话ID
-  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
   @override
-  Future<bool> deleteMessage(String messageId, String conversationId,
-      {String? tempId}) async {
+  Future<bool> deleteMessage(String messageId, String conversationId) async {
     try {
       _logger.i('发送消息删除请求', extra: {
         'messageId': messageId,
         'conversationId': conversationId,
-        'tempId': tempId, // 💢💢💢 添加tempId日志
       });
 
       if (!_communicationService.isInitialized) {
@@ -702,11 +699,6 @@ class ChatRepositoryImpl implements ChatRepository {
         ..messageId = messageId
         ..conversationId = conversationId;
 
-      // 💢💢💢 如果有tempId，添加到请求中
-      if (tempId != null && tempId.isNotEmpty) {
-        request.tempId = tempId;
-      }
-
       // 发送删除请求
       final success =
           await _communicationService.emitProto('message:delete', request);
@@ -715,17 +707,14 @@ class ChatRepositoryImpl implements ChatRepository {
         _logger.i('消息删除请求已发送', extra: {
           'messageId': messageId,
           'conversationId': conversationId,
-          'tempId': tempId, // 💢💢💢 添加tempId日志
         });
 
-        // 💢💢💢 本地也标记为删除状态（根据消息类型决定使用messageId还是tempId）
-        final localMessageId = tempId?.isNotEmpty == true ? tempId! : messageId;
-        await _markMessageAsDeletedLocally(localMessageId);
+        // 💢💢💢 本地也标记为删除状态
+        await _markMessageAsDeletedLocally(messageId);
       } else {
         _logger.w('消息删除请求发送失败', extra: {
           'messageId': messageId,
           'conversationId': conversationId,
-          'tempId': tempId, // 💢💢💢 添加tempId日志
         });
       }
 
@@ -736,103 +725,45 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 本地标记消息为删除状态
-  /// 仅用于 for_me 类型的删除，不影响其他用户
+  /// 💢💢💢 本地标记消息为已删除状态
   Future<void> _markMessageAsDeletedLocally(String messageId) async {
     try {
-      // 💢💢💢 支持基于messageId或tempId查找消息
-      Message? message;
-
-      // 先按messageId查找
-      message =
+      // 💢💢💢 直接按messageId查找消息
+      final message =
           await _messages.filter().messageIdEqualTo(messageId).findFirst();
 
-      // 如果找不到，再按tempId查找
-      message ??= await _messages.filter().tempIdEqualTo(messageId).findFirst();
-
       if (message == null) {
-        _logger.w('找不到要删除的消息', extra: {
+        _logger.w('要删除的消息未找到', extra: {
           'messageId': messageId,
-          'searchedBy': 'messageId and tempId'
         });
         return;
       }
 
-      // 用于存储要删除的文件路径
-      final filesToDelete = _collectMediaFilePaths(message);
-
-      // 💢💢💢 在数据库事务中标记消息为删除状态
+      // 更新消息状态为已删除
       await _isar.writeTxn(() async {
-        // 标记为删除状态，清空内容字段
-        message!.status = MessageStatus.deleted;
-        message.text = null;
-        message.mediaUrl = null;
-        message.thumbnailUrl = null;
-        message.localPath = null;
-        message.fileName = null;
-        message.fileSize = null;
-        message.duration = null;
-        message.metadata = null;
+        message.status = MessageStatus.deleted;
         message.updatedAt = DateTime.now();
-
-        // 更新消息到数据库，保留messageIndex等关键字段
         await _messages.put(message);
       });
 
-      // 删除关联的媒体文件（物理文件可以删除）
-      await _deleteMediaFiles(filesToDelete);
-
-      // 💢💢💢 推送消息更新事件，通知UI更新
-      _notifyMessageUpdate(MessageUpdatedEvent(
+      // 通知UI更新
+      _notifyMessagesEvent(MessageUpdatedEvent(
         conversationId: message.conversationId,
-        messageId: message.messageId, // 💢💢💢 messageId，可能为空
-        tempId: message.tempId, // 💢💢💢 传递tempId
+        messageId: message.messageId,
+        timestamp: TimezoneUtils.nowUtc(),
         updatedFields: {
-          'status': 'deleted',
-          'deletedAt': message.updatedAt?.toIso8601String(),
+          'status': MessageStatus.deleted.name,
+          'updatedAt': DateTime.now().toIso8601String(),
         },
       ));
 
-      _logger.i('消息已本地标记为删除状态', extra: {
+      _logger.i('消息已标记为删除', extra: {
         'messageId': messageId,
         'conversationId': message.conversationId,
-        'messageIndex': message.messageIndex,
-        'action': '本地标记删除',
       });
     } catch (error) {
-      _logger.e('本地标记消息删除失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('标记消息删除失败', error: error, stackTrace: StackTrace.current);
     }
-  }
-
-  /// 收集消息中的媒体文件路径
-  /// 分析消息对象,收集需要删除的媒体文件路径
-  /// [message] - 消息对象
-  /// 返回文件路径列表
-  List<String> _collectMediaFilePaths(Message message) {
-    final filesToDelete = <String>[];
-
-    if (message.type == MessageType.image ||
-        message.type == MessageType.video ||
-        message.type == MessageType.voice ||
-        message.type == MessageType.file) {
-      // 检查本地文件路径
-      if (message.localPath != null && message.localPath!.isNotEmpty) {
-        filesToDelete.add(message.localPath!);
-      }
-
-      // 检查媒体URL（如果是本地file://）
-      if (message.mediaUrl != null && message.mediaUrl!.startsWith('file://')) {
-        filesToDelete.add(message.mediaUrl!.substring(7)); // 移除file://前缀
-      }
-
-      // 检查缩略图URL（如果是本地file://）
-      if (message.thumbnailUrl != null &&
-          message.thumbnailUrl!.startsWith('file://')) {
-        filesToDelete.add(message.thumbnailUrl!.substring(7)); // 移除file://前缀
-      }
-    }
-
-    return filesToDelete;
   }
 
   /// 删除媒体文件
@@ -903,7 +834,7 @@ class ChatRepositoryImpl implements ChatRepository {
           .filter()
           .conversationIdEqualTo(conversationId)
           .createdAtBetween(safeStartDate, safeEndDate)
-          .sortByMessageIndexDesc() // 按messageIndex降序排序
+          .sortByCreatedAtDesc() // 按服务器时间戳降序排序
           .limit(limit)
           .findAll();
 
@@ -963,7 +894,7 @@ class ChatRepositoryImpl implements ChatRepository {
           .conversationIdEqualTo(conversationId)
           .createdAtGreaterThan(
               dayStart.subtract(const Duration(seconds: 1))) // 大于等于指定日期
-          .sortByMessageIndexDesc() // 按messageIndex降序排序
+          .sortByCreatedAtDesc() // 按服务器时间戳降序排序
           .limit(limit)
           .findAll();
 
@@ -1135,7 +1066,7 @@ class ChatRepositoryImpl implements ChatRepository {
 
       if (query.trim().isEmpty) {
         return const SearchResult(
-          matchedMessageIds: [],
+          matchedMessageIndexes: [],
           totalCount: 0,
         );
       }
@@ -1164,10 +1095,7 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       // 💢💢💢 先获取所有符合基础条件的消息
-      final rawMessages = await queryBuilder.sortByMessageIndexDesc().findAll();
-
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(rawMessages);
+      final rawMessages = await queryBuilder.sortByCreatedAtDesc().findAll();
 
       // 💢💢💢 应用删除消息过滤规则
       final allMessages = rawMessages;
@@ -1179,13 +1107,13 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 💢💢💢 在内存中进行关键词匹配，确保每条消息只被计算一次
       final matchedMessages = <Message>[];
-      final processedMessageIds = <String>{};
+      final matchedMessageIndexes = <int>{};
       int textMessageCount = 0;
       int nonTextMessageCount = 0;
 
       for (final message in allMessages) {
         // 确保不重复处理同一条消息
-        if (processedMessageIds.contains(message.messageId)) {
+        if (matchedMessageIndexes.contains(message.messageIndex)) {
           continue;
         }
 
@@ -1237,19 +1165,15 @@ class ChatRepositoryImpl implements ChatRepository {
 
         if (isMatch) {
           matchedMessages.add(message);
-          processedMessageIds.add(message.messageId);
+          matchedMessageIndexes.add(message.messageIndex);
         }
       }
 
-      // 💢💢💢 使用自定义排序处理messageIndex为null的情况
-      matchedMessages.sort(MessageSortUtils.compareForDisplay);
-
       // 提取消息ID列表（从新到旧排序）
-      final matchedMessageIds =
-          matchedMessages.map((msg) => msg.messageId).toList();
+      final matchedMessageIndexesList = matchedMessageIndexes.toList();
 
       final result = SearchResult(
-        matchedMessageIds: matchedMessageIds,
+        matchedMessageIndexes: matchedMessageIndexesList,
         totalCount: matchedMessages.length,
       );
 
@@ -1268,7 +1192,7 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.e('数据库搜索失败', error: error, stackTrace: StackTrace.current);
 
       return const SearchResult(
-        matchedMessageIds: [],
+        matchedMessageIndexes: [],
         totalCount: 0,
       );
     }
@@ -1336,11 +1260,8 @@ class ChatRepositoryImpl implements ChatRepository {
           .conversationIdEqualTo(conversationId)
           .and()
           .createdAtBetween(startTime, endTime)
-          .sortByMessageIndexDesc() // 按messageIndex降序排列（最新到最老，符合聊天界面显示）
+          .sortByCreatedAtDesc() // 按服务器时间戳降序排列（最新到最老，符合聊天界面显示）
           .findAll();
-
-      // 💢💢💢 数据库查询后进行内存排序，处理临时消息的特殊排序
-      MessageSortUtils.sortForDisplay(rawMessages);
 
       // 💢💢💢 应用删除消息过滤规则
       final allMessages = rawMessages;
@@ -1374,16 +1295,15 @@ class ChatRepositoryImpl implements ChatRepository {
 
   /// 💢💢💢 新增：加载指定搜索结果附近的消息
   @override
-  Future<({List<Message> messages, DateTimeRange timeRange})>
-      getMessagesAroundSearchResult({
+  Future<List<Message>> getMessagesAroundSearchResult({
     required String conversationId,
-    required String targetMessageId,
+    required int targetMessageIndex,
     int contextSize = 25,
   }) async {
     try {
       _logger.i('加载搜索结果附近的消息', extra: {
         'conversationId': conversationId,
-        'targetMessageId': targetMessageId,
+        'targetMessageIndex': targetMessageIndex,
         'contextSize': contextSize,
       });
 
@@ -1394,72 +1314,29 @@ class ChatRepositoryImpl implements ChatRepository {
             LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
       ));
 
-      // 获取目标消息
-      final targetMessage = await _messages
+      // 💢💢💢 直接根据targetMessageIndex计算前后范围
+      final startIndex =
+          (targetMessageIndex - contextSize).clamp(1, targetMessageIndex);
+      final endIndex = targetMessageIndex + contextSize;
+
+      _logger.d('计算索引范围', extra: {
+        'targetMessageIndex': targetMessageIndex,
+        'startIndex': startIndex,
+        'endIndex': endIndex,
+        'contextSize': contextSize,
+      });
+
+      // 直接根据messageIndex范围获取消息
+      final allMessages = await _messages
           .filter()
           .conversationIdEqualTo(conversationId)
           .and()
-          .messageIdEqualTo(targetMessageId)
-          .findFirst();
-
-      if (targetMessage == null) {
-        _logger.w('找不到目标搜索结果消息', extra: {'messageId': targetMessageId});
-
-        // 💢💢💢 通知加载完成
-        _notifyConversationLoadingState(LoadingStateUpdate.complete(
-          conversationId: conversationId,
-          loadingStateType:
-              LoadingStateType.isLoading, // 🆕 loadMessages 使用 isLoading
-        ));
-
-        return (
-          messages: <Message>[],
-          timeRange: DateTimeRange(start: DateTime.now(), end: DateTime.now())
-        );
-      }
-
-      // 获取目标消息之前的消息（按messageIndex升序，取最后contextSize条）
-      final rawBeforeMessages = await _messages
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .and()
-          .messageIndexLessThan(targetMessage.messageIndex)
-          .sortByMessageIndex() // 按messageIndex升序
+          .messageIndexBetween(startIndex, endIndex)
+          .sortByCreatedAt() // 按服务器时间戳升序
           .findAll();
 
-      final beforeMessages = rawBeforeMessages.length > contextSize
-          ? rawBeforeMessages.sublist(rawBeforeMessages.length - contextSize)
-          : rawBeforeMessages;
-
-      // 获取目标消息之后的消息（按messageIndex升序，取前contextSize条）
-      final rawAfterMessages = await _messages
-          .filter()
-          .conversationIdEqualTo(conversationId)
-          .and()
-          .messageIndexGreaterThan(targetMessage.messageIndex)
-          .sortByMessageIndex() // 按messageIndex升序
-          .limit(contextSize)
-          .findAll();
-
-      final afterMessages = rawAfterMessages;
-
-      // 合并所有消息：之前的 + 目标消息 + 之后的
-      final allMessages = <Message>[
-        ...beforeMessages,
-        targetMessage,
-        ...afterMessages,
-      ];
-
-      // 💢💢💢 使用自定义排序处理负数messageIndex的情况
-      allMessages.sort(MessageSortUtils.compareForDisplay);
-
-      // 计算时间范围
-      final startTime =
-          allMessages.isEmpty ? DateTime.now() : allMessages.last.createdAt;
-      final endTime =
-          allMessages.isEmpty ? DateTime.now() : allMessages.first.createdAt;
-
-      final timeRange = DateTimeRange(start: startTime, end: endTime);
+      // 💢💢💢 按创建时间排序（降序，最新消息在前）
+      allMessages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       // 💢💢💢 通知加载完成
       _notifyConversationLoadingState(LoadingStateUpdate.complete(
@@ -1470,13 +1347,11 @@ class ChatRepositoryImpl implements ChatRepository {
 
       _logger.i('加载搜索结果附近消息完成', extra: {
         'totalMessages': allMessages.length,
-        'beforeCount': beforeMessages.length,
-        'afterCount': afterMessages.length,
-        'timeRange':
-            '${startTime.toIso8601String()} - ${endTime.toIso8601String()}',
+        'targetMessageIndex': targetMessageIndex,
+        'indexRange': '$startIndex-$endIndex',
       });
 
-      return (messages: allMessages, timeRange: timeRange);
+      return allMessages;
     } catch (error) {
       _logger.e('加载搜索结果附近消息失败', error: error, stackTrace: StackTrace.current);
 
@@ -1488,10 +1363,7 @@ class ChatRepositoryImpl implements ChatRepository {
         error: error.toString(),
       ));
 
-      return (
-        messages: <Message>[],
-        timeRange: DateTimeRange(start: DateTime.now(), end: DateTime.now())
-      );
+      return <Message>[];
     }
   }
 
@@ -1502,12 +1374,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// [newMessage] - 新消息的Proto格式
   void _handleNewMessage(message_proto.MessageProto newMessage) async {
     try {
-      _logger.d('收到新消息事件', extra: {
-        'messageId': newMessage.messageId,
-        'conversationId': newMessage.conversationId,
-        'senderId': newMessage.senderId,
-        'type': newMessage.type.toString(),
-      });
+      _logger.d('收到新消息事件', extra: {'newMessage': newMessage});
 
       // 💢💢💢 防重复检查：如果是当前用户发送的消息，忽略
       if (newMessage.senderId == _currentUser.userId) {
@@ -1538,7 +1405,7 @@ class ChatRepositoryImpl implements ChatRepository {
       });
 
       // 💢💢💢 关键：推送新消息事件，而不是依赖数据库监听
-      _notifyMessageUpdate(MessageAddedEvent(
+      _notifyMessagesEvent(MessageAddedEvent(
         conversationId: message.conversationId,
         newMessages: [message],
         addedEventType: AddedEventType.newMessage, // 🆕 新消息（实时接收）
@@ -1562,70 +1429,33 @@ class ChatRepositoryImpl implements ChatRepository {
   void _handleMessageEditResponse(
       message_proto.MessageEditResponse response) async {
     try {
-      // 💢💢💢 新增：验证conversationId不能为空
-      if (response.conversationId.isEmpty) {
-        _logger.e('⚠️ 消息编辑响应被拒绝：conversationId为空', extra: {
-          'messageId': response.messageId,
-          'success': response.success,
-          'hasConversationId': response.hasConversationId(),
-        });
-        return; // 直接返回，不处理空的conversationId
-      }
-
       _logger.i('收到消息编辑响应', extra: {
         'success': response.success,
         'messageId': response.messageId,
-        'conversationId': response.conversationId,
+        'newText': response.newText,
         'msg': response.msg,
       });
 
       if (response.success) {
-        // 编辑成功，更新本地消息
-        // 💢💢💢 支持多种查找策略：messageId 或 tempId
-        Message? message;
-
-        // 首先按messageId查找
-        if (response.messageId.isNotEmpty) {
-          message = await _messages
-              .filter()
-              .messageIdEqualTo(response.messageId)
-              .findFirst();
-        }
-
-        // 如果按messageId找不到，尝试按tempId查找（可能消息还没有正式ID）
-        if (message == null) {
-          // 查找所有状态为sending且会话匹配的消息，按时间倒序
-          final candidateMessages = await _messages
-              .filter()
-              .conversationIdEqualTo(response.conversationId)
-              .statusEqualTo(MessageStatus.sending)
-              .sortByCreatedAtDesc()
-              .findAll();
-
-          // 在候选消息中查找最近的一条（可能是刚发送的）
-          if (candidateMessages.isNotEmpty) {
-            message = candidateMessages.first;
-            _logger.i('通过候选查找找到要编辑的消息', extra: {
-              'responseMessageId': response.messageId,
-              'foundMessageTempId': message.tempId,
-              'foundMessageId': message.messageId,
-            });
-          }
-        }
+        // 编辑成功，更新本地消息内容
+        // 💢💢💢 直接按messageId查找消息
+        final message = await _messages
+            .filter()
+            .messageIdEqualTo(response.messageId)
+            .findFirst();
 
         if (message != null) {
           await _isar.writeTxn(() async {
-            message!.text = response.newText;
-            message.updatedAt = DateTime.fromMillisecondsSinceEpoch(
-                response.editedAt.toInt() * 1000);
+            message.text = response.newText;
+            message.updatedAt =
+                TimezoneUtils.fromServerTimestamp(response.editedAt.toInt());
             await _messages.put(message);
           });
 
           // 通知UI消息已编辑
-          _notifyMessageUpdate(MessageUpdatedEvent(
+          _notifyMessagesEvent(MessageUpdatedEvent(
             conversationId: message.conversationId,
-            messageId: message.messageId, // 💢💢💢 messageId，可能为空
-            tempId: message.tempId, // 💢💢💢 传递tempId
+            messageId: message.messageId,
             updatedFields: {
               'text': response.newText,
               'editedAt': message.updatedAt?.toIso8601String(),
@@ -1675,54 +1505,27 @@ class ChatRepositoryImpl implements ChatRepository {
 
       if (response.success) {
         // 撤回成功，更新本地消息状态
-        // 💢💢💢 支持多种查找策略：messageId 或 tempId
-        Message? message;
-
-        // 首先按messageId查找
-        if (response.messageId.isNotEmpty) {
-          message = await _messages
-              .filter()
-              .messageIdEqualTo(response.messageId)
-              .findFirst();
-        }
-
-        // 如果按messageId找不到，尝试按tempId查找（可能消息还没有正式ID）
-        if (message == null) {
-          // 查找所有状态为sending且会话匹配的消息，按时间倒序
-          final candidateMessages = await _messages
-              .filter()
-              .conversationIdEqualTo(response.conversationId)
-              .statusEqualTo(MessageStatus.sending)
-              .sortByCreatedAtDesc()
-              .findAll();
-
-          // 在候选消息中查找最近的一条（可能是刚发送的）
-          if (candidateMessages.isNotEmpty) {
-            message = candidateMessages.first;
-            _logger.i('通过候选查找找到要撤回的消息', extra: {
-              'responseMessageId': response.messageId,
-              'foundMessageTempId': message.tempId,
-              'foundMessageId': message.messageId,
-            });
-          }
-        }
+        // 💢💢💢 直接按messageId查找消息
+        final message = await _messages
+            .filter()
+            .messageIdEqualTo(response.messageId)
+            .findFirst();
 
         if (message != null) {
           await _isar.writeTxn(() async {
-            message!.status = MessageStatus.revoked;
+            message.status = MessageStatus.revoked;
             message.text = null; // 清空文本内容
             message.mediaUrl = null; // 清空媒体URL
             message.thumbnailUrl = null; // 清空缩略图URL
-            message.updatedAt = DateTime.fromMillisecondsSinceEpoch(
-                response.revokedAt.toInt() * 1000);
+            message.updatedAt =
+                TimezoneUtils.fromServerTimestamp(response.revokedAt.toInt());
             await _messages.put(message);
           });
 
           // 通知UI消息已撤回
-          _notifyMessageUpdate(MessageUpdatedEvent(
+          _notifyMessagesEvent(MessageUpdatedEvent(
             conversationId: message.conversationId,
-            messageId: message.messageId, // 💢💢💢 messageId，可能为空
-            tempId: message.tempId, // 💢💢💢 传递tempId
+            messageId: message.messageId,
             updatedFields: {
               'status': 'revoked',
               'revokedAt': message.updatedAt?.toIso8601String(),
@@ -1772,7 +1575,7 @@ class ChatRepositoryImpl implements ChatRepository {
           });
 
           // 💢💢💢 触发消息更新事件通知UI
-          _notifyMessageUpdate(MessageUpdatedEvent(
+          _notifyMessagesEvent(MessageUpdatedEvent(
             conversationId: message.conversationId,
             messageId: message.messageId,
             updatedFields: {
@@ -1917,17 +1720,17 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 💢💢💢 新Stream架构：通知消息更新事件
-  void _notifyMessageUpdate(MessageUpdateEvent event) {
+  void _notifyMessagesEvent(MessagesEvent event) {
     try {
       final controller = _messageUpdateControllers[event.conversationId];
       if (controller != null && !controller.isClosed) {
         controller.add(event);
 
-        _logger.d('通知消息更新事件', extra: {
-          'conversationId': event.conversationId,
-          'eventType': event.runtimeType.toString(),
-          'timestamp': event.timestamp.toIso8601String(),
-        });
+        // _logger.d('通知消息更新事件', extra: {
+        //   'conversationId': event.conversationId,
+        //   'eventType': event.runtimeType.toString(),
+        //   'timestamp': event.timestamp.toIso8601String(),
+        // });
       }
     } catch (error) {
       _logger.e('通知消息更新事件失败', error: error);
@@ -1937,8 +1740,8 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 💢💢💢 新增：外部通知消息更新事件（公共接口）
   /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化
   @override
-  void notifyMessageUpdate(MessageUpdateEvent event) {
-    _notifyMessageUpdate(event);
+  void notifyMessageUpdate(MessagesEvent event) {
+    _notifyMessagesEvent(event);  
   }
 
   /// 💢💢💢 新Stream架构：通知会话级加载状态变化
@@ -2153,20 +1956,17 @@ class ChatRepositoryImpl implements ChatRepository {
 
       // 创建系统消息
       final systemMessage = Message()
-        ..messageId = '' // 系统消息暂时不需要服务器ID
-        ..tempId =
-            'system_${DateTime.now().millisecondsSinceEpoch}_${member.userId}'
+        ..messageId = _uuid.v4() // 💢💢💢 使用UUID作为messageId
         ..conversationId = conversationId
         ..senderId = 'system'
         ..senderName = '系统'
         ..type = MessageType.membership
         ..text = messageText
-        ..createdAt = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt())
+        ..createdAt = TimezoneUtils.fromServerTimestamp(timestamp.toInt())
         ..status = MessageStatus.sent
         ..membershipEventType = eventType.name
         ..actorUserId = actionBy
-        ..eventTimestamp =
-            DateTime.fromMillisecondsSinceEpoch(timestamp.toInt())
+        ..eventTimestamp = TimezoneUtils.fromServerTimestamp(timestamp.toInt())
         ..affectedUserIdsList = [member.userId]
         ..membershipActorMap = {
           'userId': actionBy,
@@ -2205,7 +2005,7 @@ class ChatRepositoryImpl implements ChatRepository {
           conversationId: conversationId,
           newMessages: [systemMessage],
           addedEventType: AddedEventType.newMessage,
-          timestamp: DateTime.now(),
+          timestamp: TimezoneUtils.nowUtc(),
         ));
       }
     } catch (error, stackTrace) {
@@ -2224,6 +2024,46 @@ class ChatRepositoryImpl implements ChatRepository {
         return '成员';
       default:
         return '成员';
+    }
+  }
+
+  /// 💢💢💢 本地标记消息为已撤回状态
+  Future<void> _markMessageAsRevokedLocally(String messageId) async {
+    try {
+      // 💢💢💢 直接按messageId查找消息
+      final message =
+          await _messages.filter().messageIdEqualTo(messageId).findFirst();
+
+      if (message == null) {
+        _logger.w('要撤回的消息未找到', extra: {
+          'messageId': messageId,
+        });
+        return;
+      }
+
+      // 更新消息状态为已撤回
+      await _isar.writeTxn(() async {
+        message.status = MessageStatus.revoked;
+        message.updatedAt = DateTime.now();
+        await _messages.put(message);
+      });
+
+      // 通知UI更新
+      _notifyMessagesEvent(MessageUpdatedEvent(
+        conversationId: message.conversationId,
+        messageId: message.messageId,
+        updatedFields: {
+          'status': MessageStatus.revoked.name,
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+      ));
+
+      _logger.i('消息已标记为撤回', extra: {
+        'messageId': messageId,
+        'conversationId': message.conversationId,
+      });
+    } catch (error) {
+      _logger.e('标记消息撤回失败', error: error, stackTrace: StackTrace.current);
     }
   }
 }

@@ -44,6 +44,40 @@ class ContactsRepositoryImpl implements ContactsRepository {
   ContactsRepositoryImpl({required CurrentUser currentUser})
       : _currentUser = currentUser {
     _logger.x('ContactsRepositoryImpl 初始化');
+    _initializeEventHandlers();
+  }
+
+  /// 初始化事件处理器
+  void _initializeEventHandlers() {
+    _logger.i('初始化好友请求事件处理器');
+
+    // 监听发送好友请求响应
+    _subscriptions.add(
+      _communicationService
+          .onProto<FriendRequestProto>('friend:request:send:response')
+          .listen(_handleFriendRequestSendResponse),
+    );
+
+    // 监听处理好友请求响应
+    _subscriptions.add(
+      _communicationService
+          .onProto<FriendRequestProto>('friend:request:process:response')
+          .listen(_handleFriendRequestProcessResponse),
+    );
+
+    // 监听收到好友请求通知
+    _subscriptions.add(
+      _communicationService
+          .onProto<FriendRequestProto>('friend:request:received')
+          .listen(_handleFriendRequestReceived),
+    );
+
+    // 监听好友请求处理结果通知
+    _subscriptions.add(
+      _communicationService
+          .onProto<FriendRequestProto>('friend:request:processed')
+          .listen(_handleFriendRequestProcessed),
+    );
   }
 
   /// 获取通信服务实例
@@ -374,30 +408,20 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> sendFriendRequest(String targetUserId, String message) async {
     try {
-      _logger.i('发送好友请求',
-          extra: {'targetUserId': targetUserId, 'message': message});
+      _logger.i('发送好友请求', extra: {
+        'event': 'friend:request:send',
+        'targetUserId': targetUserId,
+        'message': message
+      });
 
-      // 获取当前用户
-
-      // 获取目标用户
-      final targetUser = await getContactById(targetUserId);
-      if (targetUser == null) {
-        throw '未找到目标用户';
+      // 检查目标用户是否已经是好友
+      final existingContact = await getContactById(targetUserId);
+      if (existingContact != null) {
+        throw '该用户已经是您的好友';
       }
 
-      // 检查是否已发送请求
-      final existingRequest = await _friendRequests
-          .filter()
-          .senderIdEqualTo(_currentUser.userId)
-          .and()
-          .receiverIdEqualTo(targetUserId)
-          .and()
-          .statusEqualTo(db_friend_request.FriendRequestStatus.pending)
-          .findFirst();
-
-      if (existingRequest != null) {
-        throw '已向该用户发送过好友请求';
-      }
+      // 注意：是否已发送请求的判断交由服务器处理
+      // 本地不再检查重复请求，避免客户端和服务器状态不一致的问题
 
       // 创建好友请求
       final request = db_friend_request.FriendRequest()
@@ -422,13 +446,23 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..receiverId = targetUserId
           ..message = message;
 
-        await _communicationService.emitProto('friend:request', protoRequest);
+        await _communicationService.emitProto(
+            'friend:request:send', protoRequest);
       }
 
-      _logger.i('发送好友请求成功');
+      _logger.i('发送好友请求成功', extra: {
+        'event': 'friend:request:send',
+        'targetUserId': targetUserId,
+      });
       return true;
     } catch (error) {
-      _logger.e('发送好友请求失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('发送好友请求失败',
+          error: error,
+          extra: {
+            'event': 'friend:request:send',
+            'targetUserId': targetUserId,
+          },
+          stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -439,7 +473,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> acceptFriendRequest(String requestId) async {
     try {
-      _logger.i('接受好友请求', extra: {'requestId': requestId});
+      _logger.i('接受好友请求', extra: {
+        'event': 'friend:request:process',
+        'requestId': requestId,
+      });
 
       // 查询请求
       final request = await _friendRequests
@@ -486,13 +523,22 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..status = FriendRequestStatus.ACCEPTED;
 
         await _communicationService.emitProto(
-            'friend:request:accept', protoRequest);
+            'friend:request:process', protoRequest);
       }
 
-      _logger.i('接受好友请求成功');
+      _logger.i('接受好友请求成功', extra: {
+        'event': 'friend:request:process',
+        'requestId': requestId,
+      });
       return true;
     } catch (error) {
-      _logger.e('接受好友请求失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('接受好友请求失败',
+          error: error,
+          extra: {
+            'event': 'friend:request:process',
+            'requestId': requestId,
+          },
+          stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -503,7 +549,10 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> rejectFriendRequest(String requestId) async {
     try {
-      _logger.i('拒绝好友请求', extra: {'requestId': requestId});
+      _logger.i('拒绝好友请求', extra: {
+        'event': 'friend:request:process',
+        'requestId': requestId,
+      });
 
       // 查询请求
       final request = await _friendRequests
@@ -534,13 +583,22 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..requestId = requestId
           ..status = FriendRequestStatus.REJECTED;
 
-        _communicationService.emitProto('friend:request:reject', protoRequest);
+        _communicationService.emitProto('friend:request:process', protoRequest);
       }
 
-      _logger.i('拒绝好友请求成功');
+      _logger.i('拒绝好友请求成功', extra: {
+        'event': 'friend:request:process',
+        'requestId': requestId,
+      });
       return true;
     } catch (error) {
-      _logger.e('拒绝好友请求失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('拒绝好友请求失败',
+          error: error,
+          extra: {
+            'event': 'friend:request:process',
+            'requestId': requestId,
+          },
+          stackTrace: StackTrace.current);
       return false;
     }
   }
@@ -562,6 +620,143 @@ class ContactsRepositoryImpl implements ContactsRepository {
     } catch (error) {
       _logger.e('获取所有好友请求失败', error: error, stackTrace: StackTrace.current);
       return [];
+    }
+  }
+
+  /// 处理发送好友请求响应
+  void _handleFriendRequestSendResponse(FriendRequestProto response) {
+    _logger.i('收到发送好友请求响应', extra: {
+      'requestId': response.requestId,
+      'status': response.status.toString(),
+    });
+
+    // 更新本地请求状态
+    _updateLocalFriendRequest(response);
+  }
+
+  /// 处理好友请求处理响应
+  void _handleFriendRequestProcessResponse(FriendRequestProto response) {
+    _logger.i('收到好友请求处理响应', extra: {
+      'requestId': response.requestId,
+      'status': response.status.toString(),
+    });
+
+    // 更新本地请求状态
+    _updateLocalFriendRequest(response);
+  }
+
+  /// 处理收到好友请求通知
+  void _handleFriendRequestReceived(FriendRequestProto request) {
+    _logger.i('收到好友请求通知', extra: {
+      'requestId': request.requestId,
+      'senderId': request.senderId,
+      'message': request.hasMessage() ? request.message : '',
+    });
+
+    // 保存到本地数据库
+    _saveIncomingFriendRequest(request);
+  }
+
+  /// 处理好友请求处理结果通知
+  void _handleFriendRequestProcessed(FriendRequestProto response) {
+    _logger.i('收到好友请求处理结果通知', extra: {
+      'requestId': response.requestId,
+      'status': response.status.toString(),
+    });
+
+    // 更新本地请求状态
+    _updateLocalFriendRequest(response);
+
+    // 如果请求被接受，添加联系人
+    if (response.status == FriendRequestStatus.ACCEPTED) {
+      _addContactFromAcceptedRequest(response);
+    }
+  }
+
+  /// 更新本地好友请求状态
+  Future<void> _updateLocalFriendRequest(FriendRequestProto response) async {
+    try {
+      final request = await _friendRequests
+          .filter()
+          .requestIdEqualTo(response.requestId)
+          .findFirst();
+
+      if (request != null) {
+        await _isar.writeTxn(() async {
+          request.status = _convertProtoStatus(response.status);
+          request.processedAt = DateTime.fromMillisecondsSinceEpoch(
+            response.hasProcessedAt()
+                ? response.processedAt.toInt()
+                : DateTime.now().millisecondsSinceEpoch,
+          );
+          await _friendRequests.put(request);
+        });
+        _logger.d('本地好友请求状态已更新', extra: {'requestId': response.requestId});
+      }
+    } catch (error) {
+      _logger.e('更新本地好友请求状态失败', error: error);
+    }
+  }
+
+  /// 保存收到的好友请求
+  Future<void> _saveIncomingFriendRequest(FriendRequestProto request) async {
+    try {
+      final friendRequest = db_friend_request.FriendRequest()
+        ..requestId = request.requestId
+        ..senderId = request.senderId
+        ..receiverId = _currentUser.userId
+        ..senderName = 'Unknown' // 由于proto中没有sender name，使用默认值
+        ..senderAvatar = '' // 由于proto中没有sender avatar，使用默认值
+        ..message = request.hasMessage() ? request.message : ''
+        ..status = _convertProtoStatus(request.status)
+        ..createdAt = DateTime.fromMillisecondsSinceEpoch(
+          request.hasSentAt()
+              ? request.sentAt.toInt()
+              : DateTime.now().millisecondsSinceEpoch,
+        )
+        ..processedAt = request.hasProcessedAt() &&
+                request.processedAt.toInt() > 0
+            ? DateTime.fromMillisecondsSinceEpoch(request.processedAt.toInt())
+            : null;
+
+      await _isar.writeTxn(() async {
+        await _friendRequests.put(friendRequest);
+      });
+
+      _logger.i('收到的好友请求已保存', extra: {'requestId': request.requestId});
+    } catch (error) {
+      _logger.e('保存收到的好友请求失败', error: error);
+    }
+  }
+
+  /// 从被接受的请求中添加联系人
+  Future<void> _addContactFromAcceptedRequest(
+      FriendRequestProto response) async {
+    try {
+      // 这里需要根据response中的信息添加联系人
+      // 由于FriendRequestProto可能不包含完整的用户信息，
+      // 我们可能需要额外的用户信息查询
+      _logger.i('好友请求被接受，准备添加联系人', extra: {'requestId': response.requestId});
+
+      // TODO: 实现根据接受的好友请求添加联系人的逻辑
+      // 这可能需要向服务器请求完整的用户信息
+    } catch (error) {
+      _logger.e('从被接受的请求中添加联系人失败', error: error);
+    }
+  }
+
+  /// 转换Proto状态到本地状态
+  db_friend_request.FriendRequestStatus _convertProtoStatus(
+      FriendRequestStatus protoStatus) {
+    switch (protoStatus) {
+      case FriendRequestStatus.PENDING:
+        return db_friend_request.FriendRequestStatus.pending;
+      case FriendRequestStatus.ACCEPTED:
+        return db_friend_request.FriendRequestStatus.accepted;
+      case FriendRequestStatus.REJECTED:
+        return db_friend_request.FriendRequestStatus.rejected;
+      default:
+        return db_friend_request.FriendRequestStatus.pending;
     }
   }
 

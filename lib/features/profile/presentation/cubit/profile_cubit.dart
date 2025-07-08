@@ -80,7 +80,13 @@ class ProfileCubit extends Cubit<ProfileState> {
     try {
       emit(state.copyWith(status: ProfileStatus.loading));
       await _repository.resetAllData();
-      emit(state.copyWith(status: ProfileStatus.success));
+      // 数据重置成功后，清除用户状态
+      emit(const ProfileState(
+        status: ProfileStatus.success,
+        user: null,
+        error: null,
+        serverUrl: null,
+      ));
     } catch (e) {
       _logger.e('重置数据失败', error: e);
       emit(state.copyWith(

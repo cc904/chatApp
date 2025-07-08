@@ -78,6 +78,13 @@ class EnhancedTokenManager {
     _tokenUpdateCallback = callback;
   }
 
+  /// 更新基础URL
+  /// 当服务器切换时调用此方法更新Token管理器的baseUrl
+  void updateBaseUrl(String baseUrl) {
+    _dio.options.baseUrl = baseUrl;
+    _logger.i('🔗 更新TokenManager基础URL', extra: {'baseUrl': baseUrl});
+  }
+
   /// 启动Token管理服务
   void startTokenManagement() {
     _logger.i('🚀 启动增强Token管理服务');

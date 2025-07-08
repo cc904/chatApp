@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
+import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/features/home/presentation/pages/home_page.dart';
+import 'package:cc/core/services/verification_code_timer.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,27 +15,47 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
   final _nicknameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  late VerificationCodeTimer _verificationCodeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificationCodeTimer = VerificationCodeTimer();
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     _verificationCodeController.dispose();
     _nicknameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _verificationCodeTimer.dispose();
     super.dispose();
+  }
+
+  /// 发送验证码
+  Future<void> _sendVerificationCode() async {
+    try {
+      await context.read<AuthCubit>().sendVerificationCode('register');
+      // 发送成功后开始倒计时
+      _verificationCodeTimer.startCountdown();
+    } catch (error) {
+      // 错误处理已在AuthCubit中处理
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('注册账号'),
+        title: Text(localizations.register),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -60,26 +83,18 @@ class _RegisterPageState extends State<RegisterPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 页面标题
-                  const Center(
+                  Center(
                     child: Column(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.person_add,
                           size: 40,
                           color: Colors.green,
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         Text(
-                          '创建新账号',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          '请填写以下信息完成注册',
-                          style: TextStyle(
+                          localizations.registerInfo,
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Colors.grey,
                           ),
@@ -87,23 +102,23 @@ class _RegisterPageState extends State<RegisterPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 12),
 
                   // 表单
                   // 手机号
                   TextField(
                     controller: _phoneController,
-                    decoration: const InputDecoration(
-                      labelText: '手机号码',
-                      prefixIcon: Icon(Icons.phone),
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    decoration: InputDecoration(
+                      labelText: localizations.phoneNumber,
+                      prefixIcon: const Icon(Icons.phone),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 16),
                     ),
                     keyboardType: TextInputType.phone,
                     onChanged: (value) =>
                         context.read<AuthCubit>().updatePhoneNumber(value),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
                   // 验证码
                   Row(
@@ -111,10 +126,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       Expanded(
                         child: TextField(
                           controller: _verificationCodeController,
-                          decoration: const InputDecoration(
-                            labelText: '验证码',
-                            prefixIcon: Icon(Icons.message),
-                            contentPadding: EdgeInsets.symmetric(
+                          decoration: InputDecoration(
+                            labelText: localizations.verificationCode,
+                            prefixIcon: const Icon(Icons.message),
+                            contentPadding: const EdgeInsets.symmetric(
                                 vertical: 16, horizontal: 16),
                           ),
                           onChanged: (value) => context
@@ -125,83 +140,91 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(width: 8),
                       BlocBuilder<AuthCubit, AuthState>(
                         builder: (context, state) {
-                          return ElevatedButton(
-                            onPressed: state.isCodeSent || state.isLoading
-                                ? null
-                                : () => context
-                                    .read<AuthCubit>()
-                                    .sendVerificationCode('register'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              disabledBackgroundColor:
-                                  Colors.green.withValues(alpha: 0.5),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: Text(
-                              state.isCodeSent && state.countdown != null
-                                  ? '${state.countdown}s'
-                                  : state.isLoading
-                                      ? '发送中...'
-                                      : '获取验证码',
-                            ),
+                          return ListenableBuilder(
+                            listenable: _verificationCodeTimer,
+                            builder: (context, child) {
+                              return ElevatedButton(
+                                onPressed: _verificationCodeTimer.isActive || state.isLoading
+                                    ? null
+                                    : () => _sendVerificationCode(),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  disabledBackgroundColor:
+                                      Colors.green.withValues(alpha: 0.5),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                child: Text(
+                                  _verificationCodeTimer.isActive
+                                      ? '${_verificationCodeTimer.countdown}s'
+                                      : state.isLoading
+                                          ? localizations.sending
+                                          : localizations.getVerificationCode,
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
                   // 昵称
                   TextField(
                     controller: _nicknameController,
-                    decoration: const InputDecoration(
-                      labelText: '昵称',
-                      prefixIcon: Icon(Icons.person),
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    decoration: InputDecoration(
+                      labelText: localizations.nickname,
+                      prefixIcon: const Icon(Icons.person),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 16),
                     ),
                     onChanged: (value) =>
                         context.read<AuthCubit>().updateNickname(value),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
                   // 密码
                   TextField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: '密码',
-                      prefixIcon: Icon(Icons.lock),
-                      helperText: '密码长度至少6位',
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    decoration: InputDecoration(
+                      labelText: localizations.password,
+                      prefixIcon: const Icon(Icons.lock),
+                      helperText: localizations.passwordLength,
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 16),
                     ),
                     obscureText: true,
                     onChanged: (value) =>
                         context.read<AuthCubit>().updatePassword(value),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
                   // 确认密码
                   TextField(
                     controller: _confirmPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: '确认密码',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    decoration: InputDecoration(
+                      labelText: localizations.confirmPassword,
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16, horizontal: 16),
                     ),
                     obscureText: true,
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 12),
 
                   // 注册按钮
                   BlocConsumer<AuthCubit, AuthState>(
                     listener: (context, state) {
                       if (state.isAuthenticated) {
-                        UINotificationHelper.showSuccess('注册成功');
-                        Navigator.of(context)
-                            .pushNamedAndRemoveUntil('/home', (route) => false);
+                        UINotificationHelper.showSuccess(
+                            localizations.registerSuccess);
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => const HomePage(),
+                          ),
+                          (route) => false,
+                        );
                       } else if (state.hasError) {
                         UINotificationHelper.showError(state.errorMessage!);
                       }
@@ -219,13 +242,15 @@ class _RegisterPageState extends State<RegisterPage> {
                                   child: CircularProgressIndicator(
                                       color: Colors.white),
                                 )
-                              : const Text('注册',
-                                  style: TextStyle(fontSize: 16)),
+                              : Text(
+                                  localizations.register,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
                         ),
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 0),
 
                   // 返回登录
                   Center(
@@ -234,7 +259,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         Navigator.pop(context);
                       },
                       child: Text(
-                        '已有账号？返回登录',
+                        localizations.alreadyHaveAccount,
                         style: TextStyle(color: Colors.green[700]),
                       ),
                     ),
@@ -249,9 +274,11 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _register() {
+    final localizations = AppLocalizations.of(context);
+
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('两次输入的密码不一致')),
+        SnackBar(content: Text(localizations.passwordMismatch)),
       );
       return;
     }
@@ -259,7 +286,7 @@ class _RegisterPageState extends State<RegisterPage> {
     // 验证密码复杂度
     if (_passwordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('密码长度至少6位')),
+        SnackBar(content: Text(localizations.passwordTooShort)),
       );
       return;
     }
@@ -267,7 +294,7 @@ class _RegisterPageState extends State<RegisterPage> {
     // 验证昵称
     if (_nicknameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入昵称')),
+        SnackBar(content: Text(localizations.pleaseEnterNickname)),
       );
       return;
     }

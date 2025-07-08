@@ -6,6 +6,8 @@ import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/services/upload_api_service.dart';
+import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/services/secure_storage_service.dart';
 
 /// 用户服务
 ///
@@ -111,6 +113,9 @@ class UserService {
             'userId': response.user.userId,
             'message': response.message,
           });
+
+          // 🔧 修复：更新本地数据库和安全存储
+          await _updateLocalUserInfo(response.user);
         } else {
           _logger.w('用户信息更新失败', extra: {
             'message': response.message,
@@ -158,14 +163,62 @@ class UserService {
         'updateSource': event.updateSource,
       });
 
-      // TODO: 后续完善本地数据库更新逻辑
-      // 目前通过ProfileCubit的updateUserInfo已经能更新UI和本地数据库
+      // 更新本地用户信息
+      await _updateLocalUserInfo(event.user);
+
       _logger.i('用户信息更新事件已处理', extra: {
         'userId': event.user.userId,
         'updatedFields': event.updatedFields,
       });
     } catch (error) {
       _logger.e('处理用户信息更新事件失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 更新本地用户信息
+  ///
+  /// 将服务器返回的用户信息同步到本地数据库和安全存储
+  /// [userProto] 服务器返回的用户信息
+  Future<void> _updateLocalUserInfo(CurrentUserProto userProto) async {
+    try {
+      _logger.i('开始更新本地用户信息', extra: {
+        'userId': userProto.userId,
+        'name': userProto.name,
+      });
+
+      // 1. 转换为本地数据库模型
+      final currentUser = currentUserFromProto(userProto);
+
+      // 2. 更新数据库
+      if (DatabaseInitializer.isInitialized) {
+        await DatabaseInitializer.isar.writeTxn(() async {
+          // 清除旧的用户信息并保存新的
+          await DatabaseInitializer.isar.currentUsers.clear();
+          await DatabaseInitializer.isar.currentUsers.put(currentUser);
+        });
+        _logger.d('数据库用户信息已更新');
+      }
+
+      // 3. 更新安全存储
+      final secureStorage = SecureStorageService();
+      await secureStorage.saveUserCredentials(currentUser);
+      _logger.d('安全存储用户信息已更新');
+
+      // 4. 发送本地事件通知其他组件
+      // 注意：这里发送本地事件，不是发送到服务器
+      // 可以通过其他方式通知UI组件，比如使用EventBus或者直接通过Cubit
+      _logger.d('本地用户信息更新通知已准备', extra: {
+        'userId': currentUser.userId,
+        'source': 'user_service',
+      });
+
+      _logger.i('本地用户信息更新完成', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+      });
+    } catch (error) {
+      _logger.e('更新本地用户信息失败', error: error, stackTrace: StackTrace.current);
+      rethrow;
     }
   }
 

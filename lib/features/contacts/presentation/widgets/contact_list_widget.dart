@@ -4,6 +4,7 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 联系人列表显示模式
 enum ContactListMode {
@@ -505,10 +506,10 @@ class _ContactListWidgetState extends State<ContactListWidget> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isSelected ? Colors.blue : Colors.grey,
+                color: isSelected ? AppColors.primary : Colors.grey,
                 width: 2,
               ),
-              color: isSelected ? Colors.blue : Colors.transparent,
+              color: isSelected ? AppColors.primary : Colors.transparent,
             ),
             child: isSelected
                 ? const Icon(Icons.check, size: 16, color: Colors.white)
@@ -631,8 +632,9 @@ class _ContactListWidgetState extends State<ContactListWidget> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color:
-                      _currentLetter == index ? Colors.blue : Colors.grey[600],
+                  color: _currentLetter == index
+                      ? AppColors.primary
+                      : Colors.grey[600],
                 ),
               ),
             ),

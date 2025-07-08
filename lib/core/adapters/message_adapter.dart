@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:fixnum/fixnum.dart';
-import 'package:cc/core/proto/generated/message.pb.dart' as proto;
+import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
+// import 'package:cc/core/proto/generated/common.pb.dart' as common_proto;
 import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
 
 /// 🚀 消息适配器 - 支持Index-based同步的转换器
 ///
@@ -16,10 +18,10 @@ import 'package:cc/core/database/models/message.dart';
 /// ## 🔥 Index方案优势
 /// ```dart
 /// // 旧方案：复杂的时间戳排序
-/// messages.sortByCreatedAtDesc().sortByMessageId()  // ❌ 已废弃
+/// messages.sortByMessageIndexDesc()  // ❌ 已废弃
 ///
-/// // 新方案：简单的Index排序，绝对可靠
-/// messages.sortByMessageIndexDesc()  // 🚀 一行搞定！
+/// // 新方案：使用服务器时间戳排序，确保跨客户端一致性
+/// messages.sortByCreatedAtDesc()  // 🚀 一行搞定！
 /// ```
 ///
 /// ## 📋 支持的消息类型
@@ -47,7 +49,7 @@ class MessageAdapter {
   ///
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
-  static Message fromProto(proto.MessageProto protoMessage) {
+  static Message fromProto(message_proto.MessageProto protoMessage) {
     final message = Message()
       ..messageId = protoMessage.messageId
       ..conversationId = protoMessage.conversationId
@@ -58,10 +60,12 @@ class MessageAdapter {
       ..senderAvatar =
           protoMessage.hasSenderAvatar() ? protoMessage.senderAvatar : null
       ..createdAt = protoMessage.hasCreatedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoMessage.createdAt.toInt())
-          : DateTime.now()
+          ? TimezoneUtils.fromServerTimestamp(
+              protoMessage.createdAt.toInt()) // 🌍 使用UTC时间戳处理
+          : TimezoneUtils.nowUtc() // 🌍 默认使用UTC时间
       ..updatedAt = protoMessage.hasUpdatedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoMessage.updatedAt.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              protoMessage.updatedAt.toInt()) // 🌍 使用UTC时间戳处理
           : null
       ..status = _determineMessageStatus(protoMessage)
       ..type = protoMessage.hasType()
@@ -72,7 +76,8 @@ class MessageAdapter {
           : null
       ..isEdited = protoMessage.hasIsEdited() ? protoMessage.isEdited : false
       ..editedAt = protoMessage.hasEditedAt()
-          ? DateTime.fromMillisecondsSinceEpoch(protoMessage.editedAt.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              protoMessage.editedAt.toInt()) // 🌍 使用UTC时间戳处理
           : null
       ..repliedToMessageId = protoMessage.hasRepliedToMessageId()
           ? protoMessage.repliedToMessageId
@@ -99,7 +104,7 @@ class MessageAdapter {
 
   /// 从proto的oneof content中提取内容到数据库扁平结构
   static void _extractContentFromProto(
-      proto.MessageProto protoMessage, Message message) {
+      message_proto.MessageProto protoMessage, Message message) {
     // 处理文本消息
     if (protoMessage.hasTextMessage()) {
       final textMessage = protoMessage.textMessage;
@@ -155,8 +160,8 @@ class MessageAdapter {
       message.actorUserId =
           systemMessage.hasActorUserId() ? systemMessage.actorUserId : null;
       message.eventTimestamp = systemMessage.hasEventTimestamp()
-          ? DateTime.fromMillisecondsSinceEpoch(
-              systemMessage.eventTimestamp.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              systemMessage.eventTimestamp.toInt()) // 🌍 使用UTC时间戳处理
           : null;
       message.metadata = systemMessage.metadata.isNotEmpty
           ? jsonEncode(systemMessage.metadata)
@@ -201,8 +206,8 @@ class MessageAdapter {
 
       // 设置时间戳和角色变更信息
       message.eventTimestamp = membershipMessage.hasEventTimestamp()
-          ? DateTime.fromMillisecondsSinceEpoch(
-              membershipMessage.eventTimestamp.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              membershipMessage.eventTimestamp.toInt()) // 🌍 使用UTC时间戳处理
           : null;
       message.membershipPreviousRole = membershipMessage.hasPreviousRole()
           ? membershipMessage.previousRole
@@ -261,7 +266,8 @@ class MessageAdapter {
           ? pollMessage.isMultipleChoice
           : null;
       message.expiresAt = pollMessage.hasExpiresAt()
-          ? DateTime.fromMillisecondsSinceEpoch(pollMessage.expiresAt.toInt())
+          ? TimezoneUtils.fromServerTimestamp(
+              pollMessage.expiresAt.toInt()) // 🌍 使用UTC时间戳处理
           : null;
       message.isAnonymous =
           pollMessage.hasIsAnonymous() ? pollMessage.isAnonymous : null;
@@ -291,8 +297,8 @@ class MessageAdapter {
   ///
   /// [message] - 数据库消息对象
   /// 返回：转换后的Protocol Buffer对象
-  static proto.MessageProto toProto(Message message) {
-    final protoMessage = proto.MessageProto(
+  static message_proto.MessageProto toProto(Message message) {
+    final protoMessage = message_proto.MessageProto(
       messageId: message.messageId,
       conversationId: message.conversationId,
       index: message.messageIndex,
@@ -317,11 +323,6 @@ class MessageAdapter {
       isPinned: message.isPinned,
     );
 
-    // 💢💢💢 如果有临时ID，设置到proto中
-    if (message.tempId != null && message.tempId!.isNotEmpty) {
-      protoMessage.tempId = message.tempId!;
-    }
-
     // 设置reactions字段
     if (message.reactions != null && message.reactions!.isNotEmpty) {
       final reactionsMap = _parseJsonMapStringInt(message.reactions!);
@@ -336,11 +337,11 @@ class MessageAdapter {
 
   /// 根据数据库消息创建对应的proto content结构
   static void _createProtoContent(
-      Message message, proto.MessageProto protoMessage) {
+      Message message,  message_proto.MessageProto protoMessage) {
     switch (message.type) {
       case MessageType.text:
         if (message.text != null) {
-          final textMessage = proto.TextMessage(
+          final textMessage = message_proto.TextMessage(
             text: message.text!,
             mentions: message.mentions != null
                 ? _parseJsonStringList(message.mentions!)
@@ -357,7 +358,7 @@ class MessageAdapter {
       case MessageType.voice:
       case MessageType.video:
       case MessageType.file:
-        final mediaMessage = proto.MediaMessage();
+        final mediaMessage = message_proto.MediaMessage();
         if (message.mediaUrl != null) {
           mediaMessage.mediaUrl = message.mediaUrl!;
         }
@@ -378,22 +379,22 @@ class MessageAdapter {
         break;
 
       case MessageType.system:
-        final systemMessage = proto.SystemMessage();
+        final systemMessage = message_proto.SystemMessage();
         if (message.text != null) systemMessage.text = message.text!;
 
         // 🆕 使用新的eventType字段
         if (message.eventType != null) {
           try {
             // 将字符串转换为SystemEventType枚举
-            final eventType = proto.SystemEventType.values.firstWhere(
+            final eventType = message_proto.SystemEventType.values.firstWhere(
               (e) => e.name == message.eventType,
-              orElse: () => proto.SystemEventType.CONVERSATION_CREATED,
+              orElse: () => message_proto.SystemEventType.CONVERSATION_CREATED,
             );
             systemMessage.eventType = eventType;
           } catch (e) {
             // 如果解析失败，使用默认值
             systemMessage.eventType =
-                proto.SystemEventType.CONVERSATION_CREATED;
+                message_proto.SystemEventType.CONVERSATION_CREATED;
           }
         }
 
@@ -425,25 +426,25 @@ class MessageAdapter {
 
       case MessageType.membership:
         // 🆕 处理成员变动消息
-        final membershipMessage = proto.MembershipMessage();
+        final membershipMessage = message_proto.MembershipMessage();
 
         // 设置事件类型
         if (message.membershipEventType != null) {
           try {
-            final eventType = proto.SystemEventType.values.firstWhere(
+            final eventType = message_proto.SystemEventType.values.firstWhere(
               (e) => e.name == message.membershipEventType,
-              orElse: () => proto.SystemEventType.MEMBER_JOINED,
+              orElse: () => message_proto.SystemEventType.MEMBER_JOINED,
             );
             membershipMessage.eventType = eventType;
           } catch (e) {
-            membershipMessage.eventType = proto.SystemEventType.MEMBER_JOINED;
+            membershipMessage.eventType = message_proto.SystemEventType.MEMBER_JOINED;
           }
         }
 
         // 设置操作者信息
         if (message.membershipActor != null) {
           final actorMap = _parseJsonMapStringDynamic(message.membershipActor!);
-          final actor = proto.MemberInfo(
+          final actor = message_proto.MemberInfo(
             userId: actorMap['userId']?.toString(),
             userName: actorMap['userName']?.toString(),
             userAvatar: actorMap['userAvatar']?.toString(),
@@ -460,7 +461,7 @@ class MessageAdapter {
           final membersData = _parseJsonListMapStringDynamic(
               message.membershipAffectedMembers!);
           final members = membersData
-              .map((memberMap) => proto.MemberInfo(
+              .map((memberMap) => message_proto.MemberInfo(
                     userId: memberMap['userId']?.toString(),
                     userName: memberMap['userName']?.toString(),
                     userAvatar: memberMap['userAvatar']?.toString(),
@@ -502,31 +503,31 @@ class MessageAdapter {
   }
 
   /// 批量转换：从Proto列表转换为Message列表
-  static List<Message> fromProtoList(List<proto.MessageProto> protoList) {
+  static List<Message> fromProtoList(List<message_proto.MessageProto> protoList) {
     return protoList.map((proto) => fromProto(proto)).toList();
   }
 
   /// 批量转换：从Message列表转换为Proto列表
-  static List<proto.MessageProto> toProtoList(List<Message> messages) {
+  static List<message_proto.MessageProto> toProtoList(List<Message> messages) {
     return messages.map((message) => toProto(message)).toList();
   }
 
   /// 将Proto枚举类型转换为MessageType枚举
-  static MessageType _protoTypeToMessageType(proto.MessageType type) {
+  static MessageType _protoTypeToMessageType(message_proto.MessageType type) {
     switch (type) {
-      case proto.MessageType.TEXT:
+      case message_proto.MessageType.TEXT:
         return MessageType.text;
-      case proto.MessageType.IMAGE:
+      case message_proto.MessageType.IMAGE:
         return MessageType.image;
-      case proto.MessageType.VOICE:
+      case message_proto.MessageType.VOICE:
         return MessageType.voice;
-      case proto.MessageType.VIDEO:
+      case message_proto.MessageType.VIDEO:
         return MessageType.video;
-      case proto.MessageType.FILE:
+      case message_proto.MessageType.FILE:
         return MessageType.file;
-      case proto.MessageType.SYSTEM:
+      case message_proto.MessageType.SYSTEM:
         return MessageType.system;
-      case proto.MessageType.MEMBERSHIP:
+      case message_proto.MessageType.MEMBERSHIP:
         return MessageType.membership;
       default:
         return MessageType.text;
@@ -534,28 +535,28 @@ class MessageAdapter {
   }
 
   /// 将MessageType枚举转换为Proto枚举类型
-  static proto.MessageType _messageTypeToProtoType(MessageType type) {
+  static message_proto.MessageType _messageTypeToProtoType(MessageType type) {
     switch (type) {
       case MessageType.text:
-        return proto.MessageType.TEXT;
+        return message_proto.MessageType.TEXT;
       case MessageType.image:
-        return proto.MessageType.IMAGE;
+        return message_proto.MessageType.IMAGE;
       case MessageType.voice:
-        return proto.MessageType.VOICE;
+        return message_proto.MessageType.VOICE;
       case MessageType.video:
-        return proto.MessageType.VIDEO;
+        return message_proto.MessageType.VIDEO;
       case MessageType.file:
-        return proto.MessageType.FILE;
+        return message_proto.MessageType.FILE;
       case MessageType.system:
-        return proto.MessageType.SYSTEM;
+        return message_proto.MessageType.SYSTEM;
       case MessageType.membership:
-        return proto.MessageType.MEMBERSHIP;
+        return message_proto.MessageType.MEMBERSHIP;
     }
   }
 
   /// 根据proto消息确定MessageStatus状态
   static MessageStatus _determineMessageStatus(
-      proto.MessageProto protoMessage) {
+      message_proto.MessageProto protoMessage) {
     if (protoMessage.hasStatus()) {
       return _protoStatusToMessageStatus(protoMessage.status);
     }
@@ -563,21 +564,21 @@ class MessageAdapter {
   }
 
   /// 将Proto状态转换为MessageStatus枚举
-  static MessageStatus _protoStatusToMessageStatus(proto.MessageStatus status) {
+  static MessageStatus _protoStatusToMessageStatus(message_proto.MessageStatus status) {
     switch (status) {
-      case proto.MessageStatus.SENDING:
+      case message_proto.MessageStatus.SENDING:
         return MessageStatus.sending;
-      case proto.MessageStatus.SENT:
+      case message_proto.MessageStatus.SENT:
         return MessageStatus.sent;
-      case proto.MessageStatus.DELIVERED:
+      case message_proto.MessageStatus.DELIVERED:
         return MessageStatus.delivered;
-      case proto.MessageStatus.READ:
+      case message_proto.MessageStatus.READ:
         return MessageStatus.read;
-      case proto.MessageStatus.FAILED:
+      case message_proto.MessageStatus.FAILED:
         return MessageStatus.failed;
-      // case proto.MessageStatus.DELETED:
+      // case message_proto.MessageStatus.DELETED:
       //   return MessageStatus.deleted;
-      // case proto.MessageStatus.REVOKED:
+      // case message_proto.MessageStatus.REVOKED:
       //   return MessageStatus.revoked;
       default:
         return MessageStatus.sent;
@@ -585,22 +586,22 @@ class MessageAdapter {
   }
 
   /// 将MessageStatus枚举转换为Proto状态
-  static proto.MessageStatus _messageStatusToProtoStatus(MessageStatus status) {
+  static message_proto.MessageStatus _messageStatusToProtoStatus(MessageStatus status) {
     switch (status) {
       case MessageStatus.sending:
-        return proto.MessageStatus.SENDING;
+        return message_proto.MessageStatus.SENDING;
       case MessageStatus.sent:
-        return proto.MessageStatus.SENT;
+        return message_proto.MessageStatus.SENT;
       case MessageStatus.delivered:
-        return proto.MessageStatus.DELIVERED;
+        return message_proto.MessageStatus.DELIVERED;
       case MessageStatus.read:
-        return proto.MessageStatus.READ;
+        return message_proto.MessageStatus.READ;
       case MessageStatus.failed:
-        return proto.MessageStatus.FAILED;
+        return message_proto.MessageStatus.FAILED;
       case MessageStatus.deleted:
-        return proto.MessageStatus.DELETED;
+        return message_proto.MessageStatus.DELETED;
       case MessageStatus.revoked:
-        return proto.MessageStatus.REVOKED;
+        return message_proto.MessageStatus.REVOKED;
     }
   }
 

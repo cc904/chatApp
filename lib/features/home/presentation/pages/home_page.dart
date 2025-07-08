@@ -27,8 +27,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final _logger = LogService.instance;
   HomeCubit? _homeCubit;
   ChatsCubit? _chatsCubit;
@@ -41,11 +40,72 @@ class _HomePageState extends State<HomePage>
 
   final _secureStorage = SecureStorageService();
   late TabController _tabController;
+
+  // 动画控制器
+  late List<AnimationController> _iconAnimationControllers; // 用于摆动动画
+  late List<AnimationController> _iconStateControllers; // 用于选中状态动画
+  late List<Animation<double>> _iconScaleAnimations;
+  late List<Animation<double>> _iconRotationAnimations;
+  late List<Animation<Color?>> _iconColorAnimations;
+
   int _currentIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    // 初始化摆动动画控制器
+    _iconAnimationControllers = List.generate(
+      3,
+      (index) => AnimationController(
+        duration: const Duration(milliseconds: 400),
+        vsync: this,
+      ),
+    );
+
+    // 初始化状态动画控制器
+    _iconStateControllers = List.generate(
+      3,
+      (index) => AnimationController(
+        duration: const Duration(milliseconds: 300),
+        vsync: this,
+      ),
+    );
+
+    // 初始化缩放动画 - 使用弹性曲线
+    _iconScaleAnimations = _iconStateControllers.map((controller) {
+      return Tween<double>(begin: 1.0, end: 1.2).animate(
+        CurvedAnimation(
+          parent: controller,
+          curve: Curves.elasticOut,
+          reverseCurve: Curves.easeInOut,
+        ),
+      );
+    }).toList();
+
+    // 初始化旋转动画 - 轻微摆动效果
+    _iconRotationAnimations = _iconAnimationControllers.map((controller) {
+      return Tween<double>(begin: 0.0, end: 0.1).animate(
+        CurvedAnimation(
+          parent: controller,
+          curve: Curves.easeInOut,
+        ),
+      );
+    }).toList();
+
+    // 初始化颜色动画 - 从灰色到绿色的渐变
+    _iconColorAnimations = _iconStateControllers.map((controller) {
+      return ColorTween(
+        begin: Colors.grey,
+        end: Colors.green,
+      ).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      );
+    }).toList();
+
+    // 设置初始选中状态
+    _iconStateControllers[0].forward();
 
     _init();
   }
@@ -119,6 +179,13 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     _tabController.dispose();
+    // 销毁动画控制器
+    for (var controller in _iconAnimationControllers) {
+      controller.dispose();
+    }
+    for (var controller in _iconStateControllers) {
+      controller.dispose();
+    }
     _homeCubit?.close();
     _chatsCubit?.close();
     _contactCubit?.close();
@@ -131,6 +198,59 @@ class _HomePageState extends State<HomePage>
     }
     _cleanupTimer?.cancel();
     super.dispose();
+  }
+
+  // 切换Tab时的动画处理
+  void _onTabTapped(int index) {
+    if (_currentIndex != index) {
+      // 重置之前选中的状态动画
+      _iconStateControllers[_currentIndex].reverse();
+
+      // 启动新选中的状态动画
+      _iconStateControllers[index].forward();
+
+      // 播放摆动动画（一次性）
+      _iconAnimationControllers[index].forward().then((_) {
+        _iconAnimationControllers[index].reverse();
+      });
+
+      setState(() {
+        _currentIndex = index;
+      });
+      _tabController.animateTo(index);
+
+      // 根据切换目标页面执行同步
+      if (index == 0) {
+        _logger.i('切换到会话Tab，同步会话列表');
+        _chatsCubit?.requestSyncConversations();
+      } else if (index == 1) {
+        _logger.i('切换到联系人Tab，同步联系人');
+        _contactCubit?.syncContacts();
+      }
+    }
+  }
+
+  // 创建动画图标
+  Widget _buildAnimatedIcon(int index, IconData icon) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        _iconAnimationControllers[index], // 摆动动画
+        _iconStateControllers[index], // 状态动画
+      ]),
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _iconScaleAnimations[index].value,
+          child: Transform.rotate(
+            angle: _iconRotationAnimations[index].value,
+            child: Icon(
+              icon,
+              color: _iconColorAnimations[index].value ?? Colors.grey,
+              size: 24,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -187,26 +307,18 @@ class _HomePageState extends State<HomePage>
           selectedItemColor: Colors.green,
           unselectedItemColor: Colors.grey,
           type: BottomNavigationBarType.fixed,
-          onTap: (index) {
-            // 只有真正切换页面时才触发setState，避免重复build
-            if (_currentIndex != index) {
-              setState(() {
-                _currentIndex = index;
-              });
-              _tabController.animateTo(index);
-            }
-          },
+          onTap: _onTabTapped,
           items: [
             BottomNavigationBarItem(
-              icon: const Icon(Icons.chat),
+              icon: _buildAnimatedIcon(0, Icons.chat),
               label: localizations.chats,
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.contacts),
+              icon: _buildAnimatedIcon(1, Icons.contacts),
               label: localizations.contacts,
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.person),
+              icon: _buildAnimatedIcon(2, Icons.person),
               label: localizations.profile,
             ),
           ],

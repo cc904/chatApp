@@ -95,13 +95,14 @@ abstract class ChatsRepository {
 
   /// 更新会话信息
   ///
-  /// 更新会话的名称或头像（群聊和频道）
+  /// 更新会话的名称、头像或描述（群聊和频道）
   /// [conversationId] - 会话ID
   /// [name] - 新的会话名称
   /// [avatar] - 新的会话头像URL
+  /// [description] - 新的会话描述
   /// 返回是否更新成功
   Future<bool> updateConversationInfo(String conversationId,
-      {String? name, String? avatar});
+      {String? name, String? avatar, String? description});
 
   /// 更新会话设置
   ///

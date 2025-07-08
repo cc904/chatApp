@@ -3,7 +3,7 @@ import 'app_localizations.dart';
 /// 中文本地化实现
 class AppLocalizationsZh extends AppLocalizations {
   @override
-  String get appName => 'WhatsApp';
+  String get appName => 'ThisApp';
 
   // 按钮文本
   @override
@@ -46,6 +46,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get password => '密码';
   @override
   String get forgotPassword => '忘记密码';
+  @override
+  String get quickLogin => '快捷登录';
+  @override
+  String get passwordLogin => '密码登录';
+  @override
+  String get verificationCode => '验证码';
+  @override
+  String get enterVerificationCode => '请输入验证码';
+  @override
+  String get getVerificationCode => '获取验证码';
+  @override
+  String get sending => '发送中...';
+  @override
+  String get resend => '重新发送';
 
   // 聊天相关
   @override
@@ -731,4 +745,98 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get syncRetrying => '正在重试同步';
+
+  @override
+  String get confirmPassword => '确认密码';
+
+  @override
+  String get registerInfo => '请填写以下信息完成注册';
+
+  @override
+  String get passwordLength => '密码长度至少6位';
+
+  @override
+  String get passwordMismatch => '两次输入的密码不一致';
+
+  @override
+  String get passwordTooShort => '密码长度至少6位';
+
+  @override
+  String get pleaseEnterNickname => '请输入昵称';
+
+  @override
+  String get registerSuccess => '注册成功';
+
+  @override
+  String get alreadyHaveAccount => '已有账号？返回登录';
+
+  @override
+  String get resetPassword => '重置密码';
+
+  @override
+  String get resetPasswordInfo => '请完成以下步骤重置您的密码';
+
+  @override
+  String get verifyPhone => '验证手机号';
+
+  @override
+  String get codeVerification => '验证码验证';
+
+  @override
+  String get setNewPassword => '设置新密码';
+
+  @override
+  String get completeReset => '完成重置';
+
+  @override
+  String get nextStep => '下一步';
+
+  @override
+  String get newPassword => '新密码';
+
+  @override
+  String get pleaseEnterPhoneNumber => '请输入手机号码';
+
+  @override
+  String get pleaseEnterCorrectPhoneNumber => '请输入正确的手机号码';
+
+  @override
+  String get pleaseEnterVerificationCode => '请输入验证码';
+
+  @override
+  String get pleaseEnterNewPassword => '请输入新密码';
+
+  @override
+  String get passwordLengthAtLeast6 => '密码长度至少6位';
+
+  @override
+  String get twoInputPasswordsNotMatch => '两次输入的密码不一致';
+
+  @override
+  String get phoneVerificationInfo => '我们将向您的手机发送验证码,请确保输入正确的手机号。';
+
+  @override
+  String get codeVerificationInfo => '请输入您收到的验证码,验证码有效期为5分钟。';
+
+  @override
+  String get newPasswordInfo => '请设置一个安全的新密码,并牢记您的密码。';
+
+  @override
+  String get passwordResetSuccess => '密码重置成功';
+
+  @override
+  String get passwordResetSuccessMessage => '您的密码已成功重置,请使用新密码登录。';
+
+  @override
+  String get backToLogin => '返回登录';
+
+  // 服务器切换相关
+  @override
+  String get switchServer => '切换服务器';
+
+  @override
+  String get cloudServer => '云端服务器';
+
+  @override
+  String get localServer => '本地服务器';
 }

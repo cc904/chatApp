@@ -18,7 +18,6 @@ import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:cc/core/utils/message_sort_utils.dart';
 
 /// 滚动恢复类型
 enum ScrollRestoreType {
@@ -123,7 +122,7 @@ class ChatCubit extends Cubit<ChatState> {
   /// 初始化 💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Future<void> _init() async {
     try {
-      _logger.i('开始初始同步流程', extra: {'conversationId': _conversationId});
+      _logger.i('_init', extra: {'conversationId': _conversationId});
 
       // 🔄 第1步：设置Repository Stream监听（必须在加入房间前设置）
       _setupRepositoryListeners();
@@ -145,17 +144,24 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> initMessages() async {
     if (isClosed) return;
     try {
-      _logger.i('初始化消息列表 - 加载最新100条消息', extra: {
-        'conversationId': _conversationId,
+      _logger.i('初始化消息列表', extra: {
         'hasSnapshot': state.messages.isNotEmpty,
         'currentMessageCount': state.messages.length,
       });
 
       final firstUnreadMessageIndex =
           state.conversation.getFirstUnreadMessageIndex(_currentUser.userId);
+      if (firstUnreadMessageIndex == null && state.messages.isNotEmpty) {
+        _logger.w('🔍 没有未读消息', extra: {
+          'conversationId': _conversationId,
+        });
+        return;
+      }
 
-      final index =
-          firstUnreadMessageIndex ?? state.conversation.lastMessageIndex;
+      final index = firstUnreadMessageIndex ??
+          (state.conversation.lastMessageIndex == 0
+              ? 1
+              : state.conversation.lastMessageIndex);
       final indexA = index > 20 ? index - 20 : 1;
       final indexB = index + 80 > state.conversation.lastMessageIndex
           ? state.conversation.lastMessageIndex
@@ -173,55 +179,85 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 发送文本消息（纯数据库监听架构版本）
+  /// 发送文本消息
   Future<void> sendTextMessage(String text) async {
-    _logger.d('发送文本消息',
-        extra: {
-          'conversationId': _conversationId,
-          'textLength': text.length,
-        },
-        stackTrace: StackTrace.current);
-
     if (isClosed) return;
 
     // 验证输入
     if (text.trim().isEmpty) {
-      _logger.w('尝试发送空消息');
+      _logger.w('⚠️ 尝试发送空文本消息');
       return;
     }
+
+    _logger.i('💬 开始发送文本消息', extra: {
+      'conversationId': _conversationId,
+      'textLength': text.length,
+      'textPreview': text.substring(0, text.length > 50 ? 50 : text.length),
+      'currentMessageCount': state.messages.length,
+    });
 
     try {
       // 1. 设置发送状态
       if (!isClosed) {
         emit(state.copyWith(isSending: true));
+        _logger.d('💬 设置发送状态为true');
       }
 
-      // 2. 直接通过ChatRepositorySend发送消息
-      // Repository会创建消息、保存到数据库、发送到服务器
-      // 数据库监听会自动更新UI，无需手动更新
+      // 2. 直接通过ChatRepositorySend发送文本消息
       final message = await _chatRepositorySend.sendTextMessage(
-          _conversationId, text.trim());
+        _conversationId,
+        text.trim(),
+      );
 
-      _logger.i('文本消息发送请求已提交', extra: {
+      _logger.i('💬 文本消息发送请求已提交', extra: {
         'messageId': message.messageId,
-        'tempId': message.tempId,
         'conversationId': _conversationId,
+        'type': message.type.name,
       });
 
-      // 💢💢💢 关键：不需要手动更新UI，数据库监听会自动处理
-    } catch (error) {
-      _logger.e('发送文本消息失败', error: error);
+      // 3. 立即更新UI（乐观更新）
+      _mergeNewMessage(message);
 
-      // 设置错误状态
+      _logger.i('💬 消息已添加到UI', extra: {
+        'messageId': message.messageId,
+        'currentMessageCount': state.messages.length,
+      });
+    } catch (error, stackTrace) {
+      _logger.e('💬 发送文本消息失败', error: error, stackTrace: stackTrace);
+
       if (!isClosed) {
-        emit(state.copyWith(errorMessage: '消息发送失败: ${error.toString()}'));
+        emit(state.copyWith(
+          errorMessage: '发送失败: $error',
+          isSending: false,
+        ));
       }
 
-      rethrow;
+      // 💢💢💢 处理发送失败的消息
+      try {
+        // 查找可能的失败消息并标记
+        final failedMessages = state.messages
+            .where((m) => m.status == MessageStatus.sending)
+            .toList();
+
+        for (final failedMessage in failedMessages) {
+          final messageIdToUse = failedMessage.messageId;
+
+          _logger.w('💬 标记消息发送失败', extra: {
+            'messageId': messageIdToUse,
+            'error': error.toString(),
+          });
+
+          await _chatRepositorySend.markMessageAsFailed(
+              messageIdToUse, error.toString());
+        }
+      } catch (markError) {
+        _logger.e('💬 标记消息失败状态时出错', error: markError);
+      }
     } finally {
-      // 重置发送状态
+      // 4. 清除发送状态
       if (!isClosed) {
         emit(state.copyWith(isSending: false));
+        _logger.d('💬 清除发送状态');
       }
     }
   }
@@ -292,27 +328,13 @@ class ChatCubit extends Cubit<ChatState> {
     );
   }
 
-  /// 添加消息到UI（乐观更新）
-  Future<void> _addMessageToUI(Message message) async {
-    if (isClosed) return;
-
-    _mergeMessages(AddedEventType.newMessage, [message]);
-
-    _logger.d('消息已添加到UI', extra: {
-      'messageId': message.messageId,
-      'totalMessages': state.messages.length,
-    });
-  }
-
   /// 异步发送消息到服务器（不阻塞UI）
   void _sendMessageToServerAsync(Message message) {
     // 使用异步方式发送，不阻塞UI
     _sendMessageToServer(message).catchError((error) {
       _logger.e('后台发送消息失败', error: error);
-      // 💢💢💢 修复：异步处理发送失败时使用tempId（如果messageId为空）
-      final messageIdentifier =
-          message.messageId.isNotEmpty ? message.messageId : message.tempId;
-      _handleSendFailure(messageIdentifier, error.toString());
+      // 使用UUID作为messageId
+      _handleSendFailure(message.messageId, error.toString());
     });
   }
 
@@ -378,8 +400,7 @@ class ChatCubit extends Cubit<ChatState> {
           'conversationId': _conversationId,
           'totalMessageCount': state.messages.length,
           'savedMessageCount': nearbyMessages.length,
-          'scrollPosition':
-              state.currentScrollPosition.getListIndex(state.messages),
+          'currentScrollPosition': state.currentScrollPosition.toString(),
         });
       }
 
@@ -457,29 +478,38 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
-    // 获取所有有效位置并按索引排序
+    // 获取所有有效位置并按索引排序（从小到大，索引越小越新）
     final sortedPositions = validMessagePositions
-      ..sort((a, b) => b.index.compareTo(a.index));
+      ..sort((a, b) => a.index.compareTo(b.index));
 
-    // 选择屏幕中央的消息作为锚点
-    final centerPosition = sortedPositions.firstWhere(
-      (pos) => pos.itemLeadingEdge <= 0.5 && pos.itemTrailingEdge >= 0.5,
-      orElse: () => validMessagePositions.first,
-    );
+    // 💢💢💢 修正：选择屏幕最底部的消息作为锚点
+    // 在 reverse: true 列表中，屏幕最底部的消息是 processedItems 索引最小的消息
+    // 因为索引越小对应的消息索引越大，在物理屏幕上越靠近底部
+    final bottomPosition = sortedPositions.first; // 取索引最小的位置（对应消息索引最大）
 
     int isDown = 0;
 
     // 💢💢💢 将processedItems索引转换为messages索引
     final listIndex =
-        _convertProcessedIndexToMessageIndex(centerPosition.index);
+        _convertProcessedIndexToMessageIndex(bottomPosition.index);
 
     // 💢💢💢 双重检查索引有效性
     if (listIndex >= 0 && listIndex < state.messages.length) {
       final message = state.messages[listIndex];
+      // 💢💢💢 保存屏幕最底部消息的 itemLeadingEdge
+      // 在 reverse: true 列表中：
+      // - 选择的是 processedItems 索引最小的消息（对应消息索引最大，屏幕最底部）
+      // - itemLeadingEdge 表示消息顶部到视口leading edge（屏幕底部）的距离
+      // - 更准确地表示消息在反向列表中的位置
       final currentScrollPosition = CurrentScrollPosition.fromAnchor(
         messageId: message.messageId,
-        relativePosition: centerPosition.itemLeadingEdge,
+        relativePosition:
+            bottomPosition.itemLeadingEdge, // 修正：使用itemLeadingEdge
       );
+      // _logger.d('更新当前滚动位置 --💢💢💢---------', extra: {
+      //   'A': bottomPosition.itemLeadingEdge, // 屏幕 item 下边距离
+      //   'B': bottomPosition.itemTrailingEdge, // 屏幕 item 上边距离
+      // });
 
       // 💢💢💢 计算滚动方向
       final prevIndex =
@@ -514,13 +544,23 @@ class ChatCubit extends Cubit<ChatState> {
         final positionChanged = messageIdChanged || relativePositionChanged;
 
         if (positionChanged) {
-          _logger.i('更新当前滚动位置', extra: {
+          final currentScrollPositionMessageIndex = state.messages
+              .where((message) =>
+                  message.messageId == currentScrollPosition.messageId)
+              .firstOrNull
+              ?.messageIndex;
+          _logger.i('更新当前滚动位置（基于屏幕最底部消息锚点）', extra: {
             'currentScrollPosition': currentScrollPosition,
-            'currentScrollPositionMessageID': currentScrollPosition.messageId,
-            'previousMessageID': previousPosition.messageId,
+            'anchorMessageId': currentScrollPosition.messageId,
+            'currentScrollPositionMessageIndex':
+                currentScrollPositionMessageIndex,
             'messageIdChanged': messageIdChanged,
             'relativePositionChanged': relativePositionChanged,
             'positionChanged': positionChanged,
+            'anchorType': 'screen_bottom_message', // 修正：明确是屏幕底部消息
+            'itemLeadingEdge':
+                bottomPosition.itemLeadingEdge, // 修正：使用itemLeadingEdge
+            'processedIndex': bottomPosition.index, // 添加：processedItems中的索引
           });
           emit(state.copyWith(
             currentScrollPosition: currentScrollPosition,
@@ -557,7 +597,11 @@ class ChatCubit extends Cubit<ChatState> {
       _checkAndLoadMoreMessages(sortedPositions, isDown);
     }
 
-    _updateReadStatus(sortedPositions);
+    // 💢💢💢 获取最新一条阅读的消息Index并更新已读状态
+    final latestReadMessageIndex = _getLatestReadMessageIndex(sortedPositions);
+    if (latestReadMessageIndex > 0) {
+      _updateReadStatus(latestReadMessageIndex);
+    }
   }
 
   /// 💢💢💢 检查位置是否对应消息项（而非日期分隔符）
@@ -652,23 +696,21 @@ class ChatCubit extends Cubit<ChatState> {
 
     // UI上第一条消息的messageIndex
     final firstVisibleMessageIndex =
-        state.messages[firstMessageIndex].messageIndex;
+        state.messages[lastMessageIndex].messageIndex;
     // UI上最后一条消息的messageIndex
     final lastVisibleMessageIndex =
-        state.messages[lastMessageIndex].messageIndex;
+        state.messages[firstMessageIndex].messageIndex;
 
-    // 💢💢💢 修复：计算消息范围时忽略临时消息（messageIndex = 0）
-    // 找到最早的非临时消息（messageIndex > 0，最小值）
-    final nonTempMessages =
-        state.messages.where((m) => m.messageIndex > 0).toList();
-    if (nonTempMessages.isEmpty) {
-      return; // 如果没有非临时消息，不需要加载更多
+    // 计算消息范围
+    if (state.messages.isEmpty) {
+      return; // 如果没有消息，不需要加载更多
     }
 
-    // 按messageIndex排序，获取范围
-    nonTempMessages.sort((a, b) => a.messageIndex.compareTo(b.messageIndex));
-    final messagesUpIndex = nonTempMessages.first.messageIndex; // 最早的消息
-    final messagesDownIndex = nonTempMessages.last.messageIndex; // 最新的消息
+    // 按创建时间排序，获取范围
+    final sortedMessages = state.messages.toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final messagesUpIndex = sortedMessages.first.messageIndex; // 最早的消息
+    final messagesDownIndex = sortedMessages.last.messageIndex; // 最新的消息
 
     _logger.i('检查并加载更多消息', extra: {
       'isDown': isDown,
@@ -680,7 +722,7 @@ class ChatCubit extends Cubit<ChatState> {
 
     if (isDown < 0) {
       // 向上滑动
-      if (firstVisibleMessageIndex > 0 && // 忽略临时消息
+      if (firstVisibleMessageIndex > 0 &&
           firstVisibleMessageIndex - 10 < messagesUpIndex &&
           messagesUpIndex > state.conversation.firstMessageIndex) {
         _logger.w('加载历史消息', extra: {"messageIndex": firstVisibleMessageIndex});
@@ -693,7 +735,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
     } else if (isDown > 0) {
       // 向下滑动
-      if (lastVisibleMessageIndex > 0 && // 忽略临时消息
+      if (lastVisibleMessageIndex > 0 &&
           lastVisibleMessageIndex + 10 > messagesDownIndex &&
           messagesDownIndex < state.conversation.lastMessageIndex) {
         _logger.w('加载新消息', extra: {"messageIndex": lastVisibleMessageIndex});
@@ -808,7 +850,7 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: [],
         isSearching: false,
         searchDateFilter: null,
-        searchResultMessageIds: [],
+        searchResultMessageIndexes: [],
         currentSearchResultIndex: 0,
         isShowingSearchAsList: false,
         searchResultTotalCount: 0,
@@ -827,7 +869,7 @@ class ChatCubit extends Cubit<ChatState> {
         searchResults: [],
         isSearching: false,
         searchDateFilter: null,
-        searchResultMessageIds: [],
+        searchResultMessageIndexes: [],
         currentSearchResultIndex: 0,
         isShowingSearchAsList: false,
         searchResultTotalCount: 0,
@@ -854,7 +896,7 @@ class ChatCubit extends Cubit<ChatState> {
         emit(state.copyWith(
           searchResults: [],
           isSearching: false,
-          searchResultMessageIds: [],
+          searchResultMessageIndexes: [],
           currentSearchResultIndex: 0,
           searchResultTotalCount: 0,
         ));
@@ -870,16 +912,17 @@ class ChatCubit extends Cubit<ChatState> {
 
       if (searchResult.hasResults) {
         // 💢💢💢 新逻辑：加载最新搜索结果附近的消息（替换式加载）
-        final firstResultId = searchResult.matchedMessageIds.first; // 最新的搜索结果
+        final firstResultIndex =
+            searchResult.matchedMessageIndexes.first; // 最新的搜索结果
         final result = await _chatRepository.getMessagesAroundSearchResult(
           conversationId: _conversationId,
-          targetMessageId: firstResultId,
+          targetMessageIndex: firstResultIndex,
           contextSize: 50, // 前后各50条消息
         );
 
         emit(state.copyWith(
-          messages: result.messages, // 💢 替换整个消息列表
-          searchResultMessageIds: searchResult.matchedMessageIds,
+          messages: result, // 💢 替换整个消息列表
+          searchResultMessageIndexes: searchResult.matchedMessageIndexes,
           currentSearchResultIndex: 0, // 从第一个（最新）搜索结果开始
           searchResultTotalCount: searchResult.totalCount,
           isSearching: false,
@@ -888,13 +931,11 @@ class ChatCubit extends Cubit<ChatState> {
         _logger.i('数据库搜索完成（替换式加载）', extra: {
           'query': query,
           'resultCount': searchResult.totalCount,
-          'loadedMessageCount': result.messages.length,
-          'loadedRange':
-              '${result.timeRange.start.toIso8601String()} - ${result.timeRange.end.toIso8601String()}',
+          'loadedMessageCount': result.length,
         });
       } else {
         emit(state.copyWith(
-          searchResultMessageIds: [],
+          searchResultMessageIndexes: [],
           currentSearchResultIndex: 0,
           searchResultTotalCount: 0,
           isSearching: false,
@@ -913,7 +954,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 💢💢💢 重构：跳转到下一个搜索结果（线性导航，无循环）
   Future<void> goToNextSearchResult() async {
-    if (!isClosed && state.searchResultMessageIds.isNotEmpty) {
+    if (!isClosed && state.searchResultMessageIndexes.isNotEmpty) {
       // 💢💢💢 线性导航：检查是否已经是最后一个
       if (state.currentSearchResultIndex >= state.searchResultTotalCount - 1) {
         _logger.i('已经是最后一个搜索结果，无法继续下一个');
@@ -921,7 +962,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
 
       final nextIndex = state.currentSearchResultIndex + 1;
-      final targetMessageId = state.searchResultMessageIds[nextIndex];
+      final targetMessageId = state.searchResultMessageIndexes[nextIndex];
 
       await _loadAndJumpToSearchResultIncremental(nextIndex, targetMessageId);
     }
@@ -929,7 +970,7 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 💢💢💢 重构：跳转到上一个搜索结果（线性导航，无循环）
   Future<void> goToPrevSearchResult() async {
-    if (!isClosed && state.searchResultMessageIds.isNotEmpty) {
+    if (!isClosed && state.searchResultMessageIndexes.isNotEmpty) {
       // 💢💢💢 线性导航：检查是否已经是第一个
       if (state.currentSearchResultIndex <= 0) {
         _logger.i('已经是第一个搜索结果，无法继续上一个');
@@ -937,7 +978,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
 
       final prevIndex = state.currentSearchResultIndex - 1;
-      final targetMessageId = state.searchResultMessageIds[prevIndex];
+      final targetMessageId = state.searchResultMessageIndexes[prevIndex];
 
       await _loadAndJumpToSearchResultIncremental(prevIndex, targetMessageId);
     }
@@ -976,35 +1017,35 @@ class ChatCubit extends Cubit<ChatState> {
       'totalCount': state.searchResultTotalCount,
       'query': state.searchQuery,
       'hasDateFilter': state.searchDateFilter != null,
-      'currentMessageId': state.searchResultMessageIds.isNotEmpty
-          ? state.searchResultMessageIds[state.currentSearchResultIndex]
+      'currentMessageId': state.searchResultMessageIndexes.isNotEmpty
+          ? state.searchResultMessageIndexes[state.currentSearchResultIndex]
           : null,
     };
   }
 
   /// 💢💢💢 新增：检查指定消息是否是当前高亮的搜索结果
-  bool isCurrentSearchResult(String messageId) {
-    if (!state.isSearchMode || state.searchResultMessageIds.isEmpty) {
+  bool isCurrentSearchResult(int messageIndex) {
+    if (!state.isSearchMode || state.searchResultMessageIndexes.isEmpty) {
       return false;
     }
 
-    final currentResultId =
-        state.searchResultMessageIds[state.currentSearchResultIndex];
-    return messageId == currentResultId;
+    final currentResultIndex =
+        state.searchResultMessageIndexes[state.currentSearchResultIndex];
+    return messageIndex == currentResultIndex;
   }
 
   /// 💢💢💢 新增：检查指定消息是否是搜索结果之一
-  bool isSearchResult(String messageId) {
-    return state.searchResultMessageIds.contains(messageId);
+  bool isSearchResult(int messageIndex) {
+    return state.searchResultMessageIndexes.contains(messageIndex);
   }
 
   /// 💢💢💢 新增：加载并跳转到指定的搜索结果
   Future<void> _loadAndJumpToSearchResult(
-      int targetIndex, String targetMessageId) async {
+      int targetIndex, int targetMessageIndex) async {
     try {
       _logger.i('加载并跳转到搜索结果', extra: {
         'targetIndex': targetIndex + 1,
-        'targetMessageId': targetMessageId,
+        'targetMessageIndex': targetMessageIndex,
       });
 
       // 显示加载状态
@@ -1013,22 +1054,20 @@ class ChatCubit extends Cubit<ChatState> {
       // 🔥 加载目标搜索结果附近的消息（替换式加载）
       final result = await _chatRepository.getMessagesAroundSearchResult(
         conversationId: _conversationId,
-        targetMessageId: targetMessageId,
+        targetMessageIndex: targetMessageIndex,
         contextSize: 25,
       );
 
       // 更新状态
       emit(state.copyWith(
-        messages: result.messages, // 💢 替换整个消息列表
+        messages: result, // 💢 替换整个消息列表
         currentSearchResultIndex: targetIndex,
         isSearching: false,
       ));
 
       _logger.i('加载并跳转完成', extra: {
         'targetIndex': targetIndex + 1,
-        'loadedMessageCount': result.messages.length,
-        'loadedRange':
-            '${result.timeRange.start.toIso8601String()} - ${result.timeRange.end.toIso8601String()}',
+        'loadedMessageCount': result.length,
       });
     } catch (error) {
       _logger.e('加载并跳转到搜索结果失败', error: error);
@@ -1043,11 +1082,11 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 💢💢💢 新增：增量加载并跳转到指定的搜索结果
   Future<void> _loadAndJumpToSearchResultIncremental(
-      int targetIndex, String targetMessageId) async {
+      int targetIndex, int targetMessageIndex) async {
     try {
       _logger.i('增量加载并跳转到搜索结果', extra: {
         'targetIndex': targetIndex + 1,
-        'targetMessageId': targetMessageId,
+        'targetMessageIndex': targetMessageIndex,
       });
 
       // 💢💢💢 使用搜索状态而不是加载状态
@@ -1056,13 +1095,12 @@ class ChatCubit extends Cubit<ChatState> {
       // 🔥 加载目标搜索结果附近的消息
       final result = await _chatRepository.getMessagesAroundSearchResult(
         conversationId: _conversationId,
-        targetMessageId: targetMessageId,
+        targetMessageIndex: targetMessageIndex,
         contextSize: 25,
       );
 
       // 💢💢💢 增量合并消息列表
-      final mergedMessages =
-          _mergeMessagesIncremental(state.messages, result.messages);
+      final mergedMessages = _mergeMessagesIncremental(state.messages, result);
 
       // 更新状态
       emit(state.copyWith(
@@ -1074,10 +1112,8 @@ class ChatCubit extends Cubit<ChatState> {
       _logger.i('增量加载并跳转完成', extra: {
         'targetIndex': targetIndex + 1,
         'originalMessageCount': state.messages.length,
-        'newMessageCount': result.messages.length,
+        'newMessageCount': result.length,
         'mergedMessageCount': mergedMessages.length,
-        'loadedRange':
-            '${result.timeRange.start.toIso8601String()} - ${result.timeRange.end.toIso8601String()}',
       });
     } catch (error) {
       _logger.e('增量加载并跳转到搜索结果失败', error: error);
@@ -1101,24 +1137,24 @@ class ChatCubit extends Cubit<ChatState> {
       messageMap[message.messageId] = message;
     }
 
-    // 再添加新消息（会覆盖重复的）
+    // 添加新消息（相同ID的新消息会覆盖旧消息）
     for (final message in newMessages) {
       messageMap[message.messageId] = message;
     }
 
     // 转换为列表并按消息排序（临时消息在前，按规则排序）
-    final mergedList = messageMap.values.toList();
-    MessageSortUtils.sortForDisplay(mergedList);
+    final mergedList = messageMap.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     return mergedList;
   }
 
   /// 💢💢💢 新增：加载指定消息周围的消息
-  Future<bool> loadMessagesAroundMessage(String messageId,
+  Future<bool> loadMessagesAroundMessage(int messageIndex,
       {int contextSize = 25}) async {
     try {
       _logger.i('加载指定消息周围的消息', extra: {
-        'messageId': messageId,
+        'messageIndex': messageIndex,
         'contextSize': contextSize,
       });
 
@@ -1128,26 +1164,26 @@ class ChatCubit extends Cubit<ChatState> {
       // 使用现有的getMessagesAroundSearchResult方法
       final result = await _chatRepository.getMessagesAroundSearchResult(
         conversationId: _conversationId,
-        targetMessageId: messageId,
+        targetMessageIndex: messageIndex,
         contextSize: contextSize,
       );
 
-      if (result.messages.isNotEmpty) {
+      if (result.isNotEmpty) {
         // 更新消息列表
         emit(state.copyWith(
-          messages: result.messages,
+          messages: result,
           // isLoadingMessages: false, // 💢💢💢 由 ChatRepository 通知
         ));
 
         _logger.i('加载指定消息周围的消息成功', extra: {
-          'messageId': messageId,
-          'loadedCount': result.messages.length,
+          'messageIndex': messageIndex,
+          'loadedCount': result.length,
         });
 
         return true;
       } else {
         _logger.w('未找到指定消息或其周围的消息', extra: {
-          'messageId': messageId,
+          'messageIndex': messageIndex,
         });
 
         // emit(state.copyWith(isLoadingMessages: false)); // 💢💢💢 由 ChatRepository 通知
@@ -1155,7 +1191,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
     } catch (error) {
       _logger.e('加载指定消息周围的消息失败', error: error, extra: {
-        'messageId': messageId,
+        'messageIndex': messageIndex,
       });
 
       if (!isClosed) {
@@ -1170,7 +1206,7 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   /// 💢💢💢 新增：清理多余的消息，保持内存效率
-  void _cleanupExcessMessages(String targetMessageId) {
+  void _cleanupExcessMessages(int targetMessageIndex) {
     if (isClosed) return;
 
     try {
@@ -1185,12 +1221,12 @@ class ChatCubit extends Cubit<ChatState> {
       _logger.i('开始清理多余消息', extra: {
         'currentCount': currentMessages.length,
         'maxAllowed': maxMessagesInMemory,
-        'targetMessageId': targetMessageId,
+        'targetMessageIndex': targetMessageIndex,
       });
 
       // 找到目标消息的索引
       final targetIndex = currentMessages.indexWhere(
-        (message) => message.messageId == targetMessageId,
+        (message) => message.messageIndex == targetMessageIndex,
       );
 
       if (targetIndex == -1) {
@@ -1220,7 +1256,7 @@ class ChatCubit extends Cubit<ChatState> {
         'cleanedCount': cleanedMessages.length,
         'removedCount': currentMessages.length - cleanedMessages.length,
         'targetStillExists':
-            cleanedMessages.any((m) => m.messageId == targetMessageId),
+            cleanedMessages.any((m) => m.messageIndex == targetMessageIndex),
       });
 
       // 💢💢💢 延迟重置清理标志，给UI时间调整
@@ -1506,7 +1542,7 @@ class ChatCubit extends Cubit<ChatState> {
 
       if (messagesFromDb.isNotEmpty) {
         // 💢💢💢 按显示排序，获取最早的消息（第一条）
-        MessageSortUtils.sortForDisplay(messagesFromDb);
+        messagesFromDb.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         final firstMessageFromDb = messagesFromDb.first;
 
         _logger.i('从数据库找到第一条消息', extra: {
@@ -1578,7 +1614,7 @@ class ChatCubit extends Cubit<ChatState> {
         messages: messages,
         isSearching: false,
         // 💢💢💢 清空搜索结果相关状态，因为这不是文本搜索
-        searchResultMessageIds: [],
+        searchResultMessageIndexes: [],
         currentSearchResultIndex: 0,
         searchResultTotalCount: 0,
       ));
@@ -1613,7 +1649,7 @@ class ChatCubit extends Cubit<ChatState> {
           messages: state.originalMessages!,
           isSearching: false,
           // 💢💢💢 清空搜索相关状态
-          searchResultMessageIds: [],
+          searchResultMessageIndexes: [],
           currentSearchResultIndex: 0,
           searchResultTotalCount: 0,
           originalMessages: null, // 清空备份
@@ -1627,7 +1663,7 @@ class ChatCubit extends Cubit<ChatState> {
         if (!isClosed) {
           emit(state.copyWith(
             isSearching: false,
-            searchResultMessageIds: [],
+            searchResultMessageIndexes: [],
             currentSearchResultIndex: 0,
             searchResultTotalCount: 0,
           ));
@@ -1773,14 +1809,10 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   /// 核心：处理消息更新事件（新Stream架构）
-  void _handleMessageUpdate(MessageUpdateEvent event) {
+  void _handleMessageUpdate(MessagesEvent event) {
     if (isClosed) return;
 
-    _logger.d('处理消息更新事件', extra: {
-      'conversationId': event.conversationId,
-      'eventType': event.runtimeType.toString(),
-      'timestamp': event.timestamp.toIso8601String(),
-    });
+    _logger.i('📨 收到消息更新事件', extra: {'event': event.toString()});
 
     switch (event) {
       case MessageAddedEvent(
@@ -1788,180 +1820,178 @@ class ChatCubit extends Cubit<ChatState> {
           :final addedEventType,
           :final anchorMessageIndex
         ):
-        _mergeMessages(addedEventType, newMessages,
-            jumpIndex: anchorMessageIndex);
-        break;
-
-      case MessageUpdatedEvent(
-          :final messageId,
-          :final tempId,
-          :final updatedFields
-        ):
-        _updateMessageFields(messageId, tempId, updatedFields);
-        break;
-
-      case UpdateSendEvent(
-          :final tempId,
-          :final messageId,
-          :final messageIndex
-        ):
-        _handleMessageSendUpdate(tempId, messageId, messageIndex);
-        break;
-
-      case MessageRemovedEvent():
-        // 💢💢💢 TODO: 实现消息删除处理
-        _logger.d('收到消息删除事件', extra: {
-          'messageId': event.toString(),
+        _logger.i('📨 处理消息添加事件', extra: {
+          'addedEventType': addedEventType.toString(),
+          'newMessageCount': newMessages.length,
+          'anchorMessageIndex': anchorMessageIndex,
+          'newMessageDetails': newMessages.map((m) {
+            final text = m.text ?? 'no-text';
+            final preview = text.length > 20 ? text.substring(0, 20) : text;
+            return '${m.messageId}[${m.messageIndex}]$preview';
+          }).toList(),
         });
+
+        switch (addedEventType) {
+          case AddedEventType.load:
+            _mergeMessages(addedEventType, newMessages,
+                jumpIndex: anchorMessageIndex);
+            break;
+          case AddedEventType.newMessage:
+            // 对于新消息，使用专门的合并方法
+            for (final message in newMessages) {
+              _mergeNewMessage(message);
+            }
+            break;
+          case AddedEventType.searchResult:
+            _mergeMessages(addedEventType, newMessages,
+                jumpIndex: anchorMessageIndex);
+            break;
+        }
+        break;
+
+      case MessageUpdatedEvent(:final messageId, :final updatedFields):
+        _logger.i('📨 处理消息更新事件', extra: {
+          'messageId': messageId,
+          'updatedFields': updatedFields,
+        });
+
+        _updateMessageFields(messageId, updatedFields);
+        break;
+
+      case UpdateSendEvent(:final messageId, :final messageIndex):
+        _logger.i('📨 处理消息发送更新事件', extra: {
+          'messageId': messageId,
+          'messageIndex': messageIndex,
+        });
+
+        _handleMessageSendUpdate(messageId, messageIndex);
         break;
     }
   }
 
-  /// 💢💢💢 新增：基于messageId和字段映射更新消息
+  /// ��💢💢 新增：基于messageId更新消息
   void _updateMessageFields(
-      String messageId, String? tempId, Map<String, dynamic> updatedFields) {
+      String messageId, Map<String, dynamic> updatedFields) {
     final currentMessages = List<Message>.from(state.messages);
 
-    // 💢💢💢 修复：优先使用messageId查找，如果messageId为空或找不到，再使用tempId查找
-    int messageIndex = -1;
-
-    // 如果有messageId且不为空，优先使用messageId查找
-    if (messageId.isNotEmpty) {
-      messageIndex =
-          currentMessages.indexWhere((msg) => msg.messageId == messageId);
-    }
-
-    // 如果按messageId找不到且有tempId，使用tempId查找
-    if (messageIndex == -1 && tempId != null && tempId.isNotEmpty) {
-      messageIndex = currentMessages.indexWhere((msg) => msg.tempId == tempId);
-    }
+    // 💢💢💢 直接使用messageId查找消息
+    final messageIndex =
+        currentMessages.indexWhere((msg) => msg.messageId == messageId);
 
     if (messageIndex == -1) {
       _logger.w('要更新的消息未找到', extra: {
         'messageId': messageId,
-        'tempId': tempId,
         'searchedByMessageId': messageId.isNotEmpty,
-        'searchedByTempId': tempId?.isNotEmpty ?? false,
       });
       return;
     }
 
     final message = currentMessages[messageIndex];
-
     _logger.d('找到要更新的消息', extra: {
-      'messageId': message.messageId,
-      'tempId': message.tempId,
+      'messageId': messageId,
+      'messageIndex': messageIndex,
       'currentStatus': message.status.name,
-      'updatedFields': updatedFields.keys.toList(),
     });
 
-    // 应用字段更新
+    // 更新字段
+    bool hasChanges = false;
     for (final entry in updatedFields.entries) {
-      switch (entry.key) {
-        case 'status':
-          if (entry.value is String) {
-            // 将字符串转换为MessageStatus枚举
-            try {
-              final newStatus = MessageStatus.values.firstWhere(
-                (status) => status.name == entry.value,
-                orElse: () => message.status,
-              );
+      final field = entry.key;
+      final value = entry.value;
 
-              // 💢💢💢 检查是否可以更新状态：已删除或撤回的消息状态不能被其他状态覆盖
-              if (message.status == MessageStatus.deleted ||
-                  message.status == MessageStatus.revoked) {
-                if (newStatus == MessageStatus.deleted ||
-                    newStatus == MessageStatus.revoked) {
-                  // 允许删除/撤回状态之间的转换
-                  message.status = newStatus;
-                } else {
-                  // 不允许从删除/撤回状态变为其他状态
-                  _logger.w('消息已删除或撤回，跳过状态更新', extra: {
-                    'messageId': message.messageId,
-                    'tempId': message.tempId,
-                    'currentStatus': message.status.name,
-                    'attemptedStatus': newStatus.name,
-                  });
-                }
-              } else {
-                // 正常状态更新
-                message.status = newStatus;
-              }
-            } catch (e) {
-              _logger.w('无效的消息状态值', extra: {'status': entry.value});
+      switch (field) {
+        case 'status':
+          if (value is String) {
+            final newStatus = MessageStatus.values.firstWhere(
+                (status) => status.name == value,
+                orElse: () => message.status);
+            if (message.status != newStatus) {
+              message.status = newStatus;
+              hasChanges = true;
             }
+          }
+          break;
+        case 'text':
+          if (value is String && message.text != value) {
+            message.text = value;
+            hasChanges = true;
           }
           break;
         case 'updatedAt':
-          if (entry.value is String) {
-            try {
-              message.updatedAt = DateTime.parse(entry.value);
-            } catch (e) {
-              _logger.w('无效的更新时间格式', extra: {'updatedAt': entry.value});
+          if (value is String) {
+            final newUpdatedAt = DateTime.tryParse(value);
+            if (newUpdatedAt != null && message.updatedAt != newUpdatedAt) {
+              message.updatedAt = newUpdatedAt;
+              hasChanges = true;
             }
           }
           break;
-        // 可以根据需要添加更多字段的处理
+        case 'messageIndex':
+          if (value is int && message.messageIndex != value) {
+            message.messageIndex = value;
+            hasChanges = true;
+          }
+          break;
+        case 'createdAt':
+          if (value is String) {
+            final newCreatedAt = DateTime.tryParse(value);
+            if (newCreatedAt != null && message.createdAt != newCreatedAt) {
+              message.createdAt = newCreatedAt;
+              hasChanges = true;
+              _logger.d('消息时间戳已更新为服务器时间', extra: {
+                'messageId': messageId,
+                'newCreatedAt': newCreatedAt.toIso8601String(),
+              });
+            }
+          }
+          break;
       }
     }
 
-    // 更新状态
-    emit(state.copyWith(
-      messages: currentMessages,
-      messageUpdateTrigger: state.messageUpdateTrigger + 1,
-    ));
+    if (hasChanges) {
+      currentMessages[messageIndex] = message;
+      emit(state.copyWith(
+        messages: currentMessages,
+        messageUpdateTrigger: state.messageUpdateTrigger + 1,
+      ));
 
-    _logger.d('消息字段更新完成', extra: {
-      'messageId': message.messageId,
-      'tempId': message.tempId,
-      'newStatus': message.status.name,
-      'updatedFields': updatedFields.keys.toList(),
-    });
+      _logger.d('消息字段更新完成', extra: {
+        'messageId': messageId,
+        'updatedFields': updatedFields.keys.toList(),
+        'newStatus': message.status.name,
+      });
+    }
   }
 
   /// 💢💢💢 新增：处理消息发送更新事件
-  void _handleMessageSendUpdate(
-      String tempId, String newMessageId, int messageIndex) {
+  void _handleMessageSendUpdate(String messageId, int messageIndex) {
     final currentMessages = List<Message>.from(state.messages);
-    // 💢💢💢 根据tempId查找消息，而不是messageId
+
+    // 💢💢💢 根据messageId查找消息
     final messageIndexInList =
-        currentMessages.indexWhere((msg) => msg.tempId == tempId);
+        currentMessages.indexWhere((msg) => msg.messageId == messageId);
 
     if (messageIndexInList == -1) {
-      _logger.w('要更新的临时消息未找到', extra: {'tempId': tempId});
+      _logger.w('要更新的消息未找到', extra: {'messageId': messageId});
       return;
     }
 
     final message = currentMessages[messageIndexInList];
 
-    // 💢💢💢 更新消息ID、索引，清空tempId（总是更新这些字段）
-    message.messageId = newMessageId;
+    // 💢💢💢 更新消息索引
     message.messageIndex = messageIndex;
     message.updatedAt = DateTime.now();
-    message.tempId = null; // 💢💢💢 清空临时ID
-
-    // 💢💢💢 检查是否可以更新状态：已删除或撤回的消息状态不能被覆盖
-    if (message.status == MessageStatus.deleted ||
-        message.status == MessageStatus.revoked) {
-      _logger.w('消息已删除或撤回，只更新ID和索引，跳过状态更新', extra: {
-        'tempId': tempId,
-        'messageId': message.messageId,
-        'currentStatus': message.status.name,
-      });
-    } else {
-      // 正常情况下更新状态
-      message.status = MessageStatus.sent;
-    }
+    message.status = MessageStatus.sent;
 
     // 更新状态
+    currentMessages[messageIndexInList] = message;
     emit(state.copyWith(
       messages: currentMessages,
       messageUpdateTrigger: state.messageUpdateTrigger + 1,
     ));
 
     _logger.d('消息发送更新完成', extra: {
-      'tempId': tempId,
-      'newMessageId': newMessageId,
+      'messageId': messageId,
       'messageIndex': messageIndex,
     });
   }
@@ -1971,294 +2001,290 @@ class ChatCubit extends Cubit<ChatState> {
       {int? jumpIndex}) {
     if (newMessages.isEmpty) return;
 
-    final currentMessages = state.messages;
+    var currentMessages = state.messages;
 
     // 🆕 连续性检查：如果消息索引不连续，抛弃原有数据
     if (currentMessages.isNotEmpty &&
         !_isMessagesContinuous(currentMessages, newMessages)) {
-      _logger.i('消息索引不连续，需要加载最新消息', extra: {
-        'addedEventType': addedEventType.toString(),
-        'oldMessageCount': currentMessages.length,
-        'newMessageCount': newMessages.length,
-        'oldIndexRange': _getMessageIndexRange(currentMessages),
-        'newIndexRange': _getMessageIndexRange(newMessages),
-        'discontinuityDetails':
-            _analyzeContinuity(currentMessages, newMessages),
+      _logger.w('❌ 消息不连续，抛弃原有数据', extra: {
+        'currentRange': _getMessageIndexRange(currentMessages),
+        'newRange': _getMessageIndexRange(newMessages),
       });
-
-      // 💢💢💢 新增：检查是否有临时消息需要特殊处理
-      final hasTemporaryMessages = newMessages.any((m) => m.messageIndex == 0);
-
-      if (hasTemporaryMessages && addedEventType == AddedEventType.newMessage) {
-        // 对于临时消息，先尝试加载最新消息，然后再合并
-        _logger.i('临时消息不连续，先加载最新消息', extra: {
-          'conversationLastMessageIndex': state.conversation.lastMessageIndex,
-          'tempMessageCount':
-              newMessages.where((m) => m.messageIndex == 0).length,
-        });
-
-        // 暂存临时消息，等待加载完成后再合并
-        _pendingTempMessages = [...newMessages];
-
-        // 加载最新消息（从当前最大索引到会话最后索引）
-        final currentMaxIndex = currentMessages
-            .where((m) => m.messageIndex > 0)
-            .map((m) => m.messageIndex)
-            .fold(0, (max, index) => index > max ? index : max);
-
-        final conversationLastIndex = state.conversation.lastMessageIndex;
-
-        if (currentMaxIndex < conversationLastIndex) {
-          _chatRepository.loadMessages(
-            _conversationId,
-            currentMaxIndex + 1, // 从下一条消息开始加载
-            conversationLastIndex, // 到最后一条消息
-            0, // 标记为填补间隙的加载
-          );
-
-          _logger.d('发起间隙消息加载', extra: {
-            'fromIndex': currentMaxIndex + 1,
-            'toIndex': conversationLastIndex,
-            'pendingTempMessages': _pendingTempMessages?.length ?? 0,
-          });
-
-          return; // 等待加载完成后再处理临时消息
-        }
-      }
-
-      // 对于非临时消息的不连续情况，直接替换原有数据
-      final sortedMessages = [...newMessages];
-      MessageSortUtils.sortForDisplay(sortedMessages);
-
-      // 根据loadingType决定是否需要定位
-      final targetMessageId = _getTargetMessageIdForLoadingType(
-          addedEventType, newMessages,
-          jumpIndex: jumpIndex);
-
-      // 更新状态（直接替换）
-      emit(state.copyWith(
-        messages: sortedMessages,
-        messageUpdateTrigger: state.messageUpdateTrigger + 1,
-        currentScrollPosition: targetMessageId != null
-            ? CurrentScrollPosition.fromAnchor(messageId: targetMessageId)
-            : state.currentScrollPosition,
-      ));
-
-      return;
+      currentMessages = [];
     }
 
-    // 1. 合并消息：当前消息 + 新消息
-    final allMessages = [...currentMessages, ...newMessages];
-
-    // 2. 去重：基于messageId或tempId去重，保留最新的消息
+    // 合并消息：去重 + 排序
     final messageMap = <String, Message>{};
-    for (final message in allMessages) {
-      // 💢💢💢 修复：使用messageId（如果不为空）或tempId作为键
-      final key = message.messageId.isNotEmpty
-          ? message.messageId
-          : (message.tempId ?? '');
 
-      if (key.isEmpty) {
-        // 如果没有有效的ID，跳过这条消息
-        _logger.w('消息缺少有效ID', extra: {
-          'messageId': message.messageId,
-          'tempId': message.tempId,
-        });
-        continue;
-      }
-
-      final existing = messageMap[key];
-      if (existing == null ||
-          (message.updatedAt != null &&
-              existing.updatedAt != null &&
-              message.updatedAt!.isAfter(existing.updatedAt!))) {
-        messageMap[key] = message;
-      }
+    // 添加现有消息
+    for (final message in currentMessages) {
+      messageMap[message.messageId] = message;
     }
 
-    // 3. 排序：按显示规则排序（临时消息在前，按规则排序）
-    final mergedMessages = messageMap.values.toList();
-    MessageSortUtils.sortForDisplay(mergedMessages);
+    // 添加新消息（相同ID的新消息会覆盖旧消息）
+    for (final message in newMessages) {
+      messageMap[message.messageId] = message;
+    }
 
-    _logger.d('消息合并完成', extra: {
-      'originalCount': currentMessages.length,
-      'newCount': newMessages.length,
-      'mergedCount': mergedMessages.length,
-      'addedEventType': addedEventType.toString(),
+    // 按时间排序（最新消息在前）
+    final mergedMessages = messageMap.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final jumpMessage = mergedMessages
+        .where((msg) => msg.messageIndex == jumpIndex)
+        .firstOrNull;
+
+    if (jumpMessage != null) {
+      final updatedScrollPosition = CurrentScrollPosition.fromAnchor(
+        messageId: jumpMessage.messageId,
+        relativePosition: 0,
+      );
+      _logger.i('🔖 设置 currentScrollPosition（合并模式）', extra: {
+        'jumpIndex': jumpIndex,
+        'scrollMessageId': updatedScrollPosition.messageId,
+        'relativePosition': updatedScrollPosition.relativePosition,
+      });
+      emit(state.copyWith(
+        messages: mergedMessages,
+        currentScrollPosition: updatedScrollPosition,
+      ));
+    } else {
+      emit(state.copyWith(
+        messages: mergedMessages,
+      ));
+    }
+
+    _logger.i('✅ 消息合并完成', extra: {
+      'finalMessageCount': mergedMessages.length,
+      'messageRange': _getMessageIndexRange(mergedMessages),
       'jumpIndex': jumpIndex,
     });
-
-    // 4. 根据loadingType决定是否需要定位
-    final targetMessageId = _getTargetMessageIdForLoadingType(
-        addedEventType, newMessages,
-        jumpIndex: jumpIndex);
-
-    // 5. 更新状态（包含可选的滚动定位）
-    emit(state.copyWith(
-      messages: mergedMessages,
-      messageUpdateTrigger: state.messageUpdateTrigger + 1,
-      currentScrollPosition: targetMessageId != null
-          ? CurrentScrollPosition.fromAnchor(messageId: targetMessageId)
-          : state.currentScrollPosition,
-    ));
-
-    // 💢💢💢 新增：检查是否有暂存的临时消息需要合并
-    if (_pendingTempMessages != null && _pendingTempMessages!.isNotEmpty) {
-      _logger.i('检查暂存的临时消息', extra: {
-        'pendingCount': _pendingTempMessages!.length,
-        'currentMessageCount': mergedMessages.length,
-      });
-
-      // 重新检查连续性
-      if (_isMessagesContinuous(mergedMessages, _pendingTempMessages!)) {
-        _logger.i('连续性已恢复，合并暂存的临时消息', extra: {
-          'pendingTempMessages': _pendingTempMessages!.length,
-        });
-
-        final tempMessages = _pendingTempMessages!;
-        _pendingTempMessages = null; // 清空暂存
-
-        // 递归调用合并临时消息
-        _mergeMessages(AddedEventType.newMessage, tempMessages);
-      } else {
-        _logger.w('连续性仍未恢复，保持临时消息暂存', extra: {
-          'pendingTempMessages': _pendingTempMessages!.length,
-        });
-      }
-    }
-  }
-
-  /// 💢💢💢 根据LoadingType确定目标定位消息ID
-  String? _getTargetMessageIdForLoadingType(
-      AddedEventType addedEventType, List<Message> newMessages,
-      {int? jumpIndex}) {
-    if (newMessages.isEmpty) return null;
-
-    switch (addedEventType) {
-      case AddedEventType.load:
-        // 初始加载：智能定位策略
-        // 1. 如果有未读消息，定位到第一条未读消息
-        final hasUnread = state.conversation.hasUnread(_currentUser.userId);
-        if (hasUnread) {
-          var readMessageIndex = state.conversation
-              .getParticipant(_currentUser.userId)!
-              .readMessageIndex;
-          readMessageIndex = readMessageIndex == 0 ? 1 : readMessageIndex;
-          final lastReadMessage = newMessages
-              .where((msg) => msg.messageIndex == readMessageIndex)
-              .firstOrNull;
-
-          if (lastReadMessage != null) {
-            // 💢💢💢 修复：返回有效的ID（messageId或tempId）
-            return lastReadMessage.messageId.isNotEmpty
-                ? lastReadMessage.messageId
-                : lastReadMessage.tempId;
-          }
-        }
-
-        // 2. 没有未读消息或找不到未读消息，定位到最新消息
-        final newestMessage = newMessages
-            .reduce((a, b) => a.messageIndex > b.messageIndex ? a : b);
-        // 💢💢💢 修复：返回有效的ID（messageId或tempId）
-        return newestMessage.messageId.isNotEmpty
-            ? newestMessage.messageId
-            : newestMessage.tempId;
-
-      case AddedEventType.newMessage:
-        // 添加单个消息：智能定位策略
-        if (newMessages.length == 1) {
-          final newMessage = newMessages.first;
-          // 如果是最新消息（索引最大），并且用户可能在底部，则定位到新消息
-          final isNewestMessage = newMessages
-              .every((msg) => newMessage.messageIndex >= msg.messageIndex);
-          if (isNewestMessage) {
-            // 💢💢💢 修复：返回有效的ID（messageId或tempId）
-            return newMessage.messageId.isNotEmpty
-                ? newMessage.messageId
-                : newMessage.tempId;
-          }
-        }
-        return null; // 不是单条最新消息，保持当前位置
-
-      case AddedEventType.searchResult:
-        // 搜索消息：定位到第一个搜索结果
-        if (newMessages.isNotEmpty) {
-          final firstMessage = newMessages.first;
-          // 💢💢💢 修复：返回有效的ID（messageId或tempId）
-          return firstMessage.messageId.isNotEmpty
-              ? firstMessage.messageId
-              : firstMessage.tempId;
-        }
-        return null;
-    }
   }
 
   /// 🆕 检查消息索引是否连续
   /// 判断现有消息和新消息合并后的索引是否连续
+  ///
+  /// 💢💢💢 改进：支持分段连续性检查
+  /// 例如：当前有120-200，新加载80-120，应该判定为连续
+  /// 特殊处理：messageIndex = 0 的消息（临时状态）通过创建时间预判位置
   bool _isMessagesContinuous(
       List<Message> currentMessages, List<Message> newMessages) {
-    if (currentMessages.isEmpty || newMessages.isEmpty) return true;
-
-    // 💢💢💢 修复：正确的临时消息连续性逻辑
-    // 对于临时消息（messageIndex=0），只要当前已加载了会话中的最后一条消息，就认为是连续的
-    final hasTemporaryMessages = newMessages.any((m) => m.messageIndex == 0);
-
-    if (hasTemporaryMessages) {
-      // 检查当前是否已加载了会话中的最后一条消息
-      final conversationLastMessageIndex = state.conversation.lastMessageIndex;
-      final currentMaxIndex = currentMessages
-          .where((m) => m.messageIndex > 0)
-          .map((m) => m.messageIndex)
-          .fold(0, (max, index) => index > max ? index : max);
-
-      // 如果当前已加载的最大索引 >= 会话的最后消息索引，则临时消息是连续的
-      final isContinuousForTempMessage =
-          currentMaxIndex >= conversationLastMessageIndex;
-
-      _logger.d('临时消息连续性检查', extra: {
-        'conversationLastMessageIndex': conversationLastMessageIndex,
-        'currentMaxIndex': currentMaxIndex,
-        'isContinuousForTempMessage': isContinuousForTempMessage,
-        'tempMessageCount':
-            newMessages.where((m) => m.messageIndex == 0).length,
+    if (currentMessages.isEmpty || newMessages.isEmpty) {
+      _logger.d('🔍 连续性检查：空列表，返回true', extra: {
+        'currentEmpty': currentMessages.isEmpty,
+        'newEmpty': newMessages.isEmpty,
       });
-
-      if (isContinuousForTempMessage) {
-        return true; // 临时消息是连续的
-      }
-    }
-
-    // 💢💢💢 对于非临时消息，检查索引连续性
-    final currentNonTempIndexes = currentMessages
-        .where((m) => m.messageIndex > 0)
-        .map((m) => m.messageIndex)
-        .toSet();
-
-    final newNonTempIndexes = newMessages
-        .where((m) => m.messageIndex > 0)
-        .map((m) => m.messageIndex)
-        .toSet();
-
-    // 如果没有非临时消息，认为是连续的
-    if (currentNonTempIndexes.isEmpty && newNonTempIndexes.isEmpty) {
       return true;
     }
 
-    // 获取所有非临时消息的索引并去重排序
-    final allIndexes = <int>{
-      ...currentNonTempIndexes,
-      ...newNonTempIndexes,
-    }.toList()
+    // 合并所有消息并按时间排序
+    final allMessages = [...currentMessages, ...newMessages];
+    allMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // 分离有效索引消息和临时消息
+    final validMessages =
+        allMessages.where((msg) => msg.messageIndex > 0).toList();
+    final tempMessages =
+        allMessages.where((msg) => msg.messageIndex == 0).toList();
+
+    // 如果只有临时消息，直接返回true
+    if (validMessages.isEmpty) {
+      _logger.d('🔍 连续性检查：只有临时消息，返回true');
+      return true;
+    }
+
+    // 💢💢💢 新增：分段连续性检查
+    // 获取所有有效消息的索引并排序
+    final allIndexes = validMessages.map((m) => m.messageIndex).toSet().toList()
       ..sort();
 
-    // 检查是否连续（每个索引都应该比前一个大1）
+    if (allIndexes.isEmpty) {
+      _logger.d('🔍 连续性检查：无有效索引，返回true');
+      return true;
+    }
+
+    // 💢💢💢 改进：检查是否形成连续段或可连接的段
+    final continuousSegments = <List<int>>[];
+    List<int> currentSegment = [allIndexes.first];
+
     for (int i = 1; i < allIndexes.length; i++) {
-      if (allIndexes[i] != allIndexes[i - 1] + 1) {
-        return false; // 发现间隔，不连续
+      final prevIndex = allIndexes[i - 1];
+      final currentIndex = allIndexes[i];
+
+      if (currentIndex == prevIndex + 1) {
+        // 连续，加入当前段
+        currentSegment.add(currentIndex);
+      } else {
+        // 不连续，结束当前段，开始新段
+        continuousSegments.add(currentSegment);
+        currentSegment = [currentIndex];
+      }
+    }
+    // 添加最后一段
+    continuousSegments.add(currentSegment);
+
+    _logger.d('🔍 连续性检查：段分析', extra: {
+      'segmentCount': continuousSegments.length,
+      'segments': continuousSegments.map((seg) => '${seg.first}-${seg.last}').toList(),
+      'totalIndexes': allIndexes.length,
+    });
+
+    // 💢💢💢 改进：如果只有1-2个连续段，检查是否可以通过临时消息连接
+    if (continuousSegments.length <= 2) {
+      return _checkSegmentConnectivity(
+        continuousSegments, 
+        tempMessages, 
+        validMessages,
+      );
+    }
+
+    // 💢💢💢 改进：如果段数过多，检查与会话边界的关系
+    return _checkBoundaryConnectivity(
+      continuousSegments, 
+      tempMessages,
+    );
+  }
+
+  /// 💢💢💢 新增：检查段连接性
+  /// 判断连续段是否可以通过临时消息连接，或者本身就是相邻的
+  bool _checkSegmentConnectivity(
+    List<List<int>> segments,
+    List<Message> tempMessages,
+    List<Message> validMessages,
+  ) {
+    if (segments.length == 1) {
+      // 只有一个连续段，检查与会话边界的连接性
+      return _checkSingleSegmentConnectivity(segments.first, tempMessages);
+    }
+
+    if (segments.length == 2) {
+      // 两个段，检查是否可以连接
+      final segment1 = segments[0]; // 较早的段
+      final segment2 = segments[1]; // 较晚的段
+      
+      final gap = segment2.first - segment1.last - 1; // 两段之间的间隙
+
+      _logger.d('🔍 连续性检查：两段连接性', extra: {
+        'segment1': '${segment1.first}-${segment1.last}',
+        'segment2': '${segment2.first}-${segment2.last}',
+        'gap': gap,
+      });
+
+      if (gap == 0) {
+        // 两段相邻，认为连续
+        _logger.d('🔍 连续性检查：两段相邻，返回true');
+        return true;
+      }
+
+      if (gap > 0) {
+        // 有间隙，检查是否有足够的临时消息填补
+        final segment1LastMsg = validMessages
+            .where((m) => m.messageIndex == segment1.last)
+            .first;
+        final segment2FirstMsg = validMessages
+            .where((m) => m.messageIndex == segment2.first)
+            .first;
+
+        final tempMessagesInGap = tempMessages.where((tempMsg) {
+          return tempMsg.createdAt.isAfter(segment1LastMsg.createdAt) &&
+              tempMsg.createdAt.isBefore(segment2FirstMsg.createdAt);
+        }).toList();
+
+        final canFillGap = tempMessagesInGap.length == gap;
+        
+        _logger.d('🔍 连续性检查：间隙填补', extra: {
+          'gapSize': gap,
+          'tempMessagesInGap': tempMessagesInGap.length,
+          'canFillGap': canFillGap,
+        });
+
+        return canFillGap;
       }
     }
 
-    return true; // 完全连续
+    // 其他情况，暂时返回false
+    return false;
+  }
+
+  /// 💢💢💢 新增：检查单段连接性
+  /// 判断单个连续段是否与会话边界连接良好
+  bool _checkSingleSegmentConnectivity(
+    List<int> segment,
+    List<Message> tempMessages,
+  ) {
+    final firstIndex = segment.first;
+    final lastIndex = segment.last;
+    final conversationLastIndex = state.conversation.lastMessageIndex;
+
+    _logger.d('🔍 连续性检查：单段边界', extra: {
+      'segmentRange': '${firstIndex}-${lastIndex}',
+      'conversationLastIndex': conversationLastIndex,
+      'tempMessageCount': tempMessages.length,
+    });
+
+    // 💢💢💢 改进：如果段接近会话的开始或结束，认为连续
+    // 检查是否接近会话开始（考虑临时消息）
+    if (firstIndex <= 1 + tempMessages.length) {
+      _logger.d('🔍 连续性检查：接近会话开始，返回true');
+      return true;
+    }
+
+    // 检查是否接近会话结束（考虑临时消息）
+    if (lastIndex + tempMessages.length >= conversationLastIndex) {
+      _logger.d('🔍 连续性检查：接近会话结束，返回true');
+      return true;
+    }
+
+    // 💢💢💢 改进：如果段在中间位置但有合理的临时消息填补，也认为连续
+    final frontGap = firstIndex - 1;
+    final backGap = conversationLastIndex - lastIndex;
+
+    // 统计段前后的临时消息分布
+    final tempMessagesBeforeSegment = tempMessages
+        .where((msg) => msg.createdAt.isBefore(DateTime.now())) // 简化判断
+        .length;
+
+    // 如果临时消息数量合理，认为可以填补间隙
+    if (tempMessagesBeforeSegment >= frontGap || 
+        tempMessages.length - tempMessagesBeforeSegment >= backGap) {
+      _logger.d('🔍 连续性检查：临时消息可填补，返回true');
+      return true;
+    }
+
+    _logger.d('🔍 连续性检查：单段无法连接，返回false');
+    return false;
+  }
+
+  /// 💢💢💢 新增：检查边界连接性
+  /// 对于多段情况，检查是否在合理的会话范围内
+  bool _checkBoundaryConnectivity(
+    List<List<int>> segments,
+    List<Message> tempMessages,
+  ) {
+    if (segments.isEmpty) return true;
+
+    final overallFirstIndex = segments.first.first;
+    final overallLastIndex = segments.last.last;
+    final conversationFirstIndex = state.conversation.firstMessageIndex;
+    final conversationLastIndex = state.conversation.lastMessageIndex;
+
+    _logger.d('🔍 连续性检查：多段边界', extra: {
+      'segmentCount': segments.length,
+      'overallRange': '${overallFirstIndex}-${overallLastIndex}',
+      'conversationRange': '${conversationFirstIndex}-${conversationLastIndex}',
+      'tempMessageCount': tempMessages.length,
+    });
+
+    // 💢💢💢 改进：如果整体范围在会话边界内，且段数不太多（≤3），认为连续
+    if (segments.length <= 3 && 
+        overallFirstIndex >= conversationFirstIndex && 
+        overallLastIndex <= conversationLastIndex) {
+      _logger.d('🔍 连续性检查：多段在合理范围内，返回true');
+      return true;
+    }
+
+    _logger.d('🔍 连续性检查：多段超出合理范围，返回false');
+    return false;
   }
 
   /// 🆕 获取消息列表的索引范围字符串
@@ -2279,20 +2305,12 @@ class ChatCubit extends Cubit<ChatState> {
   /// 🆕 分析消息连续性，返回详细信息
   Map<String, dynamic> _analyzeContinuity(
       List<Message> currentMessages, List<Message> newMessages) {
-    // 💢💢💢 修复：排除临时消息（messageIndex=0）进行分析
-    final currentIndexes = currentMessages
-        .where((m) => m.messageIndex > 0)
-        .map((m) => m.messageIndex)
-        .toList()
+    final currentIndexes = currentMessages.map((m) => m.messageIndex).toList()
       ..sort();
 
-    final newIndexes = newMessages
-        .where((m) => m.messageIndex > 0)
-        .map((m) => m.messageIndex)
-        .toList()
-      ..sort();
+    final newIndexes = newMessages.map((m) => m.messageIndex).toList()..sort();
 
-    // 合并所有非临时消息索引并排序
+    // 合并所有消息索引并排序
     final allIndexes = <int>{...currentIndexes, ...newIndexes}.toList()..sort();
 
     // 找出所有间隔位置
@@ -2386,25 +2404,29 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// 💢💢💢 新增：更新已读状态（独立方法）
-  void _updateReadStatus(List<ItemPosition> sortedPositions) {
-    if (sortedPositions.isEmpty) return;
+  /// 💢💢💢 获取最新一条阅读的消息Index
+  int _getLatestReadMessageIndex(List<ItemPosition> sortedPositions) {
+    if (sortedPositions.isEmpty) return 0;
 
-    // 💢💢💢 修复：转换索引后再访问messages
-    final lastPosition = sortedPositions.last;
-    final lastMessageIndex =
-        _convertProcessedIndexToMessageIndex(lastPosition.index);
+    // 💢💢💢 获取屏幕最底部的消息（索引最小的位置，对应消息索引最大）
+    final bottomPosition = sortedPositions.first;
+    final listIndex =
+        _convertProcessedIndexToMessageIndex(bottomPosition.index);
 
-    if (lastMessageIndex < 0 || lastMessageIndex >= state.messages.length) {
-      return; // 索引无效，直接返回
+    if (listIndex < 0 || listIndex >= state.messages.length) {
+      return 0; // 索引无效，返回0
     }
 
-    final lastShowMessage = state.messages[lastMessageIndex];
+    final latestReadMessage = state.messages[listIndex];
+    return latestReadMessage.messageIndex;
+  }
 
-    // 💢💢💢 修复：通过currentUser获取participant，添加空值检查
+  /// 💢💢💢 简化：更新已读状态（直接传入messageIndex）
+  void _updateReadStatus(int latestReadMessageIndex) {
+    // 💢💢💢 获取当前用户的参与者信息
     final currentUserId = _currentUser.userId;
-
     final participant = state.conversation.getParticipant(currentUserId);
+
     if (participant == null) {
       _logger.w('找不到当前用户的参与者信息', extra: {
         'currentUserId': currentUserId,
@@ -2415,14 +2437,15 @@ class ChatCubit extends Cubit<ChatState> {
 
     final lastReadMessageIndex = participant.lastReadMessageIndex;
 
-    if (lastShowMessage.messageIndex > lastReadMessageIndex) {
+    // 💢💢💢 简化：直接判断是否比当前已读索引更新
+    if (latestReadMessageIndex > lastReadMessageIndex) {
       _chatsRepository.updateParticipantSettings(
         _conversationId,
-        readMessageIndex: lastShowMessage.messageIndex,
+        readMessageIndex: latestReadMessageIndex,
       );
       _logger.i('已读状态更新', extra: {
-        'messageIndex': lastShowMessage.messageIndex,
-        'lastReadMessageIndex': participant.lastReadMessageIndex,
+        'latestReadMessageIndex': latestReadMessageIndex,
+        'previousLastReadMessageIndex': lastReadMessageIndex,
       });
     }
   }
@@ -2611,38 +2634,24 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> revokeMessage(String messageId) async {
     if (isClosed) return;
 
-    // 💢💢💢 查找消息，获取tempId（如果存在）
-    final message = state.messages.firstWhere(
-      (msg) => msg.messageId == messageId || msg.tempId == messageId,
-      orElse: () => throw Exception('找不到要撤回的消息'),
-    );
-
-    final actualMessageId =
-        message.messageId.isNotEmpty ? message.messageId : '';
-    final tempId = message.tempId;
-
     _logger.d('开始撤回消息', extra: {
-      'messageId': actualMessageId,
-      'tempId': tempId,
+      'messageId': messageId,
       'conversationId': _conversationId,
     });
 
     try {
       final success = await _chatRepository.revokeMessage(
-        actualMessageId,
+        messageId,
         _conversationId,
-        tempId: tempId, // 💢💢💢 传递tempId
       );
 
       if (success) {
         _logger.i('消息撤回成功', extra: {
-          'messageId': actualMessageId,
-          'tempId': tempId,
+          'messageId': messageId,
         });
       } else {
         _logger.w('消息撤回失败', extra: {
-          'messageId': actualMessageId,
-          'tempId': tempId,
+          'messageId': messageId,
         });
         throw Exception('撤回失败');
       }
@@ -2659,38 +2668,24 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> deleteMessage(String messageId) async {
     if (isClosed) return;
 
-    // 💢💢💢 查找消息，获取tempId（如果存在）
-    final message = state.messages.firstWhere(
-      (msg) => msg.messageId == messageId || msg.tempId == messageId,
-      orElse: () => throw Exception('找不到要删除的消息'),
-    );
-
-    final actualMessageId =
-        message.messageId.isNotEmpty ? message.messageId : '';
-    final tempId = message.tempId;
-
     _logger.d('开始删除消息', extra: {
-      'messageId': actualMessageId,
-      'tempId': tempId,
+      'messageId': messageId,
       'conversationId': _conversationId,
     });
 
     try {
       final success = await _chatRepository.deleteMessage(
-        actualMessageId,
+        messageId,
         _conversationId,
-        tempId: tempId, // 💢💢💢 传递tempId
       );
 
       if (success) {
         _logger.i('消息删除成功', extra: {
-          'messageId': actualMessageId,
-          'tempId': tempId,
+          'messageId': messageId,
         });
       } else {
         _logger.w('消息删除失败', extra: {
-          'messageId': actualMessageId,
-          'tempId': tempId,
+          'messageId': messageId,
         });
         throw Exception('删除失败');
       }
@@ -2725,5 +2720,221 @@ class ChatCubit extends Cubit<ChatState> {
     await leaveConversation();
 
     return super.close();
+  }
+
+  /// 同步当前会话详情（进入ChatPage/ChatInfoPage时调用）
+  Future<void> syncCurrentConversation() async {
+    try {
+      await _chatsRepository.requestConversationDetail(_conversationId);
+      _logger.i('已请求同步当前会话详情', extra: {
+        'conversationId': _conversationId,
+      });
+    } catch (e) {
+      _logger.e('同步当前会话详情失败', error: e);
+    }
+  }
+
+  /// 💢💢💢 新增：专门处理新消息的合并方法
+  /// 检查新消息与现有消息是否连续(考虑临时乐观更新消息)
+  /// 如果用户当前在底部，则添加滚动到最新消息
+  void _mergeNewMessage(Message newMessage) {
+    if (isClosed) return;
+
+    _logger.i('🆕 处理新消息合并', extra: {
+      'messageId': newMessage.messageId,
+      'messageIndex': newMessage.messageIndex,
+      'messageType': newMessage.type.name,
+      'currentMessageCount': state.messages.length,
+    });
+
+    var currentMessages = state.messages;
+
+    // 检查消息连续性（考虑临时乐观更新消息）
+    bool isContinuous = _isNewMessageContinuous(currentMessages, newMessage);
+
+    if (!isContinuous) {
+      _logger.w('❌ 新消息不连续，直接抛弃新消息', extra: {
+        'currentRange': _getMessageIndexRange(currentMessages),
+        'newMessageIndex': newMessage.messageIndex,
+        'newMessageId': newMessage.messageId,
+      });
+      // 直接返回，不处理不连续的新消息
+      return;
+    }
+
+    // 合并消息：去重 + 排序
+    final messageMap = <String, Message>{};
+
+    // 添加现有消息
+    for (final message in currentMessages) {
+      messageMap[message.messageId] = message;
+    }
+
+    // 添加新消息（相同ID的新消息会覆盖旧消息）
+    messageMap[newMessage.messageId] = newMessage;
+
+    // 按时间排序（最新消息在前）
+    final mergedMessages = messageMap.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // 判断用户是否在底部
+    final isUserAtBottom = _isUserAtBottomFromState();
+
+    // 如果用户在底部，设置滚动到最新消息的位置
+    CurrentScrollPosition? updatedScrollPosition;
+    if (isUserAtBottom && mergedMessages.isNotEmpty) {
+      final latestMessage = mergedMessages.first; // 最新消息
+      updatedScrollPosition = CurrentScrollPosition.fromAnchor(
+        messageId: latestMessage.messageId,
+        relativePosition: 1.0, // 💢💢💢 修正：在reverse列表中，1.0表示物理屏幕顶部（最新消息位置）
+      );
+
+      _logger.i('🔖 用户在底部，设置滚动到最新消息', extra: {
+        'latestMessageId': latestMessage.messageId,
+        'latestMessageIndex': latestMessage.messageIndex,
+      });
+    }
+
+    // 更新状态
+    emit(state.copyWith(
+      messages: mergedMessages,
+      currentScrollPosition:
+          updatedScrollPosition ?? state.currentScrollPosition,
+      messageUpdateTrigger: state.messageUpdateTrigger + 1,
+    ));
+
+    _logger.i('✅ 新消息合并完成', extra: {
+      'finalMessageCount': mergedMessages.length,
+      'messageRange': _getMessageIndexRange(mergedMessages),
+      'scrollUpdated': updatedScrollPosition != null,
+      'wasUserAtBottom': isUserAtBottom,
+    });
+  }
+
+  /// 💢💢💢 检查新消息是否与现有消息连续
+  /// 考虑临时乐观更新消息（messageIndex = 0）
+  bool _isNewMessageContinuous(
+      List<Message> currentMessages, Message newMessage) {
+    if (currentMessages.isEmpty) {
+      _logger.d('🔍 新消息连续性检查：无现有消息，返回true');
+      return true;
+    }
+
+    // 获取新消息中的最新消息（按时间）
+    final latestNewMessage = newMessage;
+
+    // 判断条件1：最新消息是lastMessageIndex或临时消息(0)
+    final isLatestOrTemp =
+        latestNewMessage.messageIndex == state.conversation.lastMessageIndex ||
+            latestNewMessage.messageIndex == 0 ||
+            latestNewMessage.messageIndex ==
+                state.conversation.lastMessageIndex + 1; // 允许下一个索引
+
+    // 判断条件2：当前最新消息是否在屏幕中（简化判断）
+    final currentLatestMessage = currentMessages.isNotEmpty
+        ? currentMessages
+            .reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
+        : null;
+
+    // 简化判断：如果当前有消息且最新消息的messageIndex接近conversation.lastMessageIndex，认为在屏幕中
+    final isCurrentLatestVisible = currentLatestMessage != null &&
+        (currentLatestMessage.messageIndex >=
+                state.conversation.lastMessageIndex - 10 ||
+            currentLatestMessage.messageIndex == 0); // 临时消息也算在屏幕中
+
+    if (isLatestOrTemp && isCurrentLatestVisible) {
+      _logger.d('🔄 新消息连续性检查：最新消息续上，返回true', extra: {
+        'latestMessageIndex': latestNewMessage.messageIndex,
+        'conversationLastIndex': state.conversation.lastMessageIndex,
+        'isLatestOrTemp': isLatestOrTemp,
+        'isCurrentLatestVisible': isCurrentLatestVisible,
+        'currentLatestIndex': currentLatestMessage.messageIndex,
+        'messageId': latestNewMessage.messageId,
+      });
+      return true;
+    }
+
+    // 进行详细的连续性检查
+    final allMessages = [...currentMessages, newMessage];
+    allMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // 分离有效索引消息和临时消息用于分析
+    final validMessages =
+        allMessages.where((msg) => msg.messageIndex > 0).toList();
+    final tempMessages =
+        allMessages.where((msg) => msg.messageIndex == 0).toList();
+
+    // 如果只有临时消息，直接返回true
+    if (validMessages.isEmpty) {
+      _logger.d('🔍 新消息连续性检查：只有临时消息，返回true');
+      return true;
+    }
+
+    // 检查有效消息之间的连续性，考虑临时消息填补间隙
+    for (int i = 1; i < validMessages.length; i++) {
+      final prevMsg = validMessages[i - 1];
+      final currentMsg = validMessages[i];
+      final prevIndex = prevMsg.messageIndex;
+      final currentIndex = currentMsg.messageIndex;
+      final gapSize = currentIndex - prevIndex - 1;
+
+      if (gapSize > 0) {
+        // 有间隙，检查是否有足够的临时消息填补
+        final tempMessagesInGap = tempMessages.where((tempMsg) {
+          return tempMsg.createdAt.isAfter(prevMsg.createdAt) &&
+              tempMsg.createdAt.isBefore(currentMsg.createdAt);
+        }).toList();
+
+        if (tempMessagesInGap.length != gapSize) {
+          _logger.w('🔍 新消息连续性检查：间隙无法填补，返回false', extra: {
+            'prevIndex': prevIndex,
+            'currentIndex': currentIndex,
+            'gapSize': gapSize,
+            'tempMessagesInGap': tempMessagesInGap.length,
+          });
+          return false;
+        }
+      }
+    }
+
+    _logger.d('🔍 新消息连续性检查：通过，返回true');
+    return true;
+  }
+
+  /// 💢💢💢 从当前状态判断用户是否在底部
+  /// 基于 currentScrollPosition 进行判断
+  bool _isUserAtBottomFromState() {
+    if (state.messages.isEmpty) {
+      return true; // 没有消息时认为在底部
+    }
+
+    final scrollPosition = state.currentScrollPosition;
+
+    // 如果没有滚动位置信息，认为在底部
+    if (scrollPosition.messageId == null) {
+      return true;
+    }
+
+    // 查找当前滚动位置对应的消息
+    final scrollMessageIndex = state.messages.indexWhere(
+      (message) => message.messageId == scrollPosition.messageId,
+    );
+
+    if (scrollMessageIndex == -1) {
+      return true; // 找不到滚动位置消息，认为在底部
+    }
+
+    // 检查是否在最新的几条消息中（前3条认为是底部）
+    final isAtBottom = scrollMessageIndex <= 2;
+
+    _logger.d('判断用户是否在底部', extra: {
+      'scrollMessageId': scrollPosition.messageId,
+      'scrollMessageIndex': scrollMessageIndex,
+      'totalMessages': state.messages.length,
+      'isAtBottom': isAtBottom,
+      'relativePosition': scrollPosition.relativePosition,
+    });
+
+    return isAtBottom;
   }
 }

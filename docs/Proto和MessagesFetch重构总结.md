@@ -84,7 +84,7 @@ if (loadingType == LoadingType.JUMP_TO_INDEX) {
 // 提取跳转索引（proto3中，使用hasJumpIndex检查是否设置）
 final jumpIndex = response.hasJumpIndex() ? response.jumpIndex : null;
 
-_notifyMessageUpdate(MessageAddedEvent(
+_notifyMessagesEvent(MessageAddedEvent(
   conversationId: conversationId,
   newMessages: messageModels,
   loadingType: LoadingType.SEARCH, // 临时使用，后续会重构

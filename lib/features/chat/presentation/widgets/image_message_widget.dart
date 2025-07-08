@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/media_cache_service.dart';
 import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
 import 'dart:io';
 
 /// 图片消息Widget
 /// 支持网络图片、本地图片、加载状态、错误处理和点击查看
+///
+/// 实现逻辑：
+/// 1. 先检查原始图片是否已在本地缓存
+/// 2. 如果没有缓存，先显示缩略图（如果有）
+/// 3. 同时在后台下载原始图片到本地
+/// 4. 下载完成后替换为原始图片
 class ImageMessageWidget extends StatefulWidget {
   final Message message;
   final bool isCurrentUser;
@@ -26,15 +33,16 @@ class ImageMessageWidget extends StatefulWidget {
 
 class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   final LogService _logger = LogService.instance;
+  final MediaCacheService _mediaCache = MediaCacheService();
 
   // 加载状态
   bool _isLoading = true;
   bool _hasError = false;
-  String? _errorMessage;
+  bool _isShowingThumbnail = false;
+  bool _isDownloadingOriginal = false;
 
   // 图片信息
   ImageProvider? _imageProvider;
-  String? _effectiveImagePath;
 
   // 实际的图片宽高比（从图片获取）
   double? _actualAspectRatio;
@@ -45,70 +53,159 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     _initializeImage();
   }
 
-  /// 初始化图片
-  void _initializeImage() {
+  /// 初始化图片加载流程
+  void _initializeImage() async {
     try {
-      // 确定图片路径优先级：localPath > mediaUrl（优先使用本地文件）
-      if (widget.message.localPath != null &&
+      _logger.d('开始初始化图片', extra: {
+        'mediaUrl': widget.message.mediaUrl,
+        'localPath': widget.message.localPath,
+        'thumbnailUrl': widget.message.thumbnailUrl,
+        'isCurrentUser': widget.isCurrentUser,
+      });
+
+      // 1. 优先检查本地原始文件（对于当前用户发送的消息）
+      if (widget.isCurrentUser &&
+          widget.message.localPath != null &&
           widget.message.localPath!.isNotEmpty) {
-        _effectiveImagePath = widget.message.localPath!;
-      } else if (widget.message.mediaUrl != null &&
-          widget.message.mediaUrl!.isNotEmpty) {
-        _effectiveImagePath = widget.message.mediaUrl!;
-      } else {
-        throw Exception('图片路径为空');
+        final localFile = File(widget.message.localPath!);
+        if (localFile.existsSync()) {
+          _logger.d('使用本地原始文件');
+          await _loadImageFromPath(widget.message.localPath!);
+          return;
+        }
       }
 
-      _loadImage();
+      // 2. 检查是否有网络图片URL
+      if (widget.message.mediaUrl != null &&
+          widget.message.mediaUrl!.isNotEmpty) {
+        // 2.1 检查原始图片是否已缓存
+        final cachedImagePath = await _mediaCache.getCachedMediaPath(
+            widget.message.mediaUrl!, 'images');
+        if (cachedImagePath != null) {
+          _logger.d('使用缓存的原始图片');
+          await _loadImageFromPath(cachedImagePath);
+          return;
+        }
+
+        // 2.2 原始图片未缓存，先尝试显示缩略图
+        if (widget.message.thumbnailUrl != null &&
+            widget.message.thumbnailUrl!.isNotEmpty) {
+          _logger.d('原始图片未缓存，先显示缩略图');
+          await _showThumbnailWhileDownloading();
+        } else {
+          // 没有缩略图，直接显示加载状态并下载原始图片
+          _logger.d('没有缩略图，直接下载原始图片');
+          await _downloadOriginalImage();
+        }
+        return;
+      }
+
+      // 3. 如果都没有，显示错误
+      throw Exception('没有可用的图片路径');
     } catch (error) {
       _logger.e('图片初始化失败', error: error);
       _setError('图片初始化失败: $error');
     }
   }
 
-  /// 加载图片
-  void _loadImage() {
-    if (_effectiveImagePath == null) {
-      _setError('图片路径为空');
-      return;
+  /// 显示缩略图的同时下载原始图片
+  Future<void> _showThumbnailWhileDownloading() async {
+    try {
+      // 先加载缩略图
+      final thumbnailPath =
+          await _mediaCache.getThumbnail(widget.message.thumbnailUrl!);
+      if (thumbnailPath != null) {
+        _logger.d('显示缩略图');
+        setState(() {
+          _isShowingThumbnail = true;
+        });
+        await _loadImageFromPath(thumbnailPath);
+      }
+
+      // 同时在后台下载原始图片
+      _downloadOriginalImageInBackground();
+    } catch (error) {
+      _logger.e('显示缩略图失败', error: error);
+      // 缩略图失败，直接下载原始图片
+      await _downloadOriginalImage();
     }
+  }
+
+  /// 在后台下载原始图片
+  void _downloadOriginalImageInBackground() async {
+    if (_isDownloadingOriginal) return;
 
     setState(() {
-      _isLoading = true;
-      _hasError = false;
-      _errorMessage = null;
+      _isDownloadingOriginal = true;
     });
 
     try {
-      // 根据路径类型选择ImageProvider
-      if (_effectiveImagePath!.startsWith('http://') ||
-          _effectiveImagePath!.startsWith('https://')) {
-        // 网络图片
-        _imageProvider = NetworkImage(_effectiveImagePath!);
-      } else if (_effectiveImagePath!.startsWith('file://')) {
-        // file:// 协议的本地文件
-        final filePath = _effectiveImagePath!.substring(7);
-        final file = File(filePath);
-        if (file.existsSync()) {
-          _imageProvider = FileImage(file);
-        } else {
-          throw Exception('本地文件不存在: $filePath');
-        }
+      _logger.d('开始后台下载原始图片');
+      final originalImagePath =
+          await _mediaCache.getImage(widget.message.mediaUrl!);
+
+      if (originalImagePath != null && mounted) {
+        _logger.d('原始图片下载完成，替换缩略图');
+        setState(() {
+          _isShowingThumbnail = false;
+        });
+        await _loadImageFromPath(originalImagePath);
+      }
+    } catch (error) {
+      _logger.e('后台下载原始图片失败', error: error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDownloadingOriginal = false;
+        });
+      }
+    }
+  }
+
+  /// 直接下载原始图片
+  Future<void> _downloadOriginalImage() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
+      _logger.d('直接下载原始图片');
+      final originalImagePath =
+          await _mediaCache.getImage(widget.message.mediaUrl!);
+
+      if (originalImagePath != null) {
+        await _loadImageFromPath(originalImagePath);
       } else {
-        // 直接的文件路径
-        final file = File(_effectiveImagePath!);
-        if (file.existsSync()) {
-          _imageProvider = FileImage(file);
-        } else {
-          throw Exception('本地文件不存在: $_effectiveImagePath');
-        }
+        throw Exception('图片下载失败');
+      }
+    } catch (error) {
+      _logger.e('下载原始图片失败', error: error);
+      _setError('图片下载失败: $error');
+    }
+  }
+
+  /// 从指定路径加载图片
+  Future<void> _loadImageFromPath(String imagePath) async {
+    try {
+      _logger.d('从路径加载图片', extra: {'path': imagePath});
+
+      final file = File(imagePath);
+      if (!file.existsSync()) {
+        throw Exception('图片文件不存在: $imagePath');
       }
 
-      // 预加载图片
+      setState(() {
+        _imageProvider = FileImage(file);
+        _isLoading = false;
+        _hasError = false;
+      });
+
+      // 预加载图片以获取尺寸信息
       _preloadImage();
     } catch (error) {
-      _logger.e('创建ImageProvider失败', error: error);
-      _setError('加载图片失败: $error');
+      _logger.e('从路径加载图片失败', error: error);
+      _setError('图片加载失败: $error');
     }
   }
 
@@ -126,35 +223,31 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
           // 计算实际的宽高比
           final actualRatio = info.image.width / info.image.height;
 
-          // 💢💢💢 优化：如果消息中已有宽高信息，则不更新实际宽高比，避免布局跳动
+          // 如果消息中已有宽高信息，则不更新实际宽高比，避免布局跳动
           final hasMessageDimensions = widget.message.width != null &&
               widget.message.height != null &&
               widget.message.width! > 0 &&
               widget.message.height! > 0;
 
           setState(() {
-            _isLoading = false;
-            _hasError = false;
             // 只有在消息中没有宽高信息时才使用实际宽高比
             if (!hasMessageDimensions) {
               _actualAspectRatio = actualRatio;
             }
           });
 
-          _logger.d('图片加载完成', extra: {
+          _logger.d('图片预加载完成', extra: {
             'actualRatio': actualRatio,
             'hasMessageDimensions': hasMessageDimensions,
-            'messageWidth': widget.message.width,
-            'messageHeight': widget.message.height,
-            'willUpdateAspectRatio': !hasMessageDimensions,
+            'isShowingThumbnail': _isShowingThumbnail,
           });
         }
         stream.removeListener(listener);
       },
       onError: (exception, stackTrace) {
         if (mounted) {
-          _logger.e('图片加载失败', error: exception);
-          _setError('图片加载失败: $exception');
+          _logger.e('图片预加载失败', error: exception);
+          _setError('图片预加载失败: $exception');
         }
         stream.removeListener(listener);
       },
@@ -169,7 +262,6 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       setState(() {
         _isLoading = false;
         _hasError = true;
-        _errorMessage = message;
       });
     }
   }
@@ -182,43 +274,15 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         widget.message.width! > 0 &&
         widget.message.height! > 0) {
       final ratio = widget.message.width! / widget.message.height!;
-      _logger.d('使用消息中的宽高比', extra: {
-        'width': widget.message.width,
-        'height': widget.message.height,
-        'aspectRatio': ratio,
-      });
       return ratio;
     }
 
     // 2. 如果图片已加载且消息中没有宽高信息，使用实际宽高比
     if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
-      // _logger.i('使用实际图片宽高比', extra: {
-      //   'aspectRatio': _actualAspectRatio,
-      // });
       return _actualAspectRatio!;
     }
 
-    // 3. 根据图片路径推测可能的宽高比
-    if (_effectiveImagePath != null) {
-      final path = _effectiveImagePath!.toLowerCase();
-
-      if (path.contains('portrait') || path.contains('vertical')) {
-        return 0.75; // 3:4 竖图比例
-      } else if (path.contains('landscape') || path.contains('horizontal')) {
-        return 1.5; // 3:2 横图比例
-      } else if (path.contains('square')) {
-        return 1.0; // 1:1 正方形
-      }
-
-      // 根据文件扩展名推测
-      if (path.contains('.jpg') || path.contains('.jpeg')) {
-        return 1.33; // 4:3 比例，常见于相机拍摄
-      } else if (path.contains('.png')) {
-        return 1.0; // PNG 通常接近正方形
-      }
-    }
-
-    // 4. 默认比例
+    // 3. 默认比例
     return 1.33; // 4:3 比例
   }
 
@@ -269,7 +333,33 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
-              child: _buildImageContent(),
+              child: Stack(
+                children: [
+                  _buildImageContent(),
+                  // 显示下载进度指示器
+                  if (_isDownloadingOriginal && _isShowingThumbnail)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(128),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -297,91 +387,44 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (context, error, stackTrace) {
+        _logger.e('图片显示失败', error: error);
         return _buildErrorWidget();
-      },
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) {
-          return child;
-        }
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          child: child,
-        );
       },
     );
   }
 
-  /// 构建加载状态
+  /// 构建加载状态Widget
   Widget _buildLoadingWidget() {
     return Container(
-      color: Colors.grey[200],
+      color: Colors.grey[300],
       child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              strokeWidth: 2.0,
-            ),
-            SizedBox(height: 8.0),
-            Text(
-              '加载中...',
-              style: TextStyle(
-                fontSize: 12.0,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
+        child: CircularProgressIndicator(),
       ),
     );
   }
 
-  /// 构建错误状态
+  /// 构建错误状态Widget
   Widget _buildErrorWidget() {
     return Container(
-      color: Colors.grey[100],
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.broken_image,
-              color: Colors.grey[400],
-              size: 40.0,
+      color: Colors.grey[300],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.broken_image,
+            color: Colors.grey[600],
+            size: 40,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _hasError ? '点击重试' : '图片加载失败',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
             ),
-            const SizedBox(height: 8.0),
-            Text(
-              '图片加载失败',
-              style: TextStyle(
-                fontSize: 12.0,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 4.0),
-            Text(
-              '点击重试',
-              style: TextStyle(
-                fontSize: 10.0,
-                color: Colors.grey[500],
-              ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 4.0),
-              Text(
-                _errorMessage!,
-                style: TextStyle(
-                  fontSize: 9.0,
-                  color: Colors.red[400],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

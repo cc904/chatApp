@@ -6,13 +6,13 @@ import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 /// 包含搜索相关的所有信息
 class SearchResult {
   /// 匹配的消息ID列表（按时间顺序排列）
-  final List<String> matchedMessageIds;
+  final List<int> matchedMessageIndexes;
 
   /// 搜索结果总数
   final int totalCount;
 
   const SearchResult({
-    required this.matchedMessageIds,
+    required this.matchedMessageIndexes,
     required this.totalCount,
   });
 
@@ -130,13 +130,12 @@ abstract class ChatRepository {
   /// 💢💢💢 新增：加载指定搜索结果附近的消息
   /// 替换式加载，只获取目标搜索结果前后指定数量的消息
   /// [conversationId] - 会话ID
-  /// [targetMessageId] - 目标搜索结果消息ID
+  /// [targetMessageIndex] - 目标消息索引
   /// [contextSize] - 上下文大小（前后各取多少条消息）
-  /// 返回目标消息附近的消息列表和时间范围
-  Future<({List<Message> messages, DateTimeRange timeRange})>
-      getMessagesAroundSearchResult({
+  /// 返回目标消息附近的消息列表
+  Future<List<Message>> getMessagesAroundSearchResult({
     required String conversationId,
-    required String targetMessageId,
+    required int targetMessageIndex,
     int contextSize = 25,
   });
 
@@ -150,16 +149,12 @@ abstract class ChatRepository {
   /// 撤回消息
   /// [messageId] - 消息ID
   /// [conversationId] - 会话ID
-  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
-  Future<bool> revokeMessage(String messageId, String conversationId,
-      {String? tempId});
+  Future<bool> revokeMessage(String messageId, String conversationId);
 
   /// 删除消息
   /// [messageId] - 消息ID
   /// [conversationId] - 会话ID
-  /// [tempId] - 可选的临时消息ID，当消息还没有正式ID时使用
-  Future<bool> deleteMessage(String messageId, String conversationId,
-      {String? tempId});
+  Future<bool> deleteMessage(String messageId, String conversationId);
 
   /// 按日期范围获取消息
   Future<List<Message>> getMessagesByDateRange(
@@ -190,7 +185,7 @@ abstract class ChatRepository {
   /// 替代原来的数据库监听，通过精确的事件通知Cubit进行增量更新
   /// [conversationId] - 会话ID
   /// 返回该会话的消息更新事件流
-  Stream<MessageUpdateEvent> getMessageUpdateStream(String conversationId);
+  Stream<MessagesEvent> getMessageUpdateStream(String conversationId);
 
   /// 💢💢💢 会话级加载状态流
   /// 替代原来的手动状态管理，通过事件通知UI更新加载状态
@@ -233,5 +228,5 @@ abstract class ChatRepository {
   /// 💢💢💢 新增：外部通知消息更新事件
   /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化
   /// [event] - 消息更新事件
-  void notifyMessageUpdate(MessageUpdateEvent event);
+  void notifyMessageUpdate(MessagesEvent event);
 }

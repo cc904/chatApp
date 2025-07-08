@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/avatar_cache_service.dart';
 import 'dart:io';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 通用用户头像组件
 ///
@@ -141,7 +142,7 @@ class _UserAvatarState extends State<UserAvatar> {
 
       // 预定义一组漂亮的背景颜色
       final List<Color> colors = [
-        Colors.blue[400]!,
+        AppColors.primary400,
         Colors.green[400]!,
         Colors.purple[400]!,
         Colors.orange[400]!,

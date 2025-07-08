@@ -9,7 +9,7 @@ import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 // 导入本地化支持
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
-import 'package:cc/core/utils/message_sort_utils.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -68,9 +68,6 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   void _loadAllMessages() {
     context.read<HomeCubit>();
     _allMessages = [];
-
-    // 按显示规则排序
-    MessageSortUtils.sortForDisplay(_allMessages);
   }
 
   // 执行搜索
@@ -452,8 +449,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     switch (message.type) {
       case MessageType.image:
         return CircleAvatar(
-          backgroundColor: Colors.blue[100],
-          child: const Icon(Icons.image, color: Colors.blue),
+          backgroundColor: AppColors.primary.withAlpha(26),
+          child: const Icon(Icons.image, color: AppColors.primary),
         );
       case MessageType.video:
         return CircleAvatar(

@@ -13,6 +13,7 @@ import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 
 /// 创建频道页面
 /// 设置频道信息：名称、描述、头像等
@@ -307,7 +308,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
         backgroundColor: Colors.grey[50],
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.blue),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -327,13 +328,14 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
                   )
                 : Text(
                     localizations.next,
                     style: const TextStyle(
-                      color: Colors.blue,
+                      color: AppColors.primary,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -379,7 +381,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: Colors.blue[100],
+                color: AppColors.primary.withAlpha(25),
                 shape: BoxShape.circle,
               ),
               child: _channelAvatarPath != null
@@ -389,10 +391,10 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                         fit: BoxFit.cover,
                       ),
                     )
-                  : Icon(
+                  : const Icon(
                       Icons.camera_alt,
                       size: 32,
-                      color: Colors.blue[600],
+                      color: AppColors.primary,
                     ),
             ),
           ),
