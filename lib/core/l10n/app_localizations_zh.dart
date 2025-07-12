@@ -141,6 +141,84 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get deleteGroup => '删除群组';
 
+  // 角色相关
+  @override
+  String get owner => '群主';
+  @override
+  String get admin => '管理员';
+  @override
+  String get member => '成员';
+
+  // 描述相关
+  @override
+  String get description => '描述';
+
+  // 操作相关
+  @override
+  String get block => '屏蔽';
+  @override
+  String get remove => '移除';
+  @override
+  String get editContact => '编辑联系人';
+  @override
+  String get report => '举报';
+  @override
+  String get clearChatHistory => '清空聊天记录';
+
+  // 功能开发提示
+  @override
+  String get featureInDevelopment => '功能暂未开放';
+  @override
+  String get voiceCallInDevelopment => '功能暂未开放';
+  @override
+  String get videoCallInDevelopment => '功能暂未开放';
+  @override
+  String get blockUserInDevelopment => '功能暂未开放';
+  @override
+  String get clearChatInDevelopment => '功能暂未开放';
+  @override
+  String get featureNotAvailable => '该功能暂未开放\n敬请期待';
+  @override
+  String get pleaseStayTuned => '敬请期待更新';
+
+  // 成员管理
+  @override
+  String get removeMember => '移除成员';
+  @override
+  String get blockMember => '屏蔽成员';
+  @override
+  String confirmRemoveMember(String name) => '确定要将 $name 从群组中移除吗？';
+  @override
+  String confirmBlockMember(String name) => '确定要屏蔽 $name 吗？屏蔽后该成员将无法发送消息。';
+  @override
+  String get toggleAdminRole => '设为管理员';
+  @override
+  String get removeAdminRole => '取消管理员';
+  @override
+  String get setAsAdmin => '设为管理员';
+  @override
+  String confirmRemoveAdminRole(String name) => '确定要取消 $name 的管理员权限吗？';
+  @override
+  String confirmSetAsAdmin(String name) => '确定要将 $name 设为管理员吗？管理员可以管理群成员和群设置。';
+  @override
+  String get adminCanManageMembers => '管理员可以管理群成员和群设置';
+  @override
+  String memberRemoved(String name) => '已移除 $name';
+  @override
+  String memberBlocked(String name) => '已屏蔽 $name';
+  @override
+  String get adminRoleUpdated => '管理员权限已更新';
+  @override
+  String removeAdminRoleSuccess(String name) => '已取消 $name 的管理员权限';
+  @override
+  String setAsAdminSuccess(String name) => '已将 $name 设为管理员';
+  @override
+  String get operationFailed => '操作失败';
+  @override
+  String blockMemberFailed(String error) => '屏蔽成员失败：$error';
+  @override
+  String get toggleAdminFailed => '管理员权限切换失败';
+
   // 联系人相关
   @override
   String get contacts => '联系人';
@@ -200,6 +278,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unmute => '取消静音';
   @override
   String get more => '更多';
+  @override
+  String get less => '收起';
   @override
   String get leave => '退出';
   @override
@@ -545,7 +625,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recordingFailedPermission => '录音失败，请检查麦克风权限';
 
   @override
-  String get videoRecordingComingSoon => '视频录制功能开发中，敬请期待';
+  String get videoRecordingComingSoon => '功能暂未开放';
 
   @override
   String get macOSGalleryTip => 'macOS平台将从相册选择图片';
@@ -587,7 +667,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get contactOption => '联系人';
 
   @override
-  String get contactFeatureComingSoon => '联系人功能开发中...';
+  String get contactFeatureComingSoon => '功能暂未开放';
 
   @override
   String get recordVideo => '录制视频';

@@ -37,7 +37,6 @@ enum MessageType {
   file,
   video,
   system,
-  membership, // 新增：成员变动消息类型
 }
 
 /*
@@ -472,7 +471,7 @@ class Message {
 
   // 🆕 新增判断方法
   @ignore
-  bool get isMembershipMessage => type == MessageType.membership;
+  bool get isMembershipMessage => false; // Membership消息类型已移除，统一使用system类型
 
   @ignore
   bool get isSystemMessage => type == MessageType.system;

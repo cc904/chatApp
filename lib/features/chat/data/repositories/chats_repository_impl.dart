@@ -69,9 +69,12 @@ class ChatsRepositoryImpl implements ChatsRepository {
       final protoSocketService = ProtoSocketService();
       protoSocketService.on('local:conversation:contact_updated',
           _handleContactUpdatedForConversations);
-      _logger.i('联系人更新监听器设置成功');
+      // 💢💢💢 新增：监听会话移除事件
+      protoSocketService.on(
+          'local:conversation:removed', _handleConversationRemovedLocally);
+      _logger.i('联系人更新监听器和会话移除监听器设置成功');
     } catch (e) {
-      _logger.e('设置联系人更新监听器失败', extra: {'error': e.toString()});
+      _logger.e('设置本地事件监听器失败', extra: {'error': e.toString()});
     }
   }
 
@@ -130,7 +133,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
       ..add(_communicationService
           .onProto<conversation_proto.ConversationJoinLeaveResponse>(
               'conversation:leave:response')
-          .listen(_handleConversationLeaveResponse));
+          .listen(_handleConversationLeaveResponse))
+      ..add(_communicationService
+          .onProto<conversation_proto.ConversationCreateResponse>(
+              'conversation:added')
+          .listen(_handleConversationAdded));
 
     // 监听本地联系人更新事件，用于更新私聊会话名称
     _setupContactUpdateListener();
@@ -197,6 +204,33 @@ class ChatsRepositoryImpl implements ChatsRepository {
     } catch (error) {
       _logger.e('更新本地会话数据失败', extra: {'error': error.toString()});
       throw Exception('更新本地会话数据失败: $error');
+    }
+  }
+
+  /// 💢💢💢 新增：全量替换所有会话数据
+  /// 清空本地所有会话，然后添加新的会话列表
+  /// [newConversations] - 新的会话列表（来自服务器的完整数据）
+  Future<void> _replaceAllConversations(
+      List<db.Conversation> newConversations) async {
+    try {
+      _logger.i('全量替换会话数据', extra: {'新会话数': newConversations.length});
+
+      await _isar.writeTxn(() async {
+        // 💢💢💢 第一步：清空所有现有会话
+        await _conversations.clear();
+        _logger.d('已清空所有本地会话数据');
+
+        // 💢💢💢 第二步：批量添加新会话
+        if (newConversations.isNotEmpty) {
+          await _conversations.putAll(newConversations);
+          _logger.d('已添加新会话数据', extra: {'数量': newConversations.length});
+        }
+      });
+
+      _logger.i('全量替换会话数据完成');
+    } catch (error) {
+      _logger.e('全量替换会话数据失败', extra: {'error': error.toString()});
+      throw Exception('全量替换会话数据失败: $error');
     }
   }
 
@@ -1116,19 +1150,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 💢💢💢 已移除：_calculateAndUpdateUnreadCount 方法
 
   /// 处理会话同步响应事件
-  /// 将Proto格式的会话数据转换为数据库模型并更新本地数据
+  /// 💢💢💢 修改为全量同步：直接覆盖所有会话数据
   void _handleSyncResponseProto(
       conversation_proto.ConversationCollection collection) async {
-    _logger.i('收到会话同步响应',
+    _logger.i('收到会话全量同步响应',
         extra: {'conversations': collection.conversations.length});
 
     try {
-      if (collection.conversations.isEmpty) {
-        _logger.i('会话列表为空，这可能是新用户或同步过程中的正常状态');
-        return;
-      }
-
-      // 转换为数据库对象 - 使用适配器转换方法，保留本地字段
+      // 💢💢💢 全量同步：转换服务器会话数据
       final List<db.Conversation> dbConversations = [];
       for (final conv in collection.conversations) {
         // 查找现有会话以保留本地字段（如lastReadTime）
@@ -1145,24 +1174,23 @@ class ChatsRepositoryImpl implements ChatsRepository {
         dbConversations.add(dbConversation);
       }
 
-      // 更新本地数据库，数据库变化会自动触发UI更新
-      await _updateLocalConversations(dbConversations);
+      // 💢💢💢 全量同步：完全替换本地会话数据
+      await _replaceAllConversations(dbConversations);
 
       // 💢💢💢 新架构：发送会话列表重载事件
-      // 增量同步返回的 dbConversations 只是变更部分，如果直接发送会导致 UI 只拿到部分会话。
-      // 为保证 UI 始终拿到完整列表，这里重新从数据库读取全部会话并发送。
-      final allConversations = await _conversations.where().findAll();
       _notifyConversationUpdate(ConversationsReloadedEvent(
-        conversations: allConversations,
+        conversations: dbConversations,
         timestamp: DateTime.now(),
       ));
 
-      // 💢💢💢 新增：保存同步时间，用于下次增量同步
+      // 💢💢💢 保存同步时间
       await _saveLastSyncTime(DateTime.now());
 
-      _logger.i('会话同步完成，数据库已更新');
+      _logger.i('会话全量同步完成，已完全替换本地数据', extra: {
+        'newCount': dbConversations.length,
+      });
     } catch (e, stack) {
-      _logger.e('处理同步响应数据失败', error: e, stackTrace: stack);
+      _logger.e('处理全量同步响应数据失败', error: e, stackTrace: stack);
     }
   }
 
@@ -1575,6 +1603,66 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
+  /// 处理会话添加通知
+  /// 当其他用户创建了新会话并邀请当前用户时收到此通知
+  /// [response] - 会话创建响应，包含新会话的完整信息
+  void _handleConversationAdded(
+      conversation_proto.ConversationCreateResponse response) async {
+    try {
+      _logger.i('收到会话添加通知', extra: {
+        'success': response.success,
+        'message': response.message,
+        'hasConversation': response.hasConversation(),
+      });
+
+      if (response.success && response.hasConversation()) {
+        final conversation = response.conversation;
+        _logger.i('处理新添加的会话', extra: {
+          'conversationId': conversation.conversationId,
+          'name': conversation.name,
+          'type': conversation.type.name,
+        });
+
+        // 将服务器返回的会话数据保存到本地数据库
+        final localConversation = ConversationAdapter.fromProto(
+          conversation,
+          currentUserId: _currentUser.userId,
+        );
+
+        await _isar.writeTxn(() async {
+          // 检查会话是否已存在
+          final existing = await _conversations
+              .filter()
+              .conversationIdEqualTo(conversation.conversationId)
+              .findFirst();
+
+          if (existing == null) {
+            // 添加新会话
+            await _conversations.put(localConversation);
+            _logger.i('新会话已添加到本地数据库', extra: {
+              'conversationId': conversation.conversationId,
+              'name': conversation.name,
+            });
+          } else {
+            _logger.d('会话已存在，跳过添加', extra: {
+              'conversationId': conversation.conversationId,
+            });
+          }
+        });
+
+        // 可以在这里发送本地通知给用户
+        // UINotificationService.instance.showInfo('您被添加到会话：${conversation.name}');
+      } else {
+        _logger.w('会话添加通知无效', extra: {
+          'success': response.success,
+          'message': response.message,
+        });
+      }
+    } catch (error, stackTrace) {
+      _logger.e('处理会话添加通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
   /// 更新会话的最后阅读时间
   @override
   Future<void> updateConversationLastReadTime(
@@ -1815,6 +1903,43 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
     } catch (e) {
       _logger.e('处理联系人更新事件失败', extra: {
+        'error': e.toString(),
+        'stackTrace': e is Error ? e.stackTrace.toString() : null,
+      });
+    }
+  }
+
+  /// 💢💢💢 新增：处理本地会话移除事件
+  void _handleConversationRemovedLocally(dynamic data) async {
+    try {
+      final conversationId = data['conversationId'] as String?;
+      final timestampStr = data['timestamp'] as String?;
+
+      if (conversationId == null) {
+        _logger.w('会话移除事件缺少conversationId');
+        return;
+      }
+
+      _logger.i('收到本地会话移除事件', extra: {
+        'conversationId': conversationId,
+        'timestamp': timestampStr,
+      });
+
+      // 💢💢💢 发送会话移除事件到ChatsPage
+      final removeEvent = ConversationRemovedEvent(
+        conversationId: conversationId,
+        timestamp: timestampStr != null
+            ? DateTime.tryParse(timestampStr) ?? DateTime.now()
+            : DateTime.now(),
+      );
+
+      _notifyConversationUpdate(removeEvent);
+
+      _logger.i('会话移除事件已通知到ChatsPage', extra: {
+        'conversationId': conversationId,
+      });
+    } catch (e) {
+      _logger.e('处理本地会话移除事件失败', extra: {
         'error': e.toString(),
         'stackTrace': e is Error ? e.stackTrace.toString() : null,
       });

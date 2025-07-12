@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/avatar_cache_service.dart';
+import 'package:cc/core/utils/display_name_utils.dart';
 import 'dart:io';
-import 'package:cc/core/constants/app_colors.dart';
 
 /// 通用用户头像组件
 ///
@@ -133,56 +133,12 @@ class _UserAvatarState extends State<UserAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    // 根据名字生成随机颜色（保持一致性）
-    Color getColorFromName(String name) {
-      if (name.isEmpty) return Colors.blueGrey;
-
-      // 使用名字的哈希值生成颜色，这样同一个名字总是得到相同的颜色
-      final int hash = name.hashCode;
-
-      // 预定义一组漂亮的背景颜色
-      final List<Color> colors = [
-        AppColors.primary400,
-        Colors.green[400]!,
-        Colors.purple[400]!,
-        Colors.orange[400]!,
-        Colors.teal[400]!,
-        Colors.pink[400]!,
-        Colors.indigo[400]!,
-        Colors.cyan[400]!,
-        Colors.deepOrange[400]!,
-        Colors.deepPurple[400]!,
-      ];
-
-      // 使用哈希值选择颜色
-      return colors[hash.abs() % colors.length];
-    }
-
-    final nameColor = widget.backgroundColor ?? getColorFromName(widget.name);
+    // 使用全局统一的颜色生成方法
+    final nameColor = widget.backgroundColor ?? DisplayNameUtils.generateUserColor(widget.name);
     final hasValidAvatar = _localAvatarPath != null && !_hasError;
 
-    // 获取要显示的文本内容
-    String displayText = '?';
-    if (widget.name.isNotEmpty) {
-      // 判断是否为中文名称(简单判断：如果不包含英文字母和数字，则视为中文)
-      bool isChinese = !RegExp(r'[a-zA-Z0-9]').hasMatch(widget.name);
-
-      if (isChinese) {
-        switch (widget.name.length) {
-          case 2: // 两个字的中文名，显示全名
-            displayText = widget.name;
-            break;
-          case 3: // 三个字的中文名，显示后两个字
-            displayText = widget.name.substring(1);
-            break;
-          default: // 其他情况，只显示第一个字
-            displayText = widget.name[0];
-        }
-      } else {
-        // 非中文名称，显示第一个字母并大写
-        displayText = widget.name[0].toUpperCase();
-      }
-    }
+    // 使用全局统一的首字母生成方法
+    final displayText = DisplayNameUtils.getInitials(widget.name);
 
     // 创建首字母/姓名文本的样式
     final textStyle = TextStyle(

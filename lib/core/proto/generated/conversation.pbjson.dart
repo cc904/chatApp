@@ -447,6 +447,25 @@ final $typed_data.Uint8List conversationMemberChangeResponseDescriptor = $conver
     'dG9SBm1lbWJlchIWCgZhY3Rpb24YAyABKAlSBmFjdGlvbhIbCglhY3Rpb25fYnkYBCABKAlSCG'
     'FjdGlvbkJ5EhwKCXRpbWVzdGFtcBgFIAEoA1IJdGltZXN0YW1w');
 
+@$core.Deprecated('Use conversationMemberChangeDirectResponseDescriptor instead')
+const ConversationMemberChangeDirectResponse$json = {
+  '1': 'ConversationMemberChangeDirectResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'action', '3': 4, '4': 1, '5': 9, '10': 'action'},
+    {'1': 'user_id', '3': 5, '4': 1, '5': 9, '10': 'userId'},
+  ],
+};
+
+/// Descriptor for `ConversationMemberChangeDirectResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationMemberChangeDirectResponseDescriptor = $convert.base64Decode(
+    'CiZDb252ZXJzYXRpb25NZW1iZXJDaGFuZ2VEaXJlY3RSZXNwb25zZRIYCgdzdWNjZXNzGAEgAS'
+    'gIUgdzdWNjZXNzEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USJwoPY29udmVyc2F0aW9uX2lk'
+    'GAMgASgJUg5jb252ZXJzYXRpb25JZBIWCgZhY3Rpb24YBCABKAlSBmFjdGlvbhIXCgd1c2VyX2'
+    'lkGAUgASgJUgZ1c2VySWQ=');
+
 @$core.Deprecated('Use conversationPreviewUpdatedDescriptor instead')
 const ConversationPreviewUpdated$json = {
   '1': 'ConversationPreviewUpdated',
@@ -527,4 +546,74 @@ final $typed_data.Uint8List conversationUpdateDescriptor = $convert.base64Decode
     'cnRpY2lwYW50X2lkcxgEIAMoCVIOcGFydGljaXBhbnRJZHMSHQoKdXBkYXRlZF9hdBgFIAEoA1'
     'IJdXBkYXRlZEF0Eh0KCnVwZGF0ZWRfYnkYBiABKAlSCXVwZGF0ZWRCeRIWCgZhY3Rpb24YByAB'
     'KAlSBmFjdGlvbg==');
+
+@$core.Deprecated('Use conversationExitRequestDescriptor instead')
+const ConversationExitRequest$json = {
+  '1': 'ConversationExitRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'reason', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'reason', '17': true},
+  ],
+  '8': [
+    {'1': '_reason'},
+  ],
+};
+
+/// Descriptor for `ConversationExitRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationExitRequestDescriptor = $convert.base64Decode(
+    'ChdDb252ZXJzYXRpb25FeGl0UmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbn'
+    'ZlcnNhdGlvbklkEhsKBnJlYXNvbhgCIAEoCUgAUgZyZWFzb26IAQFCCQoHX3JlYXNvbg==');
+
+@$core.Deprecated('Use conversationExitResponseDescriptor instead')
+const ConversationExitResponse$json = {
+  '1': 'ConversationExitResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'conversation_id', '3': 3, '4': 1, '5': 9, '10': 'conversationId'},
+  ],
+};
+
+/// Descriptor for `ConversationExitResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationExitResponseDescriptor = $convert.base64Decode(
+    'ChhDb252ZXJzYXRpb25FeGl0UmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIYCg'
+    'dtZXNzYWdlGAIgASgJUgdtZXNzYWdlEicKD2NvbnZlcnNhdGlvbl9pZBgDIAEoCVIOY29udmVy'
+    'c2F0aW9uSWQ=');
+
+@$core.Deprecated('Use memberExitedNotificationDescriptor instead')
+const MemberExitedNotification$json = {
+  '1': 'MemberExitedNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {'1': 'user_name', '3': 3, '4': 1, '5': 9, '10': 'userName'},
+    {'1': 'exited_at', '3': 4, '4': 1, '5': 3, '10': 'exitedAt'},
+    {'1': 'reason', '3': 5, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `MemberExitedNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List memberExitedNotificationDescriptor = $convert.base64Decode(
+    'ChhNZW1iZXJFeGl0ZWROb3RpZmljYXRpb24SJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg5jb2'
+    '52ZXJzYXRpb25JZBIXCgd1c2VyX2lkGAIgASgJUgZ1c2VySWQSGwoJdXNlcl9uYW1lGAMgASgJ'
+    'Ugh1c2VyTmFtZRIbCglleGl0ZWRfYXQYBCABKANSCGV4aXRlZEF0EhYKBnJlYXNvbhgFIAEoCV'
+    'IGcmVhc29u');
+
+@$core.Deprecated('Use conversationRemovedNotificationDescriptor instead')
+const ConversationRemovedNotification$json = {
+  '1': 'ConversationRemovedNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'conversation_name', '3': 2, '4': 1, '5': 9, '10': 'conversationName'},
+    {'1': 'removed_at', '3': 3, '4': 1, '5': 3, '10': 'removedAt'},
+    {'1': 'reason', '3': 4, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `ConversationRemovedNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List conversationRemovedNotificationDescriptor = $convert.base64Decode(
+    'Ch9Db252ZXJzYXRpb25SZW1vdmVkTm90aWZpY2F0aW9uEicKD2NvbnZlcnNhdGlvbl9pZBgBIA'
+    'EoCVIOY29udmVyc2F0aW9uSWQSKwoRY29udmVyc2F0aW9uX25hbWUYAiABKAlSEGNvbnZlcnNh'
+    'dGlvbk5hbWUSHQoKcmVtb3ZlZF9hdBgDIAEoA1IJcmVtb3ZlZEF0EhYKBnJlYXNvbhgEIAEoCV'
+    'IGcmVhc29u');
 

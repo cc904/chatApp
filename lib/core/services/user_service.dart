@@ -55,7 +55,7 @@ class UserService {
     try {
       _logger.i('更新用户信息请求', extra: {
         'name': name,
-        'avatar': avatar != null ? '${avatar.substring(0, 20)}...' : null,
+        'avatar': avatar,
         'phone': phone,
         'email': email,
         'status': status,

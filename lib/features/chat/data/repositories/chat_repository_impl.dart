@@ -1,24 +1,24 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:cc/core/database/models/current_user.dart';
-import 'package:isar/isar.dart';
-import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/conversation.dart' as db;
-import 'package:cc/core/adapters/message_adapter.dart';
-import 'package:cc/core/adapters/conversation_adapter.dart';
-import 'package:cc/core/services/communication_service.dart';
-import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
-import 'package:cc/features/chat/domain/entities/message_update_event.dart';
-import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:cc/core/utils/timezone_utils.dart';
 
+import 'package:isar/isar.dart';
+import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/database/models/conversation.dart' as db;
+import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/models/message.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
+import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
+import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/utils/timezone_utils.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:uuid/uuid.dart';
 
 /// 🔥 临时兼容类已全部移除 - Index方案完全替代了复杂的游标系统
 
@@ -49,8 +49,8 @@ class ChatRepositoryImpl implements ChatRepository {
       StreamController<Map<String, dynamic>>.broadcast();
 
   // 💢💢💢 新Stream架构：消息更新事件流控制器
-  final Map<String, StreamController<MessagesEvent>>
-      _messageUpdateControllers = {};
+  final Map<String, StreamController<MessagesEvent>> _messageUpdateControllers =
+      {};
   // 💢💢💢 新Stream架构：会话级加载状态流控制器
   final Map<String, StreamController<LoadingStateUpdate>>
       _conversationLoadingControllers = {};
@@ -60,8 +60,6 @@ class ChatRepositoryImpl implements ChatRepository {
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
-
-  static const Uuid _uuid = Uuid();
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  获取输入状态流  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -110,6 +108,15 @@ class ChatRepositoryImpl implements ChatRepository {
     _conversationLoadingControllers[conversationId] ??=
         StreamController<LoadingStateUpdate>.broadcast();
     return _conversationLoadingControllers[conversationId]!.stream;
+  }
+
+  /// 💢💢💢 新增：获取会话更新事件流
+  @override
+  Stream<ConversationUpdateEvent> getConversationUpdateStream(
+      String conversationId) {
+    _conversationUpdateControllers[conversationId] ??=
+        StreamController<ConversationUpdateEvent>.broadcast();
+    return _conversationUpdateControllers[conversationId]!.stream;
   }
 
   // 构造函数
@@ -164,7 +171,20 @@ class ChatRepositoryImpl implements ChatRepository {
         ..add(_communicationService
             .onProto<conversation_proto.ConversationMemberChangeResponse>(
                 'conversation:member:changed')
-            .listen(_handleMemberChangeNotification));
+            .listen(_handleMemberChangeNotification))
+        // 💢💢💢 新增：退出会话相关事件监听器
+        ..add(_communicationService
+            .onProto<conversation_proto.ConversationExitResponse>(
+                'conversation:exit:response')
+            .listen(_handleConversationExitResponse))
+        ..add(_communicationService
+            .onProto<conversation_proto.MemberExitedNotification>(
+                'conversation:member:exited')
+            .listen(_handleMemberExitedNotification))
+        ..add(_communicationService
+            .onProto<conversation_proto.ConversationRemovedNotification>(
+                'conversation:removed')
+            .listen(_handleConversationRemovedNotification));
 
       _logger.i('所有事件处理器已注册', extra: {
         'subscriptionCount': _subscriptions.length,
@@ -242,7 +262,7 @@ class ChatRepositoryImpl implements ChatRepository {
       // 提取跳转索引（proto3中，使用hasJumpIndex检查是否设置）
       final jumpIndex = response.hasJumpIndex() ? response.jumpIndex : null;
 
-      _notifyMessagesEvent(MessageAddedEvent( 
+      _notifyMessagesEvent(MessageAddedEvent(
         conversationId: conversationId,
         newMessages: messages,
         addedEventType: AddedEventType.load, // 🆕 服务器获取的消息
@@ -1021,6 +1041,157 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  /// 💢💢💢 新增：退出会话（真正退出，从数据库移除）
+  @override
+  Future<bool> exitConversation(String conversationId, {String? reason}) async {
+    try {
+      _logger.i('用户主动退出会话', extra: {
+        'conversationId': conversationId,
+        'reason': reason,
+      });
+
+      if (_communicationService.isInitialized) {
+        final exitRequest = conversation_proto.ConversationExitRequest()
+          ..conversationId = conversationId;
+
+        if (reason != null) {
+          exitRequest.reason = reason;
+        }
+
+        final success = await _communicationService.emitProto(
+            'conversation:exit', exitRequest);
+
+        if (success) {
+          _logger.i('退出会话请求已发送', extra: {
+            'conversationId': conversationId,
+          });
+          return true;
+        } else {
+          _logger.w('发送退出会话请求失败');
+          return false;
+        }
+      } else {
+        _logger.w('通信服务未初始化，无法发送退出会话请求');
+        return false;
+      }
+    } catch (error) {
+      _logger.e('退出会话失败', error: error);
+      return false;
+    }
+  }
+
+  /// 💢💢💢 新增：从本地数据库删除会话
+  Future<void> _deleteConversationLocally(String conversationId) async {
+    await _isar.writeTxn(() async {
+      // 删除会话记录
+      await _conversations
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .deleteAll();
+
+      // 删除相关消息
+      await _messages
+          .filter()
+          .conversationIdEqualTo(conversationId)
+          .deleteAll();
+    });
+  }
+
+  /// 💢💢💢 新增：处理退出会话响应
+  void _handleConversationExitResponse(
+      conversation_proto.ConversationExitResponse response) async {
+    try {
+      _logger.i('收到退出会话响应', extra: {
+        'conversationId': response.conversationId,
+        'success': response.success,
+        'message': response.message,
+      });
+
+      if (response.success) {
+        // 1. 先获取要删除的会话信息（用于通知）
+        final conversationToDelete = await _conversations
+            .filter()
+            .conversationIdEqualTo(response.conversationId)
+            .findFirst();
+
+        // 2. 从本地数据库中删除该会话
+        await _deleteConversationLocally(response.conversationId);
+        _logger.i('本地会话已删除', extra: {
+          'conversationId': response.conversationId,
+        });
+
+        // 3. 💢💢💢 新增：通知应用层会话已被移除
+        if (conversationToDelete != null) {
+          _notifyConversationRemoved(response.conversationId);
+        }
+
+        // 5. 显示成功提示
+        UINotificationService.instance.showSuccess('已成功退出会话');
+      } else {
+        // 💢💢💢 处理退出失败的情况
+        _logger.w('退出会话失败', extra: {
+          'conversationId': response.conversationId,
+          'errorMessage': response.message,
+        });
+
+        // 显示错误信息给用户
+        final errorMessage =
+            response.message.isNotEmpty ? response.message : '退出会话失败，请重试';
+        UINotificationService.instance.showError(errorMessage);
+      }
+    } catch (error, stackTrace) {
+      _logger.e('处理退出会话响应失败', error: error, stackTrace: stackTrace);
+      // 显示通用错误提示
+      UINotificationService.instance.showError('处理退出会话响应时发生错误');
+    }
+  }
+
+  /// 💢💢💢 新增：处理成员退出通知
+  void _handleMemberExitedNotification(
+      conversation_proto.MemberExitedNotification notification) async {
+    try {
+      _logger.i('收到成员退出通知', extra: {
+        'conversationId': notification.conversationId,
+        'userId': notification.userId,
+        'userName': notification.userName,
+        'reason': notification.reason,
+      });
+
+      // TODO: 更新本地会话的参与者列表
+      // 这里需要实现移除参与者的逻辑，暂时先记录日志
+      _logger.i('需要从会话中移除参与者', extra: {
+        'conversationId': notification.conversationId,
+        'removeUserId': notification.userId,
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理成员退出通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 💢💢💢 新增：处理会话移除通知
+  void _handleConversationRemovedNotification(
+      conversation_proto.ConversationRemovedNotification notification) async {
+    try {
+      _logger.i('收到会话移除通知', extra: {
+        'conversationId': notification.conversationId,
+        'conversationName': notification.conversationName,
+        'reason': notification.reason,
+      });
+
+      // 从本地数据库中删除该会话
+      await _deleteConversationLocally(notification.conversationId);
+
+      // 💢💢💢 新增：通知应用层会话已被移除
+      _notifyConversationRemoved(notification.conversationId);
+
+      // 显示通知给用户
+      UINotificationService.instance.showInfo(
+          '您已${notification.reason == "exit" ? "退出" : "被移除"}会话：${notification.conversationName}');
+    } catch (error, stackTrace) {
+      _logger.e('处理会话移除通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
   /// 释放资源
   /// 取消所有订阅并关闭流控制器
   void dispose() {
@@ -1704,15 +1875,11 @@ class ChatRepositoryImpl implements ChatRepository {
           ));
         }
 
-        // 3. 创建系统消息显示成员变更信息
-        await _createMemberChangeSystemMessage(
-          conversationId: notification.conversationId,
-          member: notification.member,
-          action: notification.action,
-          actionBy: notification.actionBy,
-          timestamp: notification.timestamp,
-          conversation: conversation,
-        );
+        _logger.d('会话成员信息更新完成', extra: {
+          'conversationId': notification.conversationId,
+          'action': notification.action,
+          'memberName': notification.member.name,
+        });
       });
     } catch (error, stackTrace) {
       _logger.e('处理会话成员变更通知失败', error: error, stackTrace: stackTrace);
@@ -1741,7 +1908,7 @@ class ChatRepositoryImpl implements ChatRepository {
   /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化
   @override
   void notifyMessageUpdate(MessagesEvent event) {
-    _notifyMessagesEvent(event);  
+    _notifyMessagesEvent(event);
   }
 
   /// 💢💢💢 新Stream架构：通知会话级加载状态变化
@@ -1896,137 +2063,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 创建成员变更系统消息
-  /// 根据成员变更类型创建相应的系统消息提示用户
-  Future<void> _createMemberChangeSystemMessage({
-    required String conversationId,
-    required conversation_proto.ParticipantProto member,
-    required String action,
-    required String actionBy,
-    required Int64 timestamp,
-    required db.Conversation conversation,
-  }) async {
-    try {
-      // 确定系统事件类型
-      message_proto.SystemEventType eventType;
-      String messageText;
-
-      // 获取操作者名称
-      final actionByParticipant = conversation.getParticipant(actionBy);
-      final actionByName = actionByParticipant?.name ?? '系统';
-
-      switch (action) {
-        case 'added':
-          eventType = message_proto.SystemEventType.MEMBER_JOINED;
-          if (member.userId == actionBy) {
-            messageText = '${member.name} 加入了群聊';
-          } else {
-            messageText = '$actionByName 邀请 ${member.name} 加入了群聊';
-          }
-          break;
-
-        case 'removed':
-          eventType = message_proto.SystemEventType.MEMBER_REMOVED;
-          if (member.userId == actionBy) {
-            messageText = '${member.name} 离开了群聊';
-          } else {
-            messageText = '$actionByName 将 ${member.name} 移出了群聊';
-          }
-          break;
-
-        case 'promoted':
-          eventType = message_proto.SystemEventType.MEMBER_PROMOTED;
-          final roleText = _getMemberRoleText(member.role);
-          messageText = '$actionByName 将 ${member.name} 设为$roleText';
-          break;
-
-        case 'demoted':
-          eventType = message_proto.SystemEventType.MEMBER_DEMOTED;
-          messageText = '$actionByName 取消了 ${member.name} 的管理员权限';
-          break;
-
-        case 'blocked':
-          // 屏蔽操作通常不显示系统消息，直接返回
-          return;
-
-        default:
-          _logger.w('未知的成员变更操作，跳过创建系统消息', extra: {'action': action});
-          return;
-      }
-
-      // 创建系统消息
-      final systemMessage = Message()
-        ..messageId = _uuid.v4() // 💢💢💢 使用UUID作为messageId
-        ..conversationId = conversationId
-        ..senderId = 'system'
-        ..senderName = '系统'
-        ..type = MessageType.membership
-        ..text = messageText
-        ..createdAt = TimezoneUtils.fromServerTimestamp(timestamp.toInt())
-        ..status = MessageStatus.sent
-        ..membershipEventType = eventType.name
-        ..actorUserId = actionBy
-        ..eventTimestamp = TimezoneUtils.fromServerTimestamp(timestamp.toInt())
-        ..affectedUserIdsList = [member.userId]
-        ..membershipActorMap = {
-          'userId': actionBy,
-          'userName': actionByName,
-          'userAvatar': actionByParticipant?.avatar ?? '',
-          'role': actionByParticipant?.role.index ?? 0,
-        }
-        ..membershipAffectedMembersList = [
-          {
-            'userId': member.userId,
-            'userName': member.name,
-            'userAvatar': member.avatar,
-            'role': member.role.value,
-            'joinedAt': member.hasJoinedAt() ? member.joinedAt.toInt() : null,
-          }
-        ];
-
-      // 保存系统消息到数据库
-      await _messages.put(systemMessage);
-
-      // 链接消息到会话
-      systemMessage.conversation.value = conversation;
-      await systemMessage.conversation.save();
-
-      _logger.d('创建成员变更系统消息成功', extra: {
-        'conversationId': conversationId,
-        'action': action,
-        'memberName': member.name,
-        'messageText': messageText,
-      });
-
-      // 通知UI有新消息
-      final messageController = _messageUpdateControllers[conversationId];
-      if (messageController != null && !messageController.isClosed) {
-        messageController.add(MessageAddedEvent(
-          conversationId: conversationId,
-          newMessages: [systemMessage],
-          addedEventType: AddedEventType.newMessage,
-          timestamp: TimezoneUtils.nowUtc(),
-        ));
-      }
-    } catch (error, stackTrace) {
-      _logger.e('创建成员变更系统消息失败', error: error, stackTrace: stackTrace);
-    }
-  }
-
-  /// 获取成员角色的中文文本
-  String _getMemberRoleText(conversation_proto.MemberRole role) {
-    switch (role) {
-      case conversation_proto.MemberRole.OWNER:
-        return '群主';
-      case conversation_proto.MemberRole.ADMIN:
-        return '管理员';
-      case conversation_proto.MemberRole.MEMBER:
-        return '成员';
-      default:
-        return '成员';
-    }
-  }
-
   /// 💢💢💢 本地标记消息为已撤回状态
   Future<void> _markMessageAsRevokedLocally(String messageId) async {
     try {
@@ -2064,6 +2100,38 @@ class ChatRepositoryImpl implements ChatRepository {
       });
     } catch (error) {
       _logger.e('标记消息撤回失败', error: error, stackTrace: StackTrace.current);
+    }
+  }
+
+  /// 💢💢💢 新增：通知会话移除事件
+  void _notifyConversationRemoved(String conversationId) {
+    try {
+      // 创建会话移除事件并通知应用层
+      final removeEvent = ConversationRemovedEvent(
+        conversationId: conversationId,
+        timestamp: DateTime.now(),
+      );
+
+      // 💢💢💢 通知会话级别的控制器（用于ChatCubit）
+      final controller = _conversationUpdateControllers[conversationId];
+      if (controller != null && !controller.isClosed) {
+        controller.add(removeEvent);
+      }
+
+      // 💢💢💢 新增：通过本地事件系统通知ChatsRepository
+      // 使用ProtoSocketService发送本地事件，避免直接耦合
+      ProtoSocketService().emit('local:conversation:removed', {
+        'conversationId': conversationId,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      _logger.i('会话移除事件已发送', extra: {
+        'conversationId': conversationId,
+      });
+    } catch (error) {
+      _logger.e('发送会话移除事件失败', error: error, extra: {
+        'conversationId': conversationId,
+      });
     }
   }
 }

@@ -206,6 +206,9 @@ class ChatState extends Equatable {
   /// 是否正在加载链接消息
   final bool isLoadingLinks;
 
+  /// 💢💢💢 新增：是否需要导航回上一页
+  final bool shouldNavigateBack;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -247,6 +250,7 @@ class ChatState extends Equatable {
     required this.isLoadingFiles,
     required this.isLoadingVoice,
     required this.isLoadingLinks,
+    this.shouldNavigateBack = false,
   });
 
   /// 初始状态
@@ -292,6 +296,7 @@ class ChatState extends Equatable {
       isLoadingFiles: false,
       isLoadingVoice: false,
       isLoadingLinks: false,
+      shouldNavigateBack: false,
     );
   }
 
@@ -337,6 +342,7 @@ class ChatState extends Equatable {
     bool? isLoadingFiles,
     bool? isLoadingVoice,
     bool? isLoadingLinks,
+    bool? shouldNavigateBack,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -386,6 +392,7 @@ class ChatState extends Equatable {
       isLoadingFiles: isLoadingFiles ?? this.isLoadingFiles,
       isLoadingVoice: isLoadingVoice ?? this.isLoadingVoice,
       isLoadingLinks: isLoadingLinks ?? this.isLoadingLinks,
+      shouldNavigateBack: shouldNavigateBack ?? this.shouldNavigateBack,
     );
   }
 
@@ -458,5 +465,6 @@ class ChatState extends Equatable {
         isLoadingFiles,
         isLoadingVoice,
         isLoadingLinks,
+        shouldNavigateBack,
       ];
 }

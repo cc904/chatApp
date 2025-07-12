@@ -336,21 +336,21 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
 
   void _shareQRCode(String qrData) {
     // TODO: 实现分享功能
-    UINotificationService.instance.showInfo('分享功能开发中');
+            UINotificationService.instance.showInfo('功能暂未开放');
 
     _logger.i('分享二维码', extra: {'qrData': qrData});
   }
 
   void _saveQRCode() {
     // TODO: 实现保存到相册功能
-    UINotificationService.instance.showInfo('保存功能开发中');
+            UINotificationService.instance.showInfo('功能暂未开放');
 
     _logger.i('保存二维码到相册');
   }
 
   void _shareQRCodeImage() {
     // TODO: 实现二维码图片分享功能
-    UINotificationService.instance.showInfo('图片分享功能开发中');
+            UINotificationService.instance.showInfo('功能暂未开放');
 
     _logger.i('分享二维码图片');
   }

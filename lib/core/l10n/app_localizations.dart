@@ -160,6 +160,7 @@ abstract class AppLocalizations {
   String get mute;
   String get unmute;
   String get more;
+  String get less;
   String get leave;
   String get chatAddMembers;
   String get deleteContact;
@@ -203,6 +204,50 @@ abstract class AppLocalizations {
   String get removeMembers;
   String get leaveGroup;
   String get deleteGroup;
+
+  // 角色相关
+  String get owner;
+  String get admin;
+  String get member;
+
+  // 描述相关
+  String get description;
+
+  // 操作相关
+  String get block;
+  String get remove;
+  String get editContact;
+  String get report;
+  String get clearChatHistory;
+
+  // 功能开发提示
+  String get featureInDevelopment;
+  String get voiceCallInDevelopment;
+  String get videoCallInDevelopment;
+  String get blockUserInDevelopment;
+  String get clearChatInDevelopment;
+  String get featureNotAvailable;
+  String get pleaseStayTuned;
+
+  // 成员管理
+  String get removeMember;
+  String get blockMember;
+  String confirmRemoveMember(String name);
+  String confirmBlockMember(String name);
+  String get toggleAdminRole;
+  String get removeAdminRole;
+  String get setAsAdmin;
+  String confirmRemoveAdminRole(String name);
+  String confirmSetAsAdmin(String name);
+  String get adminCanManageMembers;
+  String memberRemoved(String name);
+  String memberBlocked(String name);
+  String get adminRoleUpdated;
+  String removeAdminRoleSuccess(String name);
+  String setAsAdminSuccess(String name);
+  String get operationFailed;
+  String blockMemberFailed(String error);
+  String get toggleAdminFailed;
 
   // 联系人相关
   String get contacts;

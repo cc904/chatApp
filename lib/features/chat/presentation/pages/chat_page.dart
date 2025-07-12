@@ -31,6 +31,7 @@ import 'package:cc/core/utils/debug_commands.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
 
@@ -323,11 +324,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 💢💢💢 处理消息列表，添加分隔符，以获取正确的processedItems索引
       final currentUserId = state.currentUser.userId;
-      final isPrivateChat = state.conversation.type == ConversationType.private;
+      final isNotGroupChat = state.conversation.type != ConversationType.group;
       final processedItems = MessageListProcessor.processMessages(
         messages: state.messages,
         currentUserId: currentUserId,
-        isPrivateChat: isPrivateChat,
+        isNotGroupChat: isNotGroupChat,
       );
 
       // Get the actual message for further operations
@@ -480,11 +481,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 处理消息列表，获取processedItems
       final currentUserId = state.currentUser.userId;
-      final isPrivateChat = state.conversation.type == ConversationType.private;
+      final isNotGroupChat = state.conversation.type != ConversationType.group;
       final processedItems = MessageListProcessor.processMessages(
         messages: state.messages,
         currentUserId: currentUserId,
-        isPrivateChat: isPrivateChat,
+        isNotGroupChat: isNotGroupChat,
       );
 
       if (processedItems.isEmpty) {
@@ -654,38 +655,83 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ChatCubit, ChatState>(
-      buildWhen: (previous, current) {
-        return previous.isSearchMode != current.isSearchMode ||
-            previous.searchQuery != current.searchQuery ||
-            previous.conversation.isMuted != current.conversation.isMuted ||
-            previous.conversation.name != current.conversation.name ||
-            previous.networkStatus != current.networkStatus;
+    return BlocListener<ChatCubit, ChatState>(
+      listenWhen: (previous, current) {
+        // 💢💢💢 监听导航状态变化
+        return previous.shouldNavigateBack != current.shouldNavigateBack;
       },
-      builder: (context, state) {
-        return Scaffold(
-          appBar:
-              state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
-          body: Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: _buildMessagesList(),
-                  ),
-                  state.isSearchMode
-                      ? _buildSearchBottomBar()
-                      : _buildInputArea(),
-                ],
-              ),
-              // 录制动画覆盖层
-              if (_isRecording) _buildRecordingOverlay(),
-              // 🆕 未读消息指示器
-              _buildUnreadIndicator(state),
-            ],
-          ),
-        );
+      listener: (context, state) {
+        // 💢💢💢 处理导航回上一页
+        if (state.shouldNavigateBack) {
+          _logger.i('收到导航回上一页指令，正在执行导航', extra: {
+            'canPop': Navigator.canPop(context),
+            'routeStack': ModalRoute.of(context)?.settings.name ?? 'unknown',
+          });
+
+          // 导航回上一页
+          if (Navigator.canPop(context)) {
+            _logger.i('使用 Navigator.pop() 返回上一页');
+            Navigator.pop(context);
+          } else {
+            _logger.w('无法使用 pop，尝试其他导航方式');
+            // 如果无法 pop，根据当前上下文寻找合适的导航方式
+            try {
+              // 尝试回到根页面
+              Navigator.popUntil(context, (route) => route.isFirst);
+              _logger.i('已回到根页面');
+            } catch (e) {
+              _logger.e('导航失败，尝试重新构建路由栈', error: e);
+              // 最后的备选方案：直接跳转到认证页面让用户重新进入
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const AuthPage()),
+                (route) => false,
+              );
+            }
+          }
+
+          // 重置导航状态（避免重复导航）
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              context.read<ChatCubit>().resetNavigationState();
+              _logger.i('导航状态已重置');
+            }
+          });
+        }
       },
+      child: BlocBuilder<ChatCubit, ChatState>(
+        buildWhen: (previous, current) {
+          return previous.isSearchMode != current.isSearchMode ||
+              previous.searchQuery != current.searchQuery ||
+              previous.conversation.isMuted != current.conversation.isMuted ||
+              previous.conversation.name != current.conversation.name ||
+              previous.networkStatus != current.networkStatus;
+        },
+        builder: (context, state) {
+          return Scaffold(
+            appBar:
+                state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
+            body: Stack(
+              children: [
+                Column(
+                  children: [
+                    Expanded(
+                      child: _buildMessagesList(),
+                    ),
+                    state.isSearchMode
+                        ? _buildSearchBottomBar()
+                        : _buildInputArea(),
+                  ],
+                ),
+                // 录制动画覆盖层
+                if (_isRecording) _buildRecordingOverlay(),
+                // 🆕 未读消息指示器
+                _buildUnreadIndicator(state),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -934,12 +980,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
           // 处理消息列表，添加分隔符
           final currentUserId = state.currentUser.userId;
-          final isPrivateChat =
-              state.conversation.type == ConversationType.private;
+          final isNotGroupChat =
+              state.conversation.type != ConversationType.group;
           final processedItems = MessageListProcessor.processMessages(
             messages: state.messages, // 直接使用state中的消息列表
             currentUserId: currentUserId,
-            isPrivateChat: isPrivateChat,
+            isNotGroupChat: isNotGroupChat,
           );
 
           return Stack(
@@ -977,7 +1023,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                               message,
                               state.conversation,
                               state.currentUser,
-                              item.isPrivateChat,
+                              item.isNotGroupChat,
                             );
                           }
 
@@ -987,7 +1033,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                             isCurrentUser: item.isCurrentUser,
                             showAvatar: item.showAvatar,
                             showTail: item.showTail,
-                            isPrivateChat: item.isPrivateChat,
+                            isNotGroupChat: item.isNotGroupChat,
                             onTap: () => _onMessageTap(message),
                             onResend: message.status == MessageStatus.failed &&
                                     item.isCurrentUser
@@ -3169,10 +3215,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     Message message,
     Conversation conversation,
     CurrentUser? currentUser,
-    bool isPrivateChat,
+    bool isNotGroupChat,
   ) {
     // 如果是私聊且有会话和当前用户信息，使用参与者信息计算
-    if (isPrivateChat && currentUser != null) {
+    if (isNotGroupChat && currentUser != null) {
       // 获取对方参与者信息（私聊中除当前用户外的另一个参与者）
       final otherParticipant = conversation.participants
           .where((p) => p.userId != currentUser.userId)

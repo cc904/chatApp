@@ -315,7 +315,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
     // TODO 实现通话功能
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${isVideo ? '视频' : '语音'}通话功能开发中'),
+                          content: Text('功能暂未开放'),
       ),
     );
   }

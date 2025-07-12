@@ -32,7 +32,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   // 加载状态
   bool _isLoading = true;
   bool _hasError = false;
-  String? _errorMessage;
 
   // 缩略图信息
   ImageProvider? _thumbnailProvider;
@@ -76,7 +75,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     setState(() {
       _isLoading = true;
       _hasError = false;
-      _errorMessage = null;
     });
 
     if (_effectiveThumbnailPath == null || _effectiveThumbnailPath!.isEmpty) {
@@ -185,7 +183,6 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
       setState(() {
         _isLoading = false;
         _hasError = true;
-        _errorMessage = message;
       });
     }
   }
@@ -247,6 +244,13 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
   /// 重试加载
   void _retryLoad() {
+    _logger.i('用户点击重试按钮');
+    setState(() {
+      _hasError = false;
+      _isLoading = true;
+      _thumbnailProvider = null;
+      _actualAspectRatio = null;
+    });
     _initializeVideo();
   }
 
@@ -256,9 +260,75 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     final maxWidth = widget.maxWidth ?? screenSize.width * 0.6;
     final maxHeight = widget.maxHeight ?? screenSize.height * 0.4;
 
-    return GestureDetector(
-      onTap: _hasError ? _retryLoad : _onVideoTap,
-      child: Container(
+    // 检查是否有caption文字
+    final hasCaption = widget.message.caption != null &&
+        widget.message.caption!.trim().isNotEmpty;
+
+    if (hasCaption) {
+      // 视频 + 文字组合形式
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 视频部分
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+              minWidth: 120.0,
+              minHeight: 80.0,
+            ),
+            child: AspectRatio(
+              aspectRatio: _calculateAspectRatio(),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(8.0),
+                child: InkWell(
+                  onTap: _hasError ? _retryLoad : _onVideoTap,
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8.0),
+                      topRight: Radius.circular(8.0),
+                      bottomLeft: Radius.circular(0.0),
+                      bottomRight: Radius.circular(0.0),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // 背景/缩略图
+                        _buildVideoBackground(),
+
+                        // 播放按钮覆盖层
+                        if (!_hasError) _buildPlayOverlay(),
+
+                        // 时长标签
+                        if (!_hasError && _formatDuration().isNotEmpty)
+                          _buildDurationLabel(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 文字说明部分
+          const SizedBox(height: 6),
+          Container(
+            width: maxWidth,
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              widget.message.caption!,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 14.0,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      // 纯视频形式
+      return Container(
         constraints: BoxConstraints(
           maxWidth: maxWidth,
           maxHeight: maxHeight,
@@ -267,32 +337,39 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
         ),
         child: AspectRatio(
           aspectRatio: _calculateAspectRatio(),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8.0),
+            child: InkWell(
+              onTap: _hasError ? _retryLoad : _onVideoTap,
               borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // 背景/缩略图
-                  _buildVideoBackground(),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8.0),
+                  topRight: Radius.circular(8.0),
+                  bottomLeft: Radius.circular(0.0),
+                  bottomRight: Radius.circular(0.0),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 背景/缩略图
+                    _buildVideoBackground(),
 
-                  // 播放按钮覆盖层
-                  if (!_hasError) _buildPlayOverlay(),
+                    // 播放按钮覆盖层
+                    if (!_hasError) _buildPlayOverlay(),
 
-                  // 时长标签
-                  if (!_hasError && _formatDuration().isNotEmpty)
-                    _buildDurationLabel(),
-                ],
+                    // 时长标签
+                    if (!_hasError && _formatDuration().isNotEmpty)
+                      _buildDurationLabel(),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   /// 构建视频背景（缩略图或默认背景）
@@ -403,44 +480,10 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     return Container(
       color: Colors.grey[100],
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Colors.grey[400],
-              size: 40.0,
-            ),
-            const SizedBox(height: 8.0),
-            Text(
-              '视频加载失败',
-              style: TextStyle(
-                fontSize: 12.0,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 4.0),
-            Text(
-              '点击重试',
-              style: TextStyle(
-                fontSize: 10.0,
-                color: Colors.grey[500],
-              ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 4.0),
-              Text(
-                _errorMessage!,
-                style: TextStyle(
-                  fontSize: 9.0,
-                  color: Colors.red[400],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
+        child: Icon(
+          Icons.refresh,
+          color: Colors.grey[400],
+          size: 32.0,
         ),
       ),
     );

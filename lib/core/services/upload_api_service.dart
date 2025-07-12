@@ -39,7 +39,12 @@ class UploadApiService {
           'method': options.method,
           'hasAuth': authHeader != null,
           'authPreview': authHeader != null
-              ? '${authHeader.toString().substring(0, 20)}...'
+              ? () {
+                  final authStr = authHeader.toString();
+                  return authStr.length > 20 
+                    ? '${authStr.substring(0, 20)}...' 
+                    : authStr;
+                }()
               : '❌ 无认证头',
           'allHeaders': options.headers.keys.toList(),
         });

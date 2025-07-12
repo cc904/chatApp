@@ -14,6 +14,8 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:cc/features/chat/presentation/pages/chats_page.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -51,6 +53,25 @@ Future<void> _checkAndFixTokenStatus() async {
 void main() async {
   // 确保Flutter绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🪟 配置桌面窗口（仅在桌面平台）
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+
+    const windowOptions = WindowOptions(
+      size: Size(500, 800), // 默认窗口大小
+      minimumSize: Size(400, 650), // 最小窗口大小
+      // center: true,                  // 居中显示
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
 
   // 🔍 检查和修复Token状态
   await _checkAndFixTokenStatus();
@@ -222,6 +243,8 @@ class _MyAppState extends State<MyApp> {
             title: 'ThisApp',
             scaffoldMessengerKey:
                 UINotificationService.instance.scaffoldMessengerKey,
+            // 💢💢💢 注册路由观察者
+            navigatorObservers: [routeObserver],
             theme: ThemeData(
               colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,

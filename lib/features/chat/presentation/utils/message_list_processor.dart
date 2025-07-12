@@ -15,7 +15,7 @@ class MessageListProcessor {
   static List<MessageListItem> processMessages({
     required List<Message> messages,
     required String currentUserId,
-    bool isPrivateChat = false,
+    bool isNotGroupChat = false,
   }) {
     if (messages.isEmpty) {
       return [];
@@ -30,7 +30,7 @@ class MessageListProcessor {
 
       // 判断是否显示头像和小尾巴
       final shouldShowAvatar =
-          _shouldShowAvatar(messages, i, currentUserId, isPrivateChat);
+          _shouldShowAvatar(messages, i, currentUserId, isNotGroupChat);
       final shouldShowTail = _shouldShowTail(messages, i, currentUserId);
 
       // 添加消息本身
@@ -39,7 +39,7 @@ class MessageListProcessor {
         isCurrentUser: isCurrentUser,
         showAvatar: shouldShowAvatar,
         showTail: shouldShowTail,
-        isPrivateChat: isPrivateChat,
+        isNotGroupChat: isNotGroupChat,
       ));
 
       // 检查是否需要在消息之后插入日期分隔符
@@ -65,8 +65,12 @@ class MessageListProcessor {
   }
 
   /// 获取日期的年月日部分，忽略时分秒
+  /// 注意：输入的dateTime可能是UTC时间，需要转换为本地时区
   static DateTime _getDateOnly(DateTime dateTime) {
-    return DateTime(dateTime.year, dateTime.month, dateTime.day);
+    // 如果输入是UTC时间，我们需要转换为本地时区
+    // 但为了避免异步调用的复杂性，这里使用DateTime的本地转换
+    final localDateTime = dateTime.isUtc ? dateTime.toLocal() : dateTime;
+    return DateTime(localDateTime.year, localDateTime.month, localDateTime.day);
   }
 
   /// 判断两个日期是否为同一天

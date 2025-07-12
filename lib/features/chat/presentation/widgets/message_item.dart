@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
+import 'package:cc/core/utils/display_name_utils.dart';
 import 'voice_message_widget.dart';
 import 'image_message_widget.dart';
 import 'video_message_widget.dart';
@@ -26,7 +27,8 @@ class MessageItem extends StatelessWidget {
   final bool isCurrentUser;
   final bool showAvatar;
   final bool showTail;
-  final bool isPrivateChat;
+  final bool isNotGroupChat;
+  final bool isChannel;
   final VoidCallback? onTap;
   final VoidCallback? onResend;
 
@@ -50,7 +52,8 @@ class MessageItem extends StatelessWidget {
     required this.isCurrentUser,
     this.showAvatar = true,
     this.showTail = true,
-    this.isPrivateChat = false,
+    this.isNotGroupChat = false,
+    this.isChannel = false,
     this.onTap,
     this.onResend,
     this.isSearchResult = false,
@@ -67,8 +70,7 @@ class MessageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.type == MessageType.system ||
-        message.type == MessageType.membership) {
+    if (message.type == MessageType.system) {
       return _buildSystemMessage(context);
     }
 
@@ -84,15 +86,18 @@ class MessageItem extends StatelessWidget {
               isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (!isCurrentUser) ...[
-              if (!isPrivateChat && showAvatar)
-                _buildAvatar()
-              else if (!isPrivateChat)
-                const SizedBox(width: 32.0),
-              const SizedBox(width: 8.0),
-            ],
+            // 他人消息或私聊中对方消息：头像在左侧
+            if (!isCurrentUser)
+              if (!isNotGroupChat && showAvatar) ...[
+                _buildAvatar(),
+                const SizedBox(width: 8.0),
+              ] else if (!isNotGroupChat)
+                const SizedBox(width: 40.0), // 占位空间，保持对齐
             Flexible(child: _buildMessageBubble(context)),
-            if (isCurrentUser) const SizedBox(width: 8.0),
+            // 当前用户消息：不显示头像，只保留适当的右侧间距
+            if (isCurrentUser) ...[
+              const SizedBox(width: 0.0), // 增加右侧间距，替代头像空间
+            ],
           ],
         ),
       ),
@@ -199,8 +204,7 @@ class MessageItem extends StatelessWidget {
 
     if (onForward != null &&
         !message.isMessageDeleted &&
-        message.type != MessageType.system &&
-        message.type != MessageType.membership) {
+        message.type != MessageType.system) {
       actions.add(_MessageMenuAction(
         icon: Icons.forward,
         label: '转发',
@@ -224,8 +228,7 @@ class MessageItem extends StatelessWidget {
         isCurrentUser &&
         !message.isMessageRevoked &&
         !message.isMessageDeleted &&
-        message.type != MessageType.system &&
-        message.type != MessageType.membership) {
+        message.type != MessageType.system) {
       actions.add(_MessageMenuAction(
         icon: Icons.undo,
         label: '撤回',
@@ -237,8 +240,7 @@ class MessageItem extends StatelessWidget {
     if (onDelete != null &&
         isCurrentUser &&
         !message.isMessageDeleted &&
-        message.type != MessageType.system &&
-        message.type != MessageType.membership) {
+        message.type != MessageType.system) {
       actions.add(_MessageMenuAction(
         icon: Icons.delete,
         label: '删除',
@@ -253,17 +255,18 @@ class MessageItem extends StatelessWidget {
   Widget _buildAvatar() {
     return CircleAvatar(
       radius: 16.0,
-      backgroundColor: Colors.grey[300],
+      backgroundColor: DisplayNameUtils.generateUserColor(message.senderName),
       backgroundImage: message.senderAvatar != null
           ? NetworkImage(message.senderAvatar!)
           : null,
       child: message.senderAvatar == null
           ? Text(
-              message.senderName?.isNotEmpty == true
-                  ? message.senderName![0].toUpperCase()
-                  : 'X',
-              style:
-                  const TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold),
+              DisplayNameUtils.getInitials(message.senderName),
+              style: const TextStyle(
+                fontSize: 12.0,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             )
           : null,
     );
@@ -281,86 +284,199 @@ class MessageItem extends StatelessWidget {
       borderWidth = 1.5;
     }
 
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.7,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-      decoration: BoxDecoration(
-        color:
-            isCurrentUser ? Theme.of(context).primaryColor : Colors.grey[200],
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(18.0),
-          topRight: const Radius.circular(18.0),
-          bottomLeft: isCurrentUser
-              ? const Radius.circular(18.0)
-              : showTail
-                  ? const Radius.circular(2.0)
-                  : const Radius.circular(18.0),
-          bottomRight: isCurrentUser
-              ? showTail
-                  ? const Radius.circular(2.0)
-                  : const Radius.circular(18.0)
-              : const Radius.circular(18.0),
+    // 动态计算消息气泡的最大宽度（基于实际布局空间计算）
+    final screenWidth = MediaQuery.of(context).size.width;
+    double maxWidth;
+
+    if (isNotGroupChat || isChannel) {
+      // 私聊或者频道：屏幕宽度 - 预留边距(16px) = 屏幕宽度 - 24px
+      maxWidth = screenWidth - 30.0;
+    } else if (isCurrentUser) {
+      // 当前用户消息：屏幕宽度 - 左右外层间距(4px×2) - 右侧间距(16px) - 预留边距(16px) = 屏幕宽度 - 40px
+      maxWidth = screenWidth - 65.0;
+    } else {
+      // 群聊他人消息：屏幕宽度 - 左右外层间距(4px×2) - 头像(32px) - 头像间距(8px) - 预留边距(16px) = 屏幕宽度 - 64px
+      maxWidth = screenWidth - 80.0;
+    }
+
+    // 检查是否为媒体消息（图片或视频）
+    final isMediaMessage =
+        message.type == MessageType.image || message.type == MessageType.video;
+
+    if (isMediaMessage) {
+      // 媒体消息：白色背景，图片顶部和两侧边距1px，底部无圆角
+      return Container(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
         ),
-        border: highlightBorderColor != null
-            ? Border.all(color: highlightBorderColor, width: borderWidth)
-            : null,
-        boxShadow: isCurrentSearchResult
-            ? [
-                BoxShadow(
-                  color: Colors.orange.withAlpha(102),
-                  blurRadius: 8,
-                  spreadRadius: 2,
-                ),
-              ]
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment:
-            isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (message.isMessagePinned)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.push_pin,
-                    size: 12.0,
-                    color: isCurrentUser ? Colors.white70 : Colors.orange,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18.0),
+            topRight: const Radius.circular(18.0),
+            bottomLeft: isCurrentUser
+                ? const Radius.circular(18.0)
+                : showTail
+                    ? const Radius.circular(2.0)
+                    : const Radius.circular(18.0),
+            bottomRight: isCurrentUser
+                ? showTail
+                    ? const Radius.circular(2.0)
+                    : const Radius.circular(18.0)
+                : const Radius.circular(18.0),
+          ),
+          border: highlightBorderColor != null
+              ? Border.all(color: highlightBorderColor, width: borderWidth)
+              : null,
+          boxShadow: isCurrentSearchResult
+              ? [
+                  BoxShadow(
+                    color: Colors.orange.withAlpha(102),
+                    blurRadius: 8,
+                    spreadRadius: 2,
                   ),
-                  const SizedBox(width: 4.0),
-                  Text(
-                    '置顶',
-                    style: TextStyle(
-                      fontSize: 10.0,
-                      color: isCurrentUser ? Colors.white70 : Colors.orange,
-                      fontWeight: FontWeight.w500,
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            // 置顶标签（如果需要）
+            if (message.isMessagePinned)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 2.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.push_pin,
+                      size: 12.0,
+                      color: Colors.orange,
                     ),
-                  ),
-                ],
-              ),
-            ),
-          if (!isCurrentUser && message.senderName != null && !isPrivateChat)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4.0),
-              child: Text(
-                message.senderName!,
-                style: const TextStyle(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+                    SizedBox(width: 4.0),
+                    Text(
+                      '置顶',
+                      style: TextStyle(
+                        fontSize: 10.0,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            // 媒体消息不显示发送者名称
+            // 媒体内容（顶部和两侧边距1px）
+            Padding(
+              padding: const EdgeInsets.fromLTRB(1.0, 1.0, 1.0, 0.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: message.isMessagePinned
+                      ? const Radius.circular(0.0)
+                      : const Radius.circular(17.0),
+                  topRight: message.isMessagePinned
+                      ? const Radius.circular(0.0)
+                      : const Radius.circular(17.0),
+                  bottomLeft: const Radius.circular(0.0),
+                  bottomRight: const Radius.circular(0.0),
+                ),
+                child: _buildMessageContent(context),
+              ),
             ),
-          _buildMessageContent(context),
-          const SizedBox(height: 2.0),
-          _buildTimeAndStatusRow(),
-        ],
-      ),
-    );
+            // 底部时间和状态区域
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12.0, 2.0, 12.0, 8.0),
+              child: _buildTimeAndStatusRow(),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 非媒体消息：统一白色背景
+      return Container(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18.0),
+            topRight: const Radius.circular(18.0),
+            bottomLeft: isCurrentUser
+                ? const Radius.circular(18.0)
+                : showTail
+                    ? const Radius.circular(2.0)
+                    : const Radius.circular(18.0),
+            bottomRight: isCurrentUser
+                ? showTail
+                    ? const Radius.circular(2.0)
+                    : const Radius.circular(18.0)
+                : const Radius.circular(18.0),
+          ),
+          border: highlightBorderColor != null
+              ? Border.all(color: highlightBorderColor, width: borderWidth)
+              : null,
+          boxShadow: isCurrentSearchResult
+              ? [
+                  BoxShadow(
+                    color: Colors.orange.withAlpha(102),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (message.isMessagePinned)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 2.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.push_pin,
+                      size: 12.0,
+                      color: Colors.orange,
+                    ),
+                    SizedBox(width: 4.0),
+                    Text(
+                      '置顶',
+                      style: TextStyle(
+                        fontSize: 10.0,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (message.senderName != null &&
+                (!isNotGroupChat || isChannel) &&
+                !isCurrentUser)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4.0),
+                child: Text(
+                  message.senderName!,
+                  style: TextStyle(
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.bold,
+                    color:
+                        DisplayNameUtils.generateUserColor(message.senderName),
+                  ),
+                ),
+              ),
+            _buildMessageContent(context),
+            const SizedBox(height: 2.0),
+            _buildTimeAndStatusRow(),
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildMessageContent(BuildContext context) {
@@ -369,7 +485,7 @@ class MessageItem extends StatelessWidget {
       return Text(
         '此消息已被撤回',
         style: TextStyle(
-          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          color: Colors.grey[600],
           fontStyle: FontStyle.italic,
           fontSize: 14.0,
         ),
@@ -381,7 +497,7 @@ class MessageItem extends StatelessWidget {
       return Text(
         '消息已删除',
         style: TextStyle(
-          color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+          color: Colors.grey[600],
           fontStyle: FontStyle.italic,
           fontSize: 14.0,
         ),
@@ -412,8 +528,8 @@ class MessageItem extends StatelessWidget {
     // 此方法只处理正常的文本显示
     return Text(
       message.text ?? '',
-      style: TextStyle(
-        color: isCurrentUser ? Colors.white : Colors.black87,
+      style: const TextStyle(
+        color: Colors.black87,
         fontSize: 16.0,
       ),
     );
@@ -423,7 +539,7 @@ class MessageItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
-        color: isCurrentUser ? Colors.white.withAlpha(51) : Colors.grey[100],
+        color: Colors.grey[100],
         borderRadius: BorderRadius.circular(8.0),
       ),
       child: Row(
@@ -431,14 +547,14 @@ class MessageItem extends StatelessWidget {
         children: [
           Icon(
             Icons.file_present,
-            color: isCurrentUser ? Colors.white : Colors.grey[600],
+            color: Colors.grey[600],
           ),
           const SizedBox(width: 8.0),
           Flexible(
             child: Text(
               message.fileName ?? '未知文件',
-              style: TextStyle(
-                color: isCurrentUser ? Colors.white : Colors.black87,
+              style: const TextStyle(
+                color: Colors.black87,
                 fontSize: 14.0,
               ),
             ),
@@ -478,12 +594,13 @@ class MessageItem extends StatelessWidget {
               snapshot.data ?? '...',
               style: TextStyle(
                 fontSize: 11.0,
-                color: isCurrentUser ? Colors.white70 : Colors.grey[600],
+                color: Colors.grey[600],
               ),
             );
           },
         ),
-        if (isCurrentUser) ...[
+        // 只有私聊的当前用户消息才显示阅读状态
+        if (isCurrentUser && isNotGroupChat) ...[
           const SizedBox(width: 4.0),
           _buildMessageStatusIcon(),
         ],
@@ -506,15 +623,15 @@ class MessageItem extends StatelessWidget {
   Widget _buildStatusIcon(MessageStatus status, bool isDelivered, bool isRead) {
     switch (status) {
       case MessageStatus.sending:
-        return const Icon(Icons.schedule, size: 14.0, color: Colors.white70);
+        return Icon(Icons.schedule, size: 14.0, color: Colors.grey[600]);
       case MessageStatus.sent:
         if (isRead) {
           return const Icon(Icons.done_all,
               size: 14.0, color: AppColors.primary);
         } else if (isDelivered) {
-          return const Icon(Icons.done_all, size: 14.0, color: Colors.white70);
+          return Icon(Icons.done_all, size: 14.0, color: Colors.grey[600]);
         } else {
-          return const Icon(Icons.done, size: 14.0, color: Colors.white70);
+          return Icon(Icons.done, size: 14.0, color: Colors.grey[600]);
         }
       case MessageStatus.failed:
         return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);

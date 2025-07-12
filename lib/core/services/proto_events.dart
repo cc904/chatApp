@@ -108,6 +108,9 @@ class ProtoEvents {
     /// 会话创建通知 → ConversationProto
     'conversation:created': () => conversation.ConversationProto(),
 
+    /// 会话添加通知 → ConversationCreateResponse
+    'conversation:added': () => conversation.ConversationCreateResponse(),
+
     /// 会话删除通知 → ConversationProto
     'conversation:deleted': () => conversation.ConversationProto(),
 
@@ -201,10 +204,6 @@ class ProtoEvents {
     'conversation:member:change': () =>
         conversation.ConversationMemberChangeRequest(),
 
-    /// 会话成员变更响应 → ConversationMemberChangeResponse
-    'conversation:member:changed:response': () =>
-        conversation.ConversationMemberChangeResponse(),
-
     /// 获取会话成员列表响应 → ConversationMembersResponse
     'conversation:members': () => conversation.ConversationMembersResponse(),
 
@@ -217,6 +216,23 @@ class ProtoEvents {
 
     /// 用户离开会话通知 → UserLeftNotification
     'conversation:user:left': () => conversation.UserLeftNotification(),
+
+    // ================================
+    // 退出会话管理 (Exit Management)
+    // ================================
+
+    /// 退出会话请求 → ConversationExitRequest
+    'conversation:exit': () => conversation.ConversationExitRequest(),
+
+    /// 退出会话响应 → ConversationExitResponse
+    'conversation:exit:response': () => conversation.ConversationExitResponse(),
+
+    /// 成员退出通知 → MemberExitedNotification
+    'conversation:member:exited': () => conversation.MemberExitedNotification(),
+
+    /// 会话移除通知 → ConversationRemovedNotification
+    'conversation:removed': () =>
+        conversation.ConversationRemovedNotification(),
 
     // ================================
     // 联系人相关事件 (Contact Events)

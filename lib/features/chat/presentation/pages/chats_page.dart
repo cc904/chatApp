@@ -9,12 +9,14 @@ import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/widgets/conversation_item.dart';
 import 'package:cc/core/database/models/conversation.dart';
+import 'dart:async';
 
 /// 消息页面
 ///
@@ -27,8 +29,11 @@ class ChatsPage extends StatefulWidget {
   State<ChatsPage> createState() => _ChatsPageState();
 }
 
+/// 💢💢💢 全局的 RouteObserver，用于监听路由变化
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 class _ChatsPageState extends State<ChatsPage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
   @override
   bool get wantKeepAlive => true;
 
@@ -43,6 +48,12 @@ class _ChatsPageState extends State<ChatsPage>
 
   /// 滚动控制器
   final ScrollController _scrollController = ScrollController();
+
+  /// 💢💢💢 页面是否可见状态标记
+  bool _isPageVisible = true;
+
+  /// 💢💢💢 最后一次同步时间
+  DateTime? _lastSyncTime;
 
   /// 搜索会话
   ///
@@ -81,22 +92,146 @@ class _ChatsPageState extends State<ChatsPage>
     final chatsCubit = context.read<ChatsCubit>();
     await chatsCubit.loadConversations();
     await chatsCubit.requestSyncConversations();
+    _lastSyncTime = DateTime.now();
+  }
+
+  /// 💢💢💢 页面重新显示时的同步检查
+  ///
+  /// 这是一个被动检查机制，只在页面重新显示或应用恢复前台时触发
+  /// 检查规则：
+  /// 1. 强制同步 (force = true)
+  /// 2. 首次同步 (_lastSyncTime == null)
+  /// 3. 距离上次同步超过30秒 (防止频繁同步)
+  ///
+  /// 注意：没有定时器后台运行，只在特定事件触发时才检查
+  Future<void> _checkAndSync({bool force = false}) async {
+    try {
+      final now = DateTime.now();
+      final shouldSync = force ||
+          _lastSyncTime == null ||
+          now.difference(_lastSyncTime!).inSeconds > 30;
+
+      if (shouldSync) {
+        _logger.i('ChatsPage 触发会话同步', extra: {
+          'trigger': force
+              ? 'force'
+              : _lastSyncTime == null
+                  ? 'first_time'
+                  : 'time_interval',
+          'force': force,
+          'lastSyncTime': _lastSyncTime?.toIso8601String(),
+          'timeSinceLastSync': _lastSyncTime != null
+              ? now.difference(_lastSyncTime!).inSeconds
+              : null,
+        });
+
+        final chatsCubit = context.read<ChatsCubit>();
+        await chatsCubit.requestSyncConversations();
+        _lastSyncTime = now;
+      } else {
+        _logger.d('ChatsPage 跳过同步，距离上次同步时间较短');
+      }
+    } catch (e) {
+      _logger.e('ChatsPage 同步检查失败', error: e);
+    }
   }
 
   @override
   void initState() {
     super.initState();
+
+    // 添加生命周期监听
+    WidgetsBinding.instance.addObserver(this);
+
     _searchController.addListener(_onSearchChanged);
     _searchFocusNode.addListener(_onSearchFocusChanged);
+
     _init();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 💢💢💢 注册 RouteObserver
+    final ModalRoute? route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+
+    _logger.d('ChatsPage didChangeDependencies 触发', extra: {
+      'isPageVisible': _isPageVisible,
+      'mounted': mounted,
+      'lastSyncTime': _lastSyncTime?.toIso8601String(),
+    });
+
+    // 移除强制同步，专注于诊断真正的触发机制
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // 💢💢💢 应用从后台恢复时触发同步
+    if (state == AppLifecycleState.resumed && _isPageVisible) {
+      _logger.i('应用从后台恢复，ChatsPage 触发同步');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _checkAndSync(force: true);
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    // 💢💢💢 取消 RouteObserver 订阅
+    routeObserver.unsubscribe(this);
+
+    // 移除生命周期监听
+    WidgetsBinding.instance.removeObserver(this);
+
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // 💢💢💢 RouteAware 生命周期方法
+  @override
+  void didPopNext() {
+    // 💢💢💢 当从其他页面返回到当前页面时触发
+    _logger.i('🚀🚀🚀 ChatsPage didPopNext 触发 - 用户从其他页面返回');
+    _isPageVisible = true;
+
+    // 检查并执行同步
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _logger.i('🚀🚀🚀 ChatsPage didPopNext 执行同步检查');
+        _checkAndSync(force: true); // 强制同步确保触发
+      }
+    });
+  }
+
+  @override
+  void didPushNext() {
+    // 💢💢💢 当从当前页面导航到其他页面时触发
+    _logger.d('ChatsPage didPushNext 触发 - 用户离开当前页面');
+    _isPageVisible = false;
+  }
+
+  @override
+  void didPush() {
+    // 💢💢💢 当页面首次被推入路由栈时触发
+    _logger.d('ChatsPage didPush 触发 - 页面首次显示');
+    _isPageVisible = true;
+  }
+
+  @override
+  void didPop() {
+    // 💢💢💢 当页面从路由栈中弹出时触发
+    _logger.d('ChatsPage didPop 触发 - 页面被移除');
+    _isPageVisible = false;
   }
 
   @override
@@ -410,6 +545,14 @@ class _ChatsPageState extends State<ChatsPage>
 
       // 右侧操作按钮区域
       actions: [
+        // 💢💢💢 手动同步按钮（调试用）
+        IconButton(
+          icon: const Icon(Icons.refresh, color: AppColors.primary),
+          onPressed: () {
+            _logger.i('🔄🔄🔄 手动触发同步');
+            _checkAndSync(force: true);
+          },
+        ),
         // 新建会话按钮
         IconButton(
           icon: const Icon(Icons.edit_square, color: AppColors.primary),

@@ -1,5 +1,6 @@
 import 'package:cc/core/proto/generated/user.pb.dart' as proto;
 import 'package:cc/core/database/models/user.dart';
+import 'package:flutter/material.dart';
 
 /// 显示名称工具类
 /// 统一处理联系人姓名显示的优先级逻辑
@@ -112,5 +113,82 @@ class DisplayNameUtils {
       return userProto.customNickname;
     }
     return null;
+  }
+
+  /// 生成显示名称
+  static String generateDisplayName(String? name, String? username) {
+    if (name != null && name.trim().isNotEmpty) {
+      return name.trim();
+    }
+
+    if (username != null && username.trim().isNotEmpty) {
+      return username.trim();
+    }
+
+    return '未知用户';
+  }
+
+  /// 基于用户名生成固定颜色
+  /// 使用用户名的hash值来确保相同名字总是对应相同颜色
+  static Color generateUserColor(String? name) {
+    if (name == null || name.trim().isEmpty) {
+      return Colors.grey[600]!; // 默认颜色
+    }
+
+    // 预定义的颜色列表，选择对比度好、视觉友好的颜色
+    final List<Color> colors = [
+      const Color(0xFF1976D2), // 蓝色
+      const Color(0xFF388E3C), // 绿色
+      const Color(0xFF7B1FA2), // 紫色
+      const Color(0xFFE64A19), // 橙红色
+      const Color(0xFF5D4037), // 棕色
+      const Color(0xFF00796B), // 青色
+      const Color(0xFFAF52DE), // 紫罗兰色
+      const Color(0xFFFF6F00), // 橙色
+      const Color(0xFF455A64), // 蓝灰色
+      const Color(0xFF8BC34A), // 浅绿色
+      const Color(0xFF9C27B0), // 品红色
+      const Color(0xFFFF5722), // 深橙色
+      const Color(0xFF607D8B), // 青灰色
+      const Color(0xFFFF9800), // 琥珀色
+      const Color(0xFF795548), // 深棕色
+      const Color(0xFF009688), // 蓝绿色
+    ];
+
+    // 使用用户名的hash值计算颜色索引
+    final int hash = name.trim().hashCode;
+    final int colorIndex = hash.abs() % colors.length;
+
+    return colors[colorIndex];
+  }
+
+  /// 获取用户名的首字母
+  static String getInitials(String? name) {
+    if (name == null || name.trim().isEmpty) {
+      return 'U';
+    }
+
+    final trimmedName = name.trim();
+    if (trimmedName.length == 1) {
+      return trimmedName.toUpperCase();
+    }
+
+    // 如果是中文名，取第一个字符
+    if (_isChinese(trimmedName)) {
+      return trimmedName.substring(0, 1);
+    }
+
+    // 如果是英文名，取首字母
+    final parts = trimmedName.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    } else {
+      return trimmedName[0].toUpperCase();
+    }
+  }
+
+  /// 判断字符串是否包含中文字符
+  static bool _isChinese(String text) {
+    return RegExp(r'[\u4e00-\u9fa5]').hasMatch(text);
   }
 }

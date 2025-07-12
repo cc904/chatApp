@@ -337,7 +337,7 @@ class MessageAdapter {
 
   /// 根据数据库消息创建对应的proto content结构
   static void _createProtoContent(
-      Message message,  message_proto.MessageProto protoMessage) {
+      Message message, message_proto.MessageProto protoMessage) {
     switch (message.type) {
       case MessageType.text:
         if (message.text != null) {
@@ -423,87 +423,12 @@ class MessageAdapter {
 
         protoMessage.systemMessage = systemMessage;
         break;
-
-      case MessageType.membership:
-        // 🆕 处理成员变动消息
-        final membershipMessage = message_proto.MembershipMessage();
-
-        // 设置事件类型
-        if (message.membershipEventType != null) {
-          try {
-            final eventType = message_proto.SystemEventType.values.firstWhere(
-              (e) => e.name == message.membershipEventType,
-              orElse: () => message_proto.SystemEventType.MEMBER_JOINED,
-            );
-            membershipMessage.eventType = eventType;
-          } catch (e) {
-            membershipMessage.eventType = message_proto.SystemEventType.MEMBER_JOINED;
-          }
-        }
-
-        // 设置操作者信息
-        if (message.membershipActor != null) {
-          final actorMap = _parseJsonMapStringDynamic(message.membershipActor!);
-          final actor = message_proto.MemberInfo(
-            userId: actorMap['userId']?.toString(),
-            userName: actorMap['userName']?.toString(),
-            userAvatar: actorMap['userAvatar']?.toString(),
-            role: actorMap['role'] as int?,
-            joinedAt: actorMap['joinedAt'] != null
-                ? Int64(actorMap['joinedAt'] as int)
-                : null,
-          );
-          membershipMessage.actor = actor;
-        }
-
-        // 设置受影响的成员列表
-        if (message.membershipAffectedMembers != null) {
-          final membersData = _parseJsonListMapStringDynamic(
-              message.membershipAffectedMembers!);
-          final members = membersData
-              .map((memberMap) => message_proto.MemberInfo(
-                    userId: memberMap['userId']?.toString(),
-                    userName: memberMap['userName']?.toString(),
-                    userAvatar: memberMap['userAvatar']?.toString(),
-                    role: memberMap['role'] as int?,
-                    joinedAt: memberMap['joinedAt'] != null
-                        ? Int64(memberMap['joinedAt'] as int)
-                        : null,
-                  ))
-              .toList();
-          membershipMessage.affectedMembers.addAll(members);
-        }
-
-        // 设置时间戳和角色变更信息
-        if (message.eventTimestamp != null) {
-          membershipMessage.eventTimestamp =
-              Int64(message.eventTimestamp!.millisecondsSinceEpoch);
-        }
-        if (message.membershipPreviousRole != null) {
-          membershipMessage.previousRole = message.membershipPreviousRole!;
-        }
-        if (message.membershipNewRole != null) {
-          membershipMessage.newRole = message.membershipNewRole!;
-        }
-        if (message.membershipRemovalReason != null) {
-          membershipMessage.removalReason = message.membershipRemovalReason!;
-        }
-        if (message.membershipInviteLink != null) {
-          membershipMessage.inviteLink = message.membershipInviteLink!;
-        }
-        if (message.membershipMetadata != null) {
-          final metadataMap =
-              _parseJsonMapStringString(message.membershipMetadata!);
-          membershipMessage.metadata.addAll(metadataMap);
-        }
-
-        protoMessage.membershipMessage = membershipMessage;
-        break;
     }
   }
 
   /// 批量转换：从Proto列表转换为Message列表
-  static List<Message> fromProtoList(List<message_proto.MessageProto> protoList) {
+  static List<Message> fromProtoList(
+      List<message_proto.MessageProto> protoList) {
     return protoList.map((proto) => fromProto(proto)).toList();
   }
 
@@ -527,8 +452,6 @@ class MessageAdapter {
         return MessageType.file;
       case message_proto.MessageType.SYSTEM:
         return MessageType.system;
-      case message_proto.MessageType.MEMBERSHIP:
-        return MessageType.membership;
       default:
         return MessageType.text;
     }
@@ -549,8 +472,6 @@ class MessageAdapter {
         return message_proto.MessageType.FILE;
       case MessageType.system:
         return message_proto.MessageType.SYSTEM;
-      case MessageType.membership:
-        return message_proto.MessageType.MEMBERSHIP;
     }
   }
 
@@ -564,7 +485,8 @@ class MessageAdapter {
   }
 
   /// 将Proto状态转换为MessageStatus枚举
-  static MessageStatus _protoStatusToMessageStatus(message_proto.MessageStatus status) {
+  static MessageStatus _protoStatusToMessageStatus(
+      message_proto.MessageStatus status) {
     switch (status) {
       case message_proto.MessageStatus.SENDING:
         return MessageStatus.sending;
@@ -586,7 +508,8 @@ class MessageAdapter {
   }
 
   /// 将MessageStatus枚举转换为Proto状态
-  static message_proto.MessageStatus _messageStatusToProtoStatus(MessageStatus status) {
+  static message_proto.MessageStatus _messageStatusToProtoStatus(
+      MessageStatus status) {
     switch (status) {
       case MessageStatus.sending:
         return message_proto.MessageStatus.SENDING;
@@ -632,26 +555,6 @@ class MessageAdapter {
       return map.map((key, value) => MapEntry(key, value.toString()));
     } catch (e) {
       return {};
-    }
-  }
-
-  /// 🆕 解析JSON字符串为Map<String, dynamic>
-  static Map<String, dynamic> _parseJsonMapStringDynamic(String jsonString) {
-    try {
-      return Map<String, dynamic>.from(jsonDecode(jsonString));
-    } catch (e) {
-      return {};
-    }
-  }
-
-  /// 🆕 解析JSON字符串为List<Map<String, dynamic>>
-  static List<Map<String, dynamic>> _parseJsonListMapStringDynamic(
-      String jsonString) {
-    try {
-      final List<dynamic> list = jsonDecode(jsonString);
-      return list.cast<Map<String, dynamic>>();
-    } catch (e) {
-      return [];
     }
   }
 }

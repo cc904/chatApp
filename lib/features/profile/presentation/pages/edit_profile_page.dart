@@ -598,12 +598,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   void _bindPhone() {
     // TODO: 实现手机号绑定功能
-    UINotificationService().showInfo('手机号绑定功能开发中');
+    UINotificationService().showInfo('功能暂未开放');
   }
 
   void _bindEmail() {
     // TODO: 实现邮箱绑定功能
-    UINotificationService().showInfo('邮箱绑定功能开发中');
+    UINotificationService().showInfo('功能暂未开放');
   }
 
   void _onBackPressed() {

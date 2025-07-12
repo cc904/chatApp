@@ -379,9 +379,9 @@ const MessageSchema = CollectionSchema(
         )
       ],
     ),
-    r'conversationId_messageIndex_createdAt': IndexSchema(
-      id: -2788030659683020195,
-      name: r'conversationId_messageIndex_createdAt',
+    r'conversationId_createdAt_messageIndex': IndexSchema(
+      id: -3655144521065939993,
+      name: r'conversationId_createdAt_messageIndex',
       unique: false,
       replace: false,
       properties: [
@@ -391,12 +391,12 @@ const MessageSchema = CollectionSchema(
           caseSensitive: true,
         ),
         IndexPropertySchema(
-          name: r'messageIndex',
+          name: r'createdAt',
           type: IndexType.value,
           caseSensitive: false,
         ),
         IndexPropertySchema(
-          name: r'createdAt',
+          name: r'messageIndex',
           type: IndexType.value,
           caseSensitive: false,
         )
@@ -1060,7 +1060,6 @@ const _MessagetypeEnumValueMap = {
   r'file': r'file',
   r'video': r'video',
   r'system': r'system',
-  r'membership': r'membership',
 };
 const _MessagetypeValueEnumMap = {
   r'text': MessageType.text,
@@ -1069,7 +1068,6 @@ const _MessagetypeValueEnumMap = {
   r'file': MessageType.file,
   r'video': MessageType.video,
   r'system': MessageType.system,
-  r'membership': MessageType.membership,
 };
 
 Id _messageGetId(Message object) {
@@ -1269,28 +1267,28 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToAnyMessageIndexCreatedAt(String conversationId) {
+      conversationIdEqualToAnyCreatedAtMessageIndex(String conversationId) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conversationId_messageIndex_createdAt',
+        indexName: r'conversationId_createdAt_messageIndex',
         value: [conversationId],
       ));
     });
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdNotEqualToAnyMessageIndexCreatedAt(String conversationId) {
+      conversationIdNotEqualToAnyCreatedAtMessageIndex(String conversationId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
+              indexName: r'conversationId_createdAt_messageIndex',
               lower: [],
               upper: [conversationId],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
+              indexName: r'conversationId_createdAt_messageIndex',
               lower: [conversationId],
               includeLower: false,
               upper: [],
@@ -1298,13 +1296,13 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
+              indexName: r'conversationId_createdAt_messageIndex',
               lower: [conversationId],
               includeLower: false,
               upper: [],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
+              indexName: r'conversationId_createdAt_messageIndex',
               lower: [],
               upper: [conversationId],
               includeUpper: false,
@@ -1314,46 +1312,46 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdMessageIndexEqualToAnyCreatedAt(
-          String conversationId, int messageIndex) {
+      conversationIdCreatedAtEqualToAnyMessageIndex(
+          String conversationId, DateTime createdAt) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conversationId_messageIndex_createdAt',
-        value: [conversationId, messageIndex],
+        indexName: r'conversationId_createdAt_messageIndex',
+        value: [conversationId, createdAt],
       ));
     });
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToMessageIndexNotEqualToAnyCreatedAt(
-          String conversationId, int messageIndex) {
+      conversationIdEqualToCreatedAtNotEqualToAnyMessageIndex(
+          String conversationId, DateTime createdAt) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
+              indexName: r'conversationId_createdAt_messageIndex',
               lower: [conversationId],
-              upper: [conversationId, messageIndex],
+              upper: [conversationId, createdAt],
               includeUpper: false,
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
-              lower: [conversationId, messageIndex],
+              indexName: r'conversationId_createdAt_messageIndex',
+              lower: [conversationId, createdAt],
               includeLower: false,
               upper: [conversationId],
             ));
       } else {
         return query
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
-              lower: [conversationId, messageIndex],
+              indexName: r'conversationId_createdAt_messageIndex',
+              lower: [conversationId, createdAt],
               includeLower: false,
               upper: [conversationId],
             ))
             .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
+              indexName: r'conversationId_createdAt_messageIndex',
               lower: [conversationId],
-              upper: [conversationId, messageIndex],
+              upper: [conversationId, createdAt],
               includeUpper: false,
             ));
       }
@@ -1361,15 +1359,15 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToMessageIndexGreaterThanAnyCreatedAt(
+      conversationIdEqualToCreatedAtGreaterThanAnyMessageIndex(
     String conversationId,
-    int messageIndex, {
+    DateTime createdAt, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_messageIndex_createdAt',
-        lower: [conversationId, messageIndex],
+        indexName: r'conversationId_createdAt_messageIndex',
+        lower: [conversationId, createdAt],
         includeLower: include,
         upper: [conversationId],
       ));
@@ -1377,125 +1375,24 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToMessageIndexLessThanAnyCreatedAt(
+      conversationIdEqualToCreatedAtLessThanAnyMessageIndex(
     String conversationId,
-    int messageIndex, {
+    DateTime createdAt, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_messageIndex_createdAt',
+        indexName: r'conversationId_createdAt_messageIndex',
         lower: [conversationId],
-        upper: [conversationId, messageIndex],
+        upper: [conversationId, createdAt],
         includeUpper: include,
       ));
     });
   }
 
   QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdEqualToMessageIndexBetweenAnyCreatedAt(
+      conversationIdEqualToCreatedAtBetweenAnyMessageIndex(
     String conversationId,
-    int lowerMessageIndex,
-    int upperMessageIndex, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_messageIndex_createdAt',
-        lower: [conversationId, lowerMessageIndex],
-        includeLower: includeLower,
-        upper: [conversationId, upperMessageIndex],
-        includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdMessageIndexCreatedAtEqualTo(
-          String conversationId, int messageIndex, DateTime createdAt) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'conversationId_messageIndex_createdAt',
-        value: [conversationId, messageIndex, createdAt],
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdMessageIndexEqualToCreatedAtNotEqualTo(
-          String conversationId, int messageIndex, DateTime createdAt) {
-    return QueryBuilder.apply(this, (query) {
-      if (query.whereSort == Sort.asc) {
-        return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
-              lower: [conversationId, messageIndex],
-              upper: [conversationId, messageIndex, createdAt],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
-              lower: [conversationId, messageIndex, createdAt],
-              includeLower: false,
-              upper: [conversationId, messageIndex],
-            ));
-      } else {
-        return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
-              lower: [conversationId, messageIndex, createdAt],
-              includeLower: false,
-              upper: [conversationId, messageIndex],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'conversationId_messageIndex_createdAt',
-              lower: [conversationId, messageIndex],
-              upper: [conversationId, messageIndex, createdAt],
-              includeUpper: false,
-            ));
-      }
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdMessageIndexEqualToCreatedAtGreaterThan(
-    String conversationId,
-    int messageIndex,
-    DateTime createdAt, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_messageIndex_createdAt',
-        lower: [conversationId, messageIndex, createdAt],
-        includeLower: include,
-        upper: [conversationId, messageIndex],
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdMessageIndexEqualToCreatedAtLessThan(
-    String conversationId,
-    int messageIndex,
-    DateTime createdAt, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_messageIndex_createdAt',
-        lower: [conversationId, messageIndex],
-        upper: [conversationId, messageIndex, createdAt],
-        includeUpper: include,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterWhereClause>
-      conversationIdMessageIndexEqualToCreatedAtBetween(
-    String conversationId,
-    int messageIndex,
     DateTime lowerCreatedAt,
     DateTime upperCreatedAt, {
     bool includeLower = true,
@@ -1503,10 +1400,111 @@ extension MessageQueryWhere on QueryBuilder<Message, Message, QWhereClause> {
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'conversationId_messageIndex_createdAt',
-        lower: [conversationId, messageIndex, lowerCreatedAt],
+        indexName: r'conversationId_createdAt_messageIndex',
+        lower: [conversationId, lowerCreatedAt],
         includeLower: includeLower,
-        upper: [conversationId, messageIndex, upperCreatedAt],
+        upper: [conversationId, upperCreatedAt],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdCreatedAtMessageIndexEqualTo(
+          String conversationId, DateTime createdAt, int messageIndex) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'conversationId_createdAt_messageIndex',
+        value: [conversationId, createdAt, messageIndex],
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdCreatedAtEqualToMessageIndexNotEqualTo(
+          String conversationId, DateTime createdAt, int messageIndex) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_createdAt_messageIndex',
+              lower: [conversationId, createdAt],
+              upper: [conversationId, createdAt, messageIndex],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_createdAt_messageIndex',
+              lower: [conversationId, createdAt, messageIndex],
+              includeLower: false,
+              upper: [conversationId, createdAt],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_createdAt_messageIndex',
+              lower: [conversationId, createdAt, messageIndex],
+              includeLower: false,
+              upper: [conversationId, createdAt],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'conversationId_createdAt_messageIndex',
+              lower: [conversationId, createdAt],
+              upper: [conversationId, createdAt, messageIndex],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdCreatedAtEqualToMessageIndexGreaterThan(
+    String conversationId,
+    DateTime createdAt,
+    int messageIndex, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'conversationId_createdAt_messageIndex',
+        lower: [conversationId, createdAt, messageIndex],
+        includeLower: include,
+        upper: [conversationId, createdAt],
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdCreatedAtEqualToMessageIndexLessThan(
+    String conversationId,
+    DateTime createdAt,
+    int messageIndex, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'conversationId_createdAt_messageIndex',
+        lower: [conversationId, createdAt],
+        upper: [conversationId, createdAt, messageIndex],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterWhereClause>
+      conversationIdCreatedAtEqualToMessageIndexBetween(
+    String conversationId,
+    DateTime createdAt,
+    int lowerMessageIndex,
+    int upperMessageIndex, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'conversationId_createdAt_messageIndex',
+        lower: [conversationId, createdAt, lowerMessageIndex],
+        includeLower: includeLower,
+        upper: [conversationId, createdAt, upperMessageIndex],
         includeUpper: includeUpper,
       ));
     });

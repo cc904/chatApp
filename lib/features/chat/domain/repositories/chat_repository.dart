@@ -1,6 +1,7 @@
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
 /// 搜索结果类
 /// 包含搜索相关的所有信息
@@ -194,6 +195,13 @@ abstract class ChatRepository {
   Stream<LoadingStateUpdate> getConversationLoadingStateStream(
       String conversationId);
 
+  /// 💢💢💢 会话更新事件流
+  /// 用于监听特定会话的状态变化（如会话移除等）
+  /// [conversationId] - 会话ID
+  /// 返回该会话的更新事件流
+  Stream<ConversationUpdateEvent> getConversationUpdateStream(
+      String conversationId);
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  会话成员管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 更新成员角色
@@ -224,6 +232,11 @@ abstract class ChatRepository {
 
   /// 用户离开会话页面
   Future<void> leaveConversationRoom(String conversationId);
+
+  /// 💢💢💢 新增：退出会话（真正退出，从数据库移除）
+  /// [conversationId] - 会话ID
+  /// [reason] - 退出原因（可选）
+  Future<bool> exitConversation(String conversationId, {String? reason});
 
   /// 💢💢💢 新增：外部通知消息更新事件
   /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化

@@ -11,14 +11,14 @@ class MessageListItemData extends MessageListItem {
   final bool isCurrentUser;
   final bool showAvatar;
   final bool showTail;
-  final bool isPrivateChat;
+  final bool isNotGroupChat;
 
   MessageListItemData({
     required this.message,
     required this.isCurrentUser,
     required this.showAvatar,
     required this.showTail,
-    required this.isPrivateChat,
+    required this.isNotGroupChat,
   });
 }
 

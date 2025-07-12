@@ -260,11 +260,33 @@ class TimezoneUtils {
   ///
   /// 用于聊天消息的日期分隔符显示
   ///
-  /// [utcTime] - UTC格式的时间
+  /// [utcTime] - UTC格式的时间，或已经转换为本地日期的DateTime
   /// 返回：格式化后的日期字符串
   static Future<String> formatDateSeparator(DateTime utcTime) async {
     try {
-      final localTime = await toUserTimezone(utcTime);
+      // 检测输入是否已经是本地日期（时分秒为00:00:00且非UTC）
+      final bool isAlreadyLocalDate = !utcTime.isUtc &&
+          utcTime.hour == 0 &&
+          utcTime.minute == 0 &&
+          utcTime.second == 0 &&
+          utcTime.millisecond == 0;
+
+      final DateTime localTime;
+      if (isAlreadyLocalDate) {
+        // 如果已经是本地日期，直接使用
+        localTime = utcTime;
+        _logger.d('🕐 检测到已转换的本地日期，直接使用', extra: {
+          'inputTime': utcTime.toIso8601String(),
+        });
+      } else {
+        // 否则进行时区转换
+        localTime = await toUserTimezone(utcTime);
+        _logger.d('🕐 对UTC时间进行时区转换', extra: {
+          'inputUtcTime': utcTime.toIso8601String(),
+          'convertedLocalTime': localTime.toIso8601String(),
+        });
+      }
+
       final now = await toUserTimezone(nowUtc());
 
       final today = DateTime(now.year, now.month, now.day);
@@ -272,13 +294,26 @@ class TimezoneUtils {
       final messageDate =
           DateTime(localTime.year, localTime.month, localTime.day);
 
+      _logger.d('🕐 日期分隔符格式化调试', extra: {
+        'messageDate': messageDate.toIso8601String(),
+        'today': today.toIso8601String(),
+        'yesterday': yesterday.toIso8601String(),
+        'now': now.toIso8601String(),
+        'localTime': localTime.toIso8601String(),
+        'inputUtcTime': utcTime.toIso8601String(),
+        'isAlreadyLocalDate': isAlreadyLocalDate,
+      });
+
       if (messageDate == today) {
+        _logger.d('🕐 日期分隔符格式化调试:今天');
         return '今天';
       } else if (messageDate == yesterday) {
+        _logger.d('🕐 日期分隔符格式化调试:昨天');
         return '昨天';
       } else if (now.difference(messageDate).inDays < 7) {
         // 一周内显示星期几
         final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+        _logger.d('🕐 日期分隔符格式化调试:一周内');
         return weekdays[localTime.weekday - 1];
       } else {
         // 超过一周显示具体日期
@@ -291,6 +326,54 @@ class TimezoneUtils {
     } catch (e) {
       _logger.e('❌ 日期分隔符格式化失败', error: e);
       return DateFormat('MM月dd日').format(utcTime);
+    }
+  }
+
+  /// 格式化本地日期分隔符
+  ///
+  /// 用于已经转换为本地时区的日期分隔符显示
+  ///
+  /// [localDate] - 本地时区的日期（只包含年月日，时分秒应为00:00:00）
+  /// 返回：格式化后的日期字符串
+  static Future<String> formatLocalDateSeparator(DateTime localDate) async {
+    try {
+      final now = await toUserTimezone(nowUtc());
+
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final messageDate =
+          DateTime(localDate.year, localDate.month, localDate.day);
+
+      _logger.d('🕐 本地日期分隔符格式化调试', extra: {
+        'messageDate': messageDate.toIso8601String(),
+        'today': today.toIso8601String(),
+        'yesterday': yesterday.toIso8601String(),
+        'now': now.toIso8601String(),
+        'localDate': localDate.toIso8601String(),
+      });
+
+      if (messageDate == today) {
+        _logger.d('🕐 本地日期分隔符格式化调试:今天');
+        return '今天';
+      } else if (messageDate == yesterday) {
+        _logger.d('🕐 本地日期分隔符格式化调试:昨天');
+        return '昨天';
+      } else if (now.difference(messageDate).inDays < 7) {
+        // 一周内显示星期几
+        final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+        _logger.d('🕐 本地日期分隔符格式化调试:一周内');
+        return weekdays[localDate.weekday - 1];
+      } else {
+        // 超过一周显示具体日期
+        if (localDate.year == now.year) {
+          return DateFormat('MM月dd日').format(localDate);
+        } else {
+          return DateFormat('yyyy年MM月dd日').format(localDate);
+        }
+      }
+    } catch (e) {
+      _logger.e('❌ 本地日期分隔符格式化失败', error: e);
+      return DateFormat('MM月dd日').format(localDate);
     }
   }
 

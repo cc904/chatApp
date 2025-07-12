@@ -21,7 +21,6 @@ class MessageType extends $pb.ProtobufEnum {
   static const MessageType FILE = MessageType._(3, _omitEnumNames ? '' : 'FILE');
   static const MessageType VIDEO = MessageType._(4, _omitEnumNames ? '' : 'VIDEO');
   static const MessageType SYSTEM = MessageType._(6, _omitEnumNames ? '' : 'SYSTEM');
-  static const MessageType MEMBERSHIP = MessageType._(7, _omitEnumNames ? '' : 'MEMBERSHIP');
 
   static const $core.List<MessageType> values = <MessageType> [
     TEXT,
@@ -30,7 +29,6 @@ class MessageType extends $pb.ProtobufEnum {
     FILE,
     VIDEO,
     SYSTEM,
-    MEMBERSHIP,
   ];
 
   static final $core.Map<$core.int, MessageType> _byValue = $pb.ProtobufEnum.initByValue(values);

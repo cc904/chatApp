@@ -14,6 +14,7 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
+import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 // import 'package:cc/core/proto/generated/message.pb.dart' show LoadingType;
 
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
@@ -157,6 +158,12 @@ class ChatCubit extends Cubit<ChatState> {
         });
         return;
       }
+
+      _logger.i('🔍 ------? 有未读消息', extra: {
+        'conversationId': _conversationId,
+        'firstUnreadMessageIndex': firstUnreadMessageIndex,
+        'lastMessageIndex': state.conversation.lastMessageIndex,
+      });
 
       final index = firstUnreadMessageIndex ??
           (state.conversation.lastMessageIndex == 0
@@ -466,6 +473,14 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
+    // 💢💢💢 新增：详细调试日志
+    // _logger.i('💢 updateCurrentScrollPosition 开始', extra: {
+    //   'positionsCount': positions.length,
+    //   'currentAnchorMessageId': state.currentScrollPosition.messageId,
+    //   'currentRelativePosition': state.currentScrollPosition.relativePosition,
+    //   'allVisibleIndices': positions.map((p) => p.index).toList(),
+    // });
+
     // 💢💢💢 修复：过滤掉日期分隔符的位置，只保留消息位置
     // 由于processedItems包含日期分隔符，我们需要找到真正的消息索引
     final validMessagePositions = positions.where((pos) {
@@ -492,6 +507,18 @@ class ChatCubit extends Cubit<ChatState> {
     // 💢💢💢 将processedItems索引转换为messages索引
     final listIndex =
         _convertProcessedIndexToMessageIndex(bottomPosition.index);
+
+    // 💢💢💢 详细调试：索引转换过程
+    _logger.d('💢 索引转换结果', extra: {
+      'bottomPositionIndex': bottomPosition.index,
+      'convertedListIndex': listIndex,
+      'messagesLength': state.messages.length,
+      'bottomPosition': {
+        'index': bottomPosition.index,
+        'leadingEdge': bottomPosition.itemLeadingEdge,
+        'trailingEdge': bottomPosition.itemTrailingEdge,
+      },
+    });
 
     // 💢💢💢 双重检查索引有效性
     if (listIndex >= 0 && listIndex < state.messages.length) {
@@ -549,19 +576,19 @@ class ChatCubit extends Cubit<ChatState> {
                   message.messageId == currentScrollPosition.messageId)
               .firstOrNull
               ?.messageIndex;
-          _logger.i('更新当前滚动位置（基于屏幕最底部消息锚点）', extra: {
-            'currentScrollPosition': currentScrollPosition,
-            'anchorMessageId': currentScrollPosition.messageId,
-            'currentScrollPositionMessageIndex':
-                currentScrollPositionMessageIndex,
-            'messageIdChanged': messageIdChanged,
-            'relativePositionChanged': relativePositionChanged,
-            'positionChanged': positionChanged,
-            'anchorType': 'screen_bottom_message', // 修正：明确是屏幕底部消息
-            'itemLeadingEdge':
-                bottomPosition.itemLeadingEdge, // 修正：使用itemLeadingEdge
-            'processedIndex': bottomPosition.index, // 添加：processedItems中的索引
-          });
+          // _logger.i('更新当前滚动位置（基于屏幕最底部消息锚点）', extra: {
+          //   'currentScrollPosition': currentScrollPosition,
+          //   'anchorMessageId': currentScrollPosition.messageId,
+          //   'currentScrollPositionMessageIndex':
+          //       currentScrollPositionMessageIndex,
+          //   'messageIdChanged': messageIdChanged,
+          //   'relativePositionChanged': relativePositionChanged,
+          //   'positionChanged': positionChanged,
+          //   'anchorType': 'screen_bottom_message', // 修正：明确是屏幕底部消息
+          //   'itemLeadingEdge':
+          //       bottomPosition.itemLeadingEdge, // 修正：使用itemLeadingEdge
+          //   'processedIndex': bottomPosition.index, // 添加：processedItems中的索引
+          // });
           emit(state.copyWith(
             currentScrollPosition: currentScrollPosition,
           ));
@@ -578,14 +605,14 @@ class ChatCubit extends Cubit<ChatState> {
 
     // 💢💢💢 重要：滚动加载逻辑移到这里，确保即使状态未更新也能触发
     // 这样可以保证滚动加载功能正常工作，而不依赖于状态更新
-    _logger.i('过滤状态', extra: {
-      'isSearchMode': state.isSearchMode,
-      'isCleaningMessages': state.isCleaningMessages,
-      'isLoadingMessages': state.isLoadingMessages,
-      'isLoadingMoreMessages': state.isLoadingMoreMessages,
-      'isFetching': state.isFetching,
-      'messagesCount': state.messages.length,
-    });
+    // _logger.i('过滤状态', extra: {
+    //   'isSearchMode': state.isSearchMode,
+    //   'isCleaningMessages': state.isCleaningMessages,
+    //   'isLoadingMessages': state.isLoadingMessages,
+    //   'isLoadingMoreMessages': state.isLoadingMoreMessages,
+    //   'isFetching': state.isFetching,
+    //   'messagesCount': state.messages.length,
+    // });
 
     if (!state.isSearchMode &&
         !state.isCleaningMessages &&
@@ -1793,6 +1820,15 @@ class ChatCubit extends Cubit<ChatState> {
         },
       );
 
+      // 💢💢💢 新增：监听当前会话的移除事件
+      _subscriptions['conversationUpdates'] =
+          _chatRepository.getConversationUpdateStream(_conversationId).listen(
+        _handleConversationUpdateEvent,
+        onError: (error) {
+          _logger.e('会话更新事件监听出错', error: error);
+        },
+      );
+
       // 保留必要的网络事件监听（如输入状态）
       _subscriptions['typingStatus'] =
           _chatRepository.getTypingStatusStream().listen(
@@ -1812,7 +1848,7 @@ class ChatCubit extends Cubit<ChatState> {
   void _handleMessageUpdate(MessagesEvent event) {
     if (isClosed) return;
 
-    _logger.i('📨 收到消息更新事件', extra: {'event': event.toString()});
+    _logger.i('📨 收到消息更新事件', extra: {'event': event.runtimeType.toString()});
 
     switch (event) {
       case MessageAddedEvent(
@@ -1825,9 +1861,7 @@ class ChatCubit extends Cubit<ChatState> {
           'newMessageCount': newMessages.length,
           'anchorMessageIndex': anchorMessageIndex,
           'newMessageDetails': newMessages.map((m) {
-            final text = m.text ?? 'no-text';
-            final preview = text.length > 20 ? text.substring(0, 20) : text;
-            return '${m.messageId}[${m.messageIndex}]$preview';
+            return '${m.messageIndex}';
           }).toList(),
         });
 
@@ -2125,22 +2159,23 @@ class ChatCubit extends Cubit<ChatState> {
 
     _logger.d('🔍 连续性检查：段分析', extra: {
       'segmentCount': continuousSegments.length,
-      'segments': continuousSegments.map((seg) => '${seg.first}-${seg.last}').toList(),
+      'segments':
+          continuousSegments.map((seg) => '${seg.first}-${seg.last}').toList(),
       'totalIndexes': allIndexes.length,
     });
 
     // 💢💢💢 改进：如果只有1-2个连续段，检查是否可以通过临时消息连接
     if (continuousSegments.length <= 2) {
       return _checkSegmentConnectivity(
-        continuousSegments, 
-        tempMessages, 
+        continuousSegments,
+        tempMessages,
         validMessages,
       );
     }
 
     // 💢💢💢 改进：如果段数过多，检查与会话边界的关系
     return _checkBoundaryConnectivity(
-      continuousSegments, 
+      continuousSegments,
       tempMessages,
     );
   }
@@ -2161,7 +2196,7 @@ class ChatCubit extends Cubit<ChatState> {
       // 两个段，检查是否可以连接
       final segment1 = segments[0]; // 较早的段
       final segment2 = segments[1]; // 较晚的段
-      
+
       final gap = segment2.first - segment1.last - 1; // 两段之间的间隙
 
       _logger.d('🔍 连续性检查：两段连接性', extra: {
@@ -2178,12 +2213,10 @@ class ChatCubit extends Cubit<ChatState> {
 
       if (gap > 0) {
         // 有间隙，检查是否有足够的临时消息填补
-        final segment1LastMsg = validMessages
-            .where((m) => m.messageIndex == segment1.last)
-            .first;
-        final segment2FirstMsg = validMessages
-            .where((m) => m.messageIndex == segment2.first)
-            .first;
+        final segment1LastMsg =
+            validMessages.where((m) => m.messageIndex == segment1.last).first;
+        final segment2FirstMsg =
+            validMessages.where((m) => m.messageIndex == segment2.first).first;
 
         final tempMessagesInGap = tempMessages.where((tempMsg) {
           return tempMsg.createdAt.isAfter(segment1LastMsg.createdAt) &&
@@ -2191,7 +2224,7 @@ class ChatCubit extends Cubit<ChatState> {
         }).toList();
 
         final canFillGap = tempMessagesInGap.length == gap;
-        
+
         _logger.d('🔍 连续性检查：间隙填补', extra: {
           'gapSize': gap,
           'tempMessagesInGap': tempMessagesInGap.length,
@@ -2217,7 +2250,7 @@ class ChatCubit extends Cubit<ChatState> {
     final conversationLastIndex = state.conversation.lastMessageIndex;
 
     _logger.d('🔍 连续性检查：单段边界', extra: {
-      'segmentRange': '${firstIndex}-${lastIndex}',
+      'segmentRange': '$firstIndex-$lastIndex',
       'conversationLastIndex': conversationLastIndex,
       'tempMessageCount': tempMessages.length,
     });
@@ -2245,7 +2278,7 @@ class ChatCubit extends Cubit<ChatState> {
         .length;
 
     // 如果临时消息数量合理，认为可以填补间隙
-    if (tempMessagesBeforeSegment >= frontGap || 
+    if (tempMessagesBeforeSegment >= frontGap ||
         tempMessages.length - tempMessagesBeforeSegment >= backGap) {
       _logger.d('🔍 连续性检查：临时消息可填补，返回true');
       return true;
@@ -2270,14 +2303,14 @@ class ChatCubit extends Cubit<ChatState> {
 
     _logger.d('🔍 连续性检查：多段边界', extra: {
       'segmentCount': segments.length,
-      'overallRange': '${overallFirstIndex}-${overallLastIndex}',
-      'conversationRange': '${conversationFirstIndex}-${conversationLastIndex}',
+      'overallRange': '$overallFirstIndex-$overallLastIndex',
+      'conversationRange': '$conversationFirstIndex-$conversationLastIndex',
       'tempMessageCount': tempMessages.length,
     });
 
     // 💢💢💢 改进：如果整体范围在会话边界内，且段数不太多（≤3），认为连续
-    if (segments.length <= 3 && 
-        overallFirstIndex >= conversationFirstIndex && 
+    if (segments.length <= 3 &&
+        overallFirstIndex >= conversationFirstIndex &&
         overallLastIndex <= conversationLastIndex) {
       _logger.d('🔍 连续性检查：多段在合理范围内，返回true');
       return true;
@@ -2448,6 +2481,39 @@ class ChatCubit extends Cubit<ChatState> {
         'previousLastReadMessageIndex': lastReadMessageIndex,
       });
     }
+  }
+
+  /// 💢💢💢 新增：处理会话更新事件
+  void _handleConversationUpdateEvent(ConversationUpdateEvent event) {
+    if (isClosed) return;
+
+    _logger.i('💔 收到会话更新事件', extra: {
+      'eventType': event.runtimeType.toString(),
+      'conversationId': event.conversationId,
+    });
+
+    // 处理会话移除事件
+    if (event is ConversationRemovedEvent) {
+      _logger.i('当前会话已被移除，需要导航回主页', extra: {
+        'conversationId': event.conversationId,
+      });
+
+      // 💢💢💢 添加导航状态，供UI层监听
+      emit(state.copyWith(
+        shouldNavigateBack: true,
+        errorMessage: '会话已退出',
+      ));
+    }
+  }
+
+  /// 💢💢💢 新增：重置导航状态
+  void resetNavigationState() {
+    if (isClosed) return;
+
+    emit(state.copyWith(
+      shouldNavigateBack: false,
+      errorMessage: null,
+    ));
   }
 
   /// 🔥 新增：处理会话元数据更新
@@ -2734,6 +2800,36 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 💢💢💢 新增：退出当前会话
+  Future<void> exitCurrentConversation({String? reason}) async {
+    try {
+      _logger.i('开始退出当前会话', extra: {
+        'conversationId': _conversationId,
+        'reason': reason,
+      });
+
+      final success = await _chatRepository.exitConversation(
+        _conversationId,
+        reason: reason,
+      );
+
+      if (success) {
+        _logger.i('退出会话请求发送成功');
+        // 不需要立即更新状态，等待服务器响应后会自动删除本地数据
+      } else {
+        _logger.w('退出会话请求发送失败');
+        emit(state.copyWith(
+          errorMessage: '退出会话失败，请重试',
+        ));
+      }
+    } catch (error) {
+      _logger.e('退出会话异常', error: error);
+      emit(state.copyWith(
+        errorMessage: '退出会话失败: ${error.toString()}',
+      ));
+    }
+  }
+
   /// 💢💢💢 新增：专门处理新消息的合并方法
   /// 检查新消息与现有消息是否连续(考虑临时乐观更新消息)
   /// 如果用户当前在底部，则添加滚动到最新消息
@@ -2786,7 +2882,7 @@ class ChatCubit extends Cubit<ChatState> {
       final latestMessage = mergedMessages.first; // 最新消息
       updatedScrollPosition = CurrentScrollPosition.fromAnchor(
         messageId: latestMessage.messageId,
-        relativePosition: 1.0, // 💢💢💢 修正：在reverse列表中，1.0表示物理屏幕顶部（最新消息位置）
+        relativePosition: 0.0, // 💢💢💢 修正：在reverse列表中，0.0表示物理屏幕顶部（最新消息位置）
       );
 
       _logger.i('🔖 用户在底部，设置滚动到最新消息', extra: {

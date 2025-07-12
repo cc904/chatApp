@@ -10,6 +10,13 @@ import 'package:cc/core/services/universal_search_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/features/chat/presentation/pages/chat_page.dart';
+import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/proto/generated/conversation.pb.dart'
+    as conversation_proto;
+import 'package:cc/core/database/models/conversation.dart';
+import 'dart:async';
 
 /// 添加联系人页面 - 仿微信风格
 class AddContactPage extends StatefulWidget {
@@ -399,14 +406,216 @@ class _AddContactPageState extends State<AddContactPage> {
       'conversationId': conversation.conversationId,
       'name': conversation.name,
       'type': conversation.type,
+      'isJoined': conversation.isJoined,
     });
 
-    // TODO: 实现加入群聊/频道逻辑
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(
-              '点击了${conversation.type == 'group' ? '群聊' : '频道'}: ${conversation.name}')),
+    if (conversation.isJoined) {
+      // 已加入，直接进入聊天页面
+      _openConversation(conversation);
+    } else {
+      // 未加入，显示加入确认对话框
+      _showJoinConfirmation(conversation);
+    }
+  }
+
+  /// 直接打开会话聊天页面
+  void _openConversation(SearchConversationResult conversation) {
+    try {
+      _logger.i('进入已加入的会话', extra: {
+        'conversationId': conversation.conversationId,
+        'name': conversation.name,
+      });
+
+      // 获取必要的Provider依赖
+      final chatsRepository = context.read<ChatsRepository>();
+      final chatRepository = context.read<ChatRepository>();
+      final chatRepositorySend = context.read<ChatRepositorySend>();
+
+      // 关闭底部弹窗
+      Navigator.pop(context);
+
+      // 导航到聊天页面
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<ChatRepository>.value(value: chatRepository),
+              RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+              RepositoryProvider<ChatRepositorySend>.value(
+                  value: chatRepositorySend),
+            ],
+            child: FutureBuilder<Conversation?>(
+              future: chatsRepository
+                  .getConversationById(conversation.conversationId),
+              builder: (context, snapshot) {
+                // 创建基本的会话对象
+                final conversationObj = snapshot.data ??
+                    (Conversation()
+                      ..conversationId = conversation.conversationId
+                      ..name = conversation.name
+                      ..avatar = conversation.avatar
+                      ..type = conversation.type == 'group'
+                          ? ConversationType.group
+                          : conversation.type == 'channel'
+                              ? ConversationType.channel
+                              : ConversationType.private
+                      ..description = conversation.description
+                      ..createdAt = DateTime.now());
+
+                return BlocProvider<ChatCubit>(
+                  create: (context) => ChatCubit(
+                    chatRepository: chatRepository,
+                    chatRepositorySend: chatRepositorySend,
+                    chatsRepository: chatsRepository,
+                    currentUser: CurrentUser()..userId = '', // 会被ChatCubit正确初始化
+                    initialConversation: conversationObj,
+                  ),
+                  child: ChatPage(
+                    conversationId: conversation.conversationId,
+                    initialConversation: conversationObj,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      _logger.e('打开会话失败', error: error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('打开会话失败: $error')),
+      );
+    }
+  }
+
+  /// 显示加入会话的确认对话框
+  void _showJoinConfirmation(SearchConversationResult conversation) {
+    final typeLabel = conversation.type == 'group' ? '群聊' : '频道';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('加入$typeLabel'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('确定要加入$typeLabel "${conversation.name}" 吗？'),
+              if (conversation.description.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '描述：',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  conversation.description,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+              if (conversation.participantCount > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '成员数量：${conversation.participantCount}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _requestJoinConversation(conversation);
+              },
+              child: const Text('加入'),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  /// 请求加入会话（群聊/频道）
+  Future<void> _requestJoinConversation(
+      SearchConversationResult conversation) async {
+    try {
+      _logger.i('发送加入会话请求', extra: {
+        'conversationId': conversation.conversationId,
+        'conversationName': conversation.name,
+      });
+
+      // 检查网络连接
+      final isConnected = CommunicationService().isConnected;
+      if (!isConnected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('网络连接断开，请检查网络后重试')),
+        );
+        return;
+      }
+
+      // 获取当前用户信息
+      final currentUser = context.read<CurrentUser>();
+
+      // 创建加入请求
+      final joinRequest = conversation_proto.ConversationMemberChangeRequest()
+        ..conversationId = conversation.conversationId
+        ..userId = currentUser.userId
+        ..action = 'join'; // 用户主动申请加入
+
+      _logger.d('发送加入会话请求', extra: {
+        'conversationId': conversation.conversationId,
+        'action': 'join',
+        'userId': currentUser.userId,
+      });
+
+      // 发送请求
+      final success = await CommunicationService().emitProto(
+        'conversation:member:change',
+        joinRequest,
+      );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加入请求已发送，等待管理员审批')),
+        );
+        _logger.i('加入请求发送成功', extra: {
+          'conversationId': conversation.conversationId,
+        });
+
+        // 关闭搜索页面
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('发送加入请求失败，请重试')),
+        );
+        _logger.w('加入请求发送失败', extra: {
+          'conversationId': conversation.conversationId,
+        });
+      }
+    } catch (error, stackTrace) {
+      _logger.e('请求加入会话失败', error: error, stackTrace: stackTrace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('请求加入会话失败：${error.toString()}')),
+      );
+    }
   }
 
   @override
@@ -794,21 +1003,7 @@ class _AddContactPageState extends State<AddContactPage> {
           onTap: () {
             // TODO: 实现扫码功能
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('扫码功能开发中...')),
-            );
-          },
-        ),
-
-        // 联系人
-        _buildOptionItem(
-          icon: Icons.person_add,
-          iconColor: const Color(0xFF07C160),
-          title: '联系人',
-          subtitle: '通过ID添加联系人',
-          onTap: () {
-            // TODO: 实现添加联系人功能
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('添加联系人功能开发中...')),
+              const SnackBar(content: Text('功能暂未开放')),
             );
           },
         ),

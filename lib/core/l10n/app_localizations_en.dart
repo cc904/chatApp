@@ -142,6 +142,91 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deleteGroup => 'Delete Group';
 
+  // 角色相关
+  @override
+  String get owner => 'Owner';
+  @override
+  String get admin => 'Admin';
+  @override
+  String get member => 'Member';
+
+  // 描述相关
+  @override
+  String get description => 'Description';
+
+  // 操作相关
+  @override
+  String get block => 'Block';
+  @override
+  String get remove => 'Remove';
+  @override
+  String get editContact => 'Edit Contact';
+  @override
+  String get report => 'Report';
+  @override
+  String get clearChatHistory => 'Clear Chat History';
+
+  // 功能开发提示
+  @override
+  String get featureInDevelopment => 'Feature Not Available';
+  @override
+  String get voiceCallInDevelopment => 'Feature Not Available';
+  @override
+  String get videoCallInDevelopment => 'Feature Not Available';
+  @override
+  String get blockUserInDevelopment => 'Feature Not Available';
+  @override
+  String get clearChatInDevelopment => 'Feature Not Available';
+  @override
+  String get featureNotAvailable =>
+      'This feature is not yet available\nPlease stay tuned';
+  @override
+  String get pleaseStayTuned => 'Please stay tuned for updates';
+
+  // 成员管理
+  @override
+  String get removeMember => 'Remove Member';
+  @override
+  String get blockMember => 'Block Member';
+  @override
+  String confirmRemoveMember(String name) =>
+      'Are you sure you want to remove $name from the group?';
+  @override
+  String confirmBlockMember(String name) =>
+      'Are you sure you want to block $name? Blocked members will not be able to send messages.';
+  @override
+  String get toggleAdminRole => 'Toggle Admin Role';
+  @override
+  String get removeAdminRole => 'Remove Admin Role';
+  @override
+  String get setAsAdmin => 'Set as Admin';
+  @override
+  String confirmRemoveAdminRole(String name) =>
+      'Are you sure you want to remove admin privileges from $name?';
+  @override
+  String confirmSetAsAdmin(String name) =>
+      'Are you sure you want to make $name an admin? Admins can manage group members and settings.';
+  @override
+  String get adminCanManageMembers =>
+      'Admins can manage group members and settings';
+  @override
+  String memberRemoved(String name) => '$name removed';
+  @override
+  String memberBlocked(String name) => '$name blocked';
+  @override
+  String get adminRoleUpdated => 'Admin role updated';
+  @override
+  String removeAdminRoleSuccess(String name) =>
+      'Removed admin privileges from $name';
+  @override
+  String setAsAdminSuccess(String name) => '$name set as admin successfully';
+  @override
+  String get operationFailed => 'Operation failed';
+  @override
+  String blockMemberFailed(String error) => 'Failed to block member: $error';
+  @override
+  String get toggleAdminFailed => 'Failed to toggle admin role';
+
   // 联系人相关
   @override
   String get contacts => 'Contacts';
@@ -234,6 +319,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unmute => 'Unmute';
   @override
   String get more => 'More';
+  @override
+  String get less => 'Less';
   @override
   String get leave => 'Leave';
   @override
@@ -597,7 +684,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Recording failed, please check microphone permission';
 
   @override
-  String get videoRecordingComingSoon => 'Video recording feature coming soon';
+  String get videoRecordingComingSoon => 'Feature Not Available';
 
   @override
   String get macOSGalleryTip => 'Will select image from gallery on macOS';
@@ -639,7 +726,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactOption => 'Contact';
 
   @override
-  String get contactFeatureComingSoon => 'Contact feature coming soon...';
+  String get contactFeatureComingSoon => 'Feature Not Available';
 
   @override
   String get recordVideo => 'Record Video';
@@ -661,7 +748,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get longPressRecord => 'Long press to record';
 
   @override
-  String get revokeFeatureComingSoon => 'Revoke feature coming soon';
+  String get revokeFeatureComingSoon => 'Feature Not Available';
 
   @override
   String get messageRevoked => 'Message revoked';

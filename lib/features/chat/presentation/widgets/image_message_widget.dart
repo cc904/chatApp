@@ -306,6 +306,14 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
   /// 重试加载
   void _retryLoad() {
+    _logger.i('用户点击重试按钮');
+    setState(() {
+      _hasError = false;
+      _isLoading = true;
+      _imageProvider = null;
+      _isShowingThumbnail = false;
+      _isDownloadingOriginal = false;
+    });
     _initializeImage();
   }
 
@@ -315,9 +323,88 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     final maxWidth = widget.maxWidth ?? screenSize.width * 0.6;
     final maxHeight = widget.maxHeight ?? screenSize.height * 0.4;
 
-    return GestureDetector(
-      onTap: _hasError ? _retryLoad : _onImageTap,
-      child: Container(
+    // 检查是否有caption文字
+    final hasCaption = widget.message.caption != null &&
+        widget.message.caption!.trim().isNotEmpty;
+
+    if (hasCaption) {
+      // 图片 + 文字组合形式
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 图片部分
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+              minWidth: 120.0,
+              minHeight: 80.0,
+            ),
+            child: AspectRatio(
+              aspectRatio: _calculateAspectRatio(),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(8.0),
+                child: InkWell(
+                  onTap: _hasError ? _retryLoad : _onImageTap,
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8.0),
+                      topRight: Radius.circular(8.0),
+                      bottomLeft: Radius.circular(0.0),
+                      bottomRight: Radius.circular(0.0),
+                    ),
+                    child: Stack(
+                      children: [
+                        _buildImageContent(),
+                        // 显示下载进度指示器
+                        if (_isDownloadingOriginal && _isShowingThumbnail)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withAlpha(128),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 文字说明部分
+          const SizedBox(height: 6),
+          Container(
+            width: maxWidth,
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              widget.message.caption!,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 14.0,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      // 纯图片形式
+      return Container(
         constraints: BoxConstraints(
           maxWidth: maxWidth,
           maxHeight: maxHeight,
@@ -326,45 +413,52 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         ),
         child: AspectRatio(
           aspectRatio: _calculateAspectRatio(),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8.0),
+            child: InkWell(
+              onTap: _hasError ? _retryLoad : _onImageTap,
               borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: Stack(
-                children: [
-                  _buildImageContent(),
-                  // 显示下载进度指示器
-                  if (_isDownloadingOriginal && _isShowingThumbnail)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withAlpha(128),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8.0),
+                  topRight: Radius.circular(8.0),
+                  bottomLeft: Radius.circular(0.0),
+                  bottomRight: Radius.circular(0.0),
+                ),
+                child: Stack(
+                  children: [
+                    _buildImageContent(),
+                    // 显示下载进度指示器
+                    if (_isDownloadingOriginal && _isShowingThumbnail)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(128),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   /// 构建图片内容
@@ -396,7 +490,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 构建加载状态Widget
   Widget _buildLoadingWidget() {
     return Container(
-      color: Colors.grey[300],
+      color: Colors.grey[200],
       child: const Center(
         child: CircularProgressIndicator(),
       ),
@@ -406,25 +500,13 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 构建错误状态Widget
   Widget _buildErrorWidget() {
     return Container(
-      color: Colors.grey[300],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.broken_image,
-            color: Colors.grey[600],
-            size: 40,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _hasError ? '点击重试' : '图片加载失败',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      color: Colors.grey[200],
+      child: Center(
+        child: Icon(
+          Icons.refresh,
+          color: Colors.grey[600],
+          size: 32,
+        ),
       ),
     );
   }
