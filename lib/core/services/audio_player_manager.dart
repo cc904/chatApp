@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:just_audio/just_audio.dart';
 import 'package:cc/core/services/log_service.dart';
 
@@ -95,13 +96,26 @@ class AudioPlayerManager {
 
       // 设置音频源
       if (audioPath.startsWith('http')) {
+        _logger.i('🌐 设置网络音频源: $audioPath');
         await _player!.setUrl(audioPath);
+        _logger.i('✅ 网络音频源设置成功');
       } else {
         String effectivePath = audioPath;
         if (audioPath.startsWith('file://')) {
           effectivePath = audioPath.substring(7);
         }
+        
+        _logger.i('📁 设置本地音频源: $effectivePath');
+        
+        // 检查本地文件是否存在（仅用于调试信息）
+        final file = File(effectivePath);
+        if (!await file.exists()) {
+          _logger.w('⚠️ 本地音频文件不存在，将尝试播放: $effectivePath');
+          // 不抛出异常，让just_audio处理文件不存在的情况
+        }
+        
         await _player!.setFilePath(effectivePath);
+        _logger.i('✅ 本地音频源设置成功');
       }
 
       // 获取时长
@@ -116,6 +130,17 @@ class AudioPlayerManager {
       _logger.i('✅ 播放开始: $messageId');
     } catch (error) {
       _logger.e('❌ 播放失败', error: error);
+      
+      // 添加详细的错误信息
+      if (error.toString().contains('-11800')) {
+        _logger.e('❌ 音频解码错误 (-11800): 可能的原因 - 网络连接问题、音频格式不支持、或文件损坏');
+        
+        // 对于网络音频，给出更具体的提示
+        if (audioPath.startsWith('http')) {
+          _logger.e('❌ 网络音频播放失败，建议检查网络连接或服务器状态');
+        }
+      }
+      
       await _reset();
       rethrow;
     }

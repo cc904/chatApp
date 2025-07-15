@@ -1,5 +1,6 @@
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
@@ -174,10 +175,33 @@ class _ChatsPageState extends State<ChatsPage>
 
     // 💢💢💢 应用从后台恢复时触发同步
     if (state == AppLifecycleState.resumed && _isPageVisible) {
-      _logger.i('应用从后台恢复，ChatsPage 触发同步');
+      _logger.i('应用从后台恢复，ChatsPage 检查是否需要同步');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _checkAndSync(force: true);
+          // 💢💢💢 重要：检查当前是否是可见的Tab页面
+          // ChatsPage是索引0，只有当前Tab索引为0时才执行同步
+          try {
+            final homeCubit = context.read<HomeCubit>();
+            final currentTabIndex = homeCubit.state.currentTabIndex;
+            final isCurrentTabVisible = currentTabIndex == 0;
+            
+            _logger.i('ChatsPage 应用恢复检查可见性', extra: {
+              'currentTabIndex': currentTabIndex,
+              'isChatsTabVisible': isCurrentTabVisible,
+              'shouldSync': isCurrentTabVisible,
+            });
+
+            if (isCurrentTabVisible) {
+              _logger.i('ChatsPage 当前可见且应用恢复，执行同步');
+              _checkAndSync(force: true);
+            } else {
+              _logger.d('ChatsPage 当前不可见，跳过应用恢复同步');
+            }
+          } catch (e) {
+            // 如果获取HomeCubit失败，作为fallback还是执行同步
+            _logger.w('ChatsPage 无法获取HomeCubit，执行fallback同步', extra: {'error': e.toString()});
+            _checkAndSync(force: true);
+          }
         }
       });
     }
@@ -207,8 +231,30 @@ class _ChatsPageState extends State<ChatsPage>
     // 检查并执行同步
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _logger.i('🚀🚀🚀 ChatsPage didPopNext 执行同步检查');
-        _checkAndSync(force: true); // 强制同步确保触发
+        // 💢💢💢 重要：检查当前是否是可见的Tab页面
+        // ChatsPage是索引0，只有当前Tab索引为0时才执行同步
+        try {
+          final homeCubit = context.read<HomeCubit>();
+          final currentTabIndex = homeCubit.state.currentTabIndex;
+          final isCurrentTabVisible = currentTabIndex == 0;
+          
+          _logger.i('🚀🚀🚀 ChatsPage didPopNext 检查可见性', extra: {
+            'currentTabIndex': currentTabIndex,
+            'isChatsTabVisible': isCurrentTabVisible,
+            'shouldSync': isCurrentTabVisible,
+          });
+
+          if (isCurrentTabVisible) {
+            _logger.i('🚀🚀🚀 ChatsPage 当前可见，执行同步');
+            _checkAndSync(force: true); // 强制同步确保触发
+          } else {
+            _logger.d('ChatsPage 当前不可见，跳过同步');
+          }
+        } catch (e) {
+          // 如果获取HomeCubit失败，作为fallback还是执行同步
+          _logger.w('ChatsPage 无法获取HomeCubit，执行fallback同步', extra: {'error': e.toString()});
+          _checkAndSync(force: true);
+        }
       }
     });
   }

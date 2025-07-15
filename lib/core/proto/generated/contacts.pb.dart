@@ -15,7 +15,7 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'contacts.pbenum.dart';
-import 'user.pb.dart' as $0;
+import 'user.pb.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -210,7 +210,7 @@ class SyncContactsRequest extends $pb.GeneratedMessage {
 /// Socket.io事件: contact:sync:response
 class SyncContactsResponse extends $pb.GeneratedMessage {
   factory SyncContactsResponse({
-    $core.Iterable<$0.UserProto>? contacts,
+    $core.Iterable<$1.UserProto>? contacts,
     $fixnum.Int64? syncTime,
   }) {
     final $result = create();
@@ -227,7 +227,7 @@ class SyncContactsResponse extends $pb.GeneratedMessage {
   factory SyncContactsResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SyncContactsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..pc<$0.UserProto>(1, _omitFieldNames ? '' : 'contacts', $pb.PbFieldType.PM, subBuilder: $0.UserProto.create)
+    ..pc<$1.UserProto>(1, _omitFieldNames ? '' : 'contacts', $pb.PbFieldType.PM, subBuilder: $1.UserProto.create)
     ..aInt64(2, _omitFieldNames ? '' : 'syncTime')
     ..hasRequiredFields = false
   ;
@@ -256,7 +256,7 @@ class SyncContactsResponse extends $pb.GeneratedMessage {
   /// 联系人列表
   /// 包含所有好友的基本信息
   @$pb.TagNumber(1)
-  $pb.PbList<$0.UserProto> get contacts => $_getList(0);
+  $pb.PbList<$1.UserProto> get contacts => $_getList(0);
 
   /// 同步时间（毫秒时间戳）
   @$pb.TagNumber(2)
@@ -493,7 +493,7 @@ class GetFriendsRequest extends $pb.GeneratedMessage {
 /// 服务器返回好友列表
 class GetFriendsResponse extends $pb.GeneratedMessage {
   factory GetFriendsResponse({
-    $core.Iterable<$0.UserProto>? friends,
+    $core.Iterable<$1.UserProto>? friends,
   }) {
     final $result = create();
     if (friends != null) {
@@ -506,7 +506,7 @@ class GetFriendsResponse extends $pb.GeneratedMessage {
   factory GetFriendsResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetFriendsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..pc<$0.UserProto>(1, _omitFieldNames ? '' : 'friends', $pb.PbFieldType.PM, subBuilder: $0.UserProto.create)
+    ..pc<$1.UserProto>(1, _omitFieldNames ? '' : 'friends', $pb.PbFieldType.PM, subBuilder: $1.UserProto.create)
     ..hasRequiredFields = false
   ;
 
@@ -533,7 +533,7 @@ class GetFriendsResponse extends $pb.GeneratedMessage {
 
   /// 好友列表
   @$pb.TagNumber(1)
-  $pb.PbList<$0.UserProto> get friends => $_getList(0);
+  $pb.PbList<$1.UserProto> get friends => $_getList(0);
 }
 
 /// 获取好友请求列表请求消息
@@ -914,7 +914,7 @@ class UpdateContactResponse extends $pb.GeneratedMessage {
   factory UpdateContactResponse({
     $core.bool? success,
     $core.String? message,
-    $0.UserProto? contact,
+    $1.UserProto? contact,
     $core.Iterable<$core.String>? updatedFields,
     $fixnum.Int64? timestamp,
   }) {
@@ -943,7 +943,7 @@ class UpdateContactResponse extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateContactResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'message')
-    ..aOM<$0.UserProto>(3, _omitFieldNames ? '' : 'contact', subBuilder: $0.UserProto.create)
+    ..aOM<$1.UserProto>(3, _omitFieldNames ? '' : 'contact', subBuilder: $1.UserProto.create)
     ..pPS(4, _omitFieldNames ? '' : 'updatedFields')
     ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
     ..hasRequiredFields = false
@@ -992,15 +992,15 @@ class UpdateContactResponse extends $pb.GeneratedMessage {
 
   /// 更新后的联系人信息
   @$pb.TagNumber(3)
-  $0.UserProto get contact => $_getN(2);
+  $1.UserProto get contact => $_getN(2);
   @$pb.TagNumber(3)
-  set contact($0.UserProto v) { $_setField(3, v); }
+  set contact($1.UserProto v) { $_setField(3, v); }
   @$pb.TagNumber(3)
   $core.bool hasContact() => $_has(2);
   @$pb.TagNumber(3)
   void clearContact() => $_clearField(3);
   @$pb.TagNumber(3)
-  $0.UserProto ensureContact() => $_ensure(2);
+  $1.UserProto ensureContact() => $_ensure(2);
 
   /// 更新的字段列表
   /// 用于标识哪些字段发生了变化
@@ -1023,7 +1023,7 @@ class UpdateContactResponse extends $pb.GeneratedMessage {
 /// Socket.io事件: contact:updated
 class ContactUpdateEvent extends $pb.GeneratedMessage {
   factory ContactUpdateEvent({
-    $0.UserProto? contact,
+    $1.UserProto? contact,
     $core.Iterable<$core.String>? updatedFields,
     $fixnum.Int64? timestamp,
     $core.String? updateSource,
@@ -1048,7 +1048,7 @@ class ContactUpdateEvent extends $pb.GeneratedMessage {
   factory ContactUpdateEvent.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ContactUpdateEvent', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..aOM<$0.UserProto>(1, _omitFieldNames ? '' : 'contact', subBuilder: $0.UserProto.create)
+    ..aOM<$1.UserProto>(1, _omitFieldNames ? '' : 'contact', subBuilder: $1.UserProto.create)
     ..pPS(2, _omitFieldNames ? '' : 'updatedFields')
     ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
     ..aOS(4, _omitFieldNames ? '' : 'updateSource')
@@ -1078,15 +1078,15 @@ class ContactUpdateEvent extends $pb.GeneratedMessage {
 
   /// 更新的联系人信息
   @$pb.TagNumber(1)
-  $0.UserProto get contact => $_getN(0);
+  $1.UserProto get contact => $_getN(0);
   @$pb.TagNumber(1)
-  set contact($0.UserProto v) { $_setField(1, v); }
+  set contact($1.UserProto v) { $_setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasContact() => $_has(0);
   @$pb.TagNumber(1)
   void clearContact() => $_clearField(1);
   @$pb.TagNumber(1)
-  $0.UserProto ensureContact() => $_ensure(0);
+  $1.UserProto ensureContact() => $_ensure(0);
 
   /// 更新的字段列表
   @$pb.TagNumber(2)

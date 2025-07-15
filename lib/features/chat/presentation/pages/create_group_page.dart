@@ -227,12 +227,17 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
         // 获取当前用户
         final navigator = Navigator.of(context);
+        final secureStorageService = SecureStorageService();
 
         try {
+          // 获取当前用户信息
+          final currentUser = await secureStorageService.readUserCredentials();
+          final currentUserId = currentUser?.userId ?? '';
+
           // 构建会话对象
           final conversation = ConversationAdapter.fromProto(
             response.conversation,
-            currentUserId: '', // 暂时为空，会在ChatCubit中正确设置
+            currentUserId: currentUserId,
           );
 
           // 🆕 重要：保存会话到本地数据库
@@ -270,8 +275,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     chatRepository: chatRepository,
                     chatRepositorySend: chatRepositorySend,
                     chatsRepository: chatsRepository,
-                    currentUser: CurrentUser()
-                      ..userId = '', // 这会被ChatCubit正确初始化
+                    currentUser: currentUser ?? (CurrentUser()..userId = ''),
                     initialConversation: conversation,
                   ),
                   child: ChatPage(

@@ -51,5 +51,11 @@
 	<string>需要访问相机以拍摄照片</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>需要访问麦克风以录制语音消息</string>
+	<!-- 通知相关配置 -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>background-processing</string>
+	</array>
 </dict>
 </plist>

@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(flutter pub:*)",
-      "Bash(flutter:*)"
+      "Bash(flutter:*)",
+      "Bash(ls:*)",
+      "Bash(./gradlew:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:api.flutter.dev)",
+      "Bash(./scripts/generate_protos.sh:*)",
+      "Bash(adb:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(xmllint:*)",
+      "Bash(rm:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

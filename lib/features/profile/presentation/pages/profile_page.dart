@@ -16,11 +16,19 @@ import 'package:cc/features/profile/presentation/pages/my_qr_code_page.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cc/features/profile/presentation/pages/language_settings_page.dart';
+import 'package:cc/features/profile/presentation/pages/notification_settings_page.dart';
+import 'package:cc/features/profile/presentation/pages/account_security_page.dart';
+import 'package:cc/features/profile/presentation/pages/about_page.dart';
+import 'package:cc/features/profile/presentation/pages/version_info_page.dart';
+import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
+import 'package:cc/core/services/user_service.dart';
+import 'package:cc/features/chat/presentation/pages/chats_page.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'dart:async';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -30,7 +38,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver, RouteAware {
   static final _logger = LogService.instance;
 
   // 直接创建ProfileCubit，不需要复杂的初始化逻辑
@@ -38,6 +46,68 @@ class _ProfilePageState extends State<ProfilePage>
 
   // 复制按钮状态
   bool _isCopied = false;
+
+  // 💢💢💢 页面是否可见状态标记
+  bool _isPageVisible = true;
+
+  // 💢💢💢 最后一次同步时间
+  DateTime? _lastSyncTime;
+
+  // 用户信息更新流订阅
+  StreamSubscription<CurrentUser>? _userUpdateSubscription;
+
+  /// 获取通知状态
+  Future<Map<String, dynamic>> _getNotificationStatus() async {
+    return NotificationSettingsService.instance.getSettingsStatus();
+  }
+
+  /// 💢💢💢 页面重新显示时的同步检查
+  ///
+  /// 这是一个被动检查机制，只在页面重新显示或应用恢复前台时触发
+  /// 检查规则：
+  /// 1. 强制同步 (force = true)
+  /// 2. 首次同步 (_lastSyncTime == null)
+  /// 3. 距离上次同步超过30秒 (防止频繁同步)
+  ///
+  /// 注意：没有定时器后台运行，只在特定事件触发时才检查
+  Future<void> _checkAndSync({bool force = false}) async {
+    try {
+      final now = DateTime.now();
+      final shouldSync = force ||
+          _lastSyncTime == null ||
+          now.difference(_lastSyncTime!).inSeconds > 30;
+
+      if (shouldSync) {
+        _logger.i('ProfilePage 触发用户信息同步', extra: {
+          'trigger': force
+              ? 'force'
+              : _lastSyncTime == null
+                  ? 'first_time'
+                  : 'time_interval',
+          'force': force,
+          'lastSyncTime': _lastSyncTime?.toIso8601String(),
+          'timeSinceLastSync': _lastSyncTime != null
+              ? now.difference(_lastSyncTime!).inSeconds
+              : null,
+        });
+
+        // 使用UserService请求当前用户信息同步
+        await UserService.instance.requestCurrentUserSync();
+        _lastSyncTime = now;
+      } else {
+        _logger.d('ProfilePage 跳过同步，距离上次同步时间较短');
+      }
+    } catch (e) {
+      _logger.e('ProfilePage 同步检查失败', error: e);
+    }
+  }
+
+  /// 初始化同步
+  Future<void> _initSync() async {
+    _logger.i('ProfilePage 初始化同步');
+    await _checkAndSync(force: true);
+    _lastSyncTime = DateTime.now();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -47,16 +117,137 @@ class _ProfilePageState extends State<ProfilePage>
     super.initState();
     _logger.i('ProfilePage 初始化开始');
 
+    // 添加生命周期监听
+    WidgetsBinding.instance.addObserver(this);
+
     // 直接创建ProfileCubit实例
     _profileCubit = ProfileCubit(repository: ProfileRepository());
     _logger.i('ProfileCubit 创建成功');
+
+    // 初始化同步
+    _initSync();
+
+    // 监听用户信息更新
+    _userUpdateSubscription = UserService.instance.userUpdateStream.listen((updatedUser) {
+      _logger.i('ProfilePage 收到用户信息更新通知', extra: {
+        'userId': updatedUser.userId,
+        'hasSetPassword': updatedUser.hasSetPassword,
+      });
+      
+      // 自动刷新ProfileCubit
+      if (mounted) {
+        _profileCubit.refreshUserInfo();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 💢💢💢 注册 RouteObserver（使用ChatsPage的全局observer）
+    final ModalRoute? route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+
+    _logger.d('ProfilePage didChangeDependencies 触发', extra: {
+      'isPageVisible': _isPageVisible,
+      'mounted': mounted,
+      'lastSyncTime': _lastSyncTime?.toIso8601String(),
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // 💢💢💢 应用从后台恢复时触发同步
+    if (state == AppLifecycleState.resumed && _isPageVisible) {
+      _logger.i('应用从后台恢复，ProfilePage 检查是否需要同步');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // 💢💢💢 重要：检查当前是否是可见的Tab页面
+          // ProfilePage是索引2，只有当前Tab索引为2时才执行同步
+          try {
+            final homeCubit = context.read<HomeCubit>();
+            final currentTabIndex = homeCubit.state.currentTabIndex;
+            final isCurrentTabVisible = currentTabIndex == 2;
+            
+            _logger.i('ProfilePage 应用恢复检查可见性', extra: {
+              'currentTabIndex': currentTabIndex,
+              'isProfileTabVisible': isCurrentTabVisible,
+              'shouldSync': isCurrentTabVisible,
+            });
+
+            if (isCurrentTabVisible) {
+              _logger.i('ProfilePage 当前可见且应用恢复，执行同步');
+              _checkAndSync(force: true);
+            } else {
+              _logger.d('ProfilePage 当前不可见，跳过应用恢复同步');
+            }
+          } catch (e) {
+            // 如果获取HomeCubit失败，作为fallback还是执行同步
+            _logger.w('ProfilePage 无法获取HomeCubit，执行fallback同步', extra: {'error': e.toString()});
+            _checkAndSync(force: true);
+          }
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _logger.i('ProfilePage 开始销毁');
+    
+    // 💢💢💢 取消 RouteObserver 订阅
+    routeObserver.unsubscribe(this);
+
+    // 移除生命周期监听
+    WidgetsBinding.instance.removeObserver(this);
+
+    // 取消用户信息更新流订阅
+    _userUpdateSubscription?.cancel();
+
     _profileCubit.close();
     super.dispose();
+  }
+
+  // 💢💢💢 RouteAware 生命周期方法
+  @override
+  void didPopNext() {
+    // 💢💢💢 当从其他页面返回到当前页面时触发
+    _logger.i('🚀🚀🚀 ProfilePage didPopNext 触发 - 用户从其他页面返回');
+    _isPageVisible = true;
+
+    // 检查并执行同步
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _logger.i('🚀🚀🚀 ProfilePage 当前可见，执行同步');
+        _checkAndSync(force: true); // 强制同步确保触发
+      }
+    });
+  }
+
+  @override
+  void didPushNext() {
+    // 💢💢💢 当从当前页面导航到其他页面时触发
+    _logger.d('ProfilePage didPushNext 触发 - 用户离开当前页面');
+    _isPageVisible = false;
+  }
+
+  @override
+  void didPush() {
+    // 💢💢💢 当页面首次被推入路由栈时触发
+    _logger.d('ProfilePage didPush 触发 - 页面首次显示');
+    _isPageVisible = true;
+  }
+
+  @override
+  void didPop() {
+    // 💢💢💢 当页面从路由栈中弹出时触发
+    _logger.d('ProfilePage didPop 触发 - 页面被移除');
+    _isPageVisible = false;
   }
 
   @override
@@ -157,7 +348,7 @@ class _ProfilePageState extends State<ProfilePage>
                     const SizedBox(height: 16),
 
                     // 功能列表
-                    _buildFunctionList(localizations),
+                    _buildFunctionList(localizations, state),
 
                     const SizedBox(height: 16),
 
@@ -166,38 +357,6 @@ class _ProfilePageState extends State<ProfilePage>
 
                     const SizedBox(height: 24),
 
-                    // 调试模式下显示用户信息诊断按钮
-                    if (kDebugMode)
-                      ListTile(
-                        leading: const Icon(Icons.bug_report),
-                        title: Text(localizations.userInfoDiagnosis),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () async {
-                          await _showUserInfoDiagnostic(context);
-                        },
-                      ),
-
-                    // 调试模式下显示消息排序测试按钮
-                    if (kDebugMode)
-                      ListTile(
-                        leading: const Icon(Icons.sort),
-                        title: Text(localizations.messageSort),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () async {
-                          await _testMessageSorting(context);
-                        },
-                      ),
-
-                    // 调试模式下显示同步时间管理按钮
-                    if (kDebugMode)
-                      ListTile(
-                        leading: const Icon(Icons.sync),
-                        title: Text(localizations.conversationSyncManagement),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () async {
-                          await _showSyncManagement(context);
-                        },
-                      ),
                   ],
                 ),
               );
@@ -230,10 +389,6 @@ class _ProfilePageState extends State<ProfilePage>
             child: PopupMenuButton<String>(
               onSelected: (value) {
                 switch (value) {
-                  case 'refresh':
-                    _logger.i('用户手动刷新个人信息');
-                    _profileCubit.refreshUserInfo();
-                    break;
                   case 'logout':
                     _handleLogout();
                     break;
@@ -241,46 +396,6 @@ class _ProfilePageState extends State<ProfilePage>
               },
               itemBuilder: (BuildContext context) {
                 return [
-                  PopupMenuItem<String>(
-                    value: 'refresh',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.refresh, size: 20),
-                        const SizedBox(width: 8),
-                        Text(localizations.refreshProfile),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'settings',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.settings, size: 20),
-                        const SizedBox(width: 8),
-                        Text(localizations.accountSecurity),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'privacy',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.privacy_tip, size: 20),
-                        const SizedBox(width: 8),
-                        Text(localizations.privacySettings),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'feedback',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.feedback, size: 20),
-                        const SizedBox(width: 8),
-                        Text(localizations.feedback),
-                      ],
-                    ),
-                  ),
                   PopupMenuItem<String>(
                     value: 'logout',
                     child: Row(
@@ -490,7 +605,7 @@ class _ProfilePageState extends State<ProfilePage>
     });
   }
 
-  Widget _buildFunctionList(AppLocalizations localizations) {
+  Widget _buildFunctionList(AppLocalizations localizations, ProfileState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -519,8 +634,13 @@ class _ProfilePageState extends State<ProfilePage>
                 title: Text(localizations.accountSecurity),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
-                  _logger.d('点击账号与安全');
-                  // TODO: 导航到账号与安全页面
+                  _logger.d('点击账号与安全', extra: {'user': state.user?.toString()});
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AccountSecurityPage(user: state.user),
+                    ),
+                  );
                 },
               ),
               const Divider(height: 1),
@@ -532,7 +652,7 @@ class _ProfilePageState extends State<ProfilePage>
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   _logger.d('点击隐私设置');
-                  // TODO: 导航到隐私设置页面
+                  _showPrivacyNotAvailableDialog();
                 },
               ),
               const Divider(height: 1),
@@ -541,10 +661,64 @@ class _ProfilePageState extends State<ProfilePage>
               ListTile(
                 leading: const Icon(Icons.notifications),
                 title: Text(localizations.notificationSettings),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                subtitle: FutureBuilder<Map<String, dynamic>>(
+                  future: _getNotificationStatus(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const Text('检查中...');
+                    
+                    final status = snapshot.data!;
+                    final enabled = status['notificationsEnabled'] as bool? ?? true;
+                    final quietMode = status['quietHoursActive'] as bool? ?? false;
+                    
+                    String statusText;
+                    if (!enabled) {
+                      statusText = '已关闭';
+                    } else if (quietMode) {
+                      statusText = '勿扰模式';
+                    } else {
+                      statusText = '已开启';
+                    }
+                    
+                    return Text(
+                      statusText,
+                      style: TextStyle(
+                        color: enabled && !quietMode ? Colors.green : Colors.orange,
+                        fontSize: 12,
+                      ),
+                    );
+                  },
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 快速切换按钮
+                    IconButton(
+                      icon: const Icon(Icons.notifications_off, size: 20),
+                      onPressed: () async {
+                        final result = await NotificationSettingsService.instance.toggleNotifications();
+                        setState(() {}); // 刷新状态
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result ? '通知已开启' : '通知已关闭'),
+                              backgroundColor: result ? Colors.green : Colors.orange,
+                            ),
+                          );
+                        }
+                      },
+                      tooltip: '快速切换通知',
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 16),
+                  ],
+                ),
                 onTap: () {
                   _logger.d('点击通知设置');
-                  // TODO: 导航到通知设置页面
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationSettingsPage(),
+                    ),
+                  );
                 },
               ),
               const Divider(height: 1),
@@ -573,7 +747,29 @@ class _ProfilePageState extends State<ProfilePage>
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   _logger.d('点击关于我们');
-                  // TODO: 导航到关于我们页面
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutPage(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+
+              // 版本信息
+              ListTile(
+                leading: const Icon(Icons.system_update_alt),
+                title: const Text('版本信息'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  _logger.d('点击版本信息');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VersionInfoPage(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -628,15 +824,6 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.token),
-                title: Text(localizations.tokenStatusDiagnosis),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _diagnoseTokenStatus(context);
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
                 leading: const Icon(Icons.cleaning_services),
                 title: Text(localizations.resetData),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -687,6 +874,7 @@ class _ProfilePageState extends State<ProfilePage>
           ),
           TextButton(
             onPressed: () async {
+              final navigatorState = Navigator.of(context);
               Navigator.pop(context); // 关闭对话框
 
               // 显示加载指示器
@@ -725,17 +913,34 @@ class _ProfilePageState extends State<ProfilePage>
                 _logger.i('用户已完全登出，所有认证信息已清除');
               } catch (e) {
                 _logger.e(localizations.logoutFailed, error: e);
-              }
+              } finally {
+                // 无论成功或失败，都要关闭加载指示器并导航到登录页面
+                _logger.i('开始执行finally块 - 准备关闭加载对话框');
+                
+                try {
+                  // 先尝试关闭加载对话框
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _logger.i('加载对话框已关闭');
+                  } else {
+                    // 如果context不可用，使用保存的navigatorState
+                    navigatorState.pop();
+                    _logger.i('通过navigatorState关闭加载对话框');
+                  }
+                } catch (popError) {
+                  _logger.e('关闭加载对话框失败', error: popError);
+                }
 
-              // 关闭加载指示器并导航到登录页面
-              if (context.mounted) {
-                Navigator.pop(context); // 关闭加载对话框
-
-                // 使用MaterialPageRoute导航到AuthPage，并清除之前的路由
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const AuthPage()),
-                  (route) => false,
-                );
+                try {
+                  // 导航到登录页面
+                  navigatorState.pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const AuthPage()),
+                    (route) => false,
+                  );
+                  _logger.i('导航到登录页面成功');
+                } catch (navError) {
+                  _logger.e('导航过程中发生错误', error: navError);
+                }
               }
             },
             child: Text(localizations.confirm,
@@ -1056,67 +1261,6 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  // Token状态诊断
-  Future<void> _diagnoseTokenStatus(BuildContext context) async {
-    final localizations = AppLocalizations.of(context);
-    _logger.i('🔍 开始Token状态诊断');
-
-    try {
-      // 显示加载对话框
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在诊断Token状态...'),
-            ],
-          ),
-        ),
-      );
-
-      // 调用详细Token状态诊断
-      await DebugCommands.diagnoseTokenDetails();
-
-      // 关闭加载对话框
-      if (context.mounted) Navigator.pop(context);
-
-      // 显示成功提示
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${localizations.diagnosisComplete}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (error) {
-      _logger.e('Token状态诊断失败', error: error);
-
-      // 关闭加载对话框
-      if (context.mounted) Navigator.pop(context);
-
-      // 显示错误对话框
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('❌ ${localizations.diagnosisFailed}'),
-            content: Text('${localizations.diagnosisFailed}：$error'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(localizations.close),
-              ),
-            ],
-          ),
-        );
-      }
-    }
-  }
 
   // 调试数据库状态
   Future<void> _debugDatabaseStatus(BuildContext context) async {
@@ -1481,378 +1625,29 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  // 显示用户信息诊断对话框
-  Future<void> _showUserInfoDiagnostic(BuildContext context) async {
+
+
+
+
+
+
+
+  // 显示隐私设置未开放对话框
+  void _showPrivacyNotAvailableDialog() {
     final localizations = AppLocalizations.of(context);
-    _logger.i('🔍 开始用户信息诊断');
-
-    try {
-      // 显示加载对话框
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在诊断用户信息...'),
-            ],
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('隐私设置'),
+        content: const Text('该功能未开放'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(localizations.close),
           ),
-        ),
-      );
-
-      // 调用用户信息诊断
-      await DebugCommands.diagnoseUserInfo();
-
-      // 关闭加载对话框
-      if (context.mounted) Navigator.pop(context);
-
-      // 显示成功提示
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${localizations.diagnosisComplete}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (error) {
-      _logger.e('用户信息诊断失败', error: error);
-
-      // 关闭加载对话框
-      if (context.mounted) Navigator.pop(context);
-
-      // 显示错误对话框
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('❌ ${localizations.diagnosisFailed}'),
-            content: Text('${localizations.diagnosisFailed}：$error'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(localizations.close),
-              ),
-            ],
-          ),
-        );
-      }
-    }
-  }
-
-  // 测试消息排序
-  Future<void> _testMessageSorting(BuildContext context) async {
-    final localizations = AppLocalizations.of(context);
-    _logger.i('🔍 开始测试消息排序');
-
-    try {
-      // 显示加载对话框
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(localizations.messageSortTest),
-            ],
-          ),
-        ),
-      );
-
-      // 调用消息排序测试
-      await DebugCommands.testMessageSorting();
-
-      // 关闭加载对话框
-      if (context.mounted) Navigator.pop(context);
-
-      // 显示成功提示
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${localizations.diagnosisComplete}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (error) {
-      _logger.e('消息排序测试失败', error: error);
-
-      // 关闭加载对话框
-      if (context.mounted) Navigator.pop(context);
-
-      // 显示错误对话框
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('❌ ${localizations.testFailed}'),
-            content: Text('${localizations.testFailed}：$error'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(localizations.close),
-              ),
-            ],
-          ),
-        );
-      }
-    }
-  }
-
-  // 显示同步管理对话框
-  Future<void> _showSyncManagement(BuildContext context) async {
-    _logger.i('🔍 显示会话同步管理');
-
-    try {
-      // 获取ChatsRepository实例
-      final chatsRepository = context.read<ChatsRepository>();
-
-      // 获取当前同步时间
-      final lastSyncTime = await chatsRepository.getLastSyncTime();
-
-      if (!context.mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('🔄 会话同步管理'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '同步状态信息：',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  lastSyncTime != null
-                      ? '上次同步时间：\n${lastSyncTime.toIso8601String()}\n(${_formatTimeAgo(lastSyncTime)})'
-                      : '尚未进行过同步',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: lastSyncTime != null ? Colors.green : Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '操作选项：',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '• 增量同步：只获取自上次同步以来的更新\n'
-                  '• 全量同步：获取所有会话数据\n'
-                  '• 清除记录：清除同步时间，下次将全量同步',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _performIncrementalSync(context, chatsRepository);
-              },
-              child: const Text('增量同步'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _performFullSync(context, chatsRepository);
-              },
-              child: const Text('全量同步'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _clearSyncTime(context, chatsRepository);
-              },
-              child: const Text('清除记录'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('关闭'),
-            ),
-          ],
-        ),
-      );
-    } catch (error) {
-      _logger.e('显示同步管理失败', error: error);
-
-      if (!context.mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('❌ 错误'),
-          content: Text('无法显示同步管理：$error'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('关闭'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  // 格式化时间差显示
-  String _formatTimeAgo(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}天前';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}小时前';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}分钟前';
-    } else {
-      return '刚刚';
-    }
-  }
-
-  // 执行增量同步
-  Future<void> _performIncrementalSync(
-      BuildContext context, ChatsRepository chatsRepository) async {
-    try {
-      _logger.i('🔄 执行增量同步');
-
-      // 显示加载对话框
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在执行增量同步...'),
-            ],
-          ),
-        ),
-      );
-
-      await chatsRepository.requestSyncConversations();
-
-      // 等待一下让同步完成
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (context.mounted) {
-        Navigator.pop(context); // 关闭加载对话框
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ 增量同步已触发，请查看会话列表更新'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (error) {
-      _logger.e('增量同步失败', error: error);
-
-      if (context.mounted) {
-        Navigator.pop(context); // 关闭加载对话框
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ 增量同步失败：$error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // 执行全量同步
-  Future<void> _performFullSync(
-      BuildContext context, ChatsRepository chatsRepository) async {
-    try {
-      _logger.i('🔄 执行全量同步');
-
-      // 显示加载对话框
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在执行全量同步...'),
-            ],
-          ),
-        ),
-      );
-
-      await chatsRepository.requestFullSyncConversations();
-
-      // 等待一下让同步完成
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (context.mounted) {
-        Navigator.pop(context); // 关闭加载对话框
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ 全量同步已触发，请查看会话列表更新'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (error) {
-      _logger.e('全量同步失败', error: error);
-
-      if (context.mounted) {
-        Navigator.pop(context); // 关闭加载对话框
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ 全量同步失败：$error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // 清除同步时间记录
-  Future<void> _clearSyncTime(
-      BuildContext context, ChatsRepository chatsRepository) async {
-    try {
-      _logger.i('🗑️ 清除同步时间记录');
-
-      await chatsRepository.clearSyncTime();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ 同步时间记录已清除，下次同步将执行全量同步'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-      }
-    } catch (error) {
-      _logger.e('清除同步时间记录失败', error: error);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ 清除失败：$error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+        ],
+      ),
+    );
   }
 }

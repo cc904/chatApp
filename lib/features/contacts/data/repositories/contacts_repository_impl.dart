@@ -463,7 +463,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
             'targetUserId': targetUserId,
           },
           stackTrace: StackTrace.current);
-      return false;
+      rethrow;
     }
   }
 

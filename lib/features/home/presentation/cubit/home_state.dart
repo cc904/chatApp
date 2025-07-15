@@ -24,6 +24,9 @@ class HomeState extends Equatable {
   final String? errorMessage;
   final CurrentUser? currentUser;
 
+  // UI状态
+  final int currentTabIndex; // 当前选中的Tab索引
+
   // 网络相关状态
   final bool isConnected; // 是否连接到网络
   final NetworkStatus networkStatus; // 网络状态
@@ -36,6 +39,9 @@ class HomeState extends Equatable {
     this.homePageIsInitialized = false,
     this.errorMessage,
     this.currentUser,
+
+    // UI状态
+    this.currentTabIndex = 0,
 
     // 网络相关状态
     this.isConnected = false,
@@ -86,6 +92,9 @@ class HomeState extends Equatable {
     String? errorMessage,
     CurrentUser? currentUser,
 
+    // UI状态
+    int? currentTabIndex,
+
     // 网络相关状态
     bool? isConnected,
     NetworkStatus? networkStatus,
@@ -98,6 +107,9 @@ class HomeState extends Equatable {
       homePageIsInitialized: homePageIsInitialized ?? this.homePageIsInitialized,
       errorMessage: errorMessage ?? this.errorMessage,
       currentUser: currentUser ?? this.currentUser,
+
+      // UI状态
+      currentTabIndex: currentTabIndex ?? this.currentTabIndex,
 
       // 网络相关状态
       isConnected: isConnected ?? this.isConnected,
@@ -117,6 +129,9 @@ class HomeState extends Equatable {
         homePageIsInitialized,
         errorMessage,
         currentUser,
+
+        // UI状态
+        currentTabIndex,
 
         // 网络相关状态
         isConnected,

@@ -28,7 +28,7 @@ class MediaCacheService {
       final appDocDir = await getApplicationDocumentsDirectory();
 
       // 创建不同类型的缓存目录
-      final mediaTypes = ['avatars', 'thumbnails', 'images', 'videos'];
+      final mediaTypes = ['avatars', 'thumbnails', 'images', 'videos', 'voice'];
 
       for (final type in mediaTypes) {
         final dir = Directory('${appDocDir.path}/media/$type');
@@ -50,16 +50,17 @@ class MediaCacheService {
   /// 获取媒体文件（优先本地，如果没有则下载）
   /// [mediaUrl] 媒体文件URL
   /// [mediaType] 媒体类型：'avatars', 'thumbnails', 'images', 'videos'
-  Future<String?> getMedia(String mediaUrl, String mediaType) async {
+  /// [messageDate] 消息发送日期，用于图片和视频的分层存储
+  Future<String?> getMedia(String mediaUrl, String mediaType, {DateTime? messageDate}) async {
     try {
       // 1. 先检查本地缓存
-      final cachedPath = await getCachedMediaPath(mediaUrl, mediaType);
+      final cachedPath = await getCachedMediaPath(mediaUrl, mediaType, messageDate: messageDate);
       if (cachedPath != null) {
         return cachedPath;
       }
 
       // 2. 如果没有缓存，下载并缓存
-      return await downloadAndCacheMedia(mediaUrl, mediaType);
+      return await downloadAndCacheMedia(mediaUrl, mediaType, messageDate: messageDate);
     } catch (error) {
       _logger.e('❌ 获取$mediaType失败',
           error: error, stackTrace: StackTrace.current);
@@ -68,7 +69,8 @@ class MediaCacheService {
   }
 
   /// 获取媒体文件本地路径（如果已缓存）
-  Future<String?> getCachedMediaPath(String mediaUrl, String mediaType) async {
+  /// [messageDate] 消息发送日期，用于图片和视频的分层存储
+  Future<String?> getCachedMediaPath(String mediaUrl, String mediaType, {DateTime? messageDate}) async {
     if (!_initialized) await initialize();
 
     try {
@@ -78,11 +80,25 @@ class MediaCacheService {
       }
 
       final fileName = _generateFileName(mediaUrl);
-      final filePath = path.join(cacheDir.path, fileName);
-      final file = File(filePath);
+      
+      // 对于图片和视频，使用日期分层存储
+      if ((mediaType == 'images' || mediaType == 'videos') && messageDate != null) {
+        final dateFolder = '${messageDate.year}-${messageDate.month.toString().padLeft(2, '0')}';
+        final dateCacheDir = Directory(path.join(cacheDir.path, dateFolder));
+        final filePath = path.join(dateCacheDir.path, fileName);
+        final file = File(filePath);
 
-      if (await file.exists()) {
-        return filePath;
+        if (await file.exists()) {
+          return filePath;
+        }
+      } else {
+        // 头像和缩略图仍使用原格式
+        final filePath = path.join(cacheDir.path, fileName);
+        final file = File(filePath);
+
+        if (await file.exists()) {
+          return filePath;
+        }
       }
 
       return null;
@@ -93,15 +109,16 @@ class MediaCacheService {
   }
 
   /// 下载并缓存媒体文件
+  /// [messageDate] 消息发送日期，用于图片和视频的分层存储
   Future<String?> downloadAndCacheMedia(
-      String mediaUrl, String mediaType) async {
+      String mediaUrl, String mediaType, {DateTime? messageDate}) async {
     if (!_initialized) await initialize();
 
     try {
       _logger.i('⬇️ 开始下载$mediaType', extra: {'url': mediaUrl});
 
       // 检查是否已经缓存
-      final cachedPath = await getCachedMediaPath(mediaUrl, mediaType);
+      final cachedPath = await getCachedMediaPath(mediaUrl, mediaType, messageDate: messageDate);
       if (cachedPath != null) {
         _logger.d('✅ $mediaType已缓存，直接返回: $cachedPath');
         return cachedPath;
@@ -119,9 +136,22 @@ class MediaCacheService {
         // 保存到本地
         final cacheDir = _cacheDirs[mediaType]!;
         final fileName = _generateFileName(mediaUrl);
-        final filePath = path.join(cacheDir.path, fileName);
+        
+        Directory targetDir = cacheDir;
+        String filePath;
+        
+        // 对于图片和视频，使用日期分层存储
+        if ((mediaType == 'images' || mediaType == 'videos') && messageDate != null) {
+          final dateFolder = '${messageDate.year}-${messageDate.month.toString().padLeft(2, '0')}';
+          targetDir = Directory(path.join(cacheDir.path, dateFolder));
+          if (!await targetDir.exists()) {
+            await targetDir.create(recursive: true);
+            _logger.d('📁 创建$mediaType日期缓存目录: ${targetDir.path}');
+          }
+        }
+        
+        filePath = path.join(targetDir.path, fileName);
         final file = File(filePath);
-
         await file.writeAsBytes(response.bodyBytes);
 
         _logger.i('✅ $mediaType下载并缓存成功', extra: {
@@ -136,12 +166,7 @@ class MediaCacheService {
             'HTTP ${response.statusCode}: ${response.reasonPhrase}');
       }
     } catch (error) {
-      _logger.e('❌ 下载$mediaType失败',
-          error: error,
-          stackTrace: StackTrace.current,
-          extra: {
-            'url': mediaUrl,
-          });
+      _logger.w('❌ 下载$mediaType失败', stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -230,29 +255,15 @@ class MediaCacheService {
     }
   }
 
-  /// 根据URL生成唯一的文件名
+  /// 根据URL生成唯一的文件名（优先服务器nanoid，备用MD5哈希）
   String _generateFileName(String url) {
-    try {
-      final uri = Uri.parse(url);
-      final urlPath = uri.path;
-
-      if (urlPath.isNotEmpty) {
-        // 尝试从URL路径中提取原始文件名（包含服务器的UUID）
-        final fileName = path.basename(urlPath);
-
-        // 验证文件名是否合法（不包含特殊字符）
-        if (fileName.isNotEmpty &&
-            !fileName.contains('..') &&
-            !fileName.startsWith('.') &&
-            fileName.length < 255) {
-          return fileName;
-        }
-      }
-    } catch (e) {
-      // URL解析失败，使用备用方案
+    // 1. 优先尝试提取服务器nanoid文件名
+    final serverFileName = _extractServerFileName(url);
+    if (serverFileName != null) {
+      return serverFileName;
     }
 
-    // 备用方案：使用URL的MD5哈希作为文件名，确保唯一性
+    // 2. 备用方案：使用URL的MD5哈希作为文件名
     final bytes = utf8.encode(url);
     final digest = md5.convert(bytes);
 
@@ -274,10 +285,179 @@ class MediaCacheService {
     return '${digest.toString()}$extension';
   }
 
+  /// 基于消息ID获取语音文件（优化版 - 使用日期分层和服务器nanoid）
+  /// [messageId] 消息ID 
+  /// [mediaUrl] 媒体文件URL
+  /// [messageDate] 消息发送日期，用于分层存储
+  Future<String?> getVoiceByMessageId(String messageId, String? mediaUrl, {DateTime? messageDate}) async {
+    if (!_initialized) await initialize();
+    
+    try {
+      final cacheDir = _cacheDirs['voice'];
+      if (cacheDir == null) {
+        throw Exception('语音缓存目录未初始化');
+      }
+
+      // 使用消息日期创建子目录（格式：2025-01）
+      final date = messageDate ?? DateTime.now();
+      final dateFolder = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+      final dateCacheDir = Directory(path.join(cacheDir.path, dateFolder));
+      if (!await dateCacheDir.exists()) {
+        await dateCacheDir.create(recursive: true);
+        _logger.d('📁 创建语音日期缓存目录: ${dateCacheDir.path}');
+      }
+
+      // 1. 首先检查基于消息ID的本地文件
+      final messageBasedPath = path.join(dateCacheDir.path, '$messageId.m4a');
+      final messageBasedFile = File(messageBasedPath);
+      if (await messageBasedFile.exists()) {
+        _logger.d('✅ 找到基于消息ID的语音缓存: $messageBasedPath');
+        return messageBasedPath;
+      }
+
+      // 2. 如果没有网络URL，无法下载
+      if (mediaUrl == null || mediaUrl.isEmpty) {
+        _logger.w('❌ 语音文件无网络URL且无本地缓存: $messageId');
+        return null;
+      }
+
+      // 3. 从URL中提取服务器nanoid文件名
+      final serverFileName = _extractServerFileName(mediaUrl);
+      if (serverFileName != null) {
+        // 检查是否已经有基于服务器nanoid的缓存文件
+        final serverBasedPath = path.join(dateCacheDir.path, serverFileName);
+        final serverBasedFile = File(serverBasedPath);
+        if (await serverBasedFile.exists()) {
+          _logger.d('✅ 找到基于服务器nanoid的语音缓存，创建消息ID软链接');
+          
+          // 创建消息ID的软链接指向服务器nanoid文件（节省空间）
+          try {
+            final link = Link(messageBasedPath);
+            await link.create(serverBasedPath);
+            _logger.i('🔗 创建语音缓存软链接: $messageBasedPath -> $serverBasedPath');
+            return messageBasedPath;
+          } catch (e) {
+            // 如果软链接创建失败，直接复制文件
+            await serverBasedFile.copy(messageBasedPath);
+            _logger.i('📋 复制语音缓存文件: $messageBasedPath');
+            return messageBasedPath;
+          }
+        }
+      }
+
+      // 4. 检查其他月份的旧缓存（使用URL哈希）
+      final oldCachedPath = await _findExistingVoiceCache(mediaUrl);
+      if (oldCachedPath != null) {
+        _logger.d('✅ 找到旧的语音缓存，将移动到新位置');
+        
+        final oldFile = File(oldCachedPath);
+        await oldFile.copy(messageBasedPath);
+        _logger.i('📋 语音缓存已迁移到新格式: $messageBasedPath');
+        
+        return messageBasedPath;
+      }
+
+      // 5. 下载并缓存
+      _logger.i('⬇️ 开始下载语音文件', extra: {'messageId': messageId, 'url': mediaUrl});
+      
+      final response = await http.get(
+        Uri.parse(mediaUrl),
+        headers: {
+          'User-Agent': 'CC-Flutter-App/1.0',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        // 如果能提取到服务器nanoid，优先保存为nanoid文件名
+        final finalPath = serverFileName != null 
+            ? path.join(dateCacheDir.path, serverFileName)
+            : messageBasedPath;
+            
+        final finalFile = File(finalPath);
+        await finalFile.writeAsBytes(response.bodyBytes);
+        
+        // 如果保存的是nanoid文件名，创建消息ID的链接
+        if (serverFileName != null && finalPath != messageBasedPath) {
+          try {
+            final link = Link(messageBasedPath);
+            await link.create(finalPath);
+            _logger.i('🔗 创建新下载语音的软链接');
+          } catch (e) {
+            await finalFile.copy(messageBasedPath);
+            _logger.i('📋 复制新下载的语音文件');
+          }
+        }
+        
+        _logger.i('✅ 语音文件下载并缓存成功', extra: {
+          'messageId': messageId,
+          'url': mediaUrl,
+          'localPath': messageBasedPath,
+          'serverPath': finalPath,
+          'size': '${response.bodyBytes.length} bytes',
+        });
+        return messageBasedPath;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.reasonPhrase}');
+      }
+    } catch (error) {
+      _logger.e('❌ 获取语音文件失败', error: error, extra: {'messageId': messageId, 'url': mediaUrl});
+      return null;
+    }
+  }
+
+  /// 从URL中提取服务器生成的文件名
+  String? _extractServerFileName(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final fileName = path.basename(uri.path);
+      
+      // 只需要检查是否是有效的文件名（包含扩展名且不包含危险字符）
+      if (fileName.isNotEmpty && 
+          fileName.contains('.') &&
+          !fileName.contains('..') &&
+          !fileName.startsWith('.') &&
+          fileName.length < 255) {
+        _logger.d('🔍 提取到服务器文件名: $fileName');
+        return fileName;
+      }
+    } catch (e) {
+      _logger.w('URL解析失败: $url');
+    }
+    return null;
+  }
+
+  /// 查找现有的语音缓存文件（跨月份搜索）
+  Future<String?> _findExistingVoiceCache(String mediaUrl) async {
+    try {
+      final cacheDir = _cacheDirs['voice'];
+      if (cacheDir == null) return null;
+
+      // 搜索所有日期子目录
+      final entries = await cacheDir.list().toList();
+      for (final entry in entries) {
+        if (entry is Directory) {
+          // 检查基于URL哈希的旧文件
+          final urlFileName = _generateFileName(mediaUrl);
+          final oldFilePath = path.join(entry.path, urlFileName);
+          final oldFile = File(oldFilePath);
+          if (await oldFile.exists()) {
+            return oldFilePath;
+          }
+        }
+      }
+    } catch (e) {
+      _logger.w('搜索旧缓存失败: $e');
+    }
+    return null;
+  }
+
   // 便捷方法，兼容现有代码
   Future<String?> getAvatar(String avatarUrl) => getMedia(avatarUrl, 'avatars');
   Future<String?> getThumbnail(String thumbnailUrl) =>
       getMedia(thumbnailUrl, 'thumbnails');
-  Future<String?> getImage(String imageUrl) => getMedia(imageUrl, 'images');
-  Future<String?> getVideo(String videoUrl) => getMedia(videoUrl, 'videos');
+  Future<String?> getImage(String imageUrl, {DateTime? messageDate}) => 
+      getMedia(imageUrl, 'images', messageDate: messageDate);
+  Future<String?> getVideo(String videoUrl, {DateTime? messageDate}) => 
+      getMedia(videoUrl, 'videos', messageDate: messageDate);
+  Future<String?> getVoice(String voiceUrl) => getMedia(voiceUrl, 'voice');
 }

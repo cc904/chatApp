@@ -32,28 +32,33 @@ const CurrentUserSchema = CollectionSchema(
       name: r'email',
       type: IsarType.string,
     ),
-    r'lastLoginTime': PropertySchema(
+    r'hasSetPassword': PropertySchema(
       id: 3,
+      name: r'hasSetPassword',
+      type: IsarType.bool,
+    ),
+    r'lastLoginTime': PropertySchema(
+      id: 4,
       name: r'lastLoginTime',
       type: IsarType.dateTime,
     ),
     r'name': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'name',
       type: IsarType.string,
     ),
     r'phone': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'phone',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'status',
       type: IsarType.string,
     ),
     r'userId': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'userId',
       type: IsarType.string,
     )
@@ -117,11 +122,12 @@ void _currentUserSerialize(
   writer.writeString(offsets[0], object.avatar);
   writer.writeString(offsets[1], object.avatarText);
   writer.writeString(offsets[2], object.email);
-  writer.writeDateTime(offsets[3], object.lastLoginTime);
-  writer.writeString(offsets[4], object.name);
-  writer.writeString(offsets[5], object.phone);
-  writer.writeString(offsets[6], object.status);
-  writer.writeString(offsets[7], object.userId);
+  writer.writeBool(offsets[3], object.hasSetPassword);
+  writer.writeDateTime(offsets[4], object.lastLoginTime);
+  writer.writeString(offsets[5], object.name);
+  writer.writeString(offsets[6], object.phone);
+  writer.writeString(offsets[7], object.status);
+  writer.writeString(offsets[8], object.userId);
 }
 
 CurrentUser _currentUserDeserialize(
@@ -133,12 +139,13 @@ CurrentUser _currentUserDeserialize(
   final object = CurrentUser();
   object.avatar = reader.readStringOrNull(offsets[0]);
   object.email = reader.readStringOrNull(offsets[2]);
+  object.hasSetPassword = reader.readBool(offsets[3]);
   object.id = id;
-  object.lastLoginTime = reader.readDateTimeOrNull(offsets[3]);
-  object.name = reader.readString(offsets[4]);
-  object.phone = reader.readStringOrNull(offsets[5]);
-  object.status = reader.readStringOrNull(offsets[6]);
-  object.userId = reader.readString(offsets[7]);
+  object.lastLoginTime = reader.readDateTimeOrNull(offsets[4]);
+  object.name = reader.readString(offsets[5]);
+  object.phone = reader.readStringOrNull(offsets[6]);
+  object.status = reader.readStringOrNull(offsets[7]);
+  object.userId = reader.readString(offsets[8]);
   return object;
 }
 
@@ -156,14 +163,16 @@ P _currentUserDeserializeProp<P>(
     case 2:
       return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
+      return (reader.readStringOrNull(offset)) as P;
+    case 8:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -695,6 +704,16 @@ extension CurrentUserQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'email',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<CurrentUser, CurrentUser, QAfterFilterCondition>
+      hasSetPasswordEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'hasSetPassword',
+        value: value,
       ));
     });
   }
@@ -1436,6 +1455,19 @@ extension CurrentUserQuerySortBy
     });
   }
 
+  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> sortByHasSetPassword() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSetPassword', Sort.asc);
+    });
+  }
+
+  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy>
+      sortByHasSetPasswordDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSetPassword', Sort.desc);
+    });
+  }
+
   QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> sortByLastLoginTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastLoginTime', Sort.asc);
@@ -1536,6 +1568,19 @@ extension CurrentUserQuerySortThenBy
     });
   }
 
+  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> thenByHasSetPassword() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSetPassword', Sort.asc);
+    });
+  }
+
+  QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy>
+      thenByHasSetPasswordDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSetPassword', Sort.desc);
+    });
+  }
+
   QueryBuilder<CurrentUser, CurrentUser, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -1633,6 +1678,12 @@ extension CurrentUserQueryWhereDistinct
     });
   }
 
+  QueryBuilder<CurrentUser, CurrentUser, QDistinct> distinctByHasSetPassword() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'hasSetPassword');
+    });
+  }
+
   QueryBuilder<CurrentUser, CurrentUser, QDistinct> distinctByLastLoginTime() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastLoginTime');
@@ -1691,6 +1742,12 @@ extension CurrentUserQueryProperty
   QueryBuilder<CurrentUser, String?, QQueryOperations> emailProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'email');
+    });
+  }
+
+  QueryBuilder<CurrentUser, bool, QQueryOperations> hasSetPasswordProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'hasSetPassword');
     });
   }
 

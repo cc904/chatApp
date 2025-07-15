@@ -35,6 +35,9 @@ class CurrentUser {
   // 用户状态: online, offline, away
   String? status;
 
+  // 是否已设置密码
+  bool hasSetPassword = false;
+
   // 为UI显示生成头像文本(取名字首字母)
   String get avatarText {
     if (name.isEmpty) return '?';
@@ -88,7 +91,8 @@ class CurrentUser {
       ..lastLoginTime = proto.hasLastLoginTime()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastLoginTime.toInt())
           : null
-      ..status = proto.status;
+      ..status = proto.status
+      ..hasSetPassword = proto.hasSetPassword;
   }
 
   /// 转换为CurrentUserProto（不包含token字段）
@@ -103,6 +107,7 @@ class CurrentUser {
           ? Int64(lastLoginTime!.millisecondsSinceEpoch)
           : null,
       status: status,
+      hasSetPassword: hasSetPassword,
     );
   }
 }

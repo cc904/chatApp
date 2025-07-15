@@ -13,7 +13,7 @@ import 'package:cc/core/services/log_service.dart';
 class AppConfig {
   // 服务器地址列表 (按优先级排序)
   static const List<String> serverUrls = [
-    'http://47.121.28.95:7003', // 云端服务器
+    'http://13.158.26.10:7030', // 云端服务器
     'http://d2.orb.local:3000', // 本地服务器
   ];
 

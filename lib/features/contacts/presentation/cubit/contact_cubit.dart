@@ -21,6 +21,9 @@ class ContactCubit extends Cubit<ContactState> {
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
 
+  /// 是否允许网络重连时自动同步
+  bool _allowNetworkReconnectSync = true;
+
   /// 获取联系人仓库实例
   ContactsRepository get repository => _contactsRepository;
 
@@ -107,10 +110,18 @@ class ContactCubit extends Cubit<ContactState> {
         'reconnection':
             communicationService.connectionStateStream.listen((status) {
           if (status == SocketConnectionStatus.connected) {
-            _logger.i('网络重连成功，自动同步联系人');
-            Future.delayed(const Duration(seconds: 2), () {
-              syncContacts();
+            _logger.i('网络重连成功，检查是否允许自动同步联系人', extra: {
+              'allowSync': _allowNetworkReconnectSync,
             });
+            
+            if (_allowNetworkReconnectSync) {
+              Future.delayed(const Duration(seconds: 2), () {
+                _logger.i('网络重连2秒后，执行联系人同步');
+                syncContacts();
+              });
+            } else {
+              _logger.d('网络重连自动同步已禁用，跳过联系人同步');
+            }
           }
         }),
 
@@ -304,22 +315,17 @@ class ContactCubit extends Cubit<ContactState> {
   /// 发送好友请求
   Future<bool> sendFriendRequest(String targetUserId, String message) async {
     try {
-      final result = await _contactsRepository.sendFriendRequest(
+      await _contactsRepository.sendFriendRequest(
         targetUserId,
         message,
       );
 
-      if (result) {
-        _logger.i('发送好友请求成功', extra: {'targetUserId': targetUserId});
-      } else {
-        _logger.w('发送好友请求失败', extra: {'targetUserId': targetUserId});
-      }
-
-      return result;
+      _logger.i('发送好友请求成功', extra: {'targetUserId': targetUserId});
+      return true;
     } catch (e) {
       _logger.e('发送好友请求失败', error: e);
       emit(state.toErrorState('发送好友请求失败: ${e.toString()}'));
-      return false;
+      rethrow;
     }
   }
 
@@ -362,6 +368,14 @@ class ContactCubit extends Cubit<ContactState> {
       emit(state.toErrorState('拒绝好友请求失败: ${e.toString()}'));
       return false;
     }
+  }
+
+  /// 设置是否允许网络重连时自动同步
+  void setNetworkReconnectSyncEnabled(bool enabled) {
+    _allowNetworkReconnectSync = enabled;
+    _logger.d('ContactCubit 网络重连自动同步设置', extra: {
+      'enabled': enabled,
+    });
   }
 
   @override

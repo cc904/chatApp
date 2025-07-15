@@ -16,6 +16,8 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/features/chat/presentation/pages/chats_page.dart';
+import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -25,19 +27,42 @@ class ContactsPage extends StatefulWidget {
 }
 
 class _ContactsPageState extends State<ContactsPage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, RouteAware, WidgetsBindingObserver {
   final _logger = LogService.instance;
   final ScrollController _scrollController = ScrollController();
+  
+  /// 页面是否可见状态标记
+  bool _isPageVisible = true;
 
   @override
   void initState() {
     super.initState();
     _logger.d('ContactsPage initState');
+    
+    // 添加生命周期监听
+    WidgetsBinding.instance.addObserver(this);
+    
     final contactCubit = context.read<ContactCubit>();
     if (contactCubit.state.contacts.isEmpty && !contactCubit.state.isLoading) {
       _logger.i('加载联系人数据');
       contactCubit.loadContacts();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 注册 RouteObserver
+    final ModalRoute? route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+
+    _logger.d('ContactsPage didChangeDependencies 触发', extra: {
+      'isPageVisible': _isPageVisible,
+      'mounted': mounted,
+    });
   }
 
   /// 处理联系人点击 - 进入聊天页面
@@ -134,8 +159,105 @@ class _ContactsPageState extends State<ContactsPage>
 
   @override
   void dispose() {
+    // 取消 RouteObserver 订阅
+    routeObserver.unsubscribe(this);
+    
+    // 移除生命周期监听
+    WidgetsBinding.instance.removeObserver(this);
+    
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // RouteAware 生命周期方法
+  @override
+  void didPopNext() {
+    // 当从其他页面返回到当前页面时触发
+    _logger.i('🚀🚀🚀 ContactsPage didPopNext 触发 - 用户从其他页面返回');
+    _isPageVisible = true;
+
+    // 检查并刷新联系人数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // 💢💢💢 重要：检查当前是否是可见的Tab页面
+        // ContactsPage是索引1，只有当前Tab索引为1时才执行同步
+        try {
+          final homeCubit = context.read<HomeCubit>();
+          final currentTabIndex = homeCubit.state.currentTabIndex;
+          final isCurrentTabVisible = currentTabIndex == 1;
+          
+          _logger.i('🚀🚀🚀 ContactsPage didPopNext 检查可见性', extra: {
+            'currentTabIndex': currentTabIndex,
+            'isContactsTabVisible': isCurrentTabVisible,
+            'shouldSync': isCurrentTabVisible,
+          });
+
+          if (isCurrentTabVisible) {
+            _logger.i('🚀🚀🚀 ContactsPage 当前可见，执行同步');
+            final contactCubit = context.read<ContactCubit>();
+            contactCubit.syncContacts(); // 同步联系人数据
+          } else {
+            _logger.d('ContactsPage 当前不可见，跳过同步');
+          }
+        } catch (e) {
+          // 如果获取HomeCubit失败，作为fallback还是执行同步
+          _logger.w('ContactsPage 无法获取HomeCubit，执行fallback同步', extra: {'error': e.toString()});
+          final contactCubit = context.read<ContactCubit>();
+          contactCubit.syncContacts();
+        }
+      }
+    });
+  }
+
+  @override
+  void didPushNext() {
+    // 当从当前页面导航到其他页面时触发
+    _logger.d('ContactsPage didPushNext 触发 - 用户离开当前页面');
+    _isPageVisible = false;
+  }
+
+  @override
+  void didPush() {
+    // 当页面首次被推入路由栈时触发
+    _logger.d('ContactsPage didPush 触发 - 页面首次显示');
+    _isPageVisible = true;
+  }
+
+  @override
+  void didPop() {
+    // 当页面从路由栈中弹出时触发
+    _logger.d('ContactsPage didPop 触发 - 页面被移除');
+    _isPageVisible = false;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // 应用从后台恢复时触发同步
+    if (state == AppLifecycleState.resumed && _isPageVisible) {
+      _logger.i('应用从后台恢复，ContactsPage 检查是否需要同步');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // 检查当前是否是可见的Tab页面
+          try {
+            final homeCubit = context.read<HomeCubit>();
+            final currentTabIndex = homeCubit.state.currentTabIndex;
+            final isCurrentTabVisible = currentTabIndex == 1;
+            
+            if (isCurrentTabVisible) {
+              _logger.i('ContactsPage 当前可见且应用恢复，执行同步');
+              final contactCubit = context.read<ContactCubit>();
+              contactCubit.syncContacts();
+            } else {
+              _logger.d('ContactsPage 当前不可见，跳过应用恢复同步');
+            }
+          } catch (e) {
+            _logger.w('ContactsPage 应用恢复同步检查失败', extra: {'error': e.toString()});
+          }
+        }
+      });
+    }
   }
 
   @override

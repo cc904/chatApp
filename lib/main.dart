@@ -13,9 +13,15 @@ import 'dart:io';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/message_notification_service.dart';
+import 'package:cc/core/services/notification_action_service.dart';
+import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:cc/features/chat/presentation/pages/chats_page.dart';
+import 'package:cc/core/services/global_overlay_service.dart';
+import 'package:cc/core/services/version_info_service.dart';
+import 'package:cc/core/services/version_update_service.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -93,6 +99,44 @@ void main() async {
 
     // 🌍 初始化时区系统
     await TimezoneUtils.initialize();
+    
+    // 🔔 初始化消息通知服务
+    logger.i('🔔 开始初始化消息通知服务');
+    try {
+      final notificationServiceInitialized = await MessageNotificationService.instance.initialize();
+      logger.i('🔔 消息通知服务初始化结果', extra: {
+        'initialized': notificationServiceInitialized,
+        'status': MessageNotificationService.instance.getServiceStatus(),
+      });
+      
+      if (!notificationServiceInitialized) {
+        logger.w('🔔 消息通知服务初始化失败，但应用继续运行');
+      }
+      
+      // 🔔 初始化通知动作服务
+      logger.i('🔔 开始初始化通知动作服务');
+      await NotificationActionService.instance.initialize();
+      
+      // 🔔 初始化通知设置服务
+      logger.i('🔔 开始初始化通知设置服务');
+      await NotificationSettingsService.instance.initialize();
+      
+    } catch (error, stackTrace) {
+      logger.e('🔔 消息通知服务初始化失败，但应用继续运行', error: error, stackTrace: stackTrace);
+      // 不抛出异常，让应用继续运行
+    }
+
+    // 📱 初始化版本信息服务
+    logger.i('📱 开始初始化版本信息服务');
+    try {
+      await VersionInfoService.instance.initialize();
+      logger.i('📱 版本信息服务初始化完成', extra: {
+        'version': VersionInfoService.instance.currentVersion,
+        'platform': VersionInfoService.instance.platformName,
+      });
+    } catch (error, stackTrace) {
+      logger.e('📱 版本信息服务初始化失败，但应用继续运行', error: error, stackTrace: stackTrace);
+    }
 
     // 初始化日期格式化的本地化数据
     await initializeDateFormatting(currentLocale.languageCode, null);
@@ -224,6 +268,29 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _logger.x('初始化MyApp状态');
+    
+    // 延迟启动版本检查，确保UI完全加载后再检查
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkVersionOnStartup();
+    });
+  }
+
+  /// 启动时检查版本更新
+  void _checkVersionOnStartup() {
+    // 延迟3秒确保应用完全启动
+    Future.delayed(const Duration(seconds: 3), () async {
+      try {
+        if (!mounted) return;
+        
+        final navigatorKey = UINotificationService.instance.navigatorKey;
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          await VersionUpdateService.instance.checkUpdateOnStartup(context);
+        }
+      } catch (error) {
+        _logger.e('启动时版本检查失败', error: error);
+      }
+    });
   }
 
   @override
@@ -241,6 +308,7 @@ class _MyAppState extends State<MyApp> {
         builder: (context, locale, child) {
           return MaterialApp(
             title: 'ThisApp',
+            navigatorKey: UINotificationService.instance.navigatorKey,
             scaffoldMessengerKey:
                 UINotificationService.instance.scaffoldMessengerKey,
             // 💢💢💢 注册路由观察者
@@ -259,7 +327,9 @@ class _MyAppState extends State<MyApp> {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: locale,
-            home: const AuthPage(),
+            home: const GlobalOverlayInitializer(
+              child: AuthPage(),
+            ),
           );
         });
   }

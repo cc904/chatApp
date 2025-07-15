@@ -9,6 +9,8 @@ import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/verification_code_timer.dart';
+import 'package:cc/core/services/version_update_service.dart';
+import 'package:cc/core/services/ui_notification_service.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -279,9 +281,28 @@ class _AuthPageState extends State<AuthPage>
           builder: (context) => const HomePage(),
         ),
       );
+      
+      // 登录成功后检查版本更新
+      _checkLoginVersionUpdate(context);
     } else if (state.hasError) {
       UINotificationHelper.showError(state.errorMessage!);
     }
+  }
+
+  /// 检查登录时的版本更新
+  void _checkLoginVersionUpdate(BuildContext context) {
+    // 延迟检查，确保导航完成后再检查
+    Future.delayed(const Duration(seconds: 1), () async {
+      if (!mounted) return;
+      
+      // 使用全局导航上下文避免跨异步边界问题
+      final navigatorKey = UINotificationService.instance.navigatorKey;
+      final currentContext = navigatorKey.currentContext;
+      
+      if (currentContext != null) {
+        await VersionUpdateService.instance.checkAndHandleLoginVersionUpdate(currentContext);
+      }
+    });
   }
 
   Widget _buildQuickLogin() {

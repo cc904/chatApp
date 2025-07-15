@@ -10,6 +10,9 @@ import 'package:cc/features/chat/presentation/cubit/search_cubit.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 import 'package:cc/core/constants/app_colors.dart';
+import 'package:cc/core/services/media_cache_service.dart';
+import 'package:cc/core/services/thumbnail_cache_service.dart';
+import 'dart:io';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -413,11 +416,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                       if (message.thumbnailUrl != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            message.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
+                          child: _CachedNetworkImage(
+                            url: message.thumbnailUrl!,
+                            mediaType: 'thumbnails',
                           ),
                         ),
                       const Icon(
@@ -430,11 +431,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: message.mediaUrl != null
-                        ? Image.network(
-                            message.mediaUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
+                        ? _CachedNetworkImage(
+                            url: message.mediaUrl!,
+                            mediaType: 'images',
                           )
                         : const Center(child: Icon(Icons.broken_image)),
                   ),
@@ -490,5 +489,101 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     } else {
       return '${time.month}月${time.day}日 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     }
+  }
+}
+
+/// 缓存网络图片组件
+class _CachedNetworkImage extends StatefulWidget {
+  final String url;
+  final String mediaType;
+
+  const _CachedNetworkImage({
+    required this.url,
+    required this.mediaType,
+  });
+
+  @override
+  State<_CachedNetworkImage> createState() => _CachedNetworkImageState();
+}
+
+class _CachedNetworkImageState extends State<_CachedNetworkImage> {
+  final MediaCacheService _mediaCache = MediaCacheService();
+  final ThumbnailCacheService _thumbnailCache = ThumbnailCacheService();
+  String? _localPath;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    try {
+      String? localPath;
+      if (widget.mediaType == 'thumbnails') {
+        localPath = await _thumbnailCache.getThumbnail(widget.url);
+      } else {
+        localPath = await _mediaCache.getMedia(widget.url, widget.mediaType);
+      }
+
+      if (mounted) {
+        setState(() {
+          _localPath = localPath;
+          _isLoading = false;
+          _hasError = localPath == null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.grey[300],
+        child: const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_hasError || _localPath == null) {
+      return Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.grey[300],
+        child: const Center(
+          child: Icon(Icons.broken_image, color: Colors.grey),
+        ),
+      );
+    }
+
+    return Image.file(
+      File(_localPath!),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.grey[300],
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey),
+          ),
+        );
+      },
+    );
   }
 }

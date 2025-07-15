@@ -22,6 +22,8 @@ import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/contact_service.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/services/media_cache_service.dart';
+import 'package:cc/core/services/thumbnail_cache_service.dart';
 
 class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage({
@@ -3049,24 +3051,10 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
       if (thumbnailUrl.startsWith('http://') ||
           thumbnailUrl.startsWith('https://')) {
-        return Image.network(
+        return _buildCachedNetworkImage(
           thumbnailUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                strokeWidth: 2,
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return _buildFallbackThumbnail(message);
-          },
+          'thumbnails',
+          () => _buildFallbackThumbnail(message),
         );
       } else if (thumbnailUrl.startsWith('file://')) {
         final filePath = thumbnailUrl.substring(7);
@@ -3098,24 +3086,10 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 2. 如果有媒体URL，尝试加载网络图片
     if (mediaUrl != null && mediaUrl.isNotEmpty) {
       if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
-        return Image.network(
+        return _buildCachedNetworkImage(
           mediaUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                strokeWidth: 2,
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return _buildFallbackThumbnail(message);
-          },
+          'images',
+          () => _buildFallbackThumbnail(message),
         );
       } else if (mediaUrl.startsWith('file://')) {
         final filePath = mediaUrl.substring(7);
@@ -3395,6 +3369,49 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         'error': e.toString(),
       });
       return false;
+    }
+  }
+
+  /// 构建缓存网络图片
+  Widget _buildCachedNetworkImage(
+    String url,
+    String mediaType,
+    Widget Function() fallbackBuilder,
+  ) {
+    return FutureBuilder<String?>(
+      future: _getCachedMedia(url, mediaType),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+          return fallbackBuilder();
+        }
+
+        return Image.file(
+          File(snapshot.data!),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return fallbackBuilder();
+          },
+        );
+      },
+    );
+  }
+
+  /// 获取缓存媒体文件
+  Future<String?> _getCachedMedia(String url, String mediaType) async {
+    try {
+      if (mediaType == 'thumbnails') {
+        return await ThumbnailCacheService().getThumbnail(url);
+      } else {
+        return await MediaCacheService().getMedia(url, mediaType);
+      }
+    } catch (e) {
+      return null;
     }
   }
 }

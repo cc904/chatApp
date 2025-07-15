@@ -63,31 +63,19 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         'isCurrentUser': widget.isCurrentUser,
       });
 
-      // 1. 优先检查本地原始文件（对于当前用户发送的消息）
-      if (widget.isCurrentUser &&
-          widget.message.localPath != null &&
-          widget.message.localPath!.isNotEmpty) {
-        final localFile = File(widget.message.localPath!);
-        if (localFile.existsSync()) {
-          _logger.d('使用本地原始文件');
-          await _loadImageFromPath(widget.message.localPath!);
-          return;
-        }
-      }
-
-      // 2. 检查是否有网络图片URL
+      // 1. 检查是否有网络图片URL
       if (widget.message.mediaUrl != null &&
           widget.message.mediaUrl!.isNotEmpty) {
-        // 2.1 检查原始图片是否已缓存
+        // 1.1 检查原始图片是否已缓存
         final cachedImagePath = await _mediaCache.getCachedMediaPath(
-            widget.message.mediaUrl!, 'images');
+            widget.message.mediaUrl!, 'images', messageDate: widget.message.createdAt);
         if (cachedImagePath != null) {
           _logger.d('使用缓存的原始图片');
           await _loadImageFromPath(cachedImagePath);
           return;
         }
 
-        // 2.2 原始图片未缓存，先尝试显示缩略图
+        // 1.2 原始图片未缓存，先尝试显示缩略图
         if (widget.message.thumbnailUrl != null &&
             widget.message.thumbnailUrl!.isNotEmpty) {
           _logger.d('原始图片未缓存，先显示缩略图');
@@ -100,7 +88,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         return;
       }
 
-      // 3. 如果都没有，显示错误
+      // 2. 如果都没有，显示错误
       throw Exception('没有可用的图片路径');
     } catch (error) {
       _logger.e('图片初始化失败', error: error);
@@ -135,14 +123,16 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   void _downloadOriginalImageInBackground() async {
     if (_isDownloadingOriginal) return;
 
-    setState(() {
-      _isDownloadingOriginal = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isDownloadingOriginal = true;
+      });
+    }
 
     try {
       _logger.d('开始后台下载原始图片');
       final originalImagePath =
-          await _mediaCache.getImage(widget.message.mediaUrl!);
+          await _mediaCache.getImage(widget.message.mediaUrl!, messageDate: widget.message.createdAt);
 
       if (originalImagePath != null && mounted) {
         _logger.d('原始图片下载完成，替换缩略图');
@@ -172,7 +162,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
       _logger.d('直接下载原始图片');
       final originalImagePath =
-          await _mediaCache.getImage(widget.message.mediaUrl!);
+          await _mediaCache.getImage(widget.message.mediaUrl!, messageDate: widget.message.createdAt);
 
       if (originalImagePath != null) {
         await _loadImageFromPath(originalImagePath);

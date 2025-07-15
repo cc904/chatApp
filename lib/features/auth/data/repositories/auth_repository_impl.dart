@@ -8,8 +8,12 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:isar/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 import 'package:cc/core/utils/api_error_handler.dart';
+import 'package:cc/core/services/version_info_service.dart';
+import 'package:cc/core/services/version_update_service.dart';
 
 /// AuthRepository的实现类
 /// 负责认证相关的业务逻辑，支持多设备登录和新Token管理
@@ -143,6 +147,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
+      
+      // 获取客户端版本信息
+      final clientInfo = VersionInfoService.instance.getClientInfo();
 
       // 发送登录请求
       final response = await _apiService.post('/api/v1/auth/login',
@@ -156,7 +163,8 @@ class AuthRepositoryImpl implements AuthRepository {
               'deviceModel': deviceInfo.deviceModel,
               'osVersion': deviceInfo.osVersion,
               'appVersion': deviceInfo.appVersion,
-            }
+            },
+            'clientInfo': clientInfo, // 添加客户端版本信息
           },
           attachToken: false);
 
@@ -197,6 +205,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
+      
+      // 获取客户端版本信息
+      final clientInfo = VersionInfoService.instance.getClientInfo();
 
       // 发送登录请求
       final response = await _apiService.post('/api/v1/auth/login',
@@ -211,6 +222,7 @@ class AuthRepositoryImpl implements AuthRepository {
               'osVersion': deviceInfo.osVersion,
               'appVersion': deviceInfo.appVersion,
             },
+            'clientInfo': clientInfo, // 添加客户端版本信息
           },
           attachToken: false);
 
@@ -246,9 +258,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
       _logger.i('🎫 Token登录');
 
+      // 获取客户端版本信息
+      final clientInfo = VersionInfoService.instance.getClientInfo();
+
       // 验证Token
       final response = await _apiService.post('/api/v1/auth/verifyToken',
-          data: {'token': bestToken}, requireAuth: true);
+          data: {
+            'token': bestToken,
+            'clientInfo': clientInfo, // 添加客户端版本信息
+          }, requireAuth: true);
 
       final data = response.data;
       if (data['success'] != true) {
@@ -285,6 +303,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
+      
+      // 获取客户端版本信息
+      final clientInfo = VersionInfoService.instance.getClientInfo();
 
       // 发送注册请求
       final response = await _apiService.post(
@@ -300,7 +321,8 @@ class AuthRepositoryImpl implements AuthRepository {
             'deviceModel': deviceInfo.deviceModel,
             'osVersion': deviceInfo.osVersion,
             'appVersion': deviceInfo.appVersion,
-          }
+          },
+          'clientInfo': clientInfo, // 添加客户端版本信息
         },
         attachToken: false, // 注册不需要token认证
       );
@@ -332,7 +354,11 @@ class AuthRepositoryImpl implements AuthRepository {
         'hasCurrentUser': response.containsKey('currentUser'),
         'hasUser': response.containsKey('user'),
         'hasTokens': response.containsKey('tokens'),
+        'hasVersionUpdate': response.containsKey('versionUpdate'),
       });
+
+      // 🔄 检查是否有版本更新信息
+      await _handleVersionUpdateFromLogin(response);
 
       // 保存Token信息
       await _tokenManager.saveLoginTokens(response);
@@ -394,8 +420,7 @@ class AuthRepositoryImpl implements AuthRepository {
         _logger.w('⚠️ 登录响应中没有找到用户数据');
       }
 
-      // 启动Token管理
-      _tokenManager.startTokenManagement();
+      // Token管理已在saveLoginTokens中启动，无需重复启动
 
       _logger.i('💾 登录信息保存完成');
     } catch (error) {
@@ -576,6 +601,51 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (error) {
       _logger.e('删除账户失败', error: error, stackTrace: StackTrace.current);
       return false;
+    }
+  }
+
+  /// 处理登录时的版本更新信息
+  Future<void> _handleVersionUpdateFromLogin(Map<String, dynamic> response) async {
+    try {
+      final versionUpdateData = response['versionUpdate'];
+      if (versionUpdateData != null) {
+        _logger.i('📱 登录时检测到版本更新信息', extra: {
+          'versionUpdateData': versionUpdateData,
+        });
+
+        // 创建版本检查结果对象
+        final versionResult = VersionCheckResult.fromJson(versionUpdateData);
+        
+        if (versionResult.hasUpdate) {
+          _logger.i('🔄 服务器要求版本更新', extra: {
+            'currentVersion': VersionInfoService.instance.currentVersion,
+            'latestVersion': versionResult.latestVersion,
+            'isForced': versionResult.isForced,
+          });
+
+          // 保存版本更新信息，延迟显示对话框
+          await _scheduleVersionUpdateDialog(versionResult);
+        }
+      }
+    } catch (error) {
+      _logger.e('处理登录版本更新信息失败', error: error, stackTrace: StackTrace.current);
+      // 版本更新处理失败不影响登录流程
+    }
+  }
+
+  /// 计划显示版本更新对话框
+  Future<void> _scheduleVersionUpdateDialog(VersionCheckResult versionResult) async {
+    try {
+      // 使用SharedPreferences存储版本更新信息
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pending_version_update', jsonEncode(versionResult.toJson()));
+      
+      _logger.i('📅 已计划版本更新对话框', extra: {
+        'latestVersion': versionResult.latestVersion,
+        'isForced': versionResult.isForced,
+      });
+    } catch (error) {
+      _logger.e('计划版本更新对话框失败', error: error);
     }
   }
 }

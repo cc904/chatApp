@@ -1,6 +1,7 @@
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:cc/core/proto/generated/conversation.pb.dart';
 import 'package:fixnum/fixnum.dart';
 
 /// 统一搜索服务
@@ -78,6 +79,11 @@ class UniversalSearchService {
             .first;
       } catch (timeoutError) {
         _logger.e('等待搜索响应超时', error: timeoutError);
+        
+        // 检查是否是proto解析错误，可能服务器还在返回旧格式
+        if (timeoutError.toString().contains('InvalidProtocolBufferException')) {
+          _logger.w('可能是proto格式不匹配，服务器可能还在使用旧的SearchConversationResult格式');
+        }
         return null;
       }
 
@@ -121,7 +127,7 @@ class UniversalSearchService {
   ///
   /// [query] 搜索关键字（群聊ID或名称）
   /// [limit] 最大结果数
-  Future<List<SearchConversationResult>> searchGroups({
+  Future<List<ConversationProto>> searchGroups({
     required String query,
     int limit = 10,
   }) async {
@@ -138,7 +144,7 @@ class UniversalSearchService {
   ///
   /// [query] 搜索关键字（频道ID或名称）
   /// [limit] 最大结果数
-  Future<List<SearchConversationResult>> searchChannels({
+  Future<List<ConversationProto>> searchChannels({
     required String query,
     int limit = 10,
   }) async {
@@ -214,9 +220,9 @@ class UniversalSearchService {
 
     if (response.conversationCount > 0) {
       final groups =
-          response.conversations.where((c) => c.type == 'group').length;
+          response.conversations.where((c) => c.type == ConversationType.GROUP).length;
       final channels =
-          response.conversations.where((c) => c.type == 'channel').length;
+          response.conversations.where((c) => c.type == ConversationType.CHANNEL).length;
 
       if (groups > 0) {
         parts.add('$groups个群聊');

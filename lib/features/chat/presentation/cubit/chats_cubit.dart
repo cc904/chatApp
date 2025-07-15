@@ -21,6 +21,9 @@ class ChatsCubit extends Cubit<ChatsState> {
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
 
+  /// 是否允许网络重连时自动同步
+  bool _allowNetworkReconnectSync = true;
+
   ChatsCubit({
     required ChatsRepository chatsRepository,
     required CurrentUser currentUser,
@@ -222,8 +225,16 @@ class ChatsCubit extends Cubit<ChatsState> {
     // 监听重连成功事件
     _subscriptions['reconnectSuccess'] =
         CommunicationService().reconnectSuccessStream.listen((_) {
-      _logger.i('ChatsCubit: 收到重连成功通知，开始数据同步');
-      _syncAfterReconnect();
+      _logger.i('ChatsCubit: 收到重连成功通知，检查是否允许自动同步', extra: {
+        'allowSync': _allowNetworkReconnectSync,
+      });
+      
+      if (_allowNetworkReconnectSync) {
+        _logger.i('网络重连，执行会话同步');
+        _syncAfterReconnect();
+      } else {
+        _logger.d('网络重连自动同步已禁用，跳过会话同步');
+      }
     });
 
     // 监听连接状态变化
@@ -425,6 +436,14 @@ class ChatsCubit extends Cubit<ChatsState> {
     ConversationMerger.sortConversations(finalFilteredConversations);
 
     return finalFilteredConversations;
+  }
+
+  /// 设置是否允许网络重连时自动同步
+  void setNetworkReconnectSyncEnabled(bool enabled) {
+    _allowNetworkReconnectSync = enabled;
+    _logger.d('ChatsCubit 网络重连自动同步设置', extra: {
+      'enabled': enabled,
+    });
   }
 
   /// 清理资源

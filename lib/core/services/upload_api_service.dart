@@ -6,6 +6,8 @@ import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/services/auth_token_sync_service.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
 
 /// 文件上传API服务
 /// 对应客户端使用指南的Flutter实现
@@ -90,6 +92,61 @@ class UploadApiService {
   /// 清除认证token
   void clearAuthToken() {
     _dio.options.headers.remove('Authorization');
+  }
+
+  /// 强制刷新认证Token（调试用）
+  Future<void> forceRefreshAuth() async {
+    _logger.i('🔄 强制刷新认证Token...');
+    await AuthTokenSyncService.instance.syncTokenToAllServices();
+    
+    // 再次获取Token确保设置成功
+    final tokenManager = EnhancedTokenManager.instance;
+    final apiToken = await tokenManager.getApiToken();
+    if (apiToken != null) {
+      setAuthToken(apiToken);
+      _logger.i('✅ 强制刷新认证Token完成');
+    } else {
+      _logger.e('❌ 强制刷新后仍无法获取Token');
+    }
+  }
+
+  /// 确保认证状态
+  Future<void> _ensureAuthentication() async {
+    try {
+      // 检查当前是否有认证头
+      final currentAuth = _dio.options.headers['Authorization'];
+      
+      if (currentAuth == null) {
+        _logger.w('🚨 发现认证头缺失，尝试自动同步Token...');
+        
+        // 尝试从Token管理器获取最新Token
+        final tokenManager = EnhancedTokenManager.instance;
+        final apiToken = await tokenManager.getApiToken();
+        
+        if (apiToken != null) {
+          setAuthToken(apiToken);
+          _logger.i('✅ 已自动设置认证Token');
+        } else {
+          _logger.e('❌ 无法获取有效Token，可能需要重新登录');
+          
+          // 尝试强制同步所有服务Token
+          try {
+            await AuthTokenSyncService.instance.syncTokenToAllServices();
+            final retryToken = await tokenManager.getApiToken();
+            if (retryToken != null) {
+              setAuthToken(retryToken);
+              _logger.i('✅ 强制同步后成功设置认证Token');
+            }
+          } catch (syncError) {
+            _logger.e('Token同步失败', error: syncError);
+          }
+        }
+      } else {
+        _logger.d('✅ 认证头已存在，继续上传操作');
+      }
+    } catch (error) {
+      _logger.e('确保认证状态失败', error: error);
+    }
   }
 
   /// 图片上传
@@ -197,6 +254,9 @@ class UploadApiService {
     Function(int)? onProgress,
   }) async {
     try {
+      // 检查认证状态
+      await _ensureAuthentication();
+      
       // 验证文件
       _validateFile(file, type);
 
@@ -315,6 +375,14 @@ class UploadApiService {
     if (error is DioException) {
       if (error.response != null) {
         final errorData = error.response!.data;
+        
+        // 添加详细的错误日志
+        _logger.e('服务器错误详情', extra: {
+          'statusCode': error.response!.statusCode,
+          'statusMessage': error.response!.statusMessage,
+          'responseData': errorData,
+        });
+        
         final errorCode = errorData['error']?['code'];
         final errorMessage = errorData['error']?['message'] ?? '上传失败';
 
@@ -339,11 +407,18 @@ class UploadApiService {
           case 'INVALID_FILE_HEADER':
             return const UploadException('文件格式验证失败');
           case 'UPLOAD_FAILED':
-            return const UploadException('文件上传处理失败');
+            return UploadException(errorMessage);
           case 'RATE_LIMIT_EXCEEDED':
             return const UploadException('上传过于频繁，请稍后再试');
           default:
-            return UploadException(errorMessage);
+            // 如果没有特定的错误代码，尝试从响应中获取更多信息
+            if (errorData is Map && errorData.containsKey('message')) {
+              return UploadException(errorData['message']);
+            } else if (errorData is String) {
+              return UploadException(errorData);
+            } else {
+              return UploadException('上传失败：${error.response!.statusMessage ?? '未知错误'}');
+            }
         }
       } else if (error.type == DioExceptionType.connectionTimeout) {
         return const UploadException('连接超时，请检查网络');

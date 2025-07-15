@@ -55,23 +55,19 @@ class VoiceRecordService {
   /// 最大录音时长（秒）
   static const int maxRecordingDuration = 60;
 
-  late final AudioRecorder _recorder;
+  AudioRecorder? _recorder;
   final LogService _logger = LogService.instance;
   final Uuid _uuid = const Uuid();
 
   String? _currentRecordingPath;
   DateTime? _recordingStartTime;
   bool _isRecording = false;
-  bool _isInitialized = false;
 
   /// 初始化录制器
   Future<bool> _initializeRecorder() async {
     try {
-      if (!_isInitialized) {
-        _recorder = AudioRecorder();
-        _isInitialized = true;
-        _logger.i('语音录制器初始化成功');
-      }
+      _recorder ??= AudioRecorder();
+      _logger.i('语音录制器初始化成功');
       return true;
     } catch (e, stackTrace) {
       _logger.e('语音录制器初始化失败', error: e, stackTrace: stackTrace);
@@ -82,10 +78,10 @@ class VoiceRecordService {
   /// 检查录音权限
   Future<bool> hasPermission() async {
     try {
-      if (!await _initializeRecorder()) {
+      if (!await _initializeRecorder() || _recorder == null) {
         return false;
       }
-      return await _recorder.hasPermission();
+      return await _recorder!.hasPermission();
     } catch (e, stackTrace) {
       _logger.e('检查录音权限失败', error: e, stackTrace: stackTrace);
       return false;
@@ -100,14 +96,14 @@ class VoiceRecordService {
     try {
       _logger.i('开始录音流程');
 
-      if (!await _initializeRecorder()) {
+      if (!await _initializeRecorder() || _recorder == null) {
         return false;
       }
 
       // 检查权限
       _logger.i('检查录音权限...');
-      final hasPermission = await _recorder.hasPermission();
-      _logger.i('权限检查结果', extra: {'hasPermission': hasPermission});
+      final hasPermission = await _recorder!.hasPermission();
+      _logger.i('权限检查结果: $hasPermission');
 
       if (!hasPermission) {
         _logger.w('录音权限未授予');
@@ -115,8 +111,8 @@ class VoiceRecordService {
       }
 
       // 检查是否已在录音
-      final isCurrentlyRecording = await _recorder.isRecording();
-      _logger.i('当前录音状态', extra: {'isRecording': isCurrentlyRecording});
+      final isCurrentlyRecording = await _recorder!.isRecording();
+      _logger.i('当前录音状态: $isCurrentlyRecording');
 
       if (isCurrentlyRecording) {
         _logger.w('已在录音中，停止当前录音');
@@ -126,11 +122,11 @@ class VoiceRecordService {
       // 生成录音文件路径
       _logger.i('生成录音文件路径...');
       final recordingPath = await _generateFilePath();
-      _logger.i('录音文件路径生成完成', extra: {'path': recordingPath});
+      _logger.i('录音文件路径生成完成: $recordingPath');
 
       // 开始录音 - 使用优化配置
-      _logger.i('开始录音到文件', extra: {'path': recordingPath});
-      await _recorder.start(
+      _logger.i('开始录音到文件: $recordingPath');
+      await _recorder!.start(
         const RecordConfig(encoder: AudioEncoder.aacLc), // AAC-LC编码，兼容性最好
         path: recordingPath,
       );
@@ -139,10 +135,7 @@ class VoiceRecordService {
       _recordingStartTime = DateTime.now();
       _isRecording = true;
 
-      _logger.i('录音开始成功', extra: {
-        'path': recordingPath,
-        'startTime': _recordingStartTime?.toIso8601String(),
-      });
+      _logger.i('录音开始成功: path=$recordingPath, startTime=${_recordingStartTime?.toIso8601String()}');
 
       return true;
     } catch (e, stackTrace) {
@@ -160,7 +153,7 @@ class VoiceRecordService {
       }
 
       // 停止录音
-      final path = await _recorder.stop();
+      final path = await _recorder?.stop();
       if (path == null || _currentRecordingPath == null) {
         _logger.w('录音路径为空');
         return null;
@@ -215,7 +208,7 @@ class VoiceRecordService {
   Future<void> cancelRecording() async {
     try {
       if (_isRecording) {
-        await _recorder.cancel();
+        await _recorder?.cancel();
 
         // 删除录音文件（cancel方法应该已经删除了文件，但为了确保）
         if (_currentRecordingPath != null) {
@@ -243,10 +236,10 @@ class VoiceRecordService {
   /// 异步检查是否正在录音（向后兼容）
   Future<bool> isRecordingAsync() async {
     try {
-      if (!_isInitialized) {
+      if (_recorder == null) {
         return _isRecording;
       }
-      return await _recorder.isRecording();
+      return await _recorder!.isRecording();
     } catch (e) {
       return _isRecording;
     }
@@ -280,9 +273,9 @@ class VoiceRecordService {
     try {
       await cancelRecording();
 
-      if (_isInitialized) {
-        _recorder.dispose();
-        _isInitialized = false;
+      if (_recorder != null) {
+        _recorder!.dispose();
+        _recorder = null;
       }
 
       _logger.i('语音录制服务资源已释放');

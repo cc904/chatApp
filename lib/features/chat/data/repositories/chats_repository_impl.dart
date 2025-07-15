@@ -18,6 +18,8 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/services/conversation_preview_notification.dart';
+import 'package:flutter/widgets.dart';
 import 'package:fixnum/fixnum.dart';
 
 /// ChatsRepository的实现类
@@ -58,6 +60,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
   ChatsRepositoryImpl({required CurrentUser currentUser})
       : _currentUser = currentUser {
     _logger.x('ChatsRepositoryImpl 初始化');
+    
+    // 初始化会话预览通知服务的当前用户
+    ConversationPreviewNotificationService.instance.setCurrentUser(currentUser);
+    
     _registerEventHandlers();
   }
 
@@ -1198,13 +1204,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 根据服务器推送的会话更新通知更新本地会话数据
   /// [notification] - 会话更新通知数据
   void _handleConversationPreviewUpdated(
-      conversation_proto.ConversationPreviewUpdated previewInfo) {
+      conversation_proto.ConversationPreviewUpdated previewInfo) async {
     try {
       _logger
           .i('收到会话更新通知', extra: {'conversationId': previewInfo.conversationId});
 
       // 更新本地会话数据
-      _isar.writeTxn(() async {
+      await _isar.writeTxn(() async {
         // 查找本地会话
         final conversation = await _conversations
             .filter()
@@ -1244,6 +1250,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
             ],
             timestamp: DateTime.now(),
           ));
+
+          // 🔔 新增：处理会话预览更新通知
+          await _handleConversationPreviewNotification(previewInfo, conversation);
+
         } else {
           _logger.w('本地找不到对应的会话',
               extra: {'conversationId': previewInfo.conversationId});
@@ -1253,6 +1263,48 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
     } catch (error, stackTrace) {
       _logger.e('处理会话更新通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理会话预览更新通知
+  /// 根据应用状态选择合适的通知方式
+  Future<void> _handleConversationPreviewNotification(
+      conversation_proto.ConversationPreviewUpdated previewInfo,
+      db.Conversation conversation) async {
+    try {
+      // 获取发送者信息（如果需要）
+      User? sender;
+      if (previewInfo.lastMessageName.isNotEmpty) {
+        // 尝试根据名称查找发送者（这里可能需要更精确的查找逻辑）
+        sender = await _users
+            .filter()
+            .nameEqualTo(previewInfo.lastMessageName)
+            .findFirst();
+      }
+
+      // 检查应用状态
+      final appLifecycleState = WidgetsBinding.instance.lifecycleState;
+      final isAppInForeground = appLifecycleState == AppLifecycleState.resumed;
+      
+      // 这里需要根据你的导航架构来判断当前页面
+      // 暂时设置为基本状态，实际项目中需要根据路由状态来判断
+      const isChatsPageVisible = true; // 需要根据实际导航状态判断
+      const isChatPageVisible = false; // 需要根据实际导航状态判断
+      const currentChatConversationId = null; // 需要根据当前聊天页面状态判断
+
+      // 使用会话预览通知服务处理通知
+      await ConversationPreviewNotificationService.instance.handleConversationPreviewUpdated(
+        previewUpdate: previewInfo,
+        conversation: conversation,
+        sender: sender,
+        isAppInForeground: isAppInForeground,
+        isChatsPageVisible: isChatsPageVisible,
+        isChatPageVisible: isChatPageVisible,
+        currentChatConversationId: currentChatConversationId,
+      );
+
+    } catch (error, stackTrace) {
+      _logger.e('处理会话预览通知失败', error: error, stackTrace: stackTrace);
     }
   }
 

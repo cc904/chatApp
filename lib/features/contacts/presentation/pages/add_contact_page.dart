@@ -15,7 +15,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'dart:async';
 
 /// 添加联系人页面 - 仿微信风格
@@ -333,15 +333,15 @@ class _AddContactPageState extends State<AddContactPage> {
       );
 
       final contactCubit = context.read<ContactCubit>();
-      final success =
-          await contactCubit.sendFriendRequest(targetUserId, message);
+      
+      try {
+        await contactCubit.sendFriendRequest(targetUserId, message);
 
-      // 关闭加载对话框
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+        // 关闭加载对话框
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
 
-      if (success) {
         // 显示成功消息
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -358,14 +358,31 @@ class _AddContactPageState extends State<AddContactPage> {
           'targetUserId': targetUserId,
           'targetUserName': targetUserName,
         });
-      } else {
-        // 显示失败消息
+      } catch (error) {
+        // 关闭加载对话框
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+
+        // 提取具体的错误信息
+        String errorMessage = '好友申请发送失败，请稍后重试';
+        final errorStr = error.toString();
+        
+        if (errorStr.contains('该用户已经是您的好友')) {
+          errorMessage = '该用户已经是您的好友';
+        } else if (errorStr.contains('用户不存在')) {
+          errorMessage = '用户不存在';
+        } else if (errorStr.contains('不能添加自己为好友')) {
+          errorMessage = '不能添加自己为好友';
+        }
+
+        // 显示具体的错误消息
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('好友申请发送失败，请稍后重试'),
+            SnackBar(
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -374,6 +391,7 @@ class _AddContactPageState extends State<AddContactPage> {
           'event': 'friend:request:send',
           'targetUserId': targetUserId,
           'targetUserName': targetUserName,
+          'error': errorStr,
         });
       }
     } catch (error) {
@@ -401,15 +419,15 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   /// 处理会话结果点击
-  void _handleConversationTap(SearchConversationResult conversation) {
+  void _handleConversationTap(conversation_proto.ConversationProto conversation) {
     _logger.i('点击会话结果', extra: {
       'conversationId': conversation.conversationId,
       'name': conversation.name,
       'type': conversation.type,
-      'isJoined': conversation.isJoined,
+      'isJoined': _isCurrentUserJoined(conversation),
     });
 
-    if (conversation.isJoined) {
+    if (_isCurrentUserJoined(conversation)) {
       // 已加入，直接进入聊天页面
       _openConversation(conversation);
     } else {
@@ -419,7 +437,7 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   /// 直接打开会话聊天页面
-  void _openConversation(SearchConversationResult conversation) {
+  void _openConversation(conversation_proto.ConversationProto conversation) {
     try {
       _logger.i('进入已加入的会话', extra: {
         'conversationId': conversation.conversationId,
@@ -430,9 +448,16 @@ class _AddContactPageState extends State<AddContactPage> {
       final chatsRepository = context.read<ChatsRepository>();
       final chatRepository = context.read<ChatRepository>();
       final chatRepositorySend = context.read<ChatRepositorySend>();
+      final currentUser = context.read<CurrentUser>(); // 在这里读取CurrentUser
 
       // 关闭底部弹窗
       Navigator.pop(context);
+
+      // 直接使用ConversationProto转换为Conversation对象
+      final conversationObj = ConversationAdapter.fromProto(
+        conversation,
+        currentUserId: currentUser.userId,
+      );
 
       // 导航到聊天页面
       Navigator.push(
@@ -444,39 +469,20 @@ class _AddContactPageState extends State<AddContactPage> {
               RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
               RepositoryProvider<ChatRepositorySend>.value(
                   value: chatRepositorySend),
+              RepositoryProvider<CurrentUser>.value(value: currentUser), // 传递CurrentUser
             ],
-            child: FutureBuilder<Conversation?>(
-              future: chatsRepository
-                  .getConversationById(conversation.conversationId),
-              builder: (context, snapshot) {
-                // 创建基本的会话对象
-                final conversationObj = snapshot.data ??
-                    (Conversation()
-                      ..conversationId = conversation.conversationId
-                      ..name = conversation.name
-                      ..avatar = conversation.avatar
-                      ..type = conversation.type == 'group'
-                          ? ConversationType.group
-                          : conversation.type == 'channel'
-                              ? ConversationType.channel
-                              : ConversationType.private
-                      ..description = conversation.description
-                      ..createdAt = DateTime.now());
-
-                return BlocProvider<ChatCubit>(
-                  create: (context) => ChatCubit(
-                    chatRepository: chatRepository,
-                    chatRepositorySend: chatRepositorySend,
-                    chatsRepository: chatsRepository,
-                    currentUser: CurrentUser()..userId = '', // 会被ChatCubit正确初始化
-                    initialConversation: conversationObj,
-                  ),
-                  child: ChatPage(
-                    conversationId: conversation.conversationId,
-                    initialConversation: conversationObj,
-                  ),
-                );
-              },
+            child: BlocProvider<ChatCubit>(
+              create: (context) => ChatCubit(
+                chatRepository: chatRepository,
+                chatRepositorySend: chatRepositorySend,
+                chatsRepository: chatsRepository,
+                currentUser: currentUser,
+                initialConversation: conversationObj,
+              ),
+              child: ChatPage(
+                conversationId: conversation.conversationId,
+                initialConversation: conversationObj,
+              ),
             ),
           ),
         ),
@@ -490,7 +496,7 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   /// 显示加入会话的确认对话框
-  void _showJoinConfirmation(SearchConversationResult conversation) {
+  void _showJoinConfirmation(conversation_proto.ConversationProto conversation) {
     final typeLabel = conversation.type == 'group' ? '群聊' : '频道';
 
     showDialog(
@@ -521,10 +527,10 @@ class _AddContactPageState extends State<AddContactPage> {
                   ),
                 ),
               ],
-              if (conversation.participantCount > 0) ...[
+              if (conversation.participants.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  '成员数量：${conversation.participantCount}',
+                  '成员数量：${conversation.participants.length}',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 13,
@@ -553,7 +559,7 @@ class _AddContactPageState extends State<AddContactPage> {
 
   /// 请求加入会话（群聊/频道）
   Future<void> _requestJoinConversation(
-      SearchConversationResult conversation) async {
+      conversation_proto.ConversationProto conversation) async {
     try {
       _logger.i('发送加入会话请求', extra: {
         'conversationId': conversation.conversationId,
@@ -867,11 +873,22 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
+  /// 检查当前用户是否已加入会话
+  bool _isCurrentUserJoined(conversation_proto.ConversationProto conversation) {
+    try {
+      final currentUser = context.read<CurrentUser>();
+      return conversation.participants.any((p) => p.userId == currentUser.userId);
+    } catch (e) {
+      _logger.w('检查用户是否已加入会话失败', extra: {'error': e.toString()});
+      return false;
+    }
+  }
+
   /// 构建会话条目
-  Widget _buildConversationItem(SearchConversationResult conversation) {
-    final isGroup = conversation.type == 'group';
-    final typeLabel =
-        UniversalSearchService.getSearchResultTypeLabel(conversation.type);
+  Widget _buildConversationItem(conversation_proto.ConversationProto conversation) {
+    final isGroup = conversation.type == conversation_proto.ConversationType.GROUP;
+    final typeLabel = conversation.type == conversation_proto.ConversationType.GROUP ? '群聊' :
+        conversation.type == conversation_proto.ConversationType.CHANNEL ? '频道' : '私聊';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 0.5),
@@ -894,18 +911,10 @@ class _AddContactPageState extends State<AddContactPage> {
                     shape: BoxShape.circle,
                   ),
                   child: conversation.avatar.isNotEmpty
-                      ? ClipOval(
-                          child: Image.network(
-                            conversation.avatar,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                isGroup ? Icons.group : Icons.campaign,
-                                color: Colors.white,
-                                size: 20,
-                              );
-                            },
-                          ),
+                      ? UserAvatar(
+                          name: conversation.name.isNotEmpty ? conversation.name : conversation.conversationId,
+                          avatarUrl: conversation.avatar,
+                          radius: 20,
                         )
                       : Icon(
                           isGroup ? Icons.group : Icons.campaign,
@@ -938,7 +947,7 @@ class _AddContactPageState extends State<AddContactPage> {
                               color: Color(0xFF8A8A8A),
                             ),
                           ),
-                          if (conversation.participantCount > 0) ...[
+                          if (conversation.participants.isNotEmpty) ...[
                             const Text(
                               ' • ',
                               style: TextStyle(
@@ -947,14 +956,14 @@ class _AddContactPageState extends State<AddContactPage> {
                               ),
                             ),
                             Text(
-                              '${conversation.participantCount}人',
+                              '${conversation.participants.length}人',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF8A8A8A),
                               ),
                             ),
                           ],
-                          if (conversation.isJoined) ...[
+                          if (_isCurrentUserJoined(conversation)) ...[
                             const Text(
                               ' • ',
                               style: TextStyle(

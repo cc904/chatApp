@@ -8,6 +8,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/user_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/core/constants/app_colors.dart';
+import 'package:cc/core/services/upload_api_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -489,14 +490,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildAvatarOption(
-                  icon: Icons.camera_alt,
-                  label: '拍照',
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickImage(ImageSource.camera);
-                  },
-                ),
+                // 只在移动平台显示拍照选项
+                if (Platform.isAndroid || Platform.isIOS)
+                  _buildAvatarOption(
+                    icon: Icons.camera_alt,
+                    label: '拍照',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickImage(ImageSource.camera);
+                    },
+                  ),
                 _buildAvatarOption(
                   icon: Icons.photo_library,
                   label: '从相册选择',
@@ -565,6 +568,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
+      // 检查桌面平台是否支持相机
+      if (source == ImageSource.camera && (Platform.isMacOS || Platform.isWindows)) {
+        UINotificationService().showError('桌面版本不支持拍照功能，请选择从相册选择');
+        return;
+      }
+
       final XFile? image = await _picker.pickImage(
         source: source,
         maxWidth: 800,
@@ -582,7 +591,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     } catch (e) {
       _logger.e('选择头像失败', error: e);
-      UINotificationService().showError('选择头像失败');
+      
+      // 根据错误类型提供友好的错误信息
+      String errorMessage;
+      if (e.toString().contains('cameraDelegate')) {
+        errorMessage = '当前平台不支持拍照功能，请选择从相册选择';
+      } else {
+        errorMessage = '选择头像失败，请重试';
+      }
+      
+      UINotificationService().showError(errorMessage);
     }
   }
 
@@ -703,7 +721,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
     } catch (error) {
       _logger.e('保存个人信息失败', error: error);
-      UINotificationService().showError('保存失败: $error');
+      
+      // 如果有上传对话框打开，先关闭它
+      // if (mounted && Navigator.canPop(context)) {
+      //   Navigator.pop(context);
+      // }
+      
+      // 提取友好的错误信息
+      String friendlyMessage;
+      if (error is UploadException) {
+        friendlyMessage = error.message;
+      } else {
+        friendlyMessage = '保存失败: ${error.toString()}';
+      }
+      
+      _logger.i('准备显示错误信息', extra: {'message': friendlyMessage});
+      UINotificationService().showError(friendlyMessage);
+      
+      // 额外的 SnackBar 显示，确保用户能看到错误
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 

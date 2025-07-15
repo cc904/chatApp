@@ -3,6 +3,7 @@ import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/voice_record_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
+import 'package:cc/core/services/media_cache_service.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -31,6 +32,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     with TickerProviderStateMixin {
   final LogService _logger = LogService.instance;
   final AudioPlayerManager _audioManager = AudioPlayerManager();
+  final MediaCacheService _cacheService = MediaCacheService();
 
   // 本地UI状态
   bool _isPlaying = false;
@@ -134,27 +136,53 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     super.dispose();
   }
 
-  /// 🆕 简化的播放控制
+  /// 🆕 新的播放控制 - 使用统一缓存策略
   Future<void> _togglePlayback() async {
     final messageId = widget.message.id.toString();
-    final audioPath = widget.message.mediaUrl ?? widget.message.localPath;
-
-    if (audioPath == null || audioPath.isEmpty) {
-      _showErrorSnackBar('语音文件路径为空');
-      return;
-    }
-
+    
     // 显示短暂加载状态
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // 调用全局管理器，它会自动处理播放/暂停/切换逻辑
-      await _audioManager.playVoice(messageId, audioPath);
+      _logger.d('开始获取语音文件缓存 - 消息ID: $messageId');
+      
+      // 🔥 使用新的统一缓存策略：基于消息ID获取本地缓存的语音文件
+      final cachedAudioPath = await _cacheService.getVoiceByMessageId(
+        messageId, 
+        widget.message.mediaUrl,
+        messageDate: widget.message.createdAt,
+      );
+      
+      if (cachedAudioPath == null) {
+        _showErrorSnackBar('语音文件获取失败');
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      _logger.d('语音文件缓存获取成功: $cachedAudioPath');
+      
+      // 只播放本地缓存文件，从不直接播放网络URL
+      await _audioManager.playVoice(messageId, cachedAudioPath);
     } catch (error) {
-      _logger.e('播放控制失败', error: error);
-      _showErrorSnackBar('播放失败: $error');
+      _logger.e('播放失败', error: error);
+      
+      // 根据错误类型显示不同的提示
+      String errorMessage = '播放失败';
+      if (error.toString().contains('-11800')) {
+        errorMessage = '音频格式不支持';
+      } else if (error.toString().contains('HTTP')) {
+        errorMessage = '网络连接问题，无法下载语音';
+      } else if (error.toString().contains('timeout')) {
+        errorMessage = '下载超时，请检查网络连接';
+      } else {
+        errorMessage = '播放失败: ${error.toString()}';
+      }
+      
+      _showErrorSnackBar(errorMessage);
 
       setState(() {
         _isLoading = false;
@@ -224,23 +252,50 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final foregroundColor = widget.foregroundColor ??
-        (widget.isCurrentUser ? Colors.white : theme.colorScheme.onSurface);
+    // 检查关键数据
+    if (widget.message.mediaUrl == null && widget.message.localPath == null) {
+      _logger.w('语音消息文件路径为空 - ID: ${widget.message.id}');
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // ignore: prefer_const_constructors
+        child: Row(
+          children: const [
+            Icon(Icons.error, color: Colors.red, size: 16),
+            SizedBox(width: 8),
+            Text('语音文件丢失', style: TextStyle(color: Colors.red, fontSize: 12)),
+          ],
+        ),
+      );
+    }
 
+    // 添加调试日志
+    final width = _calculateWidthFromDuration();
+    // _logger.d('语音消息渲染 - ID: ${widget.message.id}, 宽度: $width, 时长: ${_totalDuration.inSeconds}秒, mediaUrl: ${widget.message.mediaUrl}, localPath: ${widget.message.localPath}');
+    
+    // 添加最小宽度保护
+    final safeWidth = math.max(width, 180.0);
+    
+    // 统一使用深色方案 - 因为所有气泡都是白色的
+    final displayColor = widget.foregroundColor ?? const Color(0xFF555555);
+            
+    // _logger.d('颜色调试 - displayColor: $displayColor, isCurrentUser: ${widget.isCurrentUser}, alpha: ${displayColor.a}');
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      width: _calculateWidthFromDuration(),
+      width: safeWidth,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.max,
         children: [
           // 播放按钮
-          _buildPlayButton(foregroundColor),
+          _buildPlayButton(displayColor),
           const SizedBox(width: 12),
 
           // 波形显示区域
           Expanded(
-            child: _buildWaveform(foregroundColor),
+            child: _buildWaveform(displayColor),
           ),
 
           const SizedBox(width: 12),
@@ -250,7 +305,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
             _formatRemainingTime(),
             style: TextStyle(
               fontSize: 12,
-              color: foregroundColor,
+              color: displayColor.withAlpha(220), // 稍微透明的文字
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -260,7 +315,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   }
 
   /// 构建播放按钮
-  Widget _buildPlayButton(Color foregroundColor) {
+  Widget _buildPlayButton(Color displayColor) {
     return GestureDetector(
       onTap: _togglePlayback,
       child: Container(
@@ -268,9 +323,9 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
         height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: foregroundColor.withAlpha(25),
+          color: displayColor.withAlpha(30),  // 轻微的背景色
           border: Border.all(
-            color: foregroundColor.withAlpha(77),
+            color: displayColor.withAlpha(80), // 稍深的边框
             width: 1,
           ),
         ),
@@ -288,7 +343,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: foregroundColor.withAlpha(
+                        color: displayColor.withAlpha(
                           (77 * (1 - _rippleAnimationController.value)).round(),
                         ),
                         width: 1,
@@ -305,13 +360,13 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(displayColor),
                 ),
               )
             else
               Icon(
                 _isPlaying ? Icons.pause : Icons.play_arrow,
-                color: foregroundColor,
+                color: displayColor,
                 size: 20,
               ),
           ],
@@ -321,15 +376,15 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   }
 
   /// 构建波形显示
-  Widget _buildWaveform(Color foregroundColor) {
+  Widget _buildWaveform(Color displayColor) {
     return SizedBox(
       height: 30,
       child: CustomPaint(
         painter: VoiceWavePainter(
           progress: _progress,
           animationValue: _isPlaying ? _waveAnimationController.value : 0.0,
-          foregroundColor: foregroundColor,
-          backgroundColor: foregroundColor.withAlpha(51),
+          foregroundColor: displayColor,               // 已播放部分
+          backgroundColor: displayColor.withAlpha(60), // 未播放部分，更透明
           durationSeconds:
               _totalDuration == Duration.zero ? 0 : _totalDuration.inSeconds,
         ),
@@ -376,11 +431,20 @@ class VoiceWavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 防止空画布
+    if (size.width <= 0 || size.height <= 0) {
+      return;
+    }
+    
     final paint = Paint()
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     final barCount = _calculateBarCount(); // 🔧 动态计算波形条数量
+    if (barCount <= 0) {
+      return;
+    }
+    
     final barWidth = size.width / barCount;
     final centerY = size.height / 2;
 

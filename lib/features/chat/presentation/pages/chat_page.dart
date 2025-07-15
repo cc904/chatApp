@@ -24,6 +24,8 @@ import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/media_upload_integration_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
+import 'package:cc/core/services/permission_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:cc/features/chat/presentation/widgets/unread_indicator_button.dart';
 import 'package:mime/mime.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
@@ -86,6 +88,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _showMoreOptions = false;
   bool _showEmojiPanel = false;
   bool _isRecording = false;
+  bool _isVideoRecording = false;
 
   /// 录制时间相关
   Timer? _recordingTimer;
@@ -114,12 +117,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 当前选择的SVG图案
   late String _selectedSvgPattern;
 
+  /// SVG资源是否可用
+  bool _svgAssetsAvailable = true;
+
   @override
   void initState() {
     super.initState();
 
     // 随机选择一个SVG图案
     _selectedSvgPattern = _svgPatterns[_random.nextInt(_svgPatterns.length)];
+
+    // 验证SVG资源是否可用
+    _validateSvgAssets();
 
     // 初始化动画控制器
     _waveAnimationController = AnimationController(
@@ -846,6 +855,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 构建SVG背景图案
   Widget _buildSvgBackground() {
+    // 如果SVG资源不可用，直接返回透明容器
+    if (!_svgAssetsAvailable) {
+      return Container(color: Colors.transparent);
+    }
+
     return SvgPicture.asset(
       _selectedSvgPattern,
       fit: BoxFit.cover,
@@ -853,146 +867,182 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         Colors.white.withAlpha(26), // 非常淡的白色，让图案不那么明显
         BlendMode.modulate,
       ),
+      placeholderBuilder: (BuildContext context) => Container(
+        color: Colors.transparent,
+        child: const Center(
+          child: Text(
+            '',
+            style: TextStyle(color: Colors.transparent),
+          ),
+        ),
+      ),
+      errorBuilder:
+          (BuildContext context, Object error, StackTrace? stackTrace) {
+        // 资源加载失败时返回透明容器，不影响UI
+        _logger.w('SVG背景加载失败，使用透明背景',
+            extra: {'pattern': _selectedSvgPattern, 'error': error.toString()});
+        return Container(color: Colors.transparent);
+      },
     );
+  }
+
+  /// 验证SVG资源是否可用
+  Future<void> _validateSvgAssets() async {
+    try {
+      await rootBundle.load(_selectedSvgPattern);
+    } catch (e) {
+      _logger.w('SVG资源文件不可用，将使用简单背景', extra: {
+        'selectedPattern': _selectedSvgPattern,
+        'error': e.toString()
+      });
+      if (mounted) {
+        setState(() {
+          _svgAssetsAvailable = false;
+        });
+      }
+    }
   }
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢   构建消息列表   💢💢💢💢💢💢💢💢💢💢💢💢💢💢
   Widget _buildMessagesList() {
-    return BlocListener<ChatCubit, ChatState>(
-      listenWhen: (previous, current) {
-        // 💢💢💢 监听搜索结果索引变化，触发自动滚动
-        final searchResultChanged = previous.currentSearchResultIndex !=
-                current.currentSearchResultIndex ||
-            (previous.searchResultMessageIndexes.length !=
-                    current.searchResultMessageIndexes.length &&
-                current.searchResultMessageIndexes.isNotEmpty);
+    return Stack(
+      children: [
+        // 独立的背景图，不受消息状态变化影响
+        _buildBackground(),
+        // 消息列表内容
+        BlocListener<ChatCubit, ChatState>(
+          listenWhen: (previous, current) {
+            // 💢💢💢 监听搜索结果索引变化，触发自动滚动
+            final searchResultChanged = previous.currentSearchResultIndex !=
+                    current.currentSearchResultIndex ||
+                (previous.searchResultMessageIndexes.length !=
+                        current.searchResultMessageIndexes.length &&
+                    current.searchResultMessageIndexes.isNotEmpty);
 
-        // 💢💢💢 监听滚动位置变化（初始化时自动滚动到最新消息）
-        final scrollPositionChanged =
-            previous.currentScrollPosition.messageId !=
-                    current.currentScrollPosition.messageId &&
-                current.currentScrollPosition.messageId != null &&
-                !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
+            // 💢💢💢 监听滚动位置变化（初始化时自动滚动到最新消息）
+            final scrollPositionChanged =
+                previous.currentScrollPosition.messageId !=
+                        current.currentScrollPosition.messageId &&
+                    current.currentScrollPosition.messageId != null &&
+                    !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
 
-        // 💢💢💢 新增：监听消息列表更新，以恢复滚动位置
-        final messageListUpdated =
-            previous.messages.length != current.messages.length &&
-                current.currentScrollPosition.messageId != null &&
-                !current.isSearchMode &&
-                !current.isCleaningMessages; // 清理消息时不触发
+            // 💢💢💢 新增：监听消息列表更新，以恢复滚动位置
+            final messageListUpdated =
+                previous.messages.length != current.messages.length &&
+                    current.currentScrollPosition.messageId != null &&
+                    !current.isSearchMode &&
+                    !current.isCleaningMessages; // 清理消息时不触发
 
-        // 🆕 监听新消息到达（用于自动滚动）
-        final newMessageArrived = !current.isSearchMode &&
-            !current.isCleaningMessages &&
-            current.messages.length > previous.messages.length &&
-            current.messages.isNotEmpty;
+            // 🆕 监听新消息到达（用于自动滚动）
+            final newMessageArrived = !current.isSearchMode &&
+                !current.isCleaningMessages &&
+                current.messages.length > previous.messages.length &&
+                current.messages.isNotEmpty;
 
-        final shouldListen = searchResultChanged ||
-            scrollPositionChanged ||
-            messageListUpdated ||
-            newMessageArrived;
+            final shouldListen = searchResultChanged ||
+                scrollPositionChanged ||
+                messageListUpdated ||
+                newMessageArrived;
 
-        return shouldListen;
-      },
-      listener: (context, state) {
-        // 💢💢💢 自动滚动到当前搜索结果
-        if (state.isSearchMode &&
-            state.searchResultMessageIndexes.isNotEmpty &&
-            state.currentSearchResultIndex <
-                state.searchResultMessageIndexes.length) {
-          final currentResultMessageIndex =
-              state.searchResultMessageIndexes[state.currentSearchResultIndex];
+            return shouldListen;
+          },
+          listener: (context, state) {
+            // 💢💢💢 自动滚动到当前搜索结果
+            if (state.isSearchMode &&
+                state.searchResultMessageIndexes.isNotEmpty &&
+                state.currentSearchResultIndex <
+                    state.searchResultMessageIndexes.length) {
+              final currentResultMessageIndex = state
+                  .searchResultMessageIndexes[state.currentSearchResultIndex];
 
-          _logger.d('💢 BlocListener 搜索模式滚动', extra: {
-            'targetMessageIndex': currentResultMessageIndex,
-            'currentIndex': state.currentSearchResultIndex,
-          });
+              _logger.d('💢 BlocListener 搜索模式滚动', extra: {
+                'targetMessageIndex': currentResultMessageIndex,
+                'currentIndex': state.currentSearchResultIndex,
+              });
 
-          // 延迟执行滚动，等待UI更新完成
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _logger.d('💢 BlocListener 执行搜索滚动回调');
-            _scrollToMessage(currentResultMessageIndex);
-          });
-        }
-        // 🆕 新消息自动滚动逻辑
-        else if (!state.isSearchMode &&
-            !state.isCleaningMessages &&
-            state.messages.isNotEmpty) {}
-      },
-      child: BlocBuilder<ChatCubit, ChatState>(
-        buildWhen: (previous, current) {
-          // 💢💢💢 合并后的BlocBuilder：统一处理所有相关状态变化
+              // 延迟执行滚动，等待UI更新完成
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _logger.d('💢 BlocListener 执行搜索滚动回调');
+                _scrollToMessage(currentResultMessageIndex);
+              });
+            }
+            // 🆕 新消息自动滚动逻辑
+            else if (!state.isSearchMode &&
+                !state.isCleaningMessages &&
+                state.messages.isNotEmpty) {}
+          },
+          child: BlocBuilder<ChatCubit, ChatState>(
+            buildWhen: (previous, current) {
+              // 💢💢💢 合并后的BlocBuilder：统一处理所有相关状态变化
 
-          // 1. 消息列表变化（最重要的重建条件）
-          if (!identical(previous.messages, current.messages)) {
-            _logger.i('💢 BlocBuilder：消息列表变化', extra: {
-              'previousLength': previous.messages.length,
-              'currentLength': current.messages.length,
-              'lengthDiff': current.messages.length - previous.messages.length,
-            });
-            return true;
-          }
+              // 1. 消息列表变化（最重要的重建条件）
+              if (!identical(previous.messages, current.messages)) {
+                _logger.i('💢 BlocBuilder：消息列表变化', extra: {
+                  'previousLength': previous.messages.length,
+                  'currentLength': current.messages.length,
+                  'lengthDiff':
+                      current.messages.length - previous.messages.length,
+                });
+                return true;
+              }
 
-          // 2. 搜索状态变化（影响消息高亮和显示）
-          if (previous.isSearchMode != current.isSearchMode ||
-              previous.searchQuery != current.searchQuery ||
-              previous.currentSearchResultIndex !=
-                  current.currentSearchResultIndex ||
-              !identical(previous.searchResultMessageIndexes,
-                  current.searchResultMessageIndexes)) {
-            _logger.i('💢 BlocBuilder：搜索状态变化');
-            return true;
-          }
+              // 2. 搜索状态变化（影响消息高亮和显示）
+              if (previous.isSearchMode != current.isSearchMode ||
+                  previous.searchQuery != current.searchQuery ||
+                  previous.currentSearchResultIndex !=
+                      current.currentSearchResultIndex ||
+                  !identical(previous.searchResultMessageIndexes,
+                      current.searchResultMessageIndexes)) {
+                _logger.i('💢 BlocBuilder：搜索状态变化');
+                return true;
+              }
 
-          // 3. 会话信息变化（影响消息显示状态和类型判断）
-          if (previous.conversation.conversationId !=
-                  current.conversation.conversationId ||
-              previous.conversation.type != current.conversation.type) {
-            _logger.i('💢 BlocBuilder：会话信息变化');
-            return true;
-          }
+              // 3. 会话信息变化（影响消息显示状态和类型判断）
+              if (previous.conversation.conversationId !=
+                      current.conversation.conversationId ||
+                  previous.conversation.type != current.conversation.type) {
+                _logger.i('💢 BlocBuilder：会话信息变化');
+                return true;
+              }
 
-          // 5. 消息更新触发器变化（强制更新机制）
-          if (previous.messageUpdateTrigger != current.messageUpdateTrigger) {
-            _logger.i('💢 BlocBuilder：消息更新触发器变化', extra: {
-              'prevTrigger': previous.messageUpdateTrigger,
-              'currTrigger': current.messageUpdateTrigger,
-            });
-            return true;
-          }
+              // 5. 消息更新触发器变化（强制更新机制）
+              if (previous.messageUpdateTrigger !=
+                  current.messageUpdateTrigger) {
+                _logger.i('💢 BlocBuilder：消息更新触发器变化', extra: {
+                  'prevTrigger': previous.messageUpdateTrigger,
+                  'currTrigger': current.messageUpdateTrigger,
+                });
+                return true;
+              }
 
-          _logger.d('💢 BlocBuilder：无相关状态变化');
-          return false;
-        },
-        builder: (context, state) {
-          _logger.i('💢 BlocBuilder 重绘',
-              extra: {
-                'messageCount': state.messages.length,
-                'currentScrollPositionMessageID':
-                    state.currentScrollPosition.messageId,
-                'currentScrollPositionIndex':
-                    state.currentScrollPosition.getListIndex(state.messages),
-              },
-              stackTrace: StackTrace.current);
+              _logger.d('💢 BlocBuilder：无相关状态变化');
+              return false;
+            },
+            builder: (context, state) {
+              _logger.i('💢 BlocBuilder 重绘',
+                  extra: {
+                    'messageCount': state.messages.length,
+                    'currentScrollPositionMessageID':
+                        state.currentScrollPosition.messageId,
+                    'currentScrollPositionIndex': state.currentScrollPosition
+                        .getListIndex(state.messages),
+                  },
+                  stackTrace: StackTrace.current);
 
-          // 💢💢💢 每次重建时重置首次位置检查标志
-          _hasCheckedInitialPosition = false;
+              // 💢💢💢 每次重建时重置首次位置检查标志
+              _hasCheckedInitialPosition = false;
 
-          // 处理消息列表，添加分隔符
-          final currentUserId = state.currentUser.userId;
-          final isNotGroupChat =
-              state.conversation.type != ConversationType.group;
-          final processedItems = MessageListProcessor.processMessages(
-            messages: state.messages, // 直接使用state中的消息列表
-            currentUserId: currentUserId,
-            isNotGroupChat: isNotGroupChat,
-          );
+              // 处理消息列表，添加分隔符
+              final currentUserId = state.currentUser.userId;
+              final isNotGroupChat =
+                  state.conversation.type != ConversationType.group;
+              final processedItems = MessageListProcessor.processMessages(
+                messages: state.messages, // 直接使用state中的消息列表
+                currentUserId: currentUserId,
+                isNotGroupChat: isNotGroupChat,
+              );
 
-          return Stack(
-            children: [
-              _buildBackground(),
-              // 消息列表内容
-              Column(
+              return Column(
                 children: [
                   // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
                   Expanded(
@@ -1116,11 +1166,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     ),
                   ),
                 ],
-              ),
-            ],
-          );
-        },
-      ),
+              );
+            },
+          ),
+        )
+      ],
     );
   }
 
@@ -1324,7 +1374,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return GestureDetector(
       onLongPressStart: (_) async {
         if (isEnabled) {
-          await _startRecording();
+          await _handleRecordingStart();
         }
       },
       onLongPressMoveUpdate: (details) {
@@ -1359,6 +1409,98 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// 处理录音开始 - 先检查权限
+  Future<void> _handleRecordingStart() async {
+    try {
+      _logger.i('用户尝试开始录音，先检查权限');
+
+      // 首先检查当前权限状态
+      final currentStatus =
+          await _permissionService.checkMicrophonePermission();
+
+      // 如果已有权限，直接开始录音
+      if (currentStatus.isGranted) {
+        _logger.i('麦克风权限已存在，直接开始录音');
+        await _startRecording();
+        return;
+      }
+
+      // 如果没有权限，尝试申请权限
+      _logger.i('需要申请麦克风权限');
+      final hasPermission =
+          await _permissionService.ensureMicrophonePermission();
+
+      if (!hasPermission) {
+        _logger.w('麦克风权限未授予，无法开始录音');
+        if (mounted) {
+          final localizations = AppLocalizations.of(context);
+
+          // 检查是否被永久拒绝
+          final status = await _permissionService.checkMicrophonePermission();
+          if (status.isPermanentlyDenied) {
+            // 权限被永久拒绝，提示用户到设置中开启
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text(localizations.permissionRequired),
+                  content: Text(localizations.microphonePermissionMessage),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(localizations.cancel),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _permissionService.openDeviceAppSettings();
+                      },
+                      child: Text(localizations.goToSettings),
+                    ),
+                  ],
+                ),
+              );
+            }
+          } else {
+            // 权限被拒绝，显示简单提示
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(localizations.recordingFailedPermission),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        }
+        return;
+      }
+
+      // 权限已获得，提示用户重新长按录音
+      _logger.i('麦克风权限已获得，提示用户重新长按开始录音');
+      if (mounted) {
+        final localizations = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(localizations.permissionGrantedRetry),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      _logger.e('处理录音开始异常', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        final localizations = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${localizations.recordingFailed}: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   /// 开始录制（语音）
@@ -1428,17 +1570,172 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
-  /// 视频录制功能（暂时禁用，等camera插件问题解决）
+  /// 开始视频录制
   Future<void> _startVideoRecording() async {
-    _logger.w('视频录制功能暂时禁用');
-    if (mounted) {
+    try {
+      _logger.i('用户开始录制视频');
+
+      setState(() {
+        _isVideoRecording = true;
+        _recordingSeconds = 0;
+      });
+
+      // 启动录制计时器，最大60秒
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted) {
+          setState(() {
+            _recordingSeconds++;
+          });
+
+          // 录制时长限制：最大60秒
+          if (_recordingSeconds >= 60) {
+            _logger.i('视频录制达到最大时长60秒，自动停止');
+            timer.cancel();
+            _stopVideoRecording();
+
+            // 显示提示
+            final localizations = AppLocalizations.of(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${localizations.recordingAutoSend}(60秒)'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      });
+
+      HapticFeedback.lightImpact();
+      _logger.i('视频录制开始成功');
+    } catch (e) {
+      _logger.e('视频录制开始异常', error: e);
+      if (mounted) {
+        final localizations = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${localizations.recordingFailed}: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 停止视频录制
+  Future<void> _stopVideoRecording() async {
+    try {
+      _logger.i('用户停止录制视频');
+
+      // 停止计时器
+      _recordingTimer?.cancel();
+      _recordingTimer = null;
+
+      setState(() {
+        _isVideoRecording = false;
+      });
+
+      // 使用MediaService录制视频
+      final videoFile = await _mediaService.pickVideo(fromCamera: true);
+
+      if (videoFile != null) {
+        _logger.i('视频录制成功', extra: {
+          'filePath': videoFile.path,
+          'fileSize': await videoFile.length(),
+          'duration': _recordingSeconds,
+        });
+
+        await _showVideoPreviewAndSend(videoFile);
+      } else {
+        _logger.i('用户取消了视频录制');
+      }
+
+      HapticFeedback.lightImpact();
+      _logger.i('视频录制停止成功');
+    } catch (e) {
+      _logger.e('视频录制停止异常', error: e);
+      if (mounted) {
+        final localizations = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${localizations.recordingFailed}: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      // 确保状态被重置
+      if (mounted) {
+        setState(() {
+          _isVideoRecording = false;
+          _recordingSeconds = 0;
+        });
+      }
+    }
+  }
+
+  /// 显示视频预览并发送
+  Future<void> _showVideoPreviewAndSend(File videoFile) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _VideoPreviewDialog(videoFile: videoFile),
+    );
+
+    if (result != null && result['confirmed'] == true) {
+      final caption = result['caption'] as String?;
+      await _uploadAndSendVideo(videoFile, caption: caption);
+    }
+  }
+
+  /// 上传并发送视频消息
+  Future<void> _uploadAndSendVideo(File videoFile, {String? caption}) async {
+    try {
+      _logger.i('开始上传视频', extra: {
+        'filePath': videoFile.path,
+        'caption': caption,
+      });
+
+      // 显示上传进度
       final localizations = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(localizations.videoRecordingComingSoon),
-          duration: const Duration(seconds: 2),
-        ),
+      _showUploadProgress('发送视频中...');
+
+      // 使用MediaUploadIntegrationService发送视频消息
+      await _mediaUploadIntegrationService.sendVideoMessage(
+        videoFile: videoFile,
+        conversationId: widget.conversationId,
+        caption: caption,
+        onUploadProgress: (progress) {
+          _updateUploadProgress('上传视频中 $progress%');
+        },
+        onStatusUpdate: (status) {
+          _updateUploadProgress(status);
+        },
       );
+
+      _logger.i('视频消息发送成功');
+
+      // 清除进度提示
+      _hideUploadProgress();
+
+      // 触觉反馈
+      HapticFeedback.lightImpact();
+    } catch (error) {
+      _logger.e('视频消息发送失败', error: error, stackTrace: StackTrace.current);
+
+      _hideUploadProgress();
+
+      if (mounted) {
+        final localizations = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('视频发送失败: $error'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: localizations.retry,
+              onPressed: () => _uploadAndSendVideo(videoFile, caption: caption),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -2011,40 +2308,126 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               child: Material(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () {
-                    _handleMoreOptionTap(option['label'] as String);
-                  },
-                  child: Container(
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          option['icon'] as IconData,
-                          color: AppColors.primary,
-                          size: 26,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          option['label'] as String,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.primary,
+                child: (option['icon'] as IconData) == Icons.camera_alt
+                    ? _buildCameraButton(option)
+                    : InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          _handleMoreOptionTap(option['label'] as String);
+                        },
+                        child: Container(
+                          height: 90,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                option['icon'] as IconData,
+                                color: AppColors.primary,
+                                size: 26,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                option['label'] as String,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
               ),
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  /// 构建相机按钮（支持短按拍照、长按录制视频）
+  Widget _buildCameraButton(Map<String, dynamic> option) {
+    return GestureDetector(
+      // 短按拍照
+      onTap: () async {
+        setState(() {
+          _showMoreOptions = false;
+        });
+        await _takePicture();
+      },
+      // 长按录制视频
+      onLongPressStart: (details) async {
+        setState(() {
+          _showMoreOptions = false;
+          _isVideoRecording = true;
+        });
+        HapticFeedback.mediumImpact();
+        await _startVideoRecording();
+      },
+      onLongPressEnd: (details) async {
+        if (_isVideoRecording) {
+          setState(() {
+            _isVideoRecording = false;
+          });
+          await _stopVideoRecording();
+        }
+      },
+      child: Container(
+        height: 90,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color:
+              _isVideoRecording ? Colors.red.withAlpha(25) : Colors.transparent,
+          border: _isVideoRecording
+              ? Border.all(color: Colors.red, width: 2)
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  option['icon'] as IconData,
+                  color: _isVideoRecording ? Colors.red : AppColors.primary,
+                  size: 26,
+                ),
+                if (_isVideoRecording)
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.videocam,
+                        color: Colors.white,
+                        size: 8,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _isVideoRecording ? '录制中...' : option['label'] as String,
+              style: TextStyle(
+                fontSize: 12,
+                color: _isVideoRecording ? Colors.red : AppColors.primary,
+                fontWeight:
+                    _isVideoRecording ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2294,6 +2677,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 语音录制服务
   final VoiceRecordService _voiceRecordService = VoiceRecordService();
+
+  /// 权限服务
+  final PermissionService _permissionService = PermissionService();
 
   /// 文件上传服务
   final FileUploadService _fileUploadService = FileUploadService();
@@ -4216,4 +4602,193 @@ enum _UnreadDirection {
   up, // 未读消息在当前位置上方（历史消息方向）
   down, // 未读消息在当前位置下方（新消息方向）
   none, // 无方向或无法确定
+}
+
+/// 视频预览对话框
+class _VideoPreviewDialog extends StatefulWidget {
+  final File videoFile;
+
+  const _VideoPreviewDialog({required this.videoFile});
+
+  @override
+  State<_VideoPreviewDialog> createState() => _VideoPreviewDialogState();
+}
+
+class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
+  final TextEditingController _captionController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _captionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxWidth: MediaQuery.of(context).size.width * 0.9,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey, width: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.videocam, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text(
+                    '发送视频',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 视频预览区域
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // 视频缩略图或播放器占位符
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.play_circle_outline,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                '视频预览',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 视频文件信息
+                    FutureBuilder<int>(
+                      future: widget.videoFile.length(),
+                      builder: (context, snapshot) {
+                        final fileSize = snapshot.data ?? 0;
+                        final fileSizeText = fileSize > 1024 * 1024
+                            ? '${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB'
+                            : '${(fileSize / 1024).toStringAsFixed(1)}KB';
+
+                        return Text(
+                          '文件大小: $fileSizeText',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 说明文字输入框
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _captionController,
+                decoration: InputDecoration(
+                  hintText: '添加视频说明...',
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                maxLines: 2,
+                maxLength: 200,
+              ),
+            ),
+
+            // 操作按钮
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          _isLoading ? null : () => Navigator.of(context).pop(),
+                      child: Text(AppLocalizations.of(context).cancel),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _sendVideo,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(AppLocalizations.of(context).send),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendVideo() {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // 返回确认结果和视频说明
+    Navigator.of(context).pop({
+      'confirmed': true,
+      'caption': _captionController.text.trim().isEmpty
+          ? null
+          : _captionController.text.trim(),
+    });
+  }
 }

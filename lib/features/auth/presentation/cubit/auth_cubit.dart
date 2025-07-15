@@ -9,6 +9,7 @@ import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:cc/core/services/auth_token_sync_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/utils/api_error_handler.dart';
+import 'package:cc/core/services/version_update_service.dart';
 
 part 'auth_state.dart';
 
@@ -365,6 +366,17 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.e('重置密码失败', error: error, stackTrace: StackTrace.current);
       final errorMessage = ApiErrorHandler.extractErrorMessage(error);
       emit(state.toErrorState(errorMessage));
+    }
+  }
+
+  /// 检查登录时的版本更新
+  Future<void> checkLoginVersionUpdate() async {
+    try {
+      // 这个方法用于在登录成功后检查是否有版本更新需要处理
+      // 具体的版本更新对话框显示由UI层处理
+      _logger.i('📱 检查登录时的版本更新信息');
+    } catch (error) {
+      _logger.e('检查登录版本更新失败', error: error);
     }
   }
 

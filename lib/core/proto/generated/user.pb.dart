@@ -14,6 +14,8 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
+import 'conversation.pb.dart' as $0;
+
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'user.pbenum.dart';
@@ -236,6 +238,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     $fixnum.Int64? tokenExpireTime,
     $fixnum.Int64? lastLoginTime,
     $core.String? status,
+    $core.bool? hasSetPassword,
   }) {
     final $result = create();
     if (userId != null) {
@@ -265,6 +268,9 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     if (status != null) {
       $result.status = status;
     }
+    if (hasSetPassword != null) {
+      $result.hasSetPassword = hasSetPassword;
+    }
     return $result;
   }
   CurrentUserProto._() : super();
@@ -281,6 +287,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     ..aInt64(7, _omitFieldNames ? '' : 'tokenExpireTime')
     ..aInt64(8, _omitFieldNames ? '' : 'lastLoginTime')
     ..aOS(9, _omitFieldNames ? '' : 'status')
+    ..aOB(10, _omitFieldNames ? '' : 'hasSetPassword')
     ..hasRequiredFields = false
   ;
 
@@ -394,6 +401,16 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   $core.bool hasStatus() => $_has(8);
   @$pb.TagNumber(9)
   void clearStatus() => $_clearField(9);
+
+  /// 是否已设置密码
+  @$pb.TagNumber(10)
+  $core.bool get hasSetPassword => $_getBF(9);
+  @$pb.TagNumber(10)
+  set hasSetPassword($core.bool v) { $_setBool(9, v); }
+  @$pb.TagNumber(10)
+  $core.bool hasHasSetPassword() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearHasSetPassword() => $_clearField(10);
 }
 
 /// 设置当前用户信息请求
@@ -892,6 +909,104 @@ class UserTypingUpdate extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearIsTyping() => $_clearField(3);
 
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get timestamp => $_getI64(3);
+  @$pb.TagNumber(4)
+  set timestamp($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasTimestamp() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTimestamp() => $_clearField(4);
+}
+
+/// 用户连接响应
+/// Socket.io事件: user:connect:response
+class UserConnectionResponse extends $pb.GeneratedMessage {
+  factory UserConnectionResponse({
+    $core.bool? success,
+    $core.String? message,
+    $core.String? userId,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (userId != null) {
+      $result.userId = userId;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  UserConnectionResponse._() : super();
+  factory UserConnectionResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory UserConnectionResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserConnectionResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOS(3, _omitFieldNames ? '' : 'userId', protoName: 'userId')
+    ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  UserConnectionResponse clone() => UserConnectionResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  UserConnectionResponse copyWith(void Function(UserConnectionResponse) updates) => super.copyWith((message) => updates(message as UserConnectionResponse)) as UserConnectionResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UserConnectionResponse create() => UserConnectionResponse._();
+  UserConnectionResponse createEmptyInstance() => create();
+  static $pb.PbList<UserConnectionResponse> createRepeated() => $pb.PbList<UserConnectionResponse>();
+  @$core.pragma('dart2js:noInline')
+  static UserConnectionResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserConnectionResponse>(create);
+  static UserConnectionResponse? _defaultInstance;
+
+  /// 连接是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 用户ID
+  @$pb.TagNumber(3)
+  $core.String get userId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set userId($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasUserId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUserId() => $_clearField(3);
+
+  /// 连接时间戳
   @$pb.TagNumber(4)
   $fixnum.Int64 get timestamp => $_getI64(3);
   @$pb.TagNumber(4)
@@ -1794,148 +1909,6 @@ class SearchUserResponse extends $pb.GeneratedMessage {
   void clearTimestamp() => $_clearField(6);
 }
 
-/// 搜索结果 - 会话信息
-class SearchConversationResult extends $pb.GeneratedMessage {
-  factory SearchConversationResult({
-    $core.String? conversationId,
-    $core.String? name,
-    $core.String? avatar,
-    $core.String? type,
-    $core.int? participantCount,
-    $core.String? description,
-    $core.bool? isJoined,
-  }) {
-    final $result = create();
-    if (conversationId != null) {
-      $result.conversationId = conversationId;
-    }
-    if (name != null) {
-      $result.name = name;
-    }
-    if (avatar != null) {
-      $result.avatar = avatar;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    if (participantCount != null) {
-      $result.participantCount = participantCount;
-    }
-    if (description != null) {
-      $result.description = description;
-    }
-    if (isJoined != null) {
-      $result.isJoined = isJoined;
-    }
-    return $result;
-  }
-  SearchConversationResult._() : super();
-  factory SearchConversationResult.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SearchConversationResult.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchConversationResult', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
-    ..aOS(2, _omitFieldNames ? '' : 'name')
-    ..aOS(3, _omitFieldNames ? '' : 'avatar')
-    ..aOS(4, _omitFieldNames ? '' : 'type')
-    ..a<$core.int>(5, _omitFieldNames ? '' : 'participantCount', $pb.PbFieldType.O3)
-    ..aOS(6, _omitFieldNames ? '' : 'description')
-    ..aOB(7, _omitFieldNames ? '' : 'isJoined')
-    ..hasRequiredFields = false
-  ;
-
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  SearchConversationResult clone() => SearchConversationResult()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SearchConversationResult copyWith(void Function(SearchConversationResult) updates) => super.copyWith((message) => updates(message as SearchConversationResult)) as SearchConversationResult;
-
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static SearchConversationResult create() => SearchConversationResult._();
-  SearchConversationResult createEmptyInstance() => create();
-  static $pb.PbList<SearchConversationResult> createRepeated() => $pb.PbList<SearchConversationResult>();
-  @$core.pragma('dart2js:noInline')
-  static SearchConversationResult getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchConversationResult>(create);
-  static SearchConversationResult? _defaultInstance;
-
-  /// 会话ID
-  @$pb.TagNumber(1)
-  $core.String get conversationId => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set conversationId($core.String v) { $_setString(0, v); }
-  @$pb.TagNumber(1)
-  $core.bool hasConversationId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearConversationId() => $_clearField(1);
-
-  /// 会话名称
-  @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set name($core.String v) { $_setString(1, v); }
-  @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
-
-  /// 会话头像
-  @$pb.TagNumber(3)
-  $core.String get avatar => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set avatar($core.String v) { $_setString(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasAvatar() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearAvatar() => $_clearField(3);
-
-  /// 会话类型 ("group" 或 "channel")
-  @$pb.TagNumber(4)
-  $core.String get type => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set type($core.String v) { $_setString(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasType() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearType() => $_clearField(4);
-
-  /// 参与者数量
-  @$pb.TagNumber(5)
-  $core.int get participantCount => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set participantCount($core.int v) { $_setSignedInt32(4, v); }
-  @$pb.TagNumber(5)
-  $core.bool hasParticipantCount() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearParticipantCount() => $_clearField(5);
-
-  /// 会话描述
-  @$pb.TagNumber(6)
-  $core.String get description => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set description($core.String v) { $_setString(5, v); }
-  @$pb.TagNumber(6)
-  $core.bool hasDescription() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearDescription() => $_clearField(6);
-
-  /// 是否已加入
-  @$pb.TagNumber(7)
-  $core.bool get isJoined => $_getBF(6);
-  @$pb.TagNumber(7)
-  set isJoined($core.bool v) { $_setBool(6, v); }
-  @$pb.TagNumber(7)
-  $core.bool hasIsJoined() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearIsJoined() => $_clearField(7);
-}
-
 /// 统一搜索请求
 /// 支持搜索用户、群聊、频道的综合搜索接口
 /// Socket.io事件: search:universal
@@ -2040,7 +2013,7 @@ class UniversalSearchResponse extends $pb.GeneratedMessage {
     $core.bool? success,
     $core.String? message,
     $core.Iterable<UserProto>? users,
-    $core.Iterable<SearchConversationResult>? conversations,
+    $core.Iterable<$0.ConversationProto>? conversations,
     $core.String? query,
     $core.Iterable<$core.String>? searchedTypes,
     $core.int? userCount,
@@ -2085,7 +2058,7 @@ class UniversalSearchResponse extends $pb.GeneratedMessage {
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'message')
     ..pc<UserProto>(3, _omitFieldNames ? '' : 'users', $pb.PbFieldType.PM, subBuilder: UserProto.create)
-    ..pc<SearchConversationResult>(4, _omitFieldNames ? '' : 'conversations', $pb.PbFieldType.PM, subBuilder: SearchConversationResult.create)
+    ..pc<$0.ConversationProto>(4, _omitFieldNames ? '' : 'conversations', $pb.PbFieldType.PM, subBuilder: $0.ConversationProto.create)
     ..aOS(5, _omitFieldNames ? '' : 'query')
     ..pPS(6, _omitFieldNames ? '' : 'searchedTypes')
     ..a<$core.int>(7, _omitFieldNames ? '' : 'userCount', $pb.PbFieldType.O3)
@@ -2139,9 +2112,9 @@ class UniversalSearchResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $pb.PbList<UserProto> get users => $_getList(2);
 
-  /// 会话搜索结果（群聊和频道）
+  /// 会话搜索结果（群聊和频道）- 使用完整的会话信息
   @$pb.TagNumber(4)
-  $pb.PbList<SearchConversationResult> get conversations => $_getList(3);
+  $pb.PbList<$0.ConversationProto> get conversations => $_getList(3);
 
   /// 搜索关键字
   @$pb.TagNumber(5)
@@ -2185,6 +2158,379 @@ class UniversalSearchResponse extends $pb.GeneratedMessage {
   $core.bool hasTimestamp() => $_has(8);
   @$pb.TagNumber(9)
   void clearTimestamp() => $_clearField(9);
+}
+
+/// 修改密码请求
+/// 用于用户在设置中修改密码
+/// Socket.io事件: user:change_password
+class ChangePasswordRequest extends $pb.GeneratedMessage {
+  factory ChangePasswordRequest({
+    $core.String? currentPassword,
+    $core.String? newPassword,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (currentPassword != null) {
+      $result.currentPassword = currentPassword;
+    }
+    if (newPassword != null) {
+      $result.newPassword = newPassword;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  ChangePasswordRequest._() : super();
+  factory ChangePasswordRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ChangePasswordRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ChangePasswordRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'currentPassword')
+    ..aOS(2, _omitFieldNames ? '' : 'newPassword')
+    ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ChangePasswordRequest clone() => ChangePasswordRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ChangePasswordRequest copyWith(void Function(ChangePasswordRequest) updates) => super.copyWith((message) => updates(message as ChangePasswordRequest)) as ChangePasswordRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ChangePasswordRequest create() => ChangePasswordRequest._();
+  ChangePasswordRequest createEmptyInstance() => create();
+  static $pb.PbList<ChangePasswordRequest> createRepeated() => $pb.PbList<ChangePasswordRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ChangePasswordRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ChangePasswordRequest>(create);
+  static ChangePasswordRequest? _defaultInstance;
+
+  /// 当前密码（用于验证用户身份）
+  @$pb.TagNumber(1)
+  $core.String get currentPassword => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set currentPassword($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasCurrentPassword() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCurrentPassword() => $_clearField(1);
+
+  /// 新密码
+  @$pb.TagNumber(2)
+  $core.String get newPassword => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set newPassword($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasNewPassword() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNewPassword() => $_clearField(2);
+
+  /// 时间戳
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get timestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTimestamp() => $_clearField(3);
+}
+
+/// 修改密码响应
+/// Socket.io事件: user:change_password:response
+class ChangePasswordResponse extends $pb.GeneratedMessage {
+  factory ChangePasswordResponse({
+    $core.bool? success,
+    $core.String? message,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  ChangePasswordResponse._() : super();
+  factory ChangePasswordResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ChangePasswordResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ChangePasswordResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ChangePasswordResponse clone() => ChangePasswordResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ChangePasswordResponse copyWith(void Function(ChangePasswordResponse) updates) => super.copyWith((message) => updates(message as ChangePasswordResponse)) as ChangePasswordResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ChangePasswordResponse create() => ChangePasswordResponse._();
+  ChangePasswordResponse createEmptyInstance() => create();
+  static $pb.PbList<ChangePasswordResponse> createRepeated() => $pb.PbList<ChangePasswordResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ChangePasswordResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ChangePasswordResponse>(create);
+  static ChangePasswordResponse? _defaultInstance;
+
+  /// 操作是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 操作时间戳
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get timestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTimestamp() => $_clearField(3);
+}
+
+/// 获取当前用户信息请求
+/// 用于获取当前登录用户的完整信息
+/// Socket.io事件: user:getCurrentUser
+class GetCurrentUserRequest extends $pb.GeneratedMessage {
+  factory GetCurrentUserRequest({
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  GetCurrentUserRequest._() : super();
+  factory GetCurrentUserRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetCurrentUserRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetCurrentUserRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetCurrentUserRequest clone() => GetCurrentUserRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetCurrentUserRequest copyWith(void Function(GetCurrentUserRequest) updates) => super.copyWith((message) => updates(message as GetCurrentUserRequest)) as GetCurrentUserRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetCurrentUserRequest create() => GetCurrentUserRequest._();
+  GetCurrentUserRequest createEmptyInstance() => create();
+  static $pb.PbList<GetCurrentUserRequest> createRepeated() => $pb.PbList<GetCurrentUserRequest>();
+  @$core.pragma('dart2js:noInline')
+  static GetCurrentUserRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetCurrentUserRequest>(create);
+  static GetCurrentUserRequest? _defaultInstance;
+
+  /// 时间戳
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get timestamp => $_getI64(0);
+  @$pb.TagNumber(1)
+  set timestamp($fixnum.Int64 v) { $_setInt64(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasTimestamp() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTimestamp() => $_clearField(1);
+}
+
+/// 首次设置密码请求
+/// 用于验证码注册的用户首次设置密码
+/// Socket.io事件: user:set_password
+class SetPasswordRequest extends $pb.GeneratedMessage {
+  factory SetPasswordRequest({
+    $core.String? newPassword,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (newPassword != null) {
+      $result.newPassword = newPassword;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  SetPasswordRequest._() : super();
+  factory SetPasswordRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SetPasswordRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SetPasswordRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'newPassword')
+    ..aInt64(2, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SetPasswordRequest clone() => SetPasswordRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SetPasswordRequest copyWith(void Function(SetPasswordRequest) updates) => super.copyWith((message) => updates(message as SetPasswordRequest)) as SetPasswordRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetPasswordRequest create() => SetPasswordRequest._();
+  SetPasswordRequest createEmptyInstance() => create();
+  static $pb.PbList<SetPasswordRequest> createRepeated() => $pb.PbList<SetPasswordRequest>();
+  @$core.pragma('dart2js:noInline')
+  static SetPasswordRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetPasswordRequest>(create);
+  static SetPasswordRequest? _defaultInstance;
+
+  /// 新密码
+  @$pb.TagNumber(1)
+  $core.String get newPassword => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set newPassword($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasNewPassword() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNewPassword() => $_clearField(1);
+
+  /// 时间戳
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get timestamp => $_getI64(1);
+  @$pb.TagNumber(2)
+  set timestamp($fixnum.Int64 v) { $_setInt64(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasTimestamp() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTimestamp() => $_clearField(2);
+}
+
+/// 首次设置密码响应
+/// Socket.io事件: user:set_password:response
+class SetPasswordResponse extends $pb.GeneratedMessage {
+  factory SetPasswordResponse({
+    $core.bool? success,
+    $core.String? message,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (message != null) {
+      $result.message = message;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  SetPasswordResponse._() : super();
+  factory SetPasswordResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory SetPasswordResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SetPasswordResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  SetPasswordResponse clone() => SetPasswordResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  SetPasswordResponse copyWith(void Function(SetPasswordResponse) updates) => super.copyWith((message) => updates(message as SetPasswordResponse)) as SetPasswordResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetPasswordResponse create() => SetPasswordResponse._();
+  SetPasswordResponse createEmptyInstance() => create();
+  static $pb.PbList<SetPasswordResponse> createRepeated() => $pb.PbList<SetPasswordResponse>();
+  @$core.pragma('dart2js:noInline')
+  static SetPasswordResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetPasswordResponse>(create);
+  static SetPasswordResponse? _defaultInstance;
+
+  /// 操作是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 响应消息
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  /// 操作时间戳
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get timestamp => $_getI64(2);
+  @$pb.TagNumber(3)
+  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTimestamp() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTimestamp() => $_clearField(3);
 }
 
 

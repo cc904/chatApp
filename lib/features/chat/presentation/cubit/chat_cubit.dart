@@ -146,33 +146,45 @@ class ChatCubit extends Cubit<ChatState> {
     if (isClosed) return;
     try {
       _logger.i('初始化消息列表', extra: {
-        'hasSnapshot': state.messages.isNotEmpty,
+        'isNotEmpty': state.messages.isNotEmpty,
         'currentMessageCount': state.messages.length,
       });
 
       final firstUnreadMessageIndex =
           state.conversation.getFirstUnreadMessageIndex(_currentUser.userId);
+
+      // 只有当没有未读消息且已经有消息数据时，才跳过初始化
+      // 这避免了重复加载已经存在的消息
       if (firstUnreadMessageIndex == null && state.messages.isNotEmpty) {
-        _logger.w('🔍 没有未读消息', extra: {
+        _logger.w('🔍 没有未读消息且已有消息数据，跳过初始化', extra: {
           'conversationId': _conversationId,
+          'currentMessageCount': state.messages.length,
         });
         return;
       }
 
-      _logger.i('🔍 ------? 有未读消息', extra: {
-        'conversationId': _conversationId,
+      _logger.i('🔍 检查消息加载条件', extra: {
+        'messages': state.messages.length,
         'firstUnreadMessageIndex': firstUnreadMessageIndex,
         'lastMessageIndex': state.conversation.lastMessageIndex,
+        'hasUnreadMessages': firstUnreadMessageIndex != null,
       });
 
-      final index = firstUnreadMessageIndex ??
-          (state.conversation.lastMessageIndex == 0
-              ? 1
-              : state.conversation.lastMessageIndex);
+      // 确定要加载的消息索引
+      final index =
+          firstUnreadMessageIndex ?? state.conversation.lastMessageIndex;
+
+      _logger.d('🔍 计算加载索引', extra: {
+        'targetIndex': index,
+        'isFromUnread': firstUnreadMessageIndex != null,
+        'lastMessageIndex': state.conversation.lastMessageIndex,
+      });
       final indexA = index > 20 ? index - 20 : 1;
-      final indexB = index + 80 > state.conversation.lastMessageIndex
-          ? state.conversation.lastMessageIndex
-          : index + 80;
+      // 这个是防止意外.
+      final lastIndex = state.conversation.lastMessageIndex == 0
+          ? 1
+          : state.conversation.lastMessageIndex;
+      final indexB = index + 80 > lastIndex ? lastIndex : index + 80;
       final jumpIndex = index;
 
       await _chatRepository.loadMessages(

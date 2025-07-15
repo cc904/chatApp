@@ -52,5 +52,25 @@ class MemberRole extends $pb.ProtobufEnum {
   const MemberRole._(super.v, super.n);
 }
 
+/// 加入请求状态枚举
+class JoinRequestStatus extends $pb.ProtobufEnum {
+  static const JoinRequestStatus JOIN_PENDING = JoinRequestStatus._(0, _omitEnumNames ? '' : 'JOIN_PENDING');
+  static const JoinRequestStatus JOIN_APPROVED = JoinRequestStatus._(1, _omitEnumNames ? '' : 'JOIN_APPROVED');
+  static const JoinRequestStatus JOIN_REJECTED = JoinRequestStatus._(2, _omitEnumNames ? '' : 'JOIN_REJECTED');
+  static const JoinRequestStatus JOIN_CANCELLED = JoinRequestStatus._(3, _omitEnumNames ? '' : 'JOIN_CANCELLED');
+
+  static const $core.List<JoinRequestStatus> values = <JoinRequestStatus> [
+    JOIN_PENDING,
+    JOIN_APPROVED,
+    JOIN_REJECTED,
+    JOIN_CANCELLED,
+  ];
+
+  static final $core.Map<$core.int, JoinRequestStatus> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static JoinRequestStatus? valueOf($core.int value) => _byValue[value];
+
+  const JoinRequestStatus._(super.v, super.n);
+}
+
 
 const _omitEnumNames = $core.bool.fromEnvironment('protobuf.omit_enum_names');

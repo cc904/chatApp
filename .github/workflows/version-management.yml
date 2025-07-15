@@ -1,0 +1,36 @@
+name: 版本管理
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: 检查版本格式
+      run: |
+        version=$(grep "version:" pubspec.yaml | sed 's/version: //')
+        echo "当前版本: $version"
+        
+        # 验证版本格式
+        if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$ ]]; then
+          echo "❌ 版本格式错误，应为: x.y.z+build"
+          exit 1
+        fi
+        
+        echo "✅ 版本格式正确"
+    
+    - name: 生成版本信息
+      run: |
+        version=$(grep "version:" pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
+        build=$(grep "version:" pubspec.yaml | sed 's/.*+//')
+        
+        echo "## 📱 版本信息" >> $GITHUB_STEP_SUMMARY
+        echo "- **版本号**: $version" >> $GITHUB_STEP_SUMMARY
+        echo "- **构建号**: $build" >> $GITHUB_STEP_SUMMARY
+        echo "- **完整版本**: $version+$build" >> $GITHUB_STEP_SUMMARY

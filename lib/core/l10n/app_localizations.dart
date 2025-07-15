@@ -447,6 +447,10 @@ abstract class AppLocalizations {
   String get messageTooLongDetails;
   String get sendFailed;
   String get recordingFailedPermission;
+  String get permissionRequired;
+  String get permissionGrantedRetry;
+  String get microphonePermissionMessage;
+  String get goToSettings;
   String get videoRecordingComingSoon;
   String get macOSGalleryTip;
   String get selectFromGallery;

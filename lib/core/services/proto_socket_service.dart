@@ -6,6 +6,7 @@ import 'dart:math';
 
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -225,8 +226,14 @@ class ProtoSocketService {
 
     _socket?.onError((error) {
       _logger.i('⚠️ Socket.io连接错误: $error');
-      _updateStatus(SocketConnectionStatus.error);
-      // 移除手动重连触发，让Socket.io自动处理
+      
+      // 检查是否是Token过期错误
+      if (_isTokenExpiredError(error)) {
+        _logger.w('🔑 检测到Token过期，尝试自动刷新');
+        _handleTokenExpired();
+      } else {
+        _updateStatus(SocketConnectionStatus.error);
+      }
     });
 
     _socket?.onReconnect((_) {
@@ -247,7 +254,14 @@ class ProtoSocketService {
 
     _socket?.onReconnectError((error) {
       _logger.i('❌ Socket.io重连错误: $error');
-      _updateStatus(SocketConnectionStatus.error);
+      
+      // 检查是否是Token过期错误
+      if (_isTokenExpiredError(error)) {
+        _logger.w('🔑 重连时检测到Token过期，尝试自动刷新');
+        _handleTokenExpired();
+      } else {
+        _updateStatus(SocketConnectionStatus.error);
+      }
     });
 
     _socket?.onReconnectFailed((_) {
@@ -272,6 +286,65 @@ class ProtoSocketService {
       _socket!.auth = {'token': token};
       _logger.i('🔑 更新Socket.io认证令牌');
     }
+  }
+
+  /// 检查错误是否为Token过期
+  bool _isTokenExpiredError(dynamic error) {
+    if (error == null) return false;
+    
+    final errorString = error.toString().toLowerCase();
+    return errorString.contains('token_expired') || 
+           errorString.contains('token expired') ||
+           errorString.contains('unauthorized') ||
+           errorString.contains('invalid token');
+  }
+
+  /// 处理Token过期 - 自动刷新Token并重连
+  Future<void> _handleTokenExpired() async {
+    try {
+      _logger.i('🔄 开始Token过期处理流程');
+      
+      // 1. 使用EnhancedTokenManager刷新Token
+      final tokenManager = EnhancedTokenManager.instance;
+      final success = await tokenManager.manualRefreshToken();
+      
+      if (success) {
+        // 2. 获取新的Token
+        final newToken = await tokenManager.getSocketToken();
+        
+        if (newToken != null) {
+          _logger.i('✅ Token刷新成功，更新Socket认证');
+          
+          // 3. 更新Token
+          updateToken(newToken);
+          
+          // 4. 重新连接
+          if (_serverUrl != null) {
+            _logger.i('🔄 使用新Token重新连接');
+            await connect(serverUrl: _serverUrl!, token: newToken);
+          }
+        } else {
+          _logger.e('❌ 刷新后无法获取新Token');
+          _updateStatus(SocketConnectionStatus.error);
+        }
+      } else {
+        _logger.e('❌ Token刷新失败');
+        _updateStatus(SocketConnectionStatus.error);
+        // 这里可以触发需要重新登录的事件
+        _notifyAuthenticationFailure();
+      }
+    } catch (error) {
+      _logger.e('❌ Token过期处理异常', error: error);
+      _updateStatus(SocketConnectionStatus.error);
+      _notifyAuthenticationFailure();
+    }
+  }
+
+  /// 通知认证失败 - 需要重新登录
+  void _notifyAuthenticationFailure() {
+    _logger.w('🚨 认证失败，可能需要重新登录');
+    // 这里可以发送事件给上层处理重新登录逻辑
+    // 例如：EventBus.instance.fire(AuthenticationFailedEvent());
   }
 
   /// 💢💢💢 新增：手动重连接口

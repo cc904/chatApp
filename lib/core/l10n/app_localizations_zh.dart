@@ -625,6 +625,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recordingFailedPermission => '录音失败，请检查麦克风权限';
 
   @override
+  String get permissionRequired => '需要权限';
+
+  @override
+  String get permissionGrantedRetry => '麦克风权限已开启，请重新长按录音按钮开始录音';
+
+  @override
+  String get microphonePermissionMessage => '需要麦克风权限才能录制语音消息。请到设置中开启麦克风权限。';
+
+  @override
+  String get goToSettings => '去设置';
+
+  @override
   String get videoRecordingComingSoon => '功能暂未开放';
 
   @override

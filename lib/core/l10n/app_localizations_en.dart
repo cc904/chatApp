@@ -684,6 +684,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Recording failed, please check microphone permission';
 
   @override
+  String get permissionRequired => 'Permission Required';
+
+  @override
+  String get permissionGrantedRetry => 'Microphone permission granted, please long press the record button again to start recording';
+
+  @override
+  String get microphonePermissionMessage => 'Microphone permission is required to record voice messages. Please go to settings to enable microphone permission.';
+
+  @override
+  String get goToSettings => 'Go to Settings';
+
+  @override
   String get videoRecordingComingSoon => 'Feature Not Available';
 
   @override

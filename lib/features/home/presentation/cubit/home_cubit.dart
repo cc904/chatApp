@@ -163,6 +163,17 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
+  /// 设置当前Tab索引
+  void setCurrentTabIndex(int index) {
+    if (index != state.currentTabIndex) {
+      _logger.d('HomeCubit: 切换Tab索引', extra: {
+        'from': state.currentTabIndex,
+        'to': index,
+      });
+      emit(state.copyWith(currentTabIndex: index));
+    }
+  }
+
   @override
   Future<void> close() {
     _logger.i('关闭HomeCubit');

@@ -169,6 +169,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _logger.i('登录成功，开始自动同步联系人');
       _contactCubit?.syncContacts();
+      
+      // 设置初始网络重连同步权限（默认ChatsPage可见）
+      _updateNetworkReconnectSyncPermissions(_currentIndex);
     });
 
     if (mounted) {
@@ -219,6 +222,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
       _tabController.animateTo(index);
 
+      // 更新HomeCubit的当前Tab索引
+      _homeCubit?.setCurrentTabIndex(index);
+
+      // 根据当前Tab设置网络重连同步权限
+      _updateNetworkReconnectSyncPermissions(index);
+
       // 根据切换目标页面执行同步
       if (index == 0) {
         _logger.i('切换到会话Tab，同步会话列表');
@@ -228,6 +237,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         _contactCubit?.syncContacts();
       }
     }
+  }
+
+  /// 根据当前Tab更新网络重连同步权限
+  void _updateNetworkReconnectSyncPermissions(int currentTabIndex) {
+    _logger.d('更新网络重连同步权限', extra: {
+      'currentTabIndex': currentTabIndex,
+    });
+
+    // ChatsPage 是索引 0，ContactsPage 是索引 1
+    final isChatsTabActive = currentTabIndex == 0;
+    final isContactsTabActive = currentTabIndex == 1;
+
+    // 设置ChatsCubit的网络重连同步权限
+    _chatsCubit?.setNetworkReconnectSyncEnabled(isChatsTabActive);
+    
+    // 设置ContactCubit的网络重连同步权限
+    _contactCubit?.setNetworkReconnectSyncEnabled(isContactsTabActive);
+
+    _logger.i('网络重连同步权限已更新', extra: {
+      'chatsCanSync': isChatsTabActive,
+      'contactsCanSync': isContactsTabActive,
+    });
   }
 
   // 创建动画图标

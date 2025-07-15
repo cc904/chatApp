@@ -7,6 +7,7 @@ import 'voice_message_widget.dart';
 import 'image_message_widget.dart';
 import 'video_message_widget.dart';
 import 'package:cc/core/constants/app_colors.dart';
+import 'package:cc/core/widgets/user_avatar.dart';
 
 /// 消息显示状态
 class MessageDisplayStatus {
@@ -253,22 +254,11 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    return CircleAvatar(
+    return UserAvatar(
+      name: message.senderName ?? 'Unknown',
+      avatarUrl: message.senderAvatar,
       radius: 16.0,
       backgroundColor: DisplayNameUtils.generateUserColor(message.senderName),
-      backgroundImage: message.senderAvatar != null
-          ? NetworkImage(message.senderAvatar!)
-          : null,
-      child: message.senderAvatar == null
-          ? Text(
-              DisplayNameUtils.getInitials(message.senderName),
-              style: const TextStyle(
-                fontSize: 12.0,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            )
-          : null,
     );
   }
 

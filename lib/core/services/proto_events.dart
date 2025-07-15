@@ -38,6 +38,27 @@ class ProtoEvents {
     /// 用户资料更新通知 → UserProto
     'user:profile:updated': () => user.UserProto(),
 
+    /// 首次设置密码请求 → SetPasswordRequest
+    'user:set_password': () => user.SetPasswordRequest(),
+
+    /// 首次设置密码响应 → SetPasswordResponse
+    'user:set_password:response': () => user.SetPasswordResponse(),
+
+    /// 修改密码请求 → ChangePasswordRequest
+    'user:change_password': () => user.ChangePasswordRequest(),
+
+    /// 修改密码响应 → ChangePasswordResponse
+    'user:change_password:response': () => user.ChangePasswordResponse(),
+
+    /// 用户信息同步请求 → SetCurrentUserRequest
+    'user:sync': () => user.SetCurrentUserRequest(),
+
+    /// 获取当前用户信息请求 → GetCurrentUserRequest
+    'user:getCurrentUser': () => user.GetCurrentUserRequest(),
+
+    /// 获取当前用户信息响应 → SetCurrentUserResponse
+    'user:getCurrentUser:response': () => user.SetCurrentUserResponse(),
+
     // ================================
     // 搜索相关事件 (Search Events)
     // ================================

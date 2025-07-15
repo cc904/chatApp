@@ -7,6 +7,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/services/media_cache_service.dart';
 
 /// 图片查看器组件
 class ImageViewerPage extends StatefulWidget {
@@ -158,6 +159,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       } else if (widget.mediaUrl != null &&
           widget.mediaUrl!.isNotEmpty &&
           !widget.mediaUrl!.startsWith('file://')) {
+        // 先尝试缓存，如果失败回退到直接网络加载
         return NetworkImage(widget.mediaUrl!);
       } else {
         _logger.e('图片文件不存在', extra: {'path': _effectivePath});
