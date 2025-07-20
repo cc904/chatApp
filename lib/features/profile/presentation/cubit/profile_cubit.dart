@@ -3,10 +3,17 @@ import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
+import 'package:cc/core/services/enhanced_token_manager.dart';
+import 'package:cc/core/services/version_info_service.dart';
+import 'package:cc/core/services/device_manager.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   final ProfileRepository _repository;
   final _logger = LogService.instance;
+  final _tokenManager = EnhancedTokenManager.instance;
+
+  // 🔧 修复：添加操作标志，避免重复状态更新
+  bool _isUpdating = false;
 
   ProfileCubit({
     required ProfileRepository repository,
@@ -42,13 +49,22 @@ class ProfileCubit extends Cubit<ProfileState> {
     String? avatar,
     String? status,
   }) async {
+    // 🔧 修复：防止重复更新操作
+    if (_isUpdating) {
+      _logger.w('用户信息更新操作正在进行中，忽略重复请求');
+      return;
+    }
+
     try {
+      _isUpdating = true;
       emit(state.copyWith(status: ProfileStatus.loading));
       await _repository.updateUserInfo(
         nickname: nickname,
         avatar: avatar,
         status: status,
       );
+      // 🔧 修复：UserService已经自动更新了本地数据，直接重新加载即可
+      // 避免重复的状态更新导致多次Navigator.pop()调用
       await _loadUserInfo();
     } catch (e) {
       _logger.e('更新用户信息失败', error: e);
@@ -56,6 +72,8 @@ class ProfileCubit extends Cubit<ProfileState> {
         status: ProfileStatus.error,
         error: e.toString(),
       ));
+    } finally {
+      _isUpdating = false;
     }
   }
 
@@ -93,6 +111,109 @@ class ProfileCubit extends Cubit<ProfileState> {
         status: ProfileStatus.error,
         error: e.toString(),
       ));
+    }
+  }
+
+  /// 验证Token并自动刷新
+  ///
+  /// 使用新的Token验证接口，支持自动刷新即将过期的Token
+  Future<void> verifyTokenAndRefresh() async {
+    try {
+      emit(state.copyWith(status: ProfileStatus.loading));
+      
+      // 获取设备信息
+      final deviceInfo = await DeviceManager.getDeviceInfo();
+      
+      // 获取版本信息
+      final versionInfo = VersionInfoService.instance;
+      
+      // 构建客户端信息
+      final clientInfo = {
+        'version': versionInfo.currentVersion,
+        'buildNumber': versionInfo.buildNumber,
+        'platform': versionInfo.platformName,
+        'deviceInfo': {
+          'deviceId': deviceInfo.deviceId,
+          'deviceName': deviceInfo.deviceModel,
+          'systemVersion': deviceInfo.osVersion,
+          'deviceModel': deviceInfo.deviceModel,
+        }
+      };
+
+      // 调用Token验证接口
+      final result = await _tokenManager.verifyTokenWithAutoRefresh(
+        clientInfo: clientInfo,
+        autoRefresh: true,
+      );
+
+      if (result != null && result['success'] == true) {
+        // 检查是否有更新的用户信息
+        if (result['currentUser'] != null || result['user'] != null) {
+          // 更新用户信息到状态
+          await _loadUserInfo();
+          
+          _logger.i('Token验证成功，用户信息已更新');
+        }
+        
+        emit(state.copyWith(
+          status: ProfileStatus.success,
+          error: null,
+        ));
+      } else {
+        _logger.w('Token验证失败，可能需要重新登录');
+        emit(state.copyWith(
+          status: ProfileStatus.error,
+          error: 'Token验证失败，请重新登录',
+        ));
+      }
+    } catch (e) {
+      _logger.e('Token验证失败', error: e);
+      emit(state.copyWith(
+        status: ProfileStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  /// 检查Token状态
+  ///
+  /// 检查Token是否即将过期并自动刷新
+  Future<bool> checkTokenStatus() async {
+    try {
+      // 获取设备信息
+      final deviceInfo = await DeviceManager.getDeviceInfo();
+      
+      // 获取版本信息
+      final versionInfo = VersionInfoService.instance;
+      
+      // 构建客户端信息
+      final clientInfo = {
+        'version': versionInfo.currentVersion,
+        'buildNumber': versionInfo.buildNumber,
+        'platform': versionInfo.platformName,
+        'deviceInfo': {
+          'deviceId': deviceInfo.deviceId,
+          'deviceName': deviceInfo.deviceModel,
+          'systemVersion': deviceInfo.osVersion,
+          'deviceModel': deviceInfo.deviceModel,
+        }
+      };
+
+      // 检查并自动刷新Token
+      final success = await _tokenManager.checkAndAutoRefreshToken(
+        clientInfo: clientInfo,
+      );
+
+      if (success) {
+        _logger.d('Token状态检查成功');
+      } else {
+        _logger.w('Token状态检查失败');
+      }
+
+      return success;
+    } catch (e) {
+      _logger.e('检查Token状态失败', error: e);
+      return false;
     }
   }
 }

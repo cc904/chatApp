@@ -130,13 +130,16 @@ class MessageAdapter {
           mediaMessage.hasFileSize() ? mediaMessage.fileSize : null;
       message.fileName =
           mediaMessage.hasFileName() ? mediaMessage.fileName : null;
-      message.thumbnailUrl =
-          mediaMessage.hasThumbnailUrl() ? mediaMessage.thumbnailUrl : null;
       message.mimeType =
           mediaMessage.hasMimeType() ? mediaMessage.mimeType : null;
       message.width = mediaMessage.hasWidth() ? mediaMessage.width : null;
       message.height = mediaMessage.hasHeight() ? mediaMessage.height : null;
       message.caption = mediaMessage.hasCaption() ? mediaMessage.caption : null;
+      
+      // 新增：处理文件服务器相关字段
+      message.fsId = mediaMessage.hasFsId() ? mediaMessage.fsId : null;
+      message.fileName =
+          mediaMessage.hasFileName() ? mediaMessage.fileName : null;
     }
 
     // 处理系统消息
@@ -366,15 +369,25 @@ class MessageAdapter {
           mediaMessage.localPath = message.localPath!;
         }
         if (message.duration != null) mediaMessage.duration = message.duration!;
-        if (message.fileSize != null) mediaMessage.fileSize = message.fileSize!;
-        if (message.fileName != null) mediaMessage.fileName = message.fileName!;
-        if (message.thumbnailUrl != null) {
-          mediaMessage.thumbnailUrl = message.thumbnailUrl!;
+        if (message.fileSize != null) {
+          mediaMessage.fileSize = message.fileSize!;
+          // 临时日志：确认fileSize被转换到Proto
+          print('🔍 Proto转换: messageId=${message.messageId}, fileSize=${message.fileSize}');
         }
+        if (message.fileName != null) mediaMessage.fileName = message.fileName!;
         if (message.mimeType != null) mediaMessage.mimeType = message.mimeType!;
         if (message.width != null) mediaMessage.width = message.width!;
         if (message.height != null) mediaMessage.height = message.height!;
         if (message.caption != null) mediaMessage.caption = message.caption!;
+        
+        // 新增：处理文件服务器相关字段
+        if (message.fsId != null) {
+          mediaMessage.fsId = message.fsId!;
+        }
+        if (message.fileName != null) {
+          mediaMessage.fileName = message.fileName!;
+        }
+        
         protoMessage.mediaMessage = mediaMessage;
         break;
 

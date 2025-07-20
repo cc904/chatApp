@@ -290,10 +290,34 @@ class MediaService {
 
       // 获取文件路径并返回File对象
       String? filePath = result.files.single.path;
+      
+      if (filePath == null) {
+        _logger.w('文件路径为空，可能是系统权限问题');
+        return null;
+      }
 
-      return File(filePath!);
+      return File(filePath);
     } catch (error) {
-      _logger.e('选择文件失败', error: error, stackTrace: StackTrace.current);
+      // 检查是否为macOS系统错误
+      if (error.toString().contains('NSXPCSharedListener') || 
+          error.toString().contains('Connection interrupted')) {
+        _logger.e('macOS系统文件选择器连接中断', error: error);
+        // 可以尝试重试一次
+        try {
+          await Future.delayed(const Duration(milliseconds: 100));
+          FilePickerResult? retryResult = await FilePicker.platform.pickFiles();
+          if (retryResult != null && retryResult.files.isNotEmpty) {
+            String? retryFilePath = retryResult.files.single.path;
+            if (retryFilePath != null) {
+              return File(retryFilePath);
+            }
+          }
+        } catch (retryError) {
+          _logger.e('文件选择重试失败', error: retryError);
+        }
+      } else {
+        _logger.e('选择文件失败', error: error, stackTrace: StackTrace.current);
+      }
       return null;
     }
   }

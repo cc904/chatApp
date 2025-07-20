@@ -378,6 +378,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelDescription => '频道是一种一对多的工具\n用于向无限受众广播您的消息。';
   @override
   String get createChannel => '创建频道';
+  @override
+  String get joinChannel => '加入频道';
+  @override
+  String get channelMemberCannotSend => '只有管理员和频道拥有者才能发送消息';
 
   // Profile 页面相关
   @override

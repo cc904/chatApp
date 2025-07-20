@@ -331,6 +331,8 @@ abstract class AppLocalizations {
   String get whatIsChannel;
   String get channelDescription;
   String get createChannel;
+  String get joinChannel;
+  String get channelMemberCannotSend;
 
   // Profile 页面相关
   String get myProfile;

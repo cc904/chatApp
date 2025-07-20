@@ -4,6 +4,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/voice_record_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
 import 'package:cc/core/services/media_cache_service.dart';
+import 'package:cc/core/utils/media_url_builder.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -33,6 +34,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   final LogService _logger = LogService.instance;
   final AudioPlayerManager _audioManager = AudioPlayerManager();
   final MediaCacheService _cacheService = MediaCacheService();
+  final MediaUrlBuilder _mediaUrlBuilder = MediaUrlBuilder();
 
   // 本地UI状态
   bool _isPlaying = false;
@@ -55,6 +57,8 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     _initializeDuration();
     _listenToGlobalState();
   }
+
+
 
   void _initializeAnimations() {
     _waveAnimationController = AnimationController(
@@ -148,10 +152,17 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     try {
       _logger.d('开始获取语音文件缓存 - 消息ID: $messageId');
       
+      // 使用MediaUrlBuilder构建语音文件URL
+      String? mediaUrl = widget.message.mediaUrl;
+      if (mediaUrl == null || mediaUrl.isEmpty) {
+        mediaUrl = await _mediaUrlBuilder.buildMainFileUrl(widget.message);
+        _logger.d('使用MediaUrlBuilder构建的URL: $mediaUrl');
+      }
+      
       // 🔥 使用新的统一缓存策略：基于消息ID获取本地缓存的语音文件
       final cachedAudioPath = await _cacheService.getVoiceByMessageId(
         messageId, 
-        widget.message.mediaUrl,
+        mediaUrl,
         messageDate: widget.message.createdAt,
       );
       

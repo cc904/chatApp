@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/media_cache_service.dart';
+import 'package:cc/core/utils/media_url_builder.dart';
 import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
 import 'dart:io';
 
@@ -13,6 +15,11 @@ import 'dart:io';
 /// 2. 如果没有缓存，先显示缩略图（如果有）
 /// 3. 同时在后台下载原始图片到本地
 /// 4. 下载完成后替换为原始图片
+///
+/// 日志优化：
+/// - 使用条件调试日志，仅在debug模式下输出
+/// - 批量日志减少I/O操作
+/// - 生产环境零调试日志开销
 class ImageMessageWidget extends StatefulWidget {
   final Message message;
   final bool isCurrentUser;
@@ -34,6 +41,7 @@ class ImageMessageWidget extends StatefulWidget {
 class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   final LogService _logger = LogService.instance;
   final MediaCacheService _mediaCache = MediaCacheService();
+  final MediaUrlBuilder _mediaUrlBuilder = MediaUrlBuilder();
 
   // 加载状态
   bool _isLoading = true;
@@ -47,49 +55,70 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   // 实际的图片宽高比（从图片获取）
   double? _actualAspectRatio;
 
+  /// 是否启用详细调试日志（仅在debug模式下）
+  static bool get _isDebugLoggingEnabled => kDebugMode;
+
+  /// 详细调试日志（仅在debug模式下输出）
+  void _debugLog(String message, {Map<String, dynamic>? extra}) {
+    if (_isDebugLoggingEnabled) {
+      _logger.d(message, extra: extra);
+    }
+  }
+
+  /// 批量调试日志（避免频繁调用）
+  void _batchDebugLog(List<String> messages, {Map<String, dynamic>? extra}) {
+    if (_isDebugLoggingEnabled && messages.isNotEmpty) {
+      _logger.d(messages.join(' | '), extra: extra);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _initializeImage();
   }
 
+  // URL构建现在通过异步方法处理，移除getter
+
   /// 初始化图片加载流程
   void _initializeImage() async {
     try {
-      _logger.d('开始初始化图片', extra: {
-        'mediaUrl': widget.message.mediaUrl,
-        'localPath': widget.message.localPath,
-        'thumbnailUrl': widget.message.thumbnailUrl,
+      // 使用新的MediaUrlBuilder构建URL
+      final constructedFileUrl = await _mediaUrlBuilder.buildMainFileUrl(widget.message);
+      final constructedThumbnailUrl = await _mediaUrlBuilder.buildThumbnailUrl(widget.message);
+      
+      _debugLog('开始初始化图片', extra: {
+        'constructedFileUrl': constructedFileUrl,
+        'constructedThumbnailUrl': constructedThumbnailUrl,
+        'fsId': widget.message.fsId,
+        'hasNewFields': widget.message.hasNewFileServerFields,
         'isCurrentUser': widget.isCurrentUser,
       });
 
-      // 1. 检查是否有网络图片URL
-      if (widget.message.mediaUrl != null &&
-          widget.message.mediaUrl!.isNotEmpty) {
-        // 1.1 检查原始图片是否已缓存
-        final cachedImagePath = await _mediaCache.getCachedMediaPath(
-            widget.message.mediaUrl!, 'images', messageDate: widget.message.createdAt);
-        if (cachedImagePath != null) {
-          _logger.d('使用缓存的原始图片');
-          await _loadImageFromPath(cachedImagePath);
-          return;
-        }
+      // 确保有构建的文件URL
+      if (constructedFileUrl == null || constructedFileUrl.isEmpty) {
+        throw Exception('无法构建图片URL - 缺少必要的文件服务器字段');
+      }
 
-        // 1.2 原始图片未缓存，先尝试显示缩略图
-        if (widget.message.thumbnailUrl != null &&
-            widget.message.thumbnailUrl!.isNotEmpty) {
-          _logger.d('原始图片未缓存，先显示缩略图');
-          await _showThumbnailWhileDownloading();
-        } else {
-          // 没有缩略图，直接显示加载状态并下载原始图片
-          _logger.d('没有缩略图，直接下载原始图片');
-          await _downloadOriginalImage();
-        }
+      // 1. 检查原始图片是否已缓存
+      final cachedImagePath = await _mediaCache.getCachedMediaPath(
+          constructedFileUrl, 'images', messageDate: widget.message.createdAt);
+      if (cachedImagePath != null) {
+        _debugLog('使用缓存的原始图片');
+        await _loadImageFromPath(cachedImagePath);
         return;
       }
 
-      // 2. 如果都没有，显示错误
-      throw Exception('没有可用的图片路径');
+      // 2. 原始图片未缓存，先尝试显示缩略图
+      if (constructedThumbnailUrl != null &&
+          constructedThumbnailUrl.isNotEmpty) {
+        _debugLog('原始图片未缓存，先显示缩略图');
+        await _showThumbnailWhileDownloading(constructedThumbnailUrl, constructedFileUrl);
+      } else {
+        // 没有缩略图，直接显示加载状态并下载原始图片
+        _debugLog('没有缩略图，直接下载原始图片');
+        await _downloadOriginalImage(constructedFileUrl);
+      }
     } catch (error) {
       _logger.e('图片初始化失败', error: error);
       _setError('图片初始化失败: $error');
@@ -97,13 +126,12 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   }
 
   /// 显示缩略图的同时下载原始图片
-  Future<void> _showThumbnailWhileDownloading() async {
+  Future<void> _showThumbnailWhileDownloading(String thumbnailUrl, String originalUrl) async {
     try {
       // 先加载缩略图
-      final thumbnailPath =
-          await _mediaCache.getThumbnail(widget.message.thumbnailUrl!);
+      final thumbnailPath = await _mediaCache.getThumbnail(thumbnailUrl);
       if (thumbnailPath != null) {
-        _logger.d('显示缩略图');
+        _debugLog('显示缩略图');
         setState(() {
           _isShowingThumbnail = true;
         });
@@ -111,16 +139,16 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       }
 
       // 同时在后台下载原始图片
-      _downloadOriginalImageInBackground();
+      _downloadOriginalImageInBackground(originalUrl);
     } catch (error) {
       _logger.e('显示缩略图失败', error: error);
       // 缩略图失败，直接下载原始图片
-      await _downloadOriginalImage();
+      await _downloadOriginalImage(originalUrl);
     }
   }
 
   /// 在后台下载原始图片
-  void _downloadOriginalImageInBackground() async {
+  void _downloadOriginalImageInBackground(String originalUrl) async {
     if (_isDownloadingOriginal) return;
 
     if (mounted) {
@@ -130,12 +158,12 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     }
 
     try {
-      _logger.d('开始后台下载原始图片');
+      _debugLog('开始后台下载原始图片');
       final originalImagePath =
-          await _mediaCache.getImage(widget.message.mediaUrl!, messageDate: widget.message.createdAt);
+          await _mediaCache.getImage(originalUrl, messageDate: widget.message.createdAt);
 
       if (originalImagePath != null && mounted) {
-        _logger.d('原始图片下载完成，替换缩略图');
+        _debugLog('原始图片下载完成，替换缩略图');
         setState(() {
           _isShowingThumbnail = false;
         });
@@ -153,16 +181,16 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   }
 
   /// 直接下载原始图片
-  Future<void> _downloadOriginalImage() async {
+  Future<void> _downloadOriginalImage(String originalUrl) async {
     try {
       setState(() {
         _isLoading = true;
         _hasError = false;
       });
 
-      _logger.d('直接下载原始图片');
+      _debugLog('直接下载原始图片');
       final originalImagePath =
-          await _mediaCache.getImage(widget.message.mediaUrl!, messageDate: widget.message.createdAt);
+          await _mediaCache.getImage(originalUrl, messageDate: widget.message.createdAt);
 
       if (originalImagePath != null) {
         await _loadImageFromPath(originalImagePath);
@@ -178,7 +206,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 从指定路径加载图片
   Future<void> _loadImageFromPath(String imagePath) async {
     try {
-      _logger.d('从路径加载图片', extra: {'path': imagePath});
+      _debugLog('从路径加载图片', extra: {'path': imagePath});
 
       final file = File(imagePath);
       if (!file.existsSync()) {
@@ -226,11 +254,12 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
             }
           });
 
-          _logger.d('图片预加载完成', extra: {
-            'actualRatio': actualRatio,
-            'hasMessageDimensions': hasMessageDimensions,
-            'isShowingThumbnail': _isShowingThumbnail,
-          });
+          _batchDebugLog([
+            '图片预加载完成',
+            '实际比例: $actualRatio',
+            '使用消息尺寸: $hasMessageDimensions',
+            '显示缩略图: $_isShowingThumbnail'
+          ]);
         }
         stream.removeListener(listener);
       },

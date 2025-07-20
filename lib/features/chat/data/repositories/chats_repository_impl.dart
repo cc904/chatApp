@@ -166,7 +166,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 获取所有会话
   /// 从本地数据库获取所有会话
-  /// 返回会话列表
+  /// 返回会话列表，自动过滤掉未加入的频道
   @override
   Future<List<db.Conversation>> getAllConversations() async {
     try {
@@ -175,43 +175,24 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 直接从数据库获取会话列表，不发送同步事件
       final conversations = await _conversations.where().findAll();
 
-      _logger.d('成功获取会话列表', extra: {'会话数量': conversations.length});
-      return conversations;
+      // 过滤掉未加入的频道
+      final currentUserId = _currentUser.userId;
+      final filteredConversations = conversations
+          .where((c) => c.type != db.ConversationType.channel || c.isJoined(currentUserId))
+          .toList();
+
+      _logger.d('成功获取会话列表', extra: {
+        '原始会话数量': conversations.length,
+        '过滤后会话数量': filteredConversations.length,
+        '过滤掉的频道数量': conversations.length - filteredConversations.length,
+      });
+      return filteredConversations;
     } catch (error, stack) {
       _logger.e('获取会话列表失败', error: error, stackTrace: stack);
       return [];
     }
   }
 
-  /// 更新本地会话数据
-  /// 将服务器返回的会话数据保存到本地数据库
-  /// [serverConversations] - 从服务器获取的会话列表
-  Future<void> _updateLocalConversations(
-      List<db.Conversation> serverConversations) async {
-    try {
-      _logger.i('更新数据库会话数据', extra: {'会话数': serverConversations.length});
-      await _isar.writeTxn(() async {
-        for (final conversation in serverConversations) {
-          // 检查会话是否已存在
-          final existing = await _conversations
-              .filter()
-              .conversationIdEqualTo(conversation.conversationId)
-              .findFirst();
-
-          if (existing != null) {
-            conversation.id = existing.id;
-            await _conversations.put(conversation);
-          } else {
-            // 添加新会话
-            await _conversations.put(conversation);
-          }
-        }
-      });
-    } catch (error) {
-      _logger.e('更新本地会话数据失败', extra: {'error': error.toString()});
-      throw Exception('更新本地会话数据失败: $error');
-    }
-  }
 
   /// 💢💢💢 新增：全量替换所有会话数据
   /// 清空本地所有会话，然后添加新的会话列表
@@ -692,13 +673,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
     try {
       _logger.d('根据标签过滤会话', extra: {'tabIndex': tabIndex});
 
-      // 获取所有会话
+      // 获取所有会话（已经过滤了未加入的频道）
       final conversations = await getAllConversations();
 
       // 根据标签类型过滤
       switch (tabIndex) {
         case 0: // 全部会话
-          return conversations;
+          return conversations; // getAllConversations已经过滤了未加入的频道
         case 1: // 私聊
           return conversations
               .where((c) => c.type == db.ConversationType.private)
@@ -708,14 +689,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
               .where((c) => c.type == db.ConversationType.group)
               .toList();
         case 3: // 频道
+          final currentUserId = _currentUser.userId;
           return conversations
-              .where((c) => c.type == db.ConversationType.channel)
+              .where((c) => c.type == db.ConversationType.channel && c.isJoined(currentUserId))
               .toList();
         case 4: // 未读
           // 💢💢💢 需要当前用户ID来判断未读状态
           final currentUserId = _currentUser.userId;
           return conversations
-              .where((c) => c.unreadCount(currentUserId) > 0)
+              .where((c) => c.unreadCount(currentUserId) > 0 && 
+                           (c.type != db.ConversationType.channel || c.isJoined(currentUserId)))
               .toList();
         default:
           return conversations;

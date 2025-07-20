@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/thumbnail_cache_service.dart';
+import 'package:cc/core/utils/media_url_builder.dart';
 import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
 import 'dart:io';
 
@@ -28,6 +29,7 @@ class VideoMessageWidget extends StatefulWidget {
 class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   final LogService _logger = LogService.instance;
   final ThumbnailCacheService _thumbnailCache = ThumbnailCacheService();
+  final MediaUrlBuilder _mediaUrlBuilder = MediaUrlBuilder();
 
   // 加载状态
   bool _isLoading = true;
@@ -46,6 +48,7 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     _initializeVideo();
   }
 
+
   /// 初始化视频
   void _initializeVideo() {
     try {
@@ -57,19 +60,30 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
         throw Exception('视频路径为空');
       }
 
-      // 确定缩略图路径
-      if (widget.message.thumbnailUrl != null &&
-          widget.message.thumbnailUrl!.isNotEmpty) {
-        _effectiveThumbnailPath = widget.message.thumbnailUrl!;
-      }
+      // 尝试获取缩略图URL
+      _loadThumbnailUrl();
 
-      _loadThumbnail();
     } catch (error) {
       _logger.e('视频初始化失败', error: error);
       _setError('视频初始化失败: $error');
     }
   }
 
+  /// 获取缩略图URL并加载
+  void _loadThumbnailUrl() async {
+    // 尝试从新的URL构建器获取缩略图URL
+    String? thumbnailUrl;
+    if (widget.message.hasNewFileServerFields) {
+      thumbnailUrl = await _mediaUrlBuilder.buildThumbnailUrl(widget.message);
+    }
+    
+    // 如果没有新字段，尝试使用旧的thumbnailUrl字段
+    thumbnailUrl ??= await widget.message.thumbnailUrl;
+    
+    _effectiveThumbnailPath = thumbnailUrl;
+    _loadThumbnail();
+  }
+  
   /// 加载缩略图
   void _loadThumbnail() async {
     setState(() {

@@ -26,7 +26,7 @@ class _AuthPageState extends State<AuthPage>
   final _passwordController = TextEditingController();
   final _verificationCodeController = TextEditingController();
   final _logger = LogService.instance;
-  late AuthCubit _authCubit;
+  AuthCubit? _authCubit;
   late final AppConfig _appConfig;
   late VerificationCodeTimer _verificationCodeTimer;
 
@@ -38,10 +38,40 @@ class _AuthPageState extends State<AuthPage>
 
     // 创建AppConfig实例
     _appConfig = AppConfig();
-    // 创建AuthCubit实例
-    _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
     // 创建验证码倒计时器实例
     _verificationCodeTimer = VerificationCodeTimer();
+
+    // 异步初始化整个认证系统
+    _initializeAuthSystem();
+  }
+
+  /// 初始化认证系统
+  Future<void> _initializeAuthSystem() async {
+    try {
+      // 1. 初始化AppConfig（获取服务器列表）
+      await _appConfig.init();
+
+      // 2. 使用初始化后的AppConfig创建AuthCubit
+      _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
+
+      // 3. 触发重建以显示认证界面
+      if (mounted) {
+        setState(() {});
+      }
+
+      _logger.i('认证系统初始化完成', extra: {
+        'serverUrl': _appConfig.serverUrl,
+        'availableServers': _appConfig.allServerUrls.length,
+      });
+    } catch (error) {
+      _logger.e('认证系统初始化失败', error: error);
+
+      // 初始化失败，无法创建AuthCubit
+      // 用户界面将显示错误状态
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   @override
@@ -50,8 +80,8 @@ class _AuthPageState extends State<AuthPage>
     _phoneController.dispose();
     _passwordController.dispose();
     _verificationCodeController.dispose();
-    if (!_authCubit.isClosed) {
-      _authCubit.close(); // 注销AuthCubit
+    if (_authCubit != null && !_authCubit!.isClosed) {
+      _authCubit!.close(); // 注销AuthCubit
     }
     _verificationCodeTimer.dispose(); // 释放验证码倒计时器
     _logger.d('AuthPage disposed, AuthCubit closed');
@@ -60,8 +90,44 @@ class _AuthPageState extends State<AuthPage>
 
   @override
   Widget build(BuildContext context) {
+    // 如果AuthCubit还没初始化，显示加载界面或错误信息
+    if (_authCubit == null) {
+      // 检查是否有可用服务器
+      if (_appConfig.allServerUrls.isEmpty) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          body: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, color: Colors.red, size: 64),
+                SizedBox(height: 16),
+                Text('无可用服务器配置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text('请检查网络连接或联系技术支持', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+        );
+      }
+      
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在初始化...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     return BlocProvider<AuthCubit>.value(
-      value: _authCubit,
+      value: _authCubit!,
       child: _buildAuthPageContent(context),
     );
   }
@@ -69,209 +135,242 @@ class _AuthPageState extends State<AuthPage>
   Widget _buildAuthPageContent(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            width: 360,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 欢迎标题
-                Padding(
-                  padding: const EdgeInsets.only(top: 30, bottom: 10),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.chat,
-                        size: 50,
-                        color: Colors.green[700],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        localizations.appName,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        localizations.login,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // 服务器切换按钮
-                      _buildServerSwitchButton(),
-                    ],
-                  ),
-                ),
-                // TabBar
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey[200]!,
-                        width: 1,
-                      ),
+    return BlocListener<AuthCubit, AuthState>(
+        bloc: _authCubit!,
+        listenWhen: (previous, current) =>
+            !previous.isAuthenticated && current.isAuthenticated,
+        listener: _handleAuthStateChange,
+        child: Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          body: Center(
+            child: SingleChildScrollView(
+              child: Container(
+                width: 360,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    tabs: [
-                      Tab(text: localizations.quickLogin),
-                      Tab(text: localizations.passwordLogin),
-                    ],
-                    labelColor: Colors.green[800],
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: Colors.green,
-                    indicatorWeight: 3,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    labelStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
+                  ],
                 ),
-                // 表单内容
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 手机号输入框
-                      TextField(
-                        controller: _phoneController,
-                        decoration: InputDecoration(
-                          labelText: localizations.phoneNumber,
-                          prefixIcon: const Icon(Icons.phone),
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16, horizontal: 16),
-                        ),
-                        keyboardType: TextInputType.phone,
-                        onChanged: (value) =>
-                            _authCubit.updatePhoneNumber(value),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // 验证码/密码输入框 (根据TabBar切换)
-                      SizedBox(
-                        height: 70,
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildQuickLogin(),
-                            _buildPasswordLogin(),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 36),
-
-                      // 登录按钮
-                      BlocConsumer<AuthCubit, AuthState>(
-                        bloc: _authCubit,
-                        listenWhen: (previous, current) =>
-                            !previous.isAuthenticated &&
-                                current.isAuthenticated ||
-                            current.hasError &&
-                                current.errorMessage != previous.errorMessage,
-                        listener: _handleAuthStateChange,
-                        builder: (context, state) {
-                          return SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: state.isLoading
-                                  ? null
-                                  : () => _authCubit
-                                      .login(_tabController.index == 0),
-                              child: state.isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                          color: Colors.white),
-                                    )
-                                  : Text(localizations.login,
-                                      style: const TextStyle(fontSize: 16)),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // 底部链接
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 欢迎标题
+                    Padding(
+                      padding: const EdgeInsets.only(top: 30, bottom: 10),
+                      child: Column(
                         children: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => BlocProvider.value(
-                                    value: _authCubit,
-                                    child: const RegisterPage(),
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              localizations.register,
-                              style: TextStyle(color: Colors.green[700]),
+                          Icon(
+                            Icons.chat,
+                            size: 50,
+                            color: Colors.green[700],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            localizations.appName,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => BlocProvider.value(
-                                    value: _authCubit,
-                                    child: const ForgotPasswordPage(),
-                                  ),
+                          const SizedBox(height: 5),
+                          Text(
+                            localizations.login,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // 服务器切换按钮
+                          _buildServerSwitchButton(),
+                        ],
+                      ),
+                    ),
+                    // TabBar
+                    Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey[200]!,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        tabs: [
+                          Tab(text: localizations.quickLogin),
+                          Tab(text: localizations.passwordLogin),
+                        ],
+                        labelColor: Colors.green[800],
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: Colors.green,
+                        indicatorWeight: 3,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        labelStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    // 表单内容
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 手机号输入框
+                          TextField(
+                            controller: _phoneController,
+                            decoration: InputDecoration(
+                              labelText: localizations.phoneNumber,
+                              prefixIcon: const Icon(Icons.phone),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 16),
+                            ),
+                            keyboardType: TextInputType.phone,
+                            onChanged: (value) =>
+                                _authCubit!.updatePhoneNumber(value),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // 验证码/密码输入框 (根据TabBar切换)
+                          SizedBox(
+                            height: 70,
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildQuickLogin(),
+                                _buildPasswordLogin(),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 36),
+
+                          // 登录按钮
+                          BlocConsumer<AuthCubit, AuthState>(
+                            bloc: _authCubit!,
+                            listenWhen: (previous, current) =>
+                                !previous.isAuthenticated &&
+                                    current.isAuthenticated ||
+                                current.hasError &&
+                                    current.errorMessage !=
+                                        previous.errorMessage,
+                            listener: _handleAuthStateChange,
+                            builder: (context, state) {
+                              return SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton(
+                                  onPressed: state.isLoading
+                                      ? null
+                                      : () => _handleLogin(
+                                          _tabController.index == 0),
+                                  child: state.isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                              color: Colors.white),
+                                        )
+                                      : Text(localizations.login,
+                                          style: const TextStyle(fontSize: 16)),
                                 ),
                               );
                             },
-                            child: Text(
-                              localizations.forgotPassword,
-                              style: TextStyle(color: Colors.green[700]),
-                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // 底部链接
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => BlocProvider.value(
+                                        value: _authCubit!,
+                                        child: const RegisterPage(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  localizations.register,
+                                  style: TextStyle(color: Colors.green[700]),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => BlocProvider.value(
+                                        value: _authCubit!,
+                                        child: const ForgotPasswordPage(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  localizations.forgotPassword,
+                                  style: TextStyle(color: Colors.green[700]),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
   /// 处理认证状态变化
+  /// 处理登录请求，先检查强制更新
+  Future<void> _handleLogin(bool isPasswordLogin) async {
+    try {
+      _logger.i('开始登录流程，检查强制更新状态');
+
+      // 检查是否需要强制更新
+      final needsForceUpdate =
+          await VersionUpdateService.instance.isForceUpdateRequired();
+
+      if (needsForceUpdate) {
+        _logger.w('检测到强制更新，阻止登录并显示更新对话框');
+        if (mounted) {
+          await VersionUpdateService.instance.showForceUpdateDialog(context);
+        }
+        return; // 阻止登录
+      }
+
+      // 没有强制更新，继续登录流程
+      _logger.i('无强制更新要求，继续登录流程');
+      await _authCubit!.login(isPasswordLogin);
+    } catch (error) {
+      _logger.e('登录前检查失败', error: error);
+      // 检查失败时仍允许登录，避免影响用户体验
+      await _authCubit!.login(isPasswordLogin);
+    }
+  }
+
   void _handleAuthStateChange(BuildContext context, AuthState state) {
     if (state.isAuthenticated) {
       // 不再检查数据库初始化状态，直接导航到Home页面
@@ -281,7 +380,7 @@ class _AuthPageState extends State<AuthPage>
           builder: (context) => const HomePage(),
         ),
       );
-      
+
       // 登录成功后检查版本更新
       _checkLoginVersionUpdate(context);
     } else if (state.hasError) {
@@ -294,13 +393,14 @@ class _AuthPageState extends State<AuthPage>
     // 延迟检查，确保导航完成后再检查
     Future.delayed(const Duration(seconds: 1), () async {
       if (!mounted) return;
-      
+
       // 使用全局导航上下文避免跨异步边界问题
       final navigatorKey = UINotificationService.instance.navigatorKey;
       final currentContext = navigatorKey.currentContext;
-      
+
       if (currentContext != null) {
-        await VersionUpdateService.instance.checkAndHandleLoginVersionUpdate(currentContext);
+        await VersionUpdateService.instance
+            .checkAndHandleLoginVersionUpdate(currentContext);
       }
     });
   }
@@ -319,12 +419,12 @@ class _AuthPageState extends State<AuthPage>
               contentPadding:
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
-            onChanged: (value) => _authCubit.updateVerificationCode(value),
+            onChanged: (value) => _authCubit!.updateVerificationCode(value),
           ),
         ),
         const SizedBox(width: 8),
         BlocConsumer<AuthCubit, AuthState>(
-          bloc: _authCubit,
+          bloc: _authCubit!,
           listenWhen: (previous, current) =>
               current.hasError && current.errorMessage != previous.errorMessage,
           listener: _handleVerificationCodeError,
@@ -362,7 +462,7 @@ class _AuthPageState extends State<AuthPage>
   /// 发送验证码
   Future<void> _sendVerificationCode() async {
     try {
-      await _authCubit.sendVerificationCode('login');
+      await _authCubit!.sendVerificationCode('login');
       // 发送成功后开始倒计时
       _verificationCodeTimer.startCountdown();
     } catch (error) {
@@ -393,7 +493,7 @@ class _AuthPageState extends State<AuthPage>
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
             obscureText: true,
-            onChanged: (value) => _authCubit.updatePassword(value),
+            onChanged: (value) => _authCubit!.updatePassword(value),
           ),
         ));
   }
@@ -503,14 +603,13 @@ class _AuthPageState extends State<AuthPage>
       // 保存服务器索引到持久化存储
       await _appConfig.setServerIndex(serverIndex);
 
-      setState(() {
-        // 关闭旧的AuthCubit实例
-        if (!_authCubit.isClosed) {
-          _authCubit.close();
-        }
-        // 重新创建AuthCubit实例以使用新的服务器URL
-        _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
-      });
+      // 关闭旧的AuthCubit实例
+      if (_authCubit != null && !_authCubit!.isClosed) {
+        _authCubit!.close();
+      }
+
+      // 重新初始化认证系统
+      await _initializeAuthSystem();
 
       UINotificationHelper.showSuccess(
         '已切换到${_appConfig.currentServerName}',

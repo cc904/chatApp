@@ -164,11 +164,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 获取ChatRepositorySend实例
       final chatRepositorySend = chatCubit.chatRepositorySend;
 
+      // 初始化文件上传服务
+      _fileUploadService.initialize();
+
       // 初始化媒体上传集成服务
-      // UploadApiService应该已经通过AuthTokenSyncService配置了认证token
+      // UploadApiService使用独立文件服务器，无需认证token
       _mediaUploadIntegrationService.initialize(chatRepositorySend);
 
-      _logger.i('MediaUploadIntegrationService已初始化');
+      _logger.i('FileUploadService和MediaUploadIntegrationService已初始化');
     });
   }
 
@@ -634,8 +637,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         });
       }
 
-      // 收起键盘
-      FocusScope.of(context).unfocus();
+      // 🔧 修复：确保在UI重建后重新获取焦点
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _focusNode.canRequestFocus) {
+          _focusNode.requestFocus();
+        }
+      });
 
       // 轻微震动反馈
       HapticFeedback.lightImpact();
@@ -1205,13 +1212,30 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       buildWhen: (previous, current) {
         // 只在发送状态或网络状态变化时重建
         return previous.isSending != current.isSending ||
-            previous.networkStatus != current.networkStatus;
+            previous.networkStatus != current.networkStatus ||
+            previous.conversation.id != current.conversation.id;
       },
       builder: (context, state) {
         final isEnabled =
             state.networkStatus == ChatState.kNetworkStatusConnected &&
                 !state.isSending;
+        final conversation = state.conversation;
+        final currentUserId = state.currentUser.userId;
 
+        // 检查是否为频道
+        if (conversation.isChannel) {
+          // 如果用户未加入频道，显示加入按钮
+          if (!conversation.isJoined(currentUserId)) {
+            return _buildJoinChannelButton(state, isEnabled);
+          }
+
+          // 如果用户是普通成员，显示静音/取消静音按钮
+          if (conversation.isRegularMember(currentUserId)) {
+            return _buildChannelMemberControls(state, isEnabled);
+          }
+        }
+
+        // 对于非频道或频道管理员/所有者，显示正常输入区域
         return Column(
           children: [
             // 主输入栏
@@ -1316,6 +1340,136 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
       },
     );
+  }
+
+  /// 构建频道加入按钮
+  Widget _buildJoinChannelButton(ChatState state, bool isEnabled) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.withAlpha(51),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: isEnabled ? () => _joinChannel(state) : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      AppLocalizations.of(context).joinChannel,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建频道普通成员控制区域
+  Widget _buildChannelMemberControls(ChatState state, bool isEnabled) {
+    final conversation = state.conversation;
+    final currentUserId = state.currentUser.userId;
+    final isMuted = conversation.isMuted(currentUserId);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.withAlpha(51),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 12.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  AppLocalizations.of(context).channelMemberCannotSend,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 静音/取消静音按钮
+            GestureDetector(
+              onTap: isEnabled ? () => _toggleMute(state) : null,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isMuted ? Colors.red.shade100 : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  isMuted ? Icons.volume_off : Icons.volume_up,
+                  color: isMuted ? Colors.red : Colors.grey.shade600,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 加入频道
+  void _joinChannel(ChatState state) {
+    // TODO: 实现加入频道逻辑
+    // 这里需要调用 ChatCubit 的加入频道方法
+    // final chatCubit = context.read<ChatCubit>();
+    // chatCubit.joinChannel();
+    _logger.i('用户尝试加入频道: ${state.conversation.conversationId}');
+  }
+
+  /// 切换静音状态
+  void _toggleMute(ChatState state) {
+    // TODO: 实现切换静音逻辑
+    // 这里需要调用 ChatCubit 的切换静音方法
+    // final chatCubit = context.read<ChatCubit>();
+    final currentUserId = state.currentUser.userId;
+    final isMuted = state.conversation.isMuted(currentUserId);
+
+    // chatCubit.toggleMute(!isMuted);
+    _logger.i(
+        '用户尝试${isMuted ? '取消静音' : '静音'}频道: ${state.conversation.conversationId}');
   }
 
   /// 构建文本输入框
@@ -1695,7 +1849,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       });
 
       // 显示上传进度
-      final localizations = AppLocalizations.of(context);
       _showUploadProgress('发送视频中...');
 
       // 使用MediaUploadIntegrationService发送视频消息
@@ -2060,39 +2213,28 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
       }
 
-      // 上传语音文件
-      final uploadResult = await _fileUploadService.uploadVoice(
-        File(recordResult.filePath),
-        recordResult.duration * 1000, // 🔧 转换为毫秒，与数据库和proto保持一致
+      // 使用MediaUploadIntegrationService发送语音消息（统一流程）
+      await _mediaUploadIntegrationService.sendVoiceMessage(
+        voiceFile: File(recordResult.filePath),
+        conversationId: widget.conversationId,
+        duration: recordResult.duration * 1000, // 转换为毫秒
+        onUploadProgress: (progress) {
+          // 可以在这里更新进度
+        },
+        onStatusUpdate: (status) {
+          // 可以在这里更新状态
+        },
       );
 
-      if (uploadResult != null) {
-        _logger.i('语音文件上传成功', extra: {
-          'localPath': uploadResult.localPath,
-          'remoteUrl': uploadResult.remoteUrl,
-          'duration': uploadResult.duration,
-        });
+      _logger.i('语音消息发送成功');
 
-        // 发送语音消息
-        await chatCubit.sendVoiceMessage(
-          recordResult.filePath,
-          recordResult.duration * 1000, // 🔧 转换为毫秒
-          mediaUrl: uploadResult.remoteUrl,
-        );
-
-        _logger.i('语音消息发送成功');
-
-        // 清除上传提示
-        if (mounted) {
-          ScaffoldMessenger.of(context).clearSnackBars();
-        }
-
-        // 触觉反馈
-        HapticFeedback.lightImpact();
-      } else {
-        final localizations = AppLocalizations.of(context);
-        throw Exception(localizations.fileUploadFailed);
+      // 清除上传提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
       }
+
+      // 触觉反馈
+      HapticFeedback.lightImpact();
     } catch (e) {
       _logger.e('语音消息发送失败', error: e);
 
@@ -2127,6 +2269,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// 选择并发送文件
+  ///
+  /// 处理文件选择流程，包括：
+  /// 1. 调用媒体服务选择文件
+  /// 2. 显示文件预览并确认发送
+  /// 3. 处理各种错误情况（用户取消、系统错误、权限问题）
   Future<void> _pickAndSendFile() async {
     try {
       _logger.i('开始选择文件');
@@ -2144,16 +2291,35 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
         await _showFilePreviewAndSend(pickedFile);
       } else {
-        _logger.i('用户取消了文件选择');
+        // 不记录为用户取消，因为可能是系统错误导致的
+        _logger.d('文件选择流程结束，未选择文件');
       }
     } catch (error) {
       _logger.e('文件选择失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
         final localizations = AppLocalizations.of(context);
+        String errorMessage;
+
+        // 针对macOS系统错误提供友好的错误提示
+        if (error.toString().contains('NSXPCSharedListener') ||
+            error.toString().contains('Connection interrupted')) {
+          errorMessage = '系统文件选择器暂时不可用，请稍后重试';
+        } else if (error.toString().contains('permission') ||
+            error.toString().contains('权限')) {
+          errorMessage = '文件访问权限被拒绝，请在系统设置中授予权限';
+        } else {
+          errorMessage =
+              '${localizations.fileSelectionFailed}: ${error.toString().split('\n').first}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${localizations.fileSelectionFailed}: $error'),
+            content: Text(errorMessage),
             duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: '重试',
+              onPressed: () => _pickAndSendFile(),
+            ),
           ),
         );
       }
@@ -4648,13 +4814,13 @@ class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
                   bottom: BorderSide(color: Colors.grey, width: 0.5),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.videocam, color: Colors.blue),
-                  const SizedBox(width: 8),
+                  Icon(Icons.videocam, color: Colors.blue),
+                  SizedBox(width: 8),
                   Text(
                     '发送视频',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
                     ),
@@ -4730,10 +4896,10 @@ class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _captionController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: '添加视频说明...',
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),

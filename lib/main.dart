@@ -5,7 +5,6 @@ import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/language_service.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -22,6 +21,8 @@ import 'package:cc/features/chat/presentation/pages/chats_page.dart';
 import 'package:cc/core/services/global_overlay_service.dart';
 import 'package:cc/core/services/version_info_service.dart';
 import 'package:cc/core/services/version_update_service.dart';
+import 'package:cc/core/services/server_selection_service.dart';
+import 'package:cc/core/services/backup_domain_service.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -36,12 +37,12 @@ Future<void> _checkAndFixTokenStatus() async {
 
     // 检查是否有用户ID但没有Token的情况
     final userId = await secureStorage.read('user_id');
-    final hasAccessToken = await secureStorage.getAccessToken() != null;
+    final hasRefreshToken = await secureStorage.getRefreshToken() != null;
 
-    if (userId != null && userId.isNotEmpty && !hasAccessToken) {
+    if (userId != null && userId.isNotEmpty && !hasRefreshToken) {
       logger.w('⚠️ 发现用户ID存在但Token缺失的情况', extra: {
         'userId': userId,
-        'hasAccessToken': hasAccessToken,
+        'hasRefreshToken': hasRefreshToken,
       });
 
       // 这种情况下，清除用户状态，要求重新登录
@@ -91,6 +92,31 @@ void main() async {
   await appConfig.init(); // 等待配置初始化完成
   logger.x('应用配置加载完成', extra: {'serverUrl': appConfig.serverUrl});
 
+  // 🔧 初始化后备域名服务
+  logger.i('🔧 开始初始化后备域名服务');
+  try {
+    await BackupDomainService.instance.initialize();
+    final serviceStatus = BackupDomainService.instance.getServiceStatus();
+    logger.i('🔧 后备域名服务初始化完成', extra: serviceStatus);
+  } catch (error) {
+    logger.w('🔧 后备域名服务初始化失败，但应用继续运行', extra: {
+      'error': error.toString(),
+    });
+  }
+
+  // 🚀 初始化服务器选择服务（测速选择最优登录服务器）
+  logger.i('🚀 开始初始化服务器选择服务');
+  try {
+    final bestLoginServer = await ServerSelectionService.instance.getBestLoginServer();
+    logger.i('🚀 服务器选择服务初始化完成', extra: {
+      'bestLoginServer': bestLoginServer,
+    });
+  } catch (error) {
+    logger.w('🚀 服务器选择服务初始化失败，但应用继续运行', extra: {
+      'error': error.toString(),
+    });
+  }
+
   try {
     // 初始化语言服务
     final languageService = LanguageService();
@@ -99,7 +125,7 @@ void main() async {
 
     // 🌍 初始化时区系统
     await TimezoneUtils.initialize();
-    
+
     // 🔔 初始化消息通知服务
     logger.i('🔔 开始初始化消息通知服务');
     try {
@@ -108,19 +134,18 @@ void main() async {
         'initialized': notificationServiceInitialized,
         'status': MessageNotificationService.instance.getServiceStatus(),
       });
-      
+
       if (!notificationServiceInitialized) {
         logger.w('🔔 消息通知服务初始化失败，但应用继续运行');
       }
-      
+
       // 🔔 初始化通知动作服务
       logger.i('🔔 开始初始化通知动作服务');
       await NotificationActionService.instance.initialize();
-      
+
       // 🔔 初始化通知设置服务
       logger.i('🔔 开始初始化通知设置服务');
       await NotificationSettingsService.instance.initialize();
-      
     } catch (error, stackTrace) {
       logger.e('🔔 消息通知服务初始化失败，但应用继续运行', error: error, stackTrace: stackTrace);
       // 不抛出异常，让应用继续运行
@@ -157,8 +182,8 @@ void main() async {
       logger.i('媒体目录已创建：${mediaDir.path}');
     }
 
-    // 初始化文件上传服务
-    FileUploadService();
+    // 注意：文件上传服务将在登录成功后初始化，因为需要服务器信息和认证Token
+    // FileUploadService(); // 移除早期初始化
 
     // 🔄 初始化应用生命周期服务
     AppLifecycleService.instance.initialize();
@@ -173,8 +198,11 @@ void main() async {
       logger.w('安全存储服务初始化失败，将使用默认设置', extra: {'error': e.toString()});
     }
 
-    // 运行应用
-    runApp(const MyApp());
+    // 🔧 新增：运行应用，包装在 RootRestorationScope 中以支持状态恢复
+    runApp(const RootRestorationScope(
+      restorationId: 'root',
+      child: MyApp(),
+    ));
   } catch (error) {
     logger.e('应用初始化失败', error: error, stackTrace: StackTrace.current);
     // 处理初始化错误
@@ -182,8 +210,7 @@ void main() async {
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: Text('应用初始化失败: $error',
-                style: const TextStyle(color: Colors.red)),
+            child: Text('应用初始化失败: $error', style: const TextStyle(color: Colors.red)),
           ),
         ),
       ),
@@ -235,8 +262,7 @@ class DatabaseErrorApp extends StatelessWidget {
 
 /// 应用生命周期观察器
 class AppLifecycleObserver extends WidgetsBindingObserver {
-  static final AppLifecycleObserver _instance =
-      AppLifecycleObserver._internal();
+  static final AppLifecycleObserver _instance = AppLifecycleObserver._internal();
   static bool _isInitialized = false;
 
   factory AppLifecycleObserver() {
@@ -268,7 +294,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _logger.x('初始化MyApp状态');
-    
+
     // 延迟启动版本检查，确保UI完全加载后再检查
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkVersionOnStartup();
@@ -281,7 +307,7 @@ class _MyAppState extends State<MyApp> {
     Future.delayed(const Duration(seconds: 3), () async {
       try {
         if (!mounted) return;
-        
+
         final navigatorKey = UINotificationService.instance.navigatorKey;
         final context = navigatorKey.currentContext;
         if (context != null) {
@@ -308,9 +334,10 @@ class _MyAppState extends State<MyApp> {
         builder: (context, locale, child) {
           return MaterialApp(
             title: 'ThisApp',
+            // 🔧 新增：添加状态恢复支持
+            restorationScopeId: 'app',
             navigatorKey: UINotificationService.instance.navigatorKey,
-            scaffoldMessengerKey:
-                UINotificationService.instance.scaffoldMessengerKey,
+            scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
             // 💢💢💢 注册路由观察者
             navigatorObservers: [routeObserver],
             theme: ThemeData(

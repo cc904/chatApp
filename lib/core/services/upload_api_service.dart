@@ -5,56 +5,59 @@ import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/constants/app_config.dart';
-import 'package:cc/core/services/auth_token_sync_service.dart';
-import 'package:cc/core/services/enhanced_token_manager.dart';
+import 'package:cc/core/services/dynamic_file_server_config.dart';
+import 'package:cc/core/services/file_server_config_service.dart';
+import 'package:cc/core/database/database_initializer.dart';
 
 /// 文件上传API服务
 /// 对应客户端使用指南的Flutter实现
+///
+/// 注意：文件上传和下载都无需Token认证，文件服务器是独立的无认证服务
 class UploadApiService {
   final _logger = LogService.instance;
-  late final Dio _dio;
-  final AppConfig _appConfig = AppConfig();
+  Dio? _dio;
+  final FileServerConfigService _fileServerConfigService =
+      FileServerConfigService.instance;
+  bool _isInitialized = false;
 
   // 单例模式
   static final UploadApiService _instance = UploadApiService._internal();
   factory UploadApiService() => _instance;
-  UploadApiService._internal() {
-    _initializeDio();
+  UploadApiService._internal();
+
+  /// 重新初始化Dio配置（当文件服务器配置更新时调用）
+  Future<void> reinitialize() async {
+    _logger.i('🔄 重新初始化上传API服务');
+    _isInitialized = false;
+    await _initializeDio();
   }
 
-  void _initializeDio() {
+  /// 当ServerConfig更新时调用此方法重新配置服务
+  Future<void> onServerConfigChanged() async {
+    _logger.i('🔄 ServerConfig已更改，重新初始化上传API服务');
+    await reinitialize();
+  }
+
+  Future<void> _initializeDio() async {
+    // 获取默认文件服务器URL
+    final baseUrl = await _getFileServerBaseUrl();
+
     _dio = Dio(BaseOptions(
-      baseUrl: '${_appConfig.serverUrl}/api/v1/upload',
+      baseUrl: baseUrl, // 使用ServerConfig中的文件服务器地址
       connectTimeout: const Duration(minutes: 2),
       receiveTimeout: const Duration(minutes: 10),
       sendTimeout: const Duration(minutes: 10),
     ));
 
     // 添加拦截器
-    _dio.interceptors.add(InterceptorsWrapper(
+    _dio!.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        // 记录请求详细信息，包括认证头
-        final authHeader = options.headers['Authorization'];
+        // 记录请求详细信息（无需认证）
         _logger.i('上传请求详情', extra: {
           'url': options.path,
           'method': options.method,
-          'hasAuth': authHeader != null,
-          'authPreview': authHeader != null
-              ? () {
-                  final authStr = authHeader.toString();
-                  return authStr.length > 20 
-                    ? '${authStr.substring(0, 20)}...' 
-                    : authStr;
-                }()
-              : '❌ 无认证头',
-          'allHeaders': options.headers.keys.toList(),
+          'headers': options.headers.keys.toList(),
         });
-
-        // 特别提醒：如果没有认证头
-        if (authHeader == null) {
-          _logger.w('🚨 警告：上传请求缺少Authorization头！');
-        }
 
         handler.next(options);
       },
@@ -67,92 +70,57 @@ class UploadApiService {
       },
       onError: (error, handler) {
         _logger.e('上传错误', error: error, stackTrace: StackTrace.current);
-
-        // 如果是401错误，给出明确的认证问题提示
-        if (error.response?.statusCode == 401) {
-          _logger.e('🚨 401认证失败 - 可能的原因:', extra: {
-            'reason1': 'Authorization头未设置',
-            'reason2': 'Token格式错误',
-            'reason3': 'Token已过期',
-            'reason4': '服务器端Token验证失败',
-            'solution': '请检查fileUploadService.setAuthToken()是否被调用',
-          });
-        }
-
         handler.next(error);
       },
     ));
+
+    _isInitialized = true;
   }
 
-  /// 设置认证token
-  void setAuthToken(String token) {
-    _dio.options.headers['Authorization'] = 'Bearer $token';
-  }
+  /// 获取文件服务器基础URL
+  Future<String> _getFileServerBaseUrl() async {
+    try {
+      // 优先使用FileServerConfigService获取配置
+      final defaultFileServerUrl =
+          await _fileServerConfigService.getDefaultFileServerUrl();
+      if (defaultFileServerUrl != null && defaultFileServerUrl.isNotEmpty) {
+        _logger.i('✅ 使用ServerConfig中的文件服务器地址',
+            extra: {'url': defaultFileServerUrl});
+        return defaultFileServerUrl;
+      }
 
-  /// 清除认证token
-  void clearAuthToken() {
-    _dio.options.headers.remove('Authorization');
-  }
+      // 如果新的配置不可用，使用DynamicFileServerConfig作为后备
+      final dynamicConfig = DynamicFileServerConfig();
+      final config = dynamicConfig.currentConfig;
+      if (config != null && config.defaultFsUrl.isNotEmpty) {
+        _logger.i('✅ 使用DynamicFileServerConfig中的文件服务器地址',
+            extra: {'url': config.defaultFsUrl});
+        return config.defaultFsUrl;
+      }
 
-  /// 强制刷新认证Token（调试用）
-  Future<void> forceRefreshAuth() async {
-    _logger.i('🔄 强制刷新认证Token...');
-    await AuthTokenSyncService.instance.syncTokenToAllServices();
-    
-    // 再次获取Token确保设置成功
-    final tokenManager = EnhancedTokenManager.instance;
-    final apiToken = await tokenManager.getApiToken();
-    if (apiToken != null) {
-      setAuthToken(apiToken);
-      _logger.i('✅ 强制刷新认证Token完成');
-    } else {
-      _logger.e('❌ 强制刷新后仍无法获取Token');
+      // 如果都不可用，使用默认地址
+      const defaultUrl = 'http://13.158.26.10:7031';
+      _logger.w('⚠️ 未找到文件服务器配置，使用默认地址', extra: {'url': defaultUrl});
+      return defaultUrl;
+    } catch (error) {
+      _logger.e('获取文件服务器地址失败', error: error);
+      // 返回默认地址作为后备
+      const defaultUrl = 'http://13.158.26.10:7031';
+      return defaultUrl;
     }
   }
 
-  /// 确保认证状态
-  Future<void> _ensureAuthentication() async {
-    try {
-      // 检查当前是否有认证头
-      final currentAuth = _dio.options.headers['Authorization'];
-      
-      if (currentAuth == null) {
-        _logger.w('🚨 发现认证头缺失，尝试自动同步Token...');
-        
-        // 尝试从Token管理器获取最新Token
-        final tokenManager = EnhancedTokenManager.instance;
-        final apiToken = await tokenManager.getApiToken();
-        
-        if (apiToken != null) {
-          setAuthToken(apiToken);
-          _logger.i('✅ 已自动设置认证Token');
-        } else {
-          _logger.e('❌ 无法获取有效Token，可能需要重新登录');
-          
-          // 尝试强制同步所有服务Token
-          try {
-            await AuthTokenSyncService.instance.syncTokenToAllServices();
-            final retryToken = await tokenManager.getApiToken();
-            if (retryToken != null) {
-              setAuthToken(retryToken);
-              _logger.i('✅ 强制同步后成功设置认证Token');
-            }
-          } catch (syncError) {
-            _logger.e('Token同步失败', error: syncError);
-          }
-        }
-      } else {
-        _logger.d('✅ 认证头已存在，继续上传操作');
-      }
-    } catch (error) {
-      _logger.e('确保认证状态失败', error: error);
+  /// 确保Dio已初始化
+  Future<void> _ensureDioInitialized() async {
+    if (!_isInitialized || _dio == null) {
+      await _initializeDio();
     }
   }
 
   /// 图片上传
   Future<UploadApiResult> uploadImage(
     File imageFile, {
-    String? conversationId,
+    required String conversationId,
     String? caption,
     int? width,
     int? height,
@@ -160,7 +128,7 @@ class UploadApiService {
   }) async {
     return _uploadFile(
       file: imageFile,
-      type: 'images',
+      type: 'image',
       conversationId: conversationId,
       metadata: {
         if (caption != null) 'caption': caption,
@@ -174,7 +142,7 @@ class UploadApiService {
   /// 语音上传
   Future<UploadApiResult> uploadVoice(
     File voiceFile, {
-    String? conversationId,
+    required String conversationId,
     int? duration,
     Function(int)? onProgress,
   }) async {
@@ -192,7 +160,7 @@ class UploadApiService {
   /// 视频上传
   Future<UploadApiResult> uploadVideo(
     File videoFile, {
-    String? conversationId,
+    required String conversationId,
     int? duration,
     int? width,
     int? height,
@@ -201,7 +169,7 @@ class UploadApiService {
   }) async {
     return _uploadFile(
       file: videoFile,
-      type: 'videos',
+      type: 'video',
       conversationId: conversationId,
       metadata: {
         if (duration != null) 'duration': duration.toString(),
@@ -216,13 +184,13 @@ class UploadApiService {
   /// 文档上传
   Future<UploadApiResult> uploadDocument(
     File documentFile, {
-    String? conversationId,
+    required String conversationId,
     String? caption,
     Function(int)? onProgress,
   }) async {
     return _uploadFile(
       file: documentFile,
-      type: 'files',
+      type: 'file',
       conversationId: conversationId,
       metadata: {
         if (caption != null) 'caption': caption,
@@ -238,8 +206,8 @@ class UploadApiService {
   }) async {
     return _uploadFile(
       file: avatarFile,
-      type: 'avatar',
-      conversationId: null, // 头像上传不需要conversationId
+      type: 'image', // 头像也使用image类型
+      conversationId: 'avatar', // 使用固定值作为头像标识
       metadata: null,
       onProgress: onProgress,
     );
@@ -249,16 +217,13 @@ class UploadApiService {
   Future<UploadApiResult> _uploadFile({
     required File file,
     required String type,
-    String? conversationId,
+    required String conversationId,
     Map<String, String>? metadata,
     Function(int)? onProgress,
   }) async {
     try {
-      // 检查认证状态
-      await _ensureAuthentication();
-      
       // 验证文件
-      _validateFile(file, type);
+      await _validateFile(file, type);
 
       // 准备表单数据
       final formData = FormData();
@@ -276,21 +241,50 @@ class UploadApiService {
         ),
       );
 
-      // 添加会话ID
-      if (conversationId != null) {
-        formData.fields.add(MapEntry('conversationId', conversationId));
+      // 添加会话ID（必需参数）
+      formData.fields.add(MapEntry('conversationId', conversationId));
+
+      // 添加文件类型（必需参数）
+      formData.fields.add(MapEntry('type', type));
+
+      // 添加用户ID（必需参数）
+      // 从当前用户获取用户ID
+      final currentUser = DatabaseInitializer.currentUser;
+      if (currentUser != null) {
+        formData.fields.add(MapEntry('userId', currentUser.userId));
+      } else {
+        _logger.w('⚠️ 无法获取用户ID，可能影响文件上传');
       }
 
-      // 添加元数据
+      // 暂时不发送timestamp参数，因为服务器在解析时出现错误
+      // TODO: 需要与服务器端协调正确的timestamp格式
+      // final utcTimestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
+      // formData.fields.add(MapEntry('timestamp', utcTimestamp.toString()));
+
+      // 添加元数据（可选参数）
       if (metadata != null && metadata.isNotEmpty) {
         formData.fields.add(
           MapEntry('metadata', jsonEncode(metadata)),
         );
       }
 
-      // 发送请求
-      final response = await _dio.post(
-        '/$type',
+      // 日志记录要发送的参数
+      _logger.i('📤 文件上传参数', extra: {
+        'conversationId': conversationId,
+        'type': type,
+        'userId': currentUser?.userId,
+        'hasMetadata': metadata != null && metadata.isNotEmpty,
+        'metadataKeys': metadata?.keys.toList(),
+        'fileName': path.basename(file.path),
+        'fileSize': file.lengthSync(),
+      });
+
+      // 确保Dio已初始化
+      await _ensureDioInitialized();
+
+      // 发送请求到新的API端点
+      final response = await _dio!.post(
+        '/api/upload',
         data: formData,
         onSendProgress: (sent, total) {
           if (onProgress != null && total > 0) {
@@ -301,7 +295,7 @@ class UploadApiService {
       );
 
       // 处理响应
-      return _parseResponse(response);
+      return await _parseResponse(response);
     } catch (error) {
       _logger.e('文件上传失败', error: error, stackTrace: StackTrace.current);
       throw _handleError(error);
@@ -309,13 +303,97 @@ class UploadApiService {
   }
 
   /// 验证文件
-  void _validateFile(File file, String type) {
+  Future<void> _validateFile(File file, String type) async {
     if (!file.existsSync()) {
       throw const UploadException('文件不存在');
     }
 
     final fileSize = file.lengthSync();
 
+    // 优先使用FileServerConfigService获取文件大小限制
+    final isAllowed =
+        await _fileServerConfigService.isFileSizeAllowed(type, fileSize);
+    if (isAllowed) {
+      return;
+    }
+
+    // 如果FileServerConfigService不可用，使用动态配置的文件大小限制
+    final dynamicConfig = DynamicFileServerConfig();
+    final config = dynamicConfig.currentConfig;
+
+    if (config != null && config.isFileSizeValidForType(fileSize, type)) {
+      // 文件大小符合动态配置限制
+      return;
+    }
+
+    // 获取具体的文件大小限制并生成错误消息
+    final limit = await _fileServerConfigService.getFileSizeLimit(type);
+    if (limit != null) {
+      final maxSizeMB = (limit / 1024 / 1024).round();
+      String errorMessage;
+
+      switch (type.toLowerCase()) {
+        case 'image':
+        case 'images':
+          errorMessage = '图片大小不能超过${maxSizeMB}MB';
+          break;
+        case 'voice':
+          // 语音文件已通过时长限制，无需大小限制
+          return;
+        case 'video':
+        case 'videos':
+          errorMessage = '视频文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'file':
+        case 'files':
+          errorMessage = '文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'avatar':
+          errorMessage = '头像大小不能超过${maxSizeMB}MB';
+          break;
+        default:
+          errorMessage = '文件大小超过限制';
+      }
+
+      throw UploadException(errorMessage);
+    }
+
+    // 如果动态配置验证失败，抛出具体的错误信息
+    if (config != null) {
+      final limits = config.limits;
+      String errorMessage;
+
+      switch (type.toLowerCase()) {
+        case 'image':
+        case 'images':
+          final maxSizeMB = (limits.imageMaxSize / 1024 / 1024).round();
+          errorMessage = '图片大小不能超过${maxSizeMB}MB';
+          break;
+        case 'voice':
+          // 语音文件已通过时长限制，无需大小限制
+          return;
+        case 'video':
+        case 'videos':
+          final maxSizeMB = (limits.videoMaxSize / 1024 / 1024).round();
+          errorMessage = '视频文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'file':
+        case 'files':
+          final maxSizeMB = (limits.fileMaxSize / 1024 / 1024).round();
+          errorMessage = '文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'avatar':
+          final maxSizeMB = (limits.imageMaxSize / 1024 / 1024).round();
+          errorMessage = '头像大小不能超过${maxSizeMB}MB';
+          break;
+        default:
+          errorMessage = '文件大小超过限制';
+      }
+
+      throw UploadException(errorMessage);
+    }
+
+    // 如果没有动态配置，使用硬编码的默认限制作为后备
     switch (type) {
       case 'images':
         if (fileSize > 10 * 1024 * 1024) {
@@ -324,9 +402,7 @@ class UploadApiService {
         break;
 
       case 'voice':
-        if (fileSize > 50 * 1024 * 1024) {
-          throw const UploadException('音频文件大小不能超过50MB');
-        }
+        // 语音文件已通过时长限制，无需大小限制
         break;
 
       case 'videos':
@@ -336,10 +412,10 @@ class UploadApiService {
         break;
 
       case 'files':
-        // 文件模式：彻底不验证文件类型，只限制大小为500MB
+        // 文件模式：彻底不验证文件类型，只限制大小为100MB
         // 任何文件都可以上传，完全交由服务端处理
-        if (fileSize > 500 * 1024 * 1024) {
-          throw const UploadException('文件大小不能超过500MB');
+        if (fileSize > 100 * 1024 * 1024) {
+          throw const UploadException('文件大小不能超过100MB');
         }
         break;
 
@@ -352,18 +428,29 @@ class UploadApiService {
   }
 
   /// 解析响应
-  UploadApiResult _parseResponse(Response response) {
+  Future<UploadApiResult> _parseResponse(Response response) async {
     final data = response.data;
 
     if (data['success'] == true) {
       final resultData = data['data'];
+
+      // 获取文件服务器ID：优先使用服务器返回的fsID，否则使用默认文件服务器ID
+      String? fsId = resultData['fsID'];
+      if (fsId == null) {
+        fsId = await _fileServerConfigService.getDefaultFileServerId();
+        _logger.d('使用默认文件服务器ID', extra: {'defaultFsId': fsId});
+      } else {
+        _logger.d('使用服务器返回的文件服务器ID', extra: {'serverFsId': fsId});
+      }
+
       return UploadApiResult(
         success: true,
-        fileId: resultData['fileId'],
-        url: resultData['url'],
-        localPath: resultData['localPath'],
-        thumbnailUrl: resultData['thumbnailUrl'],
-        metadata: UploadMetadata.fromJson(resultData['metadata']),
+        fileId: fsId, // 使用确定的文件服务器ID（与fsId保持一致）
+        fileName: resultData['fileName'], // 服务器返回的文件名
+        fsId: fsId, // 文件服务器ID
+        url: null, // 新的文件服务器不直接返回URL，由客户端构建
+        localPath: null, // 文件服务器不返回本地路径
+        metadata: UploadMetadata.fromJson(resultData['metadata'] ?? {}),
       );
     } else {
       throw UploadException(data['error']?['message'] ?? '上传失败');
@@ -375,14 +462,14 @@ class UploadApiService {
     if (error is DioException) {
       if (error.response != null) {
         final errorData = error.response!.data;
-        
+
         // 添加详细的错误日志
         _logger.e('服务器错误详情', extra: {
           'statusCode': error.response!.statusCode,
           'statusMessage': error.response!.statusMessage,
           'responseData': errorData,
         });
-        
+
         final errorCode = errorData['error']?['code'];
         final errorMessage = errorData['error']?['message'] ?? '上传失败';
 
@@ -417,7 +504,8 @@ class UploadApiService {
             } else if (errorData is String) {
               return UploadException(errorData);
             } else {
-              return UploadException('上传失败：${error.response!.statusMessage ?? '未知错误'}');
+              return UploadException(
+                  '上传失败：${error.response!.statusMessage ?? '未知错误'}');
             }
         }
       } else if (error.type == DioExceptionType.connectionTimeout) {
@@ -440,7 +528,7 @@ class UploadApiService {
   Future<UploadApiResult> uploadWithRetry(
     File file,
     String type, {
-    String? conversationId,
+    required String conversationId,
     Map<String, String>? metadata,
     Function(int)? onProgress,
     int maxRetries = 3,
@@ -474,18 +562,20 @@ class UploadApiService {
 class UploadApiResult {
   final bool success;
   final String? fileId;
+  final String? fileName; // 服务器返回的文件名
+  final String? fsId; // 文件服务器ID
   final String? url;
   final String? localPath;
-  final String? thumbnailUrl;
   final UploadMetadata? metadata;
   final String? error;
 
   const UploadApiResult({
     required this.success,
     this.fileId,
+    this.fileName,
+    this.fsId,
     this.url,
     this.localPath,
-    this.thumbnailUrl,
     this.metadata,
     this.error,
   });

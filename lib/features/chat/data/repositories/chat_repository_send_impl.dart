@@ -49,12 +49,32 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 发送图片消息
   @override
   Future<Message> sendImageMessage(String conversationId, String localPath,
-      {String? mediaUrl, String? caption}) async {
+      {String? mediaUrl, String? caption, String? fsId, String? fileName, int? width, int? height, double? fileSize, String? mimeType}) async {
     final message = await _createMessage(conversationId, '', MessageType.image);
     message.localPath = localPath;
     message.mediaUrl = mediaUrl;
     if (caption != null && caption.isNotEmpty) {
       message.caption = caption;
+    }
+    // 设置文件服务器字段
+    if (fsId != null) {
+      message.fsId = fsId;
+    }
+    if (fileName != null) {
+      message.fileName = fileName;
+    }
+    if (width != null) {
+      message.width = width;
+    }
+    if (height != null) {
+      message.height = height;
+    }
+    if (fileSize != null) {
+      message.fileSize = fileSize;
+      _logger.d('设置图片文件大小', extra: {'messageId': message.messageId, 'fileSize': fileSize});
+    }
+    if (mimeType != null) {
+      message.mimeType = mimeType;
     }
     await sendMessageWithTimeout(message);
     return message;
@@ -64,11 +84,25 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   @override
   Future<Message> sendVoiceMessage(
       String conversationId, String localPath, int duration,
-      {String? mediaUrl}) async {
+      {String? mediaUrl, String? fsId, String? fileName, double? fileSize, String? mimeType}) async {
     final message = await _createMessage(conversationId, '', MessageType.voice);
     message.localPath = localPath;
     message.mediaUrl = mediaUrl;
     message.duration = duration;
+    // 设置文件服务器字段
+    if (fsId != null) {
+      message.fsId = fsId;
+    }
+    if (fileName != null) {
+      message.fileName = fileName;
+    }
+    if (fileSize != null) {
+      message.fileSize = fileSize;
+      _logger.d('设置语音文件大小', extra: {'messageId': message.messageId, 'fileSize': fileSize});
+    }
+    if (mimeType != null) {
+      message.mimeType = mimeType;
+    }
     await sendMessageWithTimeout(message);
     return message;
   }
@@ -97,7 +131,8 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
     final message = await _createMessage(conversationId, '', MessageType.video);
     message.localPath = localPath;
     message.mediaUrl = mediaUrl;
-    message.thumbnailUrl = thumbnailUrl;
+    // 缩略图URL现在是计算属性，通过serverThumbnailFileName设置
+    // message.thumbnailUrl = thumbnailUrl;
     message.duration = duration;
     await sendMessageWithTimeout(message);
     return message;

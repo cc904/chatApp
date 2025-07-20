@@ -42,11 +42,6 @@ class _AboutPageState extends State<AboutPage> {
             
             const SizedBox(height: 20),
             
-            // 团队信息
-            _buildTeamInfo(localizations),
-            
-            const SizedBox(height: 20),
-            
             // 联系方式
             _buildContactInfo(localizations),
             
@@ -89,7 +84,7 @@ class _AboutPageState extends State<AboutPage> {
           
           // 应用名称
           const Text(
-            'ChatApp',
+            'ThisApp',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -143,31 +138,6 @@ class _AboutPageState extends State<AboutPage> {
     );
   }
 
-  Widget _buildTeamInfo(AppLocalizations localizations) {
-    return _buildSection(
-      title: '开发团队',
-      children: [
-        _buildInfoTile(
-          icon: Icons.group,
-          title: '团队介绍',
-          content: '由一群热爱技术的开发者组成，致力于打造优秀的移动应用产品。',
-        ),
-        const Divider(height: 1),
-        _buildInfoTile(
-          icon: Icons.code,
-          title: '技术理念',
-          content: '追求代码质量，注重用户体验，持续创新和优化。',
-        ),
-        const Divider(height: 1),
-        _buildInfoTile(
-          icon: Icons.favorite,
-          title: '开源精神',
-          content: '积极参与开源社区，分享技术经验，回馈开发者生态。',
-        ),
-      ],
-    );
-  }
-
   Widget _buildContactInfo(AppLocalizations localizations) {
     return _buildSection(
       title: '联系我们',
@@ -175,15 +145,15 @@ class _AboutPageState extends State<AboutPage> {
         _buildContactTile(
           icon: Icons.email,
           title: '客服邮箱',
-          subtitle: 'support@chatapp.com',
-          onTap: () => _copyToClipboard('support@chatapp.com'),
+          subtitle: 'support@ThisApp.com',
+          onTap: () => _copyToClipboard('support@ThisApp.com'),
         ),
         const Divider(height: 1),
         _buildContactTile(
           icon: Icons.web,
           title: '官方网站',
-          subtitle: 'www.chatapp.com',
-          onTap: () => _copyToClipboard('https://www.chatapp.com'),
+          subtitle: 'www.ThisApp.com',
+          onTap: () => _copyToClipboard('https://www.ThisApp.com'),
         ),
         const Divider(height: 1),
         _buildContactTile(
@@ -211,7 +181,7 @@ class _AboutPageState extends State<AboutPage> {
           ),
           SizedBox(height: 12),
           Text(
-            '© 2024 ChatApp Team',
+            '© 2024 ThisApp Team',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey,

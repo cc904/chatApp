@@ -5,12 +5,16 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/file_server_config_service.dart';
+import 'package:cc/core/constants/file_server_config.dart';
 
 /// 媒体缓存服务
 /// 负责下载网络媒体文件并保存到本地，实现"保存到本地后再使用"的设计原则
 /// 支持不同类型的媒体文件：头像、缩略图、图片、视频等
 class MediaCacheService {
   final LogService _logger = LogService.instance;
+  final FileServerConfigService _fileServerConfig = FileServerConfigService.instance;
+  final FileServerConfig _staticConfig = FileServerConfig();
   static final MediaCacheService _instance = MediaCacheService._internal();
 
   factory MediaCacheService() => _instance;
@@ -124,12 +128,13 @@ class MediaCacheService {
         return cachedPath;
       }
 
+      // 检查并使用正确的文件服务器URL
+      final downloadUrl = await _getValidDownloadUrl(mediaUrl);
+      
       // 下载媒体文件
       final response = await http.get(
-        Uri.parse(mediaUrl),
-        headers: {
-          'User-Agent': 'CC-Flutter-App/1.0',
-        },
+        Uri.parse(downloadUrl),
+        headers: await _buildRequestHeaders(),
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
@@ -360,11 +365,12 @@ class MediaCacheService {
       // 5. 下载并缓存
       _logger.i('⬇️ 开始下载语音文件', extra: {'messageId': messageId, 'url': mediaUrl});
       
+      // 检查并使用正确的文件服务器URL
+      final downloadUrl = await _getValidDownloadUrl(mediaUrl);
+      
       final response = await http.get(
-        Uri.parse(mediaUrl),
-        headers: {
-          'User-Agent': 'CC-Flutter-App/1.0',
-        },
+        Uri.parse(downloadUrl),
+        headers: await _buildRequestHeaders(),
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
@@ -403,6 +409,54 @@ class MediaCacheService {
       _logger.e('❌ 获取语音文件失败', error: error, extra: {'messageId': messageId, 'url': mediaUrl});
       return null;
     }
+  }
+
+  /// 验证并获取有效的下载URL
+  /// 使用登录响应中的文件服务器配置来修正URL
+  Future<String> _getValidDownloadUrl(String originalUrl) async {
+    try {
+      // 检查URL是否已经是正确的文件服务器格式
+      if (_staticConfig.isValidFileServerUrl(originalUrl)) {
+        return originalUrl;
+      }
+      
+      // 尝试从配置服务获取正确的文件服务器URL
+      final defaultServerUrl = await _fileServerConfig.getDefaultFileServerUrl();
+      if (defaultServerUrl != null) {
+        // 解析原始URL的路径部分
+        final originalUri = Uri.parse(originalUrl);
+        final pathSegments = originalUri.pathSegments;
+        
+        // 只修正符合文件服务器格式的URL（type/conversationId/date/userId/fileName）
+        if (pathSegments.length >= 5) {
+          final correctedUrl = '$defaultServerUrl/${pathSegments.join('/')}';
+          _logger.i('🔄 修正文件服务器URL', extra: {
+            'original': originalUrl,
+            'corrected': correctedUrl,
+          });
+          return correctedUrl;
+        }
+      }
+      
+      // 如果无法修正，直接使用原始URL（可能是旧格式或其他有效URL）
+      _logger.d('使用原始URL', extra: {'url': originalUrl});
+      return originalUrl;
+    } catch (error) {
+      _logger.e('❌ 验证下载URL失败，使用原始URL', error: error, extra: {'url': originalUrl});
+      return originalUrl;
+    }
+  }
+
+  /// 构建请求头
+  Future<Map<String, String>> _buildRequestHeaders() async {
+    final headers = {
+      'User-Agent': 'CC-Flutter-App/1.0',
+    };
+    
+    // 文件服务器使用无认证下载，不需要添加额外的认证头
+    // 但可以在这里添加其他必要的头信息
+    
+    return headers;
   }
 
   /// 从URL中提取服务器生成的文件名

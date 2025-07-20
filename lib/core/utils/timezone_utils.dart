@@ -3,6 +3,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:intl/intl.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:flutter/foundation.dart';
 
 /// 时区处理工具类
 ///
@@ -40,6 +41,42 @@ class TimezoneUtils {
   /// 是否已初始化
   static bool _initialized = false;
 
+  /// 是否启用详细调试日志（仅在debug模式下）
+  /// 
+  /// 优化策略：
+  /// - 生产环境下完全禁用详细日志
+  /// - 仅在debug模式下输出调试信息
+  /// - 减少日志调用频率，提升性能
+  static bool get _isDebugLoggingEnabled => kDebugMode;
+
+  /// 详细调试日志（仅在debug模式下输出）
+  /// 
+  /// 用于一般性的调试信息，会在发布版本中被完全移除
+  static void _debugLog(String message, {Map<String, dynamic>? extra}) {
+    if (_isDebugLoggingEnabled) {
+      _logger.d(message, extra: extra);
+    }
+  }
+
+  /// 性能敏感操作的调试日志（仅在debug模式下输出，且更简洁）
+  /// 
+  /// 用于频繁调用的方法，避免影响性能
+  static void _performanceLog(String message, {Map<String, dynamic>? extra}) {
+    if (_isDebugLoggingEnabled && kDebugMode) {
+      // 只在debug模式下输出关键信息
+      _logger.d(message, extra: extra);
+    }
+  }
+
+  /// 批量调试日志（避免频繁调用）
+  /// 
+  /// 将多条调试信息合并为一条日志，减少I/O操作
+  static void _batchDebugLog(List<String> messages, {Map<String, dynamic>? extra}) {
+    if (_isDebugLoggingEnabled && messages.isNotEmpty) {
+      // _logger.d(messages.join(' | '), extra: extra);
+    }
+  }
+
   /// 初始化时区系统
   ///
   /// 建议在应用启动时调用，会自动检测用户设备时区
@@ -55,7 +92,7 @@ class TimezoneUtils {
 
       // 获取设备时区
       final deviceTimezone = await FlutterTimezone.getLocalTimezone();
-      _logger.i('📱 设备时区: $deviceTimezone');
+      _debugLog('📱 设备时区: $deviceTimezone');
 
       // 直接使用设备本地时区
       try {
@@ -70,21 +107,23 @@ class TimezoneUtils {
       _initialized = true;
       _logger.i('🎉 时区系统初始化完成');
 
-      // 输出时区信息用于调试
-      final now = DateTime.now();
-      final utcNow = now.toUtc();
-      final localNow = await TimezoneUtils.toUserTimezone(utcNow);
+      // 输出时区信息用于调试（仅在debug模式下）
+      if (_isDebugLoggingEnabled) {
+        final now = DateTime.now();
+        final utcNow = now.toUtc();
+        final localNow = await TimezoneUtils.toUserTimezone(utcNow);
 
-      _logger.d('🕐 时区调试信息', extra: {
-        'deviceTimezone': deviceTimezone,
-        'userTimezone': _userLocation!.name,
-        'systemLocalTime': now.toIso8601String(),
-        'utcTime': utcNow.toIso8601String(),
-        'userLocalTime': localNow.toIso8601String(),
-        'offsetHours':
-            _userLocation!.currentTimeZone.offset ~/ (1000 * 60 * 60),
-        'isDst': _userLocation!.currentTimeZone.isDst,
-      });
+        _debugLog('🕐 时区调试信息', extra: {
+          'deviceTimezone': deviceTimezone,
+          'userTimezone': _userLocation!.name,
+          'systemLocalTime': now.toIso8601String(),
+          'utcTime': utcNow.toIso8601String(),
+          'userLocalTime': localNow.toIso8601String(),
+          'offsetHours':
+              _userLocation!.currentTimeZone.offset ~/ (1000 * 60 * 60),
+          'isDst': _userLocation!.currentTimeZone.isDst,
+        });
+      }
     } catch (error) {
       _logger.e('❌ 时区系统初始化失败', error: error);
       // 初始化失败时使用UTC作为回退
@@ -275,16 +314,9 @@ class TimezoneUtils {
       if (isAlreadyLocalDate) {
         // 如果已经是本地日期，直接使用
         localTime = utcTime;
-        _logger.d('🕐 检测到已转换的本地日期，直接使用', extra: {
-          'inputTime': utcTime.toIso8601String(),
-        });
       } else {
         // 否则进行时区转换
         localTime = await toUserTimezone(utcTime);
-        _logger.d('🕐 对UTC时间进行时区转换', extra: {
-          'inputUtcTime': utcTime.toIso8601String(),
-          'convertedLocalTime': localTime.toIso8601String(),
-        });
       }
 
       final now = await toUserTimezone(nowUtc());
@@ -294,35 +326,37 @@ class TimezoneUtils {
       final messageDate =
           DateTime(localTime.year, localTime.month, localTime.day);
 
-      _logger.d('🕐 日期分隔符格式化调试', extra: {
-        'messageDate': messageDate.toIso8601String(),
-        'today': today.toIso8601String(),
-        'yesterday': yesterday.toIso8601String(),
-        'now': now.toIso8601String(),
-        'localTime': localTime.toIso8601String(),
-        'inputUtcTime': utcTime.toIso8601String(),
-        'isAlreadyLocalDate': isAlreadyLocalDate,
-      });
-
+      String result;
       if (messageDate == today) {
-        _logger.d('🕐 日期分隔符格式化调试:今天');
-        return '今天';
+        result = '今天';
       } else if (messageDate == yesterday) {
-        _logger.d('🕐 日期分隔符格式化调试:昨天');
-        return '昨天';
+        result = '昨天';
       } else if (now.difference(messageDate).inDays < 7) {
         // 一周内显示星期几
         final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-        _logger.d('🕐 日期分隔符格式化调试:一周内');
-        return weekdays[localTime.weekday - 1];
+        result = weekdays[localTime.weekday - 1];
       } else {
         // 超过一周显示具体日期
         if (localTime.year == now.year) {
-          return DateFormat('MM月dd日').format(localTime);
+          result = DateFormat('MM月dd日').format(localTime);
         } else {
-          return DateFormat('yyyy年MM月dd日').format(localTime);
+          result = DateFormat('yyyy年MM月dd日').format(localTime);
         }
       }
+
+      // 批量调试日志，减少日志调用次数
+      _batchDebugLog([
+        '🕐 日期分隔符格式化',
+        '输入: ${utcTime.toIso8601String()}',
+        '结果: $result',
+        '已本地化: $isAlreadyLocalDate'
+      ], extra: _isDebugLoggingEnabled ? {
+        'messageDate': messageDate.toIso8601String(),
+        'today': today.toIso8601String(),
+        'yesterday': yesterday.toIso8601String(),
+      } : null);
+
+      return result;
     } catch (e) {
       _logger.e('❌ 日期分隔符格式化失败', error: e);
       return DateFormat('MM月dd日').format(utcTime);
@@ -344,33 +378,36 @@ class TimezoneUtils {
       final messageDate =
           DateTime(localDate.year, localDate.month, localDate.day);
 
-      _logger.d('🕐 本地日期分隔符格式化调试', extra: {
-        'messageDate': messageDate.toIso8601String(),
-        'today': today.toIso8601String(),
-        'yesterday': yesterday.toIso8601String(),
-        'now': now.toIso8601String(),
-        'localDate': localDate.toIso8601String(),
-      });
-
+      String result;
       if (messageDate == today) {
-        _logger.d('🕐 本地日期分隔符格式化调试:今天');
-        return '今天';
+        result = '今天';
       } else if (messageDate == yesterday) {
-        _logger.d('🕐 本地日期分隔符格式化调试:昨天');
-        return '昨天';
+        result = '昨天';
       } else if (now.difference(messageDate).inDays < 7) {
         // 一周内显示星期几
         final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-        _logger.d('🕐 本地日期分隔符格式化调试:一周内');
-        return weekdays[localDate.weekday - 1];
+        result = weekdays[localDate.weekday - 1];
       } else {
         // 超过一周显示具体日期
         if (localDate.year == now.year) {
-          return DateFormat('MM月dd日').format(localDate);
+          result = DateFormat('MM月dd日').format(localDate);
         } else {
-          return DateFormat('yyyy年MM月dd日').format(localDate);
+          result = DateFormat('yyyy年MM月dd日').format(localDate);
         }
       }
+
+      // 批量调试日志，减少日志调用次数
+      _batchDebugLog([
+        '🕐 本地日期分隔符格式化',
+        '输入: ${localDate.toIso8601String()}',
+        '结果: $result'
+      ], extra: _isDebugLoggingEnabled ? {
+        'messageDate': messageDate.toIso8601String(),
+        'today': today.toIso8601String(),
+        'yesterday': yesterday.toIso8601String(),
+      } : null);
+
+      return result;
     } catch (e) {
       _logger.e('❌ 本地日期分隔符格式化失败', error: e);
       return DateFormat('MM月dd日').format(localDate);
@@ -460,14 +497,16 @@ class TimezoneUtils {
     return DateTime(localTime.year, localTime.month, localTime.day);
   }
 
-  /// 调试：输出时区转换信息
+  /// 调试：输出时区转换信息（仅在debug模式下）
   static Future<void> debugTimeConversion(DateTime utcTime) async {
+    if (!_isDebugLoggingEnabled) return;
+    
     await _ensureInitialized();
 
     final localTime = await toUserTimezone(utcTime);
     final timezoneInfo = await getUserTimezoneInfo();
 
-    _logger.d('🕐 时区转换调试', extra: {
+    _performanceLog('🕐 时区转换调试', extra: {
       'inputUtc': utcTime.toIso8601String(),
       'outputLocal': localTime.toIso8601String(),
       'timezone': timezoneInfo.name,

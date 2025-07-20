@@ -7,6 +7,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+// ignore: unused_import
 import 'package:cc/core/services/media_cache_service.dart';
 
 /// 图片查看器组件

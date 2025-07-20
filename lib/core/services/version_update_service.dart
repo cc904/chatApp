@@ -42,7 +42,18 @@ class VersionUpdateService {
   /// 检查版本更新
   Future<VersionCheckResult?> checkForUpdate() async {
     try {
-      _logger.i('开始检查版本更新');
+      // Web平台无需检查版本更新
+      if (_versionService.platformName == 'Web') {
+        _logger.i('Web平台无需检查版本更新，跳过检查');
+        return null;
+      }
+
+      _logger.i('开始检查版本更新', extra: {
+        'currentVersion': _versionService.currentVersion,
+        'buildNumber': _versionService.buildNumber,
+        'platform': _versionService.platformName,
+        'packageName': _versionService.packageName,
+      });
       
       // 获取API token
       final token = await EnhancedTokenManager.instance.getApiToken();
@@ -51,17 +62,44 @@ class VersionUpdateService {
         return null;
       }
 
-      // 构建请求数据
+      // 构建完整的版本检查请求数据
       final clientInfo = _versionService.getClientInfo();
       final requestData = {
+        // 核心版本信息
         'currentVersion': _versionService.currentVersion,
+        'buildNumber': _versionService.buildNumber,
         'platform': _versionService.platformName,
+        'packageName': _versionService.packageName,
+        'appName': _versionService.appName,
+        
+        // 设备信息
+        'deviceInfo': {
+          'platform': _versionService.platformName,
+          'osVersion': _versionService.deviceInfo?.osVersion ?? 'unknown',
+          'model': _versionService.deviceInfo?.model ?? 'unknown',
+          'brand': _versionService.deviceInfo?.brand ?? 'unknown',
+          'systemName': _versionService.deviceInfo?.systemName ?? 'unknown',
+        },
+        
+        // 完整客户端信息
         'clientInfo': clientInfo,
+        
+        // 请求时间戳
+        'requestTimestamp': DateTime.now().millisecondsSinceEpoch,
+        
+        // 调试模式标识
+        'isDebugMode': _versionService.isDebugMode,
       };
+
+      // 记录请求信息
+      _logger.d('发送版本检查请求', extra: {
+        'url': '${AppConfig().serverUrl}/api/v1/version/check',
+        'requestData': requestData,
+      });
 
       // 发送版本检查请求
       final response = await http.post(
-        Uri.parse('${AppConfig().serverUrl}/api/version/check'),
+        Uri.parse('${AppConfig().serverUrl}/api/v1/version/check'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -71,6 +109,20 @@ class VersionUpdateService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        
+        // 添加响应数据的详细日志
+        _logger.d('版本检查响应数据', extra: {
+          'responseData': data,
+          'dataTypes': {
+            'hasUpdate': data['hasUpdate']?.runtimeType,
+            'latestVersion': data['latestVersion']?.runtimeType,
+            'releaseNotes': data['releaseNotes']?.runtimeType,
+            'isForced': data['isForced']?.runtimeType,
+            'downloadUrl': data['downloadUrl']?.runtimeType,
+            'releaseDate': data['releaseDate']?.runtimeType,
+          }
+        });
+        
         final result = VersionCheckResult.fromJson(data);
         
         _logger.i('版本检查完成', extra: {
@@ -201,7 +253,10 @@ class VersionUpdateService {
   /// 处理更新操作
   Future<void> _handleUpdateAction(BuildContext context, VersionCheckResult result) async {
     try {
-      Navigator.of(context).pop(); // 关闭更新对话框
+      // 如果是强制更新，不关闭对话框，直接打开下载链接
+      if (!result.isForced) {
+        Navigator.of(context).pop(); // 只有非强制更新才关闭对话框
+      }
       
       String downloadUrl = '';
       
@@ -225,6 +280,11 @@ class VersionUpdateService {
       
       // 打开下载链接
       await _openDownloadUrl(context, downloadUrl);
+      
+      // 如果是强制更新，打开链接后显示退出提示
+      if (result.isForced && context.mounted) {
+        _showForceUpdateExitDialog(context);
+      }
     } catch (error) {
       _logger.e('处理更新操作失败', error: error);
       if (context.mounted) {
@@ -287,6 +347,84 @@ class VersionUpdateService {
         ],
       ),
     );
+  }
+
+  /// 显示强制更新退出对话框
+  void _showForceUpdateExitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.system_update_alt, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('强制更新'),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '已为您打开下载页面，请下载并安装最新版本。',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '应用将退出，安装完成后重新启动即可。',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                // 强制退出应用
+                exit(0);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('退出应用'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 检查是否需要强制更新（登录前调用）
+  /// 返回true表示需要强制更新，应阻止登录
+  Future<bool> isForceUpdateRequired() async {
+    try {
+      _logger.i('检查是否需要强制更新');
+      
+      final result = await checkForUpdate();
+      if (result != null && result.hasUpdate && result.isForced) {
+        _logger.w('检测到强制更新，阻止登录', extra: {
+          'currentVersion': _versionService.currentVersion,
+          'latestVersion': result.latestVersion,
+          'isForced': result.isForced,
+        });
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      _logger.e('检查强制更新状态失败', error: error);
+      return false; // 检查失败时不阻止登录
+    }
+  }
+
+  /// 显示强制更新对话框并阻止继续操作
+  Future<void> showForceUpdateDialog(BuildContext context) async {
+    final result = await checkForUpdate();
+    if (result != null && result.hasUpdate && result.isForced && context.mounted) {
+      await showUpdateDialog(context, result);
+    }
   }
 
   /// 应用启动时检查更新

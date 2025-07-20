@@ -106,8 +106,7 @@ const LoginResponse$json = {
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'error_message', '3': 2, '4': 1, '5': 9, '10': 'errorMessage'},
     {'1': 'user', '3': 3, '4': 1, '5': 11, '6': '.cc.UserInfo', '10': 'user'},
-    {'1': 'token', '3': 4, '4': 1, '5': 9, '10': 'token'},
-    {'1': 'token_expires_at', '3': 5, '4': 1, '5': 3, '10': 'tokenExpiresAt'},
+    {'1': 'tokens', '3': 4, '4': 1, '5': 11, '6': '.cc.TokenPair', '10': 'tokens'},
   ],
 };
 
@@ -115,8 +114,7 @@ const LoginResponse$json = {
 final $typed_data.Uint8List loginResponseDescriptor = $convert.base64Decode(
     'Cg1Mb2dpblJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSIwoNZXJyb3JfbWVzc2'
     'FnZRgCIAEoCVIMZXJyb3JNZXNzYWdlEiAKBHVzZXIYAyABKAsyDC5jYy5Vc2VySW5mb1IEdXNl'
-    'chIUCgV0b2tlbhgEIAEoCVIFdG9rZW4SKAoQdG9rZW5fZXhwaXJlc19hdBgFIAEoA1IOdG9rZW'
-    '5FeHBpcmVzQXQ=');
+    'chIlCgZ0b2tlbnMYBCABKAsyDS5jYy5Ub2tlblBhaXJSBnRva2Vucw==');
 
 @$core.Deprecated('Use registerRequestDescriptor instead')
 const RegisterRequest$json = {
@@ -143,8 +141,7 @@ const RegisterResponse$json = {
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'error_message', '3': 2, '4': 1, '5': 9, '10': 'errorMessage'},
     {'1': 'user', '3': 3, '4': 1, '5': 11, '6': '.cc.UserInfo', '10': 'user'},
-    {'1': 'token', '3': 4, '4': 1, '5': 9, '10': 'token'},
-    {'1': 'token_expires_at', '3': 5, '4': 1, '5': 3, '10': 'tokenExpiresAt'},
+    {'1': 'tokens', '3': 4, '4': 1, '5': 11, '6': '.cc.TokenPair', '10': 'tokens'},
   ],
 };
 
@@ -152,8 +149,7 @@ const RegisterResponse$json = {
 final $typed_data.Uint8List registerResponseDescriptor = $convert.base64Decode(
     'ChBSZWdpc3RlclJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSIwoNZXJyb3JfbW'
     'Vzc2FnZRgCIAEoCVIMZXJyb3JNZXNzYWdlEiAKBHVzZXIYAyABKAsyDC5jYy5Vc2VySW5mb1IE'
-    'dXNlchIUCgV0b2tlbhgEIAEoCVIFdG9rZW4SKAoQdG9rZW5fZXhwaXJlc19hdBgFIAEoA1IOdG'
-    '9rZW5FeHBpcmVzQXQ=');
+    'dXNlchIlCgZ0b2tlbnMYBCABKAsyDS5jYy5Ub2tlblBhaXJSBnRva2Vucw==');
 
 @$core.Deprecated('Use resetPasswordRequestDescriptor instead')
 const ResetPasswordRequest$json = {
@@ -273,20 +269,80 @@ final $typed_data.Uint8List userInfoDescriptor = $convert.base64Decode(
     'YXZhdGFyGAUgASgJUgZhdmF0YXISHQoKY3JlYXRlZF9hdBgGIAEoA1IJY3JlYXRlZEF0EiIKDW'
     'xhc3RfbG9naW5fYXQYByABKANSC2xhc3RMb2dpbkF0');
 
+@$core.Deprecated('Use tokenPairDescriptor instead')
+const TokenPair$json = {
+  '1': 'TokenPair',
+  '2': [
+    {'1': 'refresh_token', '3': 1, '4': 1, '5': 9, '10': 'refreshToken'},
+    {'1': 'refresh_token_expires_at', '3': 2, '4': 1, '5': 3, '10': 'refreshTokenExpiresAt'},
+    {'1': 'socket_token', '3': 3, '4': 1, '5': 9, '10': 'socketToken'},
+    {'1': 'socket_token_expires_at', '3': 4, '4': 1, '5': 3, '10': 'socketTokenExpiresAt'},
+  ],
+};
+
+/// Descriptor for `TokenPair`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List tokenPairDescriptor = $convert.base64Decode(
+    'CglUb2tlblBhaXISIwoNcmVmcmVzaF90b2tlbhgBIAEoCVIMcmVmcmVzaFRva2VuEjcKGHJlZn'
+    'Jlc2hfdG9rZW5fZXhwaXJlc19hdBgCIAEoA1IVcmVmcmVzaFRva2VuRXhwaXJlc0F0EiEKDHNv'
+    'Y2tldF90b2tlbhgDIAEoCVILc29ja2V0VG9rZW4SNQoXc29ja2V0X3Rva2VuX2V4cGlyZXNfYX'
+    'QYBCABKANSFHNvY2tldFRva2VuRXhwaXJlc0F0');
+
+@$core.Deprecated('Use refreshSocketTokenRequestDescriptor instead')
+const RefreshSocketTokenRequest$json = {
+  '1': 'RefreshSocketTokenRequest',
+  '2': [
+    {'1': 'refresh_token', '3': 1, '4': 1, '5': 9, '10': 'refreshToken'},
+    {'1': 'timestamp', '3': 2, '4': 1, '5': 3, '10': 'timestamp'},
+    {'1': 'device', '3': 3, '4': 1, '5': 11, '6': '.cc.DeviceInfo', '9': 0, '10': 'device', '17': true},
+  ],
+  '8': [
+    {'1': '_device'},
+  ],
+};
+
+/// Descriptor for `RefreshSocketTokenRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List refreshSocketTokenRequestDescriptor = $convert.base64Decode(
+    'ChlSZWZyZXNoU29ja2V0VG9rZW5SZXF1ZXN0EiMKDXJlZnJlc2hfdG9rZW4YASABKAlSDHJlZn'
+    'Jlc2hUb2tlbhIcCgl0aW1lc3RhbXAYAiABKANSCXRpbWVzdGFtcBIrCgZkZXZpY2UYAyABKAsy'
+    'Di5jYy5EZXZpY2VJbmZvSABSBmRldmljZYgBAUIJCgdfZGV2aWNl');
+
+@$core.Deprecated('Use refreshSocketTokenResponseDescriptor instead')
+const RefreshSocketTokenResponse$json = {
+  '1': 'RefreshSocketTokenResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'error_message', '3': 2, '4': 1, '5': 9, '10': 'errorMessage'},
+    {'1': 'tokens', '3': 3, '4': 1, '5': 11, '6': '.cc.TokenPair', '9': 0, '10': 'tokens', '17': true},
+    {'1': 'timestamp', '3': 4, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+  '8': [
+    {'1': '_tokens'},
+  ],
+};
+
+/// Descriptor for `RefreshSocketTokenResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List refreshSocketTokenResponseDescriptor = $convert.base64Decode(
+    'ChpSZWZyZXNoU29ja2V0VG9rZW5SZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEi'
+    'MKDWVycm9yX21lc3NhZ2UYAiABKAlSDGVycm9yTWVzc2FnZRIqCgZ0b2tlbnMYAyABKAsyDS5j'
+    'Yy5Ub2tlblBhaXJIAFIGdG9rZW5ziAEBEhwKCXRpbWVzdGFtcBgEIAEoA1IJdGltZXN0YW1wQg'
+    'kKB190b2tlbnM=');
+
 @$core.Deprecated('Use userSessionDescriptor instead')
 const UserSession$json = {
   '1': 'UserSession',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'token', '3': 2, '4': 1, '5': 9, '10': 'token'},
-    {'1': 'expire_time', '3': 3, '4': 1, '5': 3, '10': 'expireTime'},
-    {'1': 'phone_number', '3': 4, '4': 1, '5': 9, '10': 'phoneNumber'},
+    {'1': 'tokens', '3': 2, '4': 1, '5': 11, '6': '.cc.TokenPair', '10': 'tokens'},
+    {'1': 'phone_number', '3': 3, '4': 1, '5': 9, '10': 'phoneNumber'},
+    {'1': 'created_at', '3': 4, '4': 1, '5': 3, '10': 'createdAt'},
+    {'1': 'last_active_at', '3': 5, '4': 1, '5': 3, '10': 'lastActiveAt'},
   ],
 };
 
 /// Descriptor for `UserSession`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List userSessionDescriptor = $convert.base64Decode(
-    'CgtVc2VyU2Vzc2lvbhIXCgd1c2VyX2lkGAEgASgJUgZ1c2VySWQSFAoFdG9rZW4YAiABKAlSBX'
-    'Rva2VuEh8KC2V4cGlyZV90aW1lGAMgASgDUgpleHBpcmVUaW1lEiEKDHBob25lX251bWJlchgE'
-    'IAEoCVILcGhvbmVOdW1iZXI=');
+    'CgtVc2VyU2Vzc2lvbhIXCgd1c2VyX2lkGAEgASgJUgZ1c2VySWQSJQoGdG9rZW5zGAIgASgLMg'
+    '0uY2MuVG9rZW5QYWlyUgZ0b2tlbnMSIQoMcGhvbmVfbnVtYmVyGAMgASgJUgtwaG9uZU51bWJl'
+    'chIdCgpjcmVhdGVkX2F0GAQgASgDUgljcmVhdGVkQXQSJAoObGFzdF9hY3RpdmVfYXQYBSABKA'
+    'NSDGxhc3RBY3RpdmVBdA==');
 

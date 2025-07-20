@@ -331,7 +331,7 @@ class ConversationPreviewNotificationService {
     try {
       _logger.i('通知权限被拒绝，尝试重新请求', extra: {
         'conversationId': conversationId,
-        'platform': Platform.operatingSystem,
+        'platform': _getStandardizedPlatformName(),
       });
 
       // 尝试重新请求权限
@@ -359,7 +359,7 @@ class ConversationPreviewNotificationService {
         duration: const Duration(seconds: 6), // macOS 用户可能需要更多时间阅读
         onTap: () {
           _logger.i('用户点击了权限引导', extra: {
-            'platform': Platform.operatingSystem,
+            'platform': _getStandardizedPlatformName(),
           });
           
           if (Platform.isMacOS) {
@@ -379,6 +379,16 @@ class ConversationPreviewNotificationService {
   void dispose() {
     _currentUser = null;
     _logger.d('会话预览通知服务已清理');
+  }
+
+  /// 获取标准化的平台名称
+  String _getStandardizedPlatformName() {
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isIOS) return 'iOS';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    return 'Unknown';
   }
 }
 

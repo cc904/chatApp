@@ -623,4 +623,66 @@ class Conversation {
     }
     return name ?? '未知联系人';
   }
+
+  /// 💢💢💢 新增：频道相关方法
+  
+  /// 检查是否为频道
+  bool get isChannel => type == ConversationType.channel;
+  
+  /// 检查当前用户是否已加入频道
+  /// [currentUserId] - 当前用户ID
+  bool isJoined(String? currentUserId) {
+    if (currentUserId == null || !isChannel) return true;
+    return getParticipant(currentUserId) != null;
+  }
+  
+  /// 检查当前用户是否可以发送消息
+  /// 频道：只有非普通成员才能发送消息
+  /// 私聊/群聊：所有成员都可以发送消息
+  /// [currentUserId] - 当前用户ID
+  bool canSendMessage(String? currentUserId) {
+    if (currentUserId == null) return false;
+    
+    if (!isChannel) {
+      // 私聊和群聊：所有成员都可以发送消息
+      return isJoined(currentUserId);
+    }
+    
+    // 频道：只有非普通成员才能发送消息
+    final participant = getParticipant(currentUserId);
+    if (participant == null) return false;
+    
+    return participant.role == MemberRole.admin || participant.role == MemberRole.owner;
+  }
+  
+  /// 检查当前用户是否为频道的普通成员
+  /// [currentUserId] - 当前用户ID
+  bool isRegularMember(String? currentUserId) {
+    if (currentUserId == null || !isChannel) return false;
+    
+    final participant = getParticipant(currentUserId);
+    if (participant == null) return false;
+    
+    return participant.role == MemberRole.member;
+  }
+  
+  /// 获取当前用户在频道中的角色
+  /// [currentUserId] - 当前用户ID
+  MemberRole? getUserRole(String? currentUserId) {
+    if (currentUserId == null) return null;
+    
+    final participant = getParticipant(currentUserId);
+    return participant?.role;
+  }
+  
+  /// 检查当前用户是否为频道管理员或所有者
+  /// [currentUserId] - 当前用户ID
+  bool isChannelAdminOrOwner(String? currentUserId) {
+    if (currentUserId == null || !isChannel) return false;
+    
+    final participant = getParticipant(currentUserId);
+    if (participant == null) return false;
+    
+    return participant.role == MemberRole.admin || participant.role == MemberRole.owner;
+  }
 }

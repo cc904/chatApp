@@ -1,6 +1,5 @@
 import 'package:cc/core/utils/auth_debug_utils.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/auth_token_sync_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -72,10 +71,9 @@ class DebugCommands {
         return;
       }
 
-      // 立即同步Token到所有服务
-      await AuthTokenSyncService.instance.syncTokenToAllServices();
-
-      _logger.i('✅ Token同步修复完成！(使用新多Token系统)');
+      // 注意：Token同步现在由各服务自行管理
+      
+      _logger.i('✅ Token状态已检查完成！(使用新多Token系统)');
     } catch (error) {
       _logger.e('Token同步修复失败', error: error);
     }
@@ -89,30 +87,7 @@ class DebugCommands {
       final now = DateTime.now();
       final secureStorage = SecureStorageService();
 
-      // Access Token状态
-      final accessToken = await secureStorage.getAccessToken();
-      final accessExpire = await secureStorage.getAccessTokenExpireTime();
-
-      if (accessToken != null && accessExpire != null) {
-        final timeUntilExpiry = accessExpire.difference(now);
-        final isExpired = now.isAfter(accessExpire);
-
-        _logger.i('🔑 Access Token状态', extra: {
-          'exists': true,
-          'length': accessToken.length,
-          'expiresAt': accessExpire.toIso8601String(),
-          'isExpired': isExpired,
-          'timeUntilExpiry': isExpired
-              ? '已过期 ${now.difference(accessExpire).inMinutes} 分钟'
-              : '还有 ${timeUntilExpiry.inMinutes} 分钟',
-        });
-      } else {
-        _logger.w('🔑 Access Token', extra: {
-          'token': accessToken != null ? 'exists' : 'missing',
-          'expireTime':
-              accessExpire != null ? accessExpire.toIso8601String() : 'missing',
-        });
-      }
+      // 移除Access Token相关代码，现在只使用Refresh Token + Socket Token
 
       // Refresh Token状态
       final refreshToken = await secureStorage.getRefreshToken();
@@ -381,26 +356,26 @@ class DebugCommands {
         'nextRefreshCheck': refreshTimerInfo?['nextRefreshCheck'] ?? 'N/A',
       });
 
-      // 检查是否需要刷新
+      // 检查Socket Token是否需要刷新
       final secureStorage = SecureStorageService();
-      final accessExpire = await secureStorage.getAccessTokenExpireTime();
+      final socketExpire = await secureStorage.getSocketTokenExpireTime();
 
-      if (accessExpire != null) {
+      if (socketExpire != null) {
         final now = DateTime.now();
-        final timeUntilExpiry = accessExpire.difference(now);
+        final timeUntilExpiry = socketExpire.difference(now);
         final shouldRefresh =
-            timeUntilExpiry <= const Duration(minutes: 5); // 提前5分钟刷新
+            timeUntilExpiry <= const Duration(hours: 12); // 提前12小时刷新Socket Token
 
-        _logger.i('自动刷新条件检查', extra: {
-          'accessTokenExpire': accessExpire.toIso8601String(),
+        _logger.i('Socket Token自动刷新条件检查', extra: {
+          'socketTokenExpire': socketExpire.toIso8601String(),
           'currentTime': now.toIso8601String(),
-          'timeUntilExpiry': '${timeUntilExpiry.inMinutes} 分钟',
+          'timeUntilExpiry': '${timeUntilExpiry.inHours} 小时',
           'shouldRefresh': shouldRefresh,
-          'refreshAdvanceTime': '5 分钟',
+          'refreshAdvanceTime': '12 小时',
         });
 
         if (shouldRefresh && refreshTimerInfo?['active'] != true) {
-          _logger.w('⚠️ Token应该被刷新但定时器未激活！');
+          _logger.w('⚠️ Socket Token应该被刷新但定时器未激活！');
 
           // 手动启动Token管理
           _logger.i('🔧 尝试手动启动Token管理服务...');
@@ -408,9 +383,9 @@ class DebugCommands {
 
           _logger.i('✅ Token管理服务已手动启动');
         } else if (!shouldRefresh) {
-          _logger.i('✅ Token还有足够时间，无需刷新');
+          _logger.i('✅ Socket Token还有足够时间，无需刷新');
         } else {
-          _logger.i('✅ 自动刷新机制正常运行');
+          _logger.i('✅ Socket Token自动刷新机制正常运行');
         }
       }
 
@@ -429,37 +404,15 @@ class DebugCommands {
       final now = DateTime.now();
 
       // 获取所有Token和过期时间
-      final accessToken = await secureStorage.getAccessToken();
       final refreshToken = await secureStorage.getRefreshToken();
       final socketToken = await secureStorage.getSocketToken();
 
-      final accessExpire = await secureStorage.getAccessTokenExpireTime();
       final refreshExpire = await secureStorage.getRefreshTokenExpireTime();
       final socketExpire = await secureStorage.getSocketTokenExpireTime();
 
       _logger.i('📅 当前时间', extra: {'now': now.toIso8601String()});
 
-      // Access Token状态
-      if (accessToken != null && accessExpire != null) {
-        final timeUntilExpiry = accessExpire.difference(now);
-        final isExpired = now.isAfter(accessExpire);
-
-        _logger.i('🔑 Access Token状态', extra: {
-          'exists': true,
-          'length': accessToken.length,
-          'expiresAt': accessExpire.toIso8601String(),
-          'isExpired': isExpired,
-          'timeUntilExpiry': isExpired
-              ? '已过期 ${now.difference(accessExpire).inMinutes} 分钟'
-              : '还有 ${timeUntilExpiry.inMinutes} 分钟',
-        });
-      } else {
-        _logger.w('🔑 Access Token', extra: {
-          'token': accessToken != null ? 'exists' : 'missing',
-          'expireTime':
-              accessExpire != null ? accessExpire.toIso8601String() : 'missing',
-        });
-      }
+      // Access Token已移除，现在只使用Refresh Token + Socket Token架构
 
       // Refresh Token状态
       if (refreshToken != null && refreshExpire != null) {

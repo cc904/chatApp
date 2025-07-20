@@ -16,19 +16,29 @@ abstract class ChatRepositorySend {
   /// [localPath] - 图片本地路径
   /// [mediaUrl] - 可选的媒体URL,如已上传则直接使用
   /// [caption] - 可选的图片说明文字
+  /// [fsId] - 文件服务器ID
+  /// [fileName] - 服务器文件名
+  /// [width] - 图片宽度
+  /// [height] - 图片高度
+  /// [fileSize] - 文件大小
+  /// [mimeType] - MIME类型
   /// 返回创建的消息对象
   Future<Message> sendImageMessage(String conversationId, String localPath,
-      {String? mediaUrl, String? caption});
+      {String? mediaUrl, String? caption, String? fsId, String? fileName, int? width, int? height, double? fileSize, String? mimeType});
 
   /// 发送语音消息
   /// [conversationId] - 会话ID
   /// [localPath] - 语音文件本地路径
   /// [duration] - 语音时长（秒）
   /// [mediaUrl] - 可选的媒体URL,如已上传则直接使用
+  /// [fsId] - 文件服务器ID
+  /// [fileName] - 服务器文件名
+  /// [fileSize] - 文件大小
+  /// [mimeType] - MIME类型
   /// 返回创建的消息对象
   Future<Message> sendVoiceMessage(
       String conversationId, String localPath, int duration,
-      {String? mediaUrl});
+      {String? mediaUrl, String? fsId, String? fileName, double? fileSize, String? mimeType});
 
   /// 发送文件消息
   /// [conversationId] - 会话ID

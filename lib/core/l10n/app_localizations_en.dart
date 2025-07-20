@@ -423,6 +423,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Channels are a one-to-many tool\nfor broadcasting your messages\nto unlimited audiences.';
   @override
   String get createChannel => 'Create Channel';
+  @override
+  String get joinChannel => 'Join Channel';
+  @override
+  String get channelMemberCannotSend => 'Only administrators and channel owners can send messages';
 
   // Profile 页面相关
   @override

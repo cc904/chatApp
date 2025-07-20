@@ -86,7 +86,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       listener: (context, state) {
         if (state.status == ProfileStatus.success) {
           UINotificationService().showSuccess('个人信息更新成功');
-          Navigator.pop(context);
+          // 🔧 修复：添加导航保护，避免重复pop导致的"Bad state: No element"错误
+          if (mounted && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
         } else if (state.status == ProfileStatus.error) {
           UINotificationService().showError(state.error ?? '更新失败');
         }
@@ -157,8 +160,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         BlocBuilder<ProfileCubit, ProfileState>(
           builder: (context, state) {
             return TextButton(
-              onPressed:
-                  state.status == ProfileStatus.loading ? null : _onSavePressed,
+              onPressed: state.status == ProfileStatus.loading ? null : _onSavePressed,
               child: state.status == ProfileStatus.loading
                   ? const SizedBox(
                       width: 20,
@@ -240,9 +242,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         )
                       : UserAvatar(
                           avatarUrl: _currentAvatarUrl,
-                          name: _nicknameController.text.isNotEmpty
-                              ? _nicknameController.text
-                              : '用户',
+                          name: _nicknameController.text.isNotEmpty ? _nicknameController.text : '用户',
                           radius: 60,
                           backgroundColor: AppColors.primary,
                         ),
@@ -335,17 +335,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
         children: [
           _buildReadOnlyTile(
             label: '手机号',
-            value: _phoneController.text.isNotEmpty
-                ? _phoneController.text
-                : '未绑定',
+            value: _phoneController.text.isNotEmpty ? _phoneController.text : '未绑定',
             trailing: TextButton(
               onPressed: _phoneController.text.isEmpty ? _bindPhone : null,
               child: Text(
                 _phoneController.text.isEmpty ? '绑定' : '已绑定',
                 style: TextStyle(
-                  color: _phoneController.text.isEmpty
-                      ? AppColors.primary
-                      : Colors.grey,
+                  color: _phoneController.text.isEmpty ? AppColors.primary : Colors.grey,
                 ),
               ),
             ),
@@ -353,17 +349,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
           const Divider(height: 1, indent: 16),
           _buildReadOnlyTile(
             label: '邮箱',
-            value: _emailController.text.isNotEmpty
-                ? _emailController.text
-                : '未绑定',
+            value: _emailController.text.isNotEmpty ? _emailController.text : '未绑定',
             trailing: TextButton(
               onPressed: _emailController.text.isEmpty ? _bindEmail : null,
               child: Text(
                 _emailController.text.isEmpty ? '绑定' : '已绑定',
                 style: TextStyle(
-                  color: _emailController.text.isEmpty
-                      ? AppColors.primary
-                      : Colors.grey,
+                  color: _emailController.text.isEmpty ? AppColors.primary : Colors.grey,
                 ),
               ),
             ),
@@ -496,7 +488,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     icon: Icons.camera_alt,
                     label: '拍照',
                     onTap: () {
-                      Navigator.pop(context);
+                      // 🔧 修复：添加导航保护
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      }
                       _pickImage(ImageSource.camera);
                     },
                   ),
@@ -504,7 +499,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   icon: Icons.photo_library,
                   label: '从相册选择',
                   onTap: () {
-                    Navigator.pop(context);
+                    // 🔧 修复：添加导航保护
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
                     _pickImage(ImageSource.gallery);
                   },
                 ),
@@ -514,7 +512,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     label: '删除头像',
                     color: Colors.red,
                     onTap: () {
-                      Navigator.pop(context);
+                      // 🔧 修复：添加导航保护
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      }
                       _removeAvatar();
                     },
                   ),
@@ -591,7 +592,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     } catch (e) {
       _logger.e('选择头像失败', error: e);
-      
+
       // 根据错误类型提供友好的错误信息
       String errorMessage;
       if (e.toString().contains('cameraDelegate')) {
@@ -599,7 +600,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       } else {
         errorMessage = '选择头像失败，请重试';
       }
-      
+
       UINotificationService().showError(errorMessage);
     }
   }
@@ -628,7 +629,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (_hasUnsavedChanges) {
       _showDiscardChangesDialog();
     } else {
-      Navigator.pop(context);
+      // 🔧 修复：添加导航保护
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -640,13 +644,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
         content: const Text('您有未保存的更改，确定要放弃吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              // 🔧 修复：添加导航保护
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
+            },
             child: const Text('取消'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // 关闭对话框
-              Navigator.pop(context); // 返回上一页
+              // 🔧 修复：添加导航保护
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context); // 关闭对话框
+              }
+              if (mounted && Navigator.canPop(context)) {
+                Navigator.pop(context); // 返回上一页
+              }
             },
             child: const Text(
               '放弃',
@@ -691,8 +705,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           // 关闭进度对话框
           if (mounted) Navigator.of(context).pop();
 
-          if (response?.success == true &&
-              response?.user.avatar.isNotEmpty == true) {
+          if (response?.success == true && response?.user.avatar.isNotEmpty == true) {
             avatarUrl = response!.user.avatar;
             _logger.i('头像上传成功', extra: {'avatarUrl': avatarUrl});
           } else {
@@ -721,12 +734,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
     } catch (error) {
       _logger.e('保存个人信息失败', error: error);
-      
+
       // 如果有上传对话框打开，先关闭它
       // if (mounted && Navigator.canPop(context)) {
       //   Navigator.pop(context);
       // }
-      
+
       // 提取友好的错误信息
       String friendlyMessage;
       if (error is UploadException) {
@@ -734,10 +747,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       } else {
         friendlyMessage = '保存失败: ${error.toString()}';
       }
-      
+
       _logger.i('准备显示错误信息', extra: {'message': friendlyMessage});
       UINotificationService().showError(friendlyMessage);
-      
+
       // 额外的 SnackBar 显示，确保用户能看到错误
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

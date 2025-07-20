@@ -5,6 +5,7 @@ import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/models/message.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+// import 'package:cc/core/services/file_url_builder_service.dart'; // 暂时不使用
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -13,6 +14,7 @@ import 'package:flutter/widgets.dart';
 class MediaUploadIntegrationService {
   final _logger = LogService.instance;
   final _uploadService = UploadApiService();
+  // final _fileUrlBuilder = FileUrlBuilderService(); // 暂时注释掉，如果需要URL构建逻辑可以启用
   ChatRepositorySend? _chatRepository;
   bool _isInitialized = false;
 
@@ -23,7 +25,8 @@ class MediaUploadIntegrationService {
   MediaUploadIntegrationService._internal();
 
   /// 初始化服务
-  void initialize(ChatRepositorySend chatRepository, [String? authToken]) {
+  /// 注意：文件上传和下载都无需Token认证，文件服务器是独立的无认证服务
+  void initialize(ChatRepositorySend chatRepository) {
     if (_isInitialized && _chatRepository == chatRepository) {
       _logger.d('MediaUploadIntegrationService已经初始化，跳过重复初始化');
       return;
@@ -32,12 +35,7 @@ class MediaUploadIntegrationService {
     _chatRepository = chatRepository;
     _isInitialized = true;
 
-    if (authToken != null && authToken.isNotEmpty) {
-      _uploadService.setAuthToken(authToken);
-    }
-    // 如果authToken为空，假设UploadApiService已经通过AuthTokenSyncService配置了token
-
-    _logger.i('MediaUploadIntegrationService初始化完成');
+    _logger.i('MediaUploadIntegrationService初始化完成（无需Token认证）');
   }
 
   /// 获取ChatRepository实例
@@ -73,52 +71,42 @@ class MediaUploadIntegrationService {
         onProgress: onUploadProgress,
       );
 
-      // 3. 发送消息 - 💢💢💢 立即设置宽高信息，避免布局跳动
+      // 3. 发送消息 - 💢💢💢 立即设置所有服务器信息，避免布局跳动
       onStatusUpdate?.call('正在发送消息...');
+      
+      // 添加调试日志确认fsId
+      _logger.d('准备发送图片消息，服务器字段', extra: {
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
+        'fileSize': uploadResult.metadata?.size,
+        'width': dimensions?.width,
+        'height': dimensions?.height,
+      });
+      
       final message = await _chatRepo.sendImageMessage(
         conversationId,
         imageFile.path,
         mediaUrl: uploadResult.url,
         caption: caption,
+        fsId: uploadResult.fsId,
+        fileName: uploadResult.fileName,
+        width: dimensions?.width,
+        height: dimensions?.height,
+        fileSize: uploadResult.metadata?.size.toDouble(),
+        mimeType: uploadResult.metadata?.mimeType,
       );
 
-      // 💢💢💢 立即设置图片尺寸信息，避免等待图片加载后布局变化
-      if (dimensions != null) {
-        message.width = dimensions.width;
-        message.height = dimensions.height;
-        _logger.d('设置图片尺寸到消息', extra: {
-          'messageId': message.messageId,
-          'width': dimensions.width,
-          'height': dimensions.height,
-        });
-      }
-
-      // 4. 更新消息的服务器信息
-      if (uploadResult.metadata != null) {
-        message.fileSize = uploadResult.metadata!.size.toDouble();
-        message.mimeType = uploadResult.metadata!.mimeType;
-        // 只有在本地没有获取到尺寸时，才使用服务器返回的尺寸
-        if (dimensions == null) {
-          if (uploadResult.metadata!.width != null) {
-            message.width = uploadResult.metadata!.width!;
-          }
-          if (uploadResult.metadata!.height != null) {
-            message.height = uploadResult.metadata!.height!;
-          }
-        }
-        if (uploadResult.thumbnailUrl != null) {
-          message.thumbnailUrl = uploadResult.thumbnailUrl!;
-        }
-      }
+      // 注意：所有服务器字段现在在sendImageMessage中直接设置，无需后续更新
 
       onStatusUpdate?.call('图片消息发送成功');
       _logger.i('图片消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
-        'fileId': uploadResult.fileId,
-        'url': uploadResult.url,
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
         'width': message.width,
         'height': message.height,
+        'fileSize': message.fileSize,
       });
 
       return message;
@@ -156,21 +144,22 @@ class MediaUploadIntegrationService {
         voiceFile.path,
         duration, // 🔧 duration参数已经是毫秒，直接传递
         mediaUrl: uploadResult.url,
+        fsId: uploadResult.fsId,
+        fileName: uploadResult.fileName,
+        fileSize: uploadResult.metadata?.size.toDouble(),
+        mimeType: uploadResult.metadata?.mimeType,
       );
 
-      // 3. 更新消息的服务器信息
-      if (uploadResult.metadata != null) {
-        message.fileSize = uploadResult.metadata!.size.toDouble();
-        message.mimeType = uploadResult.metadata!.mimeType;
-        message.duration = uploadResult.metadata!.duration ?? duration;
-      }
+      // 注意：所有服务器字段现在在sendVoiceMessage中直接设置，无需后续更新
 
       onStatusUpdate?.call('语音消息发送成功');
       _logger.i('语音消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
-        'fileId': uploadResult.fileId,
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
         'duration': duration,
+        'fileSize': message.fileSize,
       });
 
       return message;
@@ -215,7 +204,6 @@ class MediaUploadIntegrationService {
         conversationId,
         videoFile.path,
         actualDuration != null ? actualDuration ~/ 1000 : 0,
-        thumbnailUrl: uploadResult.thumbnailUrl,
         mediaUrl: uploadResult.url,
         isServerProcessed: true,
       );
@@ -233,13 +221,22 @@ class MediaUploadIntegrationService {
           message.height = uploadResult.metadata!.height!;
         }
       }
+      
+      // 5. 更新文件服务器相关字段
+      if (uploadResult.fsId != null) {
+        message.fsId = uploadResult.fsId!;
+      }
+      if (uploadResult.fileName != null) {
+        message.fileName = uploadResult.fileName!;
+      }
 
       onStatusUpdate?.call('视频消息发送成功');
       _logger.i('视频消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
-        'fileId': uploadResult.fileId,
-        'hasThumbnail': uploadResult.thumbnailUrl != null,
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
+        'fileSize': message.fileSize,
       });
 
       return message;
@@ -299,6 +296,14 @@ class MediaUploadIntegrationService {
             message.width = dimensions.width;
             message.height = dimensions.height;
           }
+          
+          // 设置文件服务器相关字段
+          if (uploadResult.fsId != null) {
+            message.fsId = uploadResult.fsId!;
+          }
+          if (uploadResult.fileName != null) {
+            message.fileName = uploadResult.fileName!;
+          }
           break;
 
         case MediaType.video:
@@ -323,10 +328,17 @@ class MediaUploadIntegrationService {
             conversationId,
             documentFile.path,
             (videoInfo['duration'] as int? ?? 0) ~/ 1000,
-            thumbnailUrl: uploadResult.thumbnailUrl,
             mediaUrl: uploadResult.url,
             isServerProcessed: true,
           );
+          
+          // 设置文件服务器相关字段
+          if (uploadResult.fsId != null) {
+            message.fsId = uploadResult.fsId!;
+          }
+          if (uploadResult.fileName != null) {
+            message.fileName = uploadResult.fileName!;
+          }
           break;
 
         default:
@@ -353,6 +365,14 @@ class MediaUploadIntegrationService {
             fileSize,
             mediaUrl: uploadResult.url,
           );
+          
+          // 设置文件服务器相关字段
+          if (uploadResult.fsId != null) {
+            message.fsId = uploadResult.fsId!;
+          }
+          if (uploadResult.fileName != null) {
+            message.fileName = uploadResult.fileName!;
+          }
           break;
       }
 
@@ -369,9 +389,7 @@ class MediaUploadIntegrationService {
           if (uploadResult.metadata!.height != null) {
             message.height = uploadResult.metadata!.height!;
           }
-          if (uploadResult.thumbnailUrl != null) {
-            message.thumbnailUrl = uploadResult.thumbnailUrl!;
-          }
+          // 缩略图URL不再使用，已移除
         }
 
         // 对于视频，更新时长信息
@@ -379,15 +397,21 @@ class MediaUploadIntegrationService {
             uploadResult.metadata!.duration != null) {
           message.duration = uploadResult.metadata!.duration!;
         }
+        
+        // 设置文件服务器ID
+        if (uploadResult.fsId != null) {
+          message.fsId = uploadResult.fsId!;
+        }
       }
 
       onStatusUpdate?.call('文件消息发送成功');
       _logger.i('文件消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
-        'fileId': uploadResult.fileId,
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
         'mediaType': mediaType.toString(),
-        'hasThumbnail': uploadResult.thumbnailUrl != null,
+        'fileSize': message.fileSize,
       });
 
       return message;
@@ -576,10 +600,6 @@ class MediaUploadIntegrationService {
     }
   }
 
-  /// 清除认证token
-  void clearAuth() {
-    _uploadService.clearAuthToken();
-  }
 }
 
 /// 媒体类型枚举

@@ -3043,21 +3043,24 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   /// 构建缩略图图片
   Widget _buildThumbnailImage(Message message) {
-    final thumbnailUrl = message.thumbnailUrl;
-    final mediaUrl = message.mediaUrl;
-    final localPath = message.localPath;
+    return FutureBuilder<String?>(
+      future: message.thumbnailUrl,
+      builder: (context, snapshot) {
+        final thumbnailUrl = snapshot.data;
+        final mediaUrl = message.mediaUrl;
+        final localPath = message.localPath;
 
-    // 1. 优先使用缩略图URL
-    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-      if (thumbnailUrl.startsWith('http://') ||
-          thumbnailUrl.startsWith('https://')) {
-        return _buildCachedNetworkImage(
-          thumbnailUrl,
-          'thumbnails',
-          () => _buildFallbackThumbnail(message),
-        );
-      } else if (thumbnailUrl.startsWith('file://')) {
-        final filePath = thumbnailUrl.substring(7);
+        // 1. 优先使用缩略图URL
+        if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+          if (thumbnailUrl.startsWith('http://') ||
+              thumbnailUrl.startsWith('https://')) {
+            return _buildCachedNetworkImage(
+              thumbnailUrl,
+              'thumbnails',
+              () => _buildFallbackThumbnail(message),
+            );
+          } else if (thumbnailUrl.startsWith('file://')) {
+            final filePath = thumbnailUrl.substring(7);
         final file = File(filePath);
         if (file.existsSync()) {
           return Image.file(
@@ -3132,8 +3135,10 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       }
     }
 
-    // 兜底方案
-    return _buildFallbackThumbnail(message);
+        // 兜底方案
+        return _buildFallbackThumbnail(message);
+      },
+    );
   }
 
   /// 构建兜底缩略图

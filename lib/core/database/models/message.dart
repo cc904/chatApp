@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:isar/isar.dart';
 import 'conversation.dart';
+import 'package:cc/core/utils/media_url_builder.dart';
 
 part 'message.g.dart';
 
@@ -199,11 +200,12 @@ class Message {
   int? duration; // 语音/视频时长(毫秒)
   double? fileSize; // 文件大小(字节)
   String? fileName; // 文件名
-  String? thumbnailUrl; // 缩略图URL
+  String? fsId; // 文件服务器ID
   String? mimeType; // MIME类型
   int? width; // 图片/视频宽度
   int? height; // 图片/视频高度
   String? caption; // 媒体说明文字
+  
 
   // 引用消息
   String? quotedMessageId;
@@ -475,6 +477,53 @@ class Message {
 
   @ignore
   bool get isSystemMessage => type == MessageType.system;
+
+  // 辅助方法：获取文件类型
+  @ignore
+  String get fileType {
+    switch (type) {
+      case MessageType.image:
+        return 'image';
+      case MessageType.voice:
+        return 'voice';
+      case MessageType.video:
+        return 'video';
+      case MessageType.file:
+        return 'file';
+      default:
+        return 'file';
+    }
+  }
+
+  // 辅助方法：检查是否有新的文件服务器字段
+  @ignore
+  bool get hasNewFileServerFields {
+    return fsId != null && fileName != null;
+  }
+
+  /// 动态构建缩略图URL
+  /// 使用MediaUrlBuilder基于fsId和fileName构建缩略图URL
+  @ignore
+  Future<String?> get thumbnailUrl async {
+    if (!hasNewFileServerFields) {
+      return null;
+    }
+    
+    try {
+      // 使用MediaUrlBuilder构建缩略图URL
+      // 创建一个临时消息对象用于构建缩略图URL
+      final tempMessage = Message()
+        ..fsId = fsId
+        ..fileName = fileName
+        ..conversationId = conversationId;
+      
+      // 使用MediaUrlBuilder的buildThumbnailUrl方法
+      final mediaUrlBuilder = MediaUrlBuilder();
+      return await mediaUrlBuilder.buildThumbnailUrl(tempMessage);
+    } catch (e) {
+      return null;
+    }
+  }
 
   // 与会话的关系
   final conversation = IsarLink<Conversation>();

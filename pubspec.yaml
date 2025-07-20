@@ -79,6 +79,7 @@ dependencies:
   term_glyph: ^1.2.2
   http: ^1.1.0
   crypto: ^3.0.6
+  pointycastle: ^3.9.1
   device_info_plus: ^9.1.0
   package_info_plus: ^8.3.0
   lpinyin: ^2.0.3
@@ -91,7 +92,7 @@ dependencies:
   flutter_svg: ^2.0.9
   cached_network_image: ^3.3.1
   flutter_cache_manager: ^3.3.1
-  flutter_webrtc: ^0.14.2
+  # flutter_webrtc: ^0.14.2
   sdp_transform: ^0.3.2
   flutter_ringtone_player: ^4.0.0+4
   flutter_sound: ^9.2.13
@@ -170,7 +171,7 @@ flutter:
     - assets/icons/
     - assets/sounds/
     - assets/fonts/
-    - assets/config/
+    - assets/
 
   fonts:
     - family: Roboto

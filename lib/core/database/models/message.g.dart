@@ -122,225 +122,225 @@ const MessageSchema = CollectionSchema(
       name: r'forwardedFromMessageId',
       type: IsarType.string,
     ),
-    r'hashtags': PropertySchema(
+    r'fsId': PropertySchema(
       id: 21,
+      name: r'fsId',
+      type: IsarType.string,
+    ),
+    r'hashtags': PropertySchema(
+      id: 22,
       name: r'hashtags',
       type: IsarType.string,
     ),
     r'height': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'height',
       type: IsarType.long,
     ),
     r'isAnonymous': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'isAnonymous',
       type: IsarType.bool,
     ),
     r'isEdited': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'isEdited',
       type: IsarType.bool,
     ),
     r'isMultipleChoice': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'isMultipleChoice',
       type: IsarType.bool,
     ),
     r'isPinned': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'isPinned',
       type: IsarType.bool,
     ),
     r'linkDescription': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'linkDescription',
       type: IsarType.string,
     ),
     r'linkImageUrl': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'linkImageUrl',
       type: IsarType.string,
     ),
     r'linkTitle': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'linkTitle',
       type: IsarType.string,
     ),
     r'linkUrl': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'linkUrl',
       type: IsarType.string,
     ),
     r'localPath': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'localPath',
       type: IsarType.string,
     ),
     r'mediaUrl': PropertySchema(
-      id: 32,
+      id: 33,
       name: r'mediaUrl',
       type: IsarType.string,
     ),
     r'membershipActor': PropertySchema(
-      id: 33,
+      id: 34,
       name: r'membershipActor',
       type: IsarType.string,
     ),
     r'membershipAffectedMembers': PropertySchema(
-      id: 34,
+      id: 35,
       name: r'membershipAffectedMembers',
       type: IsarType.string,
     ),
     r'membershipEventType': PropertySchema(
-      id: 35,
+      id: 36,
       name: r'membershipEventType',
       type: IsarType.string,
     ),
     r'membershipInviteLink': PropertySchema(
-      id: 36,
+      id: 37,
       name: r'membershipInviteLink',
       type: IsarType.string,
     ),
     r'membershipMetadata': PropertySchema(
-      id: 37,
+      id: 38,
       name: r'membershipMetadata',
       type: IsarType.string,
     ),
     r'membershipNewRole': PropertySchema(
-      id: 38,
+      id: 39,
       name: r'membershipNewRole',
       type: IsarType.long,
     ),
     r'membershipPreviousRole': PropertySchema(
-      id: 39,
+      id: 40,
       name: r'membershipPreviousRole',
       type: IsarType.long,
     ),
     r'membershipRemovalReason': PropertySchema(
-      id: 40,
+      id: 41,
       name: r'membershipRemovalReason',
       type: IsarType.string,
     ),
     r'mentions': PropertySchema(
-      id: 41,
+      id: 42,
       name: r'mentions',
       type: IsarType.string,
     ),
     r'messageId': PropertySchema(
-      id: 42,
+      id: 43,
       name: r'messageId',
       type: IsarType.string,
     ),
     r'messageIndex': PropertySchema(
-      id: 43,
+      id: 44,
       name: r'messageIndex',
       type: IsarType.long,
     ),
     r'metadata': PropertySchema(
-      id: 44,
+      id: 45,
       name: r'metadata',
       type: IsarType.string,
     ),
     r'mimeType': PropertySchema(
-      id: 45,
+      id: 46,
       name: r'mimeType',
       type: IsarType.string,
     ),
     r'params': PropertySchema(
-      id: 46,
+      id: 47,
       name: r'params',
       type: IsarType.string,
     ),
     r'pollId': PropertySchema(
-      id: 47,
+      id: 48,
       name: r'pollId',
       type: IsarType.string,
     ),
     r'question': PropertySchema(
-      id: 48,
+      id: 49,
       name: r'question',
       type: IsarType.string,
     ),
     r'quotedMessageId': PropertySchema(
-      id: 49,
+      id: 50,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'reactions': PropertySchema(
-      id: 50,
+      id: 51,
       name: r'reactions',
       type: IsarType.string,
     ),
     r'repliedToMessageId': PropertySchema(
-      id: 51,
+      id: 52,
       name: r'repliedToMessageId',
       type: IsarType.string,
     ),
     r'senderAvatar': PropertySchema(
-      id: 52,
+      id: 53,
       name: r'senderAvatar',
       type: IsarType.string,
     ),
     r'senderId': PropertySchema(
-      id: 53,
+      id: 54,
       name: r'senderId',
       type: IsarType.string,
     ),
     r'senderName': PropertySchema(
-      id: 54,
+      id: 55,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'siteName': PropertySchema(
-      id: 55,
+      id: 56,
       name: r'siteName',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 56,
+      id: 57,
       name: r'status',
       type: IsarType.string,
       enumMap: _MessagestatusEnumValueMap,
     ),
     r'stickerId': PropertySchema(
-      id: 57,
+      id: 58,
       name: r'stickerId',
       type: IsarType.string,
     ),
     r'stickerPackId': PropertySchema(
-      id: 58,
+      id: 59,
       name: r'stickerPackId',
       type: IsarType.string,
     ),
     r'stickerPackName': PropertySchema(
-      id: 59,
+      id: 60,
       name: r'stickerPackName',
       type: IsarType.string,
     ),
     r'stickerUrl': PropertySchema(
-      id: 60,
+      id: 61,
       name: r'stickerUrl',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 61,
+      id: 62,
       name: r'tags',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 62,
+      id: 63,
       name: r'text',
       type: IsarType.string,
     ),
     r'textForSearch': PropertySchema(
-      id: 63,
-      name: r'textForSearch',
-      type: IsarType.string,
-    ),
-    r'thumbnailUrl': PropertySchema(
       id: 64,
-      name: r'thumbnailUrl',
+      name: r'textForSearch',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
@@ -518,6 +518,12 @@ int _messageEstimateSize(
   }
   {
     final value = object.forwardedFromMessageId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.fsId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -717,12 +723,6 @@ int _messageEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
-  {
-    final value = object.thumbnailUrl;
-    if (value != null) {
-      bytesCount += 3 + value.length * 3;
-    }
-  }
   bytesCount += 3 + object.type.name.length * 3;
   return bytesCount;
 }
@@ -754,50 +754,50 @@ void _messageSerialize(
   writer.writeDouble(offsets[18], object.fileSize);
   writer.writeString(offsets[19], object.forwardedFromConversationId);
   writer.writeString(offsets[20], object.forwardedFromMessageId);
-  writer.writeString(offsets[21], object.hashtags);
-  writer.writeLong(offsets[22], object.height);
-  writer.writeBool(offsets[23], object.isAnonymous);
-  writer.writeBool(offsets[24], object.isEdited);
-  writer.writeBool(offsets[25], object.isMultipleChoice);
-  writer.writeBool(offsets[26], object.isPinned);
-  writer.writeString(offsets[27], object.linkDescription);
-  writer.writeString(offsets[28], object.linkImageUrl);
-  writer.writeString(offsets[29], object.linkTitle);
-  writer.writeString(offsets[30], object.linkUrl);
-  writer.writeString(offsets[31], object.localPath);
-  writer.writeString(offsets[32], object.mediaUrl);
-  writer.writeString(offsets[33], object.membershipActor);
-  writer.writeString(offsets[34], object.membershipAffectedMembers);
-  writer.writeString(offsets[35], object.membershipEventType);
-  writer.writeString(offsets[36], object.membershipInviteLink);
-  writer.writeString(offsets[37], object.membershipMetadata);
-  writer.writeLong(offsets[38], object.membershipNewRole);
-  writer.writeLong(offsets[39], object.membershipPreviousRole);
-  writer.writeString(offsets[40], object.membershipRemovalReason);
-  writer.writeString(offsets[41], object.mentions);
-  writer.writeString(offsets[42], object.messageId);
-  writer.writeLong(offsets[43], object.messageIndex);
-  writer.writeString(offsets[44], object.metadata);
-  writer.writeString(offsets[45], object.mimeType);
-  writer.writeString(offsets[46], object.params);
-  writer.writeString(offsets[47], object.pollId);
-  writer.writeString(offsets[48], object.question);
-  writer.writeString(offsets[49], object.quotedMessageId);
-  writer.writeString(offsets[50], object.reactions);
-  writer.writeString(offsets[51], object.repliedToMessageId);
-  writer.writeString(offsets[52], object.senderAvatar);
-  writer.writeString(offsets[53], object.senderId);
-  writer.writeString(offsets[54], object.senderName);
-  writer.writeString(offsets[55], object.siteName);
-  writer.writeString(offsets[56], object.status.name);
-  writer.writeString(offsets[57], object.stickerId);
-  writer.writeString(offsets[58], object.stickerPackId);
-  writer.writeString(offsets[59], object.stickerPackName);
-  writer.writeString(offsets[60], object.stickerUrl);
-  writer.writeString(offsets[61], object.tags);
-  writer.writeString(offsets[62], object.text);
-  writer.writeString(offsets[63], object.textForSearch);
-  writer.writeString(offsets[64], object.thumbnailUrl);
+  writer.writeString(offsets[21], object.fsId);
+  writer.writeString(offsets[22], object.hashtags);
+  writer.writeLong(offsets[23], object.height);
+  writer.writeBool(offsets[24], object.isAnonymous);
+  writer.writeBool(offsets[25], object.isEdited);
+  writer.writeBool(offsets[26], object.isMultipleChoice);
+  writer.writeBool(offsets[27], object.isPinned);
+  writer.writeString(offsets[28], object.linkDescription);
+  writer.writeString(offsets[29], object.linkImageUrl);
+  writer.writeString(offsets[30], object.linkTitle);
+  writer.writeString(offsets[31], object.linkUrl);
+  writer.writeString(offsets[32], object.localPath);
+  writer.writeString(offsets[33], object.mediaUrl);
+  writer.writeString(offsets[34], object.membershipActor);
+  writer.writeString(offsets[35], object.membershipAffectedMembers);
+  writer.writeString(offsets[36], object.membershipEventType);
+  writer.writeString(offsets[37], object.membershipInviteLink);
+  writer.writeString(offsets[38], object.membershipMetadata);
+  writer.writeLong(offsets[39], object.membershipNewRole);
+  writer.writeLong(offsets[40], object.membershipPreviousRole);
+  writer.writeString(offsets[41], object.membershipRemovalReason);
+  writer.writeString(offsets[42], object.mentions);
+  writer.writeString(offsets[43], object.messageId);
+  writer.writeLong(offsets[44], object.messageIndex);
+  writer.writeString(offsets[45], object.metadata);
+  writer.writeString(offsets[46], object.mimeType);
+  writer.writeString(offsets[47], object.params);
+  writer.writeString(offsets[48], object.pollId);
+  writer.writeString(offsets[49], object.question);
+  writer.writeString(offsets[50], object.quotedMessageId);
+  writer.writeString(offsets[51], object.reactions);
+  writer.writeString(offsets[52], object.repliedToMessageId);
+  writer.writeString(offsets[53], object.senderAvatar);
+  writer.writeString(offsets[54], object.senderId);
+  writer.writeString(offsets[55], object.senderName);
+  writer.writeString(offsets[56], object.siteName);
+  writer.writeString(offsets[57], object.status.name);
+  writer.writeString(offsets[58], object.stickerId);
+  writer.writeString(offsets[59], object.stickerPackId);
+  writer.writeString(offsets[60], object.stickerPackName);
+  writer.writeString(offsets[61], object.stickerUrl);
+  writer.writeString(offsets[62], object.tags);
+  writer.writeString(offsets[63], object.text);
+  writer.writeString(offsets[64], object.textForSearch);
   writer.writeString(offsets[65], object.type.name);
   writer.writeDateTime(offsets[66], object.updatedAt);
   writer.writeLong(offsets[67], object.width);
@@ -831,52 +831,52 @@ Message _messageDeserialize(
   object.fileSize = reader.readDoubleOrNull(offsets[18]);
   object.forwardedFromConversationId = reader.readStringOrNull(offsets[19]);
   object.forwardedFromMessageId = reader.readStringOrNull(offsets[20]);
-  object.hashtags = reader.readStringOrNull(offsets[21]);
-  object.height = reader.readLongOrNull(offsets[22]);
+  object.fsId = reader.readStringOrNull(offsets[21]);
+  object.hashtags = reader.readStringOrNull(offsets[22]);
+  object.height = reader.readLongOrNull(offsets[23]);
   object.id = id;
-  object.isAnonymous = reader.readBoolOrNull(offsets[23]);
-  object.isEdited = reader.readBool(offsets[24]);
-  object.isMultipleChoice = reader.readBoolOrNull(offsets[25]);
-  object.isPinned = reader.readBool(offsets[26]);
-  object.linkDescription = reader.readStringOrNull(offsets[27]);
-  object.linkImageUrl = reader.readStringOrNull(offsets[28]);
-  object.linkTitle = reader.readStringOrNull(offsets[29]);
-  object.linkUrl = reader.readStringOrNull(offsets[30]);
-  object.localPath = reader.readStringOrNull(offsets[31]);
-  object.mediaUrl = reader.readStringOrNull(offsets[32]);
-  object.membershipActor = reader.readStringOrNull(offsets[33]);
-  object.membershipAffectedMembers = reader.readStringOrNull(offsets[34]);
-  object.membershipEventType = reader.readStringOrNull(offsets[35]);
-  object.membershipInviteLink = reader.readStringOrNull(offsets[36]);
-  object.membershipMetadata = reader.readStringOrNull(offsets[37]);
-  object.membershipNewRole = reader.readLongOrNull(offsets[38]);
-  object.membershipPreviousRole = reader.readLongOrNull(offsets[39]);
-  object.membershipRemovalReason = reader.readStringOrNull(offsets[40]);
-  object.mentions = reader.readStringOrNull(offsets[41]);
-  object.messageId = reader.readString(offsets[42]);
-  object.messageIndex = reader.readLong(offsets[43]);
-  object.metadata = reader.readStringOrNull(offsets[44]);
-  object.mimeType = reader.readStringOrNull(offsets[45]);
-  object.params = reader.readStringOrNull(offsets[46]);
-  object.pollId = reader.readStringOrNull(offsets[47]);
-  object.question = reader.readStringOrNull(offsets[48]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[49]);
-  object.reactions = reader.readStringOrNull(offsets[50]);
-  object.repliedToMessageId = reader.readStringOrNull(offsets[51]);
-  object.senderAvatar = reader.readStringOrNull(offsets[52]);
-  object.senderId = reader.readString(offsets[53]);
-  object.senderName = reader.readStringOrNull(offsets[54]);
-  object.siteName = reader.readStringOrNull(offsets[55]);
+  object.isAnonymous = reader.readBoolOrNull(offsets[24]);
+  object.isEdited = reader.readBool(offsets[25]);
+  object.isMultipleChoice = reader.readBoolOrNull(offsets[26]);
+  object.isPinned = reader.readBool(offsets[27]);
+  object.linkDescription = reader.readStringOrNull(offsets[28]);
+  object.linkImageUrl = reader.readStringOrNull(offsets[29]);
+  object.linkTitle = reader.readStringOrNull(offsets[30]);
+  object.linkUrl = reader.readStringOrNull(offsets[31]);
+  object.localPath = reader.readStringOrNull(offsets[32]);
+  object.mediaUrl = reader.readStringOrNull(offsets[33]);
+  object.membershipActor = reader.readStringOrNull(offsets[34]);
+  object.membershipAffectedMembers = reader.readStringOrNull(offsets[35]);
+  object.membershipEventType = reader.readStringOrNull(offsets[36]);
+  object.membershipInviteLink = reader.readStringOrNull(offsets[37]);
+  object.membershipMetadata = reader.readStringOrNull(offsets[38]);
+  object.membershipNewRole = reader.readLongOrNull(offsets[39]);
+  object.membershipPreviousRole = reader.readLongOrNull(offsets[40]);
+  object.membershipRemovalReason = reader.readStringOrNull(offsets[41]);
+  object.mentions = reader.readStringOrNull(offsets[42]);
+  object.messageId = reader.readString(offsets[43]);
+  object.messageIndex = reader.readLong(offsets[44]);
+  object.metadata = reader.readStringOrNull(offsets[45]);
+  object.mimeType = reader.readStringOrNull(offsets[46]);
+  object.params = reader.readStringOrNull(offsets[47]);
+  object.pollId = reader.readStringOrNull(offsets[48]);
+  object.question = reader.readStringOrNull(offsets[49]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[50]);
+  object.reactions = reader.readStringOrNull(offsets[51]);
+  object.repliedToMessageId = reader.readStringOrNull(offsets[52]);
+  object.senderAvatar = reader.readStringOrNull(offsets[53]);
+  object.senderId = reader.readString(offsets[54]);
+  object.senderName = reader.readStringOrNull(offsets[55]);
+  object.siteName = reader.readStringOrNull(offsets[56]);
   object.status =
-      _MessagestatusValueEnumMap[reader.readStringOrNull(offsets[56])] ??
+      _MessagestatusValueEnumMap[reader.readStringOrNull(offsets[57])] ??
           MessageStatus.sending;
-  object.stickerId = reader.readStringOrNull(offsets[57]);
-  object.stickerPackId = reader.readStringOrNull(offsets[58]);
-  object.stickerPackName = reader.readStringOrNull(offsets[59]);
-  object.stickerUrl = reader.readStringOrNull(offsets[60]);
-  object.tags = reader.readStringOrNull(offsets[61]);
-  object.text = reader.readStringOrNull(offsets[62]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[64]);
+  object.stickerId = reader.readStringOrNull(offsets[58]);
+  object.stickerPackId = reader.readStringOrNull(offsets[59]);
+  object.stickerPackName = reader.readStringOrNull(offsets[60]);
+  object.stickerUrl = reader.readStringOrNull(offsets[61]);
+  object.tags = reader.readStringOrNull(offsets[62]);
+  object.text = reader.readStringOrNull(offsets[63]);
   object.type =
       _MessagetypeValueEnumMap[reader.readStringOrNull(offsets[65])] ??
           MessageType.text;
@@ -937,17 +937,17 @@ P _messageDeserializeProp<P>(
     case 21:
       return (reader.readStringOrNull(offset)) as P;
     case 22:
-      return (reader.readLongOrNull(offset)) as P;
-    case 23:
-      return (reader.readBoolOrNull(offset)) as P;
-    case 24:
-      return (reader.readBool(offset)) as P;
-    case 25:
-      return (reader.readBoolOrNull(offset)) as P;
-    case 26:
-      return (reader.readBool(offset)) as P;
-    case 27:
       return (reader.readStringOrNull(offset)) as P;
+    case 23:
+      return (reader.readLongOrNull(offset)) as P;
+    case 24:
+      return (reader.readBoolOrNull(offset)) as P;
+    case 25:
+      return (reader.readBool(offset)) as P;
+    case 26:
+      return (reader.readBoolOrNull(offset)) as P;
+    case 27:
+      return (reader.readBool(offset)) as P;
     case 28:
       return (reader.readStringOrNull(offset)) as P;
     case 29:
@@ -969,19 +969,19 @@ P _messageDeserializeProp<P>(
     case 37:
       return (reader.readStringOrNull(offset)) as P;
     case 38:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 39:
       return (reader.readLongOrNull(offset)) as P;
     case 40:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 41:
       return (reader.readStringOrNull(offset)) as P;
     case 42:
-      return (reader.readString(offset)) as P;
-    case 43:
-      return (reader.readLong(offset)) as P;
-    case 44:
       return (reader.readStringOrNull(offset)) as P;
+    case 43:
+      return (reader.readString(offset)) as P;
+    case 44:
+      return (reader.readLong(offset)) as P;
     case 45:
       return (reader.readStringOrNull(offset)) as P;
     case 46:
@@ -999,16 +999,16 @@ P _messageDeserializeProp<P>(
     case 52:
       return (reader.readStringOrNull(offset)) as P;
     case 53:
-      return (reader.readString(offset)) as P;
-    case 54:
       return (reader.readStringOrNull(offset)) as P;
+    case 54:
+      return (reader.readString(offset)) as P;
     case 55:
       return (reader.readStringOrNull(offset)) as P;
     case 56:
+      return (reader.readStringOrNull(offset)) as P;
+    case 57:
       return (_MessagestatusValueEnumMap[reader.readStringOrNull(offset)] ??
           MessageStatus.sending) as P;
-    case 57:
-      return (reader.readStringOrNull(offset)) as P;
     case 58:
       return (reader.readStringOrNull(offset)) as P;
     case 59:
@@ -4286,6 +4286,152 @@ extension MessageQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'forwardedFromMessageId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'fsId',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'fsId',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'fsId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'fsId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'fsId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'fsId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'fsId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'fsId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'fsId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'fsId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'fsId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterFilterCondition> fsIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'fsId',
         value: '',
       ));
     });
@@ -9835,154 +9981,6 @@ extension MessageQueryFilter
     });
   }
 
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'thumbnailUrl',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      thumbnailUrlIsNotNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'thumbnailUrl',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlEqualTo(
-    String? value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlGreaterThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlLessThan(
-    String? value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlBetween(
-    String? lower,
-    String? upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'thumbnailUrl',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlContains(
-      String value,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'thumbnailUrl',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlMatches(
-      String pattern,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'thumbnailUrl',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition> thumbnailUrlIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'thumbnailUrl',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterFilterCondition>
-      thumbnailUrlIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'thumbnailUrl',
-        value: '',
-      ));
-    });
-  }
-
   QueryBuilder<Message, Message, QAfterFilterCondition> typeEqualTo(
     MessageType value, {
     bool caseSensitive = true,
@@ -10527,6 +10525,18 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
+  QueryBuilder<Message, Message, QAfterSortBy> sortByFsId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fsId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> sortByFsIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fsId', Sort.desc);
+    });
+  }
+
   QueryBuilder<Message, Message, QAfterSortBy> sortByHashtags() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'hashtags', Sort.asc);
@@ -11048,18 +11058,6 @@ extension MessageQuerySortBy on QueryBuilder<Message, Message, QSortBy> {
     });
   }
 
-  QueryBuilder<Message, Message, QAfterSortBy> sortByThumbnailUrl() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'thumbnailUrl', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> sortByThumbnailUrlDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'thumbnailUrl', Sort.desc);
-    });
-  }
-
   QueryBuilder<Message, Message, QAfterSortBy> sortByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.asc);
@@ -11351,6 +11349,18 @@ extension MessageQuerySortThenBy
       thenByForwardedFromMessageIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'forwardedFromMessageId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByFsId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fsId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Message, Message, QAfterSortBy> thenByFsIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'fsId', Sort.desc);
     });
   }
 
@@ -11887,18 +11897,6 @@ extension MessageQuerySortThenBy
     });
   }
 
-  QueryBuilder<Message, Message, QAfterSortBy> thenByThumbnailUrl() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'thumbnailUrl', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Message, Message, QAfterSortBy> thenByThumbnailUrlDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'thumbnailUrl', Sort.desc);
-    });
-  }
-
   QueryBuilder<Message, Message, QAfterSortBy> thenByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.asc);
@@ -12081,6 +12079,13 @@ extension MessageQueryWhereDistinct
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'forwardedFromMessageId',
           caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Message, Message, QDistinct> distinctByFsId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'fsId', caseSensitive: caseSensitive);
     });
   }
 
@@ -12389,13 +12394,6 @@ extension MessageQueryWhereDistinct
     });
   }
 
-  QueryBuilder<Message, Message, QDistinct> distinctByThumbnailUrl(
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'thumbnailUrl', caseSensitive: caseSensitive);
-    });
-  }
-
   QueryBuilder<Message, Message, QDistinct> distinctByType(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -12549,6 +12547,12 @@ extension MessageQueryProperty
       forwardedFromMessageIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'forwardedFromMessageId');
+    });
+  }
+
+  QueryBuilder<Message, String?, QQueryOperations> fsIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'fsId');
     });
   }
 
@@ -12814,12 +12818,6 @@ extension MessageQueryProperty
   QueryBuilder<Message, String?, QQueryOperations> textForSearchProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'textForSearch');
-    });
-  }
-
-  QueryBuilder<Message, String?, QQueryOperations> thumbnailUrlProperty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'thumbnailUrl');
     });
   }
 

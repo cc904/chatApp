@@ -373,7 +373,15 @@ class ChatsCubit extends Cubit<ChatsState> {
     List<Conversation> tabFilteredConversations;
     switch (tabIndex) {
       case 0: // 全部会话
-        tabFilteredConversations = conversations;
+        final currentUserId = state.currentUser?.userId;
+        if (currentUserId != null) {
+          // 过滤掉未加入的频道
+          tabFilteredConversations = conversations
+              .where((c) => c.type != ConversationType.channel || c.isJoined(currentUserId))
+              .toList();
+        } else {
+          tabFilteredConversations = conversations;
+        }
         break;
       case 1: // 私聊
         tabFilteredConversations = conversations
@@ -386,15 +394,21 @@ class ChatsCubit extends Cubit<ChatsState> {
             .toList();
         break;
       case 3: // 频道
-        tabFilteredConversations = conversations
-            .where((c) => c.type == ConversationType.channel)
-            .toList();
+        final currentUserId = state.currentUser?.userId;
+        if (currentUserId != null) {
+          tabFilteredConversations = conversations
+              .where((c) => c.type == ConversationType.channel && c.isJoined(currentUserId))
+              .toList();
+        } else {
+          tabFilteredConversations = [];
+        }
         break;
       case 4: // 未读
         final currentUserId = state.currentUser?.userId;
         if (currentUserId != null) {
           tabFilteredConversations = conversations
-              .where((c) => c.unreadCount(currentUserId) > 0)
+              .where((c) => c.unreadCount(currentUserId) > 0 && 
+                           (c.type != ConversationType.channel || c.isJoined(currentUserId)))
               .toList();
         } else {
           tabFilteredConversations = [];

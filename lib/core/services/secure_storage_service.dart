@@ -22,17 +22,8 @@ class SecureStorageService {
   // 日志器
   static final _logger = LogService.instance;
 
-  // Flutter Secure Storage实例
-  static const FlutterSecureStorage _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-      synchronizable: false,
-      accountName: 'cc_app',
-    ),
-  );
+  // Flutter Secure Storage实例 - 简单初始化，不带选项
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   // 私有构造函数
   SecureStorageService._internal();
@@ -73,6 +64,15 @@ class SecureStorageService {
         'error': e.toString(),
         'errorCode': e is PlatformException ? e.code : 'unknown'
       });
+      
+      // 如果是-34018错误，提供详细的错误信息
+      if (e is PlatformException && e.code == 'Unexpected security result code') {
+        _logger.e('Keychain访问授权失败 (-34018)', extra: {
+          'key': key,
+          'solution': '请检查系统设置 > 隐私与安全性 > 钥匙串访问，确保应用已被授权'
+        });
+      }
+      
       return null;
     }
   }
@@ -243,17 +243,7 @@ class SecureStorageService {
 
   // === Token 管理 ===
 
-  /// 保存 Access Token
-  Future<void> saveAccessToken(String token, DateTime expireTime) async {
-    try {
-      await write(keyAccessToken, token);
-      await write(keyAccessTokenExpireTime, expireTime.toIso8601String());
-      _logger.d('Access Token已保存到Keychain');
-    } catch (e) {
-      _logger.e('保存Access Token失败', error: e, stackTrace: StackTrace.current);
-      rethrow;
-    }
-  }
+
 
   /// 保存 Refresh Token
   Future<void> saveRefreshToken(String token, DateTime expireTime) async {
@@ -279,22 +269,7 @@ class SecureStorageService {
     }
   }
 
-  /// 获取 Access Token
-  Future<String?> getAccessToken() async {
-    return await read(keyAccessToken);
-  }
 
-  /// 获取 Access Token 过期时间
-  Future<DateTime?> getAccessTokenExpireTime() async {
-    final expireTimeStr = await read(keyAccessTokenExpireTime);
-    if (expireTimeStr == null) return null;
-    try {
-      return DateTime.parse(expireTimeStr);
-    } catch (e) {
-      _logger.e('解析Access Token过期时间失败', error: e);
-      return null;
-    }
-  }
 
   /// 获取 Refresh Token
   Future<String?> getRefreshToken() async {
@@ -330,32 +305,7 @@ class SecureStorageService {
     }
   }
 
-  /// 检查 Access Token 是否有效
-  Future<bool> isAccessTokenValid() async {
-    try {
-      final token = await getAccessToken();
-      if (token == null) return false;
 
-      final expireTime = await getAccessTokenExpireTime();
-      if (expireTime == null) return false;
-
-      final isValid = DateTime.now().isBefore(expireTime);
-      final timeUntilExpiry = expireTime.difference(DateTime.now()).inMinutes;
-
-      _logger.d('Access Token有效性检查', extra: {
-        'hasToken': true,
-        'expireTime': expireTime.toIso8601String(),
-        'currentTime': DateTime.now().toIso8601String(),
-        'isValid': isValid,
-        'timeUntilExpiry': timeUntilExpiry,
-      });
-
-      return isValid;
-    } catch (e) {
-      _logger.e('检查Access Token有效性失败', error: e);
-      return false;
-    }
-  }
 
   /// 检查 Refresh Token 是否有效
   Future<bool> isRefreshTokenValid() async {
@@ -414,8 +364,6 @@ class SecureStorageService {
   /// 清除所有Token
   Future<void> clearAllTokens() async {
     try {
-      await delete(keyAccessToken);
-      await delete(keyAccessTokenExpireTime);
       await delete(keyRefreshToken);
       await delete(keyRefreshTokenExpireTime);
       await delete(keySocketToken);
@@ -450,12 +398,6 @@ class SecureStorageService {
 
   /// 用户信息存储键
   static const String keyUserInfo = 'user_info';
-
-  /// Access Token存储键
-  static const String keyAccessToken = 'access_token';
-
-  /// Access Token过期时间存储键
-  static const String keyAccessTokenExpireTime = 'access_token_expire_time';
 
   /// Refresh Token存储键
   static const String keyRefreshToken = 'refresh_token';

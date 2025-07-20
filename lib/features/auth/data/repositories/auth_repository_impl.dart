@@ -10,10 +10,14 @@ import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:fixnum/fixnum.dart';
+import 'package:cc/core/proto/generated/user.pb.dart';
 
 import 'package:cc/core/utils/api_error_handler.dart';
 import 'package:cc/core/services/version_info_service.dart';
 import 'package:cc/core/services/version_update_service.dart';
+import 'package:cc/core/services/file_server_config_service.dart';
+import 'package:cc/core/services/server_selection_service.dart';
 
 /// AuthRepository的实现类
 /// 负责认证相关的业务逻辑，支持多设备登录和新Token管理
@@ -77,8 +81,7 @@ class AuthRepositoryImpl implements AuthRepository {
       _isInitialized = true;
       _logger.i('✅ AuthRepository初始化完成');
     } catch (error) {
-      _logger.e('AuthRepository初始化失败',
-          error: error, stackTrace: StackTrace.current);
+      _logger.e('AuthRepository初始化失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
@@ -130,8 +133,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   /// 使用密码登录
   @override
-  Future<Map<String, dynamic>> loginWithPassword(
-      String username, String password) async {
+  Future<Map<String, dynamic>> loginWithPassword(String username, String password) async {
     try {
       await _ensureInitialized();
 
@@ -147,7 +149,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
-      
+
       // 获取客户端版本信息
       final clientInfo = VersionInfoService.instance.getClientInfo();
 
@@ -186,10 +188,34 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// 使用验证码登录
+  /// 使用验证码登录用户账户
+  ///
+  /// 该函数通过手机号和验证码完成用户身份验证，并处理登录后的相关配置。
+  /// 包含设备信息收集、版本检查、Token保存等完整登录流程。
+  ///
+  /// [username] 用户的手机号码，用于身份验证
+  /// [code] 短信验证码，用于验证用户身份
+  ///
+  /// 返回包含用户信息和登录状态的Map对象，结构如下：
+  /// ```json
+  /// {
+  ///   "success": true,
+  ///   "token": "用户访问令牌",
+  ///   "refreshToken": "刷新令牌",
+  ///   "currentUser": {
+  ///     "userId": "用户ID",
+  ///     "nickname": "用户昵称",
+  ///     "phone": "手机号"
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// 抛出异常：
+  /// - [Exception] 当手机号或验证码为空时
+  /// - [DioException] 当网络请求失败时
+  /// - [FormatException] 当响应格式无效时
   @override
-  Future<Map<String, dynamic>> loginWithCode(
-      String username, String code) async {
+  Future<Map<String, dynamic>> loginWithCode(String username, String code) async {
     try {
       await _ensureInitialized();
 
@@ -205,7 +231,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
-      
+
       // 获取客户端版本信息
       final clientInfo = VersionInfoService.instance.getClientInfo();
 
@@ -258,19 +284,41 @@ class AuthRepositoryImpl implements AuthRepository {
 
       _logger.i('🎫 Token登录');
 
-      // 获取客户端版本信息
-      final clientInfo = VersionInfoService.instance.getClientInfo();
+      // 获取设备信息
+      final deviceInfo = await DeviceManager.getDeviceInfo();
 
-      // 验证Token
-      final response = await _apiService.post('/api/v1/auth/verifyToken',
-          data: {
-            'token': bestToken,
-            'clientInfo': clientInfo, // 添加客户端版本信息
-          }, requireAuth: true);
+      // 获取客户端版本信息
+      final versionInfo = VersionInfoService.instance;
+
+      // 构建符合新接口规范的请求数据
+      final requestData = {
+        'token': bestToken, // 使用refresh token
+        'autoRefresh': true, // 启用自动刷新功能
+        'clientInfo': {
+          'version': versionInfo.currentVersion,
+          'buildNumber': versionInfo.buildNumber,
+          'platform': versionInfo.platformName,
+          'deviceInfo': {
+            'deviceId': deviceInfo.deviceId,
+            'deviceName': deviceInfo.deviceModel, // 使用设备型号作为设备名称
+            'systemVersion': deviceInfo.osVersion,
+            'deviceModel': deviceInfo.deviceModel,
+          }
+        }
+      };
+
+      // 验证Token - 不需要附加认证头，token在请求体中
+      final response = await _apiService.post('/api/v1/auth/verifyToken', data: requestData, attachToken: false);
 
       final data = response.data;
       if (data['success'] != true) {
         throw Exception(data['message'] ?? 'Token验证失败');
+      }
+
+      // 检查是否有新的token返回（自动刷新的结果）
+      if (data['tokens'] != null) {
+        _logger.i('🔄 服务器返回了新的Token，更新本地存储');
+        await _tokenManager.saveLoginTokens(data);
       }
 
       // 🔧 修复：Token登录成功后也需要保存用户信息
@@ -288,8 +336,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   /// 注册
   @override
-  Future<Map<String, dynamic>> register(String username, String password,
-      String verificationCode, String name) async {
+  Future<Map<String, dynamic>> register(String username, String password, String verificationCode, String name) async {
     try {
       await _ensureInitialized();
 
@@ -303,7 +350,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
-      
+
       // 获取客户端版本信息
       final clientInfo = VersionInfoService.instance.getClientInfo();
 
@@ -354,14 +401,16 @@ class AuthRepositoryImpl implements AuthRepository {
         'hasCurrentUser': response.containsKey('currentUser'),
         'hasUser': response.containsKey('user'),
         'hasTokens': response.containsKey('tokens'),
+        'hasServerConfig': response.containsKey('serverConfig'),
         'hasVersionUpdate': response.containsKey('versionUpdate'),
       });
 
-      // 🔄 检查是否有版本更新信息
-      await _handleVersionUpdateFromLogin(response);
 
       // 保存Token信息
       await _tokenManager.saveLoginTokens(response);
+
+      // 保存服务器配置信息
+      await _handleServerConfigFromLogin(response);
 
       // 提取用户信息 - 改进字段映射逻辑
       final userData = response['currentUser'] ?? response['user'];
@@ -378,8 +427,8 @@ class AuthRepositoryImpl implements AuthRepository {
           'lastLoginTime': userData['lastLoginTime'],
         });
 
-        // 创建CurrentUser对象，确保所有字段都有合适的默认值
-        final currentUser = CurrentUser()
+        // 创建CurrentUserProto对象
+        final userProto = CurrentUserProto()
           ..userId = userData['userId']?.toString() ?? ''
           ..name = userData['nickname']?.toString() ??
               userData['name']?.toString() ??
@@ -389,9 +438,15 @@ class AuthRepositoryImpl implements AuthRepository {
           ..email = userData['email']?.toString() ?? ''
           ..avatar = userData['avatar']?.toString() ?? ''
           ..status = userData['status']?.toString() ?? 'offline'
-          ..lastLoginTime = userData['lastLoginTime'] != null
-              ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-              : DateTime.now();
+          ..hasSetPassword = userData['hasSetPassword'] ?? false;
+
+        // 处理lastLoginTime
+        if (userData['lastLoginTime'] != null) {
+          userProto.lastLoginTime = Int64(userData['lastLoginTime']);
+        }
+
+        // 使用工厂方法创建CurrentUser对象
+        final currentUser = CurrentUser.fromProto(userProto);
 
         // 🔍 记录最终创建的用户对象
         _logger.i('👤 创建的CurrentUser对象', extra: {
@@ -444,6 +499,9 @@ class AuthRepositoryImpl implements AuthRepository {
       // 清除用户凭证
       await _secureStorage.clearUserCredentials();
 
+      // 清除服务器配置
+      await FileServerConfigService.instance.clearConfig();
+
       // 清除数据库中的用户信息
       if (DatabaseInitializer.isInitialized) {
         await DatabaseInitializer.isar.writeTxn(() async {
@@ -466,8 +524,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<bool> isLoggedIn() async {
     try {
       final userId = await _secureStorage.read('user_id');
-      final hasValidToken = await _secureStorage.isAccessTokenValid() ||
-          await _secureStorage.isRefreshTokenValid();
+      final hasValidToken = await _secureStorage.isRefreshTokenValid();
 
       return userId != null && userId.isNotEmpty && hasValidToken;
     } catch (error) {
@@ -478,8 +535,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   /// 重置密码
   @override
-  Future<bool> resetPassword(
-      String phoneOrEmail, String code, String newPassword) async {
+  Future<bool> resetPassword(String phoneOrEmail, String code, String newPassword) async {
     try {
       await _ensureInitialized();
 
@@ -509,8 +565,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _ensureInitialized();
 
-      _logger
-          .i('📨 发送验证码', extra: {'phoneOrEmail': phoneOrEmail, 'type': type});
+      _logger.i('📨 发送验证码', extra: {'phoneOrEmail': phoneOrEmail, 'type': type});
 
       final response = await _apiService.post(
         '/api/v1/auth/sendCode',
@@ -562,14 +617,14 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 调用刷新Token API
-      final response = await _apiService.post('/api/v1/auth/refreshToken',
-          data: {'refreshToken': refreshToken});
+      final response = await _apiService.post('/api/v1/auth/refreshToken', data: {'refreshToken': refreshToken});
 
       final data = response.data;
       if (data['success'] == true && data['tokens'] != null) {
         // 保存新Token
         await _tokenManager.saveLoginTokens(data);
-        return data['tokens']['accessToken'];
+        // 返回新的 API Token（已废除 accessToken）
+        return await _tokenManager.getApiToken();
       }
 
       return null;
@@ -587,8 +642,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       _logger.i('🗑️ 删除账户');
 
-      final response = await _apiService.delete('/api/v1/auth/deleteAccount',
-          requireAuth: true);
+      final response = await _apiService.delete('/api/v1/auth/deleteAccount', requireAuth: true);
 
       final data = response.data;
       if (data['success'] == true) {
@@ -604,6 +658,37 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  /// 处理登录时的服务器配置信息
+  Future<void> _handleServerConfigFromLogin(Map<String, dynamic> response) async {
+    try {
+      final serverConfigData = response['serverConfig'];
+      if (serverConfigData != null) {
+        _logger.i('🔧 登录时检测到服务器配置信息', extra: {
+          'hasChatServers': serverConfigData.containsKey('ss'),
+          'hasLoginServers': serverConfigData.containsKey('ls'),
+          'hasDefaultFileServer': serverConfigData.containsKey('defs'),
+          'hasFileServers': serverConfigData.containsKey('fsUrl'),
+          'hasFileLimits': serverConfigData.containsKey('limits'),
+        });
+
+        // 保存服务器配置
+        await FileServerConfigService.instance.saveServerConfig(serverConfigData);
+        
+        // 如果登录返回了聊天服务器配置，更新首选聊天服务器
+        if (serverConfigData['ss'] != null) {
+          final chatServers = Map<String, String>.from(serverConfigData['ss']);
+          await ServerSelectionService.instance.updatePreferredChatServerFromLogin(chatServers);
+          _logger.i('✅ 已更新首选聊天服务器配置');
+        }
+        
+        _logger.i('✅ 服务器配置处理完成');
+      }
+    } catch (error) {
+      _logger.e('处理登录服务器配置信息失败', error: error, stackTrace: StackTrace.current);
+      // 服务器配置处理失败不影响登录流程
+    }
+  }
+
   /// 处理登录时的版本更新信息
   Future<void> _handleVersionUpdateFromLogin(Map<String, dynamic> response) async {
     try {
@@ -615,7 +700,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
         // 创建版本检查结果对象
         final versionResult = VersionCheckResult.fromJson(versionUpdateData);
-        
+
         if (versionResult.hasUpdate) {
           _logger.i('🔄 服务器要求版本更新', extra: {
             'currentVersion': VersionInfoService.instance.currentVersion,
@@ -639,7 +724,7 @@ class AuthRepositoryImpl implements AuthRepository {
       // 使用SharedPreferences存储版本更新信息
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('pending_version_update', jsonEncode(versionResult.toJson()));
-      
+
       _logger.i('📅 已计划版本更新对话框', extra: {
         'latestVersion': versionResult.latestVersion,
         'isForced': versionResult.isForced,

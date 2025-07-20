@@ -6,7 +6,7 @@ import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
 import 'package:cc/features/contacts/presentation/widgets/contact_list_widget.dart';
-import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+// import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart'; // 暂时不使用
 import 'package:cc/features/contacts/presentation/pages/add_contact_page.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
@@ -379,69 +379,15 @@ class _ContactsPageState extends State<ContactsPage>
               ),
             ],
           ),
-          body: Column(
-            children: [
-              // 同步状态指示器
-              _buildSyncStatusIndicator(),
-
-              // 联系人列表
-              Expanded(
-                child: ContactListWidget(
-                  mode: ContactListMode.detail,
-                  scrollController: _scrollController,
-                  onContactTap: _handleContactTap,
-                  searchHint: AppLocalizations.of(context).searchContacts,
-                ),
-              ),
-            ],
+          body: ContactListWidget(
+            mode: ContactListMode.detail,
+            scrollController: _scrollController,
+            onContactTap: _handleContactTap,
+            searchHint: AppLocalizations.of(context).searchContacts,
           ),
         );
       },
     );
   }
 
-  /// 构建同步状态指示器
-  Widget _buildSyncStatusIndicator() {
-    final l10n = AppLocalizations.of(context);
-
-    return BlocBuilder<ContactCubit, ContactState>(
-      buildWhen: (previous, current) =>
-          previous.syncStatus != current.syncStatus ||
-          previous.errorMessage != current.errorMessage ||
-          previous.contacts.length != current.contacts.length,
-      builder: (context, state) {
-        if (state.syncStatus == ContactsSyncStatus.syncing) {
-          return const LinearProgressIndicator(
-            backgroundColor: Colors.white,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-          );
-        } else if (state.errorMessage != null && state.contacts.isEmpty) {
-          // 只在没有本地数据时显示错误
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            color: Colors.red.shade100,
-            child: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l10n.serverConnectionError,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.read<ContactCubit>().syncContacts(),
-                  child: Text(l10n.retry,
-                      style: const TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
 }

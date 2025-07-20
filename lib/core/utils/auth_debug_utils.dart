@@ -18,7 +18,6 @@ class AuthDebugUtils {
 
       // 使用新的Token系统检查状态
       final tokenStatus = {
-        'accessToken': await _secureStorage.isAccessTokenValid(),
         'refreshToken': await _secureStorage.isRefreshTokenValid(),
         'socketToken': await _secureStorage.isSocketTokenValid(),
       };
@@ -67,25 +66,18 @@ class AuthDebugUtils {
       solutions.add('💡 需要重新登录');
     }
 
-    // 检查多Token状态
-    final accessToken = tokenStatus['accessToken'] as Map<String, dynamic>?;
-    final refreshToken = tokenStatus['refreshToken'] as Map<String, dynamic>?;
-    // socketToken检查已集成到tokenStatus中，不需要单独获取
+    // 检查Token状态
+    final refreshTokenValid = tokenStatus['refreshToken'] as bool;
+    final socketTokenValid = tokenStatus['socketToken'] as bool;
 
-    if (accessToken?['exists'] != true) {
-      issues.add('❌ Access Token缺失');
-      solutions.add('💡 需要重新登录获取Access Token');
-    } else if (accessToken?['valid'] != true) {
-      issues.add('❌ Access Token无效或已过期');
-      solutions.add('💡 需要使用Refresh Token刷新');
-    }
-
-    if (refreshToken?['exists'] != true) {
-      issues.add('❌ Refresh Token缺失');
-      solutions.add('💡 需要重新登录获取Refresh Token');
-    } else if (refreshToken?['valid'] != true) {
+    if (!refreshTokenValid) {
       issues.add('❌ Refresh Token无效或已过期');
       solutions.add('💡 需要重新登录');
+    }
+
+    if (!socketTokenValid) {
+      issues.add('❌ Socket Token无效或已过期');
+      solutions.add('💡 需要使用Refresh Token刷新Socket Token');
     }
 
     // 输出分析结果
@@ -102,35 +94,24 @@ class AuthDebugUtils {
     _logger.i('=== 🔍 检查Token可用性 ===');
 
     try {
-      // 检查存储的Token
-      final storedToken = await _secureStorage.getAccessToken();
-
       // 检查带自动刷新的Token
       final tokenManager = EnhancedTokenManager.instance;
-      final refreshedToken = await tokenManager.getApiToken();
+      final refreshToken = await tokenManager.getApiToken();
 
-      _logger.i('🔑 Token状态对比:', extra: {
-        'storedTokenExists': storedToken != null,
-        'storedTokenLength': storedToken?.length ?? 0,
-        'refreshedTokenExists': refreshedToken != null,
-        'refreshedTokenLength': refreshedToken?.length ?? 0,
-        'autoRefreshWorking': refreshedToken != null,
+      _logger.i('🔑 Token状态检查:', extra: {
+        'refreshTokenExists': refreshToken != null,
+        'refreshTokenLength': refreshToken?.length ?? 0,
+        'tokenSystemWorking': refreshToken != null,
       });
 
-      if (refreshedToken != null) {
-        _logger.i('✅ Token自动刷新机制正常工作');
-      } else if (storedToken != null) {
-        _logger.w('⚠️ 存储中有Token但自动刷新失败');
+      if (refreshToken != null) {
+        _logger.i('✅ Refresh Token系统正常工作');
       } else {
-        _logger.w('❌ 没有可用的Token');
+        _logger.w('❌ 没有可用的Refresh Token');
       }
 
       // 详细状态
       final tokenStatus = {
-        'accessToken': {
-          'exists': await _secureStorage.getAccessToken() != null,
-          'valid': await _secureStorage.isAccessTokenValid(),
-        },
         'refreshToken': {
           'exists': await _secureStorage.getRefreshToken() != null,
           'valid': await _secureStorage.isRefreshTokenValid(),
@@ -178,14 +159,10 @@ class AuthDebugUtils {
     });
   }
 
-  /// 检查Token格式（多Token系统）
+  /// 检查Token格式（Refresh Token + Socket Token系统）
   static Future<void> validateTokenFormats() async {
     try {
       final tokenStatus = {
-        'accessToken': {
-          'exists': await _secureStorage.getAccessToken() != null,
-          'valid': await _secureStorage.isAccessTokenValid(),
-        },
         'refreshToken': {
           'exists': await _secureStorage.getRefreshToken() != null,
           'valid': await _secureStorage.isRefreshTokenValid(),
@@ -196,11 +173,10 @@ class AuthDebugUtils {
         },
       };
 
-      _logger.i('🔍 多Token格式检查:', extra: {
-        'accessTokenExists': tokenStatus['accessToken']?['exists'] ?? false,
+      _logger.i('🔍 Token格式检查:', extra: {
         'refreshTokenExists': tokenStatus['refreshToken']?['exists'] ?? false,
         'socketTokenExists': tokenStatus['socketToken']?['exists'] ?? false,
-        'recommendation': '使用新的多Token认证系统，无需JWT格式检查',
+        'recommendation': '使用Refresh Token + Socket Token认证系统',
       });
     } catch (error) {
       _logger.e('Token格式检查失败', error: error);

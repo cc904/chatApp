@@ -48,8 +48,8 @@ class CurrentUser {
   Future<bool> hasValidToken() async {
     try {
       final tokenManager = EnhancedTokenManager.instance;
-      final accessToken = await tokenManager.getApiToken();
-      return accessToken != null && accessToken.isNotEmpty;
+      final apiToken = await tokenManager.getApiToken();
+      return apiToken != null && apiToken.isNotEmpty;
     } catch (error) {
       return false;
     }

@@ -94,7 +94,7 @@ class ProtoSocketService {
     _logger.d('连接详情', extra: {
       'url': serverUrl,
       'tokenPrefix': token.length > 10 ? '${token.substring(0, 10)}...' : token,
-      'platform': Platform.operatingSystem,
+      'platform': _getStandardizedPlatformName(),
       'platformVersion': Platform.operatingSystemVersion
     });
 
@@ -534,6 +534,16 @@ class ProtoSocketService {
       _logger.e('❌ 发送原始事件失败: $e',
           extra: {'eventName': eventName}, stackTrace: StackTrace.current);
     }
+  }
+
+  /// 获取标准化的平台名称
+  String _getStandardizedPlatformName() {
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isIOS) return 'iOS';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    return 'Unknown';
   }
 }
 

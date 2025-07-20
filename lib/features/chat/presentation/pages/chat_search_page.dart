@@ -413,14 +413,21 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                 ? Stack(
                     alignment: Alignment.center,
                     children: [
-                      if (message.thumbnailUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: _CachedNetworkImage(
-                            url: message.thumbnailUrl!,
-                            mediaType: 'thumbnails',
-                          ),
-                        ),
+                      FutureBuilder<String?>(
+                        future: message.thumbnailUrl,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data != null) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: _CachedNetworkImage(
+                                url: snapshot.data!,
+                                mediaType: 'thumbnails',
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
                       const Icon(
                         Icons.play_circle_outline,
                         color: Colors.white,

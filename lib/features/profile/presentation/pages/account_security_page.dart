@@ -633,11 +633,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  if (tokenStatus['accessToken'] != null)
-                    _buildTokenStatusRow(
-                      'Access Token',
-                      tokenStatus['accessToken'] as Map<String, dynamic>,
-                    ),
+                  // Access Token已移除，现在只使用Refresh Token + Socket Token
                   if (tokenStatus['refreshToken'] != null)
                     _buildTokenStatusRow(
                       'Refresh Token',
@@ -751,7 +747,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: Text('该功能未开放'),
+        content: const Text('该功能未开放'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

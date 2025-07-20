@@ -208,6 +208,18 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
+    // 检查频道发送权限
+    final currentUserId = state.currentUser.userId;
+    if (state.conversation.isChannel && !state.conversation.canSendMessage(currentUserId)) {
+      _logger.w('⚠️ 频道中普通成员无法发送消息');
+      if (!isClosed) {
+        emit(state.copyWith(
+          errorMessage: '你没有权限在此频道发送消息',
+        ));
+      }
+      return;
+    }
+
     _logger.i('💬 开始发送文本消息', extra: {
       'conversationId': _conversationId,
       'textLength': text.length,
@@ -297,6 +309,18 @@ class ChatCubit extends Cubit<ChatState> {
     // 验证输入
     if (localPath.trim().isEmpty || duration <= 0) {
       _logger.w('尝试发送无效语音消息');
+      return;
+    }
+
+    // 检查频道发送权限
+    final currentUserId = state.currentUser.userId;
+    if (state.conversation.isChannel && !state.conversation.canSendMessage(currentUserId)) {
+      _logger.w('⚠️ 频道中普通成员无法发送消息');
+      if (!isClosed) {
+        emit(state.copyWith(
+          errorMessage: '你没有权限在此频道发送消息',
+        ));
+      }
       return;
     }
 
@@ -583,16 +607,9 @@ class ChatCubit extends Cubit<ChatState> {
         final positionChanged = messageIdChanged || relativePositionChanged;
 
         if (positionChanged) {
-          final currentScrollPositionMessageIndex = state.messages
-              .where((message) =>
-                  message.messageId == currentScrollPosition.messageId)
-              .firstOrNull
-              ?.messageIndex;
           // _logger.i('更新当前滚动位置（基于屏幕最底部消息锚点）', extra: {
           //   'currentScrollPosition': currentScrollPosition,
           //   'anchorMessageId': currentScrollPosition.messageId,
-          //   'currentScrollPositionMessageIndex':
-          //       currentScrollPositionMessageIndex,
           //   'messageIdChanged': messageIdChanged,
           //   'relativePositionChanged': relativePositionChanged,
           //   'positionChanged': positionChanged,
@@ -1727,6 +1744,18 @@ class ChatCubit extends Cubit<ChatState> {
     _logger.d('重发消息', extra: {'messageId': messageId});
 
     if (isClosed) return;
+
+    // 检查频道发送权限
+    final currentUserId = state.currentUser.userId;
+    if (state.conversation.isChannel && !state.conversation.canSendMessage(currentUserId)) {
+      _logger.w('⚠️ 频道中普通成员无法发送消息');
+      if (!isClosed) {
+        emit(state.copyWith(
+          errorMessage: '你没有权限在此频道发送消息',
+        ));
+      }
+      return;
+    }
 
     try {
       // 1. 获取失败的消息
@@ -3044,5 +3073,51 @@ class ChatCubit extends Cubit<ChatState> {
     });
 
     return isAtBottom;
+  }
+
+  /// 加入频道
+  Future<void> joinChannel() async {
+    try {
+      _logger.i('尝试加入频道', extra: {'conversationId': _conversationId});
+      await joinConversation();
+      _logger.i('成功加入频道', extra: {'conversationId': _conversationId});
+    } catch (error) {
+      _logger.e('加入频道失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '加入频道失败: ${error.toString()}'));
+      }
+    }
+  }
+
+  /// 切换静音状态
+  Future<void> toggleMute() async {
+    try {
+      // 获取当前用户参与者信息
+      final currentUserId = _currentUser.userId;
+      final participant = state.conversation.getParticipant(currentUserId);
+      
+      // 获取当前静音状态
+      final currentMuteStatus = participant?.muted ?? false;
+      final newMuteStatus = !currentMuteStatus;
+      
+      _logger.i('切换会话静音状态', extra: {
+        'conversationId': _conversationId,
+        'currentMuteStatus': currentMuteStatus,
+        'newMuteStatus': newMuteStatus,
+      });
+
+      // 调用现有的更新会话静音状态方法
+      await updateConversationMuteStatus(newMuteStatus);
+      
+      _logger.i('会话静音状态切换完成', extra: {
+        'conversationId': _conversationId,
+        'newMuteStatus': newMuteStatus,
+      });
+    } catch (error) {
+      _logger.e('切换会话静音状态失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '切换静音状态失败: ${error.toString()}'));
+      }
+    }
   }
 }

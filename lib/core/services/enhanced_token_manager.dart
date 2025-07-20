@@ -3,15 +3,16 @@ import 'package:dio/dio.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/communication_service.dart';
+import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/core/services/device_manager.dart';
 import 'package:cc/core/constants/app_config.dart';
+import 'package:cc/core/services/version_info_service.dart';
 
 /// 增强的Token管理服务
 ///
 /// 支持多设备登录的Token管理，包括：
-/// - Access Token (30分钟有效期)
-/// - Refresh Token (30天有效期)
-/// - Socket Token (7天有效期)
+/// - Refresh Token (30天有效期，负责API认证)
+/// - Socket Token (7天有效期，专门用于Socket.IO实时通信)
 /// - 自动刷新机制
 /// - 设备登录冲突处理
 class EnhancedTokenManager {
@@ -33,9 +34,9 @@ class EnhancedTokenManager {
   bool _isRefreshing = false;
 
   // Token刷新配置
-  static const Duration _accessTokenRefreshAdvance =
-      Duration(minutes: 5); // 提前5分钟刷新
-  static const Duration _checkInterval = Duration(minutes: 3); // 每3分钟检查一次
+  static const Duration _socketTokenRefreshAdvance =
+      Duration(hours: 12); // 提前12小时刷新Socket Token
+  static const Duration _checkInterval = Duration(hours: 1); // 每1小时检查一次
 
   EnhancedTokenManager._internal() {
     _dio = Dio();
@@ -113,37 +114,43 @@ class EnhancedTokenManager {
     if (_isRefreshing) return;
 
     try {
-      // 检查Access Token是否需要刷新
-      final needsRefresh = await _needsAccessTokenRefresh();
-      if (needsRefresh) {
-        _logger.i('🔄 Access Token即将过期，开始自动刷新');
-        await _performTokenRefresh();
+      // 获取设备信息用于验证请求
+      final deviceInfo = await DeviceManager.getDeviceInfo();
+      
+      // 获取版本信息
+      final versionInfo = VersionInfoService.instance;
+      
+      // 构建客户端信息
+      final clientInfo = {
+        'version': versionInfo.currentVersion,
+        'buildNumber': versionInfo.buildNumber,
+        'platform': versionInfo.platformName,
+        'deviceInfo': {
+          'deviceId': deviceInfo.deviceId,
+          'deviceName': deviceInfo.deviceModel,
+          'systemVersion': deviceInfo.osVersion,
+          'deviceModel': deviceInfo.deviceModel,
+        }
+      };
+
+      // 使用新的验证接口进行Token检查
+      final success = await checkAndAutoRefreshToken(clientInfo: clientInfo);
+      
+      if (!success) {
+        _logger.w('Token检查失败，可能需要重新登录');
       }
     } catch (error) {
       _logger.e('检查Token状态失败', error: error, stackTrace: StackTrace.current);
     }
   }
 
-  /// 检查Access Token是否需要刷新
-  Future<bool> _needsAccessTokenRefresh() async {
-    try {
-      final expireTime = await _secureStorage.getAccessTokenExpireTime();
-      if (expireTime == null) return false;
 
-      final timeUntilExpiry = expireTime.difference(DateTime.now());
-      return timeUntilExpiry <= _accessTokenRefreshAdvance;
-    } catch (error) {
-      _logger.e('检查Access Token刷新需求失败', error: error);
-      return false;
-    }
-  }
-
-  /// 执行Token刷新
+  /// 执行Socket Token刷新
   Future<bool> _performTokenRefresh() async {
     if (_isRefreshing) return false;
 
     _isRefreshing = true;
-    _logger.i('🔄 开始刷新Access Token...');
+    _logger.i('🔄 开始刷新Socket Token...');
 
     try {
       final refreshToken = await _secureStorage.getRefreshToken();
@@ -159,60 +166,27 @@ class EnhancedTokenManager {
         return false;
       }
 
-      // 调用刷新Token API（使用独立Dio实例避免循环依赖）
-      final response = await _dio.post(
-        '/api/v1/auth/refreshToken',
-        data: {'refreshToken': refreshToken},
-      );
+      // 使用Socket.io接口刷新Socket Token
+      final refreshSuccess = await _refreshSocketTokenViaSocket(refreshToken);
+      
+      if (refreshSuccess) {
+        // 通知Token更新（避免循环依赖）
+        _tokenUpdateCallback?.call();
 
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data['success'] == true && data['tokens'] != null) {
-          // 保存新的Token
-          final tokens = data['tokens'];
-          if (tokens['accessToken'] != null &&
-              tokens['accessTokenExpiresAt'] != null) {
-            await _secureStorage.saveAccessToken(
-              tokens['accessToken'],
-              DateTime.fromMillisecondsSinceEpoch(
-                  tokens['accessTokenExpiresAt']),
-            );
-          }
-          if (tokens['refreshToken'] != null &&
-              tokens['refreshTokenExpiresAt'] != null) {
-            await _secureStorage.saveRefreshToken(
-              tokens['refreshToken'],
-              DateTime.fromMillisecondsSinceEpoch(
-                  tokens['refreshTokenExpiresAt']),
-            );
-          }
-          if (tokens['socketToken'] != null &&
-              tokens['socketTokenExpiresAt'] != null) {
-            await _secureStorage.saveSocketToken(
-              tokens['socketToken'],
-              DateTime.fromMillisecondsSinceEpoch(
-                  tokens['socketTokenExpiresAt']),
-            );
-          }
-
-          // 通知Token更新（避免循环依赖）
-          _tokenUpdateCallback?.call();
-
-          // 如果Socket连接存在，触发重连使用新Token
-          if (_communicationService.isConnected) {
-            _logger.i('🔄 Token已更新，触发Socket重连');
-            await _communicationService.reconnect();
-          }
-
-          _logger.i('✅ Token刷新成功');
-          return true;
+        // 如果Socket连接存在，触发重连使用新Token
+        if (_communicationService.isConnected) {
+          _logger.i('🔄 Socket Token已更新，触发Socket重连');
+          await _communicationService.reconnect();
         }
+
+        _logger.i('✅ Socket Token刷新成功');
+        return true;
       }
 
-      _logger.w('Token刷新失败：服务器响应异常');
+      _logger.w('Socket Token刷新失败：服务器响应异常');
       return false;
     } catch (error) {
-      _logger.e('Token刷新失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('Socket Token刷新失败', error: error, stackTrace: StackTrace.current);
 
       // 如果是401错误，表示Refresh Token无效
       if (error.toString().contains('401')) {
@@ -256,19 +230,12 @@ class EnhancedTokenManager {
 
   /// 保存登录响应中的Token
   ///
-  /// 处理来自服务器的登录响应，保存多种Token
+  /// 处理来自服务器的登录响应，保存 Refresh Token 和 Socket Token
   Future<void> saveLoginTokens(Map<String, dynamic> loginResponse) async {
     try {
       // 支持新的tokens结构
       if (loginResponse['tokens'] != null) {
         final tokens = loginResponse['tokens'];
-        if (tokens['accessToken'] != null &&
-            tokens['accessTokenExpiresAt'] != null) {
-          await _secureStorage.saveAccessToken(
-            tokens['accessToken'],
-            DateTime.fromMillisecondsSinceEpoch(tokens['accessTokenExpiresAt']),
-          );
-        }
         if (tokens['refreshToken'] != null &&
             tokens['refreshTokenExpiresAt'] != null) {
           await _secureStorage.saveRefreshToken(
@@ -284,7 +251,7 @@ class EnhancedTokenManager {
             DateTime.fromMillisecondsSinceEpoch(tokens['socketTokenExpiresAt']),
           );
         }
-        _logger.i('✅ 保存新版多Token结构');
+        _logger.i('✅ 保存新版Token结构 (Refresh Token + Socket Token)');
 
         // 启动Token管理
         startTokenManagement();
@@ -292,76 +259,42 @@ class EnhancedTokenManager {
         return;
       }
 
-      // 兼容旧的响应结构
-      if (loginResponse['currentUser'] != null) {
-        final currentUser = loginResponse['currentUser'];
-        final token = currentUser['token'];
-        final tokenExpireTime =
-            loginResponse['tokenExpiresAt'] ?? currentUser['tokenExpireTime'];
-
-        if (token != null) {
-          // 构造兼容的Token结构，同时用作Access Token和Socket Token
-          final compatTokens = {
-            'accessToken': token,
-            'accessTokenExpiresAt': tokenExpireTime,
-            'socketToken': token, // 兼容模式下，socket也使用同一个token
-            'socketTokenExpiresAt': tokenExpireTime,
-          };
-
-          if (compatTokens['accessToken'] != null &&
-              compatTokens['accessTokenExpiresAt'] != null) {
-            await _secureStorage.saveAccessToken(
-              compatTokens['accessToken'],
-              DateTime.fromMillisecondsSinceEpoch(
-                  compatTokens['accessTokenExpiresAt']),
-            );
-          }
-          if (compatTokens['socketToken'] != null &&
-              compatTokens['socketTokenExpiresAt'] != null) {
-            await _secureStorage.saveSocketToken(
-              compatTokens['socketToken'],
-              DateTime.fromMillisecondsSinceEpoch(
-                  compatTokens['socketTokenExpiresAt']),
-            );
-          }
-          _logger.i('✅ 保存兼容版Token结构（Access Token和Socket Token使用同一token）');
-
-          // 启动Token管理
-          startTokenManagement();
-        }
-      }
+      _logger.w('⚠️ 登录响应中未找到有效的tokens结构');
     } catch (error) {
       _logger.e('保存登录Token失败', error: error, stackTrace: StackTrace.current);
       rethrow;
     }
   }
 
-  /// 获取Socket连接用的最佳Token
+  /// 获取Socket连接用的Token
   ///
-  /// 按优先级返回用于Socket连接的Token，自动处理过期刷新
+  /// 返回用于Socket连接的Token，自动处理过期刷新
   Future<String?> getSocketToken() async {
     try {
       _logger.d('🔍 检查Socket Token状态...');
 
-      // 1. 优先使用Socket Token
+      // 检查Socket Token是否存在且有效
       final socketToken = await _secureStorage.getSocketToken();
       if (socketToken != null) {
         if (await _secureStorage.isSocketTokenValid()) {
           _logger.d('✅ Socket Token有效，直接使用');
           return socketToken;
         } else {
-          _logger.d('⏰ Socket Token已过期，尝试使用Access Token');
+          _logger.d('⏰ Socket Token已过期，尝试刷新');
+          
+          // 尝试刷新Socket Token
+          final refreshSuccess = await _performTokenRefresh();
+          if (refreshSuccess) {
+            final newSocketToken = await _secureStorage.getSocketToken();
+            if (newSocketToken != null) {
+              _logger.i('✅ Socket Token刷新成功');
+              return newSocketToken;
+            }
+          }
         }
       }
 
-      // 2. 使用Access Token作为备用（并自动刷新）
-      final accessToken = await getApiToken(); // 这会自动处理过期刷新
-      if (accessToken != null) {
-        _logger.d('🔌 使用Access Token进行Socket连接');
-        return accessToken;
-      }
-
-      _logger.w('❌ 没有可用的Token进行Socket连接');
+      _logger.w('❌ 没有可用的Socket Token');
       return null;
     } catch (error) {
       _logger.e('获取Socket Token失败', error: error);
@@ -371,60 +304,30 @@ class EnhancedTokenManager {
 
   /// 获取API请求用的Token
   ///
-  /// 返回用于API请求的Access Token
-  /// 每次调用时自动检查Token状态，如果过期则立即刷新
+  /// 返回用于API请求的Refresh Token
+  /// 每次调用时自动检查Token状态，如果过期则需要重新登录
   Future<String?> getApiToken() async {
     try {
       _logger.d('🔍 检查API Token状态...');
 
-      // 1. 首先检查Access Token是否存在
-      final accessToken = await _secureStorage.getAccessToken();
-      if (accessToken == null) {
-        _logger.w('❌ Access Token不存在');
-        return null;
-      }
-
-      // 2. 检查Access Token是否有效（未过期）
-      final isValid = await _secureStorage.isAccessTokenValid();
-      if (isValid) {
-        _logger.d('✅ Access Token有效，直接使用');
-        return accessToken;
-      }
-
-      // 3. Token已过期，尝试刷新
-      _logger.i('⏰ Access Token已过期，尝试立即刷新...');
-
-      // 检查是否有Refresh Token
+      // 检查Refresh Token是否存在且有效
       final refreshToken = await _secureStorage.getRefreshToken();
       if (refreshToken == null) {
-        _logger.w('❌ 没有Refresh Token，无法刷新，需要重新登录');
+        _logger.w('❌ Refresh Token不存在');
         return null;
       }
 
-      // 检查Refresh Token是否有效
-      if (!await _secureStorage.isRefreshTokenValid()) {
-        _logger.w('❌ Refresh Token也已过期，需要重新登录');
-        return null;
+      // 检查Refresh Token是否有效（未过期）
+      final isValid = await _secureStorage.isRefreshTokenValid();
+      if (isValid) {
+        _logger.d('✅ Refresh Token有效，直接使用');
+        return refreshToken;
       }
 
-      // 执行Token刷新
-      _logger.i('🔄 开始刷新过期的Access Token...');
-      final refreshSuccess = await _performTokenRefresh();
-
-      if (refreshSuccess) {
-        // 刷新成功，获取新的Access Token
-        final newAccessToken = await _secureStorage.getAccessToken();
-        if (newAccessToken != null) {
-          _logger.i('✅ Token刷新成功，返回新Token');
-          return newAccessToken;
-        } else {
-          _logger.w('⚠️ Token刷新成功但无法获取新Token');
-          return null;
-        }
-      } else {
-        _logger.w('❌ Token刷新失败');
-        return null;
-      }
+      // Refresh Token已过期，需要重新登录
+      _logger.w('❌ Refresh Token已过期，需要重新登录');
+      await _handleTokenExpired();
+      return null;
     } catch (error) {
       _logger.e('获取API Token失败', error: error);
       return null;
@@ -497,12 +400,6 @@ class EnhancedTokenManager {
   Future<Map<String, dynamic>> getTokenStatus() async {
     try {
       final summary = {
-        'accessToken': {
-          'exists': await _secureStorage.getAccessToken() != null,
-          'valid': await _secureStorage.isAccessTokenValid(),
-          'expiresAt': (await _secureStorage.getAccessTokenExpireTime())
-              ?.toIso8601String(),
-        },
         'refreshToken': {
           'exists': await _secureStorage.getRefreshToken() != null,
           'valid': await _secureStorage.isRefreshTokenValid(),
@@ -533,6 +430,128 @@ class EnhancedTokenManager {
     }
   }
 
+  /// 通过Socket.io接口刷新Socket Token
+  Future<bool> _refreshSocketTokenViaSocket(String refreshToken) async {
+    try {
+      _logger.i('🔌 通过Socket.io接口刷新Socket Token');
+
+      // 创建一个Completer来等待Socket响应
+      final completer = Completer<bool>();
+      bool responseReceived = false;
+
+      // 获取ProtoSocketService实例来处理原始事件
+      final protoSocketService = ProtoSocketService();
+      
+      // 监听刷新响应
+      protoSocketService.on('refreshSocketTokenResponse', (response) {
+        if (responseReceived) return;
+        responseReceived = true;
+
+        try {
+          // 解析响应并保存新Token
+          _handleSocketTokenRefreshResponse(response, completer);
+        } catch (error) {
+          _logger.e('处理Socket Token刷新响应失败', error: error);
+          if (!completer.isCompleted) {
+            completer.complete(false);
+          }
+        }
+      });
+
+      // 发送刷新请求
+      final requestData = {
+        'refreshToken': refreshToken,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+      
+      protoSocketService.emit('refreshSocketToken', requestData);
+      _logger.i('📤 已发送Socket Token刷新请求');
+
+      // 等待响应，设置超时
+      final result = await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _logger.w('Socket Token刷新请求超时');
+          return false;
+        },
+      );
+
+      return result;
+    } catch (error) {
+      _logger.e('通过Socket.io刷新Token失败', error: error);
+      return false;
+    }
+  }
+
+  /// 处理Socket Token刷新响应
+  Future<void> _handleSocketTokenRefreshResponse(
+    dynamic response,
+    Completer<bool> completer,
+  ) async {
+    try {
+      // 这里需要根据实际的protobuf响应结构来解析
+      // 假设响应包含success字段和tokens字段
+      final success = _extractBoolFromResponse(response, 'success');
+      
+      if (success) {
+        final tokens = _extractTokensFromResponse(response);
+        
+        // 保存新的Token
+        if (tokens['refreshToken'] != null &&
+            tokens['refreshTokenExpiresAt'] != null) {
+          await _secureStorage.saveRefreshToken(
+            tokens['refreshToken'],
+            DateTime.fromMillisecondsSinceEpoch(
+                tokens['refreshTokenExpiresAt']),
+          );
+        }
+        
+        if (tokens['socketToken'] != null &&
+            tokens['socketTokenExpiresAt'] != null) {
+          await _secureStorage.saveSocketToken(
+            tokens['socketToken'],
+            DateTime.fromMillisecondsSinceEpoch(
+                tokens['socketTokenExpiresAt']),
+          );
+        }
+
+        _logger.i('✅ Socket Token通过Socket.io刷新成功');
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      } else {
+        _logger.w('❌ Socket Token刷新失败：服务器返回失败');
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
+      }
+    } catch (error) {
+      _logger.e('解析Socket Token刷新响应失败', error: error);
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+    }
+  }
+
+
+  /// 从响应中提取布尔值
+  bool _extractBoolFromResponse(dynamic response, String field) {
+    // 暂时处理JSON响应，等protobuf生成后再替换
+    if (response is Map) {
+      return response[field] == true;
+    }
+    return false;
+  }
+
+  /// 从响应中提取Token信息
+  Map<String, dynamic> _extractTokensFromResponse(dynamic response) {
+    // 暂时处理JSON响应，等protobuf生成后再替换
+    if (response is Map && response['tokens'] is Map) {
+      return Map<String, dynamic>.from(response['tokens']);
+    }
+    return {};
+  }
+
   /// 强制刷新所有Token
   ///
   /// 在检测到服务器端Token策略更新时使用
@@ -554,6 +573,120 @@ class EnhancedTokenManager {
       return success;
     } catch (error) {
       _logger.e('强制刷新Token失败', error: error);
+      return false;
+    }
+  }
+
+  /// 验证Token并自动刷新
+  ///
+  /// 调用新的 /api/v1/auth/verifyToken 接口，支持自动刷新功能
+  Future<Map<String, dynamic>?> verifyTokenWithAutoRefresh({
+    required Map<String, dynamic> clientInfo,
+    bool autoRefresh = true,
+  }) async {
+    try {
+      _logger.i('🔍 验证Token并自动刷新');
+
+      // 获取当前的refresh token
+      final refreshToken = await _secureStorage.getRefreshToken();
+      if (refreshToken == null) {
+        _logger.w('没有可用的refresh token');
+        return null;
+      }
+
+      // 构建请求数据
+      final requestData = {
+        'token': refreshToken,
+        'autoRefresh': autoRefresh,
+        'clientInfo': clientInfo,
+      };
+
+      // 调用验证接口
+      final response = await _dio.post(
+        '/api/v1/auth/verifyToken',
+        data: requestData,
+      );
+
+      final data = response.data;
+      if (data['success'] != true) {
+        _logger.w('Token验证失败: ${data['message']}');
+        return null;
+      }
+
+      // 检查是否有新的token返回（自动刷新的结果）
+      if (data['tokens'] != null) {
+        _logger.i('🔄 服务器返回了新的Token，更新本地存储');
+        await saveLoginTokens(data);
+      }
+
+      _logger.i('✅ Token验证成功');
+      return data;
+    } catch (error) {
+      _logger.e('Token验证失败', error: error);
+      
+      // 如果是401错误，表示Token无效
+      if (error.toString().contains('401')) {
+        await _handleTokenExpired();
+      }
+      
+      return null;
+    }
+  }
+
+  /// 检查Token是否即将过期并自动刷新
+  ///
+  /// 使用新的验证接口进行Token检查和自动刷新
+  Future<bool> checkAndAutoRefreshToken({
+    required Map<String, dynamic> clientInfo,
+  }) async {
+    try {
+      _logger.d('🔍 检查Token状态并自动刷新');
+
+      // 检查refresh token是否存在
+      final refreshToken = await _secureStorage.getRefreshToken();
+      if (refreshToken == null) {
+        _logger.w('没有可用的refresh token');
+        return false;
+      }
+
+      // 检查refresh token是否即将过期（提前1天检查）
+      final refreshTokenExpiry = await _secureStorage.getRefreshTokenExpireTime();
+      if (refreshTokenExpiry != null) {
+        final timeUntilExpiry = refreshTokenExpiry.difference(DateTime.now());
+        if (timeUntilExpiry.inDays <= 1) {
+          _logger.i('🔄 Refresh token即将过期，尝试自动刷新');
+          
+          // 使用验证接口进行自动刷新
+          final result = await verifyTokenWithAutoRefresh(
+            clientInfo: clientInfo,
+            autoRefresh: true,
+          );
+          
+          return result != null;
+        }
+      }
+
+      // 检查socket token是否需要刷新
+      final socketTokenExpiry = await _secureStorage.getSocketTokenExpireTime();
+      if (socketTokenExpiry != null) {
+        final timeUntilExpiry = socketTokenExpiry.difference(DateTime.now());
+        if (timeUntilExpiry <= _socketTokenRefreshAdvance) {
+          _logger.i('🔄 Socket token即将过期，尝试自动刷新');
+          
+          // 使用验证接口进行自动刷新
+          final result = await verifyTokenWithAutoRefresh(
+            clientInfo: clientInfo,
+            autoRefresh: true,
+          );
+          
+          return result != null;
+        }
+      }
+
+      _logger.d('✅ Token状态正常，无需刷新');
+      return true;
+    } catch (error) {
+      _logger.e('检查Token状态失败', error: error);
       return false;
     }
   }

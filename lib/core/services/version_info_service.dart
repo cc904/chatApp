@@ -90,6 +90,7 @@ class VersionInfoService {
 
   /// 平台名称
   String get platformName {
+    if (kIsWeb) return 'Web';
     if (Platform.isAndroid) return 'Android';
     if (Platform.isIOS) return 'iOS';
     if (Platform.isMacOS) return 'macOS';

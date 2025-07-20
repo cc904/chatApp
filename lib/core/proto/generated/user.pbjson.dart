@@ -60,26 +60,23 @@ const CurrentUserProto$json = {
   '1': 'CurrentUserProto',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'token', '3': 2, '4': 1, '5': 9, '10': 'token'},
-    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'avatar', '3': 4, '4': 1, '5': 9, '10': 'avatar'},
-    {'1': 'phone', '3': 5, '4': 1, '5': 9, '10': 'phone'},
-    {'1': 'email', '3': 6, '4': 1, '5': 9, '10': 'email'},
-    {'1': 'token_expire_time', '3': 7, '4': 1, '5': 3, '10': 'tokenExpireTime'},
-    {'1': 'last_login_time', '3': 8, '4': 1, '5': 3, '10': 'lastLoginTime'},
-    {'1': 'status', '3': 9, '4': 1, '5': 9, '10': 'status'},
-    {'1': 'has_set_password', '3': 10, '4': 1, '5': 8, '10': 'hasSetPassword'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
+    {'1': 'phone', '3': 4, '4': 1, '5': 9, '10': 'phone'},
+    {'1': 'email', '3': 5, '4': 1, '5': 9, '10': 'email'},
+    {'1': 'last_login_time', '3': 6, '4': 1, '5': 3, '10': 'lastLoginTime'},
+    {'1': 'status', '3': 7, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'has_set_password', '3': 8, '4': 1, '5': 8, '10': 'hasSetPassword'},
   ],
 };
 
 /// Descriptor for `CurrentUserProto`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List currentUserProtoDescriptor = $convert.base64Decode(
-    'ChBDdXJyZW50VXNlclByb3RvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIUCgV0b2tlbhgCIA'
-    'EoCVIFdG9rZW4SEgoEbmFtZRgDIAEoCVIEbmFtZRIWCgZhdmF0YXIYBCABKAlSBmF2YXRhchIU'
-    'CgVwaG9uZRgFIAEoCVIFcGhvbmUSFAoFZW1haWwYBiABKAlSBWVtYWlsEioKEXRva2VuX2V4cG'
-    'lyZV90aW1lGAcgASgDUg90b2tlbkV4cGlyZVRpbWUSJgoPbGFzdF9sb2dpbl90aW1lGAggASgD'
-    'Ug1sYXN0TG9naW5UaW1lEhYKBnN0YXR1cxgJIAEoCVIGc3RhdHVzEigKEGhhc19zZXRfcGFzc3'
-    'dvcmQYCiABKAhSDmhhc1NldFBhc3N3b3Jk');
+    'ChBDdXJyZW50VXNlclByb3RvEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBISCgRuYW1lGAIgAS'
+    'gJUgRuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFyEhQKBXBob25lGAQgASgJUgVwaG9uZRIU'
+    'CgVlbWFpbBgFIAEoCVIFZW1haWwSJgoPbGFzdF9sb2dpbl90aW1lGAYgASgDUg1sYXN0TG9naW'
+    '5UaW1lEhYKBnN0YXR1cxgHIAEoCVIGc3RhdHVzEigKEGhhc19zZXRfcGFzc3dvcmQYCCABKAhS'
+    'Dmhhc1NldFBhc3N3b3Jk');
 
 @$core.Deprecated('Use setCurrentUserRequestDescriptor instead')
 const SetCurrentUserRequest$json = {

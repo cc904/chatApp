@@ -6,6 +6,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // 🔧 新增：用于 SystemNavigator
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
@@ -18,6 +19,7 @@ import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -27,7 +29,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin, WidgetsBindingObserver, RestorationMixin {
   final _logger = LogService.instance;
   HomeCubit? _homeCubit;
   ChatsCubit? _chatsCubit;
@@ -48,12 +50,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late List<Animation<double>> _iconRotationAnimations;
   late List<Animation<Color?>> _iconColorAnimations;
 
-  int _currentIndex = 0;
+  // 🔧 新增：使用 RestorableInt 保存当前选中的 Tab 索引
+  late RestorableInt _currentIndex;
+
+  // 🔧 新增：状态保存标志
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+
+    // 🔧 新增：添加应用生命周期监听
+    WidgetsBinding.instance.addObserver(this);
+
+    // 🔧 新增：初始化 RestorableInt
+    _currentIndex = RestorableInt(0);
+
+    // 🔧 修复：TabController 将在 restoreState 后正确设置初始索引
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 0);
 
     // 初始化摆动动画控制器
     _iconAnimationControllers = List.generate(
@@ -110,12 +124,96 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _init();
   }
 
+  // 🔧 新增：RestorationMixin 必需的方法
+  @override
+  String? get restorationId => 'home_page';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    _logger.i('🔄 HomePage restoreState 被调用', extra: {
+      'initialRestore': initialRestore,
+      'hasOldBucket': oldBucket != null,
+    });
+
+    registerForRestoration(_currentIndex, 'current_tab_index');
+
+    // 🔧 新增：监听 _currentIndex 变化以便调试
+    _currentIndex.addListener(() {
+      _logger.i('🔄 Tab 索引发生变化', extra: {
+        'newIndex': _currentIndex.value,
+      });
+    });
+
+    _logger.i('🔄 当前恢复的 Tab 索引', extra: {
+      'currentIndex': _currentIndex.value,
+    });
+
+    // 延迟同步 TabController 和动画状态，确保在组件完全初始化后执行
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncTabState();
+      }
+    });
+  }
+
+  // 🔧 新增：同步 Tab 状态的方法
+  void _syncTabState() {
+    _logger.i('🔄 同步 Tab 状态', extra: {
+      'targetIndex': _currentIndex.value,
+      'currentTabIndex': _tabController.index,
+    });
+
+    // 同步 TabController
+    if (_tabController.index != _currentIndex.value) {
+      _tabController.index = _currentIndex.value;
+    }
+
+    // 同步动画状态
+    for (int i = 0; i < _iconStateControllers.length; i++) {
+      if (i == _currentIndex.value) {
+        if (!_iconStateControllers[i].isCompleted) {
+          _iconStateControllers[i].forward();
+        }
+      } else {
+        if (_iconStateControllers[i].isCompleted) {
+          _iconStateControllers[i].reverse();
+        }
+      }
+    }
+
+    _logger.i('✅ Tab 状态同步完成');
+  }
+
   Future<void> _init() async {
     await _initCubit();
   }
 
+  // 🔧 新增：处理应用生命周期状态变化
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    _logger.i('HomePage 应用生命周期状态变化', extra: {
+      'state': state.toString(),
+      'isInitialized': _isInitialized,
+    });
+
+    // 当应用从后台恢复时，检查状态是否需要重新初始化
+    if (state == AppLifecycleState.resumed && !_isInitialized) {
+      _logger.w('应用从后台恢复，但状态未初始化，重新初始化');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _init();
+        }
+      });
+    }
+  }
+
   Future<void> _initCubit() async {
-    if (_homeCubit != null) return;
+    if (_homeCubit != null) {
+      _logger.d('HomeCubit 已存在，跳过初始化');
+      return;
+    }
 
     final currentUser = await _secureStorage.readUserCredentials();
 
@@ -169,10 +267,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _logger.i('登录成功，开始自动同步联系人');
       _contactCubit?.syncContacts();
-      
+
       // 设置初始网络重连同步权限（默认ChatsPage可见）
-      _updateNetworkReconnectSyncPermissions(_currentIndex);
+      _updateNetworkReconnectSyncPermissions(_currentIndex.value);
     });
+
+    // 🔧 新增：标记初始化完成
+    _isInitialized = true;
+    _logger.i('HomePage 初始化完成');
 
     if (mounted) {
       setState(() {});
@@ -181,6 +283,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    // 🔧 新增：移除应用生命周期监听
+    WidgetsBinding.instance.removeObserver(this);
+
     _tabController.dispose();
     // 销毁动画控制器
     for (var controller in _iconAnimationControllers) {
@@ -205,9 +310,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // 切换Tab时的动画处理
   void _onTabTapped(int index) {
-    if (_currentIndex != index) {
+    if (_currentIndex.value != index) {
       // 重置之前选中的状态动画
-      _iconStateControllers[_currentIndex].reverse();
+      _iconStateControllers[_currentIndex.value].reverse();
 
       // 启动新选中的状态动画
       _iconStateControllers[index].forward();
@@ -218,7 +323,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
 
       setState(() {
-        _currentIndex = index;
+        _currentIndex.value = index;
       });
       _tabController.animateTo(index);
 
@@ -251,7 +356,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     // 设置ChatsCubit的网络重连同步权限
     _chatsCubit?.setNetworkReconnectSyncEnabled(isChatsTabActive);
-    
+
     // 设置ContactCubit的网络重连同步权限
     _contactCubit?.setNetworkReconnectSyncEnabled(isContactsTabActive);
 
@@ -259,6 +364,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       'chatsCanSync': isChatsTabActive,
       'contactsCanSync': isContactsTabActive,
     });
+  }
+
+  // 🔧 新增：处理返回键，将应用切换到后台而不是关闭
+  Future<bool> _onWillPop() async {
+    _logger.i('用户在主页面按下返回键，将应用切换到后台');
+
+    try {
+      // 🔧 修复：使用 MethodChannel 调用 Android 的 moveTaskToBack 而不是 SystemNavigator.pop
+      // SystemNavigator.pop() 会终止应用进程，而 moveTaskToBack 只是将应用移到后台
+      const platform = MethodChannel('app.channel.shared.data');
+      await platform.invokeMethod('moveToBackground');
+      return false; // 阻止默认的关闭行为
+    } catch (e) {
+      _logger.e('切换应用到后台失败，使用默认行为', error: e);
+      // 如果切换到后台失败，允许默认行为（关闭应用）
+      return true;
+    }
   }
 
   // 创建动画图标
@@ -290,11 +412,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final localizations = AppLocalizations.of(context);
 
     // 如果HomeCubit还未初始化，显示加载指示器
-    if (_homeCubit == null ||
-        _chatsCubit == null ||
-        _contactCubit == null ||
-        _chatsRepository == null ||
-        _chatRepositorySend == null) {
+    if (_homeCubit == null || _chatsCubit == null || _contactCubit == null || _chatsRepository == null || _chatRepositorySend == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -307,8 +425,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         // Repository providers - 全局共享
         RepositoryProvider<ChatRepository>.value(value: _chatRepository!),
         RepositoryProvider<ChatsRepository>.value(value: _chatsRepository!),
-        RepositoryProvider<ChatRepositorySend>.value(
-            value: _chatRepositorySend!),
+        RepositoryProvider<ChatRepositorySend>.value(value: _chatRepositorySend!),
 
         // CurrentUser provider - 提供当前用户信息
         RepositoryProvider<CurrentUser>.value(value: _currentUser!),
@@ -318,41 +435,50 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         BlocProvider<ChatsCubit>.value(value: _chatsCubit!),
         BlocProvider<ContactCubit>.value(value: _contactCubit!),
       ],
-      child: Scaffold(
-        body: PageStorage(
-          bucket: PageStorageBucket(),
-          child: RepaintBoundary(
-            child: TabBarView(
-              controller: _tabController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: const [
-                ChatsPage(key: PageStorageKey('chats_page')),
-                ContactsPage(key: PageStorageKey('contacts_page')),
-                ProfilePage(key: PageStorageKey('profile_page')),
-              ],
+      // 🔧 新增：使用 PopScope 处理返回键
+      child: PopScope(
+        canPop: false, // 阻止默认的返回行为
+        onPopInvokedWithResult: (didPop, result) async {
+          if (!didPop) {
+            await _onWillPop();
+          }
+        },
+        child: Scaffold(
+          body: PageStorage(
+            bucket: PageStorageBucket(),
+            child: RepaintBoundary(
+              child: TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: const [
+                  ChatsPage(key: PageStorageKey('chats_page')),
+                  ContactsPage(key: PageStorageKey('contacts_page')),
+                  ProfilePage(key: PageStorageKey('profile_page')),
+                ],
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          selectedItemColor: Colors.green,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          onTap: _onTabTapped,
-          items: [
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(0, Icons.chat),
-              label: localizations.chats,
-            ),
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(1, Icons.contacts),
-              label: localizations.contacts,
-            ),
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(2, Icons.person),
-              label: localizations.profile,
-            ),
-          ],
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _currentIndex.value,
+            selectedItemColor: Colors.green,
+            unselectedItemColor: Colors.grey,
+            type: BottomNavigationBarType.fixed,
+            onTap: _onTabTapped,
+            items: [
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(0, Icons.chat),
+                label: localizations.chats,
+              ),
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(1, Icons.contacts),
+                label: localizations.contacts,
+              ),
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(2, Icons.person),
+                label: localizations.profile,
+              ),
+            ],
+          ),
         ),
       ),
     );

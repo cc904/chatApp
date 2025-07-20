@@ -6,10 +6,9 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
 
-import 'package:cc/core/services/auth_token_sync_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/utils/api_error_handler.dart';
-import 'package:cc/core/services/version_update_service.dart';
+import 'package:cc/core/services/upload_api_service.dart';
 
 part 'auth_state.dart';
 
@@ -37,7 +36,7 @@ class AuthCubit extends Cubit<AuthState> {
       await _authRepository.init();
       await loginWithToken();
     } catch (error) {
-      _logger.e('初始化认证服务失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('token登录失败', error: error, stackTrace: StackTrace.current);
       emit(state.toErrorState(error.toString()));
     }
   }
@@ -133,8 +132,10 @@ class AuthCubit extends Cubit<AuthState> {
               ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
               : DateTime.now();
 
-        // 🔑 自动同步Token到所有需要认证的服务
-        await AuthTokenSyncService.instance.syncTokenToAllServices();
+        // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
+
+        // 初始化文件上传服务
+        await _initializeFileUploadService();
 
         emit(state.toAuthenticatedState(
           currentUser: currentUser,
@@ -224,8 +225,10 @@ class AuthCubit extends Cubit<AuthState> {
             ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
             : DateTime.now();
 
-      // 🔑 自动同步Token到所有需要认证的服务
-      await AuthTokenSyncService.instance.syncTokenToAllServices();
+      // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
+
+      // 初始化文件上传服务
+      await _initializeFileUploadService();
 
       emit(state.toAuthenticatedState(
         currentUser: currentUser,
@@ -296,8 +299,10 @@ class AuthCubit extends Cubit<AuthState> {
             ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
             : DateTime.now();
 
-      // 🔑 自动同步Token到所有需要认证的服务
-      await AuthTokenSyncService.instance.syncTokenToAllServices();
+      // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
+
+      // 初始化文件上传服务
+      await _initializeFileUploadService();
 
       emit(state.toAuthenticatedState(
         currentUser: currentUser,
@@ -320,8 +325,10 @@ class AuthCubit extends Cubit<AuthState> {
       // 调用仓库登出
       await _authRepository.logout();
 
-      // 清除所有服务的Token
-      AuthTokenSyncService.instance.clearTokenFromAllServices();
+      // 注意：Token清理现在由EnhancedTokenManager处理
+
+      // 注意：文件上传服务不再使用Token认证，无需清除Token
+      _logger.i('文件上传服务无需Token清除');
 
       emit(AuthState.initial());
       _logger.i('用户已登出');
@@ -384,5 +391,24 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> close() {
     _logger.x('关闭AuthCubit');
     return super.close();
+  }
+
+  /// 初始化文件上传服务
+  /// 在用户成功登录后调用，配置文件上传服务使用新的ServerConfig
+  /// 注意：文件上传和下载都无需Token认证，文件服务器是独立的无认证服务
+  Future<void> _initializeFileUploadService() async {
+    try {
+      _logger.i('🔄 初始化文件上传服务');
+      
+      // 触发UploadApiService重新初始化以使用新的ServerConfig
+      await UploadApiService().onServerConfigChanged();
+      _logger.i('✅ UploadApiService已重新初始化（无需Token认证）');
+      
+      // 注意：FileUploadService不再需要Token认证，文件服务器是独立的无认证服务
+      _logger.i('✅ 文件上传服务无需Token认证配置');
+    } catch (error) {
+      _logger.e('初始化文件上传服务失败', error: error, stackTrace: StackTrace.current);
+      // 不抛出异常，避免影响登录流程
+    }
   }
 }

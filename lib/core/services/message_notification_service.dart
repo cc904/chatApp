@@ -160,7 +160,7 @@ class MessageNotificationService {
         
         _logger.i('Android通知权限请求结果', extra: {
           'granted': granted,
-          'platform': Platform.operatingSystemVersion,
+          'platform': _getStandardizedPlatformName(),
         });
         
         return granted ?? true; // 旧版本默认有权限
@@ -183,7 +183,7 @@ class MessageNotificationService {
         
         _logger.i('iOS通知权限请求结果', extra: {
           'granted': granted,
-          'platform': Platform.operatingSystemVersion,
+          'platform': _getStandardizedPlatformName(),
         });
         
         return granted ?? false;
@@ -206,7 +206,7 @@ class MessageNotificationService {
         
         _logger.i('macOS通知权限请求结果', extra: {
           'granted': granted,
-          'platform': Platform.operatingSystemVersion,
+          'platform': _getStandardizedPlatformName(),
         });
         
         return granted ?? false;
@@ -606,14 +606,14 @@ class MessageNotificationService {
         _logger.d('Android通知权限检查', extra: {
           'enabled': enabled,
           'storedPermission': _hasPermission,
-          'platform': Platform.operatingSystemVersion,
+          'platform': _getStandardizedPlatformName(),
         });
         
         return enabled ?? false;
         
       } else if (Platform.isIOS) {
         _logger.d('iOS平台权限检查', extra: {
-          'platform': Platform.operatingSystem,
+          'platform': _getStandardizedPlatformName(),
           'storedPermission': _hasPermission,
         });
         
@@ -622,7 +622,7 @@ class MessageNotificationService {
         
       } else if (Platform.isMacOS) {
         _logger.d('macOS平台权限检查', extra: {
-          'platform': Platform.operatingSystem,
+          'platform': _getStandardizedPlatformName(),
           'storedPermission': _hasPermission,
         });
         
@@ -645,7 +645,7 @@ class MessageNotificationService {
       }
       
       _logger.d('其他平台权限检查', extra: {
-        'platform': Platform.operatingSystem,
+        'platform': _getStandardizedPlatformName(),
         'storedPermission': _hasPermission,
       });
       
@@ -701,6 +701,16 @@ class MessageNotificationService {
       _logger.d('设置应用角标（iOS）', extra: {'count': count});
     }
     _logger.d('设置应用角标', extra: {'count': count});
+  }
+
+  /// 获取标准化的平台名称
+  String _getStandardizedPlatformName() {
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isIOS) return 'iOS';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    return 'Unknown';
   }
 
   /// 销毁服务

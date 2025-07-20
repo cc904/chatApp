@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:isar/isar.dart';
 import 'package:cc/core/database/database_initializer.dart';
@@ -347,6 +346,7 @@ class ChatRepositoryImpl implements ChatRepository {
             message.createdAt =
                 TimezoneUtils.fromServerTimestamp(response.createdAt.toInt());
           }
+
 
           await _messages.put(message);
         });
@@ -786,24 +786,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 删除媒体文件
-  /// 删除指定路径列表中的所有文件
-  /// [filePaths] - 文件路径列表
-  Future<void> _deleteMediaFiles(List<String> filePaths) async {
-    for (final filePath in filePaths) {
-      try {
-        final file = File(filePath);
-        if (await file.exists()) {
-          await file.delete();
-          _logger.d('已删除媒体文件', extra: {'path': filePath});
-        }
-      } catch (fileError) {
-        // 文件删除失败,但不要中断整个删除过程
-        _logger.w('删除媒体文件失败',
-            extra: {'path': filePath, 'error': fileError.toString()});
-      }
-    }
-  }
 
   /// 按日期范围获取消息
   /// 获取指定会话中特定日期范围内的消息
@@ -1687,7 +1669,7 @@ class ChatRepositoryImpl implements ChatRepository {
             message.status = MessageStatus.revoked;
             message.text = null; // 清空文本内容
             message.mediaUrl = null; // 清空媒体URL
-            message.thumbnailUrl = null; // 清空缩略图URL
+            // 缩略图URL现在是计算属性，无需手动清空
             message.updatedAt =
                 TimezoneUtils.fromServerTimestamp(response.revokedAt.toInt());
             await _messages.put(message);
@@ -2063,45 +2045,6 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  /// 💢💢💢 本地标记消息为已撤回状态
-  Future<void> _markMessageAsRevokedLocally(String messageId) async {
-    try {
-      // 💢💢💢 直接按messageId查找消息
-      final message =
-          await _messages.filter().messageIdEqualTo(messageId).findFirst();
-
-      if (message == null) {
-        _logger.w('要撤回的消息未找到', extra: {
-          'messageId': messageId,
-        });
-        return;
-      }
-
-      // 更新消息状态为已撤回
-      await _isar.writeTxn(() async {
-        message.status = MessageStatus.revoked;
-        message.updatedAt = DateTime.now();
-        await _messages.put(message);
-      });
-
-      // 通知UI更新
-      _notifyMessagesEvent(MessageUpdatedEvent(
-        conversationId: message.conversationId,
-        messageId: message.messageId,
-        updatedFields: {
-          'status': MessageStatus.revoked.name,
-          'updatedAt': DateTime.now().toIso8601String(),
-        },
-      ));
-
-      _logger.i('消息已标记为撤回', extra: {
-        'messageId': messageId,
-        'conversationId': message.conversationId,
-      });
-    } catch (error) {
-      _logger.e('标记消息撤回失败', error: error, stackTrace: StackTrace.current);
-    }
-  }
 
   /// 💢💢💢 新增：通知会话移除事件
   void _notifyConversationRemoved(String conversationId) {

@@ -230,12 +230,10 @@ class UserProto extends $pb.GeneratedMessage {
 class CurrentUserProto extends $pb.GeneratedMessage {
   factory CurrentUserProto({
     $core.String? userId,
-    $core.String? token,
     $core.String? name,
     $core.String? avatar,
     $core.String? phone,
     $core.String? email,
-    $fixnum.Int64? tokenExpireTime,
     $fixnum.Int64? lastLoginTime,
     $core.String? status,
     $core.bool? hasSetPassword,
@@ -243,9 +241,6 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     final $result = create();
     if (userId != null) {
       $result.userId = userId;
-    }
-    if (token != null) {
-      $result.token = token;
     }
     if (name != null) {
       $result.name = name;
@@ -258,9 +253,6 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     }
     if (email != null) {
       $result.email = email;
-    }
-    if (tokenExpireTime != null) {
-      $result.tokenExpireTime = tokenExpireTime;
     }
     if (lastLoginTime != null) {
       $result.lastLoginTime = lastLoginTime;
@@ -279,15 +271,13 @@ class CurrentUserProto extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CurrentUserProto', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOS(2, _omitFieldNames ? '' : 'token')
-    ..aOS(3, _omitFieldNames ? '' : 'name')
-    ..aOS(4, _omitFieldNames ? '' : 'avatar')
-    ..aOS(5, _omitFieldNames ? '' : 'phone')
-    ..aOS(6, _omitFieldNames ? '' : 'email')
-    ..aInt64(7, _omitFieldNames ? '' : 'tokenExpireTime')
-    ..aInt64(8, _omitFieldNames ? '' : 'lastLoginTime')
-    ..aOS(9, _omitFieldNames ? '' : 'status')
-    ..aOB(10, _omitFieldNames ? '' : 'hasSetPassword')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'avatar')
+    ..aOS(4, _omitFieldNames ? '' : 'phone')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..aInt64(6, _omitFieldNames ? '' : 'lastLoginTime')
+    ..aOS(7, _omitFieldNames ? '' : 'status')
+    ..aOB(8, _omitFieldNames ? '' : 'hasSetPassword')
     ..hasRequiredFields = false
   ;
 
@@ -322,95 +312,75 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
-  /// 认证令牌
-  @$pb.TagNumber(2)
-  $core.String get token => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set token($core.String v) { $_setString(1, v); }
-  @$pb.TagNumber(2)
-  $core.bool hasToken() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearToken() => $_clearField(2);
-
   /// 用户名称
-  @$pb.TagNumber(3)
-  $core.String get name => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set name($core.String v) { $_setString(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasName() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearName() => $_clearField(3);
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
 
   /// 头像URL
-  @$pb.TagNumber(4)
-  $core.String get avatar => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set avatar($core.String v) { $_setString(3, v); }
-  @$pb.TagNumber(4)
-  $core.bool hasAvatar() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearAvatar() => $_clearField(4);
+  @$pb.TagNumber(3)
+  $core.String get avatar => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set avatar($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasAvatar() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAvatar() => $_clearField(3);
 
   /// 手机号
-  @$pb.TagNumber(5)
-  $core.String get phone => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set phone($core.String v) { $_setString(4, v); }
-  @$pb.TagNumber(5)
-  $core.bool hasPhone() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearPhone() => $_clearField(5);
+  @$pb.TagNumber(4)
+  $core.String get phone => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set phone($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasPhone() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPhone() => $_clearField(4);
 
   /// 电子邮箱
-  @$pb.TagNumber(6)
-  $core.String get email => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set email($core.String v) { $_setString(5, v); }
-  @$pb.TagNumber(6)
-  $core.bool hasEmail() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearEmail() => $_clearField(6);
-
-  /// 令牌过期时间
-  @$pb.TagNumber(7)
-  $fixnum.Int64 get tokenExpireTime => $_getI64(6);
-  @$pb.TagNumber(7)
-  set tokenExpireTime($fixnum.Int64 v) { $_setInt64(6, v); }
-  @$pb.TagNumber(7)
-  $core.bool hasTokenExpireTime() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearTokenExpireTime() => $_clearField(7);
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
 
   /// 最后登录时间
-  @$pb.TagNumber(8)
-  $fixnum.Int64 get lastLoginTime => $_getI64(7);
-  @$pb.TagNumber(8)
-  set lastLoginTime($fixnum.Int64 v) { $_setInt64(7, v); }
-  @$pb.TagNumber(8)
-  $core.bool hasLastLoginTime() => $_has(7);
-  @$pb.TagNumber(8)
-  void clearLastLoginTime() => $_clearField(8);
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get lastLoginTime => $_getI64(5);
+  @$pb.TagNumber(6)
+  set lastLoginTime($fixnum.Int64 v) { $_setInt64(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasLastLoginTime() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearLastLoginTime() => $_clearField(6);
 
   /// 状态
-  @$pb.TagNumber(9)
-  $core.String get status => $_getSZ(8);
-  @$pb.TagNumber(9)
-  set status($core.String v) { $_setString(8, v); }
-  @$pb.TagNumber(9)
-  $core.bool hasStatus() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearStatus() => $_clearField(9);
+  @$pb.TagNumber(7)
+  $core.String get status => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set status($core.String v) { $_setString(6, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasStatus() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStatus() => $_clearField(7);
 
   /// 是否已设置密码
-  @$pb.TagNumber(10)
-  $core.bool get hasSetPassword => $_getBF(9);
-  @$pb.TagNumber(10)
-  set hasSetPassword($core.bool v) { $_setBool(9, v); }
-  @$pb.TagNumber(10)
-  $core.bool hasHasSetPassword() => $_has(9);
-  @$pb.TagNumber(10)
-  void clearHasSetPassword() => $_clearField(10);
+  @$pb.TagNumber(8)
+  $core.bool get hasSetPassword => $_getBF(7);
+  @$pb.TagNumber(8)
+  set hasSetPassword($core.bool v) { $_setBool(7, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasHasSetPassword() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearHasSetPassword() => $_clearField(8);
 }
 
 /// 设置当前用户信息请求

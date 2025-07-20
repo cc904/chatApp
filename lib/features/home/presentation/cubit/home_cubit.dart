@@ -35,7 +35,9 @@ class HomeCubit extends Cubit<HomeState> {
   Future<bool> initUserSession() async {
     try {
       _logger.i('开始初始化用户会话');
-      emit(state.toInitializingState());
+      if (!isClosed) {
+        emit(state.toInitializingState());
+      }
 
       // 初始化网络状态监听
       await _initNetworkMonitoring();
@@ -44,17 +46,23 @@ class HomeCubit extends Cubit<HomeState> {
       final homeRepositoryInitialized = await _homeRepository.initUserSession();
       if (!homeRepositoryInitialized) {
         _logger.e('HomeRepository初始化失败');
-        emit(state.toErrorState('HomeRepository初始化失败'));
+        if (!isClosed) {
+          emit(state.toErrorState('HomeRepository初始化失败'));
+        }
         return false;
       }
 
       // 更新状态为已初始化
-      emit(state.toInitializedState(currentUser: _currentUser));
+      if (!isClosed) {
+        emit(state.toInitializedState(currentUser: _currentUser));
+      }
       _logger.i('用户会话初始化完成');
       return true;
     } catch (error) {
       _logger.e('初始化用户会话失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState(error.toString()));
+      if (!isClosed) {
+        emit(state.toErrorState(error.toString()));
+      }
       return false;
     }
   }
@@ -81,6 +89,8 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 更新网络状态
   void _updateNetworkStatus(ConnectivityResult result) {
+    if (isClosed) return;
+    
     NetworkStatus networkStatus;
     bool isConnected = false;
     String? errorMessage;
@@ -104,13 +114,15 @@ class HomeCubit extends Cubit<HomeState> {
         errorMessage = '网络连接异常';
     }
 
-    emit(state.copyWith(
-      isConnected: isConnected,
-      networkStatus: networkStatus,
-      lastConnectionTime:
-          isConnected ? DateTime.now() : state.lastConnectionTime,
-      connectionErrorMessage: errorMessage,
-    ));
+    if (!isClosed) {
+      emit(state.copyWith(
+        isConnected: isConnected,
+        networkStatus: networkStatus,
+        lastConnectionTime:
+            isConnected ? DateTime.now() : state.lastConnectionTime,
+        connectionErrorMessage: errorMessage,
+      ));
+    }
   }
 
   /// 检查网络连接
@@ -119,9 +131,11 @@ class HomeCubit extends Cubit<HomeState> {
 
     try {
       // 先更新为连接中状态
-      emit(state.copyWith(
-        networkStatus: NetworkStatus.connecting,
-      ));
+      if (!isClosed) {
+        emit(state.copyWith(
+          networkStatus: NetworkStatus.connecting,
+        ));
+      }
 
       // 检查当前网络状态
       final connectivityResult = await _connectivity.checkConnectivity();
@@ -129,11 +143,13 @@ class HomeCubit extends Cubit<HomeState> {
 
     } catch (error) {
       _logger.e('检查网络连接失败', error: error);
-      emit(state.copyWith(
-        networkStatus: NetworkStatus.error,
-        isConnected: false,
-        connectionErrorMessage: '检查网络连接失败: ${error.toString()}',
-      ));
+      if (!isClosed) {
+        emit(state.copyWith(
+          networkStatus: NetworkStatus.error,
+          isConnected: false,
+          connectionErrorMessage: '检查网络连接失败: ${error.toString()}',
+        ));
+      }
     }
   }
 
@@ -165,7 +181,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   /// 设置当前Tab索引
   void setCurrentTabIndex(int index) {
-    if (index != state.currentTabIndex) {
+    if (index != state.currentTabIndex && !isClosed) {
       _logger.d('HomeCubit: 切换Tab索引', extra: {
         'from': state.currentTabIndex,
         'to': index,

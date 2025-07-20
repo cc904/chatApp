@@ -194,7 +194,7 @@ const MediaMessage$json = {
     {'1': 'duration', '3': 3, '4': 1, '5': 5, '10': 'duration'},
     {'1': 'file_size', '3': 4, '4': 1, '5': 1, '10': 'fileSize'},
     {'1': 'file_name', '3': 5, '4': 1, '5': 9, '10': 'fileName'},
-    {'1': 'thumbnail_url', '3': 6, '4': 1, '5': 9, '10': 'thumbnailUrl'},
+    {'1': 'fs_id', '3': 6, '4': 1, '5': 9, '10': 'fsId'},
     {'1': 'mime_type', '3': 7, '4': 1, '5': 9, '10': 'mimeType'},
     {'1': 'width', '3': 8, '4': 1, '5': 5, '10': 'width'},
     {'1': 'height', '3': 9, '4': 1, '5': 5, '10': 'height'},
@@ -206,10 +206,10 @@ const MediaMessage$json = {
 final $typed_data.Uint8List mediaMessageDescriptor = $convert.base64Decode(
     'CgxNZWRpYU1lc3NhZ2USGwoJbWVkaWFfdXJsGAEgASgJUghtZWRpYVVybBIdCgpsb2NhbF9wYX'
     'RoGAIgASgJUglsb2NhbFBhdGgSGgoIZHVyYXRpb24YAyABKAVSCGR1cmF0aW9uEhsKCWZpbGVf'
-    'c2l6ZRgEIAEoAVIIZmlsZVNpemUSGwoJZmlsZV9uYW1lGAUgASgJUghmaWxlTmFtZRIjCg10aH'
-    'VtYm5haWxfdXJsGAYgASgJUgx0aHVtYm5haWxVcmwSGwoJbWltZV90eXBlGAcgASgJUghtaW1l'
-    'VHlwZRIUCgV3aWR0aBgIIAEoBVIFd2lkdGgSFgoGaGVpZ2h0GAkgASgFUgZoZWlnaHQSGAoHY2'
-    'FwdGlvbhgKIAEoCVIHY2FwdGlvbg==');
+    'c2l6ZRgEIAEoAVIIZmlsZVNpemUSGwoJZmlsZV9uYW1lGAUgASgJUghmaWxlTmFtZRITCgVmc1'
+    '9pZBgGIAEoCVIEZnNJZBIbCgltaW1lX3R5cGUYByABKAlSCG1pbWVUeXBlEhQKBXdpZHRoGAgg'
+    'ASgFUgV3aWR0aBIWCgZoZWlnaHQYCSABKAVSBmhlaWdodBIYCgdjYXB0aW9uGAogASgJUgdjYX'
+    'B0aW9u');
 
 @$core.Deprecated('Use systemMessageDescriptor instead')
 const SystemMessage$json = {

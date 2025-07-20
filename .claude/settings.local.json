@@ -15,7 +15,22 @@
       "Bash(true)",
       "Bash(xmllint:*)",
       "Bash(rm:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(dart:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3:*)",
+      "Bash(pod install:*)",
+      "Bash(open:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(security list-keychains:*)",
+      "Bash(security show-keychain-info:*)",
+      "Bash(security set-key-partition-list:*)",
+      "Bash(security verify-cert:*)",
+      "Bash(security unlock-keychain:*)",
+      "Bash(security delete-generic-password:*)",
+      "Bash(sed:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

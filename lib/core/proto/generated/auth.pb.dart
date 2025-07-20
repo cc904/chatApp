@@ -369,8 +369,7 @@ class LoginResponse extends $pb.GeneratedMessage {
     $core.bool? success,
     $core.String? errorMessage,
     UserInfo? user,
-    $core.String? token,
-    $fixnum.Int64? tokenExpiresAt,
+    TokenPair? tokens,
   }) {
     final $result = create();
     if (success != null) {
@@ -382,11 +381,8 @@ class LoginResponse extends $pb.GeneratedMessage {
     if (user != null) {
       $result.user = user;
     }
-    if (token != null) {
-      $result.token = token;
-    }
-    if (tokenExpiresAt != null) {
-      $result.tokenExpiresAt = tokenExpiresAt;
+    if (tokens != null) {
+      $result.tokens = tokens;
     }
     return $result;
   }
@@ -398,8 +394,7 @@ class LoginResponse extends $pb.GeneratedMessage {
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
     ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
-    ..aOS(4, _omitFieldNames ? '' : 'token')
-    ..aInt64(5, _omitFieldNames ? '' : 'tokenExpiresAt')
+    ..aOM<TokenPair>(4, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
     ..hasRequiredFields = false
   ;
 
@@ -458,26 +453,18 @@ class LoginResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   UserInfo ensureUser() => $_ensure(2);
 
-  /// 认证令牌
-  /// 用于后续请求的身份验证
+  /// Token信息
+  /// 包含Refresh Token和Socket Token
   @$pb.TagNumber(4)
-  $core.String get token => $_getSZ(3);
+  TokenPair get tokens => $_getN(3);
   @$pb.TagNumber(4)
-  set token($core.String v) { $_setString(3, v); }
+  set tokens(TokenPair v) { $_setField(4, v); }
   @$pb.TagNumber(4)
-  $core.bool hasToken() => $_has(3);
+  $core.bool hasTokens() => $_has(3);
   @$pb.TagNumber(4)
-  void clearToken() => $_clearField(4);
-
-  /// 令牌过期时间（毫秒时间戳）
-  @$pb.TagNumber(5)
-  $fixnum.Int64 get tokenExpiresAt => $_getI64(4);
-  @$pb.TagNumber(5)
-  set tokenExpiresAt($fixnum.Int64 v) { $_setInt64(4, v); }
-  @$pb.TagNumber(5)
-  $core.bool hasTokenExpiresAt() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearTokenExpiresAt() => $_clearField(5);
+  void clearTokens() => $_clearField(4);
+  @$pb.TagNumber(4)
+  TokenPair ensureTokens() => $_ensure(3);
 }
 
 /// 注册请求消息
@@ -607,8 +594,7 @@ class RegisterResponse extends $pb.GeneratedMessage {
     $core.bool? success,
     $core.String? errorMessage,
     UserInfo? user,
-    $core.String? token,
-    $fixnum.Int64? tokenExpiresAt,
+    TokenPair? tokens,
   }) {
     final $result = create();
     if (success != null) {
@@ -620,11 +606,8 @@ class RegisterResponse extends $pb.GeneratedMessage {
     if (user != null) {
       $result.user = user;
     }
-    if (token != null) {
-      $result.token = token;
-    }
-    if (tokenExpiresAt != null) {
-      $result.tokenExpiresAt = tokenExpiresAt;
+    if (tokens != null) {
+      $result.tokens = tokens;
     }
     return $result;
   }
@@ -636,8 +619,7 @@ class RegisterResponse extends $pb.GeneratedMessage {
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
     ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
-    ..aOS(4, _omitFieldNames ? '' : 'token')
-    ..aInt64(5, _omitFieldNames ? '' : 'tokenExpiresAt')
+    ..aOM<TokenPair>(4, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
     ..hasRequiredFields = false
   ;
 
@@ -696,26 +678,18 @@ class RegisterResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   UserInfo ensureUser() => $_ensure(2);
 
-  /// 认证令牌
-  /// 用于后续请求的身份验证
+  /// Token信息
+  /// 包含Refresh Token和Socket Token
   @$pb.TagNumber(4)
-  $core.String get token => $_getSZ(3);
+  TokenPair get tokens => $_getN(3);
   @$pb.TagNumber(4)
-  set token($core.String v) { $_setString(3, v); }
+  set tokens(TokenPair v) { $_setField(4, v); }
   @$pb.TagNumber(4)
-  $core.bool hasToken() => $_has(3);
+  $core.bool hasTokens() => $_has(3);
   @$pb.TagNumber(4)
-  void clearToken() => $_clearField(4);
-
-  /// 令牌过期时间（毫秒时间戳）
-  @$pb.TagNumber(5)
-  $fixnum.Int64 get tokenExpiresAt => $_getI64(4);
-  @$pb.TagNumber(5)
-  set tokenExpiresAt($fixnum.Int64 v) { $_setInt64(4, v); }
-  @$pb.TagNumber(5)
-  $core.bool hasTokenExpiresAt() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearTokenExpiresAt() => $_clearField(5);
+  void clearTokens() => $_clearField(4);
+  @$pb.TagNumber(4)
+  TokenPair ensureTokens() => $_ensure(3);
 }
 
 /// 密码重置请求
@@ -1401,26 +1375,320 @@ class UserInfo extends $pb.GeneratedMessage {
   void clearLastLoginAt() => $_clearField(7);
 }
 
+/// Token对消息
+/// 包含Refresh Token和Socket Token的完整信息
+class TokenPair extends $pb.GeneratedMessage {
+  factory TokenPair({
+    $core.String? refreshToken,
+    $fixnum.Int64? refreshTokenExpiresAt,
+    $core.String? socketToken,
+    $fixnum.Int64? socketTokenExpiresAt,
+  }) {
+    final $result = create();
+    if (refreshToken != null) {
+      $result.refreshToken = refreshToken;
+    }
+    if (refreshTokenExpiresAt != null) {
+      $result.refreshTokenExpiresAt = refreshTokenExpiresAt;
+    }
+    if (socketToken != null) {
+      $result.socketToken = socketToken;
+    }
+    if (socketTokenExpiresAt != null) {
+      $result.socketTokenExpiresAt = socketTokenExpiresAt;
+    }
+    return $result;
+  }
+  TokenPair._() : super();
+  factory TokenPair.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory TokenPair.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TokenPair', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'refreshToken')
+    ..aInt64(2, _omitFieldNames ? '' : 'refreshTokenExpiresAt')
+    ..aOS(3, _omitFieldNames ? '' : 'socketToken')
+    ..aInt64(4, _omitFieldNames ? '' : 'socketTokenExpiresAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  TokenPair clone() => TokenPair()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  TokenPair copyWith(void Function(TokenPair) updates) => super.copyWith((message) => updates(message as TokenPair)) as TokenPair;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TokenPair create() => TokenPair._();
+  TokenPair createEmptyInstance() => create();
+  static $pb.PbList<TokenPair> createRepeated() => $pb.PbList<TokenPair>();
+  @$core.pragma('dart2js:noInline')
+  static TokenPair getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TokenPair>(create);
+  static TokenPair? _defaultInstance;
+
+  /// Refresh Token
+  /// 用于刷新Socket Token，有效期30天
+  @$pb.TagNumber(1)
+  $core.String get refreshToken => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set refreshToken($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasRefreshToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRefreshToken() => $_clearField(1);
+
+  /// Refresh Token过期时间（毫秒时间戳）
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get refreshTokenExpiresAt => $_getI64(1);
+  @$pb.TagNumber(2)
+  set refreshTokenExpiresAt($fixnum.Int64 v) { $_setInt64(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasRefreshTokenExpiresAt() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRefreshTokenExpiresAt() => $_clearField(2);
+
+  /// Socket Token
+  /// 用于Socket.IO连接和所有需要认证的业务操作，有效期7天
+  @$pb.TagNumber(3)
+  $core.String get socketToken => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set socketToken($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasSocketToken() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSocketToken() => $_clearField(3);
+
+  /// Socket Token过期时间（毫秒时间戳）
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get socketTokenExpiresAt => $_getI64(3);
+  @$pb.TagNumber(4)
+  set socketTokenExpiresAt($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasSocketTokenExpiresAt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSocketTokenExpiresAt() => $_clearField(4);
+}
+
+/// Socket Token刷新请求消息
+/// 客户端通过Socket.io发送刷新请求时使用
+class RefreshSocketTokenRequest extends $pb.GeneratedMessage {
+  factory RefreshSocketTokenRequest({
+    $core.String? refreshToken,
+    $fixnum.Int64? timestamp,
+    DeviceInfo? device,
+  }) {
+    final $result = create();
+    if (refreshToken != null) {
+      $result.refreshToken = refreshToken;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    if (device != null) {
+      $result.device = device;
+    }
+    return $result;
+  }
+  RefreshSocketTokenRequest._() : super();
+  factory RefreshSocketTokenRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory RefreshSocketTokenRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RefreshSocketTokenRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'refreshToken')
+    ..aInt64(2, _omitFieldNames ? '' : 'timestamp')
+    ..aOM<DeviceInfo>(3, _omitFieldNames ? '' : 'device', subBuilder: DeviceInfo.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  RefreshSocketTokenRequest clone() => RefreshSocketTokenRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  RefreshSocketTokenRequest copyWith(void Function(RefreshSocketTokenRequest) updates) => super.copyWith((message) => updates(message as RefreshSocketTokenRequest)) as RefreshSocketTokenRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RefreshSocketTokenRequest create() => RefreshSocketTokenRequest._();
+  RefreshSocketTokenRequest createEmptyInstance() => create();
+  static $pb.PbList<RefreshSocketTokenRequest> createRepeated() => $pb.PbList<RefreshSocketTokenRequest>();
+  @$core.pragma('dart2js:noInline')
+  static RefreshSocketTokenRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RefreshSocketTokenRequest>(create);
+  static RefreshSocketTokenRequest? _defaultInstance;
+
+  /// Refresh Token
+  /// 用于验证身份并获取新的Socket Token
+  @$pb.TagNumber(1)
+  $core.String get refreshToken => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set refreshToken($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasRefreshToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRefreshToken() => $_clearField(1);
+
+  /// 请求时间戳
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get timestamp => $_getI64(1);
+  @$pb.TagNumber(2)
+  set timestamp($fixnum.Int64 v) { $_setInt64(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasTimestamp() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTimestamp() => $_clearField(2);
+
+  /// 设备信息（可选）
+  /// 用于记录刷新操作的设备
+  @$pb.TagNumber(3)
+  DeviceInfo get device => $_getN(2);
+  @$pb.TagNumber(3)
+  set device(DeviceInfo v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasDevice() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDevice() => $_clearField(3);
+  @$pb.TagNumber(3)
+  DeviceInfo ensureDevice() => $_ensure(2);
+}
+
+/// Socket Token刷新响应消息
+/// 服务器通过Socket.io返回刷新结果
+class RefreshSocketTokenResponse extends $pb.GeneratedMessage {
+  factory RefreshSocketTokenResponse({
+    $core.bool? success,
+    $core.String? errorMessage,
+    TokenPair? tokens,
+    $fixnum.Int64? timestamp,
+  }) {
+    final $result = create();
+    if (success != null) {
+      $result.success = success;
+    }
+    if (errorMessage != null) {
+      $result.errorMessage = errorMessage;
+    }
+    if (tokens != null) {
+      $result.tokens = tokens;
+    }
+    if (timestamp != null) {
+      $result.timestamp = timestamp;
+    }
+    return $result;
+  }
+  RefreshSocketTokenResponse._() : super();
+  factory RefreshSocketTokenResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory RefreshSocketTokenResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RefreshSocketTokenResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
+    ..aOM<TokenPair>(3, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
+    ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  RefreshSocketTokenResponse clone() => RefreshSocketTokenResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  RefreshSocketTokenResponse copyWith(void Function(RefreshSocketTokenResponse) updates) => super.copyWith((message) => updates(message as RefreshSocketTokenResponse)) as RefreshSocketTokenResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RefreshSocketTokenResponse create() => RefreshSocketTokenResponse._();
+  RefreshSocketTokenResponse createEmptyInstance() => create();
+  static $pb.PbList<RefreshSocketTokenResponse> createRepeated() => $pb.PbList<RefreshSocketTokenResponse>();
+  @$core.pragma('dart2js:noInline')
+  static RefreshSocketTokenResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RefreshSocketTokenResponse>(create);
+  static RefreshSocketTokenResponse? _defaultInstance;
+
+  /// 刷新是否成功
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool v) { $_setBool(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  /// 错误信息
+  /// 当success为false时，说明具体的错误原因
+  @$pb.TagNumber(2)
+  $core.String get errorMessage => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set errorMessage($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasErrorMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearErrorMessage() => $_clearField(2);
+
+  /// 新的Token信息
+  /// 刷新成功时返回新的Token对
+  @$pb.TagNumber(3)
+  TokenPair get tokens => $_getN(2);
+  @$pb.TagNumber(3)
+  set tokens(TokenPair v) { $_setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTokens() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTokens() => $_clearField(3);
+  @$pb.TagNumber(3)
+  TokenPair ensureTokens() => $_ensure(2);
+
+  /// 响应时间戳
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get timestamp => $_getI64(3);
+  @$pb.TagNumber(4)
+  set timestamp($fixnum.Int64 v) { $_setInt64(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasTimestamp() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTimestamp() => $_clearField(4);
+}
+
 /// 用户会话信息
+/// 已更新为使用新的Token机制
 class UserSession extends $pb.GeneratedMessage {
   factory UserSession({
     $core.String? userId,
-    $core.String? token,
-    $fixnum.Int64? expireTime,
+    TokenPair? tokens,
     $core.String? phoneNumber,
+    $fixnum.Int64? createdAt,
+    $fixnum.Int64? lastActiveAt,
   }) {
     final $result = create();
     if (userId != null) {
       $result.userId = userId;
     }
-    if (token != null) {
-      $result.token = token;
-    }
-    if (expireTime != null) {
-      $result.expireTime = expireTime;
+    if (tokens != null) {
+      $result.tokens = tokens;
     }
     if (phoneNumber != null) {
       $result.phoneNumber = phoneNumber;
+    }
+    if (createdAt != null) {
+      $result.createdAt = createdAt;
+    }
+    if (lastActiveAt != null) {
+      $result.lastActiveAt = lastActiveAt;
     }
     return $result;
   }
@@ -1430,9 +1698,10 @@ class UserSession extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserSession', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOS(2, _omitFieldNames ? '' : 'token')
-    ..aInt64(3, _omitFieldNames ? '' : 'expireTime')
-    ..aOS(4, _omitFieldNames ? '' : 'phoneNumber')
+    ..aOM<TokenPair>(2, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
+    ..aOS(3, _omitFieldNames ? '' : 'phoneNumber')
+    ..aInt64(4, _omitFieldNames ? '' : 'createdAt')
+    ..aInt64(5, _omitFieldNames ? '' : 'lastActiveAt')
     ..hasRequiredFields = false
   ;
 
@@ -1467,35 +1736,48 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
-  /// 认证令牌
+  /// Token信息
+  /// 包含Refresh Token和Socket Token
   @$pb.TagNumber(2)
-  $core.String get token => $_getSZ(1);
+  TokenPair get tokens => $_getN(1);
   @$pb.TagNumber(2)
-  set token($core.String v) { $_setString(1, v); }
+  set tokens(TokenPair v) { $_setField(2, v); }
   @$pb.TagNumber(2)
-  $core.bool hasToken() => $_has(1);
+  $core.bool hasTokens() => $_has(1);
   @$pb.TagNumber(2)
-  void clearToken() => $_clearField(2);
-
-  /// 过期时间
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get expireTime => $_getI64(2);
-  @$pb.TagNumber(3)
-  set expireTime($fixnum.Int64 v) { $_setInt64(2, v); }
-  @$pb.TagNumber(3)
-  $core.bool hasExpireTime() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearExpireTime() => $_clearField(3);
+  void clearTokens() => $_clearField(2);
+  @$pb.TagNumber(2)
+  TokenPair ensureTokens() => $_ensure(1);
 
   /// 手机号
+  @$pb.TagNumber(3)
+  $core.String get phoneNumber => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phoneNumber($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasPhoneNumber() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhoneNumber() => $_clearField(3);
+
+  /// 会话创建时间
   @$pb.TagNumber(4)
-  $core.String get phoneNumber => $_getSZ(3);
+  $fixnum.Int64 get createdAt => $_getI64(3);
   @$pb.TagNumber(4)
-  set phoneNumber($core.String v) { $_setString(3, v); }
+  set createdAt($fixnum.Int64 v) { $_setInt64(3, v); }
   @$pb.TagNumber(4)
-  $core.bool hasPhoneNumber() => $_has(3);
+  $core.bool hasCreatedAt() => $_has(3);
   @$pb.TagNumber(4)
-  void clearPhoneNumber() => $_clearField(4);
+  void clearCreatedAt() => $_clearField(4);
+
+  /// 最后活跃时间
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get lastActiveAt => $_getI64(4);
+  @$pb.TagNumber(5)
+  set lastActiveAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasLastActiveAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLastActiveAt() => $_clearField(5);
 }
 
 

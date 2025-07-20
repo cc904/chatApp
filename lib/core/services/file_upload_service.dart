@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/upload_api_service.dart';
+import 'package:cc/core/services/dynamic_file_server_config.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
@@ -17,7 +18,7 @@ import 'package:cc/core/constants/app_colors.dart';
 class FileUploadService {
   final _logger = LogService.instance;
   final Uuid _uuid = const Uuid();
-  final _uploadApiService = UploadApiService();
+  final UploadApiService _uploadApiService = UploadApiService();
 
   // 单例模式
   static final FileUploadService _instance = FileUploadService._internal();
@@ -30,15 +31,18 @@ class FileUploadService {
     _ensureDirectories();
   }
 
-  /// 设置认证token
-  void setAuthToken(String token) {
-    _uploadApiService.setAuthToken(token);
+  /// 初始化上传API服务（在登录后调用）
+  /// 注意：由于UploadApiService是单例，此方法现在是可选的
+  void initialize() {
+    _logger.i('🔄 FileUploadService已使用UploadApiService单例');
   }
 
-  /// 清除认证token
-  void clearAuthToken() {
-    _uploadApiService.clearAuthToken();
+  /// 确保上传API服务已初始化
+  /// 注意：由于直接使用单例，无需检查初始化状态
+  void _ensureInitialized() {
+    // UploadApiService是单例，总是可用的
   }
+
 
   /// 确保所需目录存在
   Future<void> _ensureDirectories() async {
@@ -61,8 +65,8 @@ class FileUploadService {
   /// 上传图片
   /// 真实API实现
   Future<UploadResult?> uploadImage(
-    File imageFile, {
-    String? conversationId,
+    File imageFile,
+    String conversationId, {
     String? caption,
     Function(int)? onProgress,
   }) async {
@@ -72,9 +76,15 @@ class FileUploadService {
         'conversationId': conversationId,
       });
 
+      // 验证文件大小
+      _validateFileSize(imageFile, 'image');
+
       // 获取图片尺寸
       final dimensions = await _getImageDimensions(imageFile);
 
+      // 确保服务已初始化
+      _ensureInitialized();
+      
       // 调用真实API上传
       final apiResult = await _uploadApiService.uploadImage(
         imageFile,
@@ -91,9 +101,11 @@ class FileUploadService {
 
         return UploadResult(
           localPath: localResult?.localPath ?? imageFile.path,
-          remoteUrl: apiResult.url!,
+          remoteUrl: apiResult.url ?? '', // 新文件服务器可能不返回URL
           fileId: apiResult.fileId,
-          thumbnailUrl: apiResult.thumbnailUrl,
+          fileName: apiResult.fileName, // 新增：服务器生成的文件名
+          thumbnailUrl: null, // 缩略图由客户端构建
+          thumbnailFileName: apiResult.fileName, // 缩略图使用相同文件名
           metadata: apiResult.metadata != null
               ? {
                   'originalName': apiResult.metadata!.originalName,
@@ -129,10 +141,16 @@ class FileUploadService {
         'conversationId': conversationId,
       });
 
+      // 验证文件大小
+      _validateFileSize(voiceFile, 'voice');
+
+      // 确保服务已初始化
+      _ensureInitialized();
+      
       // 调用真实API上传
       final apiResult = await _uploadApiService.uploadVoice(
         voiceFile,
-        conversationId: conversationId,
+        conversationId: conversationId ?? '',
         duration: duration,
         onProgress: onProgress,
       );
@@ -143,8 +161,9 @@ class FileUploadService {
 
         return UploadResult(
           localPath: localResult?.localPath ?? voiceFile.path,
-          remoteUrl: apiResult.url!,
+          remoteUrl: apiResult.url ?? '', // 新的文件服务器不直接返回URL，使用空字符串
           fileId: apiResult.fileId,
+          fileName: apiResult.fileName, // 新增：服务器生成的文件名
           duration: duration,
           metadata: apiResult.metadata != null
               ? {
@@ -168,8 +187,8 @@ class FileUploadService {
   /// 上传文件
   /// 真实API实现
   Future<UploadResult?> uploadFile(
-    File file, {
-    String? conversationId,
+    File file,
+    String conversationId, {
     String? caption,
     Function(int)? onProgress,
   }) async {
@@ -179,6 +198,12 @@ class FileUploadService {
         'conversationId': conversationId,
       });
 
+      // 验证文件大小
+      _validateFileSize(file, 'file');
+
+      // 确保服务已初始化
+      _ensureInitialized();
+      
       // 调用真实API上传
       final apiResult = await _uploadApiService.uploadDocument(
         file,
@@ -193,9 +218,11 @@ class FileUploadService {
 
         return UploadResult(
           localPath: localResult?.localPath ?? file.path,
-          remoteUrl: apiResult.url!,
+          remoteUrl: apiResult.url ?? '', // 新文件服务器可能不返回URL
           fileId: apiResult.fileId,
-          thumbnailUrl: apiResult.thumbnailUrl,
+          fileName: apiResult.fileName, // 新增：服务器生成的文件名
+          thumbnailUrl: null, // 缩略图由客户端构建
+          thumbnailFileName: apiResult.fileName, // 缩略图使用相同文件名
           metadata: apiResult.metadata != null
               ? {
                   'originalName': apiResult.metadata!.originalName,
@@ -217,8 +244,8 @@ class FileUploadService {
   /// 上传视频
   /// 真实API实现，服务器端处理缩略图生成
   Future<UploadResult?> uploadVideo(
-    File videoFile, {
-    String? conversationId,
+    File videoFile,
+    String conversationId, {
     String? caption,
     Function(int)? onProgress,
   }) async {
@@ -228,9 +255,15 @@ class FileUploadService {
         'conversationId': conversationId,
       });
 
+      // 验证文件大小
+      _validateFileSize(videoFile, 'video');
+
       // 获取视频信息
       final videoInfo = await _getVideoInfo(videoFile);
 
+      // 确保服务已初始化
+      _ensureInitialized();
+      
       // 调用真实API上传视频
       final apiResult = await _uploadApiService.uploadVideo(
         videoFile,
@@ -248,10 +281,12 @@ class FileUploadService {
 
         return UploadResult(
           localPath: localResult?.localPath ?? videoFile.path,
-          remoteUrl: apiResult.url!,
+          remoteUrl: apiResult.url ?? '', // 新文件服务器可能不返回URL
           fileId: apiResult.fileId,
+          fileName: apiResult.fileName, // 新增：服务器生成的文件名
           thumbnailPath: null, // 服务器生成的缩略图不保存到本地
-          thumbnailUrl: apiResult.thumbnailUrl,
+          thumbnailUrl: null, // 缩略图由客户端构建
+          thumbnailFileName: apiResult.fileName, // 缩略图使用相同文件名
           serverProcessed: true, // 标记为服务器处理
           metadata: apiResult.metadata != null
               ? {
@@ -604,6 +639,78 @@ class FileUploadService {
     }
   }
 
+  /// 验证文件大小
+  void _validateFileSize(File file, String fileType) {
+    if (!file.existsSync()) {
+      throw Exception('文件不存在');
+    }
+
+    final fileSize = file.lengthSync();
+    final dynamicConfig = DynamicFileServerConfig();
+    final config = dynamicConfig.currentConfig;
+
+    if (config != null) {
+      if (!config.isFileSizeValidForType(fileSize, fileType)) {
+        final limits = config.limits;
+        String errorMessage;
+
+        switch (fileType.toLowerCase()) {
+          case 'image':
+          case 'images':
+            final maxSizeMB = (limits.imageMaxSize / 1024 / 1024).round();
+            errorMessage = '图片大小不能超过${maxSizeMB}MB';
+            break;
+          case 'voice':
+          case 'audio':
+            // 语音文件已通过时长限制，无需大小限制
+            return;
+          case 'video':
+          case 'videos':
+            final maxSizeMB = (limits.videoMaxSize / 1024 / 1024).round();
+            errorMessage = '视频文件大小不能超过${maxSizeMB}MB';
+            break;
+          case 'file':
+          case 'files':
+            final maxSizeMB = (limits.fileMaxSize / 1024 / 1024).round();
+            errorMessage = '文件大小不能超过${maxSizeMB}MB';
+            break;
+          default:
+            errorMessage = '文件大小超过限制';
+        }
+
+        throw Exception(errorMessage);
+      }
+    } else {
+      // 如果没有动态配置，使用默认限制
+      _logger.w('没有找到动态文件服务器配置，使用默认文件大小限制');
+
+      switch (fileType.toLowerCase()) {
+        case 'image':
+        case 'images':
+          if (fileSize > 10 * 1024 * 1024) {
+            throw Exception('图片大小不能超过10MB');
+          }
+          break;
+        case 'voice':
+        case 'audio':
+          // 语音文件已通过时长限制，无需大小限制
+          break;
+        case 'video':
+        case 'videos':
+          if (fileSize > 500 * 1024 * 1024) {
+            throw Exception('视频文件大小不能超过500MB');
+          }
+          break;
+        case 'file':
+        case 'files':
+          if (fileSize > 100 * 1024 * 1024) {
+            throw Exception('文件大小不能超过100MB');
+          }
+          break;
+      }
+    }
+  }
+
   /// 获取本地文件完整路径
   String getLocalFilePath(String mediaUrl) {
     if (mediaUrl.startsWith('file://')) {
@@ -630,9 +737,11 @@ class UploadResult {
   final String localPath;
   final String remoteUrl;
   final String? fileId; // 服务器返回的文件ID
+  final String? fileName; // 新增：服务器生成的文件名（nanoID或UUID）
   final int? duration; // 语音/视频文件使用
   final String? thumbnailPath; // 视频缩略图本地路径
   final String? thumbnailUrl; // 视频缩略图URL
+  final String? thumbnailFileName; // 新增：缩略图文件名
   final bool serverProcessed; // 是否由服务器处理生成的缩略图
   final Map<String, dynamic>? metadata; // 文件元数据
 
@@ -640,10 +749,43 @@ class UploadResult {
     required this.localPath,
     required this.remoteUrl,
     this.fileId,
+    this.fileName,
     this.duration,
     this.thumbnailPath,
     this.thumbnailUrl,
+    this.thumbnailFileName,
     this.serverProcessed = false, // 默认为客户端处理
     this.metadata,
   });
+
+  /// 根据新的文件服务器逻辑构建完整的文件URL
+  /// 路径格式：文件服务器/类型type/会话ID/UTC日期/用户ID/文件名
+  String buildFileUrl(String fileServerBaseUrl, String type,
+      String conversationId, String timestamp, String userId) {
+    if (fileName == null) return remoteUrl;
+    // 从时间戳提取UTC日期
+    final utcDate = _extractDateFromTimestamp(timestamp);
+    return '$fileServerBaseUrl/$type/$conversationId/$utcDate/$userId/$fileName';
+  }
+
+  /// 构建缩略图URL
+  String? buildThumbnailUrl(String fileServerBaseUrl, String conversationId,
+      String timestamp, String userId) {
+    if (thumbnailFileName == null) return thumbnailUrl;
+    // 从时间戳提取UTC日期
+    final utcDate = _extractDateFromTimestamp(timestamp);
+    return '$fileServerBaseUrl/thumbnail/$conversationId/$utcDate/$userId/$thumbnailFileName';
+  }
+
+  /// 从时间戳提取UTC日期
+  static String _extractDateFromTimestamp(String timestamp) {
+    DateTime date;
+    final parsed = int.tryParse(timestamp);
+    if (parsed != null) {
+      date = DateTime.fromMillisecondsSinceEpoch(parsed).toUtc();
+    } else {
+      date = DateTime.now().toUtc();
+    }
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
 }

@@ -7,7 +7,6 @@ import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
-import 'package:cc/core/services/auth_token_sync_service.dart';
 import 'package:cc/core/utils/debug_commands.dart';
 import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/features/profile/presentation/cubit/profile_cubit.dart';
@@ -900,9 +899,8 @@ class _ProfilePageState extends State<ProfilePage>
                 await secureStorage.clearAllTokens();
                 _logger.i('所有Token已清除');
 
-                // 3. 清除所有服务的Token
-                AuthTokenSyncService.instance.clearTokenFromAllServices();
-                _logger.i('所有服务的Token已清除');
+                // 3. Token清理现在由EnhancedTokenManager处理
+                _logger.i('Token清理由EnhancedTokenManager自动处理');
 
                 // 关闭数据库连接
                 if (DatabaseInitializer.isInitialized) {
@@ -1177,15 +1175,7 @@ class _ProfilePageState extends State<ProfilePage>
 📊 Token状态摘要:
 ''';
 
-      // 添加Token状态信息
-      if (tokenStatus['accessToken'] != null) {
-        final accessTokenInfo =
-            tokenStatus['accessToken'] as Map<String, dynamic>;
-        testResult += '''
-- Access Token: ${accessTokenInfo['exists'] == true ? '✅存在' : '❌不存在'}
-- 有效性: ${accessTokenInfo['valid'] == true ? '✅有效' : '❌无效'}
-''';
-      }
+      // 添加Token状态信息 (移除Access Token，现在只使用Refresh Token + Socket Token)
 
       if (tokenStatus['refreshToken'] != null) {
         final refreshTokenInfo =
@@ -1313,28 +1303,28 @@ class _ProfilePageState extends State<ProfilePage>
       final secureStorage = SecureStorageService();
       final tokenManager = EnhancedTokenManager.instance;
 
-      // 比较原始Token和自动刷新Token
-      final storedToken = await secureStorage.getAccessToken();
-      final refreshedToken = await tokenManager.getApiToken();
+      // 检查Token状态
+      final apiToken = await tokenManager.getApiToken();
+      final socketToken = await tokenManager.getSocketToken();
       final userId = await secureStorage.read('user_id');
 
       debugInfo += '''
 
 🔐 安全存储信息:
-- 存储Token: ${storedToken != null ? '✅' : '❌'}
-- 刷新Token: ${refreshedToken != null ? '✅' : '❌'}
-- 自动刷新: ${refreshedToken != null ? '✅ 正常' : '❌ 失败'}
+- API Token: ${apiToken != null ? '✅' : '❌'}
+- Socket Token: ${socketToken != null ? '✅' : '❌'}
 - 用户ID: ${userId ?? '不存在'}
 ''';
 
-      if (refreshedToken != null) {
+      if (apiToken != null) {
         debugInfo += '''
-- Token前缀: ${refreshedToken.length > 20 ? '${refreshedToken.substring(0, 20)}...' : refreshedToken}
+- API Token前缀: ${apiToken.length > 20 ? '${apiToken.substring(0, 20)}...' : apiToken}
 ''';
-      } else if (storedToken != null) {
+      }
+      
+      if (socketToken != null) {
         debugInfo += '''
-- 存储Token前缀: ${storedToken.length > 20 ? '${storedToken.substring(0, 20)}...' : storedToken}
-- 注意: 存储Token存在但自动刷新失败
+- Socket Token前缀: ${socketToken.length > 20 ? '${socketToken.substring(0, 20)}...' : socketToken}
 ''';
       }
 

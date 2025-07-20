@@ -91,6 +91,17 @@ class DeviceManager {
     return RegExp(r'[^\x20-\x7E]').hasMatch(input);
   }
 
+  /// 获取标准化的平台名称
+  /// 与 VersionInfoService.platformName 保持一致
+  static String _getStandardizedPlatformName() {
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isIOS) return 'iOS';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    return 'Unknown';
+  }
+
   /// 获取设备详细信息
   ///
   /// 收集设备类型、型号、操作系统版本、应用版本等信息
@@ -113,7 +124,8 @@ class DeviceManager {
       final packageInfo = await PackageInfo.fromPlatform();
       final deviceInfoPlugin = DeviceInfoPlugin();
 
-      String deviceType = Platform.operatingSystem.toLowerCase();
+      // 使用标准化的设备类型名称
+      String deviceType = _getStandardizedPlatformName();
       String deviceModel = 'Unknown';
       String osVersion = Platform.operatingSystemVersion;
 
@@ -170,7 +182,7 @@ class DeviceManager {
       // 创建基础设备信息作为备用方案
       final fallbackDeviceInfo = DeviceInfo(
         deviceId: await getDeviceId(),
-        deviceType: Platform.operatingSystem.toLowerCase(),
+        deviceType: _getStandardizedPlatformName(),
         deviceModel: 'Unknown',
         osVersion: Platform.operatingSystemVersion,
         appVersion: '1.0.0',

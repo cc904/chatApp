@@ -575,7 +575,7 @@ class MediaMessage extends $pb.GeneratedMessage {
     $core.int? duration,
     $core.double? fileSize,
     $core.String? fileName,
-    $core.String? thumbnailUrl,
+    $core.String? fsId,
     $core.String? mimeType,
     $core.int? width,
     $core.int? height,
@@ -597,8 +597,8 @@ class MediaMessage extends $pb.GeneratedMessage {
     if (fileName != null) {
       $result.fileName = fileName;
     }
-    if (thumbnailUrl != null) {
-      $result.thumbnailUrl = thumbnailUrl;
+    if (fsId != null) {
+      $result.fsId = fsId;
     }
     if (mimeType != null) {
       $result.mimeType = mimeType;
@@ -624,7 +624,7 @@ class MediaMessage extends $pb.GeneratedMessage {
     ..a<$core.int>(3, _omitFieldNames ? '' : 'duration', $pb.PbFieldType.O3)
     ..a<$core.double>(4, _omitFieldNames ? '' : 'fileSize', $pb.PbFieldType.OD)
     ..aOS(5, _omitFieldNames ? '' : 'fileName')
-    ..aOS(6, _omitFieldNames ? '' : 'thumbnailUrl')
+    ..aOS(6, _omitFieldNames ? '' : 'fsId')
     ..aOS(7, _omitFieldNames ? '' : 'mimeType')
     ..a<$core.int>(8, _omitFieldNames ? '' : 'width', $pb.PbFieldType.O3)
     ..a<$core.int>(9, _omitFieldNames ? '' : 'height', $pb.PbFieldType.O3)
@@ -691,7 +691,7 @@ class MediaMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearFileSize() => $_clearField(4);
 
-  /// 文件名
+  /// 服务器文件名
   @$pb.TagNumber(5)
   $core.String get fileName => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -701,15 +701,15 @@ class MediaMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearFileName() => $_clearField(5);
 
-  /// 缩略图URL
+  /// 文件服务器ID
   @$pb.TagNumber(6)
-  $core.String get thumbnailUrl => $_getSZ(5);
+  $core.String get fsId => $_getSZ(5);
   @$pb.TagNumber(6)
-  set thumbnailUrl($core.String v) { $_setString(5, v); }
+  set fsId($core.String v) { $_setString(5, v); }
   @$pb.TagNumber(6)
-  $core.bool hasThumbnailUrl() => $_has(5);
+  $core.bool hasFsId() => $_has(5);
   @$pb.TagNumber(6)
-  void clearThumbnailUrl() => $_clearField(6);
+  void clearFsId() => $_clearField(6);
 
   /// MIME类型
   @$pb.TagNumber(7)
