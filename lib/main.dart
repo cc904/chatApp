@@ -303,15 +303,29 @@ class _MyAppState extends State<MyApp> {
 
   /// 启动时检查版本更新
   void _checkVersionOnStartup() {
-    // 延迟3秒确保应用完全启动
-    Future.delayed(const Duration(seconds: 3), () async {
+    _logger.i('🚀 开始启动时版本检查');
+    
+    // 使用异步执行，不阻塞UI构建
+    Future.microtask(() async {
       try {
-        if (!mounted) return;
+        if (!mounted) {
+          _logger.w('🚀 Widget已unmounted，取消版本检查');
+          return;
+        }
 
         final navigatorKey = UINotificationService.instance.navigatorKey;
         final context = navigatorKey.currentContext;
-        if (context != null) {
+        _logger.i('🚀 获取导航上下文', extra: {
+          'hasContext': context != null,
+          'navigatorKeyHashCode': navigatorKey.hashCode,
+        });
+        
+        if (context != null && context.mounted) {
+          _logger.i('🚀 调用版本更新服务');
           await VersionUpdateService.instance.checkUpdateOnStartup(context);
+          _logger.i('🚀 版本检查完成');
+        } else {
+          _logger.w('🚀 无法获取有效导航上下文，取消版本检查');
         }
       } catch (error) {
         _logger.e('启动时版本检查失败', error: error);

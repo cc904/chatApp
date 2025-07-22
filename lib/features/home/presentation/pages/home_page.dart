@@ -55,6 +55,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
 
   // 🔧 新增：状态保存标志
   bool _isInitialized = false;
+  bool _isInitializing = false;
+  String _initializationStage = '正在加载...';
 
   @override
   void initState() {
@@ -215,69 +217,116 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       return;
     }
 
-    final currentUser = await _secureStorage.readUserCredentials();
-
-    if (currentUser == null) {
-      _logger.e('无法获取用户信息，返回登录页面');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthPage()),
-        );
-      });
-      return;
-    }
-
-    _currentUser = currentUser;
-    _homeCubit = HomeCubit(currentUser: currentUser);
-
-    // 初始化用户会话
-    final success = await _homeCubit!.initUserSession();
-    if (!success) {
-      _logger.e('用户会话初始化失败，返回登录页面');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthPage()),
-        );
-      });
-      return;
-    }
-
-    // 创建全局共享的ChatRepository
-    _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
-
-    // 创建ChatRepositorySend（需要传入ChatRepository以便发出事件）
-    _chatRepositorySend = ChatRepositorySendImpl(
-      currentUser: currentUser,
-      chatRepository: _chatRepository!,
-    );
-
-    // 创建ChatsRepository
-    _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);
-
-    _chatsCubit = ChatsCubit(
-      chatsRepository: _chatsRepository!,
-      currentUser: currentUser,
-    );
-
-    _contactCubit = ContactCubit(
-      contactsRepository: ContactsRepositoryImpl(currentUser: currentUser),
-    );
-
-    // 🔄 登录成功后自动同步联系人
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _logger.i('登录成功，开始自动同步联系人');
-      _contactCubit?.syncContacts();
-
-      // 设置初始网络重连同步权限（默认ChatsPage可见）
-      _updateNetworkReconnectSyncPermissions(_currentIndex.value);
+    setState(() {
+      _isInitializing = true;
+      _initializationStage = '正在验证用户信息...';
     });
 
-    // 🔧 新增：标记初始化完成
-    _isInitialized = true;
-    _logger.i('HomePage 初始化完成');
+    try {
+      final currentUser = await _secureStorage.readUserCredentials();
 
-    if (mounted) {
-      setState(() {});
+      if (currentUser == null) {
+        _logger.e('无法获取用户信息，返回登录页面');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AuthPage()),
+          );
+        });
+        return;
+      }
+
+      _currentUser = currentUser;
+      
+      if (mounted) {
+        setState(() {
+          _initializationStage = '正在初始化用户会话...';
+        });
+      }
+
+      _homeCubit = HomeCubit(currentUser: currentUser);
+
+      // 初始化用户会话
+      final success = await _homeCubit!.initUserSession();
+      if (!success) {
+        _logger.e('用户会话初始化失败，返回登录页面');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AuthPage()),
+          );
+        });
+        return;
+      }
+      
+      _logger.i('🎉 用户会话初始化成功，准备显示HomePage');
+
+      if (mounted) {
+        setState(() {
+          _initializationStage = '正在初始化聊天服务...';
+        });
+      }
+
+      // 创建全局共享的ChatRepository
+      _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
+
+      // 创建ChatRepositorySend（需要传入ChatRepository以便发出事件）
+      _chatRepositorySend = ChatRepositorySendImpl(
+        currentUser: currentUser,
+        chatRepository: _chatRepository!,
+      );
+
+      // 创建ChatsRepository
+      _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);
+
+      _chatsCubit = ChatsCubit(
+        chatsRepository: _chatsRepository!,
+        currentUser: currentUser,
+      );
+
+      if (mounted) {
+        setState(() {
+          _initializationStage = '正在初始化联系人服务...';
+        });
+      }
+
+      _contactCubit = ContactCubit(
+        contactsRepository: ContactsRepositoryImpl(currentUser: currentUser),
+      );
+
+      // 🔧 新增：标记初始化完成
+      _isInitialized = true;
+      _isInitializing = false;
+      _logger.i('HomePage 初始化完成');
+
+      if (mounted) {
+        setState(() {
+          _logger.d('强制UI重建，显示HomePage主界面');
+        });
+      }
+
+      // 🔄 登录成功后自动同步联系人（异步执行，不阻塞UI）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _logger.i('登录成功，开始自动同步联系人');
+        _contactCubit?.syncContacts();
+
+        // 设置初始网络重连同步权限（默认ChatsPage可见）
+        _updateNetworkReconnectSyncPermissions(_currentIndex.value);
+      });
+
+    } catch (error) {
+      _logger.e('HomePage 初始化失败', error: error);
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _initializationStage = '初始化失败';
+        });
+      }
+      
+      // 初始化失败，返回登录页面
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AuthPage()),
+        );
+      });
     }
   }
 
@@ -411,11 +460,48 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     _logger.d('HomePage build');
     final localizations = AppLocalizations.of(context);
 
-    // 如果HomeCubit还未初始化，显示加载指示器
-    if (_homeCubit == null || _chatsCubit == null || _contactCubit == null || _chatsRepository == null || _chatRepositorySend == null) {
-      return const Scaffold(
+    // 如果还在初始化过程中，或者关键对象为null，显示带进度的加载指示器
+    if ((_isInitializing && !_isInitialized) || _homeCubit == null || _chatsCubit == null || _contactCubit == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
         body: Center(
-          child: CircularProgressIndicator(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 应用Logo或图标
+              Icon(
+                Icons.chat,
+                size: 80,
+                color: Colors.green[700],
+              ),
+              const SizedBox(height: 32),
+              // 加载指示器
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+              ),
+              const SizedBox(height: 24),
+              // 当前初始化阶段
+              Text(
+                _initializationStage,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              // 提示文字
+              Text(
+                '请稍候，正在为您准备应用...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }

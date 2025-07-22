@@ -30,7 +30,16 @@
       "Bash(security unlock-keychain:*)",
       "Bash(security delete-generic-password:*)",
       "Bash(sed:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(./scripts/build_encrypted_domains.sh:*)",
+      "Bash(brew config:*)",
+      "Bash(ping:*)",
+      "Bash(export:*)",
+      "Bash(brew tap:*)",
+      "Bash(source:*)",
+      "Bash(brew:*)",
+      "Bash(git -C /usr/local/Homebrew remote -v)",
+      "Bash(git -C /usr/local/Homebrew remote set-url origin https://github.com/Homebrew/brew.git)"
     ],
     "deny": []
   }

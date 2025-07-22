@@ -2,7 +2,6 @@
     "files.exclude": {
         ".dart_tool": true,
         "android": true,
-        "build": true,
         "ios": true,
         "macos": true,
         "windows": true

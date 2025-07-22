@@ -9,7 +9,6 @@
 /// - 保持向后兼容的接口
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/services/server_selection_service.dart';
 import 'package:cc/core/services/backup_domain_service.dart';
 
 class AppConfig {
@@ -224,34 +223,18 @@ class AppConfig {
   /// 刷新可用服务器列表
   Future<void> _refreshAvailableServers() async {
     try {
-      // 从ServerSelectionService获取综合服务器列表
-      final serverSelection = ServerSelectionService.instance;
-      final combinedServers = await serverSelection.getBestLoginServer();
+      // 直接从BackupDomainService获取所有登录服务器
+      final backupService = BackupDomainService.instance;
+      final allServers = await backupService.getCombinedLoginServers();
       
-      if (combinedServers != null) {
-        // 获取所有可用的登录服务器
-        final allServers = <String>[];
-        
-        // 添加当前最优服务器
-        allServers.add(combinedServers);
-        
-        // 尝试获取更多服务器（直接通过BackupDomainService）
-        try {
-          final backupService = BackupDomainService.instance;
-          final backupServers = await backupService.getCombinedLoginServers();
-          for (final server in backupServers) {
-            if (!allServers.contains(server)) {
-              allServers.add(server);
-            }
-          }
-        } catch (e) {
-          _logger.w('获取后备服务器列表失败: $e');
-        }
-        
+      if (allServers.isNotEmpty) {
         _availableServers = allServers;
+        _logger.i('成功加载服务器列表', extra: {
+          'serverCount': allServers.length,
+          'servers': allServers,
+        });
       } else {
-        _logger.w('ServerSelectionService未返回可用服务器');
-        // 保持空列表，不使用硬编码服务器
+        _logger.w('BackupDomainService未返回可用服务器');
         _availableServers = [];
       }
     } catch (error) {

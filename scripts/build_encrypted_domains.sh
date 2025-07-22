@@ -2,6 +2,12 @@
 
 # 编译时域名加密脚本
 # 在 flutter build 之前运行此脚本
+# 用法: 
+#   ./scripts/build_encrypted_domains.sh dev     # 开发模式
+#   ./scripts/build_encrypted_domains.sh prod    # 正式模式
+#   ./scripts/build_encrypted_domains.sh         # 交互式选择
+
+MODE=$1
 
 echo "🔐 开始加密域名到assets..."
 
@@ -18,7 +24,16 @@ if [ ! -f "login_domains.json" ]; then
 fi
 
 # 运行加密工具
-dart tools/encrypt_domains_to_assets.dart
+if [ "$MODE" = "dev" ]; then
+    echo "📱 使用开发模式"
+    echo "1" | dart tools/encrypt_domains_to_assets.dart
+elif [ "$MODE" = "prod" ]; then
+    echo "🚀 使用正式模式"
+    echo "2" | dart tools/encrypt_domains_to_assets.dart
+else
+    echo "💬 交互式模式 - 请选择运行模式"
+    dart tools/encrypt_domains_to_assets.dart
+fi
 
 if [ $? -eq 0 ]; then
     echo "🎉 域名加密完成！可以继续构建应用"

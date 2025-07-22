@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
@@ -187,8 +188,8 @@ class _AuthPageState extends State<AuthPage>
                             ),
                           ),
                           const SizedBox(height: 10),
-                          // 服务器切换按钮
-                          _buildServerSwitchButton(),
+                          // 服务器切换按钮（仅在调试模式下显示）
+                          if (kDebugMode) _buildServerSwitchButton(),
                         ],
                       ),
                     ),
@@ -462,11 +463,22 @@ class _AuthPageState extends State<AuthPage>
   /// 发送验证码
   Future<void> _sendVerificationCode() async {
     try {
+      // 先进行本地手机号格式验证
+      final currentState = _authCubit!.state;
+      if (currentState.phoneNumber?.isEmpty ?? true) {
+        UINotificationHelper.showError('请输入手机号码');
+        return;
+      }
+      if (currentState.phoneNumber!.length != 11) {
+        UINotificationHelper.showError('请输入正确的手机号码');
+        return;
+      }
+
       await _authCubit!.sendVerificationCode('login');
-      // 发送成功后开始倒计时
+      // 只有在发送成功后才开始倒计时
       _verificationCodeTimer.startCountdown();
     } catch (error) {
-      // 错误处理已在AuthCubit中处理
+      // 错误处理已在AuthCubit中处理，这里不启动倒计时
     }
   }
 
@@ -547,9 +559,9 @@ class _AuthPageState extends State<AuthPage>
           title: Text(localizations.switchServer),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: _appConfig.allServerUrls.asMap().entries.map((entry) {
+            children: _appConfig.serverDisplayInfo.asMap().entries.map((entry) {
               final index = entry.key;
-              final url = entry.value;
+              final serverInfo = entry.value;
               final isSelected = index == _appConfig.currentServerIndex;
 
               return ListTile(
@@ -560,16 +572,14 @@ class _AuthPageState extends State<AuthPage>
                   color: isSelected ? Colors.green : Colors.grey,
                 ),
                 title: Text(
-                  index == 0
-                      ? localizations.cloudServer
-                      : localizations.localServer,
+                  serverInfo['name']!,
                   style: TextStyle(
                     fontWeight:
                         isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 subtitle: Text(
-                  url,
+                  serverInfo['url']!,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],

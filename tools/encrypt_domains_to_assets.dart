@@ -65,9 +65,34 @@ class DomainEncryptor {
     }
   }
 
+  /// 显示模式选择菜单
+  String? showModeMenu() {
+    print('请选择运行模式:');
+    print('1. 开发模式 (development)');
+    print('2. 正式模式 (production)');
+    print('请输入选择 (1/2): ');
+    
+    final input = stdin.readLineSync();
+    switch (input?.trim()) {
+      case '1':
+        return 'development';
+      case '2':
+        return 'production';
+      default:
+        print('❌ 无效选择，请重新运行脚本');
+        return null;
+    }
+  }
+
   /// 处理域名文件
   Future<void> processDomainsFile() async {
     try {
+      // 显示选择菜单
+      final selectedMode = showModeMenu();
+      if (selectedMode == null) {
+        exit(1);
+      }
+
       // 读取源文件
       final sourceFile = File('login_domains.json');
       if (!sourceFile.existsSync()) {
@@ -76,20 +101,38 @@ class DomainEncryptor {
 
       final jsonContent = await sourceFile.readAsString();
       
-      // 验证JSON格式
+      // 验证JSON格式并提取对应模式的域名
+      late List<String> selectedDomains;
       try {
-        final domains = jsonDecode(jsonContent) as List;
-        if (domains.isEmpty) {
-          throw '域名列表为空';
+        final domainsData = jsonDecode(jsonContent);
+        
+        if (domainsData is Map<String, dynamic>) {
+          // 新格式：对象，包含development和production
+          final modeData = domainsData[selectedMode];
+          if (modeData is List) {
+            selectedDomains = List<String>.from(modeData);
+          } else {
+            throw '找不到模式 "$selectedMode" 的域名配置';
+          }
+        } else {
+          throw '不支持的JSON格式，期望包含development和production的对象';
         }
-        print('✅ 找到 ${domains.length} 个域名');
+        
+        if (selectedDomains.isEmpty) {
+          throw '模式 "$selectedMode" 的域名列表为空';
+        }
+        print('✅ $selectedMode 模式下找到 ${selectedDomains.length} 个域名');
+        for (int i = 0; i < selectedDomains.length; i++) {
+          print('   ${i + 1}. ${selectedDomains[i]}');
+        }
       } catch (e) {
         throw '无效的JSON格式: $e';
       }
 
-      // 加密JSON内容
+      // 加密选定模式的域名列表
+      final selectedDomainsJson = jsonEncode(selectedDomains);
       print('🔐 开始AES-128加密...');
-      final encryptedData = encryptJson(jsonContent);
+      final encryptedData = encryptJson(selectedDomainsJson);
 
       // 确保assets目录存在
       final assetsDir = Directory('assets');
@@ -104,7 +147,8 @@ class DomainEncryptor {
 
       print('🎉 加密完成！');
       print('📄 输出文件: ${outputFile.path}');
-      print('📊 原文件大小: ${jsonContent.length} 字节');
+      print('📄 选择模式: $selectedMode');
+      print('📊 原文件大小: ${selectedDomainsJson.length} 字节');
       print('📊 加密后大小: ${encryptedData.length} 字符');
 
     } catch (error) {

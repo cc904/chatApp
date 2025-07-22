@@ -69,12 +69,7 @@ class AuthCubit extends Cubit<AuthState> {
   /// - purpose: 验证码用途 (login/register/reset)
   Future<void> sendVerificationCode(String purpose) async {
     try {
-      if (state.phoneNumber?.isEmpty ?? true) {
-        _logger.i('手机号为空');
-        emit(state.toErrorState('请输入手机号码'));
-        return;
-      }
-
+      // 手机号验证已在UI层进行，这里直接发送请求
       _logger.x('发送验证码', extra: {
         'phoneNumber': state.phoneNumber,
         'purpose': purpose,

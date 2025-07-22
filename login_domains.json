@@ -1,3 +1,9 @@
-[
-  "http://popoopoo.com:7003"
-]
+{
+  "development": [
+    "http://popoopoo.com:7003",
+    "http://d2.orb.local:7003"
+  ],
+  "production": [
+    "http://popoopoo.com:7003"
+  ]
+}
