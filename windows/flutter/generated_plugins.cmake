@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_secure_storage_windows
   flutter_timezone
   isar_flutter_libs
+  pasteboard
   permission_handler_windows
   record_windows
   screen_retriever

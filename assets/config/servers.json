@@ -1,12 +1,6 @@
 {
   "servers": [
     {
-      "url": "http://d2.orb.local:3000",
-      "name": "内网主服务器",
-      "priority": 1,
-      "enabled": true
-    },
-    {
       "url": "http://127.0.0.1:3000",
       "name": "本地开发服务器",
       "priority": 2,

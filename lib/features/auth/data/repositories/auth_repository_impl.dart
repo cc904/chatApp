@@ -8,14 +8,11 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:isar/isar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 
 import 'package:cc/core/utils/api_error_handler.dart';
 import 'package:cc/core/services/version_info_service.dart';
-import 'package:cc/core/services/version_update_service.dart';
 import 'package:cc/core/services/file_server_config_service.dart';
 import 'package:cc/core/services/server_selection_service.dart';
 
@@ -689,48 +686,5 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// 处理登录时的版本更新信息
-  Future<void> _handleVersionUpdateFromLogin(Map<String, dynamic> response) async {
-    try {
-      final versionUpdateData = response['versionUpdate'];
-      if (versionUpdateData != null) {
-        _logger.i('📱 登录时检测到版本更新信息', extra: {
-          'versionUpdateData': versionUpdateData,
-        });
 
-        // 创建版本检查结果对象
-        final versionResult = VersionCheckResult.fromJson(versionUpdateData);
-
-        if (versionResult.hasUpdate) {
-          _logger.i('🔄 服务器要求版本更新', extra: {
-            'currentVersion': VersionInfoService.instance.currentVersion,
-            'latestVersion': versionResult.latestVersion,
-            'isForced': versionResult.isForced,
-          });
-
-          // 保存版本更新信息，延迟显示对话框
-          await _scheduleVersionUpdateDialog(versionResult);
-        }
-      }
-    } catch (error) {
-      _logger.e('处理登录版本更新信息失败', error: error, stackTrace: StackTrace.current);
-      // 版本更新处理失败不影响登录流程
-    }
-  }
-
-  /// 计划显示版本更新对话框
-  Future<void> _scheduleVersionUpdateDialog(VersionCheckResult versionResult) async {
-    try {
-      // 使用SharedPreferences存储版本更新信息
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('pending_version_update', jsonEncode(versionResult.toJson()));
-
-      _logger.i('📅 已计划版本更新对话框', extra: {
-        'latestVersion': versionResult.latestVersion,
-        'isForced': versionResult.isForced,
-      });
-    } catch (error) {
-      _logger.e('计划版本更新对话框失败', error: error);
-    }
-  }
 }

@@ -118,11 +118,17 @@ class HomeRepositoryImpl implements HomeRepository {
 
       _logger.d('Socket Token获取成功，准备连接');
 
-      // 连接到服务器
+      // 🔧 关键修复：添加超时控制，避免无限等待
       final connected = await communicationService.connect(
         serverUrl: serverUrl,
         userId: _currentUser.userId,
         token: socketToken, // 使用正确的Socket Token
+      ).timeout(
+        const Duration(seconds: 8), // 8秒超时，用户体验更好
+        onTimeout: () {
+          _logger.w('实时通信连接超时（8秒），进入离线模式');
+          return false;
+        },
       );
 
       if (connected) {

@@ -39,7 +39,8 @@
       "Bash(source:*)",
       "Bash(brew:*)",
       "Bash(git -C /usr/local/Homebrew remote -v)",
-      "Bash(git -C /usr/local/Homebrew remote set-url origin https://github.com/Homebrew/brew.git)"
+      "Bash(git -C /usr/local/Homebrew remote set-url origin https://github.com/Homebrew/brew.git)",
+      "Bash(./android/gradlew:*)"
     ],
     "deny": []
   }

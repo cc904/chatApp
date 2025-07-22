@@ -135,7 +135,7 @@ class MessageAdapter {
       message.width = mediaMessage.hasWidth() ? mediaMessage.width : null;
       message.height = mediaMessage.hasHeight() ? mediaMessage.height : null;
       message.caption = mediaMessage.hasCaption() ? mediaMessage.caption : null;
-      
+
       // 新增：处理文件服务器相关字段
       message.fsId = mediaMessage.hasFsId() ? mediaMessage.fsId : null;
       message.fileName =
@@ -371,15 +371,13 @@ class MessageAdapter {
         if (message.duration != null) mediaMessage.duration = message.duration!;
         if (message.fileSize != null) {
           mediaMessage.fileSize = message.fileSize!;
-          // 临时日志：确认fileSize被转换到Proto
-          print('🔍 Proto转换: messageId=${message.messageId}, fileSize=${message.fileSize}');
         }
         if (message.fileName != null) mediaMessage.fileName = message.fileName!;
         if (message.mimeType != null) mediaMessage.mimeType = message.mimeType!;
         if (message.width != null) mediaMessage.width = message.width!;
         if (message.height != null) mediaMessage.height = message.height!;
         if (message.caption != null) mediaMessage.caption = message.caption!;
-        
+
         // 新增：处理文件服务器相关字段
         if (message.fsId != null) {
           mediaMessage.fsId = message.fsId!;
@@ -387,7 +385,7 @@ class MessageAdapter {
         if (message.fileName != null) {
           mediaMessage.fileName = message.fileName!;
         }
-        
+
         protoMessage.mediaMessage = mediaMessage;
         break;
 

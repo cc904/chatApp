@@ -1,7 +1,7 @@
 {
   "development": [
     "http://popoopoo.com:7003",
-    "http://d2.orb.local:7003"
+    "http://192.168.10.244:7003"
   ],
   "production": [
     "http://popoopoo.com:7003"

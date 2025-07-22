@@ -25,8 +25,10 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/media_upload_integration_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
 import 'package:cc/core/services/permission_service.dart';
+import 'package:cc/core/services/clipboard_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cc/features/chat/presentation/widgets/unread_indicator_button.dart';
+import 'package:cc/features/chat/presentation/widgets/quick_reply_panel.dart';
 import 'package:mime/mime.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/core/utils/debug_commands.dart';
@@ -87,6 +89,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _isVoiceMode = false;
   bool _showMoreOptions = false;
   bool _showEmojiPanel = false;
+  bool _showQuickReplyPanel = false;  // 新增：快捷回复面板状态
   bool _isRecording = false;
   bool _isVideoRecording = false;
 
@@ -119,6 +122,86 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// SVG资源是否可用
   bool _svgAssetsAvailable = true;
+
+  /// 剪贴板服务实例
+  final ClipboardService _clipboardService = ClipboardService();
+
+  /// 处理粘贴动作
+  Future<void> _handlePasteAction() async {
+    try {
+      _logger.i('检测到粘贴操作，开始检查剪贴板内容');
+
+      // 检查是否支持图片剪贴板
+      if (!_clipboardService.supportsImageClipboard) {
+        _logger.w('当前平台不支持图片剪贴板功能');
+        return;
+      }
+
+      // 检查剪贴板是否有图片
+      final hasImage = await _clipboardService.hasImage();
+      if (!hasImage) {
+        _logger.d('剪贴板中没有图片，使用默认文本粘贴');
+        return;
+      }
+
+      _logger.i('剪贴板检测到图片，开始处理');
+      
+      // 获取图片数据
+      final imageData = await _clipboardService.getImageData();
+      if (imageData == null) {
+        _logger.w('获取剪贴板图片数据失败');
+        _showSnackBar('粘贴图片失败');
+        return;
+      }
+
+      // 保存到临时文件
+      final tempFile = await _clipboardService.saveImageToTempFile(imageData);
+      if (tempFile == null) {
+        _logger.w('保存剪贴板图片到临时文件失败');
+        _showSnackBar('粘贴图片失败');
+        return;
+      }
+
+      _logger.i('成功从剪贴板获取图片', extra: {
+        'fileName': imageData['name'],
+        'size': (imageData['data'] as List).length,
+        'mimeType': imageData['mimeType'],
+        'tempPath': tempFile.path,
+      });
+
+      // 隐藏面板
+      if (mounted) {
+        setState(() {
+          _showMoreOptions = false;
+          _showEmojiPanel = false;
+        });
+      }
+
+      // 使用现有的图片预览和发送流程
+      await _showImagePreviewAndSend(tempFile);
+      
+      _showSnackBar('图片粘贴成功');
+      
+    } catch (error) {
+      _logger.e('处理剪贴板图片粘贴失败', error: error, stackTrace: StackTrace.current);
+      if (mounted) {
+        _showSnackBar('粘贴图片失败');
+      }
+    }
+  }
+
+  /// 显示提示信息
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -1238,6 +1321,24 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 对于非频道或频道管理员/所有者，显示正常输入区域
         return Column(
           children: [
+            // 快捷回复面板
+            QuickReplyPanel(
+              isVisible: _showQuickReplyPanel,
+              onQuickReply: (content) {
+                // 将快捷回复内容填入输入框，不直接发送
+                _textController.text = content;
+                _textNotifier.value = content;
+                setState(() {
+                  _showQuickReplyPanel = false;
+                });
+                // 自动获取焦点，方便用户编辑或直接发送
+                _focusNode.requestFocus();
+                // 将光标移动到文本末尾
+                _textController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: _textController.text.length),
+                );
+              },
+            ),
             // 主输入栏
             Container(
               padding:
@@ -1262,6 +1363,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           if (_isVoiceMode) {
                             _focusNode.unfocus();
                             _showMoreOptions = false;
+                            _showQuickReplyPanel = false;
                           } else {
                             _focusNode.requestFocus();
                           }
@@ -1296,6 +1398,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           _showEmojiPanel = !_showEmojiPanel;
                           if (_showEmojiPanel) {
                             _showMoreOptions = false;
+                            _showQuickReplyPanel = false;
                             _focusNode.unfocus();
                           }
                         });
@@ -1311,6 +1414,33 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           Icons.emoji_emotions_outlined,
                           size: 32,
                           color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // 快捷回复按钮
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showQuickReplyPanel = !_showQuickReplyPanel;
+                          if (_showQuickReplyPanel) {
+                            _showMoreOptions = false;
+                            _showEmojiPanel = false;
+                            _focusNode.unfocus();
+                          }
+                        });
+                      },
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: Icon(
+                          Icons.flash_on,
+                          size: 32,
+                          color: _showQuickReplyPanel 
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey.shade600,
                         ),
                       ),
                     ),
@@ -1483,42 +1613,60 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           width: 0.5,
         ),
       ),
-      child: TextField(
-        controller: _textController,
-        focusNode: _focusNode,
-        enabled: isEnabled,
-        maxLines: 5,
-        minLines: 1,
-        decoration: InputDecoration(
-          hintText: isEnabled
-              ? AppLocalizations.of(context).inputMessage
-              : AppLocalizations.of(context).connecting,
-          hintStyle: TextStyle(
-            color: Colors.grey.shade500,
-            fontSize: 16,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
-        ),
-        style: const TextStyle(
-          fontSize: 20,
-          color: Colors.black87,
-          height: 1.4, // 调整行高以适应更大的表情
-        ),
-        textInputAction: TextInputAction.send,
-        onSubmitted: isEnabled ? (text) => _sendMessage() : null,
-        onChanged: (text) {
-          // 文本变化已通过ValueNotifier自动处理，无需setState
+      child: KeyboardListener(
+        focusNode: FocusNode(),
+        onKeyEvent: (KeyEvent event) {
+          if (event is KeyDownEvent) {
+            final isCtrlPressed = event.logicalKey == LogicalKeyboardKey.controlLeft ||
+                event.logicalKey == LogicalKeyboardKey.controlRight;
+            
+            // 检测 Ctrl+V 组合键
+            if ((isCtrlPressed && event.logicalKey == LogicalKeyboardKey.keyV) ||
+                (event.physicalKey == PhysicalKeyboardKey.controlLeft && 
+                 event.logicalKey == LogicalKeyboardKey.keyV) ||
+                (HardwareKeyboard.instance.isControlPressed && 
+                 event.logicalKey == LogicalKeyboardKey.keyV)) {
+              _handlePasteAction();
+            }
+          }
         },
-        onTap: () {
-          setState(() {
-            _showMoreOptions = false;
-            _showEmojiPanel = false;
-          });
-        },
+        child: TextField(
+          controller: _textController,
+          focusNode: _focusNode,
+          enabled: isEnabled,
+          maxLines: 5,
+          minLines: 1,
+          decoration: InputDecoration(
+            hintText: isEnabled
+                ? AppLocalizations.of(context).inputMessage
+                : AppLocalizations.of(context).connecting,
+            hintStyle: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 16,
+            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+          ),
+          style: const TextStyle(
+            fontSize: 20,
+            color: Colors.black87,
+            height: 1.4, // 调整行高以适应更大的表情
+          ),
+          textInputAction: TextInputAction.send,
+          onSubmitted: isEnabled ? (text) => _sendMessage() : null,
+          onChanged: (text) {
+            // 文本变化已通过ValueNotifier自动处理，无需setState
+          },
+          onTap: () {
+            setState(() {
+              _showMoreOptions = false;
+              _showEmojiPanel = false;
+            });
+          },
+        ),
       ),
     );
   }
@@ -2190,7 +2338,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       });
 
       // 在异步操作前获取ChatCubit引用
-      final chatCubit = context.read<ChatCubit>();
+      context.read<ChatCubit>();
 
       // 显示上传中提示
       if (mounted) {
@@ -2432,6 +2580,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           if (_showMoreOptions) {
             _focusNode.unfocus();
             _showEmojiPanel = false;
+            _showQuickReplyPanel = false;
           }
         });
       },

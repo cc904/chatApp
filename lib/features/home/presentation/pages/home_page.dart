@@ -56,7 +56,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   // 🔧 新增：状态保存标志
   bool _isInitialized = false;
   bool _isInitializing = false;
-  String _initializationStage = '正在加载...';
 
   @override
   void initState() {
@@ -219,7 +218,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
 
     setState(() {
       _isInitializing = true;
-      _initializationStage = '正在验证用户信息...';
     });
 
     try {
@@ -239,7 +237,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       
       if (mounted) {
         setState(() {
-          _initializationStage = '正在初始化用户会话...';
         });
       }
 
@@ -257,40 +254,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         return;
       }
       
-      _logger.i('🎉 用户会话初始化成功，准备显示HomePage');
+      _logger.i('🎉 用户会话初始化成功，准备初始化服务');
 
+      // 🔧 优化：并行初始化所有Repository和Cubit，减少等待时间
       if (mounted) {
         setState(() {
-          _initializationStage = '正在初始化聊天服务...';
         });
       }
 
-      // 创建全局共享的ChatRepository
-      _chatRepository = ChatRepositoryImpl(currentUser: currentUser);
-
-      // 创建ChatRepositorySend（需要传入ChatRepository以便发出事件）
-      _chatRepositorySend = ChatRepositorySendImpl(
-        currentUser: currentUser,
-        chatRepository: _chatRepository!,
-      );
-
-      // 创建ChatsRepository
-      _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);
-
-      _chatsCubit = ChatsCubit(
-        chatsRepository: _chatsRepository!,
-        currentUser: currentUser,
-      );
-
-      if (mounted) {
-        setState(() {
-          _initializationStage = '正在初始化联系人服务...';
-        });
-      }
-
-      _contactCubit = ContactCubit(
-        contactsRepository: ContactsRepositoryImpl(currentUser: currentUser),
-      );
+      await _initializeRepositoriesAndCubits(currentUser);
 
       // 🔧 新增：标记初始化完成
       _isInitialized = true;
@@ -303,13 +275,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         });
       }
 
-      // 🔄 登录成功后自动同步联系人（异步执行，不阻塞UI）
+      // 🔄 登录成功后自动同步数据（异步执行，不阻塞UI）
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _logger.i('登录成功，开始自动同步联系人');
-        _contactCubit?.syncContacts();
-
-        // 设置初始网络重连同步权限（默认ChatsPage可见）
-        _updateNetworkReconnectSyncPermissions(_currentIndex.value);
+        _initializeDataSync();
       });
 
     } catch (error) {
@@ -317,7 +285,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       if (mounted) {
         setState(() {
           _isInitializing = false;
-          _initializationStage = '初始化失败';
         });
       }
       
@@ -328,6 +295,71 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         );
       });
     }
+  }
+
+  /// 🔧 新增：并行初始化所有Repository和Cubit
+  Future<void> _initializeRepositoriesAndCubits(CurrentUser currentUser) async {
+    try {
+      // 并行创建所有Repository（它们相互独立）
+      final futures = await Future.wait([
+        Future(() => ChatRepositoryImpl(currentUser: currentUser)),
+        Future(() => ChatsRepositoryImpl(currentUser: currentUser)),
+        Future(() => ContactsRepositoryImpl(currentUser: currentUser)),
+      ]);
+
+      _chatRepository = futures[0] as ChatRepositoryImpl;
+      _chatsRepository = futures[1] as ChatsRepositoryImpl;
+      final contactsRepository = futures[2] as ContactsRepositoryImpl;
+
+      // 创建ChatRepositorySend（需要ChatRepository）
+      _chatRepositorySend = ChatRepositorySendImpl(
+        currentUser: currentUser,
+        chatRepository: _chatRepository!,
+      );
+
+      // 并行创建所有Cubit
+      final cubitFutures = await Future.wait([
+        Future(() => ChatsCubit(
+          chatsRepository: _chatsRepository!,
+          currentUser: currentUser,
+        )),
+        Future(() => ContactCubit(
+          contactsRepository: contactsRepository,
+        )),
+      ]);
+
+      _chatsCubit = cubitFutures[0] as ChatsCubit;
+      _contactCubit = cubitFutures[1] as ContactCubit;
+
+      _logger.i('所有Repository和Cubit初始化完成');
+    } catch (error) {
+      _logger.e('并行初始化Repository和Cubit失败', error: error);
+      rethrow;
+    }
+  }
+
+  /// 🔧 新增：初始化数据同步
+  void _initializeDataSync() {
+    _logger.i('开始初始化数据同步');
+    
+    // 设置初始网络重连同步权限（默认ChatsPage可见）
+    _updateNetworkReconnectSyncPermissions(_currentIndex.value);
+    
+    // 异步开始数据同步，不阻塞UI
+    Future.microtask(() async {
+      try {
+        // 优先同步会话列表（用户最关心的）
+        _chatsCubit?.requestSyncConversations();
+        
+        // 稍后同步联系人
+        await Future.delayed(const Duration(milliseconds: 500));
+        _contactCubit?.syncContacts();
+        
+        _logger.i('数据同步已启动');
+      } catch (error) {
+        _logger.e('数据同步启动失败', error: error);
+      }
+    });
   }
 
   @override
@@ -460,52 +492,68 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     _logger.d('HomePage build');
     final localizations = AppLocalizations.of(context);
 
-    // 如果还在初始化过程中，或者关键对象为null，显示带进度的加载指示器
-    if ((_isInitializing && !_isInitialized) || _homeCubit == null || _chatsCubit == null || _contactCubit == null) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 应用Logo或图标
-              Icon(
-                Icons.chat,
-                size: 80,
-                color: Colors.green[700],
-              ),
-              const SizedBox(height: 32),
-              // 加载指示器
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-              ),
-              const SizedBox(height: 24),
-              // 当前初始化阶段
-              Text(
-                _initializationStage,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              // 提示文字
-              Text(
-                '请稍候，正在为您准备应用...',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+    // 🔧 新方案：总是显示基本框架，根据初始化状态决定内容
+    return _buildHomeFramework(context, localizations);
+  }
+
+  /// 构建主界面框架
+  Widget _buildHomeFramework(BuildContext context, AppLocalizations localizations) {
+    // 🔧 总是显示基本框架，使用PopScope处理返回键
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          await _onWillPop();
+        }
+      },
+      child: Scaffold(
+        body: PageStorage(
+          bucket: PageStorageBucket(),
+          child: RepaintBoundary(
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildTabContent(0, localizations), // 聊天页面
+                _buildTabContent(1, localizations), // 联系人页面  
+                _buildTabContent(2, localizations), // 个人资料页面
+              ],
+            ),
           ),
         ),
-      );
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex.value,
+          selectedItemColor: Colors.green,
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+          onTap: _onTabTapped,
+          items: [
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(0, Icons.chat),
+              label: localizations.chats,
+            ),
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(1, Icons.contacts),
+              label: localizations.contacts,
+            ),
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(2, Icons.person),
+              label: localizations.profile,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建Tab内容 - 根据初始化状态显示内容或骨架屏
+  Widget _buildTabContent(int tabIndex, AppLocalizations localizations) {
+    // 如果还在初始化中，显示骨架屏
+    if (_isInitializing || !_isInitialized || _homeCubit == null || _chatsCubit == null || _contactCubit == null) {
+      return _buildSkeletonContent(tabIndex, localizations);
     }
 
+    // 初始化完成，显示实际内容
     return MultiRepositoryProvider(
       providers: [
         // Repository providers - 全局共享
@@ -521,51 +569,277 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         BlocProvider<ChatsCubit>.value(value: _chatsCubit!),
         BlocProvider<ContactCubit>.value(value: _contactCubit!),
       ],
-      // 🔧 新增：使用 PopScope 处理返回键
-      child: PopScope(
-        canPop: false, // 阻止默认的返回行为
-        onPopInvokedWithResult: (didPop, result) async {
-          if (!didPop) {
-            await _onWillPop();
-          }
-        },
-        child: Scaffold(
-          body: PageStorage(
-            bucket: PageStorageBucket(),
-            child: RepaintBoundary(
-              child: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: const [
-                  ChatsPage(key: PageStorageKey('chats_page')),
-                  ContactsPage(key: PageStorageKey('contacts_page')),
-                  ProfilePage(key: PageStorageKey('profile_page')),
-                ],
+      child: _buildActualTabContent(tabIndex),
+    );
+  }
+
+  /// 构建实际的Tab内容
+  Widget _buildActualTabContent(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return const ChatsPage(key: PageStorageKey('chats_page'));
+      case 1:
+        return const ContactsPage(key: PageStorageKey('contacts_page'));
+      case 2:
+        return const ProfilePage(key: PageStorageKey('profile_page'));
+      default:
+        return Container();
+    }
+  }
+
+  /// 构建骨架屏内容
+  Widget _buildSkeletonContent(int tabIndex, AppLocalizations localizations) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          // 顶部应用栏区域
+          Container(
+            height: 90,
+            padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[200]!),
               ),
             ),
+            child: Row(
+              children: [
+                Text(
+                  _getTabTitle(tabIndex, localizations),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const Spacer(),
+                if (_isInitializing)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _currentIndex.value,
-            selectedItemColor: Colors.green,
-            unselectedItemColor: Colors.grey,
-            type: BottomNavigationBarType.fixed,
-            onTap: _onTabTapped,
-            items: [
-              BottomNavigationBarItem(
-                icon: _buildAnimatedIcon(0, Icons.chat),
-                label: localizations.chats,
+          // 内容区域骨架
+          Expanded(
+            child: _buildTabSkeleton(tabIndex),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 获取Tab标题
+  String _getTabTitle(int tabIndex, AppLocalizations localizations) {
+    switch (tabIndex) {
+      case 0:
+        return localizations.chats;
+      case 1:
+        return localizations.contacts;
+      case 2:
+        return localizations.profile;
+      default:
+        return '';
+    }
+  }
+
+  /// 构建不同Tab的骨架屏
+  Widget _buildTabSkeleton(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return _buildChatsSkeleton();
+      case 1:
+        return _buildContactsSkeleton();
+      case 2:
+        return _buildProfileSkeleton();
+      default:
+        return Container();
+    }
+  }
+
+  /// 聊天列表骨架屏
+  Widget _buildChatsSkeleton() {
+    return ListView.builder(
+      itemCount: 8,
+      itemBuilder: (context, index) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              // 头像骨架
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(25),
+                ),
               ),
-              BottomNavigationBarItem(
-                icon: _buildAnimatedIcon(1, Icons.contacts),
-                label: localizations.contacts,
+              const SizedBox(width: 12),
+              // 内容骨架
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 名称骨架
+                    Container(
+                      width: double.infinity * 0.4,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 消息预览骨架
+                    Container(
+                      width: double.infinity * 0.7,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              BottomNavigationBarItem(
-                icon: _buildAnimatedIcon(2, Icons.person),
-                label: localizations.profile,
+              const SizedBox(width: 8),
+              // 时间骨架
+              Container(
+                width: 40,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
             ],
           ),
-        ),
+        );
+      },
+    );
+  }
+
+  /// 联系人列表骨架屏
+  Widget _buildContactsSkeleton() {
+    return ListView.builder(
+      itemCount: 10,
+      itemBuilder: (context, index) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              // 头像骨架
+              Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(22.5),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 名称骨架
+              Expanded(
+                child: Container(
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 个人资料骨架屏
+  Widget _buildProfileSkeleton() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // 用户头像和信息骨架
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // 头像骨架
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(40),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // 用户名骨架
+                Container(
+                  width: 120,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // 用户ID骨架
+                Container(
+                  width: 80,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          // 菜单项骨架
+          ...List.generate(6, (index) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

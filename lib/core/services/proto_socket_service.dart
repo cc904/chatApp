@@ -127,7 +127,7 @@ class ProtoSocketService {
         'reconnectionDelayMax': 10000, // 最大重连间隔
         'maxReconnectionAttempts': _maxReconnectAttempts, // 最大重连次数
         'forceNew': true, // 强制创建新连接
-        'timeout': 20000, // 增加超时时间
+        'timeout': 6000, // 🔧 优化：减少超时时间到6秒，提升用户体验
         'extraHeaders': {
           'x-client-type': 'flutter-macos',
           'x-client-version': '1.0.0'
@@ -176,8 +176,21 @@ class ProtoSocketService {
 
       _setupSocketListeners();
 
-      // 等待连接结果
-      final success = await completer.future;
+      // 🔧 关键修复：添加明确的超时控制，防止无限等待
+      final success = await completer.future.timeout(
+        const Duration(seconds: 7), // 7秒超时，比Socket.io内置超时稍长
+        onTimeout: () {
+          _logger.w('💥 Socket连接超时（7秒），自动返回失败');
+          _updateStatus(SocketConnectionStatus.error);
+          
+          // 清理Socket实例
+          _socket?.disconnect();
+          _socket?.dispose();
+          _socket = null;
+          
+          return false;
+        },
+      );
 
       if (!success) {
         _logger.i('❌ 连接失败');
