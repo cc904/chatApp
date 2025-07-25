@@ -12,6 +12,7 @@ import 'dart:ui' as ui;
 // import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:cc/core/constants/app_colors.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// 文件上传服务
 /// 负责处理文件的真实上传到服务器
@@ -28,7 +29,10 @@ class FileUploadService {
   }
 
   FileUploadService._internal() {
-    _ensureDirectories();
+    // 只在非Web平台创建目录
+    if (!kIsWeb) {
+      _ensureDirectories();
+    }
   }
 
   /// 初始化上传API服务（在登录后调用）
@@ -46,6 +50,12 @@ class FileUploadService {
 
   /// 确保所需目录存在
   Future<void> _ensureDirectories() async {
+    // Web平台不支持文件系统操作，直接返回
+    if (kIsWeb) {
+      _logger.i('Web平台跳过目录创建');
+      return;
+    }
+
     try {
       final appDocDir = await getApplicationDocumentsDirectory();
       final directories = ['images', 'videos', 'voice', 'files', 'thumbnails'];

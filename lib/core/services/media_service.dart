@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:async';
+import 'dart:io' show File, Directory;
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,6 +8,11 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
+
+// 条件导入：根据平台导入不同的媒体平台操作实现
+import 'media_platform_stub.dart'
+    if (dart.library.io) 'media_platform_io.dart'
+    if (dart.library.html) 'media_platform_web.dart';
 
 /// 媒体服务类
 /// 负责处理图片、视频、语音录制、文件选择和下载
@@ -62,7 +67,7 @@ class MediaService {
 
         // 在macOS上,我们需要使用file://前缀
         String recordPath;
-        if (Platform.isMacOS) {
+        if (isMacOSPlatform()) {
           // 使用file://前缀的完整URL
           recordPath = 'file://$filePath';
           _logger.i('macOS录音URL: $recordPath');
@@ -223,11 +228,11 @@ class MediaService {
   bool get isRecording => _isRecording;
 
   /// 选择图片（相册或相机）
-  Future<File?> pickImage({required bool fromCamera}) async {
+  Future<dynamic> pickImage({required bool fromCamera}) async {
     try {
       // 在macOS上，相机功能存在限制，强制使用相册
       ImageSource source;
-      if (fromCamera && Platform.isMacOS) {
+      if (fromCamera && isMacOSPlatform()) {
         _logger.w('macOS平台不支持相机功能，自动切换到相册选择');
         source = ImageSource.gallery;
       } else {
@@ -243,8 +248,8 @@ class MediaService {
         return null; // 用户取消选择
       }
 
-      // 将XFile转换为File并返回
-      return File(pickedFile.path);
+      // 使用平台特定的XFile处理
+      return await handleXFileForPlatform(pickedFile);
     } catch (error) {
       _logger.e('选择图片失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -252,11 +257,11 @@ class MediaService {
   }
 
   /// 选择视频
-  Future<File?> pickVideo({required bool fromCamera}) async {
+  Future<dynamic> pickVideo({required bool fromCamera}) async {
     try {
       // 在macOS上，相机功能存在限制，强制使用相册
       ImageSource source;
-      if (fromCamera && Platform.isMacOS) {
+      if (fromCamera && isMacOSPlatform()) {
         _logger.w('macOS平台不支持相机录制视频，自动切换到相册选择');
         source = ImageSource.gallery;
       } else {
@@ -271,8 +276,8 @@ class MediaService {
         return null; // 用户取消选择
       }
 
-      // 将XFile转换为File并返回
-      return File(pickedFile.path);
+      // 使用平台特定的XFile处理
+      return await handleXFileForPlatform(pickedFile);
     } catch (error) {
       _logger.e('选择视频失败', error: error, stackTrace: StackTrace.current);
       return null;

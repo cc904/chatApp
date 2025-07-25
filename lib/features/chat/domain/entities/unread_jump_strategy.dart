@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 智能未读消息跳转策略
 ///

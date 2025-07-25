@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
@@ -242,4 +242,9 @@ abstract class ChatRepository {
   /// 允许其他Repository组件（如ChatRepositorySend）通知消息变化
   /// [event] - 消息更新事件
   void notifyMessageUpdate(MessagesEvent event);
+
+  /// 💢💢💢 新增：清理指定会话的控制器
+  /// 当会话页面关闭或不再需要时调用，避免内存泄漏和无效控制器警告
+  /// [conversationId] - 要清理的会话ID
+  void cleanupConversationControllers(String conversationId);
 }

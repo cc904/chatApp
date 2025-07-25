@@ -1,4 +1,5 @@
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/proto/generated/message.pb.dart';
 
 /// 消息发送仓库接口
 /// 专门负责各种类型消息的发送、重发、状态管理等功能

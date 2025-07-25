@@ -9,7 +9,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
@@ -265,7 +265,16 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                     chatRepository: chatRepository,
                     chatRepositorySend: chatRepositorySend,
                     chatsRepository: chatsRepository,
-                    currentUser: currentUser ?? (CurrentUser()..userId = ''),
+                    currentUser: currentUser ?? CurrentUser(
+                      userId: '',
+                      name: '',
+                      avatar: null,
+                      phone: null,
+                      email: null,
+                      lastLoginTime: null,
+                      status: null,
+                      hasSetPassword: false,
+                    ),
                     initialConversation: conversation,
                   ),
                   child: ChatPage(

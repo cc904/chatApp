@@ -44,14 +44,27 @@ class ApiErrorHandler {
   /// 处理DioException
   static String _handleDioException(DioException dioError) {
     try {
-      // 记录详细的错误信息用于调试
-      _logger.e('DioException详情', extra: {
-        'type': dioError.type.toString(),
-        'statusCode': dioError.response?.statusCode,
-        'requestPath': dioError.requestOptions.path,
-        'method': dioError.requestOptions.method,
-        'hasResponseData': dioError.response?.data != null,
-      });
+      // 对于认证相关的401错误，使用调试级别日志
+      if (dioError.response?.statusCode == 401 && 
+          (dioError.requestOptions.path.contains('/auth/') ||
+           dioError.requestOptions.path.contains('/verifyToken'))) {
+        _logger.d('DioException详情（认证失败）', extra: {
+          'type': dioError.type.toString(),
+          'statusCode': dioError.response?.statusCode,
+          'requestPath': dioError.requestOptions.path,
+          'method': dioError.requestOptions.method,
+          'hasResponseData': dioError.response?.data != null,
+        });
+      } else {
+        // 其他错误记录详细的错误信息用于调试
+        _logger.e('DioException详情', extra: {
+          'type': dioError.type.toString(),
+          'statusCode': dioError.response?.statusCode,
+          'requestPath': dioError.requestOptions.path,
+          'method': dioError.requestOptions.method,
+          'hasResponseData': dioError.response?.data != null,
+        });
+      }
 
       // 1. 处理有响应数据的情况
       if (dioError.response?.data != null) {

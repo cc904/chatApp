@@ -1,5 +1,4 @@
-import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/friend_request.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 联系人同步状态枚举
 enum ContactsSyncStatus { idle, syncing, success, error }

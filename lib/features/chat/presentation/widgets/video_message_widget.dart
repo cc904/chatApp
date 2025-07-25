@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/thumbnail_cache_service.dart';
 import 'package:cc/core/utils/media_url_builder.dart';
@@ -42,6 +43,50 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   // 实际的缩略图宽高比（从图片获取）
   double? _actualAspectRatio;
 
+  /// Helper methods to extract video properties from message content JSON
+  String? _getLocalPath() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['local_path'] as String?;
+  }
+
+  String? _getMediaUrl() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['media_url'] as String? ?? 
+           mediaInfo?['url'] as String? ?? 
+           mediaInfo?['fileUrl'] as String?;
+  }
+
+  String? _getThumbnailUrl() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['thumbnailUrl'] as String? ?? 
+           mediaInfo?['thumbnail'] as String?;
+  }
+
+  bool get _hasNewFileServerFields {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['hasNewFileServerFields'] as bool? ?? false;
+  }
+
+  int? _getWidth() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['width'] as int?;
+  }
+
+  int? _getHeight() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['height'] as int?;
+  }
+
+  int? _getDuration() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['duration'] as int?;
+  }
+
+  String? _getCaption() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['caption'] as String?;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -53,10 +98,8 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   void _initializeVideo() {
     try {
       // 检查是否有有效的视频路径
-      if ((widget.message.localPath == null ||
-              widget.message.localPath!.isEmpty) &&
-          (widget.message.mediaUrl == null ||
-              widget.message.mediaUrl!.isEmpty)) {
+      if ((_getLocalPath() == null || _getLocalPath()!.isEmpty) &&
+          (_getMediaUrl() == null || _getMediaUrl()!.isEmpty)) {
         throw Exception('视频路径为空');
       }
 
@@ -73,12 +116,12 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
   void _loadThumbnailUrl() async {
     // 尝试从新的URL构建器获取缩略图URL
     String? thumbnailUrl;
-    if (widget.message.hasNewFileServerFields) {
+    if (_hasNewFileServerFields) {
       thumbnailUrl = await _mediaUrlBuilder.buildThumbnailUrl(widget.message);
     }
     
     // 如果没有新字段，尝试使用旧的thumbnailUrl字段
-    thumbnailUrl ??= await widget.message.thumbnailUrl;
+    thumbnailUrl ??= _getThumbnailUrl();
     
     _effectiveThumbnailPath = thumbnailUrl;
     _loadThumbnail();
@@ -209,11 +252,11 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     }
 
     // 2. 如果消息中有宽高信息，使用它
-    if (widget.message.width != null &&
-        widget.message.height != null &&
-        widget.message.width! > 0 &&
-        widget.message.height! > 0) {
-      final ratio = widget.message.width! / widget.message.height!;
+    if (_getWidth() != null &&
+        _getHeight() != null &&
+        _getWidth()! > 0 &&
+        _getHeight()! > 0) {
+      final ratio = _getWidth()! / _getHeight()!;
       return ratio;
     }
 
@@ -223,11 +266,11 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
 
   /// 格式化视频时长
   String _formatDuration() {
-    if (widget.message.duration == null || widget.message.duration == 0) {
+    if (_getDuration() == null || _getDuration() == 0) {
       return '';
     }
 
-    final seconds = widget.message.duration! ~/ 1000;
+    final seconds = _getDuration()! ~/ 1000;
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
 
@@ -275,8 +318,8 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
     final maxHeight = widget.maxHeight ?? screenSize.height * 0.4;
 
     // 检查是否有caption文字
-    final hasCaption = widget.message.caption != null &&
-        widget.message.caption!.trim().isNotEmpty;
+    final hasCaption = _getCaption() != null &&
+        _getCaption()!.trim().isNotEmpty;
 
     if (hasCaption) {
       // 视频 + 文字组合形式
@@ -331,7 +374,7 @@ class _VideoMessageWidgetState extends State<VideoMessageWidget> {
             width: maxWidth,
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(
-              widget.message.caption!,
+              _getCaption()!,
               style: const TextStyle(
                 color: Colors.black87,
                 fontSize: 14.0,

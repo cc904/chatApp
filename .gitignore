@@ -45,4 +45,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Temporary and test files
+*.test.html
+wasm_test.html
+/tmp/
+/temp/
+
+# Log directories
+/logs/
+
 pubspec.lock
+build-output/x0x-chatapp_0725_231757.tar.gz
+build-output/x0x-chatapp_0726_025038.tar.gz
+build-output/x0x-chatapp_0726_031213.tar.gz

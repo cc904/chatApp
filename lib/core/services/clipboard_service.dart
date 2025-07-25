@@ -1,9 +1,14 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+
+// 条件导入：根据平台导入不同的剪贴板平台操作实现
+import 'clipboard_platform_stub.dart'
+    if (dart.library.io) 'clipboard_platform_io.dart'
+    if (dart.library.html) 'clipboard_platform_web.dart';
 
 /// 剪贴板服务
 /// 提供图片粘贴和文本处理功能
@@ -18,7 +23,7 @@ class ClipboardService {
   /// 检查剪贴板是否包含图片
   Future<bool> hasImage() async {
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (isMobilePlatform()) {
         // 移动端不支持图片粘贴
         return false;
       } else {
@@ -56,7 +61,7 @@ class ClipboardService {
   /// - 'mimeType': String MIME类型
   Future<Map<String, dynamic>?> getImageData() async {
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (isMobilePlatform()) {
         // 移动端不支持图片粘贴
         return null;
       } else {
@@ -214,12 +219,12 @@ class ClipboardService {
 
   /// 检查平台是否支持图片剪贴板功能
   bool get supportsImageClipboard {
-    return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+    return isDesktopPlatform();
   }
 
   /// 获取支持详情描述
   String get supportDetails {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (isMobilePlatform()) {
       return '移动端不支持图片粘贴';
     } else {
       return '桌面端支持粘贴图片文件和数据';

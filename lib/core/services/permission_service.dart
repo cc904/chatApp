@@ -1,7 +1,11 @@
 import 'package:permission_handler/permission_handler.dart';
 import 'package:logger/logger.dart';
-import 'dart:io' show Platform;
 import 'package:cc/core/services/voice_record_service.dart';
+
+// 条件导入：根据平台导入不同的权限平台操作实现
+import 'permission_platform_stub.dart'
+    if (dart.library.io) 'permission_platform_io.dart'
+    if (dart.library.html) 'permission_platform_web.dart';
 
 /// 权限管理服务
 class PermissionService {
@@ -15,7 +19,7 @@ class PermissionService {
   Future<PermissionStatus> checkMicrophonePermission() async {
     try {
       // macOS上permission_handler可能不完全支持，使用record包的权限检查
-      if (Platform.isMacOS) {
+      if (isMacOSPlatform()) {
         _logger.i('macOS平台，使用record包检查权限');
         final voiceService = VoiceRecordService();
         final hasPermission = await voiceService.hasPermission();
@@ -30,7 +34,7 @@ class PermissionService {
       _logger.e('检查麦克风权限失败: $e', error: e, stackTrace: stackTrace);
       
       // 如果权限检查失败，在macOS上尝试record包检查
-      if (Platform.isMacOS) {
+      if (isMacOSPlatform()) {
         try {
           _logger.w('permission_handler失败，尝试record包权限检查');
           final voiceService = VoiceRecordService();
@@ -50,7 +54,7 @@ class PermissionService {
   Future<PermissionStatus> requestMicrophonePermission() async {
     try {
       // macOS上permission_handler可能不完全支持，macOS权限通常在实际使用时由系统处理
-      if (Platform.isMacOS) {
+      if (isMacOSPlatform()) {
         _logger.i('macOS平台，权限将在录音时由系统处理');
         // 在macOS上，当第一次录音时，系统会自动弹出权限对话框
         // 这里我们直接返回granted，让录音逻辑继续
@@ -65,7 +69,7 @@ class PermissionService {
       _logger.e('请求麦克风权限失败: $e', error: e, stackTrace: stackTrace);
       
       // macOS上出错时让系统处理
-      if (Platform.isMacOS) {
+      if (isMacOSPlatform()) {
         _logger.w('macOS权限请求失败，将由系统在录音时处理');
         return PermissionStatus.granted;
       }
@@ -87,7 +91,7 @@ class PermissionService {
       }
 
       // macOS上如果权限被拒绝，说明用户明确拒绝了，我们尊重这个选择
-      if (Platform.isMacOS) {
+      if (isMacOSPlatform()) {
         _logger.w('macOS平台权限被拒绝，将在录音时由系统处理权限请求');
         // 即使record包说没权限，我们还是让它尝试录音
         // 因为macOS系统会在实际录音时弹出权限对话框
@@ -107,7 +111,7 @@ class PermissionService {
       _logger.e('确保麦克风权限失败: $e', error: e, stackTrace: stackTrace);
       
       // macOS上出错时让系统处理
-      if (Platform.isMacOS) {
+      if (isMacOSPlatform()) {
         _logger.w('macOS权限确保失败，将由系统在录音时处理');
         return true;
       }

@@ -1,9 +1,13 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:http/http.dart' as http;
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/dynamic_file_server_config.dart';
 import 'package:cc/core/services/file_server_config_service.dart';
@@ -32,6 +36,190 @@ class UploadApiService {
     await _initializeDio();
   }
 
+  /// 通用文件上传方法 - 支持 XFile (Web 平台兼容)
+  Future<UploadApiResult> _uploadFileFromXFile({
+    required XFile file,
+    required String type,
+    required String conversationId,
+    Map<String, String>? metadata,
+    Function(int)? onProgress,
+  }) async {
+    try {
+      // 验证文件
+      await _validateXFile(file, type);
+
+      // 准备表单数据
+      final formData = FormData();
+
+      // 添加文件
+      // Web平台下，file.path是blob URL，无法直接识别MIME类型，需要用文件名
+      final mimeType = lookupMimeType(file.name) ?? lookupMimeType(file.path) ?? 'application/octet-stream';
+      final bytes = await file.readAsBytes();
+      formData.files.add(
+        MapEntry(
+          'file',
+          MultipartFile.fromBytes(
+            bytes,
+            filename: file.name,
+            contentType: MediaType.parse(mimeType),
+          ),
+        ),
+      );
+
+      // 添加会话ID（必需参数）
+      formData.fields.add(MapEntry('conversationId', conversationId));
+
+      // 添加文件类型（必需参数）
+      formData.fields.add(MapEntry('type', type));
+
+      // 添加用户ID（必需参数）
+      // 从当前用户获取用户ID
+      final currentUser = DatabaseInitializer.currentUser;
+      if (currentUser != null) {
+        formData.fields.add(MapEntry('userId', currentUser.userId));
+      } else {
+        _logger.w('⚠️ 无法获取用户ID，可能影响文件上传');
+      }
+
+      // 添加元数据（可选参数）
+      if (metadata != null && metadata.isNotEmpty) {
+        formData.fields.add(
+          MapEntry('metadata', jsonEncode(metadata)),
+        );
+      }
+
+      // 日志记录要发送的参数和服务器信息
+      _logger.i('📤 文件上传参数 (XFile)', extra: {
+        'conversationId': conversationId,
+        'type': type,
+        'userId': currentUser?.userId,
+        'hasMetadata': metadata != null && metadata.isNotEmpty,
+        'metadataKeys': metadata?.keys.toList(),
+        'fileName': file.name,
+        'fileSize': bytes.length,
+        'serverBaseUrl': _dio?.options.baseUrl,
+        'uploadPath': '/api/upload',
+        'fullUploadUrl': '${_dio?.options.baseUrl}/api/upload',
+        'connectTimeout': _dio?.options.connectTimeout?.inSeconds,
+        'receiveTimeout': _dio?.options.receiveTimeout?.inSeconds,
+        'dioInitialized': _isInitialized,
+        'platform': 'web',
+      });
+
+      // 确保Dio已初始化
+      await _ensureDioInitialized();
+
+      // 发送请求到新的API端点
+      final response = await _dio!.post(
+        '/api/upload',
+        data: formData,
+        onSendProgress: (sent, total) {
+          if (onProgress != null && total > 0) {
+            final progress = (sent / total * 100).round();
+            onProgress(progress);
+          }
+        },
+      );
+
+      // 处理响应
+      return await _parseResponse(response);
+    } catch (error, stackTrace) {
+      _logger.e('文件上传失败 (XFile)', error: error, stackTrace: stackTrace);
+      throw _handleError(error);
+    }
+  }
+
+  /// 验证 XFile
+  Future<void> _validateXFile(XFile file, String type) async {
+    final fileSize = await file.length();
+
+    // 优先使用FileServerConfigService获取文件大小限制
+    final isAllowed =
+        await _fileServerConfigService.isFileSizeAllowed(type, fileSize);
+    if (isAllowed) {
+      return;
+    }
+
+    // 如果FileServerConfigService不可用，使用动态配置的文件大小限制
+    final dynamicConfig = DynamicFileServerConfig();
+    final config = dynamicConfig.currentConfig;
+
+    if (config != null && config.isFileSizeValidForType(fileSize, type)) {
+      // 文件大小符合动态配置限制
+      return;
+    }
+
+    // 获取具体的文件大小限制并生成错误消息
+    final limit = await _fileServerConfigService.getFileSizeLimit(type);
+    if (limit != null) {
+      final maxSizeMB = (limit / 1024 / 1024).round();
+      String errorMessage;
+
+      switch (type.toLowerCase()) {
+        case 'image':
+        case 'images':
+          errorMessage = '图片大小不能超过${maxSizeMB}MB';
+          break;
+        case 'voice':
+          // 语音文件已通过时长限制，无需大小限制
+          return;
+        case 'video':
+        case 'videos':
+          errorMessage = '视频文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'file':
+        case 'files':
+          errorMessage = '文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'avatar':
+          errorMessage = '头像大小不能超过${maxSizeMB}MB';
+          break;
+        default:
+          errorMessage = '文件大小超过限制';
+      }
+
+      throw UploadException(errorMessage);
+    }
+
+    // 如果动态配置验证失败，抛出具体的错误信息
+    if (config != null) {
+      final limits = config.limits;
+      String errorMessage;
+
+      switch (type.toLowerCase()) {
+        case 'image':
+        case 'images':
+          final maxSizeMB = (limits.imageMaxSize / 1024 / 1024).round();
+          errorMessage = '图片大小不能超过${maxSizeMB}MB';
+          break;
+        case 'voice':
+          // 语音文件已通过时长限制，无需大小限制
+          return;
+        case 'video':
+        case 'videos':
+          final maxSizeMB = (limits.videoMaxSize / 1024 / 1024).round();
+          errorMessage = '视频文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'file':
+        case 'files':
+          final maxSizeMB = (limits.fileMaxSize / 1024 / 1024).round();
+          errorMessage = '文件大小不能超过${maxSizeMB}MB';
+          break;
+        case 'avatar':
+          final maxSizeMB = (limits.imageMaxSize / 1024 / 1024).round();
+          errorMessage = '头像大小不能超过${maxSizeMB}MB';
+          break;
+        default:
+          errorMessage = '文件大小超过限制';
+      }
+
+      throw UploadException(errorMessage);
+    }
+
+    // 如果没有配置，使用默认限制
+    throw const UploadException('文件大小超过限制');
+  }
+
   /// 当ServerConfig更新时调用此方法重新配置服务
   Future<void> onServerConfigChanged() async {
     _logger.i('🔄 ServerConfig已更改，重新初始化上传API服务');
@@ -54,9 +242,14 @@ class UploadApiService {
       onRequest: (options, handler) {
         // 记录请求详细信息（无需认证）
         _logger.i('上传请求详情', extra: {
-          'url': options.path,
+          'baseUrl': options.baseUrl,
+          'fullUrl': '${options.baseUrl}${options.path}',
+          'path': options.path,
           'method': options.method,
           'headers': options.headers.keys.toList(),
+          'contentType': options.contentType,
+          'connectTimeout': options.connectTimeout?.inSeconds,
+          'receiveTimeout': options.receiveTimeout?.inSeconds,
         });
 
         handler.next(options);
@@ -69,7 +262,17 @@ class UploadApiService {
         handler.next(response);
       },
       onError: (error, handler) {
-        _logger.e('上传错误', error: error, stackTrace: StackTrace.current);
+        _logger.e('上传错误', error: error, extra: {
+          'errorType': error.type.name,
+          'statusCode': error.response?.statusCode,
+          'statusMessage': error.response?.statusMessage,
+          'baseUrl': error.requestOptions.baseUrl,
+          'fullUrl': '${error.requestOptions.baseUrl}${error.requestOptions.path}',
+          'path': error.requestOptions.path,
+          'method': error.requestOptions.method,
+          'responseData': error.response?.data,
+          'serverMessage': error.message,
+        });
         handler.next(error);
       },
     ));
@@ -117,7 +320,29 @@ class UploadApiService {
     }
   }
 
-  /// 图片上传
+  /// 图片上传 - 支持 XFile (Web 平台兼容)
+  Future<UploadApiResult> uploadImageFromXFile(
+    XFile imageFile, {
+    required String conversationId,
+    String? caption,
+    int? width,
+    int? height,
+    Function(int)? onProgress,
+  }) async {
+    return _uploadFileFromXFile(
+      file: imageFile,
+      type: 'image',
+      conversationId: conversationId,
+      metadata: {
+        if (caption != null) 'caption': caption,
+        if (width != null) 'width': width.toString(),
+        if (height != null) 'height': height.toString(),
+      },
+      onProgress: onProgress,
+    );
+  }
+
+  /// 图片上传 - 支持 File (IO 平台)
   Future<UploadApiResult> uploadImage(
     File imageFile, {
     required String conversationId,
@@ -229,17 +454,57 @@ class UploadApiService {
       final formData = FormData();
 
       // 添加文件
-      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
-      formData.files.add(
-        MapEntry(
-          'file',
-          await MultipartFile.fromFile(
-            file.path,
-            filename: path.basename(file.path),
-            contentType: MediaType.parse(mimeType),
+      // Web平台处理blob URL
+      if (kIsWeb && file.path.startsWith('blob:')) {
+        _logger.i('🌐 Web平台处理blob URL文件', extra: {'path': file.path});
+        
+        try {
+          // 使用HTTP客户端获取blob URL数据
+          final response = await http.get(Uri.parse(file.path));
+          if (response.statusCode != 200) {
+            throw Exception('无法获取blob数据: ${response.statusCode}');
+          }
+          
+          final Uint8List bytes = response.bodyBytes;
+          const fileName = 'voice_recording.m4a';
+          const mimeType = 'audio/mp4'; // Web录音通常是AAC格式
+          
+          _logger.i('🌐 成功获取blob数据', extra: {
+            'bytesLength': bytes.length,
+            'fileName': fileName,
+            'mimeType': mimeType,
+          });
+          
+          formData.files.add(
+            MapEntry(
+              'file',
+              MultipartFile.fromBytes(
+                bytes,
+                filename: fileName,
+                contentType: MediaType.parse(mimeType),
+              ),
+            ),
+          );
+        } catch (e) {
+          _logger.e('🌐 获取blob数据失败', error: e);
+          rethrow;
+        }
+      } else {
+        // 移动端/桌面端正常文件处理
+        final mimeType = lookupMimeType(file.path) ??
+                        lookupMimeType(path.basename(file.path)) ??
+                        'application/octet-stream';
+        formData.files.add(
+          MapEntry(
+            'file',
+            await MultipartFile.fromFile(
+              file.path,
+              filename: path.basename(file.path),
+              contentType: MediaType.parse(mimeType),
+            ),
           ),
-        ),
-      );
+        );
+      }
 
       // 添加会话ID（必需参数）
       formData.fields.add(MapEntry('conversationId', conversationId));
@@ -268,16 +533,33 @@ class UploadApiService {
         );
       }
 
-      // 日志记录要发送的参数
-      _logger.i('📤 文件上传参数', extra: {
+      // 日志记录要发送的参数和服务器信息
+      final logExtra = <String, dynamic>{
         'conversationId': conversationId,
         'type': type,
         'userId': currentUser?.userId,
         'hasMetadata': metadata != null && metadata.isNotEmpty,
         'metadataKeys': metadata?.keys.toList(),
-        'fileName': path.basename(file.path),
-        'fileSize': file.lengthSync(),
-      });
+        'serverBaseUrl': _dio?.options.baseUrl,
+        'uploadPath': '/api/upload',
+        'fullUploadUrl': '${_dio?.options.baseUrl}/api/upload',
+        'connectTimeout': _dio?.options.connectTimeout?.inSeconds,
+        'receiveTimeout': _dio?.options.receiveTimeout?.inSeconds,
+        'dioInitialized': _isInitialized,
+      };
+
+      // Web平台和移动端使用不同的方式获取文件信息
+      if (kIsWeb && file.path.startsWith('blob:')) {
+        logExtra['fileName'] = 'voice_recording.m4a';
+        logExtra['fileSize'] = 'blob_url';
+        logExtra['filePath'] = file.path;
+      } else {
+        logExtra['fileName'] = path.basename(file.path);
+        logExtra['fileSize'] = file.lengthSync();
+        logExtra['filePath'] = file.path;
+      }
+
+      _logger.i('📤 文件上传参数', extra: logExtra);
 
       // 确保Dio已初始化
       await _ensureDioInitialized();
@@ -296,14 +578,20 @@ class UploadApiService {
 
       // 处理响应
       return await _parseResponse(response);
-    } catch (error) {
-      _logger.e('文件上传失败', error: error, stackTrace: StackTrace.current);
+    } catch (error, stackTrace) {
+      _logger.e('文件上传失败', error: error, stackTrace: stackTrace);
       throw _handleError(error);
     }
   }
 
   /// 验证文件
   Future<void> _validateFile(File file, String type) async {
+    // Web平台跳过文件系统检查，因为使用blob URL
+    if (kIsWeb) {
+      // 对于Web平台，我们无法检查文件大小，直接通过验证
+      return;
+    }
+
     if (!file.existsSync()) {
       throw const UploadException('文件不存在');
     }
@@ -431,19 +719,37 @@ class UploadApiService {
   Future<UploadApiResult> _parseResponse(Response response) async {
     final data = response.data;
 
+    _logger.i('解析上传响应', extra: {
+      'responseData': data,
+      'success': data['success'],
+    });
+
     if (data['success'] == true) {
       final resultData = data['data'];
+      
+      _logger.i('上传成功，解析结果数据', extra: {
+        'resultData': resultData,
+        'serverFsID': resultData['fsID'],
+        'fileName': resultData['fileName'],
+        'metadata': resultData['metadata'],
+      });
 
-      // 获取文件服务器ID：优先使用服务器返回的fsID，否则使用默认文件服务器ID
+      // 获取文件服务器ID：优先使用服务器返回的fsID，否则使用默认文件服务器ID，最后使用后备ID
       String? fsId = resultData['fsID'];
       if (fsId == null) {
         fsId = await _fileServerConfigService.getDefaultFileServerId();
         _logger.d('使用默认文件服务器ID', extra: {'defaultFsId': fsId});
+        
+        // 如果默认文件服务器ID也为空，使用后备ID
+        if (fsId == null) {
+          fsId = '1'; // 使用默认的文件服务器ID作为后备
+          _logger.w('默认文件服务器ID为空，使用后备ID', extra: {'fallbackFsId': fsId});
+        }
       } else {
         _logger.d('使用服务器返回的文件服务器ID', extra: {'serverFsId': fsId});
       }
 
-      return UploadApiResult(
+      final result = UploadApiResult(
         success: true,
         fileId: fsId, // 使用确定的文件服务器ID（与fsId保持一致）
         fileName: resultData['fileName'], // 服务器返回的文件名
@@ -452,7 +758,21 @@ class UploadApiService {
         localPath: null, // 文件服务器不返回本地路径
         metadata: UploadMetadata.fromJson(resultData['metadata'] ?? {}),
       );
+
+      _logger.i('构建上传结果', extra: {
+        'success': result.success,
+        'fileId': result.fileId,
+        'fileName': result.fileName,
+        'fsId': result.fsId,
+        'metadata': result.metadata?.toJson(),
+      });
+
+      return result;
     } else {
+      _logger.e('上传失败', extra: {
+        'error': data['error'],
+        'message': data['error']?['message'],
+      });
       throw UploadException(data['error']?['message'] ?? '上传失败');
     }
   }

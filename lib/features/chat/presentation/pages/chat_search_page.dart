@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 // 添加导入Isar数据库
 import 'package:cc/core/services/log_service.dart';
@@ -13,6 +13,7 @@ import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/services/media_cache_service.dart';
 import 'package:cc/core/services/thumbnail_cache_service.dart';
 import 'dart:io';
+import 'dart:convert';
 
 class ChatSearchPage extends StatefulWidget {
   final String conversationId;
@@ -81,7 +82,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     }
 
     // 使用SearchCubit执行搜索
-    _searchCubit.performSearch(query, _allMessages);
+    _searchCubit.search(query, _allMessages);
   }
 
   // 日期选择
@@ -93,13 +94,14 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
       // 如果选中了日期,则跳转到对应日期的聊天记录
       if (selectedDate != null) {
         // 更新SearchCubit中的日期和过滤器
-        _searchCubit.setSelectedDate(selectedDate);
+        _searchCubit.setDate(selectedDate);
 
         _jumpToChatAtDate(selectedDate);
       }
     } catch (error) {
       // 通知Cubit日期选择失败
-      _searchCubit.dateSelectionFailed(error.toString());
+      // 暂时简化错误处理，SearchCubit可能没有setError方法
+      _logger.e('日期选择失败', error: error);
       _logger.e('日期选择失败', error: error, stackTrace: StackTrace.current);
 
       // 使用全局UINotificationService代替直接使用ScaffoldMessenger
@@ -180,7 +182,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                 onChanged: (value) {
                   if (value.isEmpty && state.currentFilter == FilterType.all) {
                     // 清空结果
-                    _searchCubit.performSearch('', _allMessages);
+                    _searchCubit.search('', _allMessages);
                   }
                 },
                 onSubmitted: _performSearch,
@@ -359,8 +361,8 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
   Widget _buildSearchResultItem(Message message) {
     return ListTile(
       leading: _getMessageTypeIcon(message),
-      title: message.text != null && message.text!.isNotEmpty
-          ? Text(message.text!, maxLines: 1, overflow: TextOverflow.ellipsis)
+      title: _getTextFromMessage(message) != null && _getTextFromMessage(message)!.isNotEmpty
+          ? Text(_getTextFromMessage(message)!, maxLines: 1, overflow: TextOverflow.ellipsis)
           : const Text('[非文本消息]',
               style: TextStyle(fontStyle: FontStyle.italic)),
       subtitle: Text(_formatMessageTime(message.createdAt)),
@@ -382,7 +384,7 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     // 过滤出媒体消息
     final mediaMessages = messages
         .where((msg) =>
-            msg.type == MessageType.image || msg.type == MessageType.video)
+            msg.messageType == 'IMAGE' || msg.messageType == 'VIDEO')
         .toList();
 
     if (mediaMessages.isEmpty) {
@@ -409,12 +411,12 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
               borderRadius: BorderRadius.circular(8),
               color: Colors.grey[300],
             ),
-            child: message.type == MessageType.video
+            child: message.messageType == 'VIDEO'
                 ? Stack(
                     alignment: Alignment.center,
                     children: [
                       FutureBuilder<String?>(
-                        future: message.thumbnailUrl,
+                        future: _getThumbnailUrlFromMessage(message),
                         builder: (context, snapshot) {
                           if (snapshot.hasData && snapshot.data != null) {
                             return ClipRRect(
@@ -437,9 +439,9 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
                   )
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: message.mediaUrl != null
+                    child: _getMediaUrlFromMessage(message) != null
                         ? _CachedNetworkImage(
-                            url: message.mediaUrl!,
+                            url: _getMediaUrlFromMessage(message)!,
                             mediaType: 'images',
                           )
                         : const Center(child: Icon(Icons.broken_image)),
@@ -452,23 +454,23 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
 
   // 获取消息类型对应的图标
   Widget _getMessageTypeIcon(Message message) {
-    switch (message.type) {
-      case MessageType.image:
+    switch (message.messageType) {
+      case 'IMAGE':
         return CircleAvatar(
           backgroundColor: AppColors.primary.withAlpha(26),
           child: const Icon(Icons.image, color: AppColors.primary),
         );
-      case MessageType.video:
+      case 'VIDEO':
         return CircleAvatar(
           backgroundColor: Colors.red[100],
           child: const Icon(Icons.videocam, color: Colors.red),
         );
-      case MessageType.file:
+      case 'FILE':
         return CircleAvatar(
           backgroundColor: Colors.orange[100],
           child: const Icon(Icons.insert_drive_file, color: Colors.orange),
         );
-      case MessageType.voice:
+      case 'VOICE':
         return CircleAvatar(
           backgroundColor: Colors.green[100],
           child: const Icon(Icons.mic, color: Colors.green),
@@ -496,6 +498,45 @@ class _ChatSearchPageState extends State<ChatSearchPage> {
     } else {
       return '${time.month}月${time.day}日 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     }
+  }
+
+  /// 从消息content JSON中提取文本
+  String? _getTextFromMessage(Message message) {
+    try {
+      if (message.content != null) {
+        final content = jsonDecode(message.content!);
+        return content['text'];
+      }
+    } catch (e) {
+      // JSON解析失败，返回null
+    }
+    return null;
+  }
+
+  /// 从消息content JSON中提取缩略图URL
+  Future<String?> _getThumbnailUrlFromMessage(Message message) async {
+    try {
+      if (message.content != null) {
+        final content = jsonDecode(message.content!);
+        return content['thumbnailUrl'];
+      }
+    } catch (e) {
+      // JSON解析失败，返回null
+    }
+    return null;
+  }
+
+  /// 从消息content JSON中提取媒体URL
+  String? _getMediaUrlFromMessage(Message message) {
+    try {
+      if (message.content != null) {
+        final content = jsonDecode(message.content!);
+        return content['mediaUrl'];
+      }
+    } catch (e) {
+      // JSON解析失败，返回null
+    }
+    return null;
   }
 }
 

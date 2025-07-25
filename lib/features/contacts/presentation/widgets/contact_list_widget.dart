@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
@@ -118,9 +118,9 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     _groupedContacts.clear();
 
     for (var contact in contacts) {
-      if (contact.name.isEmpty) continue;
+      if (contact.nickName.isEmpty) continue;
 
-      final firstChar = contact.name[0];
+      final firstChar = contact.nickName[0];
       String groupKey;
 
       if (RegExp(r'[A-Za-z]').hasMatch(firstChar)) {
@@ -152,7 +152,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
         if (a.pinyin != null && b.pinyin != null) {
           return a.pinyin!.compareTo(b.pinyin!);
         }
-        return a.name.compareTo(b.name);
+        return a.nickName.compareTo(b.nickName);
       });
     }
 
@@ -175,7 +175,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
       _isFiltering = true;
       _filteredContacts = allContacts
           .where((contact) =>
-              contact.name.toLowerCase().contains(query.toLowerCase()) ||
+              contact.nickName.toLowerCase().contains(query.toLowerCase()) ||
               (contact.pinyin?.toLowerCase().contains(query.toLowerCase()) ??
                   false))
           .toList();
@@ -480,7 +480,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: _buildContactAvatar(contact),
       title: Text(
-        contact.name,
+        contact.nickName,
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -520,7 +520,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
         ],
       ),
       title: Text(
-        contact.name,
+        contact.nickName,
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -537,7 +537,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
       children: [
         UserAvatar(
           avatarUrl: contact.avatar,
-          name: contact.name,
+          name: contact.nickName,
           radius: 20,
         ),
         // 在线状态指示器

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/database/models/quick_reply.dart';
+import 'package:cc/core/database/drift_database.dart';
 import '../cubit/quick_reply_cubit.dart';
 
 /// 快捷回复面板
@@ -119,7 +119,8 @@ class QuickReplyPanel extends StatelessWidget {
     // 按分类分组
     final groupedReplies = <String, List<QuickReply>>{};
     for (final reply in replies) {
-      groupedReplies.putIfAbsent(reply.category, () => []).add(reply);
+      final category = reply.category ?? '默认';
+      groupedReplies.putIfAbsent(category, () => []).add(reply);
     }
 
     return Container(
@@ -169,10 +170,10 @@ class QuickReplyPanel extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _getCategoryColor(reply.category).withAlpha(40),
+            color: _getCategoryColor(reply.category ?? '默认').withAlpha(40),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _getCategoryColor(reply.category).withAlpha(100),
+              color: _getCategoryColor(reply.category ?? '默认').withAlpha(100),
               width: 1,
             ),
           ),
@@ -184,7 +185,7 @@ class QuickReplyPanel extends StatelessWidget {
                   reply.content,
                   style: TextStyle(
                     fontSize: 14,
-                    color: _getCategoryColor(reply.category),
+                    color: _getCategoryColor(reply.category ?? '默认'),
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,

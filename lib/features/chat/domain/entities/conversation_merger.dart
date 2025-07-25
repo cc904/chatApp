@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
 /// 会话列表智能合并工具

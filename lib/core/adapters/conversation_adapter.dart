@@ -1,93 +1,16 @@
 import 'package:fixnum/fixnum.dart';
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
-import 'package:cc/core/utils/timezone_utils.dart';
+import 'dart:convert';
 
 /// 会话数据转换适配器
 ///
 /// 负责处理Conversation模型与Protocol Buffer之间的数据转换
 /// 遵循DDD架构原则，将转换逻辑从模型中分离出来
+/// 
+/// 在新的Drift设计中，参与者信息存储为JSON字符串
 class ConversationAdapter {
-  /// 💢💢💢 新增：从ParticipantProto转换为Participant
-  /// [existingParticipant] - 现有的参与者信息，用于保留未在Proto中设置的字段
-  static Participant participantFromProto(
-      proto.ParticipantProto protoParticipant) {
-    // 转换MemberRole枚举
-    MemberRole role;
-    switch (protoParticipant.role) {
-      case proto.MemberRole.MEMBER:
-        role = MemberRole.member;
-        break;
-      case proto.MemberRole.ADMIN:
-        role = MemberRole.admin;
-        break;
-      case proto.MemberRole.OWNER:
-        role = MemberRole.owner;
-        break;
-      default:
-        role = MemberRole.member;
-    }
-
-    return Participant.create(
-      userId: protoParticipant.userId,
-      name: protoParticipant.name,
-      avatar: protoParticipant.hasAvatar() ? protoParticipant.avatar : '',
-      // 💢💢💢 已移除：unreadCount，现在使用动态计算 conversation.unreadCount(userId)
-      muted: protoParticipant.hasMuted() ? protoParticipant.muted : false,
-      pinned: protoParticipant.hasPinned() ? protoParticipant.pinned : false,
-      joinedAt: protoParticipant.hasJoinedAt()
-          ? TimezoneUtils.fromServerTimestamp(
-              protoParticipant.joinedAt.toInt()) // 🌍 使用UTC时间戳处理
-          : null,
-      deliveredMessageIndex: protoParticipant.hasDeliveredMessageIndex()
-          ? protoParticipant.deliveredMessageIndex
-          : 0,
-      readMessageIndex: protoParticipant.hasReadMessageIndex()
-          ? protoParticipant.readMessageIndex
-          : 0,
-      role: role,
-      addedBy: protoParticipant.hasAddedBy() ? protoParticipant.addedBy : null,
-      online: protoParticipant.hasOnline() ? protoParticipant.online : false,
-      isActive:
-          protoParticipant.hasIsActive() ? protoParticipant.isActive : true,
-    );
-  }
-
-  /// 💢💢💢 新增：从Participant转换为ParticipantProto
-  static proto.ParticipantProto participantToProto(Participant participant) {
-    // 转换MemberRole枚举
-    proto.MemberRole protoRole;
-    switch (participant.role) {
-      case MemberRole.member:
-        protoRole = proto.MemberRole.MEMBER;
-        break;
-      case MemberRole.admin:
-        protoRole = proto.MemberRole.ADMIN;
-        break;
-      case MemberRole.owner:
-        protoRole = proto.MemberRole.OWNER;
-        break;
-    }
-
-    return proto.ParticipantProto(
-      userId: participant.userId,
-      name: participant.name,
-      avatar: participant.avatar,
-      // 💢💢💢 已移除：unreadCount，现在使用动态计算
-      muted: participant.muted,
-      pinned: participant.pinned,
-      joinedAt: participant.joinedAt != null
-          ? Int64(participant.joinedAt!.millisecondsSinceEpoch)
-          : null,
-      deliveredMessageIndex: participant.deliveredMessageIndex,
-      readMessageIndex: participant.readMessageIndex,
-      role: protoRole,
-      addedBy: participant.addedBy,
-      online: participant.online,
-      isActive: participant.isActive,
-    );
-  }
-
+  
   /// 从 Protocol Buffer对象创建数据库对象
   ///
   /// 直接从ConversationProto对象创建Conversation实例
@@ -95,90 +18,44 @@ class ConversationAdapter {
   ///
   /// [protoConv] - 原始的Protocol Buffer对象
   /// [currentUserId] - 当前用户ID，用于从参与者中提取个人设置
-  /// [existingConversation] - 现有的会话对象，用于保留本地字段（如lastReadTime）
   /// 返回：转换后的数据库对象
   static Conversation fromProto(proto.ConversationProto protoConv,
-      {String? currentUserId, Conversation? existingConversation}) {
-    // 确定会话类型
-    final protoType = protoConv.type;
-    ConversationType convType;
-
-    switch (protoType.value) {
-      case 0:
-        convType = ConversationType.private;
-        break;
-      case 1:
-        convType = ConversationType.group;
-        break;
-      case 2:
-        convType = ConversationType.channel;
-        break;
-      default:
-        convType = ConversationType.private;
-    }
-
-    // 💢💢💢 修复：转换参与者Proto列表为Participant列表，完全使用服务器数据
-    final participants = protoConv.participants
-        .map((participantProto) => participantFromProto(participantProto))
-        .toList();
-
-    // 💢💢💢 新增：从当前用户的参与者信息中提取个人设置
-    if (currentUserId != null) {
-      try {} catch (e) {
-        // 如果找不到当前用户的参与者信息，使用默认值
-      }
-    }
-
-    final conversation = Conversation()
-      ..conversationId = protoConv.conversationId
-      ..type = convType
-      ..name = protoConv.hasName() ? protoConv.name : null
-      ..avatar = protoConv.hasAvatar() ? protoConv.avatar : null
-      ..description = protoConv.hasDescription() ? protoConv.description : null
-      ..lastMessagePreview = protoConv.hasLastMessagePreview()
-          ? protoConv.lastMessagePreview
-          : null
-      ..lastMessageTime = protoConv.hasLastMessageTime()
-          ? TimezoneUtils.fromServerTimestamp(
-              protoConv.lastMessageTime.toInt()) // 🌍 使用UTC时间戳处理
-          : null
-      ..firstMessageIndex =
-          protoConv.hasFirstMessageIndex() ? protoConv.firstMessageIndex : 0
-      ..lastMessageIndex =
-          protoConv.hasLastMessageIndex() ? protoConv.lastMessageIndex : 0
-      ..createdAt = protoConv.hasCreatedAt()
-          ? TimezoneUtils.fromServerTimestamp(
-              protoConv.createdAt.toInt()) // 🌍 使用UTC时间戳处理
-          : TimezoneUtils.nowUtc() // 🌍 使用UTC时间
-      ..lastMessageName =
-          protoConv.hasLastMessageName() ? protoConv.lastMessageName : null
-      ..createdBy = protoConv.hasCreatedBy() ? protoConv.createdBy : null
-      ..participants = participants // 💢💢💢 设置参与者List
-      ..contactUserId =
-          _extractContactUserId(protoConv, participants, currentUserId)
-      // 💢💢💢 修复：保留现有会话的本地字段
-      ..lastReadTime = existingConversation?.lastReadTime;
-
-    return conversation;
-  }
-
-  /// 💢💢💢 修复：提取私聊对象的用户ID
-  static String? _extractContactUserId(proto.ConversationProto protoConv,
-      List<Participant> participants, String? currentUserId) {
-    // 只有私聊才需要contactUserId
-    if (protoConv.type != proto.ConversationType.PRIVATE ||
-        currentUserId == null) {
-      return null;
-    }
-
-    // 在私聊中，contactUserId是除当前用户外的另一个参与者
-    try {
-      final otherParticipant =
-          participants.firstWhere((p) => p.userId != currentUserId);
-      return otherParticipant.userId;
-    } catch (e) {
-      return null;
-    }
+      {String? currentUserId}) {
+    
+    // 将参与者Proto列表转换为JSON字符串
+    final participantsJson = jsonEncode(
+      protoConv.participants.map((p) => _participantProtoToMap(p)).toList()
+    );
+    
+    // Extract current user's participant settings
+    final currentUserParticipant = currentUserId != null 
+        ? getParticipantInfo(participantsJson, currentUserId)
+        : null;
+    
+    return Conversation(
+      conversationId: protoConv.conversationId,
+      type: _protoTypeToString(protoConv.type),
+      name: protoConv.hasName() ? protoConv.name : null,
+      avatar: protoConv.hasAvatar() ? protoConv.avatar : null,
+      createdAt: protoConv.hasCreatedAt()
+          ? DateTime.fromMillisecondsSinceEpoch(protoConv.createdAt.toInt())
+          : DateTime.now(),
+      createdBy: protoConv.hasCreatedBy() ? protoConv.createdBy : null,
+      firstMessageIndex: protoConv.hasFirstMessageIndex() ? protoConv.firstMessageIndex : 0,
+      lastMessageIndex: protoConv.hasLastMessageIndex() ? protoConv.lastMessageIndex : 0,
+      lastMessageTime: protoConv.hasLastMessageTime() ? DateTime.fromMillisecondsSinceEpoch(protoConv.lastMessageTime.toInt()) : null,
+      lastMessagePreview: protoConv.hasLastMessagePreview() ? protoConv.lastMessagePreview : null,
+      lastMessageName: protoConv.hasLastMessageName() ? protoConv.lastMessageName : null,
+      participants: participantsJson,
+      description: protoConv.hasDescription() ? protoConv.description : null,
+      requiresApproval: protoConv.hasRequiresApproval() ? protoConv.requiresApproval : false,
+      // Current user's participant settings
+      muted: currentUserParticipant?['muted'] as bool? ?? false,
+      pinned: currentUserParticipant?['pinned'] as bool? ?? false,
+      readMessageIndex: currentUserParticipant?['read_message_index'] as int? ?? 0,
+      unreadCount: _calculateUnreadCount(protoConv, currentUserParticipant),
+      lastReadTime: null, // This will be set separately if needed
+    );
   }
 
   /// 将数据库对象转换为Protocol Buffer对象
@@ -188,32 +65,13 @@ class ConversationAdapter {
   ///
   /// [conversation] - 数据库会话对象
   /// 返回：转换后的Protocol Buffer对象
-  ///
-  /// 注意：新的Proto结构中移除了muted、pinned、unreadCount、lastReadIndex等字段
-  /// 这些信息现在存储在各个参与者的ParticipantProto中
   static proto.ConversationProto toProto(Conversation conversation) {
-    proto.ConversationType protoType;
-
-    switch (conversation.type) {
-      case ConversationType.private:
-        protoType = proto.ConversationType.PRIVATE;
-        break;
-      case ConversationType.group:
-        protoType = proto.ConversationType.GROUP;
-        break;
-      case ConversationType.channel:
-        protoType = proto.ConversationType.CHANNEL;
-        break;
-    }
-
-    // 💢💢💢 修复：将参与者List转换为ParticipantProto列表
-    final participantProtos = conversation.participants
-        .map((participant) => participantToProto(participant))
-        .toList();
-
+    // 从JSON字符串解析参与者列表
+    final participants = _parseParticipantsFromJson(conversation.participants);
+    
     final protoConversation = proto.ConversationProto(
       conversationId: conversation.conversationId,
-      type: protoType,
+      type: _stringToProtoType(conversation.type),
       name: conversation.name,
       avatar: conversation.avatar,
       description: conversation.description,
@@ -226,25 +84,100 @@ class ConversationAdapter {
       createdAt: Int64(conversation.createdAt.millisecondsSinceEpoch),
       lastMessageName: conversation.lastMessageName,
       createdBy: conversation.createdBy,
-      // 💢💢💢 注意：移除了以下字段，因为它们现在存储在参与者信息中：
-      // - muted (从当前用户的participant.muted获取)
-      // - pinned (从当前用户的participant.pinned获取)
-      // - unreadCount (从当前用户的participant.unreadCount获取)
-      // - lastReadIndex (从当前用户的participant.readMessageIndex获取)
+      requiresApproval: conversation.requiresApproval,
     );
 
-    // 💢💢💢 修复：设置参与者列表
-    protoConversation.participants.addAll(participantProtos);
+    // 设置参与者列表
+    protoConversation.participants.addAll(participants);
 
     return protoConversation;
+  }
+
+  /// 将ParticipantProto转换为Map（用于JSON存储）
+  static Map<String, dynamic> _participantProtoToMap(proto.ParticipantProto participant) {
+    return {
+      'user_id': participant.userId,
+      'name': participant.name,
+      'avatar': participant.hasAvatar() ? participant.avatar : null,
+      'role': participant.role.value,
+      'joined_at': participant.hasJoinedAt() ? participant.joinedAt.toInt() : null,
+      'added_by': participant.hasAddedBy() ? participant.addedBy : null,
+      'muted': participant.hasMuted() ? participant.muted : false,
+      'pinned': participant.hasPinned() ? participant.pinned : false,
+      'online': participant.hasOnline() ? participant.online : false,
+      'is_active': participant.hasIsActive() ? participant.isActive : true,
+      'delivered_message_index': participant.hasDeliveredMessageIndex() ? participant.deliveredMessageIndex : 0,
+      'read_message_index': participant.hasReadMessageIndex() ? participant.readMessageIndex : 0,
+    };
+  }
+
+  /// 从Map创建ParticipantProto
+  static proto.ParticipantProto _mapToParticipantProto(Map<String, dynamic> map) {
+    return proto.ParticipantProto(
+      userId: map['user_id'] as String,
+      name: map['name'] as String,
+      avatar: map['avatar'] as String?,
+      role: proto.MemberRole.valueOf(map['role'] as int) ?? proto.MemberRole.MEMBER,
+      joinedAt: map['joined_at'] != null ? Int64(map['joined_at'] as int) : null,
+      addedBy: map['added_by'] as String?,
+      muted: map['muted'] as bool? ?? false,
+      pinned: map['pinned'] as bool? ?? false,
+      online: map['online'] as bool? ?? false,
+      isActive: map['is_active'] as bool? ?? true,
+      deliveredMessageIndex: map['delivered_message_index'] as int? ?? 0,
+      readMessageIndex: map['read_message_index'] as int? ?? 0,
+    );
+  }
+
+  /// 从JSON字符串解析参与者列表
+  static List<proto.ParticipantProto> _parseParticipantsFromJson(String participantsJson) {
+    try {
+      final List<dynamic> participantsList = jsonDecode(participantsJson);
+      return participantsList
+          .cast<Map<String, dynamic>>()
+          .map((map) => _mapToParticipantProto(map))
+          .toList();
+    } catch (e) {
+      // 如果解析失败，返回空列表
+      return [];
+    }
+  }
+
+  /// 将Proto会话类型转换为字符串
+  static String _protoTypeToString(proto.ConversationType type) {
+    switch (type) {
+      case proto.ConversationType.PRIVATE:
+        return 'PRIVATE';
+      case proto.ConversationType.GROUP:
+        return 'GROUP';
+      case proto.ConversationType.CHANNEL:
+        return 'CHANNEL';
+      default:
+        return 'PRIVATE';
+    }
+  }
+
+  /// 将字符串转换为Proto会话类型
+  static proto.ConversationType _stringToProtoType(String type) {
+    switch (type) {
+      case 'PRIVATE':
+        return proto.ConversationType.PRIVATE;
+      case 'GROUP':
+        return proto.ConversationType.GROUP;
+      case 'CHANNEL':
+        return proto.ConversationType.CHANNEL;
+      default:
+        return proto.ConversationType.PRIVATE;
+    }
   }
 
   /// 批量转换：从Proto列表转换为Conversation列表
   ///
   /// [protoList] - Proto对象列表
+  /// [currentUserId] - 当前用户ID
   static List<Conversation> fromProtoList(
-      List<proto.ConversationProto> protoList) {
-    return protoList.map((proto) => fromProto(proto)).toList();
+      List<proto.ConversationProto> protoList, {String? currentUserId}) {
+    return protoList.map((proto) => fromProto(proto, currentUserId: currentUserId)).toList();
   }
 
   /// 批量转换：从Conversation列表转换为Proto列表
@@ -253,117 +186,80 @@ class ConversationAdapter {
     return conversations.map((conversation) => toProto(conversation)).toList();
   }
 
-  /// 💢💢💢 更新：批量转换参与者从Proto Map
-  static Map<String, Participant> participantsFromProtoMap(
-      Map<String, proto.ParticipantProto> protoMap) {
-    final participants = <String, Participant>{};
-    for (final entry in protoMap.entries) {
-      participants[entry.key] = participantFromProto(entry.value);
-    }
-    return participants;
-  }
-
-  /// 💢💢💢 更新：批量转换参与者到Proto Map
-  static Map<String, proto.ParticipantProto> participantsToProtoMap(
-      Map<String, Participant> participants) {
-    final protoMap = <String, proto.ParticipantProto>{};
-    for (final entry in participants.entries) {
-      protoMap[entry.key] = participantToProto(entry.value);
-    }
-    return protoMap;
-  }
-
-  /// 💢💢💢 保留：批量转换参与者（兼容性方法）
-  static List<Participant> participantsFromProtoList(
-      List<proto.ParticipantProto> protoList) {
-    return protoList.map((proto) => participantFromProto(proto)).toList();
-  }
-
-  /// 💢💢💢 保留：批量转换参与者到Proto（兼容性方法）
-  static List<proto.ParticipantProto> participantsToProtoList(
-      List<Participant> participants) {
-    return participants
-        .map((participant) => participantToProto(participant))
-        .toList();
-  }
-
   /// 将Proto枚举类型转换为字符串类型
   static String conversationTypeToString(proto.ConversationType type) {
-    switch (type) {
-      case proto.ConversationType.PRIVATE:
-        return 'private';
-      case proto.ConversationType.GROUP:
-        return 'group';
-      case proto.ConversationType.CHANNEL:
-        return 'channel';
-      default:
-        return 'private';
-    }
+    return _protoTypeToString(type);
   }
 
   /// 将字符串类型转换为Proto枚举类型
   static proto.ConversationType stringToConversationType(String type) {
-    switch (type.toLowerCase()) {
-      case 'private':
-        return proto.ConversationType.PRIVATE;
-      case 'group':
-        return proto.ConversationType.GROUP;
-      case 'channel':
-        return proto.ConversationType.CHANNEL;
-      default:
-        return proto.ConversationType.PRIVATE;
+    return _stringToProtoType(type);
+  }
+
+  /// 从参与者JSON中提取特定用户的信息
+  /// 
+  /// [participantsJson] - 参与者JSON字符串
+  /// [userId] - 用户ID
+  /// 返回：用户的参与者信息，如果不存在则返回null
+  static Map<String, dynamic>? getParticipantInfo(String participantsJson, String userId) {
+    try {
+      final List<dynamic> participantsList = jsonDecode(participantsJson);
+      final participantsMap = participantsList.cast<Map<String, dynamic>>();
+      
+      return participantsMap.firstWhere(
+        (participant) => participant['user_id'] == userId,
+        orElse: () => {},
+      );
+    } catch (e) {
+      return null;
     }
   }
 
-  /// 将本地枚举转换为Proto枚举
-  static proto.ConversationType localTypeToProto(ConversationType type) {
-    switch (type) {
-      case ConversationType.private:
-        return proto.ConversationType.PRIVATE;
-      case ConversationType.group:
-        return proto.ConversationType.GROUP;
-      case ConversationType.channel:
-        return proto.ConversationType.CHANNEL;
-    }
+  /// 检查用户是否在会话中
+  /// 
+  /// [participantsJson] - 参与者JSON字符串
+  /// [userId] - 用户ID
+  /// 返回：如果用户在会话中返回true，否则返回false
+  static bool isUserInConversation(String participantsJson, String userId) {
+    final participantInfo = getParticipantInfo(participantsJson, userId);
+    return participantInfo != null && participantInfo.isNotEmpty;
   }
 
-  /// 将Proto枚举转换为本地枚举
-  static ConversationType protoTypeToLocal(proto.ConversationType type) {
-    switch (type) {
-      case proto.ConversationType.PRIVATE:
-        return ConversationType.private;
-      case proto.ConversationType.GROUP:
-        return ConversationType.group;
-      case proto.ConversationType.CHANNEL:
-        return ConversationType.channel;
-      default:
-        return ConversationType.private;
-    }
+  /// 获取用户在会话中的角色
+  /// 
+  /// [participantsJson] - 参与者JSON字符串
+  /// [userId] - 用户ID
+  /// 返回：用户角色（0=MEMBER, 1=ADMIN, 2=OWNER），如果用户不在会话中返回null
+  static int? getUserRole(String participantsJson, String userId) {
+    final participantInfo = getParticipantInfo(participantsJson, userId);
+    return participantInfo?['role'] as int?;
   }
 
-  /// 💢💢💢 新增：将本地MemberRole枚举转换为Proto枚举
-  static proto.MemberRole localRoleToProto(MemberRole role) {
-    switch (role) {
-      case MemberRole.member:
-        return proto.MemberRole.MEMBER;
-      case MemberRole.admin:
-        return proto.MemberRole.ADMIN;
-      case MemberRole.owner:
-        return proto.MemberRole.OWNER;
-    }
+  /// 检查用户是否已读到指定消息
+  /// 
+  /// [participantsJson] - 参与者JSON字符串
+  /// [userId] - 用户ID
+  /// [messageIndex] - 消息索引
+  /// 返回：如果用户已读到该消息返回true，否则返回false
+  static bool hasUserReadMessage(String participantsJson, String userId, int messageIndex) {
+    final participantInfo = getParticipantInfo(participantsJson, userId);
+    if (participantInfo == null) return false;
+    
+    final readMessageIndex = participantInfo['read_message_index'] as int? ?? 0;
+    return readMessageIndex >= messageIndex;
   }
 
-  /// 💢💢💢 新增：将Proto MemberRole枚举转换为本地枚举
-  static MemberRole protoRoleToLocal(proto.MemberRole role) {
-    switch (role) {
-      case proto.MemberRole.MEMBER:
-        return MemberRole.member;
-      case proto.MemberRole.ADMIN:
-        return MemberRole.admin;
-      case proto.MemberRole.OWNER:
-        return MemberRole.owner;
-      default:
-        return MemberRole.member;
-    }
+  /// 计算用户的未读消息数量
+  /// 
+  /// [protoConv] - 会话Proto对象
+  /// [currentUserParticipant] - 当前用户的参与者信息
+  /// 返回：未读消息数量
+  static int _calculateUnreadCount(proto.ConversationProto protoConv, Map<String, dynamic>? currentUserParticipant) {
+    if (currentUserParticipant == null) return 0;
+    
+    final lastMessageIndex = protoConv.hasLastMessageIndex() ? protoConv.lastMessageIndex : 0;
+    final readMessageIndex = currentUserParticipant['read_message_index'] as int? ?? 0;
+    
+    return (lastMessageIndex - readMessageIndex).clamp(0, double.infinity).toInt();
   }
 }

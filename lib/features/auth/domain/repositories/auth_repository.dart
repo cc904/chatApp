@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// AuthRepository接口
 /// 定义了与认证相关的数据操作方法，支持多设备登录

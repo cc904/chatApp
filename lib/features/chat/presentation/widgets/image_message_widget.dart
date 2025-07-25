@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/media_cache_service.dart';
 import 'package:cc/core/utils/media_url_builder.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/features/chat/presentation/widgets/media_viewer.dart';
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// 图片消息Widget
 /// 支持网络图片、本地图片、加载状态、错误处理和点击查看
@@ -58,6 +60,32 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 是否启用详细调试日志（仅在debug模式下）
   static bool get _isDebugLoggingEnabled => kDebugMode;
 
+  /// Helper methods to extract image properties from message content JSON
+  String? _getFsId() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['fs_id'] as String?;
+  }
+
+  bool get _hasNewFileServerFields {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['hasNewFileServerFields'] as bool? ?? false;
+  }
+
+  int? _getWidth() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['width'] as int?;
+  }
+
+  int? _getHeight() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['height'] as int?;
+  }
+
+  String? _getCaption() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['caption'] as String?;
+  }
+
   /// 详细调试日志（仅在debug模式下输出）
   void _debugLog(String message, {Map<String, dynamic>? extra}) {
     if (_isDebugLoggingEnabled) {
@@ -83,20 +111,33 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 初始化图片加载流程
   void _initializeImage() async {
     try {
+      _debugLog('🖼️ 开始初始化图片加载流程', extra: {
+        'messageId': widget.message.messageId,
+        'messageType': widget.message.messageType,
+        'messageContent': widget.message.content,
+        'fsId': _getFsId(),
+        'hasNewFields': _hasNewFileServerFields,
+        'isCurrentUser': widget.isCurrentUser,
+      });
+
       // 使用新的MediaUrlBuilder构建URL
       final constructedFileUrl = await _mediaUrlBuilder.buildMainFileUrl(widget.message);
       final constructedThumbnailUrl = await _mediaUrlBuilder.buildThumbnailUrl(widget.message);
       
-      _debugLog('开始初始化图片', extra: {
+      _debugLog('🖼️ URL构建完成', extra: {
         'constructedFileUrl': constructedFileUrl,
         'constructedThumbnailUrl': constructedThumbnailUrl,
-        'fsId': widget.message.fsId,
-        'hasNewFields': widget.message.hasNewFileServerFields,
+        'fsId': _getFsId(),
+        'hasNewFields': _hasNewFileServerFields,
         'isCurrentUser': widget.isCurrentUser,
       });
 
       // 确保有构建的文件URL
       if (constructedFileUrl == null || constructedFileUrl.isEmpty) {
+        _debugLog('🖼️ URL构建失败 - 缺少必要字段', extra: {
+          'messageContent': widget.message.content,
+          'fsId': _getFsId(),
+        });
         throw Exception('无法构建图片URL - 缺少必要的文件服务器字段');
       }
 
@@ -104,7 +145,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       final cachedImagePath = await _mediaCache.getCachedMediaPath(
           constructedFileUrl, 'images', messageDate: widget.message.createdAt);
       if (cachedImagePath != null) {
-        _debugLog('使用缓存的原始图片');
+        _debugLog('🖼️ 使用缓存的原始图片');
         await _loadImageFromPath(cachedImagePath);
         return;
       }
@@ -112,15 +153,18 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       // 2. 原始图片未缓存，先尝试显示缩略图
       if (constructedThumbnailUrl != null &&
           constructedThumbnailUrl.isNotEmpty) {
-        _debugLog('原始图片未缓存，先显示缩略图');
+        _debugLog('🖼️ 原始图片未缓存，先显示缩略图');
         await _showThumbnailWhileDownloading(constructedThumbnailUrl, constructedFileUrl);
       } else {
         // 没有缩略图，直接显示加载状态并下载原始图片
-        _debugLog('没有缩略图，直接下载原始图片');
+        _debugLog('🖼️ 没有缩略图，直接下载原始图片');
         await _downloadOriginalImage(constructedFileUrl);
       }
     } catch (error) {
-      _logger.e('图片初始化失败', error: error);
+      _logger.e('🖼️ 图片初始化失败', error: error, extra: {
+        'messageId': widget.message.messageId,
+        'messageContent': widget.message.content,
+      });
       _setError('图片初始化失败: $error');
     }
   }
@@ -208,16 +252,26 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     try {
       _debugLog('从路径加载图片', extra: {'path': imagePath});
 
-      final file = File(imagePath);
-      if (!file.existsSync()) {
-        throw Exception('图片文件不存在: $imagePath');
-      }
+      if (kIsWeb) {
+        // Web 平台：直接使用 NetworkImage
+        setState(() {
+          _imageProvider = NetworkImage(imagePath);
+          _isLoading = false;
+          _hasError = false;
+        });
+      } else {
+        // 原生平台：使用 FileImage
+        final file = File(imagePath);
+        if (!file.existsSync()) {
+          throw Exception('图片文件不存在: $imagePath');
+        }
 
-      setState(() {
-        _imageProvider = FileImage(file);
-        _isLoading = false;
-        _hasError = false;
-      });
+        setState(() {
+          _imageProvider = FileImage(file);
+          _isLoading = false;
+          _hasError = false;
+        });
+      }
 
       // 预加载图片以获取尺寸信息
       _preloadImage();
@@ -242,10 +296,10 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
           final actualRatio = info.image.width / info.image.height;
 
           // 如果消息中已有宽高信息，则不更新实际宽高比，避免布局跳动
-          final hasMessageDimensions = widget.message.width != null &&
-              widget.message.height != null &&
-              widget.message.width! > 0 &&
-              widget.message.height! > 0;
+          final hasMessageDimensions = _getWidth() != null &&
+              _getHeight() != null &&
+              _getWidth()! > 0 &&
+              _getHeight()! > 0;
 
           setState(() {
             // 只有在消息中没有宽高信息时才使用实际宽高比
@@ -288,11 +342,11 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 计算图片宽高比
   double _calculateAspectRatio() {
     // 1. 优先使用消息中保存的宽高信息（避免布局跳动）
-    if (widget.message.width != null &&
-        widget.message.height != null &&
-        widget.message.width! > 0 &&
-        widget.message.height! > 0) {
-      final ratio = widget.message.width! / widget.message.height!;
+    if (_getWidth() != null &&
+        _getHeight() != null &&
+        _getWidth()! > 0 &&
+        _getHeight()! > 0) {
+      final ratio = _getWidth()! / _getHeight()!;
       return ratio;
     }
 
@@ -343,8 +397,8 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     final maxHeight = widget.maxHeight ?? screenSize.height * 0.4;
 
     // 检查是否有caption文字
-    final hasCaption = widget.message.caption != null &&
-        widget.message.caption!.trim().isNotEmpty;
+    final hasCaption = _getCaption() != null &&
+        _getCaption()!.trim().isNotEmpty;
 
     if (hasCaption) {
       // 图片 + 文字组合形式
@@ -412,7 +466,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
             width: maxWidth,
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(
-              widget.message.caption!,
+              _getCaption()!,
               style: const TextStyle(
                 color: Colors.black87,
                 fontSize: 14.0,

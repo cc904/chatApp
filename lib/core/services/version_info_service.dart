@@ -1,8 +1,12 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:cc/core/services/log_service.dart';
+
+// 条件导入：根据平台导入不同的版本信息实现
+import 'version_platform_stub.dart'
+    if (dart.library.io) 'version_platform_io.dart'
+    if (dart.library.html) 'version_platform_web.dart';
 
 /// 版本信息管理服务
 class VersionInfoService {
@@ -35,45 +39,24 @@ class VersionInfoService {
   Future<DeviceInfo> _getDeviceInfo() async {
     final deviceInfo = DeviceInfoPlugin();
     
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
+    try {
+      final platformInfo = await getPlatformSpecificInfo(deviceInfo);
       return DeviceInfo(
-        deviceId: androidInfo.id,
-        model: androidInfo.model,
-        brand: androidInfo.brand,
-        osVersion: androidInfo.version.release,
-        systemName: 'Android',
+        deviceId: 'device-${DateTime.now().millisecondsSinceEpoch}',
+        model: 'Device',
+        brand: getPlatformName(),
+        osVersion: platformInfo,
+        systemName: getPlatformName(),
       );
-    } else if (Platform.isIOS) {
-      final iosInfo = await deviceInfo.iosInfo;
+    } catch (e) {
       return DeviceInfo(
-        deviceId: iosInfo.identifierForVendor ?? 'unknown',
-        model: iosInfo.model,
-        brand: 'Apple',
-        osVersion: iosInfo.systemVersion,
-        systemName: 'iOS',
-      );
-    } else if (Platform.isMacOS) {
-      final macosInfo = await deviceInfo.macOsInfo;
-      return DeviceInfo(
-        deviceId: macosInfo.systemGUID ?? 'unknown',
-        model: macosInfo.model,
-        brand: 'Apple',
-        osVersion: macosInfo.osRelease,
-        systemName: 'macOS',
-      );
-    } else if (Platform.isWindows) {
-      final windowsInfo = await deviceInfo.windowsInfo;
-      return DeviceInfo(
-        deviceId: windowsInfo.deviceId,
-        model: windowsInfo.productName,
-        brand: windowsInfo.registeredOwner,
-        osVersion: windowsInfo.displayVersion,
-        systemName: 'Windows',
+        deviceId: 'unknown-device',
+        model: 'Unknown',
+        brand: 'Unknown',
+        osVersion: 'Unknown',
+        systemName: getPlatformName(),
       );
     }
-    
-    return DeviceInfo.unknown();
   }
 
   /// 当前版本号
@@ -91,11 +74,7 @@ class VersionInfoService {
   /// 平台名称
   String get platformName {
     if (kIsWeb) return 'Web';
-    if (Platform.isAndroid) return 'Android';
-    if (Platform.isIOS) return 'iOS';
-    if (Platform.isMacOS) return 'macOS';
-    if (Platform.isWindows) return 'Windows';
-    return 'Unknown';
+    return getPlatformName();
   }
 
   /// 是否调试模式

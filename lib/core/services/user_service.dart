@@ -4,10 +4,11 @@ import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:drift/drift.dart' as drift;
 
 /// 用户服务
 ///
@@ -246,11 +247,17 @@ class UserService {
 
       // 2. 更新数据库
       if (DatabaseInitializer.isInitialized) {
-        await DatabaseInitializer.isar.writeTxn(() async {
-          // 清除旧的用户信息并保存新的
-          await DatabaseInitializer.isar.currentUsers.clear();
-          await DatabaseInitializer.isar.currentUsers.put(currentUser);
-        });
+        final db = DatabaseInitializer.database;
+        await db.into(db.currentUsers).insertOnConflictUpdate(CurrentUsersCompanion.insert(
+          userId: currentUser.userId,
+          name: currentUser.name,
+          phone: drift.Value(currentUser.phone),
+          email: drift.Value(currentUser.email),
+          avatar: drift.Value(currentUser.avatar),
+          status: drift.Value(currentUser.status),
+          lastLoginTime: drift.Value(currentUser.lastLoginTime),
+          hasSetPassword: drift.Value(currentUser.hasSetPassword),
+        ));
         _logger.d('数据库用户信息已更新');
       }
 
@@ -290,17 +297,18 @@ class UserService {
   ///
   /// 将服务器返回的 Proto 对象转换为本地数据库模型
   CurrentUser currentUserFromProto(CurrentUserProto proto) {
-    return CurrentUser()
-      ..userId = proto.userId
-      ..name = proto.name
-      ..avatar = proto.avatar.isNotEmpty ? proto.avatar : null
-      ..phone = proto.phone.isNotEmpty ? proto.phone : null
-      ..email = proto.email.isNotEmpty ? proto.email : null
-      ..lastLoginTime = proto.hasLastLoginTime()
+    return CurrentUser(
+      userId: proto.userId,
+      name: proto.name,
+      avatar: proto.avatar.isNotEmpty ? proto.avatar : null,
+      phone: proto.phone.isNotEmpty ? proto.phone : null,
+      email: proto.email.isNotEmpty ? proto.email : null,
+      lastLoginTime: proto.hasLastLoginTime()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastLoginTime.toInt())
-          : null
-      ..status = proto.status.isNotEmpty ? proto.status : null
-      ..hasSetPassword = proto.hasSetPassword;
+          : null,
+      status: proto.status.isNotEmpty ? proto.status : null,
+      hasSetPassword: proto.hasSetPassword,
+    );
   }
 
   /// 构建 CurrentUserProto 对象从 CurrentUser

@@ -1,7 +1,7 @@
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/message_notification_service.dart';
 import 'package:cc/features/chat/data/repositories/chats_repository_impl.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 
 /// 通知动作处理服务
@@ -25,10 +25,16 @@ class NotificationActionService {
       final userAvatar = await secureStorage.read('user_avatar');
 
       if (userId != null && userDisplayName != null) {
-        final currentUser = CurrentUser()
-          ..userId = userId
-          ..name = userDisplayName
-          ..avatar = userAvatar;
+        final currentUser = CurrentUser(
+          userId: userId,
+          name: userDisplayName,
+          avatar: userAvatar,
+          phone: null,
+          email: null,
+          lastLoginTime: null,
+          status: null,
+          hasSetPassword: false,
+        );
 
         _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);
         _logger.i('通知动作服务初始化成功', extra: {'userId': userId});

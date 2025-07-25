@@ -1,10 +1,10 @@
 import 'package:cc/core/proto/generated/contacts.pb.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/adapters/user_adapter.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:isar/isar.dart';
+import 'package:drift/drift.dart';
 
 /// 联系人服务
 /// 负责处理联系人相关的操作，如更新联系人信息
@@ -73,45 +73,42 @@ class ContactService {
       if (isFavorite != null) updatedFields.add('is_favorite');
 
       // 本地更新
-      final isar = _getDatabaseInstance();
-      if (isar != null) {
-        final user = await isar
-            .collection<User>()
-            .filter()
-            .userIdEqualTo(contactId)
-            .findFirst();
+      final database = AppDatabase.instance;
+      final user = await (database.select(database.users)
+          ..where((u) => u.userId.equals(contactId))).getSingleOrNull();
 
-        if (user != null) {
-          await isar.writeTxn(() async {
-            if (nickname != null) {
-              user.name = nickname; // 显示名使用nickname
-            }
-            // 备注等字段可扩展到User模型，如果不存在则忽略
-            await isar.collection<User>().put(user);
-          });
+      if (user != null) {
+        await database.transaction(() async {
+          if (nickname != null) {
+            // 更新用户昵称
+            await database.update(database.users).replace(
+              user.copyWith(nickName: nickname),
+            );
+          }
+          // 备注等字段可扩展到User模型，如果不存在则忽略
+        });
 
-          _logger.d('本地联系人数据已预更新', extra: {
-            'contactId': contactId,
-            'updatedFields': updatedFields,
-          });
+        _logger.d('本地联系人数据已预更新', extra: {
+          'contactId': contactId,
+          'updatedFields': updatedFields,
+        });
 
-          // 发送本地事件，提前刷新UI
-          _socketService.emit('local:contact:updated', {
+        // 发送本地事件，提前刷新UI
+        _socketService.emit('local:contact:updated', {
+          'contactId': contactId,
+          'updatedFields': updatedFields,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'source': 'contact_service_local',
+        });
+
+        // 如果名称变更，提前刷新私聊会话名称
+        if (updatedFields.any((f) => ['custom_nickname'].contains(f))) {
+          _socketService.emit('local:conversation:contact_updated', {
             'contactId': contactId,
             'updatedFields': updatedFields,
             'timestamp': DateTime.now().millisecondsSinceEpoch,
             'source': 'contact_service_local',
           });
-
-          // 如果名称变更，提前刷新私聊会话名称
-          if (updatedFields.any((f) => ['custom_nickname'].contains(f))) {
-            _socketService.emit('local:conversation:contact_updated', {
-              'contactId': contactId,
-              'updatedFields': updatedFields,
-              'timestamp': DateTime.now().millisecondsSinceEpoch,
-              'source': 'contact_service_local',
-            });
-          }
         }
       }
 
@@ -271,20 +268,12 @@ class ContactService {
   Future<void> _updateLocalContactFromResponse(
       UpdateContactResponse response) async {
     try {
-      final isar = _getDatabaseInstance();
-      if (isar == null) {
-        _logger.w('数据库未初始化，跳过联系人本地更新');
-        return;
-      }
-
+      final database = AppDatabase.instance;
       final contactId = response.contact.userId;
 
       // 查找现有联系人
-      final existingUser = await isar
-          .collection<User>()
-          .filter()
-          .userIdEqualTo(contactId)
-          .findFirst();
+      final existingUser = await (database.select(database.users)
+          ..where((u) => u.userId.equals(contactId))).getSingleOrNull();
 
       if (existingUser == null) {
         _logger.w('本地未找到需要更新的联系人', extra: {'contactId': contactId});
@@ -292,52 +281,54 @@ class ContactService {
       }
 
       // 根据更新的字段进行选择性更新
-      await isar.writeTxn(() async {
+      await database.transaction(() async {
+        var updatedUser = existingUser;
+        
         if (response.updatedFields.contains('nickname') ||
             response.updatedFields.contains('custom_nickname')) {
           // 重新计算显示名称
-          final updatedUser = User.fromProto(response.contact);
-          existingUser.name = updatedUser.name;
+          final protoUser = UserAdapter.fromUserProto(response.contact);
+          updatedUser = updatedUser.copyWith(nickName: protoUser.nickName);
 
           _logger.d('更新联系人显示名称', extra: {
             'contactId': contactId,
-            'newName': existingUser.name,
+            'newName': protoUser.nickName,
           });
         }
 
         if (response.updatedFields.contains('avatar')) {
-          existingUser.avatar =
-              response.contact.hasAvatar() ? response.contact.avatar : null;
+          final avatar = response.contact.hasAvatar() ? response.contact.avatar : null;
+          updatedUser = updatedUser.copyWith(avatar: Value(avatar));
 
           _logger.d('更新联系人头像', extra: {
             'contactId': contactId,
-            'hasAvatar': existingUser.avatar != null,
+            'hasAvatar': avatar != null,
           });
         }
 
         if (response.updatedFields.contains('phone')) {
-          existingUser.phone =
-              response.contact.hasPhone() ? response.contact.phone : null;
+          final phone = response.contact.hasPhone() ? response.contact.phone : null;
+          updatedUser = updatedUser.copyWith(phone: Value(phone));
         }
 
         if (response.updatedFields.contains('email')) {
-          existingUser.email =
-              response.contact.hasEmail() ? response.contact.email : null;
+          final email = response.contact.hasEmail() ? response.contact.email : null;
+          updatedUser = updatedUser.copyWith(email: Value(email));
         }
 
         if (response.updatedFields.contains('status')) {
-          existingUser.status =
-              response.contact.hasStatus() ? response.contact.status : null;
+          final status = response.contact.hasStatus() ? response.contact.status : null;
+          updatedUser = updatedUser.copyWith(status: Value(status));
         }
 
         // 更新最后活跃时间
         if (response.contact.hasLastActiveTime()) {
-          existingUser.lastActiveTime = DateTime.fromMillisecondsSinceEpoch(
-              response.contact.lastActiveTime.toInt());
+          final lastActiveTime = DateTime.fromMillisecondsSinceEpoch(response.contact.lastActiveTime.toInt());
+          updatedUser = updatedUser.copyWith(lastActiveTime: Value(lastActiveTime));
         }
 
         // 保存更新
-        await isar.collection<User>().put(existingUser);
+        await database.update(database.users).replace(updatedUser);
       });
 
       _logger.d('本地联系人数据更新完成', extra: {
@@ -474,79 +465,74 @@ class ContactService {
   /// [event] - 联系人更新事件
   Future<void> _updateLocalContactData(ContactUpdateEvent event) async {
     try {
-      // 获取数据库实例
-      final isar = _getDatabaseInstance();
-      if (isar == null) {
-        _logger.w('数据库未初始化，跳过联系人更新');
-        return;
-      }
+      final database = AppDatabase.instance;
+      final contactId = event.contact.userId;
 
       // 查找现有联系人
-      final existingUser = await isar
-          .collection<User>()
-          .filter()
-          .userIdEqualTo(event.contact.userId)
-          .findFirst();
+      final existingUser = await (database.select(database.users)
+          ..where((u) => u.userId.equals(contactId))).getSingleOrNull();
 
       if (existingUser == null) {
         _logger.i('联系人不存在，创建新联系人', extra: {
-          'contactId': event.contact.userId,
+          'contactId': contactId,
         });
 
         // 创建新联系人
-        final newUser = User.fromProto(event.contact);
-        await isar.writeTxn(() async {
-          await isar.collection<User>().put(newUser);
+        final newUser = UserAdapter.fromUserProto(event.contact);
+        await database.transaction(() async {
+          await database.into(database.users).insert(newUser);
         });
       } else {
         _logger.i('更新现有联系人信息', extra: {
-          'contactId': event.contact.userId,
+          'contactId': contactId,
           'updatedFields': event.updatedFields,
         });
 
         // 更新现有联系人
-        await isar.writeTxn(() async {
+        await database.transaction(() async {
+          var updatedUser = existingUser;
+          
           // 🎯 根据更新的字段选择性更新
           if (event.updatedFields.contains('nickname') ||
               event.updatedFields.contains('custom_nickname')) {
             // 重新计算显示名称（因为可能涉及自定义昵称更新）
-            final updatedUser = User.fromProto(event.contact);
-            existingUser.name = updatedUser.name;
+            final protoUser = UserAdapter.fromUserProto(event.contact);
+            updatedUser = updatedUser.copyWith(nickName: protoUser.nickName);
           }
 
           if (event.updatedFields.contains('avatar')) {
-            existingUser.avatar =
-                event.contact.hasAvatar() ? event.contact.avatar : null;
+            final avatar = event.contact.hasAvatar() ? event.contact.avatar : null;
+            updatedUser = updatedUser.copyWith(avatar: Value(avatar));
           }
 
           if (event.updatedFields.contains('phone')) {
-            existingUser.phone =
-                event.contact.hasPhone() ? event.contact.phone : null;
+            final phone = event.contact.hasPhone() ? event.contact.phone : null;
+            updatedUser = updatedUser.copyWith(phone: Value(phone));
           }
 
           if (event.updatedFields.contains('email')) {
-            existingUser.email =
-                event.contact.hasEmail() ? event.contact.email : null;
+            final email = event.contact.hasEmail() ? event.contact.email : null;
+            updatedUser = updatedUser.copyWith(email: Value(email));
           }
 
           if (event.updatedFields.contains('status')) {
-            existingUser.status =
-                event.contact.hasStatus() ? event.contact.status : null;
+            final status = event.contact.hasStatus() ? event.contact.status : null;
+            updatedUser = updatedUser.copyWith(status: Value(status));
           }
 
           // 更新最后活跃时间
           if (event.contact.hasLastActiveTime()) {
-            existingUser.lastActiveTime = DateTime.fromMillisecondsSinceEpoch(
-                event.contact.lastActiveTime.toInt());
+            final lastActiveTime = DateTime.fromMillisecondsSinceEpoch(event.contact.lastActiveTime.toInt());
+            updatedUser = updatedUser.copyWith(lastActiveTime: Value(lastActiveTime));
           }
 
           // 保存更新
-          await isar.collection<User>().put(existingUser);
+          await database.update(database.users).replace(updatedUser);
         });
       }
 
       _logger.d('本地联系人数据更新成功', extra: {
-        'contactId': event.contact.userId,
+        'contactId': contactId,
         'updatedFields': event.updatedFields,
       });
     } catch (e) {
@@ -636,22 +622,6 @@ class ContactService {
       _logger.d('已发送头像更新通知', extra: {'userId': userId});
     } catch (e) {
       _logger.e('通知头像更新失败', extra: {'error': e.toString()});
-    }
-  }
-
-  /// 获取数据库实例
-  ///
-  /// 返回Isar数据库实例，如果未初始化则返回null
-  Isar? _getDatabaseInstance() {
-    try {
-      if (!DatabaseInitializer.isInitialized) {
-        _logger.w('数据库未初始化');
-        return null;
-      }
-      return DatabaseInitializer.isar;
-    } catch (e) {
-      _logger.e('获取数据库实例失败', extra: {'error': e.toString()});
-      return null;
     }
   }
 }

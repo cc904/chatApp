@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/widgets/contact_list_widget.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
@@ -11,7 +10,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
 
@@ -59,7 +58,7 @@ class _NewConversationBottomSheetState
 
   /// 处理主页面联系人点击
   void _handleMainPageContactTap(User contact) {
-    _logger.i('选择联系人开始对话', extra: {'contactName': contact.name});
+    _logger.i('选择联系人开始对话', extra: {'contactName': contact.nickName});
 
     // 获取必要的Provider依赖
     final chatsRepository = context.read<ChatsRepository>();
@@ -91,7 +90,11 @@ class _NewConversationBottomSheetState
                   chatRepository: chatRepository,
                   chatRepositorySend: chatRepositorySend,
                   chatsRepository: chatsRepository,
-                  currentUser: CurrentUser()..userId = '', // 这会被ChatCubit正确初始化
+                  currentUser: const CurrentUser(
+                    userId: '', 
+                    name: '',
+                    hasSetPassword: false,
+                  ), // 这会被ChatCubit正确初始化
                   initialConversation: conversation,
                 ),
                 child: ChatPage(
@@ -145,7 +148,7 @@ class _NewConversationBottomSheetState
 
     _logger.i('进入群聊设置页面', extra: {
       'selectedContacts': _selectedContacts.length,
-      'contactNames': _selectedContacts.map((c) => c.name).toList(),
+      'contactNames': _selectedContacts.map((c) => c.nickName).toList(),
     });
 
     // 获取必要的Provider依赖
@@ -472,8 +475,8 @@ class _NewConversationBottomSheetState
                   radius: 12,
                   backgroundColor: AppColors.primary,
                   child: Text(
-                    contact.name.isNotEmpty
-                        ? contact.name[0].toUpperCase()
+                    contact.nickName.isNotEmpty
+                        ? contact.nickName[0].toUpperCase()
                         : 'U',
                     style: const TextStyle(
                       fontSize: 10,
@@ -483,7 +486,7 @@ class _NewConversationBottomSheetState
                   ),
                 ),
                 label: Text(
-                  contact.name,
+                  contact.nickName,
                   style: const TextStyle(fontSize: 12),
                 ),
                 deleteIcon: const Icon(Icons.close, size: 16),

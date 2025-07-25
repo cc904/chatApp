@@ -4,7 +4,7 @@ import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/services/user_service.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 class AccountSecurityPage extends StatefulWidget {
   final CurrentUser? user;

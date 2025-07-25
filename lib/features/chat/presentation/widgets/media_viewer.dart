@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -538,6 +539,18 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
 
 /// 媒体查看器工厂
 class MediaViewer {
+  /// Helper methods to extract media properties from message content JSON
+  static String? _getLocalPath(Message message) {
+    final mediaInfo = MessageAdapter.extractMediaInfo(message.content);
+    return mediaInfo?['local_path'] as String?;
+  }
+
+  static String? _getMediaUrl(Message message) {
+    final mediaInfo = MessageAdapter.extractMediaInfo(message.content);
+    return mediaInfo?['media_url'] as String? ?? 
+           mediaInfo?['url'] as String? ?? 
+           mediaInfo?['fileUrl'] as String?;
+  }
   /// 打开图片查看器
   static void openImage(
     BuildContext context, {
@@ -579,8 +592,8 @@ class MediaViewer {
   /// 打开媒体查看器（根据消息类型）
   static void openMedia(BuildContext context, Message message,
       {VoidCallback? onDelete}) {
-    final localPath = message.localPath;
-    final mediaUrl = message.mediaUrl;
+    final localPath = _getLocalPath(message);
+    final mediaUrl = _getMediaUrl(message);
 
     if (localPath == null && mediaUrl == null) {
       UINotificationService().showError('无法查看：找不到媒体文件');
@@ -609,14 +622,14 @@ class MediaViewer {
       return;
     }
 
-    if (message.type == MessageType.image) {
+    if (message.messageType == 'IMAGE') {
       openImage(
         context,
         imagePath: effectivePath,
         mediaUrl: mediaUrl,
         onDelete: onDelete,
       );
-    } else if (message.type == MessageType.video) {
+    } else if (message.messageType == 'VIDEO') {
       openVideo(
         context,
         videoPath: effectivePath,

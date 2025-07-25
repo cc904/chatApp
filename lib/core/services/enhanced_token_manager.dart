@@ -273,10 +273,12 @@ class EnhancedTokenManager {
     try {
       _logger.d('🔍 检查Socket Token状态...');
 
-      // 检查Socket Token是否存在且有效
+      // 🔧 修复：检查Socket Token是否存在且有效，避免重复调用
       final socketToken = await _secureStorage.getSocketToken();
       if (socketToken != null) {
-        if (await _secureStorage.isSocketTokenValid()) {
+        // 直接检查过期时间，避免调用isSocketTokenValid()造成重复getSocketToken调用
+        final expireTime = await _secureStorage.getSocketTokenExpireTime();
+        if (expireTime != null && DateTime.now().isBefore(expireTime)) {
           _logger.d('✅ Socket Token有效，直接使用');
           return socketToken;
         } else {
@@ -308,24 +310,24 @@ class EnhancedTokenManager {
   /// 每次调用时自动检查Token状态，如果过期则需要重新登录
   Future<String?> getApiToken() async {
     try {
-      _logger.d('🔍 检查API Token状态...');
+      _logger.d('检查API Token状态');
 
-      // 检查Refresh Token是否存在且有效
+      // 检查Refresh Token是否存在
       final refreshToken = await _secureStorage.getRefreshToken();
       if (refreshToken == null) {
-        _logger.w('❌ Refresh Token不存在');
+        _logger.w('Refresh Token不存在');
         return null;
       }
 
-      // 检查Refresh Token是否有效（未过期）
-      final isValid = await _secureStorage.isRefreshTokenValid();
-      if (isValid) {
-        _logger.d('✅ Refresh Token有效，直接使用');
+      // 检查Refresh Token是否有效（未过期）- 避免重复获取token
+      final expireTime = await _secureStorage.getRefreshTokenExpireTime();
+      if (expireTime != null && DateTime.now().isBefore(expireTime)) {
+        _logger.d('Refresh Token有效，直接使用');
         return refreshToken;
       }
 
       // Refresh Token已过期，需要重新登录
-      _logger.w('❌ Refresh Token已过期，需要重新登录');
+      _logger.w('Refresh Token已过期，需要重新登录');
       await _handleTokenExpired();
       return null;
     } catch (error) {

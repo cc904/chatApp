@@ -1,0 +1,50 @@
+/* 系统字体优先 - 零依赖解决方案 */
+
+/* 完全使用系统内置字体，避免加载问题 */
+*, 
+*::before, 
+*::after,
+body,
+html {
+  font-family: 
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    "Source Han Sans SC",
+    "Noto Sans CJK SC",
+    "WenQuanYi Micro Hei",
+    sans-serif !important;
+}
+
+/* Flutter特定元素 */
+flt-renderer,
+flt-semantics,
+flt-glass-pane {
+  font-family: inherit !important;
+}
+
+/* 禁用字体合成和网络加载 */
+* {
+  font-synthesis: none !important;
+}
+
+/* 确保CJK字符正确显示 */
+:lang(zh),
+:lang(zh-CN),
+:lang(zh-TW) {
+  font-family: 
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    "Source Han Sans SC",
+    "Noto Sans CJK SC",
+    "WenQuanYi Micro Hei",
+    system-ui,
+    sans-serif !important;
+}

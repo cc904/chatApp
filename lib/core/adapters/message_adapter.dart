@@ -1,46 +1,30 @@
 import 'dart:convert';
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
-// import 'package:cc/core/proto/generated/common.pb.dart' as common_proto;
-import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/utils/timezone_utils.dart';
+import 'package:cc/core/database/drift_database.dart';
 
-/// 🚀 消息适配器 - 支持Index-based同步的转换器
+/// 🚀 消息适配器 - 支持Index-based同步的转换器 (Drift版本)
 ///
-/// 负责在Protocol Buffer消息和数据库消息之间进行转换。
+/// 负责在Protocol Buffer消息和Drift数据库消息之间进行转换。
 /// 新版本重点支持messageIndex字段，用于替代复杂的时间戳游标系统。
+/// 
+/// 在新的Drift设计中，消息内容存储为JSON字符串，支持proto的oneof content结构
 ///
 /// ## 🎯 核心功能
 /// 1. **Proto ↔ Database 转换**：双向转换消息对象
 /// 2. **Index字段处理**：正确处理服务器分配的消息序列号
-/// 3. **嵌套结构处理**：支持proto的oneof content结构
+/// 3. **JSON内容处理**：支持proto的oneof content结构存储为JSON
 ///
-/// ## 🔥 Index方案优势
+/// ## 🔥 数据存储方式
 /// ```dart
-/// // 旧方案：复杂的时间戳排序
-/// messages.sortByMessageIndexDesc()  // ❌ 已废弃
-///
-/// // 新方案：使用服务器时间戳排序，确保跨客户端一致性
-/// messages.sortByCreatedAtDesc()  // 🚀 一行搞定！
-/// ```
-///
-/// ## 📋 支持的消息类型
-/// - TEXT: 文本消息
-/// - IMAGE: 图片消息
-/// - VOICE: 语音消息
-/// - FILE: 文件消息
-/// - VIDEO: 视频消息
-/// - SYSTEM: 系统消息
-///
-/// ## 🔄 转换示例
-/// ```dart
-/// // Protocol Buffer → Database
-/// final message = MessageAdapter.fromProto(protoMessage);
-/// print('Index: ${message.messageIndex}');  // 🔥 核心排序字段
-///
-/// // Database → Protocol Buffer
-/// final proto = MessageAdapter.toProto(dbMessage);
-/// print('Proto Index: ${proto.index}');     // 🔥 同步依据
+/// // 消息内容存储示例
+/// message.content = jsonEncode({
+///   'text_message': {'text': 'Hello World', 'mentions': []},
+///   // 或
+///   'media_message': {'media_url': 'url', 'file_size': 1024},
+///   // 或
+///   'system_message': {'text': 'User joined', 'event_type': 'MEMBER_JOINED'}
+/// });
 /// ```
 class MessageAdapter {
   /// 从 Protocol Buffer对象创建数据库对象
@@ -50,247 +34,191 @@ class MessageAdapter {
   /// [proto] - 原始的Protocol Buffer对象
   /// 返回：转换后的数据库对象
   static Message fromProto(message_proto.MessageProto protoMessage) {
-    final message = Message()
-      ..messageId = protoMessage.messageId
-      ..conversationId = protoMessage.conversationId
-      ..messageIndex = protoMessage.hasIndex() ? protoMessage.index.toInt() : 0
-      ..senderId = protoMessage.senderId
-      ..senderName =
-          protoMessage.hasSenderName() ? protoMessage.senderName : null
-      ..senderAvatar =
-          protoMessage.hasSenderAvatar() ? protoMessage.senderAvatar : null
-      ..createdAt = protoMessage.hasCreatedAt()
-          ? TimezoneUtils.fromServerTimestamp(
-              protoMessage.createdAt.toInt()) // 🌍 使用UTC时间戳处理
-          : TimezoneUtils.nowUtc() // 🌍 默认使用UTC时间
-      ..updatedAt = protoMessage.hasUpdatedAt()
-          ? TimezoneUtils.fromServerTimestamp(
-              protoMessage.updatedAt.toInt()) // 🌍 使用UTC时间戳处理
-          : null
-      ..status = _determineMessageStatus(protoMessage)
-      ..type = protoMessage.hasType()
-          ? _protoTypeToMessageType(protoMessage.type)
-          : MessageType.text
-      ..quotedMessageId = protoMessage.hasQuotedMessageId()
-          ? protoMessage.quotedMessageId
-          : null
-      ..isEdited = protoMessage.hasIsEdited() ? protoMessage.isEdited : false
-      ..editedAt = protoMessage.hasEditedAt()
-          ? TimezoneUtils.fromServerTimestamp(
-              protoMessage.editedAt.toInt()) // 🌍 使用UTC时间戳处理
-          : null
-      ..repliedToMessageId = protoMessage.hasRepliedToMessageId()
+    
+    // 将oneof content结构转换为JSON存储
+    final contentJson = _extractContentToJson(protoMessage);
+    
+    return Message(
+      messageId: protoMessage.messageId,
+      conversationId: protoMessage.conversationId,
+      senderId: protoMessage.senderId,
+      senderName: protoMessage.hasSenderName() ? protoMessage.senderName : null,
+      senderAvatar: protoMessage.hasSenderAvatar() ? protoMessage.senderAvatar : null,
+      createdAt: protoMessage.hasCreatedAt() 
+          ? DateTime.fromMillisecondsSinceEpoch(protoMessage.createdAt.toInt())
+          : DateTime.now(),
+      updatedAt: protoMessage.hasUpdatedAt() 
+          ? DateTime.fromMillisecondsSinceEpoch(protoMessage.updatedAt.toInt())
+          : null,
+      messageIndex: protoMessage.hasIndex() ? protoMessage.index.toInt() : 0,
+      messageType: _protoTypeToString(protoMessage.type),
+      messageStatus: _protoStatusToString(protoMessage.status),
+      quotedMessageId: protoMessage.hasQuotedMessageId() 
+          ? protoMessage.quotedMessageId 
+          : null,
+      repliedToMessageId: protoMessage.hasRepliedToMessageId()
           ? protoMessage.repliedToMessageId
-          : null
-      ..forwardedFromConversationId =
-          protoMessage.hasForwardedFromConversationId()
-              ? protoMessage.forwardedFromConversationId
-              : null
-      ..forwardedFromMessageId = protoMessage.hasForwardedFromMessageId()
+          : null,
+      forwardedFromConversationId: protoMessage.hasForwardedFromConversationId()
+          ? protoMessage.forwardedFromConversationId
+          : null,
+      forwardedFromMessageId: protoMessage.hasForwardedFromMessageId()
           ? protoMessage.forwardedFromMessageId
-          : null
-      ..reactions = protoMessage.reactions.isNotEmpty
-          ? jsonEncode(protoMessage.reactions)
-          : null
-      ..tags =
-          protoMessage.tags.isNotEmpty ? jsonEncode(protoMessage.tags) : null
-      ..isPinned = protoMessage.hasIsPinned() ? protoMessage.isPinned : false;
-
-    // 处理不同类型的消息内容
-    _extractContentFromProto(protoMessage, message);
-
-    return message;
+          : null,
+      isEdited: protoMessage.hasIsEdited() ? protoMessage.isEdited : false,
+      editedAt: protoMessage.hasEditedAt() 
+          ? DateTime.fromMillisecondsSinceEpoch(protoMessage.editedAt.toInt())
+          : null,
+      isPinned: protoMessage.hasIsPinned() ? protoMessage.isPinned : false,
+      reactions: protoMessage.reactions.isNotEmpty 
+          ? jsonEncode(protoMessage.reactions) 
+          : null,
+      tags: protoMessage.tags.isNotEmpty 
+          ? jsonEncode(protoMessage.tags) 
+          : null,
+      content: contentJson,
+    );
   }
 
-  /// 从proto的oneof content中提取内容到数据库扁平结构
-  static void _extractContentFromProto(
-      message_proto.MessageProto protoMessage, Message message) {
+  /// 从proto的oneof content中提取内容转换为JSON
+  static String? _extractContentToJson(message_proto.MessageProto protoMessage) {
+    Map<String, dynamic> contentMap = {};
+
     // 处理文本消息
     if (protoMessage.hasTextMessage()) {
       final textMessage = protoMessage.textMessage;
-      message.text = textMessage.hasText() ? textMessage.text : null;
-      message.mentions = textMessage.mentions.isNotEmpty
-          ? jsonEncode(textMessage.mentions)
-          : null;
-      message.hashtags = textMessage.hashtags.isNotEmpty
-          ? jsonEncode(textMessage.hashtags)
-          : null;
+      contentMap['text_message'] = {
+        'text': textMessage.hasText() ? textMessage.text : '',
+        'mentions': textMessage.mentions.toList(),
+        'hashtags': textMessage.hashtags.toList(),
+        'links': textMessage.links.map((link) => {
+          'url': link.hasUrl() ? link.url : '',
+          'title': link.hasTitle() ? link.title : null,
+          'description': link.hasDescription() ? link.description : null,
+          'image_url': link.hasImageUrl() ? link.imageUrl : null,
+          'site_name': link.hasSiteName() ? link.siteName : null,
+          'favicon_url': link.hasFaviconUrl() ? link.faviconUrl : null,
+        }).toList(),
+      };
     }
 
     // 处理媒体消息
     if (protoMessage.hasMediaMessage()) {
       final mediaMessage = protoMessage.mediaMessage;
-      message.mediaUrl =
-          mediaMessage.hasMediaUrl() ? mediaMessage.mediaUrl : null;
-      message.localPath =
-          mediaMessage.hasLocalPath() ? mediaMessage.localPath : null;
-      message.duration =
-          mediaMessage.hasDuration() ? mediaMessage.duration : null;
-      message.fileSize =
-          mediaMessage.hasFileSize() ? mediaMessage.fileSize : null;
-      message.fileName =
-          mediaMessage.hasFileName() ? mediaMessage.fileName : null;
-      message.mimeType =
-          mediaMessage.hasMimeType() ? mediaMessage.mimeType : null;
-      message.width = mediaMessage.hasWidth() ? mediaMessage.width : null;
-      message.height = mediaMessage.hasHeight() ? mediaMessage.height : null;
-      message.caption = mediaMessage.hasCaption() ? mediaMessage.caption : null;
-
-      // 新增：处理文件服务器相关字段
-      message.fsId = mediaMessage.hasFsId() ? mediaMessage.fsId : null;
-      message.fileName =
-          mediaMessage.hasFileName() ? mediaMessage.fileName : null;
+      contentMap['media_message'] = {
+        'media_url': mediaMessage.hasMediaUrl() ? mediaMessage.mediaUrl : null,
+        'local_path': mediaMessage.hasLocalPath() ? mediaMessage.localPath : null,
+        'duration': mediaMessage.hasDuration() ? mediaMessage.duration : null,
+        'file_size': mediaMessage.hasFileSize() ? mediaMessage.fileSize : null,
+        'file_name': mediaMessage.hasFileName() ? mediaMessage.fileName : null,
+        'fs_id': mediaMessage.hasFsId() ? mediaMessage.fsId : null,
+        'mime_type': mediaMessage.hasMimeType() ? mediaMessage.mimeType : null,
+        'width': mediaMessage.hasWidth() ? mediaMessage.width : null,
+        'height': mediaMessage.hasHeight() ? mediaMessage.height : null,
+        'caption': mediaMessage.hasCaption() ? mediaMessage.caption : null,
+      };
     }
 
     // 处理系统消息
     if (protoMessage.hasSystemMessage()) {
       final systemMessage = protoMessage.systemMessage;
-      message.text = systemMessage.hasText() ? systemMessage.text : null;
-      // 🆕 使用新的eventType字段替代action字段
-      if (systemMessage.hasEventType()) {
-        message.eventType = systemMessage.eventType.name;
-        // 保持向后兼容性
-        message.action = systemMessage.eventType.name;
-      }
-      message.params = systemMessage.params.isNotEmpty
-          ? jsonEncode(systemMessage.params)
-          : null;
-
-      // 🆕 新增系统事件字段
-      message.affectedUserIds = systemMessage.affectedUserIds.isNotEmpty
-          ? jsonEncode(systemMessage.affectedUserIds)
-          : null;
-      message.actorUserId =
-          systemMessage.hasActorUserId() ? systemMessage.actorUserId : null;
-      message.eventTimestamp = systemMessage.hasEventTimestamp()
-          ? TimezoneUtils.fromServerTimestamp(
-              systemMessage.eventTimestamp.toInt()) // 🌍 使用UTC时间戳处理
-          : null;
-      message.metadata = systemMessage.metadata.isNotEmpty
-          ? jsonEncode(systemMessage.metadata)
-          : null;
+      contentMap['system_message'] = {
+        'text': systemMessage.hasText() ? systemMessage.text : '',
+        'event_type': systemMessage.hasEventType() ? systemMessage.eventType.name : null,
+        'params': systemMessage.params,
+        'affected_user_ids': systemMessage.affectedUserIds.toList(),
+        'actor_user_id': systemMessage.hasActorUserId() ? systemMessage.actorUserId : null,
+        'event_timestamp': systemMessage.hasEventTimestamp() ? systemMessage.eventTimestamp.toInt() : null,
+        'metadata': systemMessage.metadata,
+      };
     }
 
-    // 🆕 处理成员变动消息
+    // 处理成员变动消息
     if (protoMessage.hasMembershipMessage()) {
       final membershipMessage = protoMessage.membershipMessage;
-      // 设置成员变动事件类型
-      if (membershipMessage.hasEventType()) {
-        message.membershipEventType = membershipMessage.eventType.name;
-      }
-
-      // 设置操作者信息
-      if (membershipMessage.hasActor()) {
-        final actor = membershipMessage.actor;
-        message.membershipActor = jsonEncode({
-          'userId': actor.hasUserId() ? actor.userId : null,
-          'userName': actor.hasUserName() ? actor.userName : null,
-          'userAvatar': actor.hasUserAvatar() ? actor.userAvatar : null,
-          'role': actor.hasRole() ? actor.role : null,
-          'joinedAt': actor.hasJoinedAt() ? actor.joinedAt.toInt() : null,
-        });
-      }
-
-      // 设置受影响的成员列表
-      if (membershipMessage.affectedMembers.isNotEmpty) {
-        final affectedMembers = membershipMessage.affectedMembers
-            .map((member) => {
-                  'userId': member.hasUserId() ? member.userId : null,
-                  'userName': member.hasUserName() ? member.userName : null,
-                  'userAvatar':
-                      member.hasUserAvatar() ? member.userAvatar : null,
-                  'role': member.hasRole() ? member.role : null,
-                  'joinedAt':
-                      member.hasJoinedAt() ? member.joinedAt.toInt() : null,
-                })
-            .toList();
-        message.membershipAffectedMembers = jsonEncode(affectedMembers);
-      }
-
-      // 设置时间戳和角色变更信息
-      message.eventTimestamp = membershipMessage.hasEventTimestamp()
-          ? TimezoneUtils.fromServerTimestamp(
-              membershipMessage.eventTimestamp.toInt()) // 🌍 使用UTC时间戳处理
-          : null;
-      message.membershipPreviousRole = membershipMessage.hasPreviousRole()
-          ? membershipMessage.previousRole
-          : null;
-      message.membershipNewRole =
-          membershipMessage.hasNewRole() ? membershipMessage.newRole : null;
-      message.membershipRemovalReason = membershipMessage.hasRemovalReason()
-          ? membershipMessage.removalReason
-          : null;
-      message.membershipInviteLink = membershipMessage.hasInviteLink()
-          ? membershipMessage.inviteLink
-          : null;
-      message.membershipMetadata = membershipMessage.metadata.isNotEmpty
-          ? jsonEncode(membershipMessage.metadata)
-          : null;
+      contentMap['membership_message'] = {
+        'event_type': membershipMessage.hasEventType() ? membershipMessage.eventType.name : null,
+        'actor': membershipMessage.hasActor() ? {
+          'user_id': membershipMessage.actor.hasUserId() ? membershipMessage.actor.userId : null,
+          'user_name': membershipMessage.actor.hasUserName() ? membershipMessage.actor.userName : null,
+          'user_avatar': membershipMessage.actor.hasUserAvatar() ? membershipMessage.actor.userAvatar : null,
+          'role': membershipMessage.actor.hasRole() ? membershipMessage.actor.role : null,
+          'joined_at': membershipMessage.actor.hasJoinedAt() ? membershipMessage.actor.joinedAt.toInt() : null,
+        } : null,
+        'affected_members': membershipMessage.affectedMembers.map((member) => {
+          'user_id': member.hasUserId() ? member.userId : null,
+          'user_name': member.hasUserName() ? member.userName : null,
+          'user_avatar': member.hasUserAvatar() ? member.userAvatar : null,
+          'role': member.hasRole() ? member.role : null,
+          'joined_at': member.hasJoinedAt() ? member.joinedAt.toInt() : null,
+        }).toList(),
+        'event_timestamp': membershipMessage.hasEventTimestamp() ? membershipMessage.eventTimestamp.toInt() : null,
+        'previous_role': membershipMessage.hasPreviousRole() ? membershipMessage.previousRole : null,
+        'new_role': membershipMessage.hasNewRole() ? membershipMessage.newRole : null,
+        'removal_reason': membershipMessage.hasRemovalReason() ? membershipMessage.removalReason : null,
+        'invite_link': membershipMessage.hasInviteLink() ? membershipMessage.inviteLink : null,
+        'metadata': membershipMessage.metadata,
+      };
     }
 
     // 处理表情包消息
     if (protoMessage.hasStickerMessage()) {
       final stickerMessage = protoMessage.stickerMessage;
-      message.stickerId =
-          stickerMessage.hasStickerId() ? stickerMessage.stickerId : null;
-      message.stickerUrl =
-          stickerMessage.hasStickerUrl() ? stickerMessage.stickerUrl : null;
-      message.stickerPackId = stickerMessage.hasStickerPackId()
-          ? stickerMessage.stickerPackId
-          : null;
-      message.stickerPackName = stickerMessage.hasStickerPackName()
-          ? stickerMessage.stickerPackName
-          : null;
+      contentMap['sticker_message'] = {
+        'sticker_id': stickerMessage.hasStickerId() ? stickerMessage.stickerId : null,
+        'sticker_url': stickerMessage.hasStickerUrl() ? stickerMessage.stickerUrl : null,
+        'sticker_pack_id': stickerMessage.hasStickerPackId() ? stickerMessage.stickerPackId : null,
+        'sticker_pack_name': stickerMessage.hasStickerPackName() ? stickerMessage.stickerPackName : null,
+      };
     }
 
     // 处理联系人消息
     if (protoMessage.hasContactMessage()) {
       final contactMessage = protoMessage.contactMessage;
-      message.contactId =
-          contactMessage.hasContactId() ? contactMessage.contactId : null;
-      message.contactName =
-          contactMessage.hasContactName() ? contactMessage.contactName : null;
-      message.contactPhone =
-          contactMessage.hasContactPhone() ? contactMessage.contactPhone : null;
-      message.contactAvatar = contactMessage.hasContactAvatar()
-          ? contactMessage.contactAvatar
-          : null;
-      message.contactEmail =
-          contactMessage.hasContactEmail() ? contactMessage.contactEmail : null;
+      contentMap['contact_message'] = {
+        'contact_id': contactMessage.hasContactId() ? contactMessage.contactId : null,
+        'contact_name': contactMessage.hasContactName() ? contactMessage.contactName : null,
+        'contact_phone': contactMessage.hasContactPhone() ? contactMessage.contactPhone : null,
+        'contact_avatar': contactMessage.hasContactAvatar() ? contactMessage.contactAvatar : null,
+        'contact_email': contactMessage.hasContactEmail() ? contactMessage.contactEmail : null,
+      };
     }
 
     // 处理投票消息
     if (protoMessage.hasPollMessage()) {
       final pollMessage = protoMessage.pollMessage;
-      message.pollId = pollMessage.hasPollId() ? pollMessage.pollId : null;
-      message.question =
-          pollMessage.hasQuestion() ? pollMessage.question : null;
-      message.isMultipleChoice = pollMessage.hasIsMultipleChoice()
-          ? pollMessage.isMultipleChoice
-          : null;
-      message.expiresAt = pollMessage.hasExpiresAt()
-          ? TimezoneUtils.fromServerTimestamp(
-              pollMessage.expiresAt.toInt()) // 🌍 使用UTC时间戳处理
-          : null;
-      message.isAnonymous =
-          pollMessage.hasIsAnonymous() ? pollMessage.isAnonymous : null;
+      contentMap['poll_message'] = {
+        'poll_id': pollMessage.hasPollId() ? pollMessage.pollId : null,
+        'question': pollMessage.hasQuestion() ? pollMessage.question : null,
+        'options': pollMessage.options.map((option) => {
+          'option_id': option.hasOptionId() ? option.optionId : null,
+          'text': option.hasText() ? option.text : null,
+          'vote_count': option.hasVoteCount() ? option.voteCount : 0,
+          'voter_ids': option.voterIds.toList(),
+        }).toList(),
+        'is_multiple_choice': pollMessage.hasIsMultipleChoice() ? pollMessage.isMultipleChoice : false,
+        'expires_at': pollMessage.hasExpiresAt() ? pollMessage.expiresAt.toInt() : null,
+        'is_anonymous': pollMessage.hasIsAnonymous() ? pollMessage.isAnonymous : false,
+      };
     }
 
     // 处理链接消息
     if (protoMessage.hasLinkMessage()) {
       final linkMessage = protoMessage.linkMessage;
-      message.linkUrl = linkMessage.hasUrl() ? linkMessage.url : null;
-      if (linkMessage.hasPreview()) {
-        final preview = linkMessage.preview;
-        message.linkTitle = preview.hasTitle() ? preview.title : null;
-        message.linkDescription =
-            preview.hasDescription() ? preview.description : null;
-        message.linkImageUrl = preview.hasImageUrl() ? preview.imageUrl : null;
-        message.siteName = preview.hasSiteName() ? preview.siteName : null;
-        message.faviconUrl =
-            preview.hasFaviconUrl() ? preview.faviconUrl : null;
-      }
+      contentMap['link_message'] = {
+        'url': linkMessage.hasUrl() ? linkMessage.url : null,
+        'preview': linkMessage.hasPreview() ? {
+          'url': linkMessage.preview.hasUrl() ? linkMessage.preview.url : null,
+          'title': linkMessage.preview.hasTitle() ? linkMessage.preview.title : null,
+          'description': linkMessage.preview.hasDescription() ? linkMessage.preview.description : null,
+          'image_url': linkMessage.preview.hasImageUrl() ? linkMessage.preview.imageUrl : null,
+          'site_name': linkMessage.preview.hasSiteName() ? linkMessage.preview.siteName : null,
+          'favicon_url': linkMessage.preview.hasFaviconUrl() ? linkMessage.preview.faviconUrl : null,
+        } : null,
+      };
     }
+
+    return contentMap.isNotEmpty ? jsonEncode(contentMap) : null;
   }
 
   /// 将数据库对象转换为Protocol Buffer对象
@@ -309,16 +237,12 @@ class MessageAdapter {
       senderName: message.senderName,
       senderAvatar: message.senderAvatar,
       createdAt: Int64(message.createdAt.millisecondsSinceEpoch),
-      updatedAt: message.updatedAt != null
-          ? Int64(message.updatedAt!.millisecondsSinceEpoch)
-          : Int64(0),
-      status: _messageStatusToProtoStatus(message.status),
-      type: _messageTypeToProtoType(message.type),
+      updatedAt: message.updatedAt != null ? Int64(message.updatedAt!.millisecondsSinceEpoch) : null,
+      status: _stringToProtoStatus(message.messageStatus),
+      type: _stringToProtoType(message.messageType),
       quotedMessageId: message.quotedMessageId,
       isEdited: message.isEdited,
-      editedAt: message.editedAt != null
-          ? Int64(message.editedAt!.millisecondsSinceEpoch)
-          : Int64(0),
+      editedAt: message.editedAt != null ? Int64(message.editedAt!.millisecondsSinceEpoch) : null,
       repliedToMessageId: message.repliedToMessageId,
       forwardedFromConversationId: message.forwardedFromConversationId,
       forwardedFromMessageId: message.forwardedFromMessageId,
@@ -332,211 +256,205 @@ class MessageAdapter {
       protoMessage.reactions.addAll(reactionsMap);
     }
 
-    // 创建对应的oneof content结构
-    _createProtoContent(message, protoMessage);
+    // 从JSON内容创建对应的proto content结构
+    _createProtoContentFromJson(message.content, protoMessage);
 
     return protoMessage;
   }
 
-  /// 根据数据库消息创建对应的proto content结构
-  static void _createProtoContent(
-      Message message, message_proto.MessageProto protoMessage) {
-    switch (message.type) {
-      case MessageType.text:
-        if (message.text != null) {
-          final textMessage = message_proto.TextMessage(
-            text: message.text!,
-            mentions: message.mentions != null
-                ? _parseJsonStringList(message.mentions!)
-                : [],
-            hashtags: message.hashtags != null
-                ? _parseJsonStringList(message.hashtags!)
-                : [],
-          );
-          protoMessage.textMessage = textMessage;
-        }
-        break;
+  /// 从JSON内容创建对应的proto content结构
+  static void _createProtoContentFromJson(String? contentJson, message_proto.MessageProto protoMessage) {
+    if (contentJson == null || contentJson.isEmpty) return;
 
-      case MessageType.image:
-      case MessageType.voice:
-      case MessageType.video:
-      case MessageType.file:
-        final mediaMessage = message_proto.MediaMessage();
-        if (message.mediaUrl != null) {
-          mediaMessage.mediaUrl = message.mediaUrl!;
-        }
-        if (message.localPath != null) {
-          mediaMessage.localPath = message.localPath!;
-        }
-        if (message.duration != null) mediaMessage.duration = message.duration!;
-        if (message.fileSize != null) {
-          mediaMessage.fileSize = message.fileSize!;
-        }
-        if (message.fileName != null) mediaMessage.fileName = message.fileName!;
-        if (message.mimeType != null) mediaMessage.mimeType = message.mimeType!;
-        if (message.width != null) mediaMessage.width = message.width!;
-        if (message.height != null) mediaMessage.height = message.height!;
-        if (message.caption != null) mediaMessage.caption = message.caption!;
+    try {
+      final Map<String, dynamic> contentMap = jsonDecode(contentJson);
 
-        // 新增：处理文件服务器相关字段
-        if (message.fsId != null) {
-          mediaMessage.fsId = message.fsId!;
+      // 处理文本消息
+      if (contentMap.containsKey('text_message')) {
+        final textData = contentMap['text_message'] as Map<String, dynamic>;
+        final textMessage = message_proto.TextMessage(
+          text: textData['text'] as String? ?? '',
+          mentions: (textData['mentions'] as List<dynamic>?)?.cast<String>() ?? [],
+          hashtags: (textData['hashtags'] as List<dynamic>?)?.cast<String>() ?? [],
+        );
+        
+        // 处理链接预览
+        if (textData['links'] != null) {
+          final links = (textData['links'] as List<dynamic>).map((linkData) {
+            final link = linkData as Map<String, dynamic>;
+            return message_proto.LinkPreview(
+              url: link['url'] as String? ?? '',
+              title: link['title'] as String?,
+              description: link['description'] as String?,
+              imageUrl: link['image_url'] as String?,
+              siteName: link['site_name'] as String?,
+              faviconUrl: link['favicon_url'] as String?,
+            );
+          }).toList();
+          textMessage.links.addAll(links);
         }
-        if (message.fileName != null) {
-          mediaMessage.fileName = message.fileName!;
-        }
+        
+        protoMessage.textMessage = textMessage;
+      }
 
+      // 处理媒体消息
+      if (contentMap.containsKey('media_message')) {
+        final mediaData = contentMap['media_message'] as Map<String, dynamic>;
+        final mediaMessage = message_proto.MediaMessage(
+          mediaUrl: mediaData['media_url'] as String?,
+          localPath: mediaData['local_path'] as String?,
+          duration: mediaData['duration'] as int?,
+          fileSize: (mediaData['file_size'] as num?)?.toDouble(),
+          fileName: mediaData['file_name'] as String?,
+          fsId: mediaData['fs_id'] as String?,
+          mimeType: mediaData['mime_type'] as String?,
+          width: mediaData['width'] as int?,
+          height: mediaData['height'] as int?,
+          caption: mediaData['caption'] as String?,
+        );
         protoMessage.mediaMessage = mediaMessage;
-        break;
+      }
 
-      case MessageType.system:
-        final systemMessage = message_proto.SystemMessage();
-        if (message.text != null) systemMessage.text = message.text!;
+      // 处理系统消息
+      if (contentMap.containsKey('system_message')) {
+        final systemData = contentMap['system_message'] as Map<String, dynamic>;
+        final systemMessage = message_proto.SystemMessage(
+          text: systemData['text'] as String? ?? '',
+          actorUserId: systemData['actor_user_id'] as String?,
+          eventTimestamp: systemData['event_timestamp'] != null 
+              ? Int64(systemData['event_timestamp'] as int) 
+              : null,
+        );
 
-        // 🆕 使用新的eventType字段
-        if (message.eventType != null) {
+        // 设置事件类型
+        if (systemData['event_type'] != null) {
           try {
-            // 将字符串转换为SystemEventType枚举
             final eventType = message_proto.SystemEventType.values.firstWhere(
-              (e) => e.name == message.eventType,
+              (e) => e.name == systemData['event_type'],
               orElse: () => message_proto.SystemEventType.CONVERSATION_CREATED,
             );
             systemMessage.eventType = eventType;
           } catch (e) {
-            // 如果解析失败，使用默认值
-            systemMessage.eventType =
-                message_proto.SystemEventType.CONVERSATION_CREATED;
+            systemMessage.eventType = message_proto.SystemEventType.CONVERSATION_CREATED;
           }
         }
 
-        if (message.params != null) {
-          final paramsMap = _parseJsonMapStringString(message.params!);
-          systemMessage.params.addAll(paramsMap);
+        // 设置参数和用户列表
+        if (systemData['params'] != null) {
+          final params = systemData['params'] as Map<String, dynamic>;
+          systemMessage.params.addAll(params.map((k, v) => MapEntry(k, v.toString())));
         }
-
-        // 🆕 新增系统事件字段
-        if (message.affectedUserIds != null) {
-          final affectedUserIds =
-              _parseJsonStringList(message.affectedUserIds!);
-          systemMessage.affectedUserIds.addAll(affectedUserIds);
+        if (systemData['affected_user_ids'] != null) {
+          final userIds = (systemData['affected_user_ids'] as List<dynamic>).cast<String>();
+          systemMessage.affectedUserIds.addAll(userIds);
         }
-        if (message.actorUserId != null) {
-          systemMessage.actorUserId = message.actorUserId!;
-        }
-        if (message.eventTimestamp != null) {
-          systemMessage.eventTimestamp =
-              Int64(message.eventTimestamp!.millisecondsSinceEpoch);
-        }
-        if (message.metadata != null) {
-          final metadataMap = _parseJsonMapStringString(message.metadata!);
-          systemMessage.metadata.addAll(metadataMap);
+        if (systemData['metadata'] != null) {
+          final metadata = systemData['metadata'] as Map<String, dynamic>;
+          systemMessage.metadata.addAll(metadata.map((k, v) => MapEntry(k, v.toString())));
         }
 
         protoMessage.systemMessage = systemMessage;
-        break;
+      }
+
+      // 可以继续添加其他消息类型的处理...
+
+    } catch (e) {
+      // JSON解析失败，跳过内容设置
+    }
+  }
+
+  /// 将Proto消息类型转换为字符串
+  static String _protoTypeToString(message_proto.MessageType type) {
+    switch (type) {
+      case message_proto.MessageType.TEXT:
+        return 'TEXT';
+      case message_proto.MessageType.IMAGE:
+        return 'IMAGE';
+      case message_proto.MessageType.VOICE:
+        return 'VOICE';
+      case message_proto.MessageType.VIDEO:
+        return 'VIDEO';
+      case message_proto.MessageType.FILE:
+        return 'FILE';
+      case message_proto.MessageType.SYSTEM:
+        return 'SYSTEM';
+      default:
+        return 'TEXT';
+    }
+  }
+
+  /// 将字符串转换为Proto消息类型
+  static message_proto.MessageType _stringToProtoType(String type) {
+    switch (type) {
+      case 'TEXT':
+        return message_proto.MessageType.TEXT;
+      case 'IMAGE':
+        return message_proto.MessageType.IMAGE;
+      case 'VOICE':
+        return message_proto.MessageType.VOICE;
+      case 'VIDEO':
+        return message_proto.MessageType.VIDEO;
+      case 'FILE':
+        return message_proto.MessageType.FILE;
+      case 'SYSTEM':
+        return message_proto.MessageType.SYSTEM;
+      default:
+        return message_proto.MessageType.TEXT;
+    }
+  }
+
+  /// 将Proto消息状态转换为字符串
+  static String _protoStatusToString(message_proto.MessageStatus status) {
+    switch (status) {
+      case message_proto.MessageStatus.SENDING:
+        return 'SENDING';
+      case message_proto.MessageStatus.SENT:
+        return 'SENT';
+      case message_proto.MessageStatus.DELIVERED:
+        return 'DELIVERED';
+      case message_proto.MessageStatus.READ:
+        return 'READ';
+      case message_proto.MessageStatus.FAILED:
+        return 'FAILED';
+      case message_proto.MessageStatus.DELETED:
+        return 'DELETED';
+      case message_proto.MessageStatus.REVOKED:
+        return 'REVOKED';
+      default:
+        return 'SENT';
+    }
+  }
+
+  /// 将字符串转换为Proto消息状态
+  static message_proto.MessageStatus _stringToProtoStatus(String status) {
+    switch (status) {
+      case 'SENDING':
+        return message_proto.MessageStatus.SENDING;
+      case 'SENT':
+        return message_proto.MessageStatus.SENT;
+      case 'DELIVERED':
+        return message_proto.MessageStatus.DELIVERED;
+      case 'read':
+        return message_proto.MessageStatus.READ;
+      case 'FAILED':
+        return message_proto.MessageStatus.FAILED;
+      case 'DELETED':
+        return message_proto.MessageStatus.DELETED;
+      case 'REVOKED':
+        return message_proto.MessageStatus.REVOKED;
+      default:
+        return message_proto.MessageStatus.SENT;
     }
   }
 
   /// 批量转换：从Proto列表转换为Message列表
-  static List<Message> fromProtoList(
-      List<message_proto.MessageProto> protoList) {
+  static List<Message> fromProtoList(List<message_proto.MessageProto> protoList) {
     return protoList.map((proto) => fromProto(proto)).toList();
   }
 
   /// 批量转换：从Message列表转换为Proto列表
   static List<message_proto.MessageProto> toProtoList(List<Message> messages) {
     return messages.map((message) => toProto(message)).toList();
-  }
-
-  /// 将Proto枚举类型转换为MessageType枚举
-  static MessageType _protoTypeToMessageType(message_proto.MessageType type) {
-    switch (type) {
-      case message_proto.MessageType.TEXT:
-        return MessageType.text;
-      case message_proto.MessageType.IMAGE:
-        return MessageType.image;
-      case message_proto.MessageType.VOICE:
-        return MessageType.voice;
-      case message_proto.MessageType.VIDEO:
-        return MessageType.video;
-      case message_proto.MessageType.FILE:
-        return MessageType.file;
-      case message_proto.MessageType.SYSTEM:
-        return MessageType.system;
-      default:
-        return MessageType.text;
-    }
-  }
-
-  /// 将MessageType枚举转换为Proto枚举类型
-  static message_proto.MessageType _messageTypeToProtoType(MessageType type) {
-    switch (type) {
-      case MessageType.text:
-        return message_proto.MessageType.TEXT;
-      case MessageType.image:
-        return message_proto.MessageType.IMAGE;
-      case MessageType.voice:
-        return message_proto.MessageType.VOICE;
-      case MessageType.video:
-        return message_proto.MessageType.VIDEO;
-      case MessageType.file:
-        return message_proto.MessageType.FILE;
-      case MessageType.system:
-        return message_proto.MessageType.SYSTEM;
-    }
-  }
-
-  /// 根据proto消息确定MessageStatus状态
-  static MessageStatus _determineMessageStatus(
-      message_proto.MessageProto protoMessage) {
-    if (protoMessage.hasStatus()) {
-      return _protoStatusToMessageStatus(protoMessage.status);
-    }
-    return MessageStatus.sent;
-  }
-
-  /// 将Proto状态转换为MessageStatus枚举
-  static MessageStatus _protoStatusToMessageStatus(
-      message_proto.MessageStatus status) {
-    switch (status) {
-      case message_proto.MessageStatus.SENDING:
-        return MessageStatus.sending;
-      case message_proto.MessageStatus.SENT:
-        return MessageStatus.sent;
-      case message_proto.MessageStatus.DELIVERED:
-        return MessageStatus.delivered;
-      case message_proto.MessageStatus.READ:
-        return MessageStatus.read;
-      case message_proto.MessageStatus.FAILED:
-        return MessageStatus.failed;
-      // case message_proto.MessageStatus.DELETED:
-      //   return MessageStatus.deleted;
-      // case message_proto.MessageStatus.REVOKED:
-      //   return MessageStatus.revoked;
-      default:
-        return MessageStatus.sent;
-    }
-  }
-
-  /// 将MessageStatus枚举转换为Proto状态
-  static message_proto.MessageStatus _messageStatusToProtoStatus(
-      MessageStatus status) {
-    switch (status) {
-      case MessageStatus.sending:
-        return message_proto.MessageStatus.SENDING;
-      case MessageStatus.sent:
-        return message_proto.MessageStatus.SENT;
-      case MessageStatus.delivered:
-        return message_proto.MessageStatus.DELIVERED;
-      case MessageStatus.read:
-        return message_proto.MessageStatus.READ;
-      case MessageStatus.failed:
-        return message_proto.MessageStatus.FAILED;
-      case MessageStatus.deleted:
-        return message_proto.MessageStatus.DELETED;
-      case MessageStatus.revoked:
-        return message_proto.MessageStatus.REVOKED;
-    }
   }
 
   /// 解析JSON字符串为字符串列表
@@ -559,13 +477,72 @@ class MessageAdapter {
     }
   }
 
-  /// 解析JSON字符串为Map<String, String>
-  static Map<String, String> _parseJsonMapStringString(String jsonString) {
+  /// 从消息内容JSON中提取文本
+  /// 
+  /// [contentJson] - 消息内容JSON字符串
+  /// 返回：提取的文本内容，如果不存在则返回null
+  static String? extractTextFromContent(String? contentJson) {
+    if (contentJson == null || contentJson.isEmpty) return null;
+
     try {
-      final Map<String, dynamic> map = jsonDecode(jsonString);
-      return map.map((key, value) => MapEntry(key, value.toString()));
+      final Map<String, dynamic> contentMap = jsonDecode(contentJson);
+      
+      // 检查文本消息
+      if (contentMap.containsKey('text_message')) {
+        final textData = contentMap['text_message'] as Map<String, dynamic>;
+        return textData['text'] as String?;
+      }
+      
+      // 检查媒体消息的说明文字
+      if (contentMap.containsKey('media_message')) {
+        final mediaData = contentMap['media_message'] as Map<String, dynamic>;
+        return mediaData['caption'] as String?;
+      }
+      
+      // 检查系统消息
+      if (contentMap.containsKey('system_message')) {
+        final systemData = contentMap['system_message'] as Map<String, dynamic>;
+        return systemData['text'] as String?;
+      }
+      
+      return null;
     } catch (e) {
-      return {};
+      return null;
+    }
+  }
+
+  /// 检查消息是否包含媒体内容
+  /// 
+  /// [contentJson] - 消息内容JSON字符串
+  /// 返回：如果包含媒体内容返回true，否则返回false
+  static bool hasMediaContent(String? contentJson) {
+    if (contentJson == null || contentJson.isEmpty) return false;
+
+    try {
+      final Map<String, dynamic> contentMap = jsonDecode(contentJson);
+      return contentMap.containsKey('media_message');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 从消息内容JSON中提取媒体信息
+  /// 
+  /// [contentJson] - 消息内容JSON字符串
+  /// 返回：媒体信息Map，如果不存在则返回null
+  static Map<String, dynamic>? extractMediaInfo(String? contentJson) {
+    if (contentJson == null || contentJson.isEmpty) return null;
+
+    try {
+      final Map<String, dynamic> contentMap = jsonDecode(contentJson);
+      
+      if (contentMap.containsKey('media_message')) {
+        return contentMap['media_message'] as Map<String, dynamic>;
+      }
+      
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 }

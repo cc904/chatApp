@@ -1,14 +1,28 @@
+import 'dart:convert';
 import 'package:cc/core/utils/auth_debug_utils.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/database/database_initializer.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 调试命令集合
 /// 提供各种调试功能的快捷命令
 class DebugCommands {
   static final _logger = LogService.instance;
+
+  /// Helper method to extract text from message content JSON
+  static String _getTextFromMessage(Message message) {
+    try {
+      if (message.content != null) {
+        final content = jsonDecode(message.content!);
+        return content['text'] ?? '';
+      }
+    } catch (e) {
+      // JSON parsing failed
+    }
+    return '';
+  }
 
   /// 完整的认证状态诊断
   /// 建议在遇到401错误时调用此方法
@@ -242,36 +256,138 @@ class DebugCommands {
       final now = DateTime.now();
       final testMessages = <Message>[
         // 创建不同时间的消息进行排序测试
-        Message()
-          ..messageId = 'msg_1'
-          ..messageIndex = 100
-          ..text = '消息1（最早）'
-          ..createdAt = now.subtract(const Duration(minutes: 5)),
-        Message()
-          ..messageId = 'msg_2'
-          ..messageIndex = 200
-          ..text = '消息2'
-          ..createdAt = now.subtract(const Duration(minutes: 4)),
-        Message()
-          ..messageId = 'msg_3'
-          ..messageIndex = 300
-          ..text = '消息3'
-          ..createdAt = now.subtract(const Duration(minutes: 3)),
-        Message()
-          ..messageId = 'msg_4'
-          ..messageIndex = 400
-          ..text = '消息4'
-          ..createdAt = now.subtract(const Duration(minutes: 2)),
-        Message()
-          ..messageId = 'msg_5'
-          ..messageIndex = 500
-          ..text = '消息5'
-          ..createdAt = now.subtract(const Duration(minutes: 1)),
-        Message()
-          ..messageId = 'msg_6'
-          ..messageIndex = 600
-          ..text = '消息6（最新）'
-          ..createdAt = now,
+        Message(
+          messageId: 'msg_1',
+          conversationId: 'test_conv',
+          senderId: 'test_user',
+          senderName: 'Test User',
+          senderAvatar: null,
+          createdAt: now.subtract(const Duration(minutes: 5)),
+          updatedAt: null,
+          messageIndex: 100,
+          messageType: 'TEXT',
+          messageStatus: 'SENT',
+          quotedMessageId: null,
+          repliedToMessageId: null,
+          forwardedFromConversationId: null,
+          forwardedFromMessageId: null,
+          isEdited: false,
+          editedAt: null,
+          isPinned: false,
+          reactions: null,
+          tags: null,
+          content: '{"text": "消息1（最早）"}',
+        ),
+        Message(
+          messageId: 'msg_2',
+          conversationId: 'test_conv',
+          senderId: 'test_user',
+          senderName: 'Test User',
+          senderAvatar: null,
+          createdAt: now.subtract(const Duration(minutes: 4)),
+          updatedAt: null,
+          messageIndex: 200,
+          messageType: 'TEXT',
+          messageStatus: 'SENT',
+          quotedMessageId: null,
+          repliedToMessageId: null,
+          forwardedFromConversationId: null,
+          forwardedFromMessageId: null,
+          isEdited: false,
+          editedAt: null,
+          isPinned: false,
+          reactions: null,
+          tags: null,
+          content: '{"text": "消息2"}',
+        ),
+        Message(
+          messageId: 'msg_3',
+          conversationId: 'test_conv',
+          senderId: 'test_user',
+          senderName: 'Test User',
+          senderAvatar: null,
+          createdAt: now.subtract(const Duration(minutes: 3)),
+          updatedAt: null,
+          messageIndex: 300,
+          messageType: 'TEXT',
+          messageStatus: 'SENT',
+          quotedMessageId: null,
+          repliedToMessageId: null,
+          forwardedFromConversationId: null,
+          forwardedFromMessageId: null,
+          isEdited: false,
+          editedAt: null,
+          isPinned: false,
+          reactions: null,
+          tags: null,
+          content: '{"text": "消息3"}',
+        ),
+        Message(
+          messageId: 'msg_4',
+          conversationId: 'test_conv',
+          senderId: 'test_user',
+          senderName: 'Test User',
+          senderAvatar: null,
+          createdAt: now.subtract(const Duration(minutes: 2)),
+          updatedAt: null,
+          messageIndex: 400,
+          messageType: 'TEXT',
+          messageStatus: 'SENT',
+          quotedMessageId: null,
+          repliedToMessageId: null,
+          forwardedFromConversationId: null,
+          forwardedFromMessageId: null,
+          isEdited: false,
+          editedAt: null,
+          isPinned: false,
+          reactions: null,
+          tags: null,
+          content: '{"text": "消息4"}',
+        ),
+        Message(
+          messageId: 'msg_5',
+          conversationId: 'test_conv',
+          senderId: 'test_user',
+          senderName: 'Test User',
+          senderAvatar: null,
+          createdAt: now.subtract(const Duration(minutes: 1)),
+          updatedAt: null,
+          messageIndex: 500,
+          messageType: 'TEXT',
+          messageStatus: 'SENT',
+          quotedMessageId: null,
+          repliedToMessageId: null,
+          forwardedFromConversationId: null,
+          forwardedFromMessageId: null,
+          isEdited: false,
+          editedAt: null,
+          isPinned: false,
+          reactions: null,
+          tags: null,
+          content: '{"text": "消息5"}',
+        ),
+        Message(
+          messageId: 'msg_6',
+          conversationId: 'test_conv',
+          senderId: 'test_user',
+          senderName: 'Test User',
+          senderAvatar: null,
+          createdAt: now,
+          updatedAt: null,
+          messageIndex: 600,
+          messageType: 'TEXT',
+          messageStatus: 'SENT',
+          quotedMessageId: null,
+          repliedToMessageId: null,
+          forwardedFromConversationId: null,
+          forwardedFromMessageId: null,
+          isEdited: false,
+          editedAt: null,
+          isPinned: false,
+          reactions: null,
+          tags: null,
+          content: '{"text": "消息6（最新）"}',
+        ),
       ];
 
       _logger.i('📋 排序前的消息顺序', extra: {
@@ -279,7 +395,7 @@ class DebugCommands {
             .map((m) => {
                   'messageId': m.messageId,
                   'messageIndex': m.messageIndex,
-                  'text': m.text,
+                  'text': _getTextFromMessage(m),
                   'createdAt': m.createdAt.toIso8601String(),
                 })
             .toList(),
@@ -291,7 +407,7 @@ class DebugCommands {
             .map((m) => {
                   'messageId': m.messageId,
                   'messageIndex': m.messageIndex,
-                  'text': m.text,
+                  'text': _getTextFromMessage(m),
                   'createdAt': m.createdAt.toIso8601String(),
                   'position': testMessages.indexOf(m) + 1,
                 })
@@ -310,7 +426,7 @@ class DebugCommands {
         if (current.createdAt.isBefore(next.createdAt)) {
           sortCorrect = false;
           errors
-              .add('位置${i + 1}: 时间排序错误 - ${current.text} 应该比 ${next.text} 更新');
+              .add('位置${i + 1}: 时间排序错误 - ${_getTextFromMessage(current)} 应该比 ${_getTextFromMessage(next)} 更新');
         }
       }
 

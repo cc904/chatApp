@@ -1,6 +1,7 @@
 import 'package:cc/core/proto/generated/user.pb.dart' as proto;
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 /// 显示名称工具类
 /// 统一处理联系人姓名显示的优先级逻辑
@@ -43,10 +44,17 @@ class DisplayNameUtils {
   /// [user] - 数据库User对象
   /// 返回：应该显示的名称
   static String getDisplayNameFromUser(User user) {
-    if (user.name.isNotEmpty) {
-      return user.name;
+    // 优先使用自定义昵称
+    if (user.customNickname != null && user.customNickname!.isNotEmpty) {
+      return user.customNickname!;
+    }
+    
+    // 其次使用昵称
+    if (user.nickName.isNotEmpty) {
+      return user.nickName;
     }
 
+    // 最后使用用户ID
     if (user.userId.isNotEmpty) {
       return user.userId;
     }
@@ -190,5 +198,79 @@ class DisplayNameUtils {
   /// 判断字符串是否包含中文字符
   static bool _isChinese(String text) {
     return RegExp(r'[\u4e00-\u9fa5]').hasMatch(text);
+  }
+
+  /// 获取会话的显示名称
+  ///
+  /// 根据会话类型返回合适的显示名称：
+  /// - 私聊会话：返回对方用户的显示名称（优先级：自定义昵称 > 真实昵称 > 用户ID）
+  /// - 群聊/频道：返回会话的name字段
+  ///
+  /// [conversation] - 会话对象
+  /// [currentUserId] - 当前用户ID，用于在私聊中区分对方
+  /// 返回：应该显示的会话名称
+  static String getConversationDisplayName(dynamic conversation, String currentUserId) {
+    // 群聊或频道直接返回会话名称
+    if (conversation.type == 'GROUP' || conversation.type == 'CHANNEL') {
+      return conversation.name ?? '未命名${conversation.type == 'GROUP' ? '群聊' : '频道'}';
+    }
+    
+    // 私聊会话：需要获取对方用户的信息
+    if (conversation.type == 'PRIVATE') {
+      final otherUser = getOtherUserFromConversation(conversation, currentUserId);
+      if (otherUser != null) {
+        return getDisplayNameFromParticipant(otherUser);
+      }
+    }
+    
+    // 兜底返回会话名称或当前用户ID
+    return conversation.name ?? currentUserId;
+  }
+
+  /// 从会话参与者中获取对方用户信息（私聊场景）
+  ///
+  /// [conversation] - 会话对象
+  /// [currentUserId] - 当前用户ID
+  /// 返回：对方用户的参与者信息，如果找不到则返回null
+  static Map<String, dynamic>? getOtherUserFromConversation(dynamic conversation, String currentUserId) {
+    try {
+      final participantsJson = conversation.participants as String;
+      final List<dynamic> participantsList = json.decode(participantsJson);
+      final participantsMap = participantsList.cast<Map<String, dynamic>>();
+      
+      // 在私聊中找到不是当前用户的另一个用户
+      for (final participant in participantsMap) {
+        if (participant['user_id'] != currentUserId) {
+          return participant;
+        }
+      }
+    } catch (e) {
+      // JSON解析失败或其他错误
+    }
+    
+    return null;
+  }
+
+  /// 从参与者信息获取显示名称
+  ///
+  /// 注意：参与者信息中存储的name字段通常是用户的显示名称
+  /// 但这里我们可以扩展支持更复杂的昵称逻辑
+  ///
+  /// [participant] - 参与者信息Map
+  /// 返回：显示名称
+  static String getDisplayNameFromParticipant(Map<String, dynamic> participant) {
+    // 从参与者信息中获取name字段
+    final name = participant['name'] as String?;
+    if (name != null && name.isNotEmpty) {
+      return name;
+    }
+    
+    // 备选方案：使用user_id
+    final userId = participant['user_id'] as String?;
+    if (userId != null && userId.isNotEmpty) {
+      return userId;
+    }
+    
+    return '未知联系人';
   }
 }

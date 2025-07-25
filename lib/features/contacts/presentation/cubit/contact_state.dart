@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/friend_request.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
 /// 联系人页面的状态类

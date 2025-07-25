@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';

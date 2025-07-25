@@ -20,9 +20,16 @@ class ContactCubit extends Cubit<ContactState> {
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
+  
+  // 实例计数器，用于调试多实例问题
+  static int _instanceCount = 0;
+  final int _instanceId;
 
   /// 是否允许网络重连时自动同步
   bool _allowNetworkReconnectSync = true;
+  
+  /// 同步请求防重复标志
+  bool _isSyncing = false;
 
   /// 获取联系人仓库实例
   ContactsRepository get repository => _contactsRepository;
@@ -30,7 +37,14 @@ class ContactCubit extends Cubit<ContactState> {
   ContactCubit({
     required ContactsRepository contactsRepository,
   })  : _contactsRepository = contactsRepository,
+        _instanceId = ++_instanceCount,
         super(ContactState.initial()) {
+    _logger.i('ContactCubit实例创建', extra: {
+      'instanceId': _instanceId,
+      'totalInstances': _instanceCount,
+      'repositoryHashCode': contactsRepository.hashCode,
+      'stackTrace': StackTrace.current.toString().split('\n').take(10).join('\n'),
+    });
     _setupLocalDataSubscriptions();
     _registerProtoEventHandlers();
     _setupAppLifecycleListener();
@@ -153,8 +167,10 @@ class ContactCubit extends Cubit<ContactState> {
             .onProto<SyncContactsResponse>('contact:sync:response')
             .listen((response) {
           _logger.d('收到联系人同步结果', extra: {
+            'instanceId': _instanceId,
             'responseType': response.runtimeType.toString(),
-            'contactsCount': response.contacts.length
+            'contactsCount': response.contacts.length,
+            'timestamp': DateTime.now().toIso8601String(),
           });
           repo.handleContactsSyncResultProto(response);
         }),
@@ -257,9 +273,17 @@ class ContactCubit extends Cubit<ContactState> {
 
   /// 同步联系人列表（从服务器获取最新联系人列表）
   Future<void> syncContacts() async {
+    // 🔧 保留基础的防重复同步检查（简化版本）
+    if (_isSyncing) {
+      _logger.d('联系人正在同步中，跳过重复请求');
+      return;
+    }
+
     try {
+      _isSyncing = true;
       emit(state.toSyncingState());
 
+      _logger.i('开始联系人同步');
       await _contactsRepository.syncContacts();
 
       // 同步状态会通过订阅的流来更新
@@ -267,6 +291,8 @@ class ContactCubit extends Cubit<ContactState> {
     } catch (e) {
       _logger.e('同步联系人失败', error: e);
       emit(state.toErrorState('同步联系人失败: ${e.toString()}'));
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -380,7 +406,11 @@ class ContactCubit extends Cubit<ContactState> {
 
   @override
   Future<void> close() {
-    _logger.i('关闭ContactCubit，取消所有订阅');
+    _instanceCount--;
+    _logger.i('关闭ContactCubit，取消所有订阅', extra: {
+      'instanceId': _instanceId,
+      'remainingInstances': _instanceCount,
+    });
     // 取消所有订阅
     for (var subscription in _subscriptions.values) {
       subscription.cancel();
@@ -394,30 +424,56 @@ class ContactCubit extends Cubit<ContactState> {
   void _setupAppLifecycleListener() {
     try {
       final appLifecycleService = AppLifecycleService.instance;
+      
+      // 首先取消现有的监听器（如果有的话）
+      _subscriptions['appLifecycle']?.cancel();
 
-      // 监听应用生命周期变化
+      // 🔧 优化：减少轮询频率到10秒，并添加防重复机制
+      CustomAppLifecycleState? lastState;
+      DateTime? lastProcessTime;
+      
       _subscriptions['appLifecycle'] = Stream.periodic(
-        const Duration(seconds: 1),
+        const Duration(seconds: 10), // 进一步降低轮询频率
         (_) => appLifecycleService.currentState,
-      ).distinct().listen((currentState) {
+      ).where((currentState) {
+        final now = DateTime.now();
+        
+        // 只在状态真正发生变化且距离上次处理超过3秒时才处理
+        if (lastState != currentState && 
+            (lastProcessTime == null || now.difference(lastProcessTime!).inSeconds > 3)) {
+          lastState = currentState;
+          lastProcessTime = now;
+          return true;
+        }
+        return false;
+      }).listen((currentState) {
         _handleAppLifecycleChange(currentState);
       });
 
-      _logger.i('应用生命周期监听已设置');
+      _logger.i('应用生命周期监听已设置', extra: {
+        'instanceId': _instanceId,
+        'pollingInterval': '10秒',
+        'minProcessInterval': '3秒',
+      });
     } catch (e) {
-      _logger.e('设置应用生命周期监听失败', error: e);
+      _logger.e('设置应用生命周期监听失败', error: e, extra: {
+        'instanceId': _instanceId,
+      });
     }
   }
 
   /// 处理应用生命周期变化
   void _handleAppLifecycleChange(CustomAppLifecycleState newState) {
     _logger.d('联系人模块收到应用状态变化', extra: {
+      'instanceId': _instanceId,
       'newState': newState.toString(),
     });
 
     // 当应用从后台恢复到前台时，仅清理错误，不自动同步，由页面切换逻辑决定
     if (newState == CustomAppLifecycleState.resumed) {
-      _logger.i('应用恢复到前台，清除错误状态');
+      _logger.i('应用恢复到前台，清除错误状态', extra: {
+        'instanceId': _instanceId,
+      });
 
       if (state.errorMessage != null) {
         emit(state.copyWith(errorMessage: null));

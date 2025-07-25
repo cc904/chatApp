@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../../../../core/database/models/quick_reply.dart';
+import '../../../../core/database/drift_database.dart';
 import '../../data/repositories/quick_reply_repository.dart';
 
 /// 快捷回复状态
@@ -142,9 +142,13 @@ class QuickReplyCubit extends Cubit<QuickReplyState> {
   List<QuickReply> getSortedReplies() {
     final sortedReplies = List<QuickReply>.from(state.quickReplies)
       ..sort((a, b) {
-        final categoryCompare = a.category.compareTo(b.category);
+        // 处理 category 可为 null 的情况
+        final categoryA = a.category ?? '';
+        final categoryB = b.category ?? '';
+        final categoryCompare = categoryA.compareTo(categoryB);
         if (categoryCompare != 0) return categoryCompare;
-        return a.order.compareTo(b.order);
+        // 使用 orderIndex 而不是 order
+        return a.orderIndex.compareTo(b.orderIndex);
       });
     return sortedReplies;
   }
@@ -156,7 +160,7 @@ class QuickReplyCubit extends Cubit<QuickReplyState> {
     return state.quickReplies
         .where((reply) => 
             reply.content.toLowerCase().contains(query.toLowerCase()) ||
-            reply.category.toLowerCase().contains(query.toLowerCase()))
+            (reply.category?.toLowerCase().contains(query.toLowerCase()) ?? false))
         .toList();
   }
 }

@@ -1,3 +1,5 @@
+用中文回答问题
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -50,6 +52,8 @@ flutter packages pub run build_runner build --delete-conflicting-outputs
 ```
 
 ### Running the App
+
+#### 本地开发
 ```bash
 # Development mode
 flutter run -t lib/main.dart
@@ -57,6 +61,29 @@ flutter run -t lib/main.dart
 # Windows release build
 ./scripts/build_windows.bat
 ```
+
+#### Docker Web部署
+```bash
+# 交互式构建（推荐使用）- 显示友好的选择菜单
+./scripts/build-web-docker.sh
+
+# 命令行构建 - Release模式（生产环境）
+./scripts/build-web-docker.sh --release build
+
+# 命令行构建 - Debug模式（开发调试）
+./scripts/build-web-docker.sh --debug build
+
+# 其他常用命令
+./scripts/build-web-docker.sh --debug logs     # 查看debug日志
+./scripts/build-web-docker.sh --release status # 查看release状态
+./scripts/build-web-docker.sh clean            # 清理容器
+```
+
+#### Docker构建模式对比
+- **Debug模式**: 详细日志、源码映射、调试端点、无缓存（开发用）
+- **Release模式**: 代码压缩、性能优化、长期缓存（生产用）
+
+访问地址: http://localhost:9003
 
 ### Testing
 ```bash

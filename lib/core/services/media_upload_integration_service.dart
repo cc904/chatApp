@@ -1,20 +1,20 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'dart:async';
 import 'package:mime/mime.dart';
 import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
-// import 'package:cc/core/services/file_url_builder_service.dart'; // 暂时不使用
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart' show XFile;
 
 /// 媒体上传集成服务
 /// 将Upload API与现有消息系统集成的高级服务
 class MediaUploadIntegrationService {
   final _logger = LogService.instance;
   final _uploadService = UploadApiService();
-  // final _fileUrlBuilder = FileUrlBuilderService(); // 暂时注释掉，如果需要URL构建逻辑可以启用
   ChatRepositorySend? _chatRepository;
   bool _isInitialized = false;
 
@@ -48,7 +48,7 @@ class MediaUploadIntegrationService {
 
   /// 发送图片消息的完整流程
   Future<Message> sendImageMessage({
-    required File imageFile,
+    required dynamic imageFile,
     required String conversationId,
     String? caption,
     Function(int)? onUploadProgress,
@@ -57,8 +57,147 @@ class MediaUploadIntegrationService {
     try {
       onStatusUpdate?.call('准备上传图片...');
 
-      // 1. 获取图片尺寸（如果需要）
+      // 检查平台并处理文件类型
+      if (kIsWeb && imageFile is XFile) {
+        return await _sendImageMessageWeb(
+          imageFile,
+          conversationId,
+          caption: caption,
+          onUploadProgress: onUploadProgress,
+          onStatusUpdate: onStatusUpdate,
+        );
+      } else if (imageFile is File) {
+        return await _sendImageMessageIO(
+          imageFile,
+          conversationId,
+          caption: caption,
+          onUploadProgress: onUploadProgress,
+          onStatusUpdate: onStatusUpdate,
+        );
+      } else {
+        throw Exception('不支持的文件类型: ${imageFile.runtimeType}');
+      }
+    } catch (error) {
+      _logger.e('发送图片消息失败', error: error, stackTrace: StackTrace.current);
+      onStatusUpdate?.call('发送失败: $error');
+      rethrow;
+    }
+  }
+
+  /// Web平台发送图片消息
+   Future<Message> _sendImageMessageWeb(
+     XFile imageFile,
+     String conversationId, {
+     String? caption,
+     Function(int)? onUploadProgress,
+     Function(String)? onStatusUpdate,
+   }) async {
+     try {
+       _logger.i('🌐 开始Web平台图片上传流程', extra: {
+         'conversationId': conversationId,
+         'fileName': imageFile.name,
+         'filePath': imageFile.path,
+         'caption': caption,
+       });
+
+       // 1. 获取图片尺寸
+       final dimensions = await _getImageDimensions(imageFile);
+       _logger.i('🌐 获取图片尺寸完成', extra: {
+         'width': dimensions?.width,
+         'height': dimensions?.height,
+       });
+
+       // 2. 上传图片到服务器 (Web平台使用XFile)
+       onStatusUpdate?.call('正在上传图片...');
+       _logger.i('🌐 开始上传图片到服务器');
+       
+       final uploadResult = await _uploadService.uploadImageFromXFile(
+         imageFile,
+         conversationId: conversationId,
+         caption: caption,
+         width: dimensions?.width,
+         height: dimensions?.height,
+         onProgress: onUploadProgress,
+       );
+
+       _logger.i('🌐 图片上传到服务器完成', extra: {
+         'uploadResult_url': uploadResult.url,
+         'uploadResult_fsId': uploadResult.fsId,
+         'uploadResult_fileName': uploadResult.fileName,
+         'uploadResult_metadata_size': uploadResult.metadata?.size,
+         'uploadResult_metadata_mimeType': uploadResult.metadata?.mimeType,
+         'uploadResult_metadata_width': uploadResult.metadata?.width,
+         'uploadResult_metadata_height': uploadResult.metadata?.height,
+       });
+
+       // 3. 发送消息
+       onStatusUpdate?.call('正在发送消息...');
+       _logger.i('🌐 开始发送图片消息', extra: {
+         'conversationId': conversationId,
+         'localPath': imageFile.path,
+         'mediaUrl': uploadResult.url,
+         'fsId': uploadResult.fsId,
+         'fileName': uploadResult.fileName,
+         'width': dimensions?.width,
+         'height': dimensions?.height,
+         'fileSize': uploadResult.metadata?.size.toDouble(),
+         'mimeType': uploadResult.metadata?.mimeType,
+         'caption': caption,
+       });
+       
+       final message = await _chatRepo.sendImageMessage(
+         conversationId,
+         imageFile.path, // Web平台使用blob URL作为本地路径
+         mediaUrl: uploadResult.url, // 使用服务器返回的URL
+         caption: caption,
+         fsId: uploadResult.fsId, // 使用服务器返回的fsId
+         fileName: uploadResult.fileName, // 使用服务器返回的fileName
+         width: dimensions?.width,
+         height: dimensions?.height,
+         fileSize: uploadResult.metadata?.size.toDouble(),
+         mimeType: uploadResult.metadata?.mimeType,
+       );
+
+       onStatusUpdate?.call('图片消息发送成功');
+       _logger.i('🌐 Web平台图片消息发送完成', extra: {
+         'conversationId': conversationId,
+         'messageId': message.messageId,
+         'messageContent': message.content,
+         'fsId': uploadResult.fsId,
+         'fileName': uploadResult.fileName,
+         'width': dimensions?.width,
+         'height': dimensions?.height,
+         'fileSize': uploadResult.metadata?.size,
+       });
+
+       return message;
+     } catch (error) {
+       _logger.e('🌐 Web平台发送图片消息失败', error: error);
+       rethrow;
+     }
+   }
+
+  /// IO平台发送图片消息
+  Future<Message> _sendImageMessageIO(
+    File imageFile,
+    String conversationId, {
+    String? caption,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+  }) async {
+    try {
+      _logger.i('IO平台开始发送图片消息', extra: {
+        'conversationId': conversationId,
+        'imagePath': imageFile.path,
+        'caption': caption,
+      });
+
+      // 1. 获取图片尺寸
       final dimensions = await _getImageDimensions(imageFile);
+      _logger.i('IO平台获取图片尺寸', extra: {
+        'width': dimensions?.width,
+        'height': dimensions?.height,
+      });
 
       // 2. 上传图片到服务器
       onStatusUpdate?.call('正在上传图片...');
@@ -71,17 +210,16 @@ class MediaUploadIntegrationService {
         onProgress: onUploadProgress,
       );
 
-      // 3. 发送消息 - 💢💢💢 立即设置所有服务器信息，避免布局跳动
-      onStatusUpdate?.call('正在发送消息...');
-      
-      // 添加调试日志确认fsId
-      _logger.d('准备发送图片消息，服务器字段', extra: {
+      _logger.i('IO平台图片上传完成', extra: {
+        'url': uploadResult.url,
         'fsId': uploadResult.fsId,
         'fileName': uploadResult.fileName,
         'fileSize': uploadResult.metadata?.size,
-        'width': dimensions?.width,
-        'height': dimensions?.height,
+        'mimeType': uploadResult.metadata?.mimeType,
       });
+
+      // 3. 发送消息
+      onStatusUpdate?.call('正在发送消息...');
       
       final message = await _chatRepo.sendImageMessage(
         conversationId,
@@ -96,23 +234,20 @@ class MediaUploadIntegrationService {
         mimeType: uploadResult.metadata?.mimeType,
       );
 
-      // 注意：所有服务器字段现在在sendImageMessage中直接设置，无需后续更新
-
       onStatusUpdate?.call('图片消息发送成功');
-      _logger.i('图片消息发送完成', extra: {
+      _logger.i('IO平台图片消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
         'fsId': uploadResult.fsId,
         'fileName': uploadResult.fileName,
-        'width': message.width,
-        'height': message.height,
-        'fileSize': message.fileSize,
+        'width': dimensions?.width,
+        'height': dimensions?.height,
+        'fileSize': uploadResult.metadata?.size,
       });
 
       return message;
     } catch (error) {
-      _logger.e('发送图片消息失败', error: error, stackTrace: StackTrace.current);
-      onStatusUpdate?.call('发送失败: $error');
+      _logger.e('IO平台发送图片消息失败', error: error);
       rethrow;
     }
   }
@@ -159,7 +294,7 @@ class MediaUploadIntegrationService {
         'fsId': uploadResult.fsId,
         'fileName': uploadResult.fileName,
         'duration': duration,
-        'fileSize': message.fileSize,
+        'fileSize': uploadResult.metadata?.size,
       });
 
       return message;
@@ -198,7 +333,7 @@ class MediaUploadIntegrationService {
         onProgress: onUploadProgress,
       );
 
-      // 3. 发送消息
+      // 3. 发送消息 - 所有媒体信息通过content JSON传递
       onStatusUpdate?.call('正在发送消息...');
       final message = await _chatRepo.sendVideoMessage(
         conversationId,
@@ -208,35 +343,13 @@ class MediaUploadIntegrationService {
         isServerProcessed: true,
       );
 
-      // 4. 更新消息的服务器信息
-      if (uploadResult.metadata != null) {
-        message.fileSize = uploadResult.metadata!.size.toDouble();
-        message.mimeType = uploadResult.metadata!.mimeType;
-        message.duration =
-            uploadResult.metadata!.duration ?? actualDuration ?? 0;
-        if (uploadResult.metadata!.width != null) {
-          message.width = uploadResult.metadata!.width!;
-        }
-        if (uploadResult.metadata!.height != null) {
-          message.height = uploadResult.metadata!.height!;
-        }
-      }
-      
-      // 5. 更新文件服务器相关字段
-      if (uploadResult.fsId != null) {
-        message.fsId = uploadResult.fsId!;
-      }
-      if (uploadResult.fileName != null) {
-        message.fileName = uploadResult.fileName!;
-      }
-
       onStatusUpdate?.call('视频消息发送成功');
       _logger.i('视频消息发送完成', extra: {
         'conversationId': conversationId,
         'messageId': message.messageId,
         'fsId': uploadResult.fsId,
         'fileName': uploadResult.fileName,
-        'fileSize': message.fileSize,
+        'fileSize': uploadResult.metadata?.size,
       });
 
       return message;
@@ -291,19 +404,7 @@ class MediaUploadIntegrationService {
             caption: caption,
           );
 
-          // 设置图片尺寸信息
-          if (dimensions != null) {
-            message.width = dimensions.width;
-            message.height = dimensions.height;
-          }
-          
-          // 设置文件服务器相关字段
-          if (uploadResult.fsId != null) {
-            message.fsId = uploadResult.fsId!;
-          }
-          if (uploadResult.fileName != null) {
-            message.fileName = uploadResult.fileName!;
-          }
+          // 图片尺寸和文件服务器信息已通过sendImageMessage的参数传递
           break;
 
         case MediaType.video:
@@ -332,13 +433,7 @@ class MediaUploadIntegrationService {
             isServerProcessed: true,
           );
           
-          // 设置文件服务器相关字段
-          if (uploadResult.fsId != null) {
-            message.fsId = uploadResult.fsId!;
-          }
-          if (uploadResult.fileName != null) {
-            message.fileName = uploadResult.fileName!;
-          }
+          // 文件服务器信息已通过sendVideoMessage处理
           break;
 
         default:
@@ -366,43 +461,11 @@ class MediaUploadIntegrationService {
             mediaUrl: uploadResult.url,
           );
           
-          // 设置文件服务器相关字段
-          if (uploadResult.fsId != null) {
-            message.fsId = uploadResult.fsId!;
-          }
-          if (uploadResult.fileName != null) {
-            message.fileName = uploadResult.fileName!;
-          }
+          // 文件服务器信息已通过sendFileMessage处理
           break;
       }
 
-      // 更新消息的服务器信息
-      if (uploadResult.metadata != null) {
-        message.fileSize = uploadResult.metadata!.size.toDouble();
-        message.mimeType = uploadResult.metadata!.mimeType;
-
-        // 对于图片和视频，更新尺寸信息
-        if (mediaType == MediaType.image || mediaType == MediaType.video) {
-          if (uploadResult.metadata!.width != null) {
-            message.width = uploadResult.metadata!.width!;
-          }
-          if (uploadResult.metadata!.height != null) {
-            message.height = uploadResult.metadata!.height!;
-          }
-          // 缩略图URL不再使用，已移除
-        }
-
-        // 对于视频，更新时长信息
-        if (mediaType == MediaType.video &&
-            uploadResult.metadata!.duration != null) {
-          message.duration = uploadResult.metadata!.duration!;
-        }
-        
-        // 设置文件服务器ID
-        if (uploadResult.fsId != null) {
-          message.fsId = uploadResult.fsId!;
-        }
-      }
+      // 所有服务器信息已通过相应的send方法传递到消息的content JSON中
 
       onStatusUpdate?.call('文件消息发送成功');
       _logger.i('文件消息发送完成', extra: {
@@ -411,7 +474,7 @@ class MediaUploadIntegrationService {
         'fsId': uploadResult.fsId,
         'fileName': uploadResult.fileName,
         'mediaType': mediaType.toString(),
-        'fileSize': message.fileSize,
+        'fileSize': uploadResult.metadata?.size,
       });
 
       return message;
@@ -536,13 +599,67 @@ class MediaUploadIntegrationService {
     return MediaType.document;
   }
 
-  /// 获取图片尺寸
-  Future<ImageDimensions?> _getImageDimensions(File imageFile) async {
-    try {
-      _logger.d('开始获取图片尺寸', extra: {'filePath': imageFile.path});
+  /// 安全地获取文件路径，支持 XFile 和 File 两种类型
+  String _getFilePath(dynamic file) {
+    if (file is XFile) {
+      return file.path;
+    } else if (file is File) {
+      return file.path;
+    } else {
+      throw ArgumentError('不支持的文件类型: ${file.runtimeType}');
+    }
+  }
 
-      // 使用Flutter的Image类获取图片尺寸
-      final imageProvider = FileImage(imageFile);
+  /// 根据文件名获取 MIME 类型
+  String _getMimeTypeFromFileName(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'bmp':
+        return 'image/bmp';
+      case 'svg':
+        return 'image/svg+xml';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  /// 获取图片尺寸
+  /// 支持 File 和 XFile 两种类型，兼容不同平台
+  Future<ImageDimensions?> _getImageDimensions(dynamic imageFile) async {
+    try {
+      String filePath;
+      ImageProvider imageProvider;
+
+      // 根据类型创建合适的 ImageProvider
+      if (imageFile is XFile) {
+        filePath = imageFile.path;
+        if (kIsWeb) {
+          // Web 环境下使用 NetworkImage 处理 blob URL
+          imageProvider = NetworkImage(imageFile.path);
+        } else {
+          // 移动端将 XFile 转换为 File
+          final file = File(imageFile.path);
+          imageProvider = FileImage(file);
+        }
+      } else if (imageFile is File) {
+        filePath = imageFile.path;
+        imageProvider = FileImage(imageFile);
+      } else {
+        _logger.w('不支持的图片文件类型: ${imageFile.runtimeType}');
+        return null;
+      }
+
+      _logger.d('开始获取图片尺寸', extra: {'filePath': filePath});
+
       final ImageStream stream =
           imageProvider.resolve(ImageConfiguration.empty);
 
@@ -558,7 +675,7 @@ class MediaUploadIntegrationService {
           _logger.d('成功获取图片尺寸', extra: {
             'width': width,
             'height': height,
-            'filePath': imageFile.path,
+            'filePath': filePath,
           });
 
           stream.removeListener(listener);

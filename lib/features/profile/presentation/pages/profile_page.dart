@@ -14,7 +14,7 @@ import 'package:cc/features/profile/presentation/pages/edit_profile_page.dart';
 import 'package:cc/features/profile/presentation/pages/my_qr_code_page.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cc/features/profile/presentation/pages/language_settings_page.dart';
 import 'package:cc/features/profile/presentation/pages/notification_settings_page.dart';
@@ -280,7 +280,8 @@ class _ProfilePageState extends State<ProfilePage>
               }
 
               // 如果状态为success但没有用户数据，说明数据已被重置，跳转到登录页面
-              if (state.status == ProfileStatus.success && state.user == null) {
+              // 临时修复：在Web环境下不显示数据重置界面，显示空用户界面
+              if (state.status == ProfileStatus.success && state.user == null && !kIsWeb) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _handleDataResetComplete(context);
                 });
@@ -1086,7 +1087,7 @@ class _ProfilePageState extends State<ProfilePage>
                 _buildInfoRow('邮箱', user.email ?? '未绑定'),
                 _buildInfoRow('状态', user.status ?? '未设置'),
                 _buildInfoRow('认证状态', '使用新多Token系统'),
-                _buildInfoRow('数据库ID', user.id.toString()),
+                _buildInfoRow('用户ID', user.userId),
               ],
             ),
           ),
@@ -1281,7 +1282,6 @@ class _ProfilePageState extends State<ProfilePage>
           debugInfo += '''
 
 📝 数据库中的用户信息:
-- 数据库ID: ${user.id}
 - 用户ID: ${user.userId}
 - 用户名: ${user.name}
 - 头像: ${user.avatar ?? '未设置'}
@@ -1430,9 +1430,13 @@ class _ProfilePageState extends State<ProfilePage>
       final userInfo = await secureStorage.readUserCredentials();
 
       if (userInfo != null && DatabaseInitializer.isInitialized) {
-        await DatabaseInitializer.isar.writeTxn(() async {
-          await DatabaseInitializer.isar.currentUsers.clear();
-          await DatabaseInitializer.isar.currentUsers.put(userInfo);
+        await DatabaseInitializer.database.transaction(() async {
+          await DatabaseInitializer.database
+              .delete(DatabaseInitializer.database.currentUsers)
+              .go();
+          await DatabaseInitializer.database
+              .into(DatabaseInitializer.database.currentUsers)
+              .insert(userInfo);
         });
 
         _logger.i('用户信息已从安全存储恢复到数据库');

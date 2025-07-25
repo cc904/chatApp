@@ -93,8 +93,39 @@ lib/
 
 ## 🚀 快速开始
 
-### 1. 环境准备
+### 🐳 Docker部署（推荐）
 
+#### 一键启动
+```bash
+./build-docker.sh
+```
+
+#### 直接启动服务
+```bash
+./build-docker.sh start
+```
+
+#### 架构说明
+- **Flutter容器**: 运行`flutter web-server` (策略2优化)
+- **nginx容器**: SSL反向代理 + 静态资源处理
+- **🚀 国内加速**: 自动使用国内镜像源加速SDK和包下载
+
+**访问地址**：
+- HTTP: http://localhost:8080
+- HTTPS: https://localhost:8443
+
+#### 可用命令
+```bash
+./build-docker.sh start     # 构建并启动
+./build-docker.sh --port 9000 start  # 自定义端口
+./build-docker.sh logs      # 查看日志
+./build-docker.sh stop      # 停止服务
+./build-docker.sh clean     # 清理资源
+```
+
+### 📱 本地开发
+
+#### 1. 环境准备
 ```bash
 # 安装Flutter
 flutter doctor
@@ -103,31 +134,28 @@ flutter doctor
 git clone <repo-url>
 cd cc
 
+# 配置国内镜像源（可选，提升下载速度）
+source .flutter_mirrors
+
 # 安装依赖
 flutter pub get
 ```
 
-### 2. 生成Protocol Buffer代码
-
+#### 2. 生成代码
 ```bash
 # 生成protobuf文件
 ./scripts/generate_protos.sh
-```
 
-### 3. 生成数据库代码
-
-```bash
-# 生成Isar数据库代码
+# 生成数据库代码
 flutter packages pub run build_runner build --delete-conflicting-outputs
 ```
 
-### 4. 运行项目
-
+#### 3. 运行项目
 ```bash
-# iOS
-flutter run -t lib/main.dart
+# Web版本
+flutter run -d web-server --web-port 8080
 
-# Android
+# 移动端
 flutter run -t lib/main.dart
 ```
 

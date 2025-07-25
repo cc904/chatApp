@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
-import 'package:cc/core/database/models/user.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
 import 'package:cc/features/contacts/presentation/widgets/contact_list_widget.dart';
@@ -13,7 +12,7 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/features/chat/presentation/pages/chats_page.dart';
@@ -68,7 +67,7 @@ class _ContactsPageState extends State<ContactsPage>
   /// 处理联系人点击 - 进入聊天页面
   Future<void> _handleContactTap(User contact) async {
     try {
-      _logger.i('点击联系人，创建或查找会话', extra: {'contactName': contact.name});
+      _logger.i('点击联系人，创建或查找会话', extra: {'contactName': contact.nickName});
 
       // 获取必要的依赖
       final chatsRepository = context.read<ChatsRepository>();
@@ -146,7 +145,7 @@ class _ContactsPageState extends State<ContactsPage>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)
-                  .cannotOpenChatWith(contact.name)),
+                  .cannotOpenChatWith(contact.nickName)),
               backgroundColor: Colors.red,
             ),
           );
@@ -234,30 +233,13 @@ class _ContactsPageState extends State<ContactsPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // 应用从后台恢复时触发同步
-    if (state == AppLifecycleState.resumed && _isPageVisible) {
-      _logger.i('应用从后台恢复，ContactsPage 检查是否需要同步');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          // 检查当前是否是可见的Tab页面
-          try {
-            final homeCubit = context.read<HomeCubit>();
-            final currentTabIndex = homeCubit.state.currentTabIndex;
-            final isCurrentTabVisible = currentTabIndex == 1;
-            
-            if (isCurrentTabVisible) {
-              _logger.i('ContactsPage 当前可见且应用恢复，执行同步');
-              final contactCubit = context.read<ContactCubit>();
-              contactCubit.syncContacts();
-            } else {
-              _logger.d('ContactsPage 当前不可见，跳过应用恢复同步');
-            }
-          } catch (e) {
-            _logger.w('ContactsPage 应用恢复同步检查失败', extra: {'error': e.toString()});
-          }
-        }
-      });
-    }
+    // 🔧 修复：移除重复的生命周期处理，ContactCubit已经有自己的生命周期监听
+    // 应用生命周期同步由ContactCubit统一管理，避免重复触发
+    _logger.d('ContactsPage 收到应用生命周期变化', extra: {
+      'state': state.toString(),
+      'isPageVisible': _isPageVisible,
+      'note': '由ContactCubit统一处理生命周期同步，此处不再重复处理'
+    });
   }
 
   @override

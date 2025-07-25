@@ -9,7 +9,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/universal_search_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/services/communication_service.dart';

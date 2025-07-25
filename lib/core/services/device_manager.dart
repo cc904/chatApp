@@ -1,12 +1,15 @@
-import 'dart:io';
 import 'dart:convert';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+
+// 条件导入：根据平台导入不同的设备信息获取实现
+import 'device_manager_stub.dart'
+    if (dart.library.io) 'device_manager_io.dart'
+    if (dart.library.html) 'device_manager_web.dart';
 
 /// 设备管理器
 ///
@@ -91,16 +94,6 @@ class DeviceManager {
     return RegExp(r'[^\x20-\x7E]').hasMatch(input);
   }
 
-  /// 获取标准化的平台名称
-  /// 与 VersionInfoService.platformName 保持一致
-  static String _getStandardizedPlatformName() {
-    if (Platform.isAndroid) return 'Android';
-    if (Platform.isIOS) return 'iOS';
-    if (Platform.isMacOS) return 'macOS';
-    if (Platform.isWindows) return 'Windows';
-    if (Platform.isLinux) return 'Linux';
-    return 'Unknown';
-  }
 
   /// 获取设备详细信息
   ///
@@ -122,45 +115,16 @@ class DeviceManager {
     try {
       final deviceId = await getDeviceId();
       final packageInfo = await PackageInfo.fromPlatform();
-      final deviceInfoPlugin = DeviceInfoPlugin();
 
-      // 使用标准化的设备类型名称
-      String deviceType = _getStandardizedPlatformName();
-      String deviceModel = 'Unknown';
-      String osVersion = Platform.operatingSystemVersion;
-
-      // 获取具体设备信息
-      if (Platform.isAndroid) {
-        AndroidDeviceInfo info = await deviceInfoPlugin.androidInfo;
-        deviceModel = '${info.manufacturer} ${info.model}';
-        osVersion =
-            'Android ${info.version.release} (API ${info.version.sdkInt})';
-      } else if (Platform.isIOS) {
-        IosDeviceInfo info = await deviceInfoPlugin.iosInfo;
-        deviceModel = info.model;
-        osVersion = '${info.systemName} ${info.systemVersion}';
-      } else if (Platform.isMacOS) {
-        MacOsDeviceInfo info = await deviceInfoPlugin.macOsInfo;
-        deviceModel = info.model;
-        // 清理macOS版本信息，移除中文字符
-        final cleanOsRelease = _sanitizeForHeader(info.osRelease);
-        osVersion = 'macOS $cleanOsRelease';
-      } else if (Platform.isWindows) {
-        WindowsDeviceInfo info = await deviceInfoPlugin.windowsInfo;
-        deviceModel = info.computerName;
-        osVersion = 'Windows ${info.displayVersion}';
-      } else if (Platform.isLinux) {
-        LinuxDeviceInfo info = await deviceInfoPlugin.linuxInfo;
-        deviceModel = info.name;
-        osVersion = '${info.prettyName} (${info.version})';
-      }
+      // 使用平台特定的方法获取详细设备信息
+      final deviceDetails = await getDetailedDeviceInfo(deviceId, packageInfo);
 
       final deviceInfo = DeviceInfo(
         deviceId: deviceId,
-        deviceType: deviceType,
-        deviceModel: deviceModel,
-        osVersion: osVersion,
-        appVersion: packageInfo.version,
+        deviceType: deviceDetails['deviceType']!,
+        deviceModel: deviceDetails['deviceModel']!,
+        osVersion: deviceDetails['osVersion']!,
+        appVersion: deviceDetails['appVersion']!,
       );
 
       // 缓存设备信息并持久化
@@ -169,10 +133,10 @@ class DeviceManager {
 
       _logger.i('📱 获取设备信息成功', extra: {
         'deviceId': deviceId,
-        'deviceType': deviceType,
-        'deviceModel': deviceModel,
-        'osVersion': osVersion,
-        'appVersion': packageInfo.version,
+        'deviceType': deviceDetails['deviceType'],
+        'deviceModel': deviceDetails['deviceModel'],
+        'osVersion': deviceDetails['osVersion'],
+        'appVersion': deviceDetails['appVersion'],
       });
 
       return deviceInfo;
@@ -182,9 +146,9 @@ class DeviceManager {
       // 创建基础设备信息作为备用方案
       final fallbackDeviceInfo = DeviceInfo(
         deviceId: await getDeviceId(),
-        deviceType: _getStandardizedPlatformName(),
+        deviceType: getStandardizedPlatformName(),
         deviceModel: 'Unknown',
-        osVersion: Platform.operatingSystemVersion,
+        osVersion: getOperatingSystemVersion(),
         appVersion: '1.0.0',
       );
 
@@ -295,7 +259,7 @@ class DeviceManager {
       final timestamp = DateTime.now();
       final dateStr = '${timestamp.month}/${timestamp.day}';
 
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (isMobilePlatform()) {
         return '${deviceInfo.deviceModel} ($dateStr)';
       } else {
         return '${deviceInfo.deviceType} - ${deviceInfo.deviceModel} ($dateStr)';

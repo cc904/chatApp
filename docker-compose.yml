@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Flutter Web 应用
+  flutter-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+    container_name: flutter-cc-web
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - NODE_ENV=production
+    networks:
+      - flutter-network
+
+  # 可选: Nginx 反向代理 (如果需要SSL或负载均衡)
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: flutter-nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl-certs:/etc/nginx/ssl:ro
+    depends_on:
+      - flutter-web
+    restart: unless-stopped
+    networks:
+      - flutter-network
+    profiles:
+      - proxy  # 使用 --profile proxy 启用
+
+networks:
+  flutter-network:
+    driver: bridge
+
+# 使用方法:
+# 1. 直接运行 Flutter Web: docker-compose up flutter-web
+# 2. 使用 Nginx 代理: docker-compose --profile proxy up

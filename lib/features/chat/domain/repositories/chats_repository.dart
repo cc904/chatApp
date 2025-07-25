@@ -1,6 +1,4 @@
-import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 

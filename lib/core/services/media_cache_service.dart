@@ -1,5 +1,4 @@
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'dart:io' show File, Directory, Link;
 import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
@@ -7,6 +6,11 @@ import 'package:http/http.dart' as http;
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/file_server_config_service.dart';
 import 'package:cc/core/constants/file_server_config.dart';
+
+// 条件导入：根据平台导入不同的媒体缓存平台操作实现
+import 'media_cache_platform_stub.dart'
+    if (dart.library.io) 'media_cache_platform_io.dart'
+    if (dart.library.html) 'media_cache_platform_web.dart';
 
 /// 媒体缓存服务
 /// 负责下载网络媒体文件并保存到本地，实现"保存到本地后再使用"的设计原则
@@ -29,13 +33,20 @@ class MediaCacheService {
     if (_initialized) return;
 
     try {
-      final appDocDir = await getApplicationDocumentsDirectory();
+      if (isWebPlatform()) {
+        // Web平台不使用本地文件缓存，直接标记为初始化完成
+        _initialized = true;
+        _logger.i('✅ Web平台媒体缓存服务初始化完成（不使用本地缓存）');
+        return;
+      }
+
+      final cacheBasePath = await getCacheDirectoryPath();
 
       // 创建不同类型的缓存目录
       final mediaTypes = ['avatars', 'thumbnails', 'images', 'videos', 'voice'];
 
       for (final type in mediaTypes) {
-        final dir = Directory('${appDocDir.path}/media/$type');
+        final dir = Directory('$cacheBasePath/media/$type');
         if (!await dir.exists()) {
           await dir.create(recursive: true);
           _logger.i('📁 创建$type缓存目录: ${dir.path}');
@@ -57,6 +68,12 @@ class MediaCacheService {
   /// [messageDate] 消息发送日期，用于图片和视频的分层存储
   Future<String?> getMedia(String mediaUrl, String mediaType, {DateTime? messageDate}) async {
     try {
+      // Web平台直接返回网络URL，不使用本地缓存
+      if (isWebPlatform()) {
+        _logger.d('🌐 Web平台直接返回媒体URL: $mediaUrl');
+        return mediaUrl;
+      }
+
       // 1. 先检查本地缓存
       final cachedPath = await getCachedMediaPath(mediaUrl, mediaType, messageDate: messageDate);
       if (cachedPath != null) {
@@ -78,6 +95,11 @@ class MediaCacheService {
     if (!_initialized) await initialize();
 
     try {
+      // Web平台不使用本地缓存，直接返回null（表示没有缓存）
+      if (isWebPlatform()) {
+        return null;
+      }
+
       final cacheDir = _cacheDirs[mediaType];
       if (cacheDir == null) {
         throw Exception('不支持的媒体类型: $mediaType');
@@ -298,6 +320,17 @@ class MediaCacheService {
     if (!_initialized) await initialize();
     
     try {
+      // Web平台直接返回媒体URL，不使用本地缓存
+      if (isWebPlatform()) {
+        if (mediaUrl != null && mediaUrl.isNotEmpty) {
+          _logger.d('🌐 Web平台直接使用语音URL: $mediaUrl');
+          return mediaUrl;
+        } else {
+          _logger.w('🌐 Web平台无可用的语音URL');
+          return null;
+        }
+      }
+
       final cacheDir = _cacheDirs['voice'];
       if (cacheDir == null) {
         throw Exception('语音缓存目录未初始化');

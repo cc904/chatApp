@@ -6,7 +6,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/features/home/domain/repositories/home_repository.dart';
 import 'package:cc/features/home/data/repositories/home_repository_impl.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 import 'home_state.dart';
 

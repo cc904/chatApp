@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/chat/presentation/widgets/conversation_item.dart';
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'dart:async';
 
 /// 消息页面
@@ -408,38 +408,38 @@ class _ChatsPageState extends State<ChatsPage>
 
         // 检查各分类下是否有新消息 - 基于hasNewMessagesSinceLastRead
         final hasNewPrivateMessages = state.conversations
-            .where((c) => c.type == ConversationType.private)
-            .any((c) => c.hasNewMessagesSinceLastRead(currentUserId));
+            .where((c) => c.type == 'PRIVATE')
+            .any((c) => c.readMessageIndex < c.lastMessageIndex);
 
         final hasNewGroupMessages = state.conversations
-            .where((c) => c.type == ConversationType.group)
-            .any((c) => c.hasNewMessagesSinceLastRead(currentUserId));
+            .where((c) => c.type == 'GROUP')
+            .any((c) => c.readMessageIndex < c.lastMessageIndex);
 
         final hasNewChannelMessages = state.conversations
-            .where((c) => c.type == ConversationType.channel)
-            .any((c) => c.hasNewMessagesSinceLastRead(currentUserId));
+            .where((c) => c.type == 'CHANNEL')
+            .any((c) => c.readMessageIndex < c.lastMessageIndex);
 
         // 计算未读会话数量（除了All Chats）- 基于hasNewMessagesSinceLastRead
         final privateUnreadCount = state.conversations
             .where((c) =>
-                c.type == ConversationType.private &&
-                c.hasNewMessagesSinceLastRead(currentUserId))
+                c.type == 'PRIVATE' &&
+                c.readMessageIndex < c.lastMessageIndex)
             .length;
 
         final groupUnreadCount = state.conversations
             .where((c) =>
-                c.type == ConversationType.group &&
-                c.hasNewMessagesSinceLastRead(currentUserId))
+                c.type == 'GROUP' &&
+                c.readMessageIndex < c.lastMessageIndex)
             .length;
 
         final channelUnreadCount = state.conversations
             .where((c) =>
-                c.type == ConversationType.channel &&
-                c.hasNewMessagesSinceLastRead(currentUserId))
+                c.type == 'CHANNEL' &&
+                c.readMessageIndex < c.lastMessageIndex)
             .length;
 
         final unreadConversationsCount = state.conversations
-            .where((c) => c.hasNewMessagesSinceLastRead(currentUserId))
+            .where((c) => c.readMessageIndex < c.lastMessageIndex)
             .length;
 
         return Container(
@@ -858,7 +858,7 @@ class _ChatsPageState extends State<ChatsPage>
     final unpinnedConversations = <Conversation>[];
 
     for (final conversation in state.filteredConversations) {
-      if (conversation.isPinned(currentUserId)) {
+      if (conversation.pinned) {
         pinnedConversations.add(conversation);
       } else {
         unpinnedConversations.add(conversation);
@@ -868,25 +868,31 @@ class _ChatsPageState extends State<ChatsPage>
     // 按时间排序：置顶会话和非置顶会话分别排序
     // 最新消息时间在前，null值排在最后
     pinnedConversations.sort((a, b) {
-      if (a.lastMessageTime == null && b.lastMessageTime == null) {
+      final aTime = a.lastMessageTime;
+      final bTime = b.lastMessageTime;
+      
+      if (aTime == null && bTime == null) {
         return b.createdAt.compareTo(a.createdAt); // 都没有消息时按创建时间排序
-      } else if (a.lastMessageTime == null) {
+      } else if (aTime == null) {
         return 1; // a 没有消息，排在后面
-      } else if (b.lastMessageTime == null) {
+      } else if (bTime == null) {
         return -1; // b 没有消息，排在后面
       }
-      return b.lastMessageTime!.compareTo(a.lastMessageTime!); // 按最后消息时间倒序
+      return bTime.compareTo(aTime); // 按最后消息时间倒序
     });
 
     unpinnedConversations.sort((a, b) {
-      if (a.lastMessageTime == null && b.lastMessageTime == null) {
+      final aTime = a.lastMessageTime;
+      final bTime = b.lastMessageTime;
+      
+      if (aTime == null && bTime == null) {
         return b.createdAt.compareTo(a.createdAt); // 都没有消息时按创建时间排序
-      } else if (a.lastMessageTime == null) {
+      } else if (aTime == null) {
         return 1; // a 没有消息，排在后面
-      } else if (b.lastMessageTime == null) {
+      } else if (bTime == null) {
         return -1; // b 没有消息，排在后面
       }
-      return b.lastMessageTime!.compareTo(a.lastMessageTime!); // 按最后消息时间倒序
+      return bTime.compareTo(aTime); // 按最后消息时间倒序
     });
 
     // 构建多个 Sliver 组件

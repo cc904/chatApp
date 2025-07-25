@@ -1,0 +1,79 @@
+# Docker ignore file for Flutter Web build
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+# build/ 注释掉，Dockerfile.fast需要build/web目录
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Testing
+test/
+integration_test/
+coverage/
+
+# Scripts (except build scripts)
+scripts/
+!scripts/build-web-docker.sh
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+
+# Node modules (if any)
+node_modules/
+
+# iOS and Android (not needed for web)
+ios/
+android/
+macos/
+windows/
+linux/
+
+# Large files that aren't needed in container
+*.zip
+*.tar.gz
+*.dmg
+*.exe
+
+# Development tools
+.claude/
+.vercel/

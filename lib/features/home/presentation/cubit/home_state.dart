@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 网络状态枚举
 enum NetworkStatus {

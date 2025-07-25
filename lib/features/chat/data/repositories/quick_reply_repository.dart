@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
-import '../../../../core/database/models/quick_reply.dart';
+import '../../../../core/database/drift_database.dart';
 import '../../../../core/services/proto_socket_service.dart';
 import '../../../../core/services/log_service.dart';
 
@@ -32,7 +32,7 @@ class QuickReplyRepository {
       if (data is Map<String, dynamic>) {
         final List<dynamic> repliesData = data['quick_replies'] ?? [];
         final replies = repliesData
-            .map((json) => QuickReply.fromServerJson(json))
+            .map((json) => QuickReplyExtension.fromServerJson(json as Map<String, dynamic>))
             .toList();
         
         // 保存到本地缓存
@@ -127,10 +127,10 @@ class QuickReplyRepository {
     try {
       final List<dynamic> jsonList = json.decode(data);
       return jsonList
-          .map((json) => QuickReply.fromJson(json))
+          .map((json) => QuickReply.fromJson(json as Map<String, dynamic>))
           .where((reply) => reply.isEnabled)
           .toList()
-        ..sort((a, b) => a.order.compareTo(b.order));
+        ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     } catch (e) {
       _logger.e('解析本地快捷回复数据失败', error: e);
       return [];
@@ -146,11 +146,13 @@ class QuickReplyRepository {
   /// 按分类和顺序获取快捷回复
   Future<List<QuickReply>> getRepliesOrdered() async {
     final allReplies = await getAllQuickReplies();
-    // 按分类和order字段排序
+    // 按分类和orderIndex字段排序
     allReplies.sort((a, b) {
-      final categoryCompare = a.category.compareTo(b.category);
+      final categoryA = a.category ?? '';
+      final categoryB = b.category ?? '';
+      final categoryCompare = categoryA.compareTo(categoryB);
       if (categoryCompare != 0) return categoryCompare;
-      return a.order.compareTo(b.order);
+      return a.orderIndex.compareTo(b.orderIndex);
     });
     return allReplies;
   }
@@ -170,9 +172,9 @@ class QuickReplyRepository {
     return allReplies
         .where((reply) => 
             reply.content.toLowerCase().contains(query.toLowerCase()) ||
-            reply.category.toLowerCase().contains(query.toLowerCase()))
+            (reply.category?.toLowerCase().contains(query.toLowerCase()) ?? false))
         .toList()
-      ..sort((a, b) => a.order.compareTo(b.order));
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
   }
 
   /// 获取分类列表
@@ -180,6 +182,8 @@ class QuickReplyRepository {
     final allReplies = await getAllQuickReplies();
     final categories = allReplies
         .map((r) => r.category)
+        .where((category) => category != null)
+        .cast<String>()
         .toSet()
         .toList()
       ..sort();

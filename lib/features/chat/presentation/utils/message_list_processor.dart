@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 
 /// 消息列表处理器

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
@@ -10,6 +9,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
+import 'package:cc/core/utils/display_name_utils.dart';
 
 /// 会话列表项组件
 ///
@@ -53,8 +53,8 @@ class ConversationItem extends StatelessWidget {
     // 判断是否有静音图标
 
     // 判断会话类型
-    final bool isGroup = conversation.type == ConversationType.group;
-    final bool isChannel = conversation.type == ConversationType.channel;
+    final bool isGroup = conversation.type == 'GROUP';
+    final bool isChannel = conversation.type == 'CHANNEL';
 
     // 获取最后一条消息的发送者名称（群聊和频道）
     if (isGroup) {
@@ -77,7 +77,7 @@ class ConversationItem extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10.0),
               width: double.infinity, // 确保宽度占满整行
               // 为置顶会话添加浅色背景
-              color: conversation.isPinned(currentUser.userId)
+              color: conversation.pinned
                   ? AppColors.primary.withAlpha(15)
                   : Colors.transparent,
               child: Row(
@@ -123,7 +123,10 @@ class ConversationItem extends StatelessWidget {
         height: 60,
         child: UserAvatar(
           avatarUrl: conversation.avatar,
-          name: conversation.displayName(currentUser.userId),
+          name: DisplayNameUtils.getConversationDisplayName(
+            conversation, 
+            currentUser.userId
+          ),
           radius: 60 / 2,
           backgroundColor: AppColors.primary,
         ),
@@ -135,8 +138,8 @@ class ConversationItem extends StatelessWidget {
   /// 根据会话类型显示不同的内容格式
   Widget _buildContent(Conversation conversation) {
     // 判断会话类型
-    final bool isGroup = conversation.type == ConversationType.group;
-    final bool isChannel = conversation.type == ConversationType.channel;
+    final bool isGroup = conversation.type == 'GROUP';
+    final bool isChannel = conversation.type == 'CHANNEL';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,7 +152,7 @@ class ConversationItem extends StatelessWidget {
               child: Row(
                 children: [
                   // 置顶图标
-                  if (conversation.isPinned(currentUser.userId))
+                  if (conversation.pinned)
                     const Padding(
                       padding: EdgeInsets.only(right: 4.0),
                       child: Icon(
@@ -192,7 +195,7 @@ class ConversationItem extends StatelessWidget {
                   ),
 
                   // 静音图标
-                  if (conversation.isMuted(currentUser.userId))
+                  if (conversation.muted)
                     const Padding(
                       padding: EdgeInsets.only(left: 4.0),
                       child:
@@ -286,7 +289,11 @@ class ConversationItem extends StatelessWidget {
   /// 获取会话显示名称，对群聊和频道名称进行长度限制
   String _getDisplayName(
       Conversation conversation, bool isGroup, bool isChannel) {
-    String name = conversation.displayName(currentUser.userId);
+    // 🔧 修复：使用DisplayNameUtils正确处理私聊会话的显示名称
+    String name = DisplayNameUtils.getConversationDisplayName(
+      conversation, 
+      currentUser.userId
+    );
 
     if ((isGroup || isChannel) && name.length > 24) {
       return name.substring(0, 24);
@@ -297,7 +304,7 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建时间和未读数量
   Widget _buildTimeAndUnreadCount(Conversation conversation) {
-    conversation.unreadCount(currentUser.userId);
+    // Get unread count from conversation
 
     return Padding(
       padding: const EdgeInsets.only(right: 16.0, left: 8.0),
@@ -321,7 +328,7 @@ class ConversationItem extends StatelessWidget {
               },
             ),
             // 未读数
-            if (conversation.unreadCount(currentUser.userId) > 0)
+            if (conversation.unreadCount > 0)
               _buildUnreadBadge(conversation)
             else
               const SizedBox(height: 20), // 占位符
@@ -359,12 +366,12 @@ class ConversationItem extends StatelessWidget {
   /// 构建未读消息徽章
   Widget _buildUnreadBadge(Conversation conversation) {
     final bool isNewMessage =
-        conversation.hasNewMessagesSinceLastRead(currentUser.userId);
+        conversation.unreadCount > 0;
 
-    conversation.unreadCount(currentUser.userId);
+    // Access unread count from conversation
 
     // 获取未读数量（用于Text显示）
-    final displayUnreadCount = conversation.unreadCount(currentUser.userId);
+    final displayUnreadCount = conversation.unreadCount;
     final formattedCount = _formatUnreadCount(displayUnreadCount);
 
     return Container(

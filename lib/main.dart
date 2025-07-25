@@ -7,8 +7,6 @@ import 'package:cc/core/services/language_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
@@ -16,13 +14,17 @@ import 'package:cc/core/services/message_notification_service.dart';
 import 'package:cc/core/services/notification_action_service.dart';
 import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:cc/features/chat/presentation/pages/chats_page.dart';
 import 'package:cc/core/services/global_overlay_service.dart';
 import 'package:cc/core/services/version_info_service.dart';
 import 'package:cc/core/services/version_update_service.dart';
 import 'package:cc/core/services/server_selection_service.dart';
 import 'package:cc/core/services/backup_domain_service.dart';
+
+// 条件导入：根据平台导入不同的平台特定功能
+import 'platform_stub.dart'
+    if (dart.library.io) 'platform_io.dart'
+    if (dart.library.html) 'platform_web.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -62,23 +64,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 🪟 配置桌面窗口（仅在桌面平台）
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
-
-    const windowOptions = WindowOptions(
-      size: Size(500, 800), // 默认窗口大小
-      minimumSize: Size(400, 650), // 最小窗口大小
-      // center: true,                  // 居中显示
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
-    );
-
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-  }
+  await initializePlatform();
 
   // 🔍 检查和修复Token状态
   await _checkAndFixTokenStatus();
@@ -174,13 +160,8 @@ void main() async {
       timeago.setDefaultLocale('en');
     }
 
-    // 初始化必要的文件目录
-    final appDocDir = await getApplicationDocumentsDirectory();
-    final mediaDir = Directory('${appDocDir.path}/media');
-    if (!await mediaDir.exists()) {
-      await mediaDir.create(recursive: true);
-      logger.i('媒体目录已创建：${mediaDir.path}');
-    }
+    // 初始化必要的文件目录（仅在非Web平台）
+    await initializeDirectories(logger);
 
     // 注意：文件上传服务将在登录成功后初始化，因为需要服务器信息和认证Token
     // FileUploadService(); // 移除早期初始化
@@ -248,7 +229,7 @@ class DatabaseErrorApp extends StatelessWidget {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  exit(0); // 退出应用
+                  exitApp(); // 退出应用
                 },
                 child: const Text('退出应用'),
               ),
@@ -357,11 +338,19 @@ class _MyAppState extends State<MyApp> {
             theme: ThemeData(
               colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,
+              // 强制指定本地字体，确保不会回退到网络字体
+              fontFamily: 'Roboto',
+              fontFamilyFallback: const ['NotoSansSC'],
               appBarTheme: AppBarTheme(
                 backgroundColor: AppColors.surfaceVariant,
                 foregroundColor: AppColors.textPrimary,
                 elevation: 0,
                 centerTitle: true,
+                titleTextStyle: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             // 添加本地化配置

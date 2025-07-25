@@ -1,8 +1,6 @@
 import 'package:cc/core/services/message_notification_service.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/message.dart' as models;
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 聊天通知集成服务
 /// 
@@ -38,7 +36,7 @@ class ChatNotificationIntegration {
   /// 2. 本地数据库有新消息插入
   /// 3. 聊天页面不在前台时
   Future<void> handleNewMessage({
-    required models.Message message,
+    required Message message,
     required Conversation conversation,
     required User sender,
     required bool isAppInForeground,
@@ -69,7 +67,7 @@ class ChatNotificationIntegration {
       _logger.i('已显示消息通知', extra: {
         'messageId': message.messageId,
         'conversationId': conversation.conversationId,
-        'senderName': sender.name,
+        'senderName': sender.nickName,
       });
 
     } catch (error, stackTrace) {
@@ -79,7 +77,7 @@ class ChatNotificationIntegration {
 
   /// 判断是否应该显示通知
   bool _shouldShowNotification({
-    required models.Message message,
+    required Message message,
     required bool isAppInForeground,
     required bool isChatPageVisible,
   }) {

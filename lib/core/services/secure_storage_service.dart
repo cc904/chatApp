@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'log_service.dart';
 
 /// 安全存储服务单例类
@@ -13,8 +13,7 @@ import 'log_service.dart';
 /// - 其他平台: FlutterSecureStorage默认实现
 class SecureStorageService {
   // 单例实例
-  static final SecureStorageService _instance =
-      SecureStorageService._internal();
+  static final SecureStorageService _instance = SecureStorageService._internal();
 
   /// 获取单例实例
   factory SecureStorageService() => _instance;
@@ -59,20 +58,13 @@ class SecureStorageService {
       final value = await _storage.read(key: key);
       return value;
     } catch (e) {
-      _logger.w('Keychain读取失败', extra: {
-        'key': key,
-        'error': e.toString(),
-        'errorCode': e is PlatformException ? e.code : 'unknown'
-      });
-      
+      _logger.w('Keychain读取失败', extra: {'key': key, 'error': e.toString(), 'errorCode': e is PlatformException ? e.code : 'unknown'});
+
       // 如果是-34018错误，提供详细的错误信息
       if (e is PlatformException && e.code == 'Unexpected security result code') {
-        _logger.e('Keychain访问授权失败 (-34018)', extra: {
-          'key': key,
-          'solution': '请检查系统设置 > 隐私与安全性 > 钥匙串访问，确保应用已被授权'
-        });
+        _logger.e('Keychain访问授权失败 (-34018)', extra: {'key': key, 'solution': '请检查系统设置 > 隐私与安全性 > 钥匙串访问，确保应用已被授权'});
       }
-      
+
       return null;
     }
   }
@@ -201,16 +193,16 @@ class SecureStorageService {
       }
 
       // 从存储的信息中恢复完整的用户对象
-      final currentUser = CurrentUser()
-        ..userId = userId
-        ..name = userInfo['name'] ?? '未知用户' // 提供默认值以避免late初始化错误
-        ..avatar = userInfo['avatar']
-        ..phone = userInfo['phone']
-        ..email = userInfo['email']
-        ..status = userInfo['status']
-        ..lastLoginTime = userInfo['lastLoginTime'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(userInfo['lastLoginTime'])
-            : null;
+      final currentUser = CurrentUser(
+        userId: userId,
+        name: userInfo['name'] ?? '未知用户', // 提供默认值以避免late初始化错误
+        avatar: userInfo['avatar'],
+        phone: userInfo['phone'],
+        email: userInfo['email'],
+        status: userInfo['status'],
+        lastLoginTime: userInfo['lastLoginTime'] != null ? DateTime.fromMillisecondsSinceEpoch(userInfo['lastLoginTime']) : null,
+        hasSetPassword: userInfo['hasSetPassword'] ?? false,
+      );
 
       _logger.d('从Keychain读取用户凭证成功', extra: {
         'userId': currentUser.userId,
@@ -243,14 +235,19 @@ class SecureStorageService {
 
   // === Token 管理 ===
 
-
-
   /// 保存 Refresh Token
   Future<void> saveRefreshToken(String token, DateTime expireTime) async {
     try {
+      _logger.d('保存Refresh Token到Keychain', extra: {
+        'tokenLength': token.length,
+        'expireTime': expireTime.toIso8601String(),
+        'validForDays': expireTime.difference(DateTime.now()).inDays,
+      });
+
       await write(keyRefreshToken, token);
       await write(keyRefreshTokenExpireTime, expireTime.toIso8601String());
-      _logger.d('Refresh Token已保存到Keychain');
+
+      _logger.d('Refresh Token已成功保存到Keychain');
     } catch (e) {
       _logger.e('保存Refresh Token失败', error: e, stackTrace: StackTrace.current);
       rethrow;
@@ -260,21 +257,37 @@ class SecureStorageService {
   /// 保存 Socket Token
   Future<void> saveSocketToken(String token, DateTime expireTime) async {
     try {
+      _logger.d('保存Socket Token到Keychain', extra: {
+        'tokenLength': token.length,
+        'expireTime': expireTime.toIso8601String(),
+        'validForHours': expireTime.difference(DateTime.now()).inHours,
+      });
+
       await write(keySocketToken, token);
       await write(keySocketTokenExpireTime, expireTime.toIso8601String());
-      _logger.d('Socket Token已保存到Keychain');
+
+      _logger.d('Socket Token已成功保存到Keychain');
     } catch (e) {
       _logger.e('保存Socket Token失败', error: e, stackTrace: StackTrace.current);
       rethrow;
     }
   }
 
-
-
   /// 获取 Refresh Token
   Future<String?> getRefreshToken() async {
-    return await read(keyRefreshToken);
+    final token = await read(keyRefreshToken);
+    if (token != null) {
+      _logger.d('从Keychain读取到Refresh Token', extra: {
+        'tokenLength': token.length,
+      });
+    } else {
+      _logger.d('Keychain中未找到Refresh Token');
+    }
+    return token;
   }
+
+  /// 获取 Refresh Token 过期时间
+  Future<DateTime?> getRefreshTokenExpiry() async => getRefreshTokenExpireTime();
 
   /// 获取 Refresh Token 过期时间
   Future<DateTime?> getRefreshTokenExpireTime() async {
@@ -290,8 +303,21 @@ class SecureStorageService {
 
   /// 获取 Socket Token
   Future<String?> getSocketToken() async {
-    return await read(keySocketToken);
+    final token = await read(keySocketToken);
+    if (token != null) {
+      _logger.d('从Keychain读取到Socket Token',
+          extra: {
+            'tokenLength': token.length,
+          },
+          stackTrace: StackTrace.current);
+    } else {
+      _logger.d('Keychain中未找到Socket Token');
+    }
+    return token;
   }
+
+  /// 获取 Socket Token 过期时间
+  Future<DateTime?> getSocketTokenExpiry() async => getSocketTokenExpireTime();
 
   /// 获取 Socket Token 过期时间
   Future<DateTime?> getSocketTokenExpireTime() async {
@@ -304,8 +330,6 @@ class SecureStorageService {
       return null;
     }
   }
-
-
 
   /// 检查 Refresh Token 是否有效
   Future<bool> isRefreshTokenValid() async {

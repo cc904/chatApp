@@ -1,13 +1,17 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart' 
+    hide Message;
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/message.dart' as models;
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/notification_action_service.dart';
 import 'package:cc/core/services/notification_settings_service.dart';
+
+// 条件导入：根据平台导入不同的通知服务实现
+import 'notification_platform_stub.dart'
+    if (dart.library.io) 'notification_platform_io.dart'
+    if (dart.library.html) 'notification_platform_web.dart';
 
 /// 消息通知服务
 /// 
@@ -102,7 +106,7 @@ class MessageNotificationService {
 
   /// 创建Android通知渠道
   Future<void> _createNotificationChannels() async {
-    if (!Platform.isAndroid) return;
+    if (!isAndroidPlatform()) return;
 
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin == null) {
@@ -145,7 +149,7 @@ class MessageNotificationService {
   /// 请求通知权限
   Future<bool> _requestPermissions() async {
     try {
-      if (Platform.isAndroid) {
+      if (isAndroidPlatform()) {
         final androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
         
         if (androidPlugin == null) {
@@ -165,7 +169,7 @@ class MessageNotificationService {
         
         return granted ?? true; // 旧版本默认有权限
         
-      } else if (Platform.isIOS) {
+      } else if (isIOSPlatform()) {
         final iosPlugin = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
         
         if (iosPlugin == null) {
@@ -188,7 +192,7 @@ class MessageNotificationService {
         
         return granted ?? false;
         
-      } else if (Platform.isMacOS) {
+      } else if (isMacOSPlatform()) {
         final macosPlugin = _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
         
         if (macosPlugin == null) {
@@ -223,7 +227,7 @@ class MessageNotificationService {
 
   /// 显示新消息通知
   Future<void> showMessageNotification({
-    required models.Message message,
+    required Message message,
     required Conversation conversation,
     required User sender,
     int? unreadCount,
@@ -312,7 +316,7 @@ class MessageNotificationService {
       );
 
       // 显示分组摘要通知（Android）
-      if (Platform.isAndroid && notificationStyle.groupMessages && unreadCount != null && unreadCount > 1) {
+      if (isAndroidPlatform() && notificationStyle.groupMessages && unreadCount != null && unreadCount > 1) {
         await _showGroupSummaryNotification(conversation, unreadCount);
       }
 
@@ -339,7 +343,7 @@ class MessageNotificationService {
 
   /// 显示简化版通知（去除LED配置）
   Future<void> _showSimplifiedNotification(
-    models.Message message,
+    Message message,
     Conversation conversation,
     User sender,
   ) async {
@@ -393,30 +397,49 @@ class MessageNotificationService {
 
   /// 构建通知标题
   String _buildNotificationTitle(Conversation conversation, User sender) {
-    if (conversation.type == ConversationType.private) {
-      return sender.name;
+    if (conversation.type == 'PRIVATE') {
+      return sender.nickName;
     } else {
-      return '${conversation.name ?? '群聊'} (${sender.name})';
+      return '${conversation.name ?? '群聊'} (${sender.nickName})';
     }
   }
 
   /// 构建通知内容
-  String _buildNotificationBody(models.Message message, bool showPreview) {
+  String _buildNotificationBody(Message message, bool showPreview) {
     if (!showPreview) {
       return '新消息';
     }
     
-    switch (message.type) {
-      case models.MessageType.text:
-        return message.text ?? '';
-      case models.MessageType.image:
+    switch (message.messageType) {
+      case 'TEXT':
+        // 从content JSON中提取文本内容
+        try {
+          if (message.content != null) {
+            final content = jsonDecode(message.content!);
+            return content['text'] ?? '';
+          }
+        } catch (e) {
+          // 解析失败，返回空字符串
+        }
+        return '';
+      case 'IMAGE':
         return '[图片]';
-      case models.MessageType.voice:
+      case 'VOICE':
         return '[语音消息]';
-      case models.MessageType.video:
+      case 'VIDEO':
         return '[视频]';
-      case models.MessageType.file:
-        return '[文件] ${message.fileName ?? ''}';
+      case 'FILE':
+        // 从content JSON中提取文件名
+        try {
+          if (message.content != null) {
+            final content = jsonDecode(message.content!);
+            final fileName = content['fileName'] ?? '';
+            return '[文件] $fileName';
+          }
+        } catch (e) {
+          // 解析失败，返回默认值
+        }
+        return '[文件]';
       default:
         return '[消息]';
     }
@@ -424,7 +447,7 @@ class MessageNotificationService {
 
   /// 构建Android通知样式
   StyleInformation _buildAndroidStyle(
-    models.Message message, 
+    Message message, 
     Conversation conversation, 
     int? unreadCount,
     bool showPreview,
@@ -504,7 +527,7 @@ class MessageNotificationService {
   }
 
   /// 构建通知载荷数据
-  String _buildNotificationPayload(models.Message? message, Conversation conversation) {
+  String _buildNotificationPayload(Message? message, Conversation conversation) {
     return '${conversation.conversationId}|${message?.messageId ?? ''}';
   }
 
@@ -593,7 +616,7 @@ class MessageNotificationService {
     }
 
     try {
-      if (Platform.isAndroid) {
+      if (isAndroidPlatform()) {
         final androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
         
         if (androidPlugin == null) {
@@ -611,7 +634,7 @@ class MessageNotificationService {
         
         return enabled ?? false;
         
-      } else if (Platform.isIOS) {
+      } else if (isIOSPlatform()) {
         _logger.d('iOS平台权限检查', extra: {
           'platform': _getStandardizedPlatformName(),
           'storedPermission': _hasPermission,
@@ -620,7 +643,7 @@ class MessageNotificationService {
         // iOS 权限状态通常在初始化后不会改变，使用存储的值
         return _hasPermission;
         
-      } else if (Platform.isMacOS) {
+      } else if (isMacOSPlatform()) {
         _logger.d('macOS平台权限检查', extra: {
           'platform': _getStandardizedPlatformName(),
           'storedPermission': _hasPermission,
@@ -687,7 +710,7 @@ class MessageNotificationService {
 
   /// 获取当前角标数量
   Future<int?> getBadgeCount() async {
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (isApplePlatform()) {
       // iOS 不再支持直接获取角标数量，需要在应用层维护
       return null;
     }
@@ -696,7 +719,7 @@ class MessageNotificationService {
 
   /// 设置应用角标数量
   Future<void> setBadgeCount(int count) async {
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (isApplePlatform()) {
       // iOS 角标需要在应用层手动维护
       _logger.d('设置应用角标（iOS）', extra: {'count': count});
     }
@@ -705,12 +728,7 @@ class MessageNotificationService {
 
   /// 获取标准化的平台名称
   String _getStandardizedPlatformName() {
-    if (Platform.isAndroid) return 'Android';
-    if (Platform.isIOS) return 'iOS';
-    if (Platform.isMacOS) return 'macOS';
-    if (Platform.isWindows) return 'Windows';
-    if (Platform.isLinux) return 'Linux';
-    return 'Unknown';
+    return getPlatformName();
   }
 
   /// 销毁服务

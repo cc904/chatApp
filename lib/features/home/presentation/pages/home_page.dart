@@ -17,7 +17,7 @@ import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 
 import 'dart:async';
@@ -56,10 +56,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   // 🔧 新增：状态保存标志
   bool _isInitialized = false;
   bool _isInitializing = false;
+  bool _isInitializingRepositories = false;
+  
+  // 🔧 调试用：跟踪初始化调用次数
+  static int _initCallCounter = 0;
 
   @override
   void initState() {
     super.initState();
+
+    _logger.i('🔧 initState执行', extra: {
+      'initCallCounter': _initCallCounter,
+    });
 
     // 🔧 新增：添加应用生命周期监听
     WidgetsBinding.instance.addObserver(this);
@@ -186,6 +194,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   }
 
   Future<void> _init() async {
+    _logger.i('🚀 _init被调用，开始初始化流程');
     await _initCubit();
   }
 
@@ -199,25 +208,64 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       'isInitialized': _isInitialized,
     });
 
-    // 当应用从后台恢复时，检查状态是否需要重新初始化
-    if (state == AppLifecycleState.resumed && !_isInitialized) {
-      _logger.w('应用从后台恢复，但状态未初始化，重新初始化');
+    // 🔧 强化：当应用从后台恢复时，检查状态是否需要重新初始化
+    if (state == AppLifecycleState.resumed && 
+        !_isInitialized && 
+        !_isInitializing && 
+        _homeCubit == null &&
+        _contactCubit == null &&
+        _chatsCubit == null) {
+      _logger.w('应用从后台恢复，但状态未初始化，重新初始化', extra: {
+        'isInitialized': _isInitialized,
+        'isInitializing': _isInitializing,
+        'hasHomeCubit': _homeCubit != null,
+        'hasContactCubit': _contactCubit != null,
+        'hasChatsCubit': _chatsCubit != null,
+      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _init();
         }
       });
+    } else if (state == AppLifecycleState.resumed) {
+      _logger.d('应用从后台恢复，但初始化状态正常，跳过重新初始化', extra: {
+        'isInitialized': _isInitialized,
+        'isInitializing': _isInitializing,
+        'hasHomeCubit': _homeCubit != null,
+        'hasContactCubit': _contactCubit != null,
+        'hasChatsCubit': _chatsCubit != null,
+      });
     }
   }
 
   Future<void> _initCubit() async {
-    if (_homeCubit != null) {
-      _logger.d('HomeCubit 已存在，跳过初始化');
+    _logger.i('🔍 进入_initCubit方法');
+    final callId = ++_initCallCounter;
+    _logger.i('_initCubit被调用', extra: {
+      'callId': callId,
+      'homeCubitExists': _homeCubit != null,
+      'isInitialized': _isInitialized,
+      'isInitializing': _isInitializing,
+    });
+    
+    // 🔧 修复：简化保护逻辑，移除可能永远为true的_globalInitializationInProgress检查
+    if (_homeCubit != null || _isInitialized || _isInitializing) {
+      _logger.d('初始化已进行或进行中，跳过重复调用', extra: {
+        'callId': callId,
+        'homeCubitExists': _homeCubit != null,
+        'isInitialized': _isInitialized,
+        'isInitializing': _isInitializing,
+        'reason': _homeCubit != null ? 'HomeCubit已存在' : 
+                 _isInitialized ? '已初始化完成' :
+                 _isInitializing ? '正在初始化中' : '未知',
+      });
       return;
     }
 
+
     setState(() {
       _isInitializing = true;
+      // 🔧 修复：不要在开始时就设置_isInitialized，等初始化完成后再设置
     });
 
     try {
@@ -262,12 +310,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         });
       }
 
+      // 🔧 修复：在调用initializeRepositoriesAndCubits前检查mounted状态
+      if (!mounted) {
+        _logger.w('Widget已unmounted，取消Repository初始化');
+        return;
+      }
+      
       await _initializeRepositoriesAndCubits(currentUser);
 
+      // 🔧 修复：初始化完成后再次检查mounted状态
+      if (!mounted) {
+        _logger.w('初始化完成后Widget已unmounted，跳过状态更新');
+        return;
+      }
+
       // 🔧 新增：标记初始化完成
-      _isInitialized = true;
       _isInitializing = false;
-      _logger.i('HomePage 初始化完成');
+      _isInitialized = true; // 🔧 修复：在初始化完成后才设置为true
+      
+      _logger.i('HomePage 初始化完成', extra: {
+        'isInitialized': _isInitialized,
+        'isInitializing': _isInitializing,
+        'hasHomeCubit': _homeCubit != null,
+        'hasContactCubit': _contactCubit != null,
+        'hasChatsCubit': _chatsCubit != null,
+      });
 
       if (mounted) {
         setState(() {
@@ -277,7 +344,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
 
       // 🔄 登录成功后自动同步数据（异步执行，不阻塞UI）
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _initializeDataSync();
+        if (mounted) {
+          _initializeDataSync();
+        }
       });
 
     } catch (error) {
@@ -285,6 +354,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       if (mounted) {
         setState(() {
           _isInitializing = false;
+          _isInitialized = false; // 初始化失败，重置状态
         });
       }
       
@@ -299,6 +369,50 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
 
   /// 🔧 新增：并行初始化所有Repository和Cubit
   Future<void> _initializeRepositoriesAndCubits(CurrentUser currentUser) async {
+    _logger.i('_initializeRepositoriesAndCubits被调用', extra: {
+      'contactCubitExists': _contactCubit != null,
+      'chatsCubitExists': _chatsCubit != null,
+      'isInitializingRepositories': _isInitializingRepositories,
+      'mounted': mounted,
+      'stackTrace': StackTrace.current.toString().split('\n').take(5).join('\n'),
+    });
+    
+    // 🔧 强化检查：多重保护机制
+    if (!mounted) {
+      _logger.w('Widget已unmounted，取消初始化');
+      return;
+    }
+    
+    if (_isInitializingRepositories) {
+      _logger.w('Repository和Cubit正在初始化中，跳过重复调用', extra: {
+        'isInitializingRepositories': _isInitializingRepositories,
+      });
+      return;
+    }
+    
+    if (_contactCubit != null && _chatsCubit != null) {
+      _logger.i('Repository和Cubit已存在，跳过初始化', extra: {
+        'contactCubitInstanceId': (_contactCubit as dynamic)?._instanceId,
+        'chatsCubitHashCode': _chatsCubit.hashCode,
+      });
+      return;
+    }
+    
+    // 🔧 设置初始化锁
+    _isInitializingRepositories = true;
+    
+    // 如果有部分初始化的实例，先清理
+    if (_contactCubit != null) {
+      _logger.w('发现已存在的ContactCubit，先清理');
+      await _contactCubit!.close();
+      _contactCubit = null;
+    }
+    if (_chatsCubit != null) {
+      _logger.w('发现已存在的ChatsCubit，先清理');
+      await _chatsCubit!.close();
+      _chatsCubit = null;
+    }
+    
     try {
       // 并行创建所有Repository（它们相互独立）
       final futures = await Future.wait([
@@ -335,6 +449,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     } catch (error) {
       _logger.e('并行初始化Repository和Cubit失败', error: error);
       rethrow;
+    } finally {
+      // 🔧 释放初始化锁
+      _isInitializingRepositories = false;
+      _logger.d('释放Repository初始化锁', extra: {
+        'isInitializingRepositories': _isInitializingRepositories,
+      });
     }
   }
 
@@ -548,12 +668,34 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
 
   /// 构建Tab内容 - 根据初始化状态显示内容或骨架屏
   Widget _buildTabContent(int tabIndex, AppLocalizations localizations) {
-    // 如果还在初始化中，显示骨架屏
-    if (_isInitializing || !_isInitialized || _homeCubit == null || _chatsCubit == null || _contactCubit == null) {
+    // 🔧 增强调试：记录为什么显示骨架屏
+    final shouldShowSkeleton = _isInitializing || !_isInitialized || _homeCubit == null || _chatsCubit == null || _contactCubit == null;
+    
+    if (shouldShowSkeleton) {
+      _logger.d('显示骨架屏', extra: {
+        'tabIndex': tabIndex,
+        'isInitializing': _isInitializing,
+        'isInitialized': _isInitialized,
+        'hasHomeCubit': _homeCubit != null,
+        'hasChatsCubit': _chatsCubit != null,
+        'hasContactCubit': _contactCubit != null,
+        'reason': _isInitializing ? '正在初始化' :
+                 !_isInitialized ? '未初始化完成' :
+                 _homeCubit == null ? 'HomeCubit为空' :
+                 _chatsCubit == null ? 'ChatsCubit为空' :
+                 _contactCubit == null ? 'ContactCubit为空' : '未知',
+      });
       return _buildSkeletonContent(tabIndex, localizations);
     }
 
     // 初始化完成，显示实际内容
+    _logger.d('显示实际内容', extra: {
+      'tabIndex': tabIndex,
+      'isInitialized': _isInitialized,
+      'isInitializing': _isInitializing,
+      'allCubitsReady': true,
+    });
+    
     return MultiRepositoryProvider(
       providers: [
         // Repository providers - 全局共享

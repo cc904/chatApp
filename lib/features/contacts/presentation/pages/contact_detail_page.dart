@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cc/core/database/models/user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 
@@ -74,7 +74,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
           // 头像
           UserAvatar(
             avatarUrl: widget.contact.avatar,
-            name: widget.contact.name,
+            name: widget.contact.nickName,
             radius: 40,
           ),
           const SizedBox(width: 20),
@@ -84,7 +84,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.contact.name,
+                  widget.contact.nickName,
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -287,7 +287,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
 
   /// 打开聊天页面
   void _openChatPage() async {
-    _logger.i('打开与${widget.contact.name}的聊天');
+    _logger.i('打开与${widget.contact.nickName}的聊天');
 
     // final homeCubit = context.read<HomeCubit>();
     // final conversationId =
@@ -383,7 +383,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('删除联系人'),
-          content: Text('确定要删除联系人 ${widget.contact.name} 吗？'),
+          content: Text('确定要删除联系人 ${widget.contact.nickName} 吗？'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -393,7 +393,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
               onPressed: () {
                 Navigator.pop(context);
                 // TODO 实现删除联系人功能
-                _logger.i('删除联系人: ${widget.contact.name}');
+                _logger.i('删除联系人: ${widget.contact.nickName}');
                 Navigator.pop(context); // 返回上一页
               },
               child: const Text('删除', style: TextStyle(color: Colors.red)),

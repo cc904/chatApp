@@ -1,12 +1,11 @@
 import 'dart:io';
-import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/user_service.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/constants/app_config.dart';
-import 'package:cc/core/database/models/current_user.dart';
 import 'package:cc/core/database/database_initializer.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 个人资料仓库
 ///
@@ -33,7 +32,7 @@ class ProfileRepository {
 
   /// 获取当前登录用户信息
   ///
-  /// 从DatabaseInitializer的Isar实例中读取CurrentUser记录
+  /// 从DatabaseInitializer的Drift实例中读取CurrentUser记录
   /// 如果没有用户记录，返回null
   ///
   /// 返回值:
@@ -45,8 +44,9 @@ class ProfileRepository {
         return null;
       }
 
-      final users =
-          await DatabaseInitializer.isar.currentUsers.where().findAll();
+      final users = await DatabaseInitializer.database
+          .select(DatabaseInitializer.database.currentUsers)
+          .get();
       if (users.isEmpty) {
         return null;
       }
@@ -73,9 +73,15 @@ class ProfileRepository {
         throw Exception('数据库未初始化，无法保存用户信息');
       }
 
-      await DatabaseInitializer.isar.writeTxn(() async {
-        await DatabaseInitializer.isar.currentUsers.clear(); // 清除旧数据
-        await DatabaseInitializer.isar.currentUsers.put(user); // 保存新数据
+      await DatabaseInitializer.database.transaction(() async {
+        // 清除旧数据
+        await DatabaseInitializer.database
+            .delete(DatabaseInitializer.database.currentUsers)
+            .go();
+        // 保存新数据
+        await DatabaseInitializer.database
+            .into(DatabaseInitializer.database.currentUsers)
+            .insert(user);
       });
       _logger.i('用户信息保存成功', extra: {'userId': user.userId});
     } catch (e) {
@@ -181,14 +187,15 @@ class ProfileRepository {
 
       // 删除数据库文件
       _logger.i('数据库文件目录: ${appDocDir.path}');
-      final isarFiles = await appDocDir
+      final driftFiles = await appDocDir
           .list()
           .where((entity) =>
-              entity.path.endsWith('.isar') ||
-              entity.path.endsWith('.isar.lock'))
+              entity.path.endsWith('.db') ||
+              entity.path.endsWith('.db-wal') ||
+              entity.path.endsWith('.db-shm'))
           .toList();
 
-      for (final file in isarFiles) {
+      for (final file in driftFiles) {
         await file.delete();
         _logger.i('删除数据库文件: ${file.path}');
       }

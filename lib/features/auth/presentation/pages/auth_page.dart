@@ -28,6 +28,9 @@ class _AuthPageState extends State<AuthPage>
   final _verificationCodeController = TextEditingController();
   final _logger = LogService.instance;
   AuthCubit? _authCubit;
+  
+  // 🔧 防止重复导航标志
+  bool _hasNavigatedToHome = false;
   late final AppConfig _appConfig;
   late VerificationCodeTimer _verificationCodeTimer;
 
@@ -373,8 +376,9 @@ class _AuthPageState extends State<AuthPage>
   }
 
   void _handleAuthStateChange(BuildContext context, AuthState state) {
-    if (state.isAuthenticated) {
-      // 不再检查数据库初始化状态，直接导航到Home页面
+    if (state.isAuthenticated && !_hasNavigatedToHome) {
+      // 🔧 修复：防止重复导航到Home页面
+      _hasNavigatedToHome = true;
       _logger.i('认证成功，直接导航到Home页面');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -384,6 +388,8 @@ class _AuthPageState extends State<AuthPage>
 
       // 登录成功后检查版本更新
       _checkLoginVersionUpdate(context);
+    } else if (state.isAuthenticated && _hasNavigatedToHome) {
+      _logger.d('认证成功，但已导航到Home页面，跳过重复导航');
     } else if (state.hasError) {
       UINotificationHelper.showError(state.errorMessage!);
     }

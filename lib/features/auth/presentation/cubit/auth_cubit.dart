@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -116,16 +116,18 @@ class AuthCubit extends Cubit<AuthState> {
         _logger.i('令牌登录成功', extra: {'userId': userData['userId']});
 
         // 创建CurrentUser对象
-        final currentUser = CurrentUser()
-          ..userId = userData['userId'] ?? ''
-          ..name = userData['nickname'] ?? userData['name'] ?? ''
-          ..phone = userData['phone'] ?? ''
-          ..email = userData['email'] ?? ''
-          ..avatar = userData['avatar'] ?? ''
-          ..status = userData['status'] ?? ''
-          ..lastLoginTime = userData['lastLoginTime'] != null
+        final currentUser = CurrentUser(
+          userId: userData['userId'] ?? '',
+          name: userData['nickname'] ?? userData['name'] ?? '',
+          phone: userData['phone'],
+          email: userData['email'],
+          avatar: userData['avatar'],
+          status: userData['status'],
+          lastLoginTime: userData['lastLoginTime'] != null
               ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-              : DateTime.now();
+              : DateTime.now(),
+          hasSetPassword: userData['hasSetPassword'] ?? false,
+        );
 
         // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 
@@ -209,16 +211,18 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('登录成功，用户信息: ${userData['userId']}');
 
       // 创建CurrentUser对象
-      final currentUser = CurrentUser()
-        ..userId = userData['userId'] ?? ''
-        ..name = userData['nickname'] ?? userData['name'] ?? ''
-        ..phone = userData['phone'] ?? ''
-        ..email = userData['email'] ?? ''
-        ..avatar = userData['avatar'] ?? ''
-        ..status = userData['status'] ?? ''
-        ..lastLoginTime = userData['lastLoginTime'] != null
+      final currentUser = CurrentUser(
+        userId: userData['userId'] ?? '',
+        name: userData['nickname'] ?? userData['name'] ?? '',
+        phone: userData['phone'],
+        email: userData['email'],
+        avatar: userData['avatar'],
+        status: userData['status'],
+        lastLoginTime: userData['lastLoginTime'] != null
             ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-            : DateTime.now();
+            : DateTime.now(),
+        hasSetPassword: userData['hasSetPassword'] ?? false,
+      );
 
       // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 
@@ -283,16 +287,18 @@ class AuthCubit extends Cubit<AuthState> {
       _logger.i('注册成功，用户信息: ${userData['userId']}');
 
       // 创建CurrentUser对象
-      final currentUser = CurrentUser()
-        ..userId = userData['userId'] ?? ''
-        ..name = userData['nickname'] ?? userData['name'] ?? ''
-        ..phone = userData['phone'] ?? ''
-        ..email = userData['email'] ?? ''
-        ..avatar = userData['avatar'] ?? ''
-        ..status = userData['status'] ?? ''
-        ..lastLoginTime = userData['lastLoginTime'] != null
+      final currentUser = CurrentUser(
+        userId: userData['userId'] ?? '',
+        name: userData['nickname'] ?? userData['name'] ?? '',
+        phone: userData['phone'],
+        email: userData['email'],
+        avatar: userData['avatar'],
+        status: userData['status'],
+        lastLoginTime: userData['lastLoginTime'] != null
             ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-            : DateTime.now();
+            : DateTime.now(),
+        hasSetPassword: userData['hasSetPassword'] ?? false,
+      );
 
       // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 

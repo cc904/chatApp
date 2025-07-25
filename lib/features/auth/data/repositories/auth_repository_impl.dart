@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/enhanced_api_service.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
@@ -7,9 +7,9 @@ import 'package:cc/core/services/device_manager.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-import 'package:isar/isar.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
+import 'package:dio/dio.dart';
 
 import 'package:cc/core/utils/api_error_handler.dart';
 import 'package:cc/core/services/version_info_service.dart';
@@ -96,8 +96,9 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       // 1. 优先从数据库获取完整用户信息
       if (DatabaseInitializer.isInitialized) {
-        final collection = DatabaseInitializer.isar.currentUsers;
-        final allUsers = await collection.where().findAll();
+        final allUsers = await DatabaseInitializer.database
+            .select(DatabaseInitializer.database.currentUsers)
+            .get();
         if (allUsers.isNotEmpty) {
           final user = allUsers.first;
           _logger.d('从数据库获取用户信息成功', extra: {'userId': user.userId});
@@ -112,8 +113,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
         // 同时保存到数据库中以备下次使用
         if (DatabaseInitializer.isInitialized) {
-          await DatabaseInitializer.isar.writeTxn(() async {
-            await DatabaseInitializer.isar.currentUsers.put(fullUserInfo);
+          await DatabaseInitializer.database.transaction(() async {
+            await DatabaseInitializer.database
+                .into(DatabaseInitializer.database.currentUsers)
+                .insert(fullUserInfo);
           });
         }
 
@@ -173,9 +176,10 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存Token和用户信息
+      _logger.d('开始保存登录信息');
       await _saveLoginResponse(data);
 
-      _logger.i('✅ 密码登录成功');
+      _logger.i('密码登录成功');
       return data;
     } catch (error) {
       _logger.e('密码登录失败', error: error, stackTrace: StackTrace.current);
@@ -255,9 +259,10 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存Token和用户信息
+      _logger.d('开始保存登录信息');
       await _saveLoginResponse(data);
 
-      _logger.i('✅ 验证码登录成功');
+      _logger.i('验证码登录成功');
       return data;
     } catch (error) {
       _logger.e('验证码登录失败', error: error, stackTrace: StackTrace.current);
@@ -274,12 +279,16 @@ class AuthRepositoryImpl implements AuthRepository {
       await _ensureInitialized();
 
       // 检查是否有可用的Token（自动处理过期刷新）
+      _logger.d('开始Token登录流程');
       final bestToken = await _tokenManager.getApiToken();
       if (bestToken == null) {
+        _logger.w('没有可用的认证令牌');
         throw Exception('没有可用的认证令牌');
       }
 
-      _logger.i('🎫 Token登录');
+      _logger.d('获得可用Token，准备验证', extra: {
+        'tokenLength': bestToken.length,
+      });
 
       // 获取设备信息
       final deviceInfo = await DeviceManager.getDeviceInfo();
@@ -305,26 +314,54 @@ class AuthRepositoryImpl implements AuthRepository {
       };
 
       // 验证Token - 不需要附加认证头，token在请求体中
+      _logger.d('发送Token验证请求', extra: {
+        'endpoint': '/api/v1/auth/verifyToken',
+        'tokenPresent': requestData.containsKey('token'),
+        'autoRefresh': requestData['autoRefresh'],
+      });
       final response = await _apiService.post('/api/v1/auth/verifyToken', data: requestData, attachToken: false);
 
       final data = response.data;
+      _logger.d('收到Token验证响应', extra: {
+        'success': data['success'],
+        'hasTokens': data.containsKey('tokens'),
+        'hasCurrentUser': data.containsKey('currentUser'),
+        'hasUser': data.containsKey('user'),
+      });
+      
       if (data['success'] != true) {
+        _logger.w('Token验证失败', extra: {
+          'message': data['message'],
+          'success': data['success'],
+        });
         throw Exception(data['message'] ?? 'Token验证失败');
       }
 
       // 检查是否有新的token返回（自动刷新的结果）
       if (data['tokens'] != null) {
-        _logger.i('🔄 服务器返回了新的Token，更新本地存储');
+        _logger.d('服务器返回了新的Token，更新本地存储');
         await _tokenManager.saveLoginTokens(data);
       }
 
-      // 🔧 修复：Token登录成功后也需要保存用户信息
+      // 修复：Token登录成功后也需要保存用户信息
+      _logger.d('开始保存登录信息');
       await _saveLoginResponse(data);
 
-      _logger.i('✅ Token登录成功');
+      _logger.i('Token登录成功');
       return data;
     } catch (error) {
-      _logger.e('Token登录失败', error: error, stackTrace: StackTrace.current);
+      // 检查是否是401认证失败（token过期/无效）
+      if (error is DioException && error.response?.statusCode == 401) {
+        _logger.i('🔐 Token已过期或无效，需要重新登录', extra: {
+          'statusCode': 401,
+          'endpoint': '/api/v1/auth/verifyToken',
+        });
+        throw Exception('认证令牌已过期，请重新登录');
+      } else {
+        // 其他错误正常记录
+        _logger.e('Token登录失败', error: error, stackTrace: StackTrace.current);
+      }
+      
       // 使用统一的错误处理器提取错误信息
       final errorMessage = ApiErrorHandler.extractErrorMessage(error);
       throw Exception(errorMessage);
@@ -377,9 +414,10 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // 保存Token和用户信息
+      _logger.d('开始保存注册信息');
       await _saveLoginResponse(data);
 
-      _logger.i('✅ 用户注册成功');
+      _logger.i('用户注册成功');
       return data;
     } catch (error) {
       _logger.e('用户注册失败', error: error, stackTrace: StackTrace.current);
@@ -392,8 +430,8 @@ class AuthRepositoryImpl implements AuthRepository {
   /// 保存登录响应
   Future<void> _saveLoginResponse(Map<String, dynamic> response) async {
     try {
-      // 🔍 添加详细的响应数据日志，帮助诊断字段映射问题
-      _logger.i('🔍 登录响应详情', extra: {
+      // 添加详细的响应数据日志，帮助诊断字段映射问题
+      _logger.d('登录响应详情', extra: {
         'responseKeys': response.keys.toList(),
         'hasCurrentUser': response.containsKey('currentUser'),
         'hasUser': response.containsKey('user'),
@@ -402,8 +440,8 @@ class AuthRepositoryImpl implements AuthRepository {
         'hasVersionUpdate': response.containsKey('versionUpdate'),
       });
 
-
       // 保存Token信息
+      _logger.d('开始保存Token信息');
       await _tokenManager.saveLoginTokens(response);
 
       // 保存服务器配置信息
@@ -442,18 +480,27 @@ class AuthRepositoryImpl implements AuthRepository {
           userProto.lastLoginTime = Int64(userData['lastLoginTime']);
         }
 
-        // 使用工厂方法创建CurrentUser对象
-        final currentUser = CurrentUser.fromProto(userProto);
+        // 创建CurrentUser对象
+        final currentUser = CurrentUser(
+          userId: userProto.userId,
+          name: userProto.name,
+          phone: userProto.phone.isEmpty ? null : userProto.phone,
+          email: userProto.email.isEmpty ? null : userProto.email,
+          avatar: userProto.avatar.isEmpty ? null : userProto.avatar,
+          status: userProto.status.isEmpty ? null : userProto.status,
+          lastLoginTime: userProto.hasLastLoginTime() ? DateTime.fromMillisecondsSinceEpoch(userProto.lastLoginTime.toInt()) : null,
+          hasSetPassword: userProto.hasSetPassword,
+        );
 
-        // 🔍 记录最终创建的用户对象
-        _logger.i('👤 创建的CurrentUser对象', extra: {
+        // 记录最终创建的用户对象
+        _logger.d('创建的CurrentUser对象', extra: {
           'userId': currentUser.userId,
           'name': currentUser.name,
           'phone': currentUser.phone,
           'email': currentUser.email,
           'avatar': currentUser.avatar,
           'status': currentUser.status,
-          'lastLoginTime': currentUser.lastLoginTime?.toIso8601String(),
+          'lastLoginTime': currentUser.lastLoginTime?.toString(),
         });
 
         // 保存到安全存储
@@ -461,9 +508,13 @@ class AuthRepositoryImpl implements AuthRepository {
 
         // 保存到数据库
         if (DatabaseInitializer.isInitialized) {
-          await DatabaseInitializer.isar.writeTxn(() async {
-            await DatabaseInitializer.isar.currentUsers.clear();
-            await DatabaseInitializer.isar.currentUsers.put(currentUser);
+          await DatabaseInitializer.database.transaction(() async {
+            await DatabaseInitializer.database
+                .delete(DatabaseInitializer.database.currentUsers)
+                .go();
+            await DatabaseInitializer.database
+                .into(DatabaseInitializer.database.currentUsers)
+                .insert(currentUser);
           });
         }
 
@@ -474,7 +525,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Token管理已在saveLoginTokens中启动，无需重复启动
 
-      _logger.i('💾 登录信息保存完成');
+      _logger.d('登录信息保存完成');
     } catch (error) {
       _logger.e('保存登录信息失败', error: error, stackTrace: StackTrace.current);
       rethrow;
@@ -501,8 +552,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // 清除数据库中的用户信息
       if (DatabaseInitializer.isInitialized) {
-        await DatabaseInitializer.isar.writeTxn(() async {
-          await DatabaseInitializer.isar.currentUsers.clear();
+        await DatabaseInitializer.database.transaction(() async {
+          await DatabaseInitializer.database
+              .delete(DatabaseInitializer.database.currentUsers)
+              .go();
         });
       }
 
@@ -605,28 +658,46 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _ensureInitialized();
 
-      _logger.i('🔄 刷新Token');
+      _logger.d('开始刷新Token流程');
 
       // 尝试刷新Token
       final refreshToken = await _secureStorage.getRefreshToken();
       if (refreshToken == null) {
+        _logger.w('没有可用的Refresh Token');
         return null;
       }
 
+      _logger.d('找到Refresh Token，发送刷新请求', extra: {
+        'tokenLength': refreshToken.length,
+      });
+
       // 调用刷新Token API
-      final response = await _apiService.post('/api/v1/auth/refreshToken', data: {'refreshToken': refreshToken});
+      final response = await _apiService.post('/api/v1/auth/refreshToken', 
+          data: {'refreshToken': refreshToken});
 
       final data = response.data;
+      _logger.d('收到刷新响应', extra: {
+        'success': data['success'],
+        'hasTokens': data.containsKey('tokens'),
+      });
+
       if (data['success'] == true && data['tokens'] != null) {
         // 保存新Token
+        _logger.d('保存新Token');
         await _tokenManager.saveLoginTokens(data);
+        
         // 返回新的 API Token（已废除 accessToken）
-        return await _tokenManager.getApiToken();
+        final newApiToken = await _tokenManager.getApiToken();
+        _logger.i('Token刷新成功', extra: {
+          'newTokenLength': newApiToken?.length,
+        });
+        return newApiToken;
       }
 
+      _logger.w('Token刷新失败 - 响应无效');
       return null;
     } catch (error) {
-      _logger.e('刷新Token失败', error: error, stackTrace: StackTrace.current);
+      _logger.e('Token刷新异常', error: error, stackTrace: StackTrace.current);
       return null;
     }
   }

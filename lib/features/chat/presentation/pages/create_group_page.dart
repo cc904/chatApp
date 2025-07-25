@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart'
@@ -275,7 +274,16 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     chatRepository: chatRepository,
                     chatRepositorySend: chatRepositorySend,
                     chatsRepository: chatsRepository,
-                    currentUser: currentUser ?? (CurrentUser()..userId = ''),
+                    currentUser: currentUser ?? CurrentUser(
+                      userId: '',
+                      name: '',
+                      avatar: null,
+                      phone: null,
+                      email: null,
+                      lastLoginTime: null,
+                      status: null,
+                      hasSetPassword: false,
+                    ),
                     initialConversation: conversation,
                   ),
                   child: ChatPage(
@@ -596,11 +604,11 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               return ListTile(
                 leading: UserAvatar(
                   avatarUrl: member.avatar,
-                  name: member.name,
+                  name: member.nickName,
                   radius: 20,
                 ),
                 title: Text(
-                  member.name,
+                  member.nickName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,

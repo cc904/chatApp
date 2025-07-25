@@ -1,14 +1,15 @@
-import 'dart:io';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/message_notification_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/widgets/top_notification.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/current_user.dart';
-import 'package:cc/core/database/models/message.dart' as models;
+import 'package:cc/core/database/drift_database.dart';
+
+// 条件导入：根据平台导入不同的通知帮助工具实现
+import 'notification_helper_stub.dart'
+    if (dart.library.io) 'notification_helper_io.dart'
+    if (dart.library.html) 'notification_helper_web.dart';
 
 /// 会话预览更新通知服务
 /// 
@@ -174,12 +175,20 @@ class ConversationPreviewNotificationService {
       // 创建模拟的消息对象用于通知
       final mockMessage = _createMockMessageFromPreview(previewUpdate);
       
+      // 如果没有发送者信息，跳过通知
+      if (sender == null) {
+        _logger.w('发送者信息为空，跳过系统通知', extra: {
+          'conversationId': previewUpdate.conversationId,
+        });
+        return;
+      }
+
       // 使用现有的消息通知服务
       await _notificationService.showMessageNotification(
         message: mockMessage,
         conversation: conversation,
-        sender: sender ?? User()..name = previewUpdate.lastMessageName,
-        unreadCount: conversation.unreadCount(_currentUser?.userId ?? ''),
+        sender: sender,
+        unreadCount: 0, // 需要从数据库获取未读计数
       );
       
       _logger.i('系统通知显示成功', extra: {
@@ -213,9 +222,9 @@ class ConversationPreviewNotificationService {
       final notificationStyle = _settingsService.getNotificationStyle();
       
       // 使用新的顶部消息通知
-      final senderName = sender?.name ?? previewUpdate.lastMessageName;
+      final senderName = sender?.nickName ?? previewUpdate.lastMessageName;
       final messageText = notificationStyle.showPreview ? previewUpdate.lastMessagePreview : '新消息';
-      final conversationName = conversation.type == ConversationType.private ? null : conversation.name;
+      final conversationName = conversation.type == 'PRIVATE' ? null : conversation.name;
       
       _uiNotificationService.showMessageNotification(
         senderName: senderName,
@@ -272,32 +281,43 @@ class ConversationPreviewNotificationService {
 
 
   /// 创建用于通知的模拟消息对象
-  models.Message _createMockMessageFromPreview(
+  Message _createMockMessageFromPreview(
     conversation_proto.ConversationPreviewUpdated previewUpdate
   ) {
-    // 创建一个真正的Message对象用于通知
-    final message = models.Message()
-      ..messageId = 'preview_${previewUpdate.conversationId}_${DateTime.now().millisecondsSinceEpoch}'
-      ..conversationId = previewUpdate.conversationId
-      ..senderId = 'unknown' // 无法从preview获取具体senderId
-      ..senderName = previewUpdate.lastMessageName
-      ..text = previewUpdate.lastMessagePreview
-      ..type = models.MessageType.text // 假设为文本消息
-      ..status = models.MessageStatus.sent
-      ..messageIndex = previewUpdate.lastMessageIndex.toInt()
-      ..createdAt = previewUpdate.hasLastMessageTime() 
+    // 创建一个Message对象用于通知
+    return Message(
+      messageId: 'preview_${previewUpdate.conversationId}_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: previewUpdate.conversationId,
+      senderId: 'unknown', // 无法从preview获取具体senderId
+      senderName: previewUpdate.lastMessageName.isNotEmpty ? previewUpdate.lastMessageName : null,
+      createdAt: previewUpdate.hasLastMessageTime() 
           ? DateTime.fromMillisecondsSinceEpoch(previewUpdate.lastMessageTime.toInt())
-          : DateTime.now();
-    
-    return message;
+          : DateTime.now(),
+      messageIndex: previewUpdate.lastMessageIndex.toInt(),
+      messageType: 'TEXT', // 假设为文本消息
+      messageStatus: 'SENT',
+      content: previewUpdate.lastMessagePreview.isNotEmpty 
+          ? '{"text_message":{"text":"${previewUpdate.lastMessagePreview}"}}'
+          : null,
+      quotedMessageId: null,
+      repliedToMessageId: null,
+      forwardedFromConversationId: null,
+      forwardedFromMessageId: null,
+      isEdited: false,
+      editedAt: null,
+      isPinned: false,
+      reactions: null,
+      tags: null,
+      updatedAt: null,
+    );
   }
 
   /// 构建通知标题
   String _buildNotificationTitle(Conversation conversation, User? sender) {
-    if (conversation.type == ConversationType.private) {
-      return sender?.name ?? conversation.name ?? '私聊';
+    if (conversation.type == 'PRIVATE') {
+      return sender?.nickName ?? conversation.name ?? '私聊';
     } else {
-      final senderName = sender?.name ?? '某人';
+      final senderName = sender?.nickName ?? '某人';
       return '${conversation.name ?? '群聊'} ($senderName)';
     }
   }
@@ -331,7 +351,7 @@ class ConversationPreviewNotificationService {
     try {
       _logger.i('通知权限被拒绝，尝试重新请求', extra: {
         'conversationId': conversationId,
-        'platform': _getStandardizedPlatformName(),
+        'platform': getStandardizedPlatformName(),
       });
 
       // 尝试重新请求权限
@@ -346,11 +366,7 @@ class ConversationPreviewNotificationService {
       _logger.w('权限重新请求失败，显示用户引导');
       
       const title = '需要通知权限';
-      final message = Platform.isMacOS 
-          ? '请在"系统偏好设置 > 通知"中允许此应用发送通知'
-          : Platform.isIOS
-              ? '请在"设置 > 通知"中开启通知权限'
-              : '请在设置中开启通知权限以接收消息提醒';
+      final message = getPlatformPermissionMessage();
       
       _uiNotificationService.showTopNotification(
         title: title,
@@ -359,10 +375,10 @@ class ConversationPreviewNotificationService {
         duration: const Duration(seconds: 6), // macOS 用户可能需要更多时间阅读
         onTap: () {
           _logger.i('用户点击了权限引导', extra: {
-            'platform': _getStandardizedPlatformName(),
+            'platform': getStandardizedPlatformName(),
           });
           
-          if (Platform.isMacOS) {
+          if (isMacOSPlatform()) {
             _logger.i('macOS平台 - 建议用户手动打开系统偏好设置');
             // macOS 上可以尝试打开系统偏好设置的通知面板
             // 需要使用 url_launcher 或 process.run
@@ -381,15 +397,6 @@ class ConversationPreviewNotificationService {
     _logger.d('会话预览通知服务已清理');
   }
 
-  /// 获取标准化的平台名称
-  String _getStandardizedPlatformName() {
-    if (Platform.isAndroid) return 'Android';
-    if (Platform.isIOS) return 'iOS';
-    if (Platform.isMacOS) return 'macOS';
-    if (Platform.isWindows) return 'Windows';
-    if (Platform.isLinux) return 'Linux';
-    return 'Unknown';
-  }
 }
 
 /// 使用指南和集成示例：

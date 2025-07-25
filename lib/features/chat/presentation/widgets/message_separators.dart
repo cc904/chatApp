@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
 
 /// 消息列表项的抽象基类

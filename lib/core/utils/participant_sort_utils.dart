@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
 import 'package:lpinyin/lpinyin.dart';
 
 /// 参与者排序工具类
@@ -10,19 +10,21 @@ class ParticipantSortUtils {
   ParticipantSortUtils._();
 
   /// 获取角色优先级，数字越小优先级越高
-  static int _rolePriority(MemberRole role) {
+  static int _rolePriority(proto.MemberRole role) {
     switch (role) {
-      case MemberRole.owner:
+      case proto.MemberRole.OWNER:
         return 0;
-      case MemberRole.admin:
+      case proto.MemberRole.ADMIN:
         return 1;
-      case MemberRole.member:
+      case proto.MemberRole.MEMBER:
         return 2;
+      default:
+        return 2; // 默认为普通成员优先级
     }
   }
 
   /// 比较函数：按权限 -> 姓名拼音
-  static int compareByRoleAndName(Participant a, Participant b) {
+  static int compareByRoleAndName(proto.ParticipantProto a, proto.ParticipantProto b) {
     final rpA = _rolePriority(a.role);
     final rpB = _rolePriority(b.role);
 
@@ -44,13 +46,13 @@ class ParticipantSortUtils {
   }
 
   /// 就地排序
-  static void sortParticipants(List<Participant> list) {
+  static void sortParticipants(List<proto.ParticipantProto> list) {
     list.sort(compareByRoleAndName);
   }
 
   /// 返回排序后的新列表
-  static List<Participant> getSorted(List<Participant> list) {
-    final newList = List<Participant>.from(list);
+  static List<proto.ParticipantProto> getSorted(List<proto.ParticipantProto> list) {
+    final newList = List<proto.ParticipantProto>.from(list);
     sortParticipants(newList);
     return newList;
   }

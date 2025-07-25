@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// 语音录制结果
 class VoiceRecordResult {
@@ -164,7 +165,23 @@ class VoiceRecordService {
           ? DateTime.now().difference(_recordingStartTime!).inSeconds
           : 0;
 
-      // 检查录音文件是否存在
+      // Web平台跳过文件系统检查，直接返回结果
+      if (kIsWeb) {
+        _logger.i('Web平台录音完成', extra: {
+          'path': path,
+          'duration': duration,
+        });
+
+        await _cleanup();
+
+        return VoiceRecordResult(
+          filePath: path,
+          duration: duration,
+          fileSize: 0, // Web平台无法获取文件大小
+        );
+      }
+
+      // 移动端/桌面端进行文件检查
       final file = File(path);
       if (!await file.exists()) {
         _logger.w('录音文件不存在: $path');
@@ -210,12 +227,15 @@ class VoiceRecordService {
       if (_isRecording) {
         await _recorder?.cancel();
 
-        // 删除录音文件（cancel方法应该已经删除了文件，但为了确保）
-        if (_currentRecordingPath != null) {
-          final file = File(_currentRecordingPath!);
-          if (await file.exists()) {
-            await file.delete();
-            _logger.i('已删除取消的录音文件: $_currentRecordingPath');
+        // Web平台跳过文件操作
+        if (!kIsWeb) {
+          // 删除录音文件（cancel方法应该已经删除了文件，但为了确保）
+          if (_currentRecordingPath != null) {
+            final file = File(_currentRecordingPath!);
+            if (await file.exists()) {
+              await file.delete();
+              _logger.i('已删除取消的录音文件: $_currentRecordingPath');
+            }
           }
         }
 
@@ -248,9 +268,15 @@ class VoiceRecordService {
   /// 生成文件路径
   Future<String> _generateFilePath() async {
     try {
-      final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uuid = _uuid.v4();
+      
+      // Web平台返回一个简单路径，record库会处理实际存储
+      if (kIsWeb) {
+        return 'voice_${uuid}_$timestamp.m4a';
+      }
+
+      final tempDir = await getTemporaryDirectory();
       // 使用.m4a扩展名，对应AAC-LC编码
       return '${tempDir.path}/voice_${uuid}_$timestamp.m4a';
     } catch (e) {

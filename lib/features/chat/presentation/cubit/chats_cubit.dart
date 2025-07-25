@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/presentation/cubit/chats_state.dart';
-import 'package:cc/core/database/models/conversation.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 import 'package:cc/features/chat/domain/entities/conversation_merger.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
@@ -180,7 +180,7 @@ class ChatsCubit extends Cubit<ChatsState> {
         final conversation = currentConversations[conversationIndex];
         final currentUserId = state.currentUser?.userId;
         if (currentUserId != null) {
-          // 使用新的updateCurrentUserSettings方法更新静音状态
+          // 使用扩展方法更新静音状态
           conversation.updateCurrentUserSettings(
             currentUserId: currentUserId,
             muted: isMuted,
@@ -207,7 +207,7 @@ class ChatsCubit extends Cubit<ChatsState> {
         orElse: () => throw Exception('会话不存在'),
       );
 
-      if (conversation.type == ConversationType.private &&
+      if (conversation.type == 'PRIVATE' &&
           conversation.contactUserId != null) {
         // 获取联系人信息
         await contactsRepository!.getContactById(conversation.contactUserId!);
@@ -377,7 +377,7 @@ class ChatsCubit extends Cubit<ChatsState> {
         if (currentUserId != null) {
           // 过滤掉未加入的频道
           tabFilteredConversations = conversations
-              .where((c) => c.type != ConversationType.channel || c.isJoined(currentUserId))
+              .where((c) => c.type != 'CHANNEL' || ConversationAdapter.isUserInConversation(c.participants, currentUserId))
               .toList();
         } else {
           tabFilteredConversations = conversations;
@@ -385,19 +385,19 @@ class ChatsCubit extends Cubit<ChatsState> {
         break;
       case 1: // 私聊
         tabFilteredConversations = conversations
-            .where((c) => c.type == ConversationType.private)
+            .where((c) => c.type == 'PRIVATE')
             .toList();
         break;
       case 2: // 群组
         tabFilteredConversations = conversations
-            .where((c) => c.type == ConversationType.group)
+            .where((c) => c.type == 'GROUP')
             .toList();
         break;
       case 3: // 频道
         final currentUserId = state.currentUser?.userId;
         if (currentUserId != null) {
           tabFilteredConversations = conversations
-              .where((c) => c.type == ConversationType.channel && c.isJoined(currentUserId))
+              .where((c) => c.type == 'CHANNEL' && ConversationAdapter.isUserInConversation(c.participants, currentUserId))
               .toList();
         } else {
           tabFilteredConversations = [];
@@ -407,8 +407,8 @@ class ChatsCubit extends Cubit<ChatsState> {
         final currentUserId = state.currentUser?.userId;
         if (currentUserId != null) {
           tabFilteredConversations = conversations
-              .where((c) => c.unreadCount(currentUserId) > 0 && 
-                           (c.type != ConversationType.channel || c.isJoined(currentUserId)))
+              .where((c) => c.unreadCount > 0 && 
+                           (c.type != 'CHANNEL'))
               .toList();
         } else {
           tabFilteredConversations = [];

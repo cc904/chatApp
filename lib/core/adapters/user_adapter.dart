@@ -1,10 +1,10 @@
-import 'package:cc/core/database/models/user.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/proto/generated/user.pb.dart' as proto;
+import 'package:fixnum/fixnum.dart';
 
-/// 用户数据适配器
+/// 用户数据适配器 (Drift版本)
 ///
-/// 负责处理Proto对象和数据库模型之间的转换
+/// 负责处理Proto对象和Drift数据库模型之间的转换
 /// 遵循适配器模式，实现关注点分离
 /// 新版本不再处理token字段，所有Token操作通过EnhancedTokenManager
 class UserAdapter {
@@ -13,7 +13,18 @@ class UserAdapter {
   /// [protoUser] - Proto用户对象
   /// 返回：转换后的CurrentUser对象
   static CurrentUser fromCurrentUserProto(proto.CurrentUserProto protoUser) {
-    return CurrentUser.fromProto(protoUser);
+    return CurrentUser(
+      userId: protoUser.userId,
+      name: protoUser.hasName() ? protoUser.name : '',
+      avatar: protoUser.hasAvatar() ? protoUser.avatar : null,
+      phone: protoUser.hasPhone() ? protoUser.phone : null,
+      email: protoUser.hasEmail() ? protoUser.email : null,
+      lastLoginTime: protoUser.hasLastLoginTime() 
+          ? DateTime.fromMillisecondsSinceEpoch(protoUser.lastLoginTime.toInt())
+          : null,
+      status: protoUser.hasStatus() ? protoUser.status : null,
+      hasSetPassword: protoUser.hasHasSetPassword() ? protoUser.hasSetPassword : false,
+    );
   }
 
   /// 从UserProto创建User对象
@@ -21,8 +32,15 @@ class UserAdapter {
   /// [protoUser] - Proto用户对象
   /// 返回：转换后的User对象
   static User fromUserProto(proto.UserProto protoUser) {
-    // 💡 直接使用User.fromProto方法，它已经包含了显示优先级逻辑
-    return User.fromProto(protoUser);
+    return User(
+      userId: protoUser.userId,
+      nickName: protoUser.hasNickName() ? protoUser.nickName : '',
+      avatar: protoUser.hasAvatar() ? protoUser.avatar : null,
+      phone: protoUser.hasPhone() ? protoUser.phone : null,
+      email: protoUser.hasEmail() ? protoUser.email : null,
+      online: false, // 默认值
+      isFriend: false, // 默认值
+    );
   }
 
   /// 将User对象转换为UserProto
@@ -30,8 +48,11 @@ class UserAdapter {
   /// [user] - 数据库用户对象
   /// 返回：转换后的Proto对象
   static proto.UserProto toUserProto(User user) {
-    // 💡 直接使用User.toProto方法，它已经处理了正确的字段映射
-    return user.toProto();
+    return proto.UserProto(
+      userId: user.userId,
+      nickName: user.nickName,
+      avatar: user.avatar,
+    );
   }
 
   /// 将CurrentUser对象转换为CurrentUserProto
@@ -39,7 +60,18 @@ class UserAdapter {
   /// [currentUser] - 数据库当前用户对象
   /// 返回：转换后的Proto对象
   static proto.CurrentUserProto toCurrentUserProto(CurrentUser currentUser) {
-    return currentUser.toProto();
+    return proto.CurrentUserProto(
+      userId: currentUser.userId,
+      name: currentUser.name,
+      avatar: currentUser.avatar,
+      phone: currentUser.phone,
+      email: currentUser.email,
+      lastLoginTime: currentUser.lastLoginTime != null 
+          ? Int64(currentUser.lastLoginTime!.millisecondsSinceEpoch)
+          : null,
+      status: currentUser.status,
+      hasSetPassword: currentUser.hasSetPassword,
+    );
   }
 
   /// 批量转换：从UserProto列表转换为User列表

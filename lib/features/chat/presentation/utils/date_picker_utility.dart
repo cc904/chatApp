@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cc/core/database/database_initializer.dart';
-import 'package:isar/isar.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/message.dart';
 import 'dart:async';
 import 'package:cc/core/utils/ui_notification_helper.dart';
 
@@ -62,7 +61,7 @@ class DatePickerUtility {
       _logger.i('加载指定月份的消息日期', extra: {'year': month.year, 'month': month.month});
 
       // 从数据库获取消息日期
-      final Isar db = DatabaseInitializer.isar;
+      final db = AppDatabase.instance;
       Set<DateTime> dates = {};
 
       // 计算月份的起止日期范围
@@ -73,7 +72,10 @@ class DatePickerUtility {
       _logger.d('查询日期范围', extra: {'start': startDate.toString(), 'end': endDate.toString()});
 
       // 查询指定时间范围内的消息
-      final messages = await db.messages.filter().conversationIdEqualTo(conversationId).createdAtBetween(startDate, endDate.add(const Duration(days: 1))).findAll();
+      final messages = await (db.select(db.messages)
+            ..where((tbl) => tbl.conversationId.equals(conversationId))
+            ..where((tbl) => tbl.createdAt.isBetweenValues(startDate, endDate.add(const Duration(days: 1)))))
+          .get();
 
       // 提取日期
       for (var message in messages) {
@@ -211,7 +213,7 @@ class DatePickerUtility {
                 colorScheme: ColorScheme.light(
                   primary: Theme.of(context).colorScheme.primary,
                 ),
-                dialogTheme: const DialogTheme(
+                dialogTheme: const DialogThemeData(
                   backgroundColor: Colors.white,
                 ),
               ),

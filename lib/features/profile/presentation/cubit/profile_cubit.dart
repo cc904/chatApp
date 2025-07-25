@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/services/version_info_service.dart';

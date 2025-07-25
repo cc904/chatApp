@@ -66,11 +66,23 @@ class EnhancedApiService {
           handler.next(response);
         },
         onError: (error, handler) {
-          _logger.e('❌ API错误', extra: {
-            'statusCode': error.response?.statusCode,
-            'url': error.requestOptions.uri.toString(),
-            'message': error.message,
-          });
+          // 对于认证相关的401错误，使用信息级别日志
+          if (error.response?.statusCode == 401 && 
+              (error.requestOptions.path.contains('/auth/') ||
+               error.requestOptions.path.contains('/verifyToken'))) {
+            _logger.i('🔐 认证失败（正常情况）', extra: {
+              'statusCode': 401,
+              'url': error.requestOptions.uri.toString(),
+              'path': error.requestOptions.path,
+            });
+          } else {
+            // 其他错误使用错误级别
+            _logger.e('❌ API错误', extra: {
+              'statusCode': error.response?.statusCode,
+              'url': error.requestOptions.uri.toString(),
+              'message': error.message,
+            });
+          }
           handler.next(error);
         },
       ),

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 加载状态类型枚举
 enum LoadingStateType {

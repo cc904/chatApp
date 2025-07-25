@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
 import 'package:cc/core/utils/display_name_utils.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'voice_message_widget.dart';
 import 'image_message_widget.dart';
 import 'video_message_widget.dart';
@@ -13,7 +14,7 @@ import 'package:cc/core/widgets/user_avatar.dart';
 class MessageDisplayStatus {
   final bool isRead;
   final bool isDelivered;
-  final MessageStatus messageStatus;
+  final String messageStatus;
 
   const MessageDisplayStatus({
     required this.isRead,
@@ -47,6 +48,9 @@ class MessageItem extends StatelessWidget {
   final String? searchQuery;
   final MessageDisplayStatus? displayStatus;
 
+  // 高亮相关参数
+  final bool isHighlighted;
+
   const MessageItem({
     super.key,
     required this.message,
@@ -67,11 +71,25 @@ class MessageItem extends StatelessWidget {
     this.onRevoke,
     this.onDelete,
     this.displayStatus,
+    this.isHighlighted = false,
   });
+
+  /// Helper method to extract text from message content JSON
+  String? _getTextFromMessage() {
+    // 🔧 修复：使用MessageAdapter的extractTextFromContent方法
+    return MessageAdapter.extractTextFromContent(message.content);
+  }
+
+  /// Helper method to extract fileName from message content JSON
+  String? _getFileNameFromMessage() {
+    // 🔧 修复：使用MessageAdapter的extractMediaInfo方法
+    final mediaInfo = MessageAdapter.extractMediaInfo(message.content);
+    return mediaInfo?['file_name'] as String?;
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (message.type == MessageType.system) {
+    if (message.messageType == 'SYSTEM') {
       return _buildSystemMessage(context);
     }
 
@@ -195,7 +213,7 @@ class MessageItem extends StatelessWidget {
   List<_MessageMenuAction> _getAvailableActions() {
     final List<_MessageMenuAction> actions = [];
 
-    if (onReply != null && !message.isMessageDeleted) {
+    if (onReply != null && message.messageStatus != 'DELETED') {
       actions.add(_MessageMenuAction(
         icon: Icons.reply,
         label: '回复',
@@ -204,8 +222,8 @@ class MessageItem extends StatelessWidget {
     }
 
     if (onForward != null &&
-        !message.isMessageDeleted &&
-        message.type != MessageType.system) {
+        message.messageStatus != 'DELETED' &&
+        message.messageType != 'SYSTEM') {
       actions.add(_MessageMenuAction(
         icon: Icons.forward,
         label: '转发',
@@ -214,10 +232,10 @@ class MessageItem extends StatelessWidget {
     }
 
     if (onCopy != null &&
-        message.type == MessageType.text &&
-        !message.isMessageDeleted &&
-        !message.isMessageRevoked &&
-        (message.text?.isNotEmpty ?? false)) {
+        message.messageType == 'TEXT' &&
+        message.messageStatus != 'DELETED' &&
+        message.messageStatus != 'REVOKED' &&
+        (_getTextFromMessage()?.isNotEmpty ?? false)) {
       actions.add(_MessageMenuAction(
         icon: Icons.copy,
         label: '复制',
@@ -227,9 +245,9 @@ class MessageItem extends StatelessWidget {
 
     if (onRevoke != null &&
         isCurrentUser &&
-        !message.isMessageRevoked &&
-        !message.isMessageDeleted &&
-        message.type != MessageType.system) {
+        message.messageStatus != 'REVOKED' &&
+        message.messageStatus != 'DELETED' &&
+        message.messageType != 'SYSTEM') {
       actions.add(_MessageMenuAction(
         icon: Icons.undo,
         label: '撤回',
@@ -240,8 +258,8 @@ class MessageItem extends StatelessWidget {
 
     if (onDelete != null &&
         isCurrentUser &&
-        !message.isMessageDeleted &&
-        message.type != MessageType.system) {
+        message.messageStatus != 'DELETED' &&
+        message.messageType != 'SYSTEM') {
       actions.add(_MessageMenuAction(
         icon: Icons.delete,
         label: '删除',
@@ -266,7 +284,11 @@ class MessageItem extends StatelessWidget {
     Color? highlightBorderColor;
     double borderWidth = 0.0;
 
-    if (isCurrentSearchResult) {
+    // 高亮优先级：临时高亮 > 当前搜索结果 > 搜索结果
+    if (isHighlighted) {
+      highlightBorderColor = Colors.amber;
+      borderWidth = 2.5;
+    } else if (isCurrentSearchResult) {
       highlightBorderColor = Colors.orange;
       borderWidth = 2.0;
     } else if (isSearchResult) {
@@ -291,7 +313,7 @@ class MessageItem extends StatelessWidget {
 
     // 检查是否为媒体消息（图片或视频）
     final isMediaMessage =
-        message.type == MessageType.image || message.type == MessageType.video;
+        message.messageType == 'IMAGE' || message.messageType == 'VIDEO';
 
     if (isMediaMessage) {
       // 媒体消息：白色背景，图片顶部和两侧边距1px，底部无圆角
@@ -318,22 +340,30 @@ class MessageItem extends StatelessWidget {
           border: highlightBorderColor != null
               ? Border.all(color: highlightBorderColor, width: borderWidth)
               : null,
-          boxShadow: isCurrentSearchResult
+          boxShadow: isHighlighted
               ? [
                   BoxShadow(
-                    color: Colors.orange.withAlpha(102),
-                    blurRadius: 8,
+                    color: Colors.amber.withAlpha(128),
+                    blurRadius: 10,
                     spreadRadius: 2,
                   ),
                 ]
-              : null,
+              : isCurrentSearchResult
+                  ? [
+                      BoxShadow(
+                        color: Colors.orange.withAlpha(102),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
         ),
         child: Column(
           crossAxisAlignment:
               isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             // 置顶标签（如果需要）
-            if (message.isMessagePinned)
+            if (message.isPinned)
               const Padding(
                 padding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 2.0),
                 child: Row(
@@ -362,10 +392,10 @@ class MessageItem extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(1.0, 1.0, 1.0, 0.0),
               child: ClipRRect(
                 borderRadius: BorderRadius.only(
-                  topLeft: message.isMessagePinned
+                  topLeft: message.isPinned
                       ? const Radius.circular(0.0)
                       : const Radius.circular(17.0),
-                  topRight: message.isMessagePinned
+                  topRight: message.isPinned
                       ? const Radius.circular(0.0)
                       : const Radius.circular(17.0),
                   bottomLeft: const Radius.circular(0.0),
@@ -408,21 +438,29 @@ class MessageItem extends StatelessWidget {
           border: highlightBorderColor != null
               ? Border.all(color: highlightBorderColor, width: borderWidth)
               : null,
-          boxShadow: isCurrentSearchResult
+          boxShadow: isHighlighted
               ? [
                   BoxShadow(
-                    color: Colors.orange.withAlpha(102),
-                    blurRadius: 8,
+                    color: Colors.amber.withAlpha(128),
+                    blurRadius: 10,
                     spreadRadius: 2,
                   ),
                 ]
-              : null,
+              : isCurrentSearchResult
+                  ? [
+                      BoxShadow(
+                        color: Colors.orange.withAlpha(102),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
         ),
         child: Column(
           crossAxisAlignment:
               isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (message.isMessagePinned)
+            if (message.isPinned)
               const Padding(
                 padding: EdgeInsets.only(bottom: 2.0),
                 child: Row(
@@ -471,7 +509,7 @@ class MessageItem extends StatelessWidget {
 
   Widget _buildMessageContent(BuildContext context) {
     // 💢💢💢 如果消息已撤回，统一显示撤回提示，不管类型
-    if (message.isMessageRevoked) {
+    if (message.messageStatus == 'REVOKED') {
       return Text(
         '此消息已被撤回',
         style: TextStyle(
@@ -483,7 +521,7 @@ class MessageItem extends StatelessWidget {
     }
 
     // 💢💢💢 如果消息已删除，统一显示删除提示，不管类型
-    if (message.isMessageDeleted) {
+    if (message.messageStatus == 'DELETED') {
       return Text(
         '消息已删除',
         style: TextStyle(
@@ -494,19 +532,19 @@ class MessageItem extends StatelessWidget {
       );
     }
 
-    switch (message.type) {
-      case MessageType.text:
+    switch (message.messageType) {
+      case 'TEXT':
         return _buildTextContent(context);
-      case MessageType.image:
+      case 'IMAGE':
         return ImageMessageWidget(
             message: message, isCurrentUser: isCurrentUser);
-      case MessageType.video:
+      case 'VIDEO':
         return VideoMessageWidget(
             message: message, isCurrentUser: isCurrentUser);
-      case MessageType.voice:
+      case 'VOICE':
         return VoiceMessageWidget(
             message: message, isCurrentUser: isCurrentUser);
-      case MessageType.file:
+      case 'FILE':
         return _buildFileContent(context);
       default:
         return _buildTextContent(context);
@@ -517,7 +555,7 @@ class MessageItem extends StatelessWidget {
     // 💢💢💢 撤回和删除处理已移至_buildMessageContent统一处理
     // 此方法只处理正常的文本显示
     return Text(
-      message.text ?? '',
+      _getTextFromMessage() ?? '',
       style: const TextStyle(
         color: Colors.black87,
         fontSize: 16.0,
@@ -542,7 +580,7 @@ class MessageItem extends StatelessWidget {
           const SizedBox(width: 8.0),
           Flexible(
             child: Text(
-              message.fileName ?? '未知文件',
+              _getFileNameFromMessage() ?? '未知文件',
               style: const TextStyle(
                 color: Colors.black87,
                 fontSize: 14.0,
@@ -564,7 +602,7 @@ class MessageItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12.0),
         ),
         child: Text(
-          message.text ?? '',
+          _getTextFromMessage() ?? '',
           style: TextStyle(color: Colors.grey[700], fontSize: 12.0),
           textAlign: TextAlign.center,
         ),
@@ -607,14 +645,14 @@ class MessageItem extends StatelessWidget {
       );
     }
 
-    return _buildStatusIcon(message.status, false, false);
+    return _buildStatusIcon(message.messageStatus, false, false);
   }
 
-  Widget _buildStatusIcon(MessageStatus status, bool isDelivered, bool isRead) {
+  Widget _buildStatusIcon(String status, bool isDelivered, bool isRead) {
     switch (status) {
-      case MessageStatus.sending:
+      case 'SENDING':
         return Icon(Icons.schedule, size: 14.0, color: Colors.grey[600]);
-      case MessageStatus.sent:
+      case 'SENT':
         if (isRead) {
           return const Icon(Icons.done_all,
               size: 14.0, color: AppColors.primary);
@@ -623,12 +661,12 @@ class MessageItem extends StatelessWidget {
         } else {
           return Icon(Icons.done, size: 14.0, color: Colors.grey[600]);
         }
-      case MessageStatus.failed:
+      case 'FAILED':
         return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);
-      case MessageStatus.deleted:
+      case 'DELETED':
         return const Icon(Icons.delete_outline,
             size: 14.0, color: Colors.orange);
-      case MessageStatus.revoked:
+      case 'REVOKED':
         return const Icon(Icons.undo, size: 14.0, color: Colors.orange);
       default:
         return const SizedBox.shrink();

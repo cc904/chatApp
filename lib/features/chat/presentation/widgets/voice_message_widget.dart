@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/voice_record_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
@@ -50,6 +51,24 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   // 状态监听订阅
   StreamSubscription<AudioPlaybackState>? _stateSubscription;
 
+  /// Helper methods to extract voice properties from message content JSON
+  String? _getLocalPath() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['local_path'] as String?;
+  }
+
+  String? _getMediaUrl() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['media_url'] as String? ?? 
+           mediaInfo?['url'] as String? ?? 
+           mediaInfo?['fileUrl'] as String?;
+  }
+
+  int? _getDuration() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['duration'] as int?;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -73,8 +92,8 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   }
 
   void _initializeDuration() {
-    if (widget.message.duration != null) {
-      _totalDuration = Duration(milliseconds: widget.message.duration!);
+    if (_getDuration() != null) {
+      _totalDuration = Duration(milliseconds: _getDuration()!);
     } else {
       _totalDuration = const Duration(seconds: 1);
     }
@@ -85,7 +104,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
     _stateSubscription = _audioManager.stateStream.listen((state) {
       if (!mounted) return;
 
-      final messageId = widget.message.id.toString();
+      final messageId = widget.message.messageId;
       final isThisMessage = state.messageId == messageId;
 
       setState(() {
@@ -114,7 +133,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
 
     // 检查初始状态
     final currentState = _audioManager.currentState;
-    final messageId = widget.message.id.toString();
+    final messageId = widget.message.messageId;
     if (currentState.messageId == messageId) {
       setState(() {
         _isPlaying = currentState.isPlaying && !currentState.isPaused;
@@ -142,7 +161,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
 
   /// 🆕 新的播放控制 - 使用统一缓存策略
   Future<void> _togglePlayback() async {
-    final messageId = widget.message.id.toString();
+    final messageId = widget.message.messageId;
     
     // 显示短暂加载状态
     setState(() {
@@ -153,7 +172,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
       _logger.d('开始获取语音文件缓存 - 消息ID: $messageId');
       
       // 使用MediaUrlBuilder构建语音文件URL
-      String? mediaUrl = widget.message.mediaUrl;
+      String? mediaUrl = _getMediaUrl();
       if (mediaUrl == null || mediaUrl.isEmpty) {
         mediaUrl = await _mediaUrlBuilder.buildMainFileUrl(widget.message);
         _logger.d('使用MediaUrlBuilder构建的URL: $mediaUrl');
@@ -264,8 +283,8 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
   @override
   Widget build(BuildContext context) {
     // 检查关键数据
-    if (widget.message.mediaUrl == null && widget.message.localPath == null) {
-      _logger.w('语音消息文件路径为空 - ID: ${widget.message.id}');
+    if (_getMediaUrl() == null && _getLocalPath() == null) {
+      _logger.w('语音消息文件路径为空 - ID: ${widget.message.messageId}');
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         // ignore: prefer_const_constructors
@@ -281,7 +300,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget>
 
     // 添加调试日志
     final width = _calculateWidthFromDuration();
-    // _logger.d('语音消息渲染 - ID: ${widget.message.id}, 宽度: $width, 时长: ${_totalDuration.inSeconds}秒, mediaUrl: ${widget.message.mediaUrl}, localPath: ${widget.message.localPath}');
+    // _logger.d('语音消息渲染 - ID: ${widget.message.messageId}, 宽度: $width, 时长: ${_totalDuration.inSeconds}秒, mediaUrl: ${_getMediaUrl()}, localPath: ${_getLocalPath()}');
     
     // 添加最小宽度保护
     final safeWidth = math.max(width, 180.0);

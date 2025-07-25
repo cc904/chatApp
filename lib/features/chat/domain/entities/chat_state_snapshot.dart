@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/message.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
 
 /// 会话状态快照

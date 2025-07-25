@@ -1,6 +1,4 @@
-import 'package:cc/core/database/models/message.dart';
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:equatable/equatable.dart';
 
 /// 当前滚动位置信息
@@ -209,6 +207,9 @@ class ChatState extends Equatable {
   /// 💢💢💢 新增：是否需要导航回上一页
   final bool shouldNavigateBack;
 
+  /// 💢💢💢 新增：高亮显示的消息ID
+  final String? highlightedMessageId;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -251,17 +252,35 @@ class ChatState extends Equatable {
     required this.isLoadingVoice,
     required this.isLoadingLinks,
     this.shouldNavigateBack = false,
+    this.highlightedMessageId,
   });
 
   /// 初始状态
   factory ChatState.initial(CurrentUser currentUser) {
     // 创建一个基础的初始状态模板
     // 真正的 conversation 对象会通过 copyWith 方法传入
-    final emptyConversation = Conversation()
-      ..conversationId = ''
-      ..type = ConversationType.private
-      ..name = ''
-      ..createdAt = DateTime.now();
+    final emptyConversation = Conversation(
+      conversationId: '',
+      type: 'PRIVATE', // ConversationType.PRIVATE 对应的字符串值
+      name: '',
+      avatar: null,
+      createdAt: DateTime.now(),
+      createdBy: null,
+      firstMessageIndex: 0,
+      lastMessageIndex: 0,
+      lastMessageTime: null,
+      lastMessagePreview: null,
+      lastMessageName: null,
+      participants: '[]', // 空的参与者JSON数组
+      description: null,
+      requiresApproval: false,
+      // 当前用户的参与者设置
+      muted: false,
+      pinned: false,
+      readMessageIndex: 0,
+      unreadCount: 0,
+      lastReadTime: null,
+    );
 
     return ChatState(
       conversation: emptyConversation, // 这只是一个占位符，会被 copyWith 替换
@@ -297,6 +316,7 @@ class ChatState extends Equatable {
       isLoadingVoice: false,
       isLoadingLinks: false,
       shouldNavigateBack: false,
+      highlightedMessageId: null,
     );
   }
 
@@ -343,6 +363,8 @@ class ChatState extends Equatable {
     bool? isLoadingVoice,
     bool? isLoadingLinks,
     bool? shouldNavigateBack,
+    String? highlightedMessageId,
+    bool clearHighlightedMessageId = false,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -393,6 +415,9 @@ class ChatState extends Equatable {
       isLoadingVoice: isLoadingVoice ?? this.isLoadingVoice,
       isLoadingLinks: isLoadingLinks ?? this.isLoadingLinks,
       shouldNavigateBack: shouldNavigateBack ?? this.shouldNavigateBack,
+      highlightedMessageId: clearHighlightedMessageId
+          ? null
+          : (highlightedMessageId ?? this.highlightedMessageId),
     );
   }
 
@@ -466,5 +491,6 @@ class ChatState extends Equatable {
         isLoadingVoice,
         isLoadingLinks,
         shouldNavigateBack,
+        highlightedMessageId,
       ];
 }

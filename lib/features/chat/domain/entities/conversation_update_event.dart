@@ -1,4 +1,4 @@
-import 'package:cc/core/database/models/conversation.dart';
+import 'package:cc/core/database/drift_database.dart';
 
 /// 会话更新事件的基类
 abstract class ConversationUpdateEvent {

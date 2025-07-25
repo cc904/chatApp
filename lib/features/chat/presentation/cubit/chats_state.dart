@@ -1,5 +1,4 @@
-import 'package:cc/core/database/models/conversation.dart';
-import 'package:cc/core/database/models/current_user.dart';
+import 'package:cc/core/database/drift_database.dart';
 import 'package:equatable/equatable.dart';
 
 /// 会话同步状态

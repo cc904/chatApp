@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:cc/core/services/log_service.dart';
@@ -9,6 +8,11 @@ import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+
+// 条件导入：根据平台导入不同的Socket平台操作实现
+import 'socket_platform_stub.dart'
+    if (dart.library.io) 'socket_platform_io.dart'
+    if (dart.library.html) 'socket_platform_web.dart';
 
 /// Socket连接状态枚举
 enum SocketConnectionStatus {
@@ -94,8 +98,8 @@ class ProtoSocketService {
     _logger.d('连接详情', extra: {
       'url': serverUrl,
       'tokenPrefix': token.length > 10 ? '${token.substring(0, 10)}...' : token,
-      'platform': _getStandardizedPlatformName(),
-      'platformVersion': Platform.operatingSystemVersion
+      'platform': getStandardizedPlatformName(),
+      'platformVersion': getPlatformOSVersion()
     });
 
     // 保存连接信息用于重连
@@ -525,7 +529,7 @@ class ProtoSocketService {
 
   /// 移除原始事件监听
   void off(String eventName, [Function(dynamic)? handler]) {
-    _logger.i('🔕 移除原始事件监听: $eventName');
+    // _logger.i('🔕 移除原始事件监听: $eventName');
     if (handler != null) {
       _socket?.off(eventName, handler);
     } else {
@@ -549,15 +553,6 @@ class ProtoSocketService {
     }
   }
 
-  /// 获取标准化的平台名称
-  String _getStandardizedPlatformName() {
-    if (Platform.isAndroid) return 'Android';
-    if (Platform.isIOS) return 'iOS';
-    if (Platform.isMacOS) return 'macOS';
-    if (Platform.isWindows) return 'Windows';
-    if (Platform.isLinux) return 'Linux';
-    return 'Unknown';
-  }
 }
 
 /// 用于用户在线状态的临时类
