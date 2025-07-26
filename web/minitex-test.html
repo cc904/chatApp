@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniTex 免字体渲染器测试</title>
+    <link rel="stylesheet" href="fonts.css">
+    <style>
+        body {
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            margin: 10px 0;
+            background: #f0f8f0;
+        }
+        .error {
+            border-left-color: #f44336;
+            background: #fff0f0;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+        }
+        .font-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 MiniTex 免字体渲染器测试</h1>
+    
+    <div class="test-container">
+        <h2>📝 基础文本测试</h2>
+        <p>English Text: Hello World! 123</p>
+        <p>中文测试：你好世界！聊天应用</p>
+        <p>日文测试：こんにちは世界</p>
+        <p>韩文测试：안녕하세요 세계</p>
+        <p>Emoji测试：😀🌟💬📱✨</p>
+        <div class="font-info">当前字体：<span id="current-font"></span></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🎯 Canvas 2D 文本渲染测试</h2>
+        <canvas id="test-canvas" width="600" height="200"></canvas>
+        <div class="font-info">Canvas字体渲染状态：<span id="canvas-status"></span></div>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 MiniTex 状态检查</h2>
+        <div id="minitex-status" class="test-result">正在检查...</div>
+        <div id="font-support" class="test-result">正在检测字体支持...</div>
+    </div>
+
+    <div class="test-container">
+        <h2>🔧 系统信息</h2>
+        <div id="system-info" class="test-result">
+            <div>用户代理：<span id="user-agent"></span></div>
+            <div>支持Canvas：<span id="canvas-support"></span></div>
+            <div>支持CanvasKit：<span id="canvaskit-support"></span></div>
+        </div>
+    </div>
+
+    <script src="minitex.min.js"></script>
+    <script>
+        // 等待MiniTex初始化
+        window.addEventListener('minitex-ready', function(event) {
+            console.log('✅ MiniTex Ready:', event.detail);
+            updateStatus();
+        });
+
+        function updateStatus() {
+            // 更新MiniTex状态
+            const statusDiv = document.getElementById('minitex-status');
+            if (window.MiniTex && window.MiniTex.initialized) {
+                statusDiv.innerHTML = `
+                    ✅ MiniTex已初始化<br>
+                    版本：${window.MiniTex.version}<br>
+                    字体回退：${window.MiniTex.fontFallbacks.slice(0, 3).join(', ')}...
+                `;
+                statusDiv.className = 'test-result';
+            } else {
+                statusDiv.innerHTML = '❌ MiniTex未初始化';
+                statusDiv.className = 'test-result error';
+            }
+
+            // 检查字体支持
+            if (window.MiniTex && window.MiniTex.checkFontSupport) {
+                const fontSupport = window.MiniTex.checkFontSupport();
+                const supportDiv = document.getElementById('font-support');
+                let supportHtml = '📊 字体支持检测结果：<br>';
+                Object.keys(fontSupport).slice(0, 5).forEach(font => {
+                    const result = fontSupport[font];
+                    const icon = result.available ? '✅' : '❌';
+                    supportHtml += `${icon} ${font}: ${result.width}px<br>`;
+                });
+                supportDiv.innerHTML = supportHtml;
+            }
+
+            // 更新当前字体信息
+            const computedStyle = window.getComputedStyle(document.body);
+            document.getElementById('current-font').textContent = computedStyle.fontFamily;
+
+            // Canvas测试
+            testCanvas();
+
+            // 系统信息
+            updateSystemInfo();
+        }
+
+        function testCanvas() {
+            const canvas = document.getElementById('test-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 清除画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 测试文本
+            const testTexts = [
+                { text: 'MiniTex Canvas Test', size: '24px', y: 30 },
+                { text: '中文Canvas渲染测试', size: '20px', y: 60 },
+                { text: 'English + 中文 Mixed Text', size: '18px', y: 90 },
+                { text: '📱💬 Emoji in Canvas', size: '16px', y: 120 },
+                { text: 'Performance: No font loading!', size: '14px', y: 150 }
+            ];
+
+            testTexts.forEach(item => {
+                ctx.font = `${item.size} MiniTex, system-ui, sans-serif`;
+                ctx.fillStyle = '#333';
+                ctx.fillText(item.text, 10, item.y);
+                
+                // 显示字体信息
+                ctx.font = '10px monospace';
+                ctx.fillStyle = '#666';
+                ctx.fillText(`Font: ${ctx.font}`, 10, item.y + 15);
+            });
+
+            document.getElementById('canvas-status').textContent = '✅ Canvas文本渲染完成';
+        }
+
+        function updateSystemInfo() {
+            document.getElementById('user-agent').textContent = navigator.userAgent.substring(0, 100) + '...';
+            document.getElementById('canvas-support').textContent = 
+                document.createElement('canvas').getContext ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('canvaskit-support').textContent = 
+                typeof window.flutterCanvasKit !== 'undefined' ? '✅ 已加载' : '⚠️ 未检测到';
+        }
+
+        // 如果MiniTex已经初始化，立即更新状态
+        if (window.MiniTex && window.MiniTex.initialized) {
+            setTimeout(updateStatus, 100);
+        } else {
+            // 否则等待初始化
+            setTimeout(() => {
+                if (!window.MiniTex || !window.MiniTex.initialized) {
+                    updateStatus();
+                }
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

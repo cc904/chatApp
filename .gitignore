@@ -56,6 +56,6 @@ wasm_test.html
 /logs/
 
 pubspec.lock
-build-output/x0x-chatapp_0725_231757.tar.gz
-build-output/x0x-chatapp_0726_025038.tar.gz
-build-output/x0x-chatapp_0726_031213.tar.gz
+build-output/
+# SSL证书文件（敏感信息，不要提交）
+ssl-certs/

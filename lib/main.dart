@@ -338,18 +338,29 @@ class _MyAppState extends State<MyApp> {
             theme: ThemeData(
               colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,
-              // 强制指定本地字体，确保不会回退到网络字体
-              fontFamily: 'Roboto',
-              fontFamilyFallback: const ['NotoSansSC'],
+              // MiniTex免字体渲染器配置
+              fontFamily: 'MiniTex',
+              fontFamilyFallback: const [
+                'system-ui',
+                '-apple-system', 
+                'BlinkMacSystemFont',
+                'Segoe UI',
+                'PingFang SC',
+                'Hiragino Sans GB',
+                'Microsoft YaHei',
+                'Helvetica Neue',
+                'Arial',
+                'sans-serif'
+              ],
               appBarTheme: AppBarTheme(
                 backgroundColor: AppColors.surfaceVariant,
                 foregroundColor: AppColors.textPrimary,
                 elevation: 0,
                 centerTitle: true,
                 titleTextStyle: const TextStyle(
-                  fontFamily: 'Roboto',
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
+                  fontFamily: 'MiniTex',
                 ),
               ),
             ),

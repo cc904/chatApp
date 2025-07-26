@@ -1,9 +1,8 @@
 {
   "development": [
-    "http://192.168.10.244:7003",
-    "http://popoopoo.com:7003"
+    "http://192.168.10.244:7003"
   ],
   "production": [
-    "http://popoopoo.com:7003"
+    "https://popoopoo.com:8003"
   ]
 }

@@ -1,4 +1,5 @@
-/* 系统字体优先 - 零依赖解决方案 */
+/* MiniTex免字体渲染器 - 系统字体优先零依赖解决方案 */
+/* 配合minitex.min.js实现免字体加载的高性能文本渲染 */
 
 /* 完全使用系统内置字体，避免加载问题 */
 *, 
@@ -47,4 +48,23 @@ flt-glass-pane {
     "WenQuanYi Micro Hei",
     system-ui,
     sans-serif !important;
+}
+
+/* MiniTex Canvas文本渲染优化 */
+canvas {
+  text-rendering: optimizeSpeed !important;
+  font-smooth: never !important;
+  -webkit-font-smoothing: none !important;
+  -moz-osx-font-smoothing: unset !important;
+}
+
+/* Flutter Web CanvasKit优化 */
+.flt-text-editing,
+.flt-text-editing::placeholder {
+  font-family: inherit !important;
+}
+
+/* MiniTex字体回退标识 */
+.minitex-fallback {
+  font-family: "MiniTex", system-ui, sans-serif !important;
 }

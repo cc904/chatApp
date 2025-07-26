@@ -4,9 +4,11 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const crypto = require('crypto');
 
 // MIME 类型映射
 const mimeTypes = {
@@ -35,7 +37,7 @@ function getMimeType(filePath) {
   return mimeTypes[ext] || 'text/plain';
 }
 
-function serveFile(res, filePath, statusCode = 200) {
+function serveFile(res, filePath, req, statusCode = 200) {
   const mimeType = getMimeType(filePath);
   
   fs.readFile(filePath, (err, data) => {
@@ -52,10 +54,20 @@ function serveFile(res, filePath, statusCode = 200) {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Resource-Policy': 'cross-origin'
     };
+    
+    // 只在HTTPS或localhost环境下设置COOP和COEP头，且未禁用时
+    if (req && !DISABLE_CORS_HEADERS) {
+      const isSecureContext = req.connection.encrypted || 
+                            req.headers.host?.includes('localhost') || 
+                            req.headers.host?.includes('127.0.0.1');
+      
+      if (isSecureContext) {
+        headers['Cross-Origin-Embedder-Policy'] = 'require-corp';
+        headers['Cross-Origin-Opener-Policy'] = 'same-origin';
+      }
+    }
     
     res.writeHead(statusCode, headers);
     res.end(data);
@@ -72,7 +84,8 @@ function serveFile(res, filePath, statusCode = 200) {
   });
 }
 
-const server = http.createServer((req, res) => {
+// 统一的请求处理函数
+function handleRequest(req, res) {
   const parsedUrl = url.parse(req.url);
   let pathname = parsedUrl.pathname;
   
@@ -82,11 +95,11 @@ const server = http.createServer((req, res) => {
   }
   
   // 移除查询参数，映射到实际文件
-  let filePath = path.join(__dirname, 'build/web', pathname);
+  let filePath = path.join(__dirname, CONFIG.webDir, pathname);
   
   // 处理Service Worker的版本查询参数
   if (pathname.startsWith('/flutter_service_worker.js')) {
-    filePath = path.join(__dirname, 'build/web/flutter_service_worker.js');
+    filePath = path.join(__dirname, CONFIG.webDir, 'flutter_service_worker.js');
     console.log(`⚙️  Service Worker: ${req.url} -> flutter_service_worker.js`);
   }
   
@@ -99,22 +112,45 @@ const server = http.createServer((req, res) => {
       return;
     }
     
-    serveFile(res, filePath);
+    serveFile(res, filePath, req);
   });
-});
+}
+
+// 配置对象
+const CONFIG = {
+  webDir: 'build/web'
+};
+
+const server = http.createServer(handleRequest);
 
 // 从环境变量获取配置，提供默认值
-const PORT = process.env.PORT || 9014;
-const HOST = process.env.HOST || 'localhost';
+const PORT = process.env.PORT || 80;
+const HTTPS_PORT = process.env.HTTPS_PORT || 443;
+const HOST = process.env.HOST || '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false'; // 默认启用HTTPS
+const DISABLE_CORS_HEADERS = process.env.DISABLE_CORS_HEADERS === 'true'; // 禁用CORS头部
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH || './ssl-certs/fullchain.pem';
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH || './ssl-certs/privkey.pem';
 
-server.listen(PORT, () => {
+// Docker容器外部访问地址配置
+const EXTERNAL_HTTP_PORT = process.env.EXTERNAL_HTTP_PORT || PORT;
+const EXTERNAL_HTTPS_PORT = process.env.EXTERNAL_HTTPS_PORT || HTTPS_PORT;
+const EXTERNAL_HOST = process.env.EXTERNAL_HOST || 'localhost';
+
+
+// 删除了未使用的 getApiServerAddresses() 和 formatServerUrl() 函数
+
+// 启动服务器函数
+function startServer() {
   console.log(`🚀 Node.js Flutter Web 服务器启动成功!`);
-  console.log(`📡 地址: http://${HOST}:${PORT}`);
-  console.log(`🔧 环境: ${NODE_ENV}`);
+  console.log(`🔧 环境: ${NODE_ENV} (实际运行环境)`);
   console.log(`📊 日志级别: ${LOG_LEVEL}`);
   console.log(`📁 目录: ${path.join(__dirname, 'build/web')}`);
+  
+  // API服务器地址将在实际使用时显示
+  
   console.log(``);
   console.log(`🔧 MIME 类型配置:`);
   console.log(`   ✅ .wasm  -> application/wasm`);
@@ -147,10 +183,85 @@ server.listen(PORT, () => {
   });
   
   console.log(``);
-  console.log(`🌐 请在浏览器中打开: http://localhost:${PORT}`);
+  console.log(`🌐 服务器访问地址:`);
+  console.log(`   📡 HTTP:  http://${EXTERNAL_HOST}:${EXTERNAL_HTTP_PORT}`);
+  if (ENABLE_HTTPS) {
+    console.log(`   🔒 HTTPS: https://${EXTERNAL_HOST}:${EXTERNAL_HTTPS_PORT}`);
+  }
+  console.log(`   🏠 内部地址: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(``);
   console.log(`👀 观察控制台日志，特别关注 WASM 文件加载`);
   console.log(`按 Ctrl+C 停止服务器`);
+}
+
+// 启动HTTP服务器
+server.listen(PORT, () => {
+  console.log(`✅ HTTP 服务器启动成功，端口: ${PORT}`);
 });
+
+// 启动HTTPS服务器（默认启用，除非明确禁用）
+if (ENABLE_HTTPS) {
+  // 检查SSL证书文件
+  if (fs.existsSync(SSL_CERT_PATH) && fs.existsSync(SSL_KEY_PATH)) {
+    console.log(`🔐 使用SSL证书: ${SSL_CERT_PATH}`);
+    console.log(`🔑 使用SSL私钥: ${SSL_KEY_PATH}`);
+    
+    const options = {
+      key: fs.readFileSync(SSL_KEY_PATH),
+      cert: fs.readFileSync(SSL_CERT_PATH)
+    };
+    
+    const httpsServer = https.createServer(options, handleRequest);
+    
+    httpsServer.listen(HTTPS_PORT, () => {
+      console.log(`🔒 HTTPS 服务器启动成功，端口: ${HTTPS_PORT}`);
+      // 在HTTPS服务器启动后调用startServer显示完整信息
+      startServer();
+    });
+    
+    // 优雅关闭HTTPS服务器
+    process.on('SIGINT', () => {
+      httpsServer.close();
+    });
+    
+  } else {
+    console.error(`❌ SSL证书文件未找到:`);
+    console.error(`   📁 证书目录: ${path.dirname(SSL_CERT_PATH)}`);
+    console.error(`   🔍 查找证书: ${SSL_CERT_PATH}`);
+    console.error(`   🔍 查找私钥: ${SSL_KEY_PATH}`);
+    
+    // 列出证书目录中的文件
+    const certDir = path.dirname(SSL_CERT_PATH);
+    try {
+      if (fs.existsSync(certDir)) {
+        const files = fs.readdirSync(certDir);
+        console.error(`   📂 目录中的文件:`);
+        if (files.length === 0) {
+          console.error(`      (目录为空)`);
+        } else {
+          files.forEach(file => {
+            const filePath = path.join(certDir, file);
+            const stats = fs.statSync(filePath);
+            const fileType = stats.isDirectory() ? '📁' : '📄';
+            console.error(`      ${fileType} ${file}`);
+          });
+        }
+      } else {
+        console.error(`   📂 证书目录不存在: ${certDir}`);
+      }
+    } catch (error) {
+      console.error(`   ⚠️  无法读取证书目录: ${error.message}`);
+    }
+    
+    console.error(`   💡 支持格式: .crt, .pem, .key`);
+    console.error(`   🔧 HTTPS服务器未启动，仅运行HTTP服务器`);
+    // 如果HTTPS启动失败，至少显示HTTP服务器信息
+    startServer();
+  }
+} else {
+  // 如果HTTPS被禁用，显示HTTP服务器信息
+  startServer();
+}
 
 // 优雅关闭
 process.on('SIGINT', () => {

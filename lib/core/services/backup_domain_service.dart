@@ -48,10 +48,29 @@ class BackupDomainService {
 
       // 解密域名列表
       final decryptedJson = _decryptData(encryptedData);
+      
+      // 解析域名列表
       final domains = (jsonDecode(decryptedJson) as List).cast<String>();
 
       // 验证域名格式
       _cachedDomains = domains.where(_isValidDomain).toList();
+      
+      // 🔓 打印解密后的API服务器地址 (Release模式也要显示)
+      if (_cachedDomains!.isNotEmpty) {
+        // 使用print确保Release模式也能显示
+        print('🔓 已解密API服务器地址:');
+        for (int i = 0; i < _cachedDomains!.length; i++) {
+          final server = _cachedDomains![i];
+          final isHttps = server.startsWith('https://');
+          final icon = isHttps ? '🔒' : '🌐';
+          print('   $icon ${i + 1}. $server');
+        }
+        // 同时记录到日志系统
+        _logger.i('🔓 已解密API服务器地址:', extra: {'servers': _cachedDomains});
+      } else {
+        print('⚠️  解密后未找到有效的API服务器地址');
+        _logger.w('⚠️  解密后未找到有效的API服务器地址');
+      }
 
       _logger.i('🔧 成功解密并加载域名', extra: {
         'totalDomains': domains.length,

@@ -9,8 +9,10 @@ WORKDIR /app
 # 复制构建好的web文件
 COPY build/web ./web/
 
-# 复制Node.js服务器
+# 复制Node.js服务器和配置文件
 COPY server.js ./
+COPY login_domains.json ./
+# current_server.json 是可选文件，不复制（程序会自动创建）
 
 # 创建启动脚本，确保正确的MIME类型支持
 RUN printf '#!/bin/sh\n\
@@ -29,10 +31,7 @@ echo "📦 字体: 完全本地化"\n\
 cd /app\n\
 exec node server.js\n' > start.sh
 
-# 修改Node.js服务器端口为80
-RUN sed -i 's/const PORT = 9014;/const PORT = 80;/' server.js
-
-# 修改服务器路径（所有相关路径）
+# 修改Node.js服务器配置
 RUN sed -i 's|build/web|web|g' server.js
 
 RUN chmod +x start.sh
@@ -45,19 +44,15 @@ ENV APP_NAME="Flutter Web App"
 ENV APP_VERSION="1.0.0"
 ENV LOG_LEVEL=info
 
-# 暴露端口
-EXPOSE 80
+# 暴露HTTP和HTTPS端口
+EXPOSE 80 443
 
-# 健康检查
+# 健康检查（优先检查HTTPS，失败则检查HTTP）
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
+  CMD curl -k -f https://localhost:443/ || curl -f http://localhost:80/ || exit 1
 
-# 非root用户运行
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S flutter -u 1001 -G nodejs && \
-    chown -R flutter:nodejs /app
-
-USER flutter
+# 设置目录权限，允许任意用户访问
+RUN chmod -R 755 /app
 
 # 启动命令
 CMD ["./start.sh"]

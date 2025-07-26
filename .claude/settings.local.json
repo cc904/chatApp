@@ -86,7 +86,19 @@
       "Bash(./test-local-hosting.sh:*)",
       "Bash(node server.js)",
       "Bash(bash:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(cp:*)",
+      "Bash(/dev/null)",
+      "Bash(./build-and-deploy.sh:*)",
+      "Bash(BUILD_MODE=debug ./build-and-deploy.sh build)",
+      "Bash(./ssl-generate.sh:*)",
+      "Bash(tar:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:mpflutter.feishu.cn)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(PORT=9003 node server.js)",
+      "Bash(PORT=8080 node server.js)",
+      "Bash(/dev/null)"
     ],
     "deny": []
   }

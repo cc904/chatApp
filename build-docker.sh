@@ -13,11 +13,12 @@ echo "│                🔧 构建选项                  │"
 echo "└──────────────────────────────────────────────┘"
 echo ""
 echo "请选择构建模式:"
-echo "  1) 🚀 完全重新构建 (推荐) - 清理+构建+打包"
+echo "  1) 🚀 完全重新构建 (推荐) - Release版本+HTTP/HTTPS"
 echo "  2) 📦 仅打包现有构建 - 使用已有build/web"
 echo "  3) 🛠️  仅构建不打包 - 只更新build/web"
+echo "  4) 🐛 Debug模式构建 - 调试版本+详细日志+HTTP/HTTPS"
 echo ""
-read -t 10 -p "请输入选择 (1-3) [默认: 1, 10秒后自动选择]: " BUILD_CHOICE
+read -t 10 -p "请输入选择 (1-4) [默认: 1, 10秒后自动选择]: " BUILD_CHOICE
 
 # 处理超时或空输入
 if [ $? -gt 128 ] || [ -z "$BUILD_CHOICE" ]; then
@@ -32,24 +33,35 @@ case $BUILD_CHOICE in
         DO_CLEAN=true
         DO_BUILD=true
         DO_DOCKER=true
+        BUILD_MODE="release"
         ;;
     2)
         echo "✅ 选择: 仅打包现有构建"
         DO_CLEAN=false
         DO_BUILD=false
         DO_DOCKER=true
+        BUILD_MODE="release"
         ;;
     3)
         echo "✅ 选择: 仅构建不打包"
         DO_CLEAN=true
         DO_BUILD=true
         DO_DOCKER=false
+        BUILD_MODE="release"
+        ;;
+    4)
+        echo "✅ 选择: Debug模式构建 (包含HTTP/HTTPS支持)"
+        DO_CLEAN=true
+        DO_BUILD=true
+        DO_DOCKER=true
+        BUILD_MODE="debug"
         ;;
     *)
         echo "❌ 无效选择，使用默认: 完全重新构建"
         DO_CLEAN=true
         DO_BUILD=true
         DO_DOCKER=true
+        BUILD_MODE="release"
         ;;
 esac
 
@@ -120,9 +132,32 @@ docker-compose up -d
 
 ## 环境变量配置
 所有配置项请参考 .env 文件中的说明。
+
+## 🔧 文件权限说明
+
+### Docker Compose中已配置用户
+\`\`\`yaml
+user: "1000:1000"  # 容器内使用UID 1000运行
+\`\`\`
+
+### 如果遇到权限问题
+如果Docker容器无法访问挂载的文件，可以设置文件权限：
+\`\`\`bash
+# 可选：设置为Docker用户权限
+sudo chown -R 1000:1000 ./
+
+# 或者使用当前用户权限
+sudo chown -R \$(id -u):\$(id -g) ./
+\`\`\`
+
+### 推荐做法
+1. 使用Docker Compose的user配置（已设置）
+2. 文件权限保持解压者权限即可
+3. 容器会自动适配权限
 EOF
     
-    # 创建压缩包
+    # 创建压缩包 (使用当前用户权限，避免sudo)
+    echo "📦 创建压缩包，使用当前用户权限..."
     tar -czf "$BUILD_OUTPUT_DIR/$ARCHIVE_NAME" -C "$TEMP_DIR" .
     
     # 清理临时目录
@@ -153,6 +188,8 @@ EOF
         echo "│  tar -xzf $BUILD_OUTPUT_DIR/$ARCHIVE_NAME   │"
         echo "│  cd chatapp                                  │"
         echo "│  docker-compose up -d                       │"
+        echo "│                                              │"
+        echo "│  💡 Docker会自动处理用户权限                │"
         echo "└──────────────────────────────────────────────┘"
         echo ""
         echo "┌─ 🌐 访问地址 ────────────────────────────────┐"
@@ -190,12 +227,91 @@ if [ "$DO_CLEAN" = true ] || [ "$DO_BUILD" = true ]; then
         fi
         echo ""
         
-        echo "🚀 构建Web版本..."
-        if flutter build web --release; then
-            echo "✅ Web构建成功"
+        # 🔐 根据构建模式配置域名加密
+        echo "🔐 配置登录域名..."
+        if [ "$BUILD_MODE" = "debug" ]; then
+            echo "   📍 使用开发环境域名 (development)"
+            DOMAIN_MODE="development"
+            DOMAIN_CHOICE="1"
         else
-            echo "❌ Web构建失败"
+            echo "   📍 使用生产环境域名 (production)"
+            DOMAIN_MODE="production"
+            DOMAIN_CHOICE="2"
+        fi
+        
+        # 显示即将加密的域名列表
+        if [ -f "login_domains.json" ]; then
+            echo "   🔍 读取域名配置..."
+            # 提取指定环境的域名列表
+            DOMAINS=$(python3 -c "
+import json
+import sys
+try:
+    with open('login_domains.json', 'r') as f:
+        data = json.load(f)
+    domains = data.get('$DOMAIN_MODE', [])
+    for domain in domains:
+        print(domain)
+except Exception as e:
+    sys.exit(1)
+" 2>/dev/null)
+            
+            if [ -n "$DOMAINS" ]; then
+                echo "   📋 即将加密的域名列表 ($DOMAIN_MODE 环境):"
+                echo "$DOMAINS" | while read domain; do
+                    if [ -n "$domain" ] && [ "$domain" != "null" ]; then
+                        echo "      🌐 $domain (无http前缀)"
+                    fi
+                done
+            else
+                echo "   ⚠️  未找到 $DOMAIN_MODE 环境的域名配置"
+                echo "   💡 请检查 login_domains.json 格式是否正确"
+                exit 1
+            fi
+        else
+            echo "   ❌ login_domains.json 文件不存在"
             exit 1
+        fi
+        
+        # 检查域名加密工具是否存在
+        if [ ! -f "tools/encrypt_domains_to_assets.dart" ]; then
+            echo "   ❌ 域名加密工具不存在: tools/encrypt_domains_to_assets.dart"
+            echo "   💡 请确保项目包含域名加密工具"
+            exit 1
+        fi
+        
+        # 自动运行域名加密工具
+        echo "   🔒 加密域名到assets文件..."
+        if echo "$DOMAIN_CHOICE" | dart run tools/encrypt_domains_to_assets.dart > /dev/null 2>&1; then
+            echo "   ✅ 域名加密完成 ($DOMAIN_MODE 环境)"
+        else
+            echo "   ❌ 域名加密失败"
+            echo "   💡 请检查 login_domains.json 配置是否正确"
+            echo "   💡 确保域名格式为: \"domain.com:port\" (不带http前缀)"
+            exit 1
+        fi
+        echo ""
+        
+        if [ "$BUILD_MODE" = "debug" ]; then
+            echo "🐛 构建Debug版本..."
+            if flutter build web --debug \
+                --no-web-resources-cdn \
+                --dart-define=FLUTTER_WEB_CANVASKIT_URL=./canvaskit/; then
+                echo "✅ Debug Web构建成功 (包含调试符号 + 详细日志)"
+            else
+                echo "❌ Debug Web构建失败"
+                exit 1
+            fi
+        else
+            echo "🚀 构建Release版本..."
+            if flutter build web --release \
+                --no-web-resources-cdn \
+                --dart-define=FLUTTER_WEB_CANVASKIT_URL=./canvaskit/; then
+                echo "✅ Release Web构建成功 (CanvasKit本地化 + 完全无CDN依赖)"
+            else
+                echo "❌ Release Web构建失败"
+                exit 1
+            fi
         fi
         echo ""
     fi
@@ -235,18 +351,26 @@ done
 if [ "$DO_DOCKER" = true ]; then
     # 构建Docker镜像
     IMAGE_NAME="x0x-chatapp"
-    TAG="latest"
+    if [ "$BUILD_MODE" = "debug" ]; then
+        TAG="debug"
+        DOCKERFILE="Dockerfile.debug"
+    else
+        TAG="latest"
+        DOCKERFILE="Dockerfile"
+    fi
     REGISTRY="18.183.101.229:15000"
     FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME:$TAG"
 
     echo "┌──────────────────────────────────────────────┐"
     echo "│                🔨 构建镜像                  │"
     echo "└──────────────────────────────────────────────┘"
+    echo "🔧 构建模式: $BUILD_MODE"
+    echo "📄 Dockerfile: $DOCKERFILE"
     echo "📦 本地镜像: $IMAGE_NAME:$TAG"
     echo "🌐 远程镜像: $FULL_IMAGE_NAME"
     echo ""
 
-    docker build -f Dockerfile -t $IMAGE_NAME:$TAG .
+    docker build -f $DOCKERFILE -t $IMAGE_NAME:$TAG .
 
 if [ $? -eq 0 ]; then
     echo ""

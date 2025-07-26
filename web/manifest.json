@@ -1,13 +1,21 @@
 {
-    "name": "cc",
-    "short_name": "cc",
+    "name": "X0X Chat App",
+    "short_name": "X0X Chat",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "Flutter聊天应用 - 支持实时消息、文件传输和语音通话",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": ["productivity", "social"],
+    "screenshots": [
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",
