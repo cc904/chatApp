@@ -426,7 +426,7 @@ class UploadApiService {
 
   /// 头像上传
   Future<UploadApiResult> uploadAvatar(
-    File avatarFile, {
+    dynamic avatarFile, {  // 支持File和Uint8List
     Function(int)? onProgress,
   }) async {
     return _uploadFile(
@@ -440,7 +440,7 @@ class UploadApiService {
 
   /// 通用文件上传方法
   Future<UploadApiResult> _uploadFile({
-    required File file,
+    required dynamic file, // 支持File和Uint8List
     required String type,
     required String conversationId,
     Map<String, String>? metadata,
@@ -454,8 +454,37 @@ class UploadApiService {
       final formData = FormData();
 
       // 添加文件
-      // Web平台处理blob URL
-      if (kIsWeb && file.path.startsWith('blob:')) {
+      if (file is Uint8List) {
+        // 直接使用字节数据（Web平台或预处理的文件）
+        _logger.i('📎 使用字节数据上传', extra: {'bytesLength': file.length});
+        
+        // 根据类型确定文件名和MIME类型
+        String fileName;
+        String mimeType;
+        
+        if (type == 'image') {
+          fileName = 'avatar.jpg';
+          mimeType = 'image/jpeg';
+        } else if (type == 'voice') {
+          fileName = 'voice_recording.m4a';
+          mimeType = 'audio/mp4';
+        } else {
+          fileName = 'file.bin';
+          mimeType = 'application/octet-stream';
+        }
+        
+        formData.files.add(
+          MapEntry(
+            'file',
+            MultipartFile.fromBytes(
+              file,
+              filename: fileName,
+              contentType: MediaType.parse(mimeType),
+            ),
+          ),
+        );
+      } else if (kIsWeb && file.path.startsWith('blob:')) {
+        // Web平台处理blob URL
         _logger.i('🌐 Web平台处理blob URL文件', extra: {'path': file.path});
         
         try {
@@ -585,18 +614,35 @@ class UploadApiService {
   }
 
   /// 验证文件
-  Future<void> _validateFile(File file, String type) async {
+  Future<void> _validateFile(dynamic file, String type) async {
+    // 处理Uint8List类型
+    if (file is Uint8List) {
+      final fileSize = file.length;
+      
+      // 使用FileServerConfigService检查文件大小限制
+      final isAllowed = await _fileServerConfigService.isFileSizeAllowed(type, fileSize);
+      if (!isAllowed) {
+        // 如果服务检查失败，使用默认限制
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (fileSize > maxSize) {
+          throw UploadException('文件大小超过限制: ${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB > 50MB');
+        }
+      }
+      return;
+    }
+    
     // Web平台跳过文件系统检查，因为使用blob URL
     if (kIsWeb) {
       // 对于Web平台，我们无法检查文件大小，直接通过验证
       return;
     }
 
-    if (!file.existsSync()) {
+    final ioFile = file as File;
+    if (!ioFile.existsSync()) {
       throw const UploadException('文件不存在');
     }
 
-    final fileSize = file.lengthSync();
+    final fileSize = ioFile.lengthSync();
 
     // 优先使用FileServerConfigService获取文件大小限制
     final isAllowed =

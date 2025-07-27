@@ -8,6 +8,8 @@ import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dio/dio.dart';
 
 // 条件导入：根据平台导入不同的Socket平台操作实现
 import 'socket_platform_stub.dart'
@@ -82,6 +84,30 @@ class ProtoSocketService {
     _logger.i('Socket状态变更: $status');
   }
 
+  /// 检查网络连接状态
+  Future<Map<String, dynamic>> _checkNetworkStatus() async {
+    try {
+      // 检查网络连接状态
+      final connectivityResult = await Connectivity().checkConnectivity();
+      
+      return {
+        'hasConnection': connectivityResult.contains(ConnectivityResult.mobile) || 
+                        connectivityResult.contains(ConnectivityResult.wifi) ||
+                        connectivityResult.contains(ConnectivityResult.ethernet),
+        'connectionType': connectivityResult.toString(),
+        'hasNetworkPermission': true, // Android INTERNET权限在manifest中声明后自动授予
+      };
+    } catch (e) {
+      _logger.w('网络状态检查失败', extra: {'error': e.toString()});
+      return {
+        'hasConnection': true, // 假设有连接，避免误判
+        'connectionType': 'unknown',
+        'hasNetworkPermission': true,
+        'error': e.toString(),
+      };
+    }
+  }
+
   /// 初始化连接
   /// [serverUrl] - 服务器URL
   /// [token] - 认证令牌
@@ -93,13 +119,60 @@ class ProtoSocketService {
 
     // 更新状态为连接中
     _updateStatus(SocketConnectionStatus.connecting);
+    
+    // 🔧 新增：检查网络状态
+    final networkStatus = await _checkNetworkStatus();
+    _logger.i('🌐 网络状态检查', extra: networkStatus);
+    
+    if (!networkStatus['hasConnection']) {
+      _logger.e('❌ 无网络连接', extra: {
+        'connectionType': networkStatus['connectionType'],
+        'hasPermission': networkStatus['hasNetworkPermission'],
+      });
+      _updateStatus(SocketConnectionStatus.error);
+      return false;
+    }
+    
+    if (!networkStatus['hasNetworkPermission']) {
+      _logger.e('❌ 缺少网络权限', extra: networkStatus);
+      _updateStatus(SocketConnectionStatus.error);
+      return false;
+    }
+    
+    // 🔧 新增：简单网络连通性测试
+    try {
+      _logger.d('🔍 测试服务器连通性...');
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 5),
+      ));
+      final response = await dio.head(
+        serverUrl,
+        options: Options(
+          validateStatus: (status) => true, // 接受所有状态码
+        ),
+      );
+      _logger.i('🔍 服务器连通性测试', extra: {
+        'statusCode': response.statusCode,
+        'reachable': response.statusCode != null,
+        'responseTime': '${DateTime.now().millisecondsSinceEpoch}ms',
+      });
+    } catch (e) {
+      _logger.w('⚠️ 服务器连通性测试失败', extra: {
+        'error': e.toString(),
+        'serverUrl': serverUrl,
+        'suggestion': '网络可能较慢或服务器暂时不可达',
+      });
+      // 不直接返回false，继续尝试Socket连接
+    }
 
     // 记录更详细的连接信息
     _logger.d('连接详情', extra: {
       'url': serverUrl,
       'tokenPrefix': token.length > 10 ? '${token.substring(0, 10)}...' : token,
       'platform': getStandardizedPlatformName(),
-      'platformVersion': getPlatformOSVersion()
+      'platformVersion': getPlatformOSVersion(),
+      'networkType': networkStatus['connectionType'],
     });
 
     // 保存连接信息用于重连
@@ -131,7 +204,7 @@ class ProtoSocketService {
         'reconnectionDelayMax': 10000, // 最大重连间隔
         'maxReconnectionAttempts': _maxReconnectAttempts, // 最大重连次数
         'forceNew': true, // 强制创建新连接
-        'timeout': 6000, // 🔧 优化：减少超时时间到6秒，提升用户体验
+        'timeout': 15000, // 🔧 增加超时时间到15秒，适应移动网络
         'extraHeaders': {
           'x-client-type': 'flutter-macos',
           'x-client-version': '1.0.0'
@@ -157,7 +230,12 @@ class ProtoSocketService {
       });
 
       _socket?.onConnectError((error) {
-        _logger.i('❌ Socket.IO连接错误: $error');
+        _logger.e('❌ Socket.IO连接错误', extra: {
+          'error': error.toString(),
+          'serverUrl': serverUrl,
+          'hasToken': token.isNotEmpty,
+          'tokenPrefix': token.length > 10 ? '${token.substring(0, 10)}...' : token,
+        });
         if (!completer.isCompleted) {
           _updateStatus(SocketConnectionStatus.error);
           completer.complete(false);
@@ -165,7 +243,12 @@ class ProtoSocketService {
       });
 
       _socket?.onError((error) {
-        _logger.i('⚠️ Socket.IO错误: $error');
+        _logger.e('⚠️ Socket.IO通用错误', extra: {
+          'error': error.toString(),
+          'serverUrl': serverUrl,
+          'socketId': _socket?.id,
+          'connected': _socket?.connected,
+        });
         if (!completer.isCompleted) {
           _updateStatus(SocketConnectionStatus.error);
           completer.complete(false);
@@ -182,9 +265,14 @@ class ProtoSocketService {
 
       // 🔧 关键修复：添加明确的超时控制，防止无限等待
       final success = await completer.future.timeout(
-        const Duration(seconds: 7), // 7秒超时，比Socket.io内置超时稍长
+        const Duration(seconds: 20), // 20秒超时，适应移动网络环境
         onTimeout: () {
-          _logger.w('💥 Socket连接超时（7秒），自动返回失败');
+          _logger.e('💥 Socket连接超时（20秒）', extra: {
+            'serverUrl': serverUrl,
+            'socketConnected': _socket?.connected,
+            'socketId': _socket?.id,
+            'reason': '网络连接过慢或服务器无响应',
+          });
           _updateStatus(SocketConnectionStatus.error);
           
           // 清理Socket实例

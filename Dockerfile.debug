@@ -63,8 +63,23 @@ EXPOSE 80 443
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
   CMD curl -k -f https://localhost:443/ || curl -f http://localhost:80/ || exit 1
 
-# 设置目录权限，允许任意用户访问
-RUN chmod -R 755 /app
+# 检查并使用现有用户或创建新用户
+RUN if getent passwd 1000 > /dev/null 2>&1; then \
+        # 如果UID 1000已存在，使用该用户
+        existing_user=$(getent passwd 1000 | cut -d: -f1) && \
+        chown -R $existing_user:$(id -gn $existing_user) /app && \
+        chmod -R 755 /app && \
+        echo "Using existing user: $existing_user"; \
+    else \
+        # 如果UID 1000不存在，创建新用户
+        adduser -D -u 1000 appuser && \
+        chown -R appuser:appuser /app && \
+        chmod -R 755 /app && \
+        echo "Created new user: appuser"; \
+    fi
+
+# 切换到UID 1000用户（无论用户名是什么）
+USER 1000
 
 # Debug标签
 LABEL version="debug" \

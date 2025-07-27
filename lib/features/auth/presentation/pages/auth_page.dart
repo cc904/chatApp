@@ -562,7 +562,24 @@ class _AuthPageState extends State<AuthPage>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(localizations.switchServer),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(localizations.switchServer),
+              const SizedBox(height: 4),
+              Text(
+                kDebugMode 
+                  ? '调试模式：可选择所有环境的服务器'
+                  : '选择可用的服务器',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: _appConfig.serverDisplayInfo.asMap().entries.map((entry) {
@@ -577,12 +594,34 @@ class _AuthPageState extends State<AuthPage>
                       : Icons.radio_button_unchecked,
                   color: isSelected ? Colors.green : Colors.grey,
                 ),
-                title: Text(
-                  serverInfo['name']!,
-                  style: TextStyle(
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        serverInfo['name']!,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                    // 环境标识
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getEnvironmentColor(serverInfo['environment'] ?? 'unknown'),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _getEnvironmentLabel(serverInfo['environment'] ?? 'unknown'),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 subtitle: Text(
                   serverInfo['url']!,
@@ -612,6 +651,34 @@ class _AuthPageState extends State<AuthPage>
         );
       },
     );
+  }
+
+  /// 获取环境颜色
+  Color _getEnvironmentColor(String environment) {
+    switch (environment) {
+      case 'development':
+        return Colors.blue;
+      case 'production':
+        return Colors.green;
+      case 'error':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  /// 获取环境标签
+  String _getEnvironmentLabel(String environment) {
+    switch (environment) {
+      case 'development':
+        return 'DEV';
+      case 'production':
+        return 'PROD';
+      case 'error':
+        return 'ERROR';
+      default:
+        return 'UNKNOWN';
+    }
   }
 
   void _switchServer(int serverIndex) async {

@@ -479,32 +479,78 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<void> requestSyncConversations() async {
     try {
-      if (_communicationService.isInitialized) {
-        // 💢💢💢 新增：获取上次同步时间实现增量同步
-        final lastSyncTime = await _getLastSyncTime();
-
-        // 创建同步请求，包含上次同步时间
-        final syncRequest = conversation_proto.SyncConversationsRequest();
-        if (lastSyncTime != null) {
-          syncRequest.lastSyncTime = Int64(lastSyncTime.millisecondsSinceEpoch);
-          _logger.i('发送增量会话同步请求', extra: {
-            'lastSyncTime': lastSyncTime.toIso8601String(),
-            'lastSyncTimestamp': lastSyncTime.millisecondsSinceEpoch,
-          });
-        } else {
-          _logger.i('发送全量会话同步请求（首次同步）');
+      // 💢💢💢 优化：智能等待通信服务初始化完成
+      if (!_communicationService.isInitialized) {
+        _logger.i('通信服务未初始化，智能等待初始化完成...');
+        
+        final waitResult = await _waitForCommunicationServiceReady();
+        if (!waitResult) {
+          _logger.w('通信服务初始化失败或超时，跳过会话同步');
+          return;
         }
-
-        // 发送同步请求到服务器
-        _communicationService.emitProto('conversation:sync', syncRequest);
-        _logger.i('会话同步请求已发送');
-      } else {
-        _logger.e('通信服务未初始化，无法同步会话');
       }
+
+      // 💢💢💢 新增：获取上次同步时间实现增量同步
+      final lastSyncTime = await _getLastSyncTime();
+
+      // 创建同步请求，包含上次同步时间
+      final syncRequest = conversation_proto.SyncConversationsRequest();
+      if (lastSyncTime != null) {
+        syncRequest.lastSyncTime = Int64(lastSyncTime.millisecondsSinceEpoch);
+        _logger.i('发送增量会话同步请求', extra: {
+          'lastSyncTime': lastSyncTime.toIso8601String(),
+          'lastSyncTimestamp': lastSyncTime.millisecondsSinceEpoch,
+        });
+      } else {
+        _logger.i('发送全量会话同步请求（首次同步）');
+      }
+
+      // 发送同步请求到服务器
+      _communicationService.emitProto('conversation:sync', syncRequest);
+      _logger.i('会话同步请求已发送');
     } catch (error, stack) {
       _logger.e('同步会话失败', error: error, stackTrace: stack);
       rethrow;
     }
+  }
+
+  /// 💢💢💢 优化：智能等待通信服务就绪
+  Future<bool> _waitForCommunicationServiceReady() async {
+    const maxWaitTime = 15000; // 15秒最大等待时间
+    const initialCheckInterval = 100; // 初始检查间隔100ms
+    const maxCheckInterval = 1000; // 最大检查间隔1秒
+    
+    var waitTime = 0;
+    var checkInterval = initialCheckInterval;
+    
+    while (!_communicationService.isInitialized && waitTime < maxWaitTime) {
+      // 监听连接状态变化
+      if (_communicationService.isConnected) {
+        _logger.d('检测到连接已建立，等待初始化完成...');
+      }
+      
+      await Future.delayed(Duration(milliseconds: checkInterval));
+      waitTime += checkInterval;
+      
+      // 渐进式增加检查间隔，减少CPU使用
+      if (checkInterval < maxCheckInterval) {
+        checkInterval = (checkInterval * 1.2).round().clamp(initialCheckInterval, maxCheckInterval);
+      }
+      
+      // 每5秒输出一次等待状态
+      if (waitTime % 5000 == 0) {
+        _logger.d('等待通信服务初始化... (${waitTime/1000}s/${maxWaitTime/1000}s)');
+      }
+    }
+    
+    final success = _communicationService.isInitialized;
+    if (success) {
+      _logger.i('通信服务初始化完成，用时: ${waitTime}ms');
+    } else {
+      _logger.w('等待通信服务初始化超时: ${maxWaitTime}ms');
+    }
+    
+    return success;
   }
 
   /// 💢💢💢 新增：获取上次同步时间

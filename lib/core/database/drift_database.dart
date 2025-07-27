@@ -152,14 +152,17 @@ class QuickReplies extends Table {
   QuickReplies,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase._internal() : super(_openConnection());
+  AppDatabase._internal(String userId) : super(_openConnection(userId));
   
   static AppDatabase? _instance;
+  static String? _currentUserId;
   static final _logger = LogService.instance;
   
   /// 获取数据库单例实例
   static AppDatabase get instance {
-    _instance ??= AppDatabase._internal();
+    if (_instance == null) {
+      throw Exception('数据库未初始化，请先调用 AppDatabase.init()');
+    }
     return _instance!;
   }
   
@@ -171,18 +174,34 @@ class AppDatabase extends _$AppDatabase {
     try {
       _logger.i('初始化 Drift 数据库，用户ID: ${currentUser.userId}');
       
-      // 确保数据库实例已创建
-      final db = instance;
+      // 如果当前用户ID相同且实例存在，直接返回
+      if (_currentUserId == currentUser.userId && _instance != null) {
+        _logger.i('数据库已为当前用户初始化，跳过重复初始化');
+        return;
+      }
+      
+      // 如果是不同用户，先关闭现有数据库
+      if (_instance != null && _currentUserId != currentUser.userId) {
+        _logger.i('切换用户，关闭现有数据库实例。旧用户: $_currentUserId, 新用户: ${currentUser.userId}');
+        await closeDatabase();
+      }
+      
+      // 创建新的数据库实例
+      _currentUserId = currentUser.userId;
+      _instance = AppDatabase._internal(currentUser.userId);
       
       // 创建数据库表和索引
-      await db._createIndexes();
+      await _instance!._createIndexes();
       
       // 保存当前用户信息
-      await db._saveCurrentUserToDatabase(currentUser);
+      await _instance!._saveCurrentUserToDatabase(currentUser);
       
-      _logger.i('Drift 数据库初始化完成');
+      _logger.i('Drift 数据库初始化完成，用户ID: ${currentUser.userId}');
     } catch (error) {
       _logger.e('Drift 数据库初始化失败', error: error, stackTrace: StackTrace.current);
+      // 确保在失败时清理状态
+      _instance = null;
+      _currentUserId = null;
       rethrow;
     }
   }
@@ -250,21 +269,25 @@ class AppDatabase extends _$AppDatabase {
   static Future<void> closeDatabase() async {
     try {
       if (_instance != null) {
-        _logger.i('关闭 Drift 数据库');
+        _logger.i('关闭 Drift 数据库，用户ID: $_currentUserId');
         await _instance!.close();
         _instance = null;
+        _currentUserId = null;
         _logger.i('Drift 数据库关闭完成');
       }
     } catch (error) {
       _logger.e('关闭 Drift 数据库失败', error: error, stackTrace: StackTrace.current);
+      // 即使关闭失败也要清理状态
+      _instance = null;
+      _currentUserId = null;
     }
   }
 }
 
 /// 打开数据库连接
-DatabaseConnection _openConnection() {
+DatabaseConnection _openConnection(String userId) {
   // 在 Web 平台上直接使用连接，避免 LazyDatabase 在 release 模式下的时序问题
-  return DatabaseConnection.delayed(openDatabaseConnection());
+  return DatabaseConnection.delayed(openDatabaseConnection(userId));
 }
 
 /// Conversation类的扩展方法

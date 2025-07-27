@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/features/profile/presentation/pages/version_info_page.dart';
 
 /// 关于我们页面
 class AboutPage extends StatefulWidget {
@@ -42,7 +43,7 @@ class _AboutPageState extends State<AboutPage> {
             
             const SizedBox(height: 20),
             
-            // 联系方式
+            // 联系方式和更多信息
             _buildContactInfo(localizations),
             
             const SizedBox(height: 20),
@@ -161,6 +162,22 @@ class _AboutPageState extends State<AboutPage> {
           title: '问题反馈',
           subtitle: '点击反馈使用问题',
           onTap: () => _showFeedbackDialog(),
+        ),
+        const Divider(height: 1),
+        // 💢💢💢 新增：版本信息导航
+        _buildContactTile(
+          icon: Icons.info,
+          title: '版本信息',
+          subtitle: '查看应用版本和网络状态',
+          onTap: () {
+            _logger.d('点击版本信息');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const VersionInfoPage(),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -393,4 +410,5 @@ class _AboutPageState extends State<AboutPage> {
       ),
     );
   }
+
 }

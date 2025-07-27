@@ -1,9 +1,14 @@
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cc/core/database/drift_database.dart';
 import 'log_service.dart';
+
+// 条件导入：根据平台导入不同的安全存储实现
+import 'secure_storage_stub.dart'
+    if (dart.library.io) 'secure_storage_io.dart'
+    if (dart.library.html) 'secure_storage_web.dart';
 
 /// 安全存储服务单例类
 ///
@@ -21,8 +26,24 @@ class SecureStorageService {
   // 日志器
   static final _logger = LogService.instance;
 
-  // Flutter Secure Storage实例 - 简单初始化，不带选项
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  // Flutter Secure Storage实例 - 平台特定配置
+  static final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+    mOptions: MacOsOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
+  
+  // 检查是否应该使用fallback模式
+  static bool get _shouldUseFallback {
+    // 使用平台特定的实现
+    return shouldUseFallback();
+  }
 
   // 私有构造函数
   SecureStorageService._internal();
@@ -35,12 +56,28 @@ class SecureStorageService {
   /// - key: 存储键名
   /// - value: 存储的字符串值
   Future<void> write(String key, String value) async {
+    // 如果预知需要使用fallback，直接使用SharedPreferences
+    if (_shouldUseFallback) {
+      _logger.i('使用SharedPreferences存储 (${getPlatformName()}平台)', extra: {'key': key});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('secure_$key', value);
+      return;
+    }
+    
     try {
       await _storage.write(key: key, value: value);
       _logger.d('Keychain写入成功', extra: {'key': key});
     } catch (e) {
-      _logger.e('Keychain写入失败', error: e, stackTrace: StackTrace.current);
-      rethrow;
+      _logger.w('Keychain写入失败，使用SharedPreferences fallback', extra: {'key': key, 'error': e.toString()});
+      try {
+        // 使用SharedPreferences作为fallback
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('secure_$key', value);
+        _logger.d('SharedPreferences fallback写入成功', extra: {'key': key});
+      } catch (fallbackError) {
+        _logger.e('所有存储方式都失败', error: e, stackTrace: StackTrace.current);
+        rethrow;
+      }
     }
   }
 
@@ -54,18 +91,34 @@ class SecureStorageService {
   /// 返回:
   /// - 字符串值，如果不存在或Keychain不可访问则返回null
   Future<String?> read(String key) async {
+    // 如果预知需要使用fallback，直接使用SharedPreferences
+    if (_shouldUseFallback) {
+      final prefs = await SharedPreferences.getInstance();
+      final value = prefs.getString('secure_$key');
+      if (value != null) {
+        _logger.d('从SharedPreferences读取成功 (${getPlatformName()}平台)', extra: {'key': key});
+      }
+      return value;
+    }
+    
     try {
       final value = await _storage.read(key: key);
       return value;
     } catch (e) {
-      _logger.w('Keychain读取失败', extra: {'key': key, 'error': e.toString(), 'errorCode': e is PlatformException ? e.code : 'unknown'});
-
-      // 如果是-34018错误，提供详细的错误信息
-      if (e is PlatformException && e.code == 'Unexpected security result code') {
-        _logger.e('Keychain访问授权失败 (-34018)', extra: {'key': key, 'solution': '请检查系统设置 > 隐私与安全性 > 钥匙串访问，确保应用已被授权'});
+      _logger.w('Keychain读取失败，尝试SharedPreferences fallback', extra: {'key': key, 'error': e.toString()});
+      
+      try {
+        // 使用SharedPreferences作为fallback
+        final prefs = await SharedPreferences.getInstance();
+        final value = prefs.getString('secure_$key');
+        if (value != null) {
+          _logger.d('SharedPreferences fallback读取成功', extra: {'key': key});
+        }
+        return value;
+      } catch (fallbackError) {
+        _logger.w('SharedPreferences fallback也失败', extra: {'key': key, 'error': fallbackError.toString()});
+        return null;
       }
-
-      return null;
     }
   }
 
@@ -76,12 +129,28 @@ class SecureStorageService {
   /// 参数:
   /// - key: 存储键名
   Future<void> delete(String key) async {
+    // 如果预知需要使用fallback，直接使用SharedPreferences
+    if (_shouldUseFallback) {
+      _logger.i('使用SharedPreferences删除 (${getPlatformName()}平台)', extra: {'key': key});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('secure_$key');
+      return;
+    }
+    
     try {
       await _storage.delete(key: key);
       _logger.d('Keychain删除成功', extra: {'key': key});
     } catch (e) {
-      _logger.e('Keychain删除失败', error: e, stackTrace: StackTrace.current);
-      rethrow;
+      _logger.w('Keychain删除失败，使用SharedPreferences fallback', extra: {'key': key, 'error': e.toString()});
+      try {
+        // 使用SharedPreferences作为fallback
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('secure_$key');
+        _logger.d('SharedPreferences fallback删除成功', extra: {'key': key});
+      } catch (fallbackError) {
+        _logger.e('所有删除方式都失败', error: e, stackTrace: StackTrace.current);
+        rethrow;
+      }
     }
   }
 
@@ -89,12 +158,35 @@ class SecureStorageService {
   ///
   /// 删除Keychain中的所有应用数据
   Future<void> deleteAll() async {
+    // 如果预知需要使用fallback，直接使用SharedPreferences
+    if (_shouldUseFallback) {
+      _logger.i('使用SharedPreferences清空 (${getPlatformName()}平台)');
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((key) => key.startsWith('secure_')).toList();
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+      _logger.d('SharedPreferences清空完成', extra: {'removedKeys': keys.length});
+      return;
+    }
+    
     try {
       await _storage.deleteAll();
       _logger.i('Keychain已清空');
     } catch (e) {
-      _logger.e('清空Keychain失败', error: e, stackTrace: StackTrace.current);
-      rethrow;
+      _logger.w('Keychain清空失败，使用SharedPreferences fallback', extra: {'error': e.toString()});
+      try {
+        // 使用SharedPreferences作为fallback
+        final prefs = await SharedPreferences.getInstance();
+        final keys = prefs.getKeys().where((key) => key.startsWith('secure_')).toList();
+        for (final key in keys) {
+          await prefs.remove(key);
+        }
+        _logger.d('SharedPreferences fallback清空完成', extra: {'removedKeys': keys.length});
+      } catch (fallbackError) {
+        _logger.e('所有清空方式都失败', error: e, stackTrace: StackTrace.current);
+        rethrow;
+      }
     }
   }
 

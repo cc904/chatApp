@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/core/services/proto_events.dart';
+import 'package:cc/core/services/network_latency_service.dart';
 import 'package:protobuf/protobuf.dart';
 
 /// 通信服务
@@ -42,6 +43,7 @@ class CommunicationService {
   factory CommunicationService() => _instance;
   CommunicationService._internal() {
     _initConnectionListener();
+    // 移除自动启动延迟监控，改为按需启动
   }
 
   /// 💢💢💢 新增：初始化连接状态监听
@@ -52,6 +54,7 @@ class CommunicationService {
       }
     });
   }
+
 
   /// 连接到服务器
   /// [serverUrl] - 服务器URL

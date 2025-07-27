@@ -35,15 +35,20 @@ class HomeRepositoryImpl implements HomeRepository {
     try {
       _logger.i('初始化用户会话', extra: {'userId': _currentUser.userId});
 
-      // 初始化数据库
-      final dbInitialized = await initDatabase();
+      // 💢💢💢 优化：并行初始化数据库和通信服务
+      final results = await Future.wait([
+        initDatabase(),
+        initCommunication(),
+      ]);
+
+      final dbInitialized = results[0];
+      final commInitialized = results[1];
+
       if (!dbInitialized) {
         _logger.e('数据库初始化失败');
         return false;
       }
 
-      // 初始化通信服务（允许失败，不阻塞主界面显示）
-      final commInitialized = await initCommunication();
       if (!commInitialized) {
         _logger.w('通信服务初始化失败，但允许继续使用应用（离线模式）');
         // 不返回false，允许应用在离线模式下运行
@@ -97,55 +102,79 @@ class HomeRepositoryImpl implements HomeRepository {
   /// - 操作成功返回true，失败返回false
   @override
   Future<bool> initCommunication() async {
-    try {
-      _logger.i('初始化实时通信', extra: {'userId': _currentUser.userId});
+    return await _initCommunicationWithRetry();
+  }
 
-      // 获取服务器URL
-      final serverUrl = AppConfig().serverUrl;
-      _logger.d('使用服务器URL: $serverUrl');
+  /// 💢💢💢 优化：带重试机制的通信初始化
+  Future<bool> _initCommunicationWithRetry({int maxRetries = 3}) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        _logger.i('初始化实时通信 (尝试 $attempt/$maxRetries)', 
+            extra: {'userId': _currentUser.userId});
 
-      // 初始化通信服务
-      final communicationService = CommunicationService();
+        // 获取服务器URL
+        final serverUrl = AppConfig().serverUrl;
+        _logger.d('使用服务器URL: $serverUrl');
 
-      // 获取Socket连接用的正确Token
-      final tokenManager = EnhancedTokenManager.instance;
-      final socketToken = await tokenManager.getSocketToken();
+        // 初始化通信服务
+        final communicationService = CommunicationService();
 
-      if (socketToken == null) {
-        _logger.w('没有可用的Socket Token，跳过实时通信连接');
-        return false;
-      }
+        // 获取Socket连接用的正确Token
+        final tokenManager = EnhancedTokenManager.instance;
+        final socketToken = await tokenManager.getSocketToken();
 
-      _logger.d('Socket Token获取成功，准备连接');
-
-      // 🔧 关键修复：添加超时控制，避免无限等待
-      final connected = await communicationService.connect(
-        serverUrl: serverUrl,
-        userId: _currentUser.userId,
-        token: socketToken, // 使用正确的Socket Token
-      ).timeout(
-        const Duration(seconds: 8), // 8秒超时，用户体验更好
-        onTimeout: () {
-          _logger.w('实时通信连接超时（8秒），进入离线模式');
+        if (socketToken == null) {
+          _logger.w('没有可用的Socket Token，跳过实时通信连接');
           return false;
-        },
-      );
+        }
 
-      if (connected) {
-        _logger.i('实时通信连接成功');
+        _logger.d('Socket Token获取成功，准备连接');
 
-        // 这里可以注册各种事件监听
-        // 例如：在线状态变化、消息接收等
+        // 动态超时：第一次6秒，之后递增
+        final timeoutSeconds = 6 + (attempt - 1) * 2;
+        final connected = await communicationService.connect(
+          serverUrl: serverUrl,
+          userId: _currentUser.userId,
+          token: socketToken,
+        ).timeout(
+          Duration(seconds: timeoutSeconds),
+          onTimeout: () {
+            _logger.w('实时通信连接超时（${timeoutSeconds}秒），尝试 $attempt/$maxRetries');
+            return false;
+          },
+        );
 
-        return true;
-      } else {
-        _logger.w('实时通信连接失败，可能是网络问题或Token无效');
-        return false;
+        if (connected) {
+          _logger.i('实时通信连接成功 (尝试 $attempt/$maxRetries)');
+          return true;
+        } else {
+          _logger.w('实时通信连接失败，尝试 $attempt/$maxRetries');
+          
+          // 最后一次尝试失败，不再重试
+          if (attempt == maxRetries) {
+            _logger.w('实时通信连接达到最大重试次数，进入离线模式');
+            return false;
+          }
+          
+          // 指数退避：等待时间递增
+          final waitSeconds = attempt * 2;
+          _logger.d('等待 ${waitSeconds}秒 后重试...');
+          await Future.delayed(Duration(seconds: waitSeconds));
+        }
+      } catch (error) {
+        _logger.e('初始化实时通信异常 (尝试 $attempt/$maxRetries)', 
+            error: error, stackTrace: StackTrace.current);
+        
+        if (attempt == maxRetries) {
+          return false;
+        }
+        
+        // 异常后也等待一段时间再重试
+        await Future.delayed(Duration(seconds: attempt));
       }
-    } catch (error) {
-      _logger.e('初始化实时通信异常', error: error, stackTrace: StackTrace.current);
-      return false;
     }
+    
+    return false;
   }
 
   /// 释放资源

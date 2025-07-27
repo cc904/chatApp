@@ -10,8 +10,7 @@ services:
       # - "${HTTP_PORT:-80}:80"      # HTTP (生产环境禁用)
       - "${HTTPS_PORT:-443}:443"   # HTTPS
     
-    # 用户配置
-    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    # 用户配置已移至Dockerfile中
     
     # 环境变量
     environment:

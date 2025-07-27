@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/communication_service.dart';
@@ -346,13 +348,15 @@ class UserService {
   /// [onProgress] 上传进度回调，参数为0-100的进度值
   /// 返回更新后的用户信息响应，如果上传失败则抛出异常
   Future<SetCurrentUserResponse?> uploadAvatar(
-    File avatarFile, {
+    dynamic avatarFile, { // 支持File和Uint8List
     Function(int)? onProgress,
   }) async {
     try {
       _logger.i('开始上传头像', extra: {
-        'filePath': avatarFile.path,
-        'fileSize': avatarFile.lengthSync(),
+        'fileType': avatarFile.runtimeType.toString(),
+        'fileSize': kIsWeb 
+          ? (avatarFile as Uint8List).length 
+          : (avatarFile as File).lengthSync(),
       });
 
       // 1. 上传头像文件

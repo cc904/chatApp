@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'dart:typed_data' if (dart.library.html) 'dart:typed_data';
+import 'dart:io' if (dart.library.io) 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -28,7 +30,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _emailController;
 
   // 头像相关
-  File? _selectedAvatarFile;
+  Object? _selectedAvatarFile; // File on IO platforms, Uint8List on Web
   String? _currentAvatarUrl;
 
   // 图片选择器
@@ -68,6 +70,37 @@ class _EditProfilePageState extends State<EditProfilePage> {
       setState(() {
         _hasUnsavedChanges = true;
       });
+    }
+  }
+
+  /// 获取图片提供器（跨平台兼容）
+  ImageProvider _getImageProvider() {
+    if (_selectedAvatarFile == null) {
+      throw StateError('No image selected');
+    }
+    
+    if (kIsWeb) {
+      // Web平台：使用MemoryImage
+      return MemoryImage(_selectedAvatarFile as Uint8List);
+    } else {
+      // IO平台：使用FileImage
+      return FileImage(_selectedAvatarFile as File);
+    }
+  }
+
+  /// 获取文件字节数据（用于上传）
+  Future<Uint8List> _getFileBytes() async {
+    if (_selectedAvatarFile == null) {
+      throw StateError('No image selected');
+    }
+    
+    if (kIsWeb) {
+      // Web平台：直接返回字节数据
+      return _selectedAvatarFile as Uint8List;
+    } else {
+      // IO平台：读取文件字节
+      final file = _selectedAvatarFile as File;
+      return await file.readAsBytes();
     }
   }
 
@@ -238,7 +271,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: _selectedAvatarFile != null
                       ? CircleAvatar(
                           radius: 60,
-                          backgroundImage: FileImage(_selectedAvatarFile!),
+                          backgroundImage: _getImageProvider(),
                         )
                       : UserAvatar(
                           avatarUrl: _currentAvatarUrl,
@@ -483,7 +516,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 // 只在移动平台显示拍照选项
-                if (Platform.isAndroid || Platform.isIOS)
+                if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS))
                   _buildAvatarOption(
                     icon: Icons.camera_alt,
                     label: '拍照',
@@ -569,9 +602,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      // 检查桌面平台是否支持相机
-      if (source == ImageSource.camera && (Platform.isMacOS || Platform.isWindows)) {
-        UINotificationService().showError('桌面版本不支持拍照功能，请选择从相册选择');
+      // 检查平台是否支持相机
+      if (source == ImageSource.camera && (kIsWeb || 
+          defaultTargetPlatform == TargetPlatform.macOS || 
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux)) {
+        UINotificationService().showError('当前平台不支持拍照功能，请选择从相册选择');
         return;
       }
 
@@ -583,12 +619,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
 
       if (image != null) {
-        setState(() {
-          _selectedAvatarFile = File(image.path);
-          _hasUnsavedChanges = true;
-        });
+        if (kIsWeb) {
+          // Web平台：读取为字节数据
+          final bytes = await image.readAsBytes();
+          setState(() {
+            _selectedAvatarFile = bytes;
+            _hasUnsavedChanges = true;
+          });
+        } else {
+          // IO平台：使用File
+          setState(() {
+            _selectedAvatarFile = File(image.path);
+            _hasUnsavedChanges = true;
+          });
+        }
 
-        _logger.i('头像已选择', extra: {'imagePath': image.path});
+        _logger.i('头像已选择', extra: {'imagePath': kIsWeb ? 'Web bytes' : image.path});
       }
     } catch (e) {
       _logger.e('选择头像失败', error: e);
@@ -692,8 +738,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
         );
 
         try {
+          // 获取文件字节数据
+          final fileBytes = await _getFileBytes();
+          
           final response = await UserService.instance.uploadAvatar(
-            _selectedAvatarFile!,
+            fileBytes,
             onProgress: (progress) {
               // 更新上传进度
               setState(() {

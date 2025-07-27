@@ -113,7 +113,7 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settings => '设置';
   @override
-  String get profile => '个人资料';
+  String get profile => '我的';
   @override
   String get privacy => '隐私';
   @override

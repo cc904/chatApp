@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cc"
+    namespace = "com.xoxchat.cc"
     compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.cc"
+        applicationId = "com.xoxchat.cc"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24  // 设置为24以满足flutter_sound插件要求

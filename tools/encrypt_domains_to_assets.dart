@@ -65,32 +65,23 @@ class DomainEncryptor {
     }
   }
 
-  /// 显示模式选择菜单
-  String? showModeMenu() {
-    print('请选择运行模式:');
-    print('1. 开发模式 (development)');
-    print('2. 正式模式 (production)');
-    print('请输入选择 (1/2): ');
+  /// 确认加密完整配置
+  bool confirmEncryption() {
+    print('🔐 将加密完整配置（包含development和production环境）');
+    print('💡 应用运行时将根据Debug/Release模式自动选择对应环境');
+    print('确认继续？(y/N): ');
     
     final input = stdin.readLineSync();
-    switch (input?.trim()) {
-      case '1':
-        return 'development';
-      case '2':
-        return 'production';
-      default:
-        print('❌ 无效选择，请重新运行脚本');
-        return null;
-    }
+    return input?.trim().toLowerCase() == 'y' || input?.trim().toLowerCase() == 'yes';
   }
 
   /// 处理域名文件
   Future<void> processDomainsFile() async {
     try {
-      // 显示选择菜单
-      final selectedMode = showModeMenu();
-      if (selectedMode == null) {
-        exit(1);
+      // 确认加密操作
+      if (!confirmEncryption()) {
+        print('❌ 操作已取消');
+        exit(0);
       }
 
       // 读取源文件
@@ -101,38 +92,45 @@ class DomainEncryptor {
 
       final jsonContent = await sourceFile.readAsString();
       
-      // 验证JSON格式并提取对应模式的域名
-      late List<String> selectedDomains;
+      // 验证JSON格式
+      late Map<String, dynamic> domainsData;
       try {
-        final domainsData = jsonDecode(jsonContent);
+        domainsData = jsonDecode(jsonContent);
         
-        if (domainsData is Map<String, dynamic>) {
-          // 新格式：对象，包含development和production
-          final modeData = domainsData[selectedMode];
-          if (modeData is List) {
-            selectedDomains = List<String>.from(modeData);
-          } else {
-            throw '找不到模式 "$selectedMode" 的域名配置';
-          }
-        } else {
+        if (domainsData is! Map<String, dynamic>) {
           throw '不支持的JSON格式，期望包含development和production的对象';
         }
         
-        if (selectedDomains.isEmpty) {
-          throw '模式 "$selectedMode" 的域名列表为空';
+        // 验证必需的环境配置
+        final devDomains = domainsData['development'];
+        final prodDomains = domainsData['production'];
+        
+        if (devDomains is! List || prodDomains is! List) {
+          throw '配置格式错误，development和production必须是域名数组';
         }
-        print('✅ $selectedMode 模式下找到 ${selectedDomains.length} 个域名');
-        for (int i = 0; i < selectedDomains.length; i++) {
-          print('   ${i + 1}. ${selectedDomains[i]}');
+        
+        if (devDomains.isEmpty || prodDomains.isEmpty) {
+          throw '环境配置不能为空';
         }
+        
+        print('✅ 发现完整环境配置:');
+        print('   🌐 Development: ${devDomains.length} 个域名');
+        for (int i = 0; i < devDomains.length; i++) {
+          print('      ${i + 1}. ${devDomains[i]}');
+        }
+        print('   🔒 Production: ${prodDomains.length} 个域名');
+        for (int i = 0; i < prodDomains.length; i++) {
+          print('      ${i + 1}. ${prodDomains[i]}');
+        }
+        
       } catch (e) {
         throw '无效的JSON格式: $e';
       }
 
-      // 加密选定模式的域名列表
-      final selectedDomainsJson = jsonEncode(selectedDomains);
-      print('🔐 开始AES-128加密...');
-      final encryptedData = encryptJson(selectedDomainsJson);
+      // 加密完整的域名配置（包含development和production）
+      final fullConfigJson = jsonEncode(domainsData);
+      print('🔐 开始AES-128加密完整配置...');
+      final encryptedData = encryptJson(fullConfigJson);
 
       // 确保assets目录存在
       final assetsDir = Directory('assets');
@@ -147,9 +145,10 @@ class DomainEncryptor {
 
       print('🎉 加密完成！');
       print('📄 输出文件: ${outputFile.path}');
-      print('📄 选择模式: $selectedMode');
-      print('📊 原文件大小: ${selectedDomainsJson.length} 字节');
+      print('📄 包含环境: development + production');
+      print('📊 原文件大小: ${fullConfigJson.length} 字节');
       print('📊 加密后大小: ${encryptedData.length} 字符');
+      print('💡 应用将根据Debug/Release模式自动选择对应环境的域名');
 
     } catch (error) {
       print('❌ 处理失败: $error');

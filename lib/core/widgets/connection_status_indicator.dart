@@ -96,7 +96,12 @@ class ConnectionStatusIndicator extends StatelessWidget {
             );
 
           case SocketConnectionStatus.connected:
-            return const SizedBox.shrink();
+            // 这个分支实际上不会执行，因为在上面已经处理了connected状态
+            // 但为了满足switch语句的完整性，保留这个分支
+            return SizedBox(
+              width: size,
+              height: size,
+            );
         }
       },
     );

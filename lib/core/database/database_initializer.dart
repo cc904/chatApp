@@ -145,6 +145,35 @@ class DatabaseInitializer {
     }
   }
 
+  /// 获取用户数据库文件路径
+  ///
+  /// 获取特定用户的数据库文件路径
+  ///
+  /// 参数:
+  /// - userId: 用户ID
+  ///
+  /// 返回值:
+  /// - 数据库文件路径
+  static Future<String> getUserDatabasePath(String userId) async {
+    final sanitizedUserId = userId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    return 'app_database_$sanitizedUserId.db';
+  }
+
+  /// 列出所有用户数据库
+  ///
+  /// 获取所有现有用户数据库文件的列表
+  ///
+  /// 返回值:
+  /// - 用户ID列表
+  static Future<List<String>> listUserDatabases() async {
+    try {
+      return await listAllUserDatabases();
+    } catch (error) {
+      _logger.e('列出用户数据库失败', error: error, stackTrace: StackTrace.current);
+      return [];
+    }
+  }
+
   /// 清理数据库
   ///
   /// 清空数据库中的所有数据，但保留数据库结构

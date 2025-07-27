@@ -157,18 +157,10 @@ class AppConfig {
   /// 获取当前服务器的显示名称
   String get currentServerName {
     final url = serverUrl;
-    final uri = Uri.parse(url);
+    if (url.isEmpty) return '未知服务器';
     
-    // 根据主机名和端口推断服务器类型
-    if (uri.host.contains('localhost') || uri.host.contains('127.0.0.1')) {
-      return '本地服务器';
-    } else if (uri.host.contains('local')) {
-      return '局域网服务器';
-    } else if (uri.port == 3000) {
-      return '开发服务器';
-    } else {
-      return '云端服务器';
-    }
+    final serverInfo = _getServerEnvironmentInfo(url);
+    return serverInfo['displayName'] ?? '未知服务器';
   }
 
   /// 获取所有服务器的显示信息
@@ -176,25 +168,85 @@ class AppConfig {
     return _availableServers.asMap().entries.map((entry) {
       final index = entry.key;
       final url = entry.value;
-      final uri = Uri.parse(url);
-      
-      String name;
-      if (uri.host.contains('localhost') || uri.host.contains('127.0.0.1')) {
-        name = '本地服务器';
-      } else if (uri.host.contains('local')) {
-        name = '局域网服务器 ${index + 1}';
-      } else if (uri.port == 3000) {
-        name = '开发服务器 ${index + 1}';
-      } else {
-        name = '服务器 ${index + 1}';
-      }
+      final serverInfo = _getServerEnvironmentInfo(url);
       
       return {
-        'name': name,
+        'name': serverInfo['displayName'] ?? '服务器 ${index + 1}',
         'url': url,
         'fileServerUrl': allFileServerUrls[index],
+        'environment': serverInfo['environment'] ?? 'unknown',
+        'environmentColor': serverInfo['environmentColor'] ?? 'grey',
       };
     }).toList();
+  }
+
+  /// 根据服务器URL获取环境信息
+  Map<String, String> _getServerEnvironmentInfo(String url) {
+    if (url.isEmpty) {
+      return {
+        'displayName': '未知服务器',
+        'environment': 'unknown',
+        'environmentColor': 'grey',
+      };
+    }
+
+    try {
+      final uri = Uri.parse(url);
+      
+      // 判断是否为开发环境服务器
+      final isDevelopment = _isDevelopmentServer(uri);
+      
+      if (isDevelopment) {
+        // 开发环境服务器
+        if (uri.host.contains('localhost') || uri.host.contains('127.0.0.1')) {
+          return {
+            'displayName': '本地开发服务器',
+            'environment': 'development',
+            'environmentColor': 'blue',
+          };
+        } else if (uri.host.startsWith('192.168.') || uri.host.startsWith('10.') || uri.host.startsWith('172.')) {
+          return {
+            'displayName': '局域网开发服务器',
+            'environment': 'development', 
+            'environmentColor': 'blue',
+          };
+        } else {
+          return {
+            'displayName': '开发服务器',
+            'environment': 'development',
+            'environmentColor': 'blue',
+          };
+        }
+      } else {
+        // 生产环境服务器
+        final isHttps = uri.scheme == 'https';
+        return {
+          'displayName': isHttps ? '生产服务器 (安全)' : '生产服务器',
+          'environment': 'production',
+          'environmentColor': isHttps ? 'green' : 'orange',
+        };
+      }
+    } catch (e) {
+      _logger.e('解析服务器URL失败', error: e, extra: {'url': url});
+      return {
+        'displayName': '服务器配置错误',
+        'environment': 'error',
+        'environmentColor': 'red',
+      };
+    }
+  }
+
+  /// 判断是否为开发环境服务器
+  bool _isDevelopmentServer(Uri uri) {
+    // 根据常见的开发环境特征判断
+    return uri.host.contains('localhost') ||
+           uri.host.contains('127.0.0.1') ||
+           uri.host.startsWith('192.168.') ||
+           uri.host.startsWith('10.') ||
+           uri.host.startsWith('172.') ||
+           uri.port == 3000 ||
+           uri.port == 7003 ||
+           uri.scheme == 'http'; // HTTP通常用于开发环境
   }
 
   /// 初始化配置（确保配置已加载）

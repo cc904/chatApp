@@ -1,6 +1,6 @@
 {
-    "name": "X0X Chat App",
-    "short_name": "X0X Chat",
+    "name": "ThisApp",
+    "short_name": "ThisApp",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

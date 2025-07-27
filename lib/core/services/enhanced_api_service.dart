@@ -23,9 +23,9 @@ class EnhancedApiService {
 
     _dio = Dio(BaseOptions(
       baseUrl: appConfig.serverUrl, // 添加默认baseUrl
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 60), // 增加连接超时
+      receiveTimeout: const Duration(seconds: 60), // 增加接收超时  
+      sendTimeout: const Duration(seconds: 60),    // 增加发送超时
     ));
     _setupInterceptors();
   }
@@ -75,12 +75,30 @@ class EnhancedApiService {
               'url': error.requestOptions.uri.toString(),
               'path': error.requestOptions.path,
             });
+          } else if (error.type == DioExceptionType.connectionTimeout ||
+                     error.type == DioExceptionType.receiveTimeout ||
+                     error.type == DioExceptionType.sendTimeout) {
+            // 网络超时错误
+            _logger.w('🌐 网络超时', extra: {
+              'type': error.type.toString(),
+              'url': error.requestOptions.uri.toString(),
+              'message': '服务器响应时间过长，请检查网络连接',
+              'timeout': '${error.requestOptions.connectTimeout?.inSeconds}s',
+            });
+          } else if (error.type == DioExceptionType.connectionError) {
+            // 连接错误
+            _logger.w('🌐 网络连接失败', extra: {
+              'url': error.requestOptions.uri.toString(),
+              'message': '无法连接到服务器，请检查网络连接或服务器状态',
+              'error': error.message,
+            });
           } else {
             // 其他错误使用错误级别
             _logger.e('❌ API错误', extra: {
               'statusCode': error.response?.statusCode,
               'url': error.requestOptions.uri.toString(),
               'message': error.message,
+              'type': error.type.toString(),
             });
           }
           handler.next(error);

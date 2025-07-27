@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:cc/core/services/log_service.dart';
 
 /// Web平台的数据库连接实现
-DatabaseConnection openDatabaseConnection() {
-  LogService.instance.i('开始初始化Web数据库连接...');
+DatabaseConnection openDatabaseConnection(String userId) {
+  LogService.instance.i('开始初始化Web数据库连接，用户ID: $userId');
   LogService.instance.i('构建模式: ${kReleaseMode ? 'Release' : 'Debug'}');
   
   return DatabaseConnection.delayed(Future(() async {
@@ -13,8 +13,13 @@ DatabaseConnection openDatabaseConnection() {
       LogService.instance.i('WASM文件路径: ./sqlite3.wasm');
       LogService.instance.i('Worker文件路径: ./drift_worker.dart.js');
       
+      // 为每个用户创建独立的数据库
+      final sanitizedUserId = userId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final databaseName = 'app_database_$sanitizedUserId.db';
+      LogService.instance.i('数据库名称: $databaseName');
+      
       final result = await WasmDatabase.open(
-        databaseName: 'app_database.db',
+        databaseName: databaseName,
         sqlite3Uri: Uri.parse('./sqlite3.wasm'),
         driftWorkerUri: Uri.parse('./drift_worker.dart.js'),
       );

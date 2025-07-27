@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:crypto/crypto.dart';
 import 'package:pointycastle/export.dart';
@@ -49,16 +50,53 @@ class BackupDomainService {
       // 解密域名列表
       final decryptedJson = _decryptData(encryptedData);
       
-      // 解析域名列表
-      final domains = (jsonDecode(decryptedJson) as List).cast<String>();
+      // 解析域名配置
+      final domainsConfig = jsonDecode(decryptedJson);
+      
+      // 根据运行模式选择对应环境的域名
+      List<String> domains;
+      String environmentMode;
+      
+      if (domainsConfig is Map<String, dynamic>) {
+        // 新格式：包含development和production环境
+        if (kDebugMode) {
+          // Debug模式：加载所有可用的服务器（development + production）
+          environmentMode = 'development + production';
+          
+          final devDomains = (domainsConfig['development'] as List?)?.cast<String>() ?? [];
+          final prodDomains = (domainsConfig['production'] as List?)?.cast<String>() ?? [];
+          
+          // 合并两个环境的服务器，development在前，production在后
+          domains = [...devDomains, ...prodDomains];
+          
+          _logger.i('🔧 Debug模式：加载所有环境的服务器', extra: {
+            'developmentCount': devDomains.length,
+            'productionCount': prodDomains.length,
+            'totalCount': domains.length,
+            'developmentServers': devDomains,
+            'productionServers': prodDomains,
+          });
+        } else {
+          // Release模式：只加载production环境
+          environmentMode = 'production';
+          domains = (domainsConfig['production'] as List?)?.cast<String>() ?? [];
+        }
+      } else if (domainsConfig is List) {
+        // 旧格式：直接是域名数组（向后兼容）
+        environmentMode = 'legacy';
+        domains = domainsConfig.cast<String>();
+      } else {
+        throw '不支持的域名配置格式';
+      }
 
       // 验证域名格式
       _cachedDomains = domains.where(_isValidDomain).toList();
       
-      // 🔓 打印解密后的API服务器地址 (Release模式也要显示)
+      // 🔓 打印解密后的API服务器地址
       if (_cachedDomains!.isNotEmpty) {
-        // 使用print确保Release模式也能显示
-        print('🔓 已解密API服务器地址:');
+        // 使用print确保所有模式都能显示
+        final modeInfo = kDebugMode ? 'Debug模式' : 'Release模式';
+        print('🔓 $modeInfo - 已解密API服务器地址 ($environmentMode):');
         for (int i = 0; i < _cachedDomains!.length; i++) {
           final server = _cachedDomains![i];
           final isHttps = server.startsWith('https://');
@@ -66,7 +104,11 @@ class BackupDomainService {
           print('   $icon ${i + 1}. $server');
         }
         // 同时记录到日志系统
-        _logger.i('🔓 已解密API服务器地址:', extra: {'servers': _cachedDomains});
+        _logger.i('🔓 已解密API服务器地址:', extra: {
+          'servers': _cachedDomains,
+          'mode': modeInfo,
+          'environment': environmentMode
+        });
       } else {
         print('⚠️  解密后未找到有效的API服务器地址');
         _logger.w('⚠️  解密后未找到有效的API服务器地址');
@@ -148,6 +190,7 @@ class BackupDomainService {
       return false;
     }
   }
+
 
   /// 获取紧急后备域名（从加密文件加载失败时使用）
   List<String> _getEmergencyDomains() {

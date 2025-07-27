@@ -6,3 +6,7 @@ Future<bool> checkUserDatabaseExists(String userId) async {
 Future<bool> deleteDatabaseFiles(String userId) async {
   throw UnsupportedError('此平台不支持数据库文件删除');
 }
+
+Future<List<String>> listAllUserDatabases() async {
+  throw UnsupportedError('此平台不支持数据库文件列表');
+}
