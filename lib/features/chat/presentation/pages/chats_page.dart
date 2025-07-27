@@ -552,7 +552,8 @@ class _ChatsPageState extends State<ChatsPage>
             previous.conversationSyncStatus != current.conversationSyncStatus,
         builder: (context, state) {
           return Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const ConnectionStatusIndicator(size: 14),
               const SizedBox(width: 4),

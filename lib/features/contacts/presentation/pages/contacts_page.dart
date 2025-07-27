@@ -315,7 +315,8 @@ class _ContactsPageState extends State<ContactsPage>
           appBar: AppBar(
             centerTitle: true,
             title: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const ConnectionStatusIndicator(size: 14),
                 const SizedBox(width: 4),

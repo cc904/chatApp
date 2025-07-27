@@ -3,12 +3,23 @@ import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 /// 网络连接状态指示器
-/// 在AppBar标题前显示小图标/动画，实时反映Socket连接状态。
+/// 在AppBar标题前显示小图标/动画，实时反映Socket连接状态和连接质量。
 class ConnectionStatusIndicator extends StatelessWidget {
-  const ConnectionStatusIndicator({super.key, this.size = 16});
+  const ConnectionStatusIndicator({
+    super.key, 
+    this.size = 16, 
+    this.showQuality = true,
+    this.showLabel = false,
+  });
 
   /// 图标尺寸
   final double size;
+  
+  /// 是否显示连接质量
+  final bool showQuality;
+  
+  /// 是否显示标签
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +33,13 @@ class ConnectionStatusIndicator extends StatelessWidget {
         final socketStatus =
             socketSnapshot.data ?? SocketConnectionStatus.connected;
 
-        // 连接正常时不显示任何图标
+        // 连接正常时显示一个透明的占位符，保持布局稳定
         if (socketStatus == SocketConnectionStatus.connected) {
-          return const SizedBox.shrink();
+          return SizedBox(
+            width: size,
+            height: size,
+            // 保持空间占用但不显示内容，确保布局稳定
+          );
         }
 
         switch (socketStatus) {
