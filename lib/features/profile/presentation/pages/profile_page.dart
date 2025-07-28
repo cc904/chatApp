@@ -24,8 +24,9 @@ import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/services/user_service.dart';
-import 'package:cc/features/chat/presentation/pages/chats_page.dart';
+import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
+import 'package:cc/features/chat/presentation/pages/chats_page.dart';
 import 'dart:async';
 
 class ProfilePage extends StatefulWidget {
@@ -792,10 +793,10 @@ class _ProfilePageState extends State<ProfilePage>
 
   /// 处理登出
   void _handleLogout() {
-    // 登出逻辑
+    // 登出逻辑 - 导航到HomePage而不是直接到ChatsPage
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const ChatsPage()),
+      MaterialPageRoute(builder: (context) => const HomePage()),
       (route) => false,
     );
   }
