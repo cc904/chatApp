@@ -24,7 +24,6 @@ import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/services/user_service.dart';
-import 'package:cc/features/home/presentation/pages/home_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/chat/presentation/pages/chats_page.dart';
 import 'dart:async';
@@ -792,12 +791,76 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   /// 处理登出
-  void _handleLogout() {
-    // 登出逻辑 - 导航到HomePage而不是直接到ChatsPage
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
-      (route) => false,
-    );
+  void _handleLogout() async {
+    try {
+      _logger.i('用户点击登出');
+      
+      // 显示确认对话框
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('确认登出'),
+          content: const Text('您确定要退出登录吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('确定', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldLogout != true) return;
+
+      // 清除认证状态和Token
+      await _clearAuthenticationState();
+      
+      // 导航到登录页面
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const AuthPage()),
+          (route) => false,
+        );
+      }
+      
+      _logger.i('用户已成功登出');
+    } catch (e) {
+      _logger.e('登出失败', error: e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('登出失败: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 清除认证状态
+  Future<void> _clearAuthenticationState() async {
+    try {
+      final secureStorage = SecureStorageService();
+      
+      // 清除所有认证相关的存储数据
+      await secureStorage.delete('user_id');
+      await secureStorage.delete('refresh_token');
+      await secureStorage.delete('socket_token');
+      await secureStorage.delete('access_token');
+      
+      // 清除其他用户相关数据（可选）
+      await secureStorage.delete('login_servers');
+      await secureStorage.delete('selected_server_url');
+      
+      _logger.i('已清除所有认证状态');
+    } catch (e) {
+      _logger.e('清除认证状态失败', error: e);
+      throw e;
+    }
   }
 }

@@ -103,7 +103,8 @@
       "Bash(cp:*)",
       "Bash(aapt dump badging:*)",
       "WebFetch(domain:socket.io)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(./verify-docker-config.sh:*)"
     ],
     "deny": []
   }

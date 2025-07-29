@@ -3,6 +3,6 @@
     "http://192.168.10.244:7003"
   ],
   "production": [
-    "https://popoopoo.com:8003"
+    "https://popoopoo.com:7003"
   ]
 }
