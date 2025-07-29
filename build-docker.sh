@@ -274,16 +274,16 @@ except Exception as e:
         fi
         
         # 检查域名加密工具是否存在
-        if [ ! -f "tools/encrypt_domains_to_assets.dart" ]; then
-            echo "   ❌ 域名加密工具不存在: tools/encrypt_domains_to_assets.dart"
+        if [ ! -f "scripts/auto_encrypt_domains.dart" ]; then
+            echo "   ❌ 域名加密工具不存在: scripts/auto_encrypt_domains.dart"
             echo "   💡 请确保项目包含域名加密工具"
             exit 1
         fi
         
         # 自动运行域名加密工具
         echo "   🔒 加密域名到assets文件..."
-        if echo "$DOMAIN_CHOICE" | dart run tools/encrypt_domains_to_assets.dart > /dev/null 2>&1; then
-            echo "   ✅ 域名加密完成 ($DOMAIN_MODE 环境)"
+        if echo "y" | dart run scripts/auto_encrypt_domains.dart > /dev/null 2>&1; then
+            echo "   ✅ 域名加密完成 (完整配置)"
         else
             echo "   ❌ 域名加密失败"
             echo "   💡 请检查 login_domains.json 配置是否正确"
@@ -358,7 +358,7 @@ if [ "$DO_DOCKER" = true ]; then
         TAG="latest"
         DOCKERFILE="Dockerfile"
     fi
-    REGISTRY="18.183.101.229:15000"
+    REGISTRY="nrt.vultrcr.com/ex00"
     FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME:$TAG"
 
     echo "┌──────────────────────────────────────────────┐"
