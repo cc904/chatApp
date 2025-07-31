@@ -355,8 +355,7 @@ class _MyAppState extends State<MyApp> {
             theme: ThemeData(
               colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,
-              // MiniTex免字体渲染器配置
-              fontFamily: 'MiniTex',
+              // 使用系统默认字体，支持动态加载
               fontFamilyFallback: const [
                 'system-ui',
                 '-apple-system', 
@@ -377,7 +376,6 @@ class _MyAppState extends State<MyApp> {
                 titleTextStyle: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'MiniTex',
                 ),
               ),
             ),

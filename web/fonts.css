@@ -1,13 +1,14 @@
-/* MiniTex免字体渲染器 - 系统字体优先零依赖解决方案 */
-/* 配合minitex.min.js实现免字体加载的高性能文本渲染 */
+/* 动态字体加载系统 - 按需加载优化方案 */
+/* 配合font-slicer.js实现动态字体切片加载 */
 
-/* 完全使用系统内置字体，避免加载问题 */
+/* 使用系统内置字体作为基础，动态加载CJK字体 */
 *, 
 *::before, 
 *::after,
 body,
 html {
   font-family: 
+    "DynamicCJK",  /* 动态加载的CJK字体 */
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
@@ -30,9 +31,10 @@ flt-glass-pane {
   font-family: inherit !important;
 }
 
-/* 禁用字体合成和网络加载 */
+/* 字体渲染优化 */
 * {
   font-synthesis: none !important;
+  text-rendering: optimizeSpeed !important;
 }
 
 /* 确保CJK字符正确显示 */
@@ -40,6 +42,7 @@ flt-glass-pane {
 :lang(zh-CN),
 :lang(zh-TW) {
   font-family: 
+    "DynamicCJK",  /* 优先使用动态字体 */
     "PingFang SC",
     "Hiragino Sans GB",
     "Microsoft YaHei",
@@ -50,7 +53,7 @@ flt-glass-pane {
     sans-serif !important;
 }
 
-/* MiniTex Canvas文本渲染优化 */
+/* Canvas文本渲染优化 */
 canvas {
   text-rendering: optimizeSpeed !important;
   font-smooth: never !important;
@@ -64,7 +67,14 @@ canvas {
   font-family: inherit !important;
 }
 
-/* MiniTex字体回退标识 */
-.minitex-fallback {
-  font-family: "MiniTex", system-ui, sans-serif !important;
+/* 动态字体加载状态指示 */
+.font-loading {
+  font-family: system-ui, sans-serif !important;
+  opacity: 0.8;
+}
+
+.font-loaded {
+  font-family: "DynamicCJK", system-ui, sans-serif !important;
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out;
 }

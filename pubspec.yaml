@@ -173,5 +173,5 @@ flutter:
     - assets/sounds/
     - assets/
 
-  # MiniTex免字体渲染器 - 删除所有字体声明，避免打包大字体
-  # fonts: ← 整段删掉，使用MiniTex内嵌字形
+  # 动态字体加载系统 - 无需静态字体文件，按需动态加载
+  # fonts: ← 不声明字体文件，使用动态切片方案
