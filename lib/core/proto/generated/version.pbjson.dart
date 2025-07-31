@@ -1,13 +1,14 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: version.proto
-//
+// Generated from version.proto.
+
 // @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
@@ -19,7 +20,14 @@ const VersionCheckRequest$json = {
   '2': [
     {'1': 'current_version', '3': 1, '4': 1, '5': 9, '10': 'currentVersion'},
     {'1': 'platform', '3': 2, '4': 1, '5': 9, '10': 'platform'},
-    {'1': 'client_info', '3': 3, '4': 1, '5': 11, '6': '.cc.ClientInfo', '10': 'clientInfo'},
+    {
+      '1': 'client_info',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ClientInfo',
+      '10': 'clientInfo'
+    },
   ],
 };
 
@@ -60,8 +68,22 @@ const ClientInfo$json = {
     {'1': 'version', '3': 1, '4': 1, '5': 9, '10': 'version'},
     {'1': 'build_number', '3': 2, '4': 1, '5': 9, '10': 'buildNumber'},
     {'1': 'platform', '3': 3, '4': 1, '5': 9, '10': 'platform'},
-    {'1': 'device_info', '3': 4, '4': 1, '5': 11, '6': '.cc.DeviceInfo', '10': 'deviceInfo'},
-    {'1': 'metadata', '3': 5, '4': 3, '5': 11, '6': '.cc.ClientInfo.MetadataEntry', '10': 'metadata'},
+    {
+      '1': 'device_info',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.DeviceInfo',
+      '10': 'deviceInfo'
+    },
+    {
+      '1': 'metadata',
+      '3': 5,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.ClientInfo.MetadataEntry',
+      '10': 'metadata'
+    },
   ],
   '3': [ClientInfo_MetadataEntry$json],
 };
@@ -93,7 +115,13 @@ const VersionRelease$json = {
     {'1': 'release_notes', '3': 3, '4': 1, '5': 9, '10': 'releaseNotes'},
     {'1': 'download_url', '3': 4, '4': 1, '5': 9, '10': 'downloadUrl'},
     {'1': 'is_forced', '3': 5, '4': 1, '5': 8, '10': 'isForced'},
-    {'1': 'min_supported_version', '3': 6, '4': 1, '5': 9, '10': 'minSupportedVersion'},
+    {
+      '1': 'min_supported_version',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'minSupportedVersion'
+    },
     {'1': 'release_date', '3': 7, '4': 1, '5': 3, '10': 'releaseDate'},
     {'1': 'is_active', '3': 8, '4': 1, '5': 8, '10': 'isActive'},
   ],
@@ -128,8 +156,22 @@ const VersionStatsResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'error_message', '3': 2, '4': 1, '5': 9, '10': 'errorMessage'},
-    {'1': 'version_distribution', '3': 3, '4': 3, '5': 11, '6': '.cc.VersionDistribution', '10': 'versionDistribution'},
-    {'1': 'platform_distribution', '3': 4, '4': 3, '5': 11, '6': '.cc.PlatformDistribution', '10': 'platformDistribution'},
+    {
+      '1': 'version_distribution',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.VersionDistribution',
+      '10': 'versionDistribution'
+    },
+    {
+      '1': 'platform_distribution',
+      '3': 4,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.PlatformDistribution',
+      '10': 'platformDistribution'
+    },
   ],
 };
 
@@ -183,7 +225,13 @@ const VersionReleaseRequest$json = {
     {'1': 'release_notes', '3': 3, '4': 1, '5': 9, '10': 'releaseNotes'},
     {'1': 'download_url', '3': 4, '4': 1, '5': 9, '10': 'downloadUrl'},
     {'1': 'is_forced', '3': 5, '4': 1, '5': 8, '10': 'isForced'},
-    {'1': 'min_supported_version', '3': 6, '4': 1, '5': 9, '10': 'minSupportedVersion'},
+    {
+      '1': 'min_supported_version',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'minSupportedVersion'
+    },
   ],
 };
 
@@ -201,7 +249,14 @@ const VersionReleaseResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'error_message', '3': 2, '4': 1, '5': 9, '10': 'errorMessage'},
-    {'1': 'release', '3': 3, '4': 1, '5': 11, '6': '.cc.VersionRelease', '10': 'release'},
+    {
+      '1': 'release',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.VersionRelease',
+      '10': 'release'
+    },
   ],
 };
 
@@ -210,4 +265,3 @@ final $typed_data.Uint8List versionReleaseResponseDescriptor = $convert.base64De
     'ChZWZXJzaW9uUmVsZWFzZVJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSIwoNZX'
     'Jyb3JfbWVzc2FnZRgCIAEoCVIMZXJyb3JNZXNzYWdlEiwKB3JlbGVhc2UYAyABKAsyEi5jYy5W'
     'ZXJzaW9uUmVsZWFzZVIHcmVsZWFzZQ==');
-

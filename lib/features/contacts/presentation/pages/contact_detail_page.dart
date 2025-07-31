@@ -76,6 +76,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
             avatarUrl: widget.contact.avatar,
             name: widget.contact.nickName,
             radius: 40,
+            roleId: widget.contact.roleId,
           ),
           const SizedBox(width: 20),
           // 名称和其他基本信息

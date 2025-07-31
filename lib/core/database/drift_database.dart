@@ -19,6 +19,7 @@ class Users extends Table {
   TextColumn get pinyin => text().nullable()();   // pinyin
   DateTimeColumn get lastActiveTime => dateTime().nullable()(); // last_active_time (DateTime)
   TextColumn get status => text().nullable()();   // status
+  IntColumn get roleId => integer().withDefault(const Constant(0))(); // role_id 用户角色ID
   
   // 本地扩展字段
   BoolColumn get online => boolean().withDefault(const Constant(false))();
@@ -39,6 +40,7 @@ class CurrentUsers extends Table {
   DateTimeColumn get lastLoginTime => dateTime().nullable()(); // last_login_time (DateTime)
   TextColumn get status => text().nullable()();   // status
   BoolColumn get hasSetPassword => boolean().withDefault(const Constant(false))(); // has_set_password
+  IntColumn get roleId => integer().withDefault(const Constant(0))(); // role_id 用户角色ID
   
   @override
   Set<Column> get primaryKey => {userId};
@@ -87,6 +89,7 @@ class Messages extends Table {
   TextColumn get senderId => text()();            // sender_id
   TextColumn get senderName => text().nullable()(); // sender_name
   TextColumn get senderAvatar => text().nullable()(); // sender_avatar
+  IntColumn get senderRoleId => integer().withDefault(const Constant(0))(); // sender_role_id 发送者角色ID
   DateTimeColumn get createdAt => dateTime()();   // created_at (DateTime)
   DateTimeColumn get updatedAt => dateTime().nullable()(); // updated_at (DateTime)
   
@@ -167,7 +170,50 @@ class AppDatabase extends _$AppDatabase {
   }
   
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
+  
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (Migrator m) {
+      return m.createAll();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from == 1 && to == 2) {
+        // 添加role_id字段到current_users表
+        await m.addColumn(currentUsers, currentUsers.roleId);
+        _logger.i('数据库迁移完成: 添加role_id字段到current_users表');
+      }
+      if (from == 2 && to == 3) {
+        // 添加role_id字段到users表
+        await m.addColumn(users, users.roleId);
+        _logger.i('数据库迁移完成: 添加role_id字段到users表');
+      }
+      if (from == 3 && to == 4) {
+        // 添加senderRoleId字段到messages表
+        await m.addColumn(messages, messages.senderRoleId);
+        _logger.i('数据库迁移完成: 添加sender_role_id字段到messages表');
+      }
+      if (from == 1 && to == 3) {
+        // 从版本1直接升级到版本3
+        await m.addColumn(currentUsers, currentUsers.roleId);
+        await m.addColumn(users, users.roleId);
+        _logger.i('数据库迁移完成: 添加role_id字段到current_users和users表');
+      }
+      if (from == 1 && to == 4) {
+        // 从版本1直接升级到版本4
+        await m.addColumn(currentUsers, currentUsers.roleId);
+        await m.addColumn(users, users.roleId);
+        await m.addColumn(messages, messages.senderRoleId);
+        _logger.i('数据库迁移完成: 添加role_id和sender_role_id字段');
+      }
+      if (from == 2 && to == 4) {
+        // 从版本2直接升级到版本4
+        await m.addColumn(users, users.roleId);
+        await m.addColumn(messages, messages.senderRoleId);
+        _logger.i('数据库迁移完成: 添加role_id字段到users表和sender_role_id字段到messages表');
+      }
+    },
+  );
   
   /// 初始化数据库（为特定用户）
   static Future<void> init({required CurrentUser currentUser}) async {
@@ -257,6 +303,7 @@ class AppDatabase extends _$AppDatabase {
         status: Value(userStatus.isEmpty ? null : userStatus),
         lastLoginTime: Value(lastLoginTimeMs),
         hasSetPassword: Value(currentUser.hasSetPassword),
+        roleId: Value(currentUser.roleId), // 添加roleId字段
       ));
       
       _logger.i('当前用户信息已保存到 Drift 数据库');

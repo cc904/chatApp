@@ -44,6 +44,7 @@ class MessageAdapter {
       senderId: protoMessage.senderId,
       senderName: protoMessage.hasSenderName() ? protoMessage.senderName : null,
       senderAvatar: protoMessage.hasSenderAvatar() ? protoMessage.senderAvatar : null,
+      senderRoleId: protoMessage.hasSenderRoleId() ? protoMessage.senderRoleId : 0,
       createdAt: protoMessage.hasCreatedAt() 
           ? DateTime.fromMillisecondsSinceEpoch(protoMessage.createdAt.toInt())
           : DateTime.now(),

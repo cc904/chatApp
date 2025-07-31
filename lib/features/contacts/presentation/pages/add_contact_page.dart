@@ -192,6 +192,7 @@ class _AddContactPageState extends State<AddContactPage> {
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
                   name: user.nickName,
                   radius: 25,
+                  roleId: user.roleId,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -833,6 +834,7 @@ class _AddContactPageState extends State<AddContactPage> {
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
                   name: user.nickName,
                   radius: 20,
+                  roleId: user.roleId,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -884,6 +886,25 @@ class _AddContactPageState extends State<AddContactPage> {
     }
   }
 
+  /// 获取会话显示的roleId（仅对私聊有效）
+  int? _getConversationDisplayRoleId(conversation_proto.ConversationProto conversation) {
+    // 只有私聊才显示对方的roleId
+    if (conversation.type != conversation_proto.ConversationType.PRIVATE) return null;
+    
+    try {
+      final currentUser = context.read<CurrentUser>();
+      // 在私聊中找到对方用户的roleId
+      for (final participant in conversation.participants) {
+        if (participant.userId != currentUser.userId) {
+          return participant.hasRoleId() ? participant.roleId : null;
+        }
+      }
+    } catch (e) {
+      _logger.w('获取会话显示roleId失败', extra: {'error': e.toString()});
+    }
+    return null;
+  }
+
   /// 构建会话条目
   Widget _buildConversationItem(conversation_proto.ConversationProto conversation) {
     final isGroup = conversation.type == conversation_proto.ConversationType.GROUP;
@@ -915,6 +936,7 @@ class _AddContactPageState extends State<AddContactPage> {
                           name: conversation.name.isNotEmpty ? conversation.name : conversation.conversationId,
                           avatarUrl: conversation.avatar,
                           radius: 20,
+                          roleId: _getConversationDisplayRoleId(conversation),
                         )
                       : Icon(
                           isGroup ? Icons.group : Icons.campaign,

@@ -247,6 +247,16 @@ class ContactCubit extends Cubit<ContactState> {
       emit(state.toLoadingState());
 
       final contacts = await _contactsRepository.getAllContacts();
+      
+      // 🔥🔥🔥 详细的联系人数据日志
+      for (final contact in contacts) {
+        _logger.i('💼💼💼 加载的联系人数据', extra: {
+          'contactName': contact.nickName,
+          'contactId': contact.userId,
+          'roleId': contact.roleId,
+          'isFriend': contact.isFriend,
+        });
+      }
 
       emit(state.toLoadedState(
         contacts: contacts,
@@ -471,9 +481,7 @@ class ContactCubit extends Cubit<ContactState> {
 
     // 当应用从后台恢复到前台时，仅清理错误，不自动同步，由页面切换逻辑决定
     if (newState == CustomAppLifecycleState.resumed) {
-      _logger.i('应用恢复到前台，清除错误状态', extra: {
-        'instanceId': _instanceId,
-      });
+      _logger.i('应用恢复到前台，清除错误状态');
 
       if (state.errorMessage != null) {
         emit(state.copyWith(errorMessage: null));

@@ -178,9 +178,22 @@ class ChatsRepositoryImpl implements ChatsRepository {
           .where((c) => c.type != 'CHANNEL')
           .toList();
 
+      // 🔥🔥🔥 详细记录私聊会话的participants信息
+      final privateConversations = filteredConversations.where((c) => c.type == 'PRIVATE').toList();
+      for (final conversation in privateConversations) {
+        _logger.i('📋📋📋 从数据库加载私聊会话', extra: {
+          'conversationId': conversation.conversationId,
+          'name': conversation.name,
+          'participants': conversation.participants,
+          'participantsLength': conversation.participants.length,
+          'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
+        });
+      }
+
       _logger.d('成功获取会话列表', extra: {
         '原始会话数量': conversations.length,
         '过滤后会话数量': filteredConversations.length,
+        '私聊会话数量': privateConversations.length,
         '过滤掉的频道数量': conversations.length - filteredConversations.length,
       });
       return filteredConversations;
@@ -206,6 +219,18 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
         // 💢💢💢 第二步：批量添加新会话
         if (newConversations.isNotEmpty) {
+          // 🔥🔥🔥 添加私聊会话的详细日志
+          for (final conversation in newConversations) {
+            if (conversation.type == 'PRIVATE') {
+              _logger.i('📱📱📱 存储私聊会话到数据库', extra: {
+                'conversationId': conversation.conversationId,
+                'name': conversation.name,
+                'participants': conversation.participants,
+                'participantsLength': conversation.participants.length,
+              });
+            }
+          }
+          
           await _database.batch((batch) {
             for (final conv in newConversations) {
               batch.insert(_database.conversations, conv);
@@ -1144,10 +1169,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
         // 查找现有会话以保留本地字段（如lastReadTime）
         await getConversationById(conv.conversationId);
 
+        // 🔥🔥🔥 详细的会话同步调试日志
+        _logger.i('🔄🔄🔄 会话同步处理', extra: {
+          'conversationId': conv.conversationId,
+          'type': conv.type.toString(),
+          'participantsCount': conv.participants.length,
+          'participants': conv.participants.map((p) => {
+            'userId': p.userId,
+            'name': p.name,
+            'roleId': p.hasRoleId() ? p.roleId : 0,
+          }).toList(),
+        });
+
         final dbConversation = ConversationAdapter.fromProto(
           conv,
           currentUserId: _currentUser.userId,
         );
+        
+        _logger.i('✅✅✅ 会话转换完成', extra: {
+          'conversationId': dbConversation.conversationId,
+          'participants': dbConversation.participants,
+        });
+        
         dbConversations.add(dbConversation);
       }
 

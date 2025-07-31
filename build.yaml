@@ -8,16 +8,3 @@ targets:
       # Drift 代码生成
       drift_dev:
         enabled: true
-      
-      # Protocol Buffers 代码生成  
-      protoc_plugin:
-        enabled: true
-  
-  # Web Worker 构建配置
-  web:
-    builders:
-      build_web_compilers:entrypoint:
-        generate_for:
-          - web/**.dart
-        options:
-          compiler: dart2js

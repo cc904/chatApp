@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/database/drift_database.dart';
-import 'package:cc/core/utils/timezone_utils.dart';
 import 'package:cc/core/utils/display_name_utils.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
 import 'voice_message_widget.dart';
@@ -125,7 +124,6 @@ class MessageItem extends StatelessWidget {
 
   void _showContextMenu(BuildContext context) {
     HapticFeedback.lightImpact();
-    // print('🔥 MessageItem: 显示长按菜单');
 
     if (onLongPress == null &&
         onRevoke == null &&
@@ -277,6 +275,7 @@ class MessageItem extends StatelessWidget {
       avatarUrl: message.senderAvatar,
       radius: 16.0,
       backgroundColor: DisplayNameUtils.generateUserColor(message.senderName),
+      roleId: message.senderRoleId,
     );
   }
 
@@ -615,17 +614,12 @@ class MessageItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        FutureBuilder<String>(
-          future: _formatMessageTime(message.createdAt),
-          builder: (context, snapshot) {
-            return Text(
-              snapshot.data ?? '...',
-              style: TextStyle(
-                fontSize: 11.0,
-                color: Colors.grey[600],
-              ),
-            );
-          },
+        Text(
+          _formatMessageTimeSync(message.createdAt),
+          style: TextStyle(
+            fontSize: 11.0,
+            color: Colors.grey[600],
+          ),
         ),
         // 只有私聊的当前用户消息才显示阅读状态
         if (isCurrentUser && isNotGroupChat) ...[
@@ -673,10 +667,42 @@ class MessageItem extends StatelessWidget {
     }
   }
 
-  Future<String> _formatMessageTime(DateTime timestamp) async {
-    // 🌍 使用UTC时间戳，智能格式化为本地时区显示
-    return await TimezoneUtils.formatSmart(timestamp);
+  /// 同步时间格式化方法，避免FutureBuilder导致的布局跳变
+  String _formatMessageTimeSync(DateTime timestamp) {
+    try {
+      // 使用简单的本地时间格式化，避免异步操作
+      final now = DateTime.now();
+      final localTime = timestamp.toLocal();
+      
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final messageDate = DateTime(localTime.year, localTime.month, localTime.day);
+      
+      if (messageDate == today) {
+        // 今天：只显示时间
+        return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      } else if (messageDate == yesterday) {
+        // 昨天：显示"昨天 HH:mm"
+        return '昨天 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      } else if (now.difference(messageDate).inDays < 7) {
+        // 一周内：显示"星期X HH:mm"
+        final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+        final weekday = weekdays[localTime.weekday - 1];
+        return '$weekday ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      } else if (localTime.year == now.year) {
+        // 今年：显示"MM月dd日 HH:mm"
+        return '${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      } else {
+        // 更早：显示"yyyy年MM月dd日 HH:mm"
+        return '${localTime.year}年${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      }
+    } catch (e) {
+      // 格式化失败时返回简单格式
+      final localTime = timestamp.toLocal();
+      return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+    }
   }
+
 }
 
 class _MessageMenuAction {

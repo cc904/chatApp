@@ -34,6 +34,7 @@ class NotificationActionService {
           lastLoginTime: null,
           status: null,
           hasSetPassword: false,
+          roleId: 0, // 默认角色ID
         );
 
         _chatsRepository = ChatsRepositoryImpl(currentUser: currentUser);

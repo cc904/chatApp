@@ -1,13 +1,14 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: contacts.proto
-//
+// Generated from contacts.proto.
+
 // @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
@@ -35,7 +36,14 @@ const FriendRequestProto$json = {
     {'1': 'request_id', '3': 1, '4': 1, '5': 9, '10': 'requestId'},
     {'1': 'sender_id', '3': 2, '4': 1, '5': 9, '10': 'senderId'},
     {'1': 'receiver_id', '3': 3, '4': 1, '5': 9, '10': 'receiverId'},
-    {'1': 'status', '3': 4, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '10': 'status'},
+    {
+      '1': 'status',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.FriendRequestStatus',
+      '10': 'status'
+    },
     {'1': 'message', '3': 5, '4': 1, '5': 9, '10': 'message'},
     {'1': 'sent_at', '3': 6, '4': 1, '5': 3, '10': 'sentAt'},
     {'1': 'processed_at', '3': 7, '4': 1, '5': 3, '10': 'processedAt'},
@@ -56,14 +64,21 @@ const SyncContactsRequest$json = {
 };
 
 /// Descriptor for `SyncContactsRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List syncContactsRequestDescriptor = $convert.base64Decode(
-    'ChNTeW5jQ29udGFjdHNSZXF1ZXN0');
+final $typed_data.Uint8List syncContactsRequestDescriptor =
+    $convert.base64Decode('ChNTeW5jQ29udGFjdHNSZXF1ZXN0');
 
 @$core.Deprecated('Use syncContactsResponseDescriptor instead')
 const SyncContactsResponse$json = {
   '1': 'SyncContactsResponse',
   '2': [
-    {'1': 'contacts', '3': 1, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'contacts'},
+    {
+      '1': 'contacts',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.UserProto',
+      '10': 'contacts'
+    },
     {'1': 'sync_time', '3': 2, '4': 1, '5': 3, '10': 'syncTime'},
   ],
 };
@@ -94,8 +109,23 @@ const ProcessFriendRequestProto$json = {
   '1': 'ProcessFriendRequestProto',
   '2': [
     {'1': 'request_id', '3': 1, '4': 1, '5': 9, '10': 'requestId'},
-    {'1': 'status', '3': 2, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '10': 'status'},
-    {'1': 'reject_reason', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'rejectReason', '17': true},
+    {
+      '1': 'status',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.FriendRequestStatus',
+      '10': 'status'
+    },
+    {
+      '1': 'reject_reason',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'rejectReason',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_reject_reason'},
@@ -125,7 +155,14 @@ final $typed_data.Uint8List getFriendsRequestDescriptor = $convert.base64Decode(
 const GetFriendsResponse$json = {
   '1': 'GetFriendsResponse',
   '2': [
-    {'1': 'friends', '3': 1, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'friends'},
+    {
+      '1': 'friends',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.UserProto',
+      '10': 'friends'
+    },
   ],
 };
 
@@ -139,7 +176,16 @@ const GetFriendRequestsRequest$json = {
   '1': 'GetFriendRequestsRequest',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'status', '3': 2, '4': 1, '5': 14, '6': '.cc.FriendRequestStatus', '9': 0, '10': 'status', '17': true},
+    {
+      '1': 'status',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.FriendRequestStatus',
+      '9': 0,
+      '10': 'status',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_status'},
@@ -156,14 +202,22 @@ final $typed_data.Uint8List getFriendRequestsRequestDescriptor = $convert.base64
 const GetFriendRequestsResponse$json = {
   '1': 'GetFriendRequestsResponse',
   '2': [
-    {'1': 'requests', '3': 1, '4': 3, '5': 11, '6': '.cc.FriendRequestProto', '10': 'requests'},
+    {
+      '1': 'requests',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.FriendRequestProto',
+      '10': 'requests'
+    },
   ],
 };
 
 /// Descriptor for `GetFriendRequestsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getFriendRequestsResponseDescriptor = $convert.base64Decode(
-    'ChlHZXRGcmllbmRSZXF1ZXN0c1Jlc3BvbnNlEjIKCHJlcXVlc3RzGAEgAygLMhYuY2MuRnJpZW'
-    '5kUmVxdWVzdFByb3RvUghyZXF1ZXN0cw==');
+final $typed_data.Uint8List getFriendRequestsResponseDescriptor =
+    $convert.base64Decode(
+        'ChlHZXRGcmllbmRSZXF1ZXN0c1Jlc3BvbnNlEjIKCHJlcXVlc3RzGAEgAygLMhYuY2MuRnJpZW'
+        '5kUmVxdWVzdFByb3RvUghyZXF1ZXN0cw==');
 
 @$core.Deprecated('Use deleteFriendRequestDescriptor instead')
 const DeleteFriendRequest$json = {
@@ -174,8 +228,9 @@ const DeleteFriendRequest$json = {
 };
 
 /// Descriptor for `DeleteFriendRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List deleteFriendRequestDescriptor = $convert.base64Decode(
-    'ChNEZWxldGVGcmllbmRSZXF1ZXN0EhsKCWZyaWVuZF9pZBgBIAEoCVIIZnJpZW5kSWQ=');
+final $typed_data.Uint8List deleteFriendRequestDescriptor =
+    $convert.base64Decode(
+        'ChNEZWxldGVGcmllbmRSZXF1ZXN0EhsKCWZyaWVuZF9pZBgBIAEoCVIIZnJpZW5kSWQ=');
 
 @$core.Deprecated('Use deleteFriendResponseDescriptor instead')
 const DeleteFriendResponse$json = {
@@ -196,10 +251,34 @@ const UpdateContactRequest$json = {
   '1': 'UpdateContactRequest',
   '2': [
     {'1': 'contact_id', '3': 1, '4': 1, '5': 9, '10': 'contactId'},
-    {'1': 'nickname', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'nickname', '17': true},
+    {
+      '1': 'nickname',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'nickname',
+      '17': true
+    },
     {'1': 'remark', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'remark', '17': true},
-    {'1': 'blocked', '3': 4, '4': 1, '5': 8, '9': 2, '10': 'blocked', '17': true},
-    {'1': 'is_favorite', '3': 5, '4': 1, '5': 8, '9': 3, '10': 'isFavorite', '17': true},
+    {
+      '1': 'blocked',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 2,
+      '10': 'blocked',
+      '17': true
+    },
+    {
+      '1': 'is_favorite',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'isFavorite',
+      '17': true
+    },
     {'1': 'timestamp', '3': 6, '4': 1, '5': 3, '10': 'timestamp'},
   ],
   '8': [
@@ -224,7 +303,14 @@ const UpdateContactResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'contact', '3': 3, '4': 1, '5': 11, '6': '.cc.UserProto', '10': 'contact'},
+    {
+      '1': 'contact',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.UserProto',
+      '10': 'contact'
+    },
     {'1': 'updated_fields', '3': 4, '4': 3, '5': 9, '10': 'updatedFields'},
     {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
   ],
@@ -241,7 +327,14 @@ final $typed_data.Uint8List updateContactResponseDescriptor = $convert.base64Dec
 const ContactUpdateEvent$json = {
   '1': 'ContactUpdateEvent',
   '2': [
-    {'1': 'contact', '3': 1, '4': 1, '5': 11, '6': '.cc.UserProto', '10': 'contact'},
+    {
+      '1': 'contact',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.UserProto',
+      '10': 'contact'
+    },
     {'1': 'updated_fields', '3': 2, '4': 3, '5': 9, '10': 'updatedFields'},
     {'1': 'timestamp', '3': 3, '4': 1, '5': 3, '10': 'timestamp'},
     {'1': 'update_source', '3': 4, '4': 1, '5': 9, '10': 'updateSource'},
@@ -254,4 +347,3 @@ final $typed_data.Uint8List contactUpdateEventDescriptor = $convert.base64Decode
     '9udGFjdBIlCg51cGRhdGVkX2ZpZWxkcxgCIAMoCVINdXBkYXRlZEZpZWxkcxIcCgl0aW1lc3Rh'
     'bXAYAyABKANSCXRpbWVzdGFtcBIjCg11cGRhdGVfc291cmNlGAQgASgJUgx1cGRhdGVTb3VyY2'
     'U=');
-

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cc/core/services/avatar_cache_service.dart';
 import 'package:cc/core/utils/display_name_utils.dart';
+import 'package:cc/core/enums/vip_level.dart';
+import 'package:cc/core/widgets/vip_badge.dart';
+import 'package:cc/core/services/log_service.dart';
 import 'dart:io';
 
 /// 通用用户头像组件
@@ -34,6 +37,18 @@ class UserAvatar extends StatefulWidget {
   /// 边框宽度
   final double borderWidth;
 
+  /// 用户角色ID，用于显示VIP标志
+  final int? roleId;
+
+  /// VIP标志类型
+  final VipBadgeType vipBadgeType;
+
+  /// 是否显示VIP标志
+  final bool showVipBadge;
+
+  /// VIP标志位置
+  final VipBadgePosition vipBadgePosition;
+
   const UserAvatar({
     super.key,
     this.avatarUrl,
@@ -43,6 +58,10 @@ class UserAvatar extends StatefulWidget {
     this.showBorder = false,
     this.borderColor = Colors.white,
     this.borderWidth = 2,
+    this.roleId,
+    this.vipBadgeType = VipBadgeType.crown,
+    this.showVipBadge = true,
+    this.vipBadgePosition = VipBadgePosition.topRight,
   });
 
   @override
@@ -254,7 +273,7 @@ class _UserAvatarState extends State<UserAvatar> {
 
     // 如果需要显示边框，添加边框
     if (widget.showBorder) {
-      return Container(
+      avatar = Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
@@ -266,6 +285,129 @@ class _UserAvatarState extends State<UserAvatar> {
       );
     }
 
+    // 如果需要显示VIP标志，添加VIP标志
+    if (widget.showVipBadge && widget.roleId != null) {
+      final vipLevel = VipLevel.fromRoleId(widget.roleId);
+      
+      // 🔥🔥🔥 详细的调试日志
+      final _logger = LogService.instance;
+      _logger.i('👤👤👤 UserAvatar VIP检查', extra: {
+        'name': widget.name,
+        'roleId': widget.roleId,
+        'vipLevel': vipLevel.toString(),
+        'isVip': vipLevel.isVip,
+        'isCustomerService': vipLevel.isCustomerService,
+        'isGuest': vipLevel.isGuest,
+        'showVipBadge': widget.showVipBadge,
+      });
+      
+      if (vipLevel.isVip || vipLevel.isGuest) {
+        // 根据角色ID自动选择合适的标识类型
+        VipBadgeType badgeType;
+        if (vipLevel.isGuest) {
+          badgeType = VipBadgeType.guest; // 游客使用游客图标
+          _logger.i('👤👤👤 游客用户，使用游客徽章', extra: {
+            'name': widget.name,
+            'roleId': widget.roleId,
+            'badgeType': badgeType.toString(),
+          });
+        } else if (vipLevel.isCustomerService) {
+          badgeType = VipBadgeType.customerServiceHeadset; // 客服使用耳机图标
+          _logger.i('🎧🎧🎧 客服用户，使用耳机徽章', extra: {
+            'name': widget.name,
+            'roleId': widget.roleId,
+            'badgeType': badgeType.toString(),
+          });
+        } else {
+          badgeType = VipBadgeType.crown; // VIP使用皇冠图标
+          _logger.i('👑👑👑 VIP用户，使用皇冠徽章', extra: {
+            'name': widget.name,
+            'roleId': widget.roleId,
+            'badgeType': badgeType.toString(),
+          });
+        }
+        return _buildAvatarWithVipBadge(avatar, vipLevel, badgeType);
+      } else {
+        _logger.i('👥👥👥 普通用户，无徽章', extra: {
+          'name': widget.name,
+          'roleId': widget.roleId,  
+          'vipLevel': vipLevel.toString(),
+        });
+      }
+    } else {
+      final _logger = LogService.instance;
+      _logger.i('❌❌❌ 不显示VIP徽章', extra: {
+        'name': widget.name,
+        'roleId': widget.roleId,
+        'showVipBadge': widget.showVipBadge,
+        'roleIdIsNull': widget.roleId == null,
+      });
+    }
+
     return avatar;
+  }
+
+  /// 构建带VIP标志的头像
+  Widget _buildAvatarWithVipBadge(Widget avatar, VipLevel vipLevel, VipBadgeType badgeType) {
+    final badgeSize = widget.radius * 0.6; // VIP标志大小为头像的60%
+    final offset = badgeSize * 0.2; // 标志与头像边缘的距离
+    
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        _buildPositionedVipBadge(vipLevel, badgeType, badgeSize, offset),
+      ],
+    );
+  }
+
+  /// 构建定位的VIP标志
+  Widget _buildPositionedVipBadge(VipLevel vipLevel, VipBadgeType badgeType, double badgeSize, double offset) {
+    switch (widget.vipBadgePosition) {
+      case VipBadgePosition.topRight:
+        return Positioned(
+          top: -offset,
+          right: -offset,
+          child: VipBadge(
+            vipLevel: vipLevel,
+            badgeType: badgeType,
+            size: badgeSize,
+            showBackground: true,
+          ),
+        );
+      case VipBadgePosition.topLeft:
+        return Positioned(
+          top: -offset,
+          left: -offset,
+          child: VipBadge(
+            vipLevel: vipLevel,
+            badgeType: badgeType,
+            size: badgeSize,
+            showBackground: true,
+          ),
+        );
+      case VipBadgePosition.bottomRight:
+        return Positioned(
+          bottom: -offset,
+          right: -offset,
+          child: VipBadge(
+            vipLevel: vipLevel,
+            badgeType: badgeType,
+            size: badgeSize,
+            showBackground: true,
+          ),
+        );
+      case VipBadgePosition.bottomLeft:
+        return Positioned(
+          bottom: -offset,
+          left: -offset,
+          child: VipBadge(
+            vipLevel: vipLevel,
+            badgeType: badgeType,
+            size: badgeSize,
+            showBackground: true,
+          ),
+        );
+    }
   }
 }

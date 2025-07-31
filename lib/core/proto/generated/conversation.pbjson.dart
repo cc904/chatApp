@@ -1,13 +1,14 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: conversation.proto
-//
+// Generated from conversation.proto.
+
 // @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
@@ -69,12 +70,32 @@ const ParticipantProto$json = {
     {'1': 'muted', '3': 5, '4': 1, '5': 8, '10': 'muted'},
     {'1': 'pinned', '3': 6, '4': 1, '5': 8, '10': 'pinned'},
     {'1': 'joined_at', '3': 7, '4': 1, '5': 3, '10': 'joinedAt'},
-    {'1': 'delivered_message_index', '3': 8, '4': 1, '5': 5, '10': 'deliveredMessageIndex'},
-    {'1': 'read_message_index', '3': 9, '4': 1, '5': 5, '10': 'readMessageIndex'},
-    {'1': 'role', '3': 10, '4': 1, '5': 14, '6': '.cc.MemberRole', '10': 'role'},
+    {
+      '1': 'delivered_message_index',
+      '3': 8,
+      '4': 1,
+      '5': 5,
+      '10': 'deliveredMessageIndex'
+    },
+    {
+      '1': 'read_message_index',
+      '3': 9,
+      '4': 1,
+      '5': 5,
+      '10': 'readMessageIndex'
+    },
+    {
+      '1': 'role',
+      '3': 10,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.MemberRole',
+      '10': 'role'
+    },
     {'1': 'added_by', '3': 11, '4': 1, '5': 9, '10': 'addedBy'},
     {'1': 'online', '3': 12, '4': 1, '5': 8, '10': 'online'},
     {'1': 'is_active', '3': 13, '4': 1, '5': 8, '10': 'isActive'},
+    {'1': 'role_id', '3': 14, '4': 1, '5': 5, '10': 'roleId'},
   ],
 };
 
@@ -87,26 +108,70 @@ final $typed_data.Uint8List participantProtoDescriptor = $convert.base64Decode(
     'ZXgYCCABKAVSFWRlbGl2ZXJlZE1lc3NhZ2VJbmRleBIsChJyZWFkX21lc3NhZ2VfaW5kZXgYCS'
     'ABKAVSEHJlYWRNZXNzYWdlSW5kZXgSIgoEcm9sZRgKIAEoDjIOLmNjLk1lbWJlclJvbGVSBHJv'
     'bGUSGQoIYWRkZWRfYnkYCyABKAlSB2FkZGVkQnkSFgoGb25saW5lGAwgASgIUgZvbmxpbmUSGw'
-    'oJaXNfYWN0aXZlGA0gASgIUghpc0FjdGl2ZQ==');
+    'oJaXNfYWN0aXZlGA0gASgIUghpc0FjdGl2ZRIXCgdyb2xlX2lkGA4gASgFUgZyb2xlSWQ=');
 
 @$core.Deprecated('Use conversationProtoDescriptor instead')
 const ConversationProto$json = {
   '1': 'ConversationProto',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'type', '3': 2, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
+    {
+      '1': 'type',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.ConversationType',
+      '10': 'type'
+    },
     {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
     {'1': 'avatar', '3': 4, '4': 1, '5': 9, '10': 'avatar'},
     {'1': 'created_at', '3': 5, '4': 1, '5': 3, '10': 'createdAt'},
     {'1': 'created_by', '3': 6, '4': 1, '5': 9, '10': 'createdBy'},
-    {'1': 'first_message_index', '3': 7, '4': 1, '5': 5, '10': 'firstMessageIndex'},
-    {'1': 'last_message_index', '3': 8, '4': 1, '5': 5, '10': 'lastMessageIndex'},
+    {
+      '1': 'first_message_index',
+      '3': 7,
+      '4': 1,
+      '5': 5,
+      '10': 'firstMessageIndex'
+    },
+    {
+      '1': 'last_message_index',
+      '3': 8,
+      '4': 1,
+      '5': 5,
+      '10': 'lastMessageIndex'
+    },
     {'1': 'last_message_time', '3': 9, '4': 1, '5': 3, '10': 'lastMessageTime'},
-    {'1': 'last_message_preview', '3': 10, '4': 1, '5': 9, '10': 'lastMessagePreview'},
-    {'1': 'last_message_name', '3': 11, '4': 1, '5': 9, '10': 'lastMessageName'},
-    {'1': 'participants', '3': 12, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'participants'},
+    {
+      '1': 'last_message_preview',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '10': 'lastMessagePreview'
+    },
+    {
+      '1': 'last_message_name',
+      '3': 11,
+      '4': 1,
+      '5': 9,
+      '10': 'lastMessageName'
+    },
+    {
+      '1': 'participants',
+      '3': 12,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.ParticipantProto',
+      '10': 'participants'
+    },
     {'1': 'description', '3': 13, '4': 1, '5': 9, '10': 'description'},
-    {'1': 'requires_approval', '3': 14, '4': 1, '5': 8, '10': 'requiresApproval'},
+    {
+      '1': 'requires_approval',
+      '3': 14,
+      '4': 1,
+      '5': 8,
+      '10': 'requiresApproval'
+    },
   ],
 };
 
@@ -128,20 +193,36 @@ final $typed_data.Uint8List conversationProtoDescriptor = $convert.base64Decode(
 const ConversationCollection$json = {
   '1': 'ConversationCollection',
   '2': [
-    {'1': 'conversations', '3': 1, '4': 3, '5': 11, '6': '.cc.ConversationProto', '10': 'conversations'},
+    {
+      '1': 'conversations',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.ConversationProto',
+      '10': 'conversations'
+    },
   ],
 };
 
 /// Descriptor for `ConversationCollection`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationCollectionDescriptor = $convert.base64Decode(
-    'ChZDb252ZXJzYXRpb25Db2xsZWN0aW9uEjsKDWNvbnZlcnNhdGlvbnMYASADKAsyFS5jYy5Db2'
-    '52ZXJzYXRpb25Qcm90b1INY29udmVyc2F0aW9ucw==');
+final $typed_data.Uint8List conversationCollectionDescriptor =
+    $convert.base64Decode(
+        'ChZDb252ZXJzYXRpb25Db2xsZWN0aW9uEjsKDWNvbnZlcnNhdGlvbnMYASADKAsyFS5jYy5Db2'
+        '52ZXJzYXRpb25Qcm90b1INY29udmVyc2F0aW9ucw==');
 
 @$core.Deprecated('Use syncConversationsRequestDescriptor instead')
 const SyncConversationsRequest$json = {
   '1': 'SyncConversationsRequest',
   '2': [
-    {'1': 'last_sync_time', '3': 1, '4': 1, '5': 3, '9': 0, '10': 'lastSyncTime', '17': true},
+    {
+      '1': 'last_sync_time',
+      '3': 1,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'lastSyncTime',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_last_sync_time'},
@@ -149,9 +230,10 @@ const SyncConversationsRequest$json = {
 };
 
 /// Descriptor for `SyncConversationsRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List syncConversationsRequestDescriptor = $convert.base64Decode(
-    'ChhTeW5jQ29udmVyc2F0aW9uc1JlcXVlc3QSKQoObGFzdF9zeW5jX3RpbWUYASABKANIAFIMbG'
-    'FzdFN5bmNUaW1liAEBQhEKD19sYXN0X3N5bmNfdGltZQ==');
+final $typed_data.Uint8List syncConversationsRequestDescriptor =
+    $convert.base64Decode(
+        'ChhTeW5jQ29udmVyc2F0aW9uc1JlcXVlc3QSKQoObGFzdF9zeW5jX3RpbWUYASABKANIAFIMbG'
+        'FzdFN5bmNUaW1liAEBQhEKD19sYXN0X3N5bmNfdGltZQ==');
 
 @$core.Deprecated('Use conversationCreateRequestDescriptor instead')
 const ConversationCreateRequest$json = {
@@ -159,7 +241,14 @@ const ConversationCreateRequest$json = {
   '2': [
     {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
     {'1': 'avatar', '3': 2, '4': 1, '5': 9, '10': 'avatar'},
-    {'1': 'type', '3': 3, '4': 1, '5': 14, '6': '.cc.ConversationType', '10': 'type'},
+    {
+      '1': 'type',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.ConversationType',
+      '10': 'type'
+    },
     {'1': 'participant_ids', '3': 4, '4': 3, '5': 9, '10': 'participantIds'},
     {'1': 'contact_user_id', '3': 5, '4': 1, '5': 9, '10': 'contactUserId'},
     {'1': 'description', '3': 6, '4': 1, '5': 9, '10': 'description'},
@@ -180,15 +269,23 @@ const ConversationCreateResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'conversation', '3': 3, '4': 1, '5': 11, '6': '.cc.ConversationProto', '10': 'conversation'},
+    {
+      '1': 'conversation',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ConversationProto',
+      '10': 'conversation'
+    },
   ],
 };
 
 /// Descriptor for `ConversationCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationCreateResponseDescriptor = $convert.base64Decode(
-    'ChpDb252ZXJzYXRpb25DcmVhdGVSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
-    'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USOQoMY29udmVyc2F0aW9uGAMgASgLMhUuY2MuQ29u'
-    'dmVyc2F0aW9uUHJvdG9SDGNvbnZlcnNhdGlvbg==');
+final $typed_data.Uint8List conversationCreateResponseDescriptor =
+    $convert.base64Decode(
+        'ChpDb252ZXJzYXRpb25DcmVhdGVSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
+        'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USOQoMY29udmVyc2F0aW9uGAMgASgLMhUuY2MuQ29u'
+        'dmVyc2F0aW9uUHJvdG9SDGNvbnZlcnNhdGlvbg==');
 
 @$core.Deprecated('Use conversationDetailRequestDescriptor instead')
 const ConversationDetailRequest$json = {
@@ -199,9 +296,10 @@ const ConversationDetailRequest$json = {
 };
 
 /// Descriptor for `ConversationDetailRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationDetailRequestDescriptor = $convert.base64Decode(
-    'ChlDb252ZXJzYXRpb25EZXRhaWxSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY2'
-    '9udmVyc2F0aW9uSWQ=');
+final $typed_data.Uint8List conversationDetailRequestDescriptor =
+    $convert.base64Decode(
+        'ChlDb252ZXJzYXRpb25EZXRhaWxSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY2'
+        '9udmVyc2F0aW9uSWQ=');
 
 @$core.Deprecated('Use conversationDetailResponseDescriptor instead')
 const ConversationDetailResponse$json = {
@@ -209,15 +307,23 @@ const ConversationDetailResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'conversation', '3': 3, '4': 1, '5': 11, '6': '.cc.ConversationProto', '10': 'conversation'},
+    {
+      '1': 'conversation',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ConversationProto',
+      '10': 'conversation'
+    },
   ],
 };
 
 /// Descriptor for `ConversationDetailResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationDetailResponseDescriptor = $convert.base64Decode(
-    'ChpDb252ZXJzYXRpb25EZXRhaWxSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
-    'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USOQoMY29udmVyc2F0aW9uGAMgASgLMhUuY2MuQ29u'
-    'dmVyc2F0aW9uUHJvdG9SDGNvbnZlcnNhdGlvbg==');
+final $typed_data.Uint8List conversationDetailResponseDescriptor =
+    $convert.base64Decode(
+        'ChpDb252ZXJzYXRpb25EZXRhaWxSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
+        'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USOQoMY29udmVyc2F0aW9uGAMgASgLMhUuY2MuQ29u'
+        'dmVyc2F0aW9uUHJvdG9SDGNvbnZlcnNhdGlvbg==');
 
 @$core.Deprecated('Use conversationSettingsUpdateRequestDescriptor instead')
 const ConversationSettingsUpdateRequest$json = {
@@ -234,10 +340,11 @@ const ConversationSettingsUpdateRequest$json = {
 };
 
 /// Descriptor for `ConversationSettingsUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationSettingsUpdateRequestDescriptor = $convert.base64Decode(
-    'CiFDb252ZXJzYXRpb25TZXR0aW5nc1VwZGF0ZVJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGA'
-    'EgASgJUg5jb252ZXJzYXRpb25JZBIZCgVtdXRlZBgCIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5u'
-    'ZWQYAyABKAhIAVIGcGlubmVkiAEBQggKBl9tdXRlZEIJCgdfcGlubmVk');
+final $typed_data.Uint8List conversationSettingsUpdateRequestDescriptor =
+    $convert.base64Decode(
+        'CiFDb252ZXJzYXRpb25TZXR0aW5nc1VwZGF0ZVJlcXVlc3QSJwoPY29udmVyc2F0aW9uX2lkGA'
+        'EgASgJUg5jb252ZXJzYXRpb25JZBIZCgVtdXRlZBgCIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5u'
+        'ZWQYAyABKAhIAVIGcGlubmVkiAEBQggKBl9tdXRlZEIJCgdfcGlubmVk');
 
 @$core.Deprecated('Use conversationSettingsUpdateResponseDescriptor instead')
 const ConversationSettingsUpdateResponse$json = {
@@ -256,11 +363,12 @@ const ConversationSettingsUpdateResponse$json = {
 };
 
 /// Descriptor for `ConversationSettingsUpdateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationSettingsUpdateResponseDescriptor = $convert.base64Decode(
-    'CiJDb252ZXJzYXRpb25TZXR0aW5nc1VwZGF0ZVJlc3BvbnNlEicKD2NvbnZlcnNhdGlvbl9pZB'
-    'gBIAEoCVIOY29udmVyc2F0aW9uSWQSGAoHc3VjY2VzcxgCIAEoCFIHc3VjY2VzcxIZCgVtdXRl'
-    'ZBgDIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5uZWQYBCABKAhIAVIGcGlubmVkiAEBEhwKCXRpbW'
-    'VzdGFtcBgFIAEoA1IJdGltZXN0YW1wQggKBl9tdXRlZEIJCgdfcGlubmVk');
+final $typed_data.Uint8List conversationSettingsUpdateResponseDescriptor =
+    $convert.base64Decode(
+        'CiJDb252ZXJzYXRpb25TZXR0aW5nc1VwZGF0ZVJlc3BvbnNlEicKD2NvbnZlcnNhdGlvbl9pZB'
+        'gBIAEoCVIOY29udmVyc2F0aW9uSWQSGAoHc3VjY2VzcxgCIAEoCFIHc3VjY2VzcxIZCgVtdXRl'
+        'ZBgDIAEoCEgAUgVtdXRlZIgBARIbCgZwaW5uZWQYBCABKAhIAVIGcGlubmVkiAEBEhwKCXRpbW'
+        'VzdGFtcBgFIAEoA1IJdGltZXN0YW1wQggKBl9tdXRlZEIJCgdfcGlubmVk');
 
 @$core.Deprecated('Use conversationInfoUpdateRequestDescriptor instead')
 const ConversationInfoUpdateRequest$json = {
@@ -269,8 +377,24 @@ const ConversationInfoUpdateRequest$json = {
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
     {'1': 'avatar', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'avatar', '17': true},
-    {'1': 'description', '3': 4, '4': 1, '5': 9, '9': 2, '10': 'description', '17': true},
-    {'1': 'requires_approval', '3': 5, '4': 1, '5': 8, '9': 3, '10': 'requiresApproval', '17': true},
+    {
+      '1': 'description',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'description',
+      '17': true
+    },
+    {
+      '1': 'requires_approval',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'requiresApproval',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_name'},
@@ -298,9 +422,10 @@ const ConversationInfoUpdateResponse$json = {
 };
 
 /// Descriptor for `ConversationInfoUpdateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationInfoUpdateResponseDescriptor = $convert.base64Decode(
-    'Ch5Db252ZXJzYXRpb25JbmZvVXBkYXRlUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2'
-    'VzcxIYCgdtZXNzYWdlGAIgASgJUgdtZXNzYWdl');
+final $typed_data.Uint8List conversationInfoUpdateResponseDescriptor =
+    $convert.base64Decode(
+        'Ch5Db252ZXJzYXRpb25JbmZvVXBkYXRlUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2'
+        'VzcxIYCgdtZXNzYWdlGAIgASgJUgdtZXNzYWdl');
 
 @$core.Deprecated('Use conversationInfoUpdatedDescriptor instead')
 const ConversationInfoUpdated$json = {
@@ -310,7 +435,13 @@ const ConversationInfoUpdated$json = {
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
     {'1': 'avatar', '3': 3, '4': 1, '5': 9, '10': 'avatar'},
     {'1': 'description', '3': 4, '4': 1, '5': 9, '10': 'description'},
-    {'1': 'requires_approval', '3': 5, '4': 1, '5': 8, '10': 'requiresApproval'},
+    {
+      '1': 'requires_approval',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '10': 'requiresApproval'
+    },
     {'1': 'updated_by', '3': 6, '4': 1, '5': 9, '10': 'updatedBy'},
     {'1': 'updated_at', '3': 7, '4': 1, '5': 3, '10': 'updatedAt'},
   ],
@@ -330,7 +461,14 @@ const ConversationResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'conversation', '3': 3, '4': 1, '5': 11, '6': '.cc.ConversationProto', '10': 'conversation'},
+    {
+      '1': 'conversation',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ConversationProto',
+      '10': 'conversation'
+    },
   ],
 };
 
@@ -350,9 +488,10 @@ const ConversationJoinLeaveRequest$json = {
 };
 
 /// Descriptor for `ConversationJoinLeaveRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationJoinLeaveRequestDescriptor = $convert.base64Decode(
-    'ChxDb252ZXJzYXRpb25Kb2luTGVhdmVSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCV'
-    'IOY29udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
+final $typed_data.Uint8List conversationJoinLeaveRequestDescriptor =
+    $convert.base64Decode(
+        'ChxDb252ZXJzYXRpb25Kb2luTGVhdmVSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCV'
+        'IOY29udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklk');
 
 @$core.Deprecated('Use conversationJoinLeaveResponseDescriptor instead')
 const ConversationJoinLeaveResponse$json = {
@@ -365,17 +504,26 @@ const ConversationJoinLeaveResponse$json = {
 };
 
 /// Descriptor for `ConversationJoinLeaveResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationJoinLeaveResponseDescriptor = $convert.base64Decode(
-    'Ch1Db252ZXJzYXRpb25Kb2luTGVhdmVSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZX'
-    'NzEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5j'
-    'b252ZXJzYXRpb25JZA==');
+final $typed_data.Uint8List conversationJoinLeaveResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1Db252ZXJzYXRpb25Kb2luTGVhdmVSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZX'
+        'NzEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USJwoPY29udmVyc2F0aW9uX2lkGAMgASgJUg5j'
+        'b252ZXJzYXRpb25JZA==');
 
 @$core.Deprecated('Use participantStatusUpdateRequestDescriptor instead')
 const ParticipantStatusUpdateRequest$json = {
   '1': 'ParticipantStatusUpdateRequest',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'read_message_index', '3': 3, '4': 1, '5': 5, '9': 0, '10': 'readMessageIndex', '17': true},
+    {
+      '1': 'read_message_index',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 0,
+      '10': 'readMessageIndex',
+      '17': true
+    },
     {'1': 'muted', '3': 4, '4': 1, '5': 8, '9': 1, '10': 'muted', '17': true},
     {'1': 'pinned', '3': 5, '4': 1, '5': 8, '9': 2, '10': 'pinned', '17': true},
   ],
@@ -400,15 +548,23 @@ const ParticipantStatusUpdateResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'conversation_id', '3': 2, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'participant', '3': 3, '4': 1, '5': 11, '6': '.cc.ParticipantProto', '10': 'participant'},
+    {
+      '1': 'participant',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ParticipantProto',
+      '10': 'participant'
+    },
   ],
 };
 
 /// Descriptor for `ParticipantStatusUpdateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List participantStatusUpdateResponseDescriptor = $convert.base64Decode(
-    'Ch9QYXJ0aWNpcGFudFN0YXR1c1VwZGF0ZVJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2'
-    'Nlc3MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBI2CgtwYXJ0aWNp'
-    'cGFudBgDIAEoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SC3BhcnRpY2lwYW50');
+final $typed_data.Uint8List participantStatusUpdateResponseDescriptor =
+    $convert.base64Decode(
+        'Ch9QYXJ0aWNpcGFudFN0YXR1c1VwZGF0ZVJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2'
+        'Nlc3MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBI2CgtwYXJ0aWNp'
+        'cGFudBgDIAEoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SC3BhcnRpY2lwYW50');
 
 @$core.Deprecated('Use conversationMembersRequestDescriptor instead')
 const ConversationMembersRequest$json = {
@@ -419,24 +575,33 @@ const ConversationMembersRequest$json = {
 };
 
 /// Descriptor for `ConversationMembersRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMembersRequestDescriptor = $convert.base64Decode(
-    'ChpDb252ZXJzYXRpb25NZW1iZXJzUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDm'
-    'NvbnZlcnNhdGlvbklk');
+final $typed_data.Uint8List conversationMembersRequestDescriptor =
+    $convert.base64Decode(
+        'ChpDb252ZXJzYXRpb25NZW1iZXJzUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDm'
+        'NvbnZlcnNhdGlvbklk');
 
 @$core.Deprecated('Use conversationMembersResponseDescriptor instead')
 const ConversationMembersResponse$json = {
   '1': 'ConversationMembersResponse',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'members', '3': 2, '4': 3, '5': 11, '6': '.cc.ParticipantProto', '10': 'members'},
+    {
+      '1': 'members',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.ParticipantProto',
+      '10': 'members'
+    },
   ],
 };
 
 /// Descriptor for `ConversationMembersResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMembersResponseDescriptor = $convert.base64Decode(
-    'ChtDb252ZXJzYXRpb25NZW1iZXJzUmVzcG9uc2USJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg'
-    '5jb252ZXJzYXRpb25JZBIuCgdtZW1iZXJzGAIgAygLMhQuY2MuUGFydGljaXBhbnRQcm90b1IH'
-    'bWVtYmVycw==');
+final $typed_data.Uint8List conversationMembersResponseDescriptor =
+    $convert.base64Decode(
+        'ChtDb252ZXJzYXRpb25NZW1iZXJzUmVzcG9uc2USJwoPY29udmVyc2F0aW9uX2lkGAEgASgJUg'
+        '5jb252ZXJzYXRpb25JZBIuCgdtZW1iZXJzGAIgAygLMhQuY2MuUGFydGljaXBhbnRQcm90b1IH'
+        'bWVtYmVycw==');
 
 @$core.Deprecated('Use conversationMemberChangeRequestDescriptor instead')
 const ConversationMemberChangeRequest$json = {
@@ -449,17 +614,25 @@ const ConversationMemberChangeRequest$json = {
 };
 
 /// Descriptor for `ConversationMemberChangeRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMemberChangeRequestDescriptor = $convert.base64Decode(
-    'Ch9Db252ZXJzYXRpb25NZW1iZXJDaGFuZ2VSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIA'
-    'EoCVIOY29udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklkEhYKBmFjdGlvbhgD'
-    'IAEoCVIGYWN0aW9u');
+final $typed_data.Uint8List conversationMemberChangeRequestDescriptor =
+    $convert.base64Decode(
+        'Ch9Db252ZXJzYXRpb25NZW1iZXJDaGFuZ2VSZXF1ZXN0EicKD2NvbnZlcnNhdGlvbl9pZBgBIA'
+        'EoCVIOY29udmVyc2F0aW9uSWQSFwoHdXNlcl9pZBgCIAEoCVIGdXNlcklkEhYKBmFjdGlvbhgD'
+        'IAEoCVIGYWN0aW9u');
 
 @$core.Deprecated('Use conversationMemberChangeResponseDescriptor instead')
 const ConversationMemberChangeResponse$json = {
   '1': 'ConversationMemberChangeResponse',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'member', '3': 2, '4': 1, '5': 11, '6': '.cc.ParticipantProto', '10': 'member'},
+    {
+      '1': 'member',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ParticipantProto',
+      '10': 'member'
+    },
     {'1': 'action', '3': 3, '4': 1, '5': 9, '10': 'action'},
     {'1': 'action_by', '3': 4, '4': 1, '5': 9, '10': 'actionBy'},
     {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
@@ -467,19 +640,32 @@ const ConversationMemberChangeResponse$json = {
 };
 
 /// Descriptor for `ConversationMemberChangeResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationMemberChangeResponseDescriptor = $convert.base64Decode(
-    'CiBDb252ZXJzYXRpb25NZW1iZXJDaGFuZ2VSZXNwb25zZRInCg9jb252ZXJzYXRpb25faWQYAS'
-    'ABKAlSDmNvbnZlcnNhdGlvbklkEiwKBm1lbWJlchgCIAEoCzIULmNjLlBhcnRpY2lwYW50UHJv'
-    'dG9SBm1lbWJlchIWCgZhY3Rpb24YAyABKAlSBmFjdGlvbhIbCglhY3Rpb25fYnkYBCABKAlSCG'
-    'FjdGlvbkJ5EhwKCXRpbWVzdGFtcBgFIAEoA1IJdGltZXN0YW1w');
+final $typed_data.Uint8List conversationMemberChangeResponseDescriptor =
+    $convert.base64Decode(
+        'CiBDb252ZXJzYXRpb25NZW1iZXJDaGFuZ2VSZXNwb25zZRInCg9jb252ZXJzYXRpb25faWQYAS'
+        'ABKAlSDmNvbnZlcnNhdGlvbklkEiwKBm1lbWJlchgCIAEoCzIULmNjLlBhcnRpY2lwYW50UHJv'
+        'dG9SBm1lbWJlchIWCgZhY3Rpb24YAyABKAlSBmFjdGlvbhIbCglhY3Rpb25fYnkYBCABKAlSCG'
+        'FjdGlvbkJ5EhwKCXRpbWVzdGFtcBgFIAEoA1IJdGltZXN0YW1w');
 
 @$core.Deprecated('Use conversationPreviewUpdatedDescriptor instead')
 const ConversationPreviewUpdated$json = {
   '1': 'ConversationPreviewUpdated',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'last_message_index', '3': 2, '4': 1, '5': 5, '10': 'lastMessageIndex'},
-    {'1': 'last_message_preview', '3': 3, '4': 1, '5': 9, '10': 'lastMessagePreview'},
+    {
+      '1': 'last_message_index',
+      '3': 2,
+      '4': 1,
+      '5': 5,
+      '10': 'lastMessageIndex'
+    },
+    {
+      '1': 'last_message_preview',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'lastMessagePreview'
+    },
     {'1': 'last_message_name', '3': 4, '4': 1, '5': 9, '10': 'lastMessageName'},
     {'1': 'last_message_time', '3': 5, '4': 1, '5': 3, '10': 'lastMessageTime'},
   ],
@@ -611,18 +797,25 @@ const ConversationRemovedNotification$json = {
   '1': 'ConversationRemovedNotification',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'conversation_name', '3': 2, '4': 1, '5': 9, '10': 'conversationName'},
+    {
+      '1': 'conversation_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'conversationName'
+    },
     {'1': 'removed_at', '3': 3, '4': 1, '5': 3, '10': 'removedAt'},
     {'1': 'reason', '3': 4, '4': 1, '5': 9, '10': 'reason'},
   ],
 };
 
 /// Descriptor for `ConversationRemovedNotification`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List conversationRemovedNotificationDescriptor = $convert.base64Decode(
-    'Ch9Db252ZXJzYXRpb25SZW1vdmVkTm90aWZpY2F0aW9uEicKD2NvbnZlcnNhdGlvbl9pZBgBIA'
-    'EoCVIOY29udmVyc2F0aW9uSWQSKwoRY29udmVyc2F0aW9uX25hbWUYAiABKAlSEGNvbnZlcnNh'
-    'dGlvbk5hbWUSHQoKcmVtb3ZlZF9hdBgDIAEoA1IJcmVtb3ZlZEF0EhYKBnJlYXNvbhgEIAEoCV'
-    'IGcmVhc29u');
+final $typed_data.Uint8List conversationRemovedNotificationDescriptor =
+    $convert.base64Decode(
+        'Ch9Db252ZXJzYXRpb25SZW1vdmVkTm90aWZpY2F0aW9uEicKD2NvbnZlcnNhdGlvbl9pZBgBIA'
+        'EoCVIOY29udmVyc2F0aW9uSWQSKwoRY29udmVyc2F0aW9uX25hbWUYAiABKAlSEGNvbnZlcnNh'
+        'dGlvbk5hbWUSHQoKcmVtb3ZlZF9hdBgDIAEoA1IJcmVtb3ZlZEF0EhYKBnJlYXNvbhgEIAEoCV'
+        'IGcmVhc29u');
 
 @$core.Deprecated('Use joinRequestProtoDescriptor instead')
 const JoinRequestProto$json = {
@@ -634,11 +827,24 @@ const JoinRequestProto$json = {
     {'1': 'user_name', '3': 4, '4': 1, '5': 9, '10': 'userName'},
     {'1': 'user_avatar', '3': 5, '4': 1, '5': 9, '10': 'userAvatar'},
     {'1': 'message', '3': 6, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'status', '3': 7, '4': 1, '5': 14, '6': '.cc.JoinRequestStatus', '10': 'status'},
+    {
+      '1': 'status',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.JoinRequestStatus',
+      '10': 'status'
+    },
     {'1': 'created_at', '3': 8, '4': 1, '5': 3, '10': 'createdAt'},
     {'1': 'processed_at', '3': 9, '4': 1, '5': 3, '10': 'processedAt'},
     {'1': 'processed_by', '3': 10, '4': 1, '5': 9, '10': 'processedBy'},
-    {'1': 'processed_by_name', '3': 11, '4': 1, '5': 9, '10': 'processedByName'},
+    {
+      '1': 'processed_by_name',
+      '3': 11,
+      '4': 1,
+      '5': 9,
+      '10': 'processedByName'
+    },
   ],
 };
 
@@ -663,9 +869,10 @@ const SendJoinRequestMessage$json = {
 };
 
 /// Descriptor for `SendJoinRequestMessage`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List sendJoinRequestMessageDescriptor = $convert.base64Decode(
-    'ChZTZW5kSm9pblJlcXVlc3RNZXNzYWdlEicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY29udm'
-    'Vyc2F0aW9uSWQSGAoHbWVzc2FnZRgCIAEoCVIHbWVzc2FnZQ==');
+final $typed_data.Uint8List sendJoinRequestMessageDescriptor =
+    $convert.base64Decode(
+        'ChZTZW5kSm9pblJlcXVlc3RNZXNzYWdlEicKD2NvbnZlcnNhdGlvbl9pZBgBIAEoCVIOY29udm'
+        'Vyc2F0aW9uSWQSGAoHbWVzc2FnZRgCIAEoCVIHbWVzc2FnZQ==');
 
 @$core.Deprecated('Use sendJoinRequestResponseDescriptor instead')
 const SendJoinRequestResponse$json = {
@@ -673,7 +880,16 @@ const SendJoinRequestResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'request', '3': 3, '4': 1, '5': 11, '6': '.cc.JoinRequestProto', '9': 0, '10': 'request', '17': true},
+    {
+      '1': 'request',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.JoinRequestProto',
+      '9': 0,
+      '10': 'request',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_request'},
@@ -711,7 +927,16 @@ const ProcessJoinRequestResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'request', '3': 3, '4': 1, '5': 11, '6': '.cc.JoinRequestProto', '9': 0, '10': 'request', '17': true},
+    {
+      '1': 'request',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.JoinRequestProto',
+      '9': 0,
+      '10': 'request',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_request'},
@@ -719,17 +944,27 @@ const ProcessJoinRequestResponse$json = {
 };
 
 /// Descriptor for `ProcessJoinRequestResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List processJoinRequestResponseDescriptor = $convert.base64Decode(
-    'ChpQcm9jZXNzSm9pblJlcXVlc3RSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
-    'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USMwoHcmVxdWVzdBgDIAEoCzIULmNjLkpvaW5SZXF1'
-    'ZXN0UHJvdG9IAFIHcmVxdWVzdIgBAUIKCghfcmVxdWVzdA==');
+final $typed_data.Uint8List processJoinRequestResponseDescriptor =
+    $convert.base64Decode(
+        'ChpQcm9jZXNzSm9pblJlcXVlc3RSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNzEh'
+        'gKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2USMwoHcmVxdWVzdBgDIAEoCzIULmNjLkpvaW5SZXF1'
+        'ZXN0UHJvdG9IAFIHcmVxdWVzdIgBAUIKCghfcmVxdWVzdA==');
 
 @$core.Deprecated('Use getJoinRequestsMessageDescriptor instead')
 const GetJoinRequestsMessage$json = {
   '1': 'GetJoinRequestsMessage',
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
-    {'1': 'status', '3': 2, '4': 1, '5': 14, '6': '.cc.JoinRequestStatus', '9': 0, '10': 'status', '17': true},
+    {
+      '1': 'status',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.cc.JoinRequestStatus',
+      '9': 0,
+      '10': 'status',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_status'},
@@ -748,7 +983,14 @@ const GetJoinRequestsResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'requests', '3': 3, '4': 3, '5': 11, '6': '.cc.JoinRequestProto', '10': 'requests'},
+    {
+      '1': 'requests',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.JoinRequestProto',
+      '10': 'requests'
+    },
   ],
 };
 
@@ -762,14 +1004,27 @@ final $typed_data.Uint8List getJoinRequestsResponseDescriptor = $convert.base64D
 const JoinRequestUpdatedNotification$json = {
   '1': 'JoinRequestUpdatedNotification',
   '2': [
-    {'1': 'request', '3': 1, '4': 1, '5': 11, '6': '.cc.JoinRequestProto', '10': 'request'},
-    {'1': 'notification_type', '3': 2, '4': 1, '5': 9, '10': 'notificationType'},
+    {
+      '1': 'request',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.JoinRequestProto',
+      '10': 'request'
+    },
+    {
+      '1': 'notification_type',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'notificationType'
+    },
   ],
 };
 
 /// Descriptor for `JoinRequestUpdatedNotification`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List joinRequestUpdatedNotificationDescriptor = $convert.base64Decode(
-    'Ch5Kb2luUmVxdWVzdFVwZGF0ZWROb3RpZmljYXRpb24SLgoHcmVxdWVzdBgBIAEoCzIULmNjLk'
-    'pvaW5SZXF1ZXN0UHJvdG9SB3JlcXVlc3QSKwoRbm90aWZpY2F0aW9uX3R5cGUYAiABKAlSEG5v'
-    'dGlmaWNhdGlvblR5cGU=');
-
+final $typed_data.Uint8List joinRequestUpdatedNotificationDescriptor =
+    $convert.base64Decode(
+        'Ch5Kb2luUmVxdWVzdFVwZGF0ZWROb3RpZmljYXRpb24SLgoHcmVxdWVzdBgBIAEoCzIULmNjLk'
+        'pvaW5SZXF1ZXN0UHJvdG9SB3JlcXVlc3QSKwoRbm90aWZpY2F0aW9uX3R5cGUYAiABKAlSEG5v'
+        'dGlmaWNhdGlvblR5cGU=');

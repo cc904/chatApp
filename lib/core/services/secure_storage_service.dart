@@ -27,7 +27,7 @@ class SecureStorageService {
   static final _logger = LogService.instance;
 
   // Flutter Secure Storage实例 - 平台特定配置
-  static final FlutterSecureStorage _storage = const FlutterSecureStorage(
+  static const FlutterSecureStorage _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
     ),
@@ -247,15 +247,40 @@ class SecureStorageService {
         'email': currentUser.email,
         'status': currentUser.status,
         'lastLoginTime': currentUser.lastLoginTime?.millisecondsSinceEpoch,
+        'hasSetPassword': currentUser.hasSetPassword,
+        'roleId': currentUser.roleId, // 🔥🔥🔥 修复：保存roleId到安全存储
       };
 
       await writeObject(keyUserInfo, userInfo);
+      
+      // 🚨🚨🚨 关键检查：保存前验证roleId是否正确
+      if (currentUser.roleId == 0) {
+        _logger.e('🚨🚨🚨 SAVE_ERROR: 尝试保存roleId=0的用户信息，这是错误的！', extra: {
+          'userId': currentUser.userId,
+          'name': currentUser.name,
+          'roleId': currentUser.roleId,
+          'expectedRoleId': '应该是1,2,3,4中的一个',
+          'stackTrace': StackTrace.current.toString(),
+        });
+      }
+      
+      // 使用日志系统记录roleId保存状态（生产环境安全）
+      _logger.i('💾💾💾 SAVE_USER_CREDENTIALS', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'roleId': currentUser.roleId,
+        'isRoleIdValid': currentUser.roleId > 0,
+        'userInfoMap': userInfo,
+      });
+      
       _logger.i('用户凭证已保存到Keychain', extra: {
         'userId': currentUser.userId,
         'name': currentUser.name,
         'hasAvatar': currentUser.avatar != null,
         'hasPhone': currentUser.phone != null,
         'hasEmail': currentUser.email != null,
+        'roleId': currentUser.roleId,
+        'hasSetPassword': currentUser.hasSetPassword,
       });
     } catch (e) {
       _logger.e('保存用户凭证失败', error: e, stackTrace: StackTrace.current);
@@ -294,14 +319,41 @@ class SecureStorageService {
         status: userInfo['status'],
         lastLoginTime: userInfo['lastLoginTime'] != null ? DateTime.fromMillisecondsSinceEpoch(userInfo['lastLoginTime']) : null,
         hasSetPassword: userInfo['hasSetPassword'] ?? false,
+        roleId: userInfo['roleId'] ?? 0, // 角色ID，默认为0
       );
 
+      // 🚨🚨🚨 关键检查：读取后验证roleId是否正确
+      if (currentUser.roleId == 0) {
+        _logger.e('🚨🚨🚨 READ_ERROR: 从安全存储读取的用户roleId=0，这是错误的！', extra: {
+          'userId': currentUser.userId,
+          'name': currentUser.name,
+          'roleId': currentUser.roleId,
+          'userInfoFromStorage': userInfo,
+          'possibleCauses': [
+            '1. 保存时roleId就是0（见保存日志）',
+            '2. 安全存储数据损坏',
+            '3. roleId字段在存储映射中丢失'
+          ]
+        });
+      }
+      
+      // 使用日志系统记录roleId读取状态（生产环境安全）
+      _logger.i('🔓🔓🔓 READ_USER_CREDENTIALS', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'roleId': currentUser.roleId,
+        'isRoleIdValid': currentUser.roleId > 0,
+        'rawUserInfo': userInfo,
+      });
+      
       _logger.d('从Keychain读取用户凭证成功', extra: {
         'userId': currentUser.userId,
         'name': currentUser.name,
         'hasAvatar': currentUser.avatar != null,
         'hasPhone': currentUser.phone != null,
         'hasEmail': currentUser.email != null,
+        'roleId': currentUser.roleId,
+        'hasSetPassword': currentUser.hasSetPassword,
       });
 
       return currentUser;

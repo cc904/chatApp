@@ -1,13 +1,13 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'dart:async';
+import 'package:drift/drift.dart' as drift;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/database/drift_database.dart';
+import '../../../../core/database/database_initializer.dart';
 import '../../../../core/services/proto_socket_service.dart';
 import '../../../../core/services/log_service.dart';
 
-/// 快捷回复数据仓库 (支持Socket.io同步)
+/// 快捷回复数据仓库 (使用数据库存储 + Socket.io同步)
 class QuickReplyRepository {
-  static const String _keyQuickReplies = 'quick_replies';
   static const String _keyLastSync = 'quick_replies_last_sync';
   
   final ProtoSocketService _socketService = ProtoSocketService();
@@ -15,6 +15,9 @@ class QuickReplyRepository {
   
   // 响应数据的Completer
   Completer<List<QuickReply>>? _syncCompleter;
+  
+  // 获取数据库实例
+  AppDatabase get _db => DatabaseInitializer.database;
 
   /// 初始化Socket.io事件监听
   void _initializeSocketListeners() {
@@ -35,8 +38,8 @@ class QuickReplyRepository {
             .map((json) => QuickReplyExtension.fromServerJson(json as Map<String, dynamic>))
             .toList();
         
-        // 保存到本地缓存
-        await _saveToLocal(replies);
+        // 保存到数据库
+        await _saveToDatabase(replies);
         await _updateLastSyncTime();
         
         _logger.i('快捷回复同步成功，共${replies.length}条');
@@ -94,15 +97,15 @@ class QuickReplyRepository {
     } catch (e) {
       _logger.e('快捷回复Socket.io同步失败', error: e);
       // 同步失败时返回本地缓存
-      return await _getFromLocal();
+      return await _getFromDatabase();
     } finally {
       _syncCompleter = null;
     }
   }
 
-  /// 获取所有快捷回复（优先本地缓存）
+  /// 获取所有快捷回复（优先数据库缓存）
   Future<List<QuickReply>> getAllQuickReplies() async {
-    final localReplies = await _getFromLocal();
+    final localReplies = await _getFromDatabase();
     
     // 如果本地有数据且不需要立即同步，直接返回
     if (localReplies.isNotEmpty && !await _needsSync()) {
@@ -113,48 +116,58 @@ class QuickReplyRepository {
     try {
       return await syncFromServer();
     } catch (e) {
-      _logger.w('使用本地缓存的快捷回复数据');
+      _logger.w('使用本地数据库的快捷回复数据');
       return localReplies;
     }
   }
 
-  /// 从本地缓存获取数据
-  Future<List<QuickReply>> _getFromLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? data = prefs.getString(_keyQuickReplies);
-    if (data == null) return [];
-    
+  /// 从数据库获取数据
+  Future<List<QuickReply>> _getFromDatabase() async {
     try {
-      final List<dynamic> jsonList = json.decode(data);
-      return jsonList
-          .map((json) => QuickReply.fromJson(json as Map<String, dynamic>))
-          .where((reply) => reply.isEnabled)
-          .toList()
-        ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+      final query = _db.select(_db.quickReplies)
+          ..where((tbl) => tbl.isEnabled.equals(true))
+          ..orderBy([
+            (tbl) => drift.OrderingTerm.asc(tbl.orderIndex),
+            (tbl) => drift.OrderingTerm.asc(tbl.id),
+          ]);
+      return await query.get();
     } catch (e) {
-      _logger.e('解析本地快捷回复数据失败', error: e);
+      _logger.e('从数据库获取快捷回复数据失败', error: e);
       return [];
     }
   }
 
   /// 根据分类获取快捷回复
   Future<List<QuickReply>> getQuickRepliesByCategory(String category) async {
-    final allReplies = await getAllQuickReplies();
-    return allReplies.where((reply) => reply.category == category).toList();
+    try {
+      final query = _db.select(_db.quickReplies)
+          ..where((tbl) => tbl.isEnabled.equals(true) & tbl.category.equals(category))
+          ..orderBy([
+            (tbl) => drift.OrderingTerm.asc(tbl.orderIndex),
+            (tbl) => drift.OrderingTerm.asc(tbl.id),
+          ]);
+      return await query.get();
+    } catch (e) {
+      _logger.e('按分类获取快捷回复失败', error: e);
+      return [];
+    }
   }
 
   /// 按分类和顺序获取快捷回复
   Future<List<QuickReply>> getRepliesOrdered() async {
-    final allReplies = await getAllQuickReplies();
-    // 按分类和orderIndex字段排序
-    allReplies.sort((a, b) {
-      final categoryA = a.category ?? '';
-      final categoryB = b.category ?? '';
-      final categoryCompare = categoryA.compareTo(categoryB);
-      if (categoryCompare != 0) return categoryCompare;
-      return a.orderIndex.compareTo(b.orderIndex);
-    });
-    return allReplies;
+    try {
+      final query = _db.select(_db.quickReplies)
+          ..where((tbl) => tbl.isEnabled.equals(true))
+          ..orderBy([
+            (tbl) => drift.OrderingTerm.asc(tbl.category),
+            (tbl) => drift.OrderingTerm.asc(tbl.orderIndex),
+            (tbl) => drift.OrderingTerm.asc(tbl.id),
+          ]);
+      return await query.get();
+    } catch (e) {
+      _logger.e('按分类和顺序获取快捷回复失败', error: e);
+      return [];
+    }
   }
 
 
@@ -168,32 +181,55 @@ class QuickReplyRepository {
   Future<List<QuickReply>> searchQuickReplies(String query) async {
     if (query.isEmpty) return getAllQuickReplies();
     
-    final allReplies = await getAllQuickReplies();
-    return allReplies
-        .where((reply) => 
-            reply.content.toLowerCase().contains(query.toLowerCase()) ||
-            (reply.category?.toLowerCase().contains(query.toLowerCase()) ?? false))
-        .toList()
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    try {
+      final lowercaseQuery = query.toLowerCase();
+      final searchQuery = _db.select(_db.quickReplies)
+          ..where((tbl) => 
+            tbl.isEnabled.equals(true) & 
+            (tbl.content.lower().contains(lowercaseQuery) | 
+             tbl.category.lower().contains(lowercaseQuery)))
+          ..orderBy([
+            (tbl) => drift.OrderingTerm.asc(tbl.orderIndex),
+            (tbl) => drift.OrderingTerm.asc(tbl.id),
+          ]);
+      return await searchQuery.get();
+    } catch (e) {
+      _logger.e('搜索快捷回复失败', error: e);
+      return [];
+    }
   }
 
   /// 获取分类列表
   Future<List<String>> getCategories() async {
-    final allReplies = await getAllQuickReplies();
-    final categories = allReplies
-        .map((r) => r.category)
-        .where((category) => category != null)
-        .cast<String>()
-        .toSet()
-        .toList()
-      ..sort();
-    return categories;
+    try {
+      final query = _db.selectOnly(_db.quickReplies, distinct: true)
+          ..addColumns([_db.quickReplies.category])
+          ..where(_db.quickReplies.isEnabled.equals(true) & 
+                 _db.quickReplies.category.isNotNull())
+          ..orderBy([drift.OrderingTerm.asc(_db.quickReplies.category)]);
+      
+      final result = await query.get();
+      
+      return result
+          .map((row) => row.read(_db.quickReplies.category))
+          .where((category) => category != null)
+          .cast<String>()
+          .toList();
+    } catch (e) {
+      _logger.e('获取分类列表失败', error: e);
+      return [];
+    }
   }
 
   /// 清空所有快捷回复
   Future<void> clearAllQuickReplies() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyQuickReplies);
+    try {
+      await _db.delete(_db.quickReplies).go();
+      _logger.i('所有快捷回复已清空');
+    } catch (e) {
+      _logger.e('清空快捷回复失败', error: e);
+      rethrow;
+    }
   }
 
   /// 导出快捷回复
@@ -203,11 +239,34 @@ class QuickReplyRepository {
   }
 
 
-  /// 保存到本地缓存
-  Future<void> _saveToLocal(List<QuickReply> replies) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = replies.map((reply) => reply.toJson()).toList();
-    await prefs.setString(_keyQuickReplies, json.encode(jsonList));
+  /// 保存到数据库
+  Future<void> _saveToDatabase(List<QuickReply> replies) async {
+    try {
+      await _db.transaction(() async {
+        // 清空现有数据
+        await _db.delete(_db.quickReplies).go();
+        
+        // 批量插入新数据
+        for (final reply in replies) {
+          await _db.into(_db.quickReplies).insert(
+            QuickRepliesCompanion.insert(
+              id: drift.Value(reply.id),
+              content: reply.content,
+              category: drift.Value(reply.category),
+              orderIndex: drift.Value(reply.orderIndex),
+              isEnabled: drift.Value(reply.isEnabled),
+              createdAt: reply.createdAt,
+              updatedAt: drift.Value(reply.updatedAt),
+            )
+          );
+        }
+      });
+      
+      _logger.i('快捷回复数据已保存到数据库，共${replies.length}条');
+    } catch (e) {
+      _logger.e('保存快捷回复到数据库失败', error: e);
+      rethrow;
+    }
   }
 
   /// 更新最后同步时间

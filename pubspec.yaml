@@ -173,6 +173,5 @@ flutter:
     - assets/sounds/
     - assets/
 
-  # MiniTex免字体渲染器：不需要加载任何字体文件
-  # 所有文本渲染通过Canvas 2D + 系统字体实现
-  # fonts: (已移除以减少应用大小)
+  # MiniTex免字体渲染器 - 删除所有字体声明，避免打包大字体
+  # fonts: ← 整段删掉，使用MiniTex内嵌字形

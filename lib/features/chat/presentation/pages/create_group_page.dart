@@ -283,6 +283,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                       lastLoginTime: null,
                       status: null,
                       hasSetPassword: false,
+                      roleId: 0, // 默认角色ID
                     ),
                     initialConversation: conversation,
                   ),
@@ -606,6 +607,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                   avatarUrl: member.avatar,
                   name: member.nickName,
                   radius: 20,
+                  roleId: member.roleId,
                 ),
                 title: Text(
                   member.nickName,

@@ -1,13 +1,14 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: auth.proto
-//
+// Generated from auth.proto.
+
 // @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names
 
 import 'dart:core' as $core;
 
@@ -31,71 +32,68 @@ class AuthRequest extends $pb.GeneratedMessage {
     $core.bool? isQuickLogin,
     $core.String? purpose,
   }) {
-    final $result = create();
-    if (operationType != null) {
-      $result.operationType = operationType;
-    }
-    if (phoneNumber != null) {
-      $result.phoneNumber = phoneNumber;
-    }
-    if (password != null) {
-      $result.password = password;
-    }
-    if (verificationCode != null) {
-      $result.verificationCode = verificationCode;
-    }
-    if (nickname != null) {
-      $result.nickname = nickname;
-    }
-    if (isQuickLogin != null) {
-      $result.isQuickLogin = isQuickLogin;
-    }
-    if (purpose != null) {
-      $result.purpose = purpose;
-    }
-    return $result;
+    final result = create();
+    if (operationType != null) result.operationType = operationType;
+    if (phoneNumber != null) result.phoneNumber = phoneNumber;
+    if (password != null) result.password = password;
+    if (verificationCode != null) result.verificationCode = verificationCode;
+    if (nickname != null) result.nickname = nickname;
+    if (isQuickLogin != null) result.isQuickLogin = isQuickLogin;
+    if (purpose != null) result.purpose = purpose;
+    return result;
   }
-  AuthRequest._() : super();
-  factory AuthRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory AuthRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AuthRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
-    ..e<AuthOperationType>(1, _omitFieldNames ? '' : 'operationType', $pb.PbFieldType.OE, defaultOrMaker: AuthOperationType.LOGIN, valueOf: AuthOperationType.valueOf, enumValues: AuthOperationType.values)
+  AuthRequest._();
+
+  factory AuthRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AuthRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AuthRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
+    ..e<AuthOperationType>(
+        1, _omitFieldNames ? '' : 'operationType', $pb.PbFieldType.OE,
+        defaultOrMaker: AuthOperationType.LOGIN,
+        valueOf: AuthOperationType.valueOf,
+        enumValues: AuthOperationType.values)
     ..aOS(2, _omitFieldNames ? '' : 'phoneNumber')
     ..aOS(3, _omitFieldNames ? '' : 'password')
     ..aOS(4, _omitFieldNames ? '' : 'verificationCode')
     ..aOS(5, _omitFieldNames ? '' : 'nickname')
     ..aOB(6, _omitFieldNames ? '' : 'isQuickLogin')
     ..aOS(7, _omitFieldNames ? '' : 'purpose')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   AuthRequest clone() => AuthRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  AuthRequest copyWith(void Function(AuthRequest) updates) => super.copyWith((message) => updates(message as AuthRequest)) as AuthRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AuthRequest copyWith(void Function(AuthRequest) updates) =>
+      super.copyWith((message) => updates(message as AuthRequest))
+          as AuthRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static AuthRequest create() => AuthRequest._();
+  @$core.override
   AuthRequest createEmptyInstance() => create();
   static $pb.PbList<AuthRequest> createRepeated() => $pb.PbList<AuthRequest>();
   @$core.pragma('dart2js:noInline')
-  static AuthRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AuthRequest>(create);
+  static AuthRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AuthRequest>(create);
   static AuthRequest? _defaultInstance;
 
   /// 操作类型
   @$pb.TagNumber(1)
   AuthOperationType get operationType => $_getN(0);
   @$pb.TagNumber(1)
-  set operationType(AuthOperationType v) { $_setField(1, v); }
+  set operationType(AuthOperationType value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasOperationType() => $_has(0);
   @$pb.TagNumber(1)
@@ -105,7 +103,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get phoneNumber => $_getSZ(1);
   @$pb.TagNumber(2)
-  set phoneNumber($core.String v) { $_setString(1, v); }
+  set phoneNumber($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasPhoneNumber() => $_has(1);
   @$pb.TagNumber(2)
@@ -115,7 +113,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get password => $_getSZ(2);
   @$pb.TagNumber(3)
-  set password($core.String v) { $_setString(2, v); }
+  set password($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasPassword() => $_has(2);
   @$pb.TagNumber(3)
@@ -125,7 +123,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.String get verificationCode => $_getSZ(3);
   @$pb.TagNumber(4)
-  set verificationCode($core.String v) { $_setString(3, v); }
+  set verificationCode($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasVerificationCode() => $_has(3);
   @$pb.TagNumber(4)
@@ -135,7 +133,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   $core.String get nickname => $_getSZ(4);
   @$pb.TagNumber(5)
-  set nickname($core.String v) { $_setString(4, v); }
+  set nickname($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasNickname() => $_has(4);
   @$pb.TagNumber(5)
@@ -145,7 +143,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   $core.bool get isQuickLogin => $_getBF(5);
   @$pb.TagNumber(6)
-  set isQuickLogin($core.bool v) { $_setBool(5, v); }
+  set isQuickLogin($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
   $core.bool hasIsQuickLogin() => $_has(5);
   @$pb.TagNumber(6)
@@ -155,7 +153,7 @@ class AuthRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   $core.String get purpose => $_getSZ(6);
   @$pb.TagNumber(7)
-  set purpose($core.String v) { $_setString(6, v); }
+  set purpose($core.String value) => $_setString(6, value);
   @$pb.TagNumber(7)
   $core.bool hasPurpose() => $_has(6);
   @$pb.TagNumber(7)
@@ -171,63 +169,61 @@ class AuthResponse extends $pb.GeneratedMessage {
     $core.String? token,
     $fixnum.Int64? timestamp,
   }) {
-    final $result = create();
-    if (success != null) {
-      $result.success = success;
-    }
-    if (message != null) {
-      $result.message = message;
-    }
-    if (userId != null) {
-      $result.userId = userId;
-    }
-    if (token != null) {
-      $result.token = token;
-    }
-    if (timestamp != null) {
-      $result.timestamp = timestamp;
-    }
-    return $result;
+    final result = create();
+    if (success != null) result.success = success;
+    if (message != null) result.message = message;
+    if (userId != null) result.userId = userId;
+    if (token != null) result.token = token;
+    if (timestamp != null) result.timestamp = timestamp;
+    return result;
   }
-  AuthResponse._() : super();
-  factory AuthResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory AuthResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AuthResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  AuthResponse._();
+
+  factory AuthResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AuthResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AuthResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'message')
     ..aOS(3, _omitFieldNames ? '' : 'userId')
     ..aOS(4, _omitFieldNames ? '' : 'token')
     ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   AuthResponse clone() => AuthResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  AuthResponse copyWith(void Function(AuthResponse) updates) => super.copyWith((message) => updates(message as AuthResponse)) as AuthResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AuthResponse copyWith(void Function(AuthResponse) updates) =>
+      super.copyWith((message) => updates(message as AuthResponse))
+          as AuthResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static AuthResponse create() => AuthResponse._();
+  @$core.override
   AuthResponse createEmptyInstance() => create();
-  static $pb.PbList<AuthResponse> createRepeated() => $pb.PbList<AuthResponse>();
+  static $pb.PbList<AuthResponse> createRepeated() =>
+      $pb.PbList<AuthResponse>();
   @$core.pragma('dart2js:noInline')
-  static AuthResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AuthResponse>(create);
+  static AuthResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AuthResponse>(create);
   static AuthResponse? _defaultInstance;
 
   /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
-  set success($core.bool v) { $_setBool(0, v); }
+  set success($core.bool value) => $_setBool(0, value);
   @$pb.TagNumber(1)
   $core.bool hasSuccess() => $_has(0);
   @$pb.TagNumber(1)
@@ -237,7 +233,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get message => $_getSZ(1);
   @$pb.TagNumber(2)
-  set message($core.String v) { $_setString(1, v); }
+  set message($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -247,7 +243,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get userId => $_getSZ(2);
   @$pb.TagNumber(3)
-  set userId($core.String v) { $_setString(2, v); }
+  set userId($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasUserId() => $_has(2);
   @$pb.TagNumber(3)
@@ -257,7 +253,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.String get token => $_getSZ(3);
   @$pb.TagNumber(4)
-  set token($core.String v) { $_setString(3, v); }
+  set token($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasToken() => $_has(3);
   @$pb.TagNumber(4)
@@ -267,7 +263,7 @@ class AuthResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   $fixnum.Int64 get timestamp => $_getI64(4);
   @$pb.TagNumber(5)
-  set timestamp($fixnum.Int64 v) { $_setInt64(4, v); }
+  set timestamp($fixnum.Int64 value) => $_setInt64(4, value);
   @$pb.TagNumber(5)
   $core.bool hasTimestamp() => $_has(4);
   @$pb.TagNumber(5)
@@ -282,48 +278,51 @@ class LoginRequest extends $pb.GeneratedMessage {
     $core.String? password,
     DeviceInfo? device,
   }) {
-    final $result = create();
-    if (identifier != null) {
-      $result.identifier = identifier;
-    }
-    if (password != null) {
-      $result.password = password;
-    }
-    if (device != null) {
-      $result.device = device;
-    }
-    return $result;
+    final result = create();
+    if (identifier != null) result.identifier = identifier;
+    if (password != null) result.password = password;
+    if (device != null) result.device = device;
+    return result;
   }
-  LoginRequest._() : super();
-  factory LoginRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory LoginRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'LoginRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  LoginRequest._();
+
+  factory LoginRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LoginRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LoginRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'identifier')
     ..aOS(2, _omitFieldNames ? '' : 'password')
-    ..aOM<DeviceInfo>(3, _omitFieldNames ? '' : 'device', subBuilder: DeviceInfo.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<DeviceInfo>(3, _omitFieldNames ? '' : 'device',
+        subBuilder: DeviceInfo.create)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   LoginRequest clone() => LoginRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  LoginRequest copyWith(void Function(LoginRequest) updates) => super.copyWith((message) => updates(message as LoginRequest)) as LoginRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LoginRequest copyWith(void Function(LoginRequest) updates) =>
+      super.copyWith((message) => updates(message as LoginRequest))
+          as LoginRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static LoginRequest create() => LoginRequest._();
+  @$core.override
   LoginRequest createEmptyInstance() => create();
-  static $pb.PbList<LoginRequest> createRepeated() => $pb.PbList<LoginRequest>();
+  static $pb.PbList<LoginRequest> createRepeated() =>
+      $pb.PbList<LoginRequest>();
   @$core.pragma('dart2js:noInline')
-  static LoginRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<LoginRequest>(create);
+  static LoginRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LoginRequest>(create);
   static LoginRequest? _defaultInstance;
 
   /// 用户登录方式
@@ -331,7 +330,7 @@ class LoginRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $core.String get identifier => $_getSZ(0);
   @$pb.TagNumber(1)
-  set identifier($core.String v) { $_setString(0, v); }
+  set identifier($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasIdentifier() => $_has(0);
   @$pb.TagNumber(1)
@@ -342,7 +341,7 @@ class LoginRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get password => $_getSZ(1);
   @$pb.TagNumber(2)
-  set password($core.String v) { $_setString(1, v); }
+  set password($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasPassword() => $_has(1);
   @$pb.TagNumber(2)
@@ -353,7 +352,7 @@ class LoginRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   DeviceInfo get device => $_getN(2);
   @$pb.TagNumber(3)
-  set device(DeviceInfo v) { $_setField(3, v); }
+  set device(DeviceInfo value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasDevice() => $_has(2);
   @$pb.TagNumber(3)
@@ -371,59 +370,61 @@ class LoginResponse extends $pb.GeneratedMessage {
     UserInfo? user,
     TokenPair? tokens,
   }) {
-    final $result = create();
-    if (success != null) {
-      $result.success = success;
-    }
-    if (errorMessage != null) {
-      $result.errorMessage = errorMessage;
-    }
-    if (user != null) {
-      $result.user = user;
-    }
-    if (tokens != null) {
-      $result.tokens = tokens;
-    }
-    return $result;
+    final result = create();
+    if (success != null) result.success = success;
+    if (errorMessage != null) result.errorMessage = errorMessage;
+    if (user != null) result.user = user;
+    if (tokens != null) result.tokens = tokens;
+    return result;
   }
-  LoginResponse._() : super();
-  factory LoginResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory LoginResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'LoginResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  LoginResponse._();
+
+  factory LoginResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LoginResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LoginResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
-    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
-    ..aOM<TokenPair>(4, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user',
+        subBuilder: UserInfo.create)
+    ..aOM<TokenPair>(4, _omitFieldNames ? '' : 'tokens',
+        subBuilder: TokenPair.create)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   LoginResponse clone() => LoginResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  LoginResponse copyWith(void Function(LoginResponse) updates) => super.copyWith((message) => updates(message as LoginResponse)) as LoginResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LoginResponse copyWith(void Function(LoginResponse) updates) =>
+      super.copyWith((message) => updates(message as LoginResponse))
+          as LoginResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static LoginResponse create() => LoginResponse._();
+  @$core.override
   LoginResponse createEmptyInstance() => create();
-  static $pb.PbList<LoginResponse> createRepeated() => $pb.PbList<LoginResponse>();
+  static $pb.PbList<LoginResponse> createRepeated() =>
+      $pb.PbList<LoginResponse>();
   @$core.pragma('dart2js:noInline')
-  static LoginResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<LoginResponse>(create);
+  static LoginResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LoginResponse>(create);
   static LoginResponse? _defaultInstance;
 
   /// 登录是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
-  set success($core.bool v) { $_setBool(0, v); }
+  set success($core.bool value) => $_setBool(0, value);
   @$pb.TagNumber(1)
   $core.bool hasSuccess() => $_has(0);
   @$pb.TagNumber(1)
@@ -434,7 +435,7 @@ class LoginResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get errorMessage => $_getSZ(1);
   @$pb.TagNumber(2)
-  set errorMessage($core.String v) { $_setString(1, v); }
+  set errorMessage($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasErrorMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -445,7 +446,7 @@ class LoginResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   UserInfo get user => $_getN(2);
   @$pb.TagNumber(3)
-  set user(UserInfo v) { $_setField(3, v); }
+  set user(UserInfo value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasUser() => $_has(2);
   @$pb.TagNumber(3)
@@ -458,7 +459,7 @@ class LoginResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   TokenPair get tokens => $_getN(3);
   @$pb.TagNumber(4)
-  set tokens(TokenPair v) { $_setField(4, v); }
+  set tokens(TokenPair value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasTokens() => $_has(3);
   @$pb.TagNumber(4)
@@ -477,56 +478,55 @@ class RegisterRequest extends $pb.GeneratedMessage {
     $core.String? email,
     DeviceInfo? device,
   }) {
-    final $result = create();
-    if (username != null) {
-      $result.username = username;
-    }
-    if (password != null) {
-      $result.password = password;
-    }
-    if (phone != null) {
-      $result.phone = phone;
-    }
-    if (email != null) {
-      $result.email = email;
-    }
-    if (device != null) {
-      $result.device = device;
-    }
-    return $result;
+    final result = create();
+    if (username != null) result.username = username;
+    if (password != null) result.password = password;
+    if (phone != null) result.phone = phone;
+    if (email != null) result.email = email;
+    if (device != null) result.device = device;
+    return result;
   }
-  RegisterRequest._() : super();
-  factory RegisterRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory RegisterRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RegisterRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  RegisterRequest._();
+
+  factory RegisterRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RegisterRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RegisterRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'username')
     ..aOS(2, _omitFieldNames ? '' : 'password')
     ..aOS(3, _omitFieldNames ? '' : 'phone')
     ..aOS(4, _omitFieldNames ? '' : 'email')
-    ..aOM<DeviceInfo>(5, _omitFieldNames ? '' : 'device', subBuilder: DeviceInfo.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<DeviceInfo>(5, _omitFieldNames ? '' : 'device',
+        subBuilder: DeviceInfo.create)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   RegisterRequest clone() => RegisterRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  RegisterRequest copyWith(void Function(RegisterRequest) updates) => super.copyWith((message) => updates(message as RegisterRequest)) as RegisterRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RegisterRequest copyWith(void Function(RegisterRequest) updates) =>
+      super.copyWith((message) => updates(message as RegisterRequest))
+          as RegisterRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static RegisterRequest create() => RegisterRequest._();
+  @$core.override
   RegisterRequest createEmptyInstance() => create();
-  static $pb.PbList<RegisterRequest> createRepeated() => $pb.PbList<RegisterRequest>();
+  static $pb.PbList<RegisterRequest> createRepeated() =>
+      $pb.PbList<RegisterRequest>();
   @$core.pragma('dart2js:noInline')
-  static RegisterRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RegisterRequest>(create);
+  static RegisterRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RegisterRequest>(create);
   static RegisterRequest? _defaultInstance;
 
   /// 用户名
@@ -534,7 +534,7 @@ class RegisterRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $core.String get username => $_getSZ(0);
   @$pb.TagNumber(1)
-  set username($core.String v) { $_setString(0, v); }
+  set username($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasUsername() => $_has(0);
   @$pb.TagNumber(1)
@@ -545,7 +545,7 @@ class RegisterRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get password => $_getSZ(1);
   @$pb.TagNumber(2)
-  set password($core.String v) { $_setString(1, v); }
+  set password($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasPassword() => $_has(1);
   @$pb.TagNumber(2)
@@ -556,7 +556,7 @@ class RegisterRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get phone => $_getSZ(2);
   @$pb.TagNumber(3)
-  set phone($core.String v) { $_setString(2, v); }
+  set phone($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasPhone() => $_has(2);
   @$pb.TagNumber(3)
@@ -567,7 +567,7 @@ class RegisterRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.String get email => $_getSZ(3);
   @$pb.TagNumber(4)
-  set email($core.String v) { $_setString(3, v); }
+  set email($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasEmail() => $_has(3);
   @$pb.TagNumber(4)
@@ -578,7 +578,7 @@ class RegisterRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   DeviceInfo get device => $_getN(4);
   @$pb.TagNumber(5)
-  set device(DeviceInfo v) { $_setField(5, v); }
+  set device(DeviceInfo value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasDevice() => $_has(4);
   @$pb.TagNumber(5)
@@ -596,59 +596,61 @@ class RegisterResponse extends $pb.GeneratedMessage {
     UserInfo? user,
     TokenPair? tokens,
   }) {
-    final $result = create();
-    if (success != null) {
-      $result.success = success;
-    }
-    if (errorMessage != null) {
-      $result.errorMessage = errorMessage;
-    }
-    if (user != null) {
-      $result.user = user;
-    }
-    if (tokens != null) {
-      $result.tokens = tokens;
-    }
-    return $result;
+    final result = create();
+    if (success != null) result.success = success;
+    if (errorMessage != null) result.errorMessage = errorMessage;
+    if (user != null) result.user = user;
+    if (tokens != null) result.tokens = tokens;
+    return result;
   }
-  RegisterResponse._() : super();
-  factory RegisterResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory RegisterResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RegisterResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  RegisterResponse._();
+
+  factory RegisterResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RegisterResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RegisterResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
-    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
-    ..aOM<TokenPair>(4, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user',
+        subBuilder: UserInfo.create)
+    ..aOM<TokenPair>(4, _omitFieldNames ? '' : 'tokens',
+        subBuilder: TokenPair.create)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   RegisterResponse clone() => RegisterResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  RegisterResponse copyWith(void Function(RegisterResponse) updates) => super.copyWith((message) => updates(message as RegisterResponse)) as RegisterResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RegisterResponse copyWith(void Function(RegisterResponse) updates) =>
+      super.copyWith((message) => updates(message as RegisterResponse))
+          as RegisterResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static RegisterResponse create() => RegisterResponse._();
+  @$core.override
   RegisterResponse createEmptyInstance() => create();
-  static $pb.PbList<RegisterResponse> createRepeated() => $pb.PbList<RegisterResponse>();
+  static $pb.PbList<RegisterResponse> createRepeated() =>
+      $pb.PbList<RegisterResponse>();
   @$core.pragma('dart2js:noInline')
-  static RegisterResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RegisterResponse>(create);
+  static RegisterResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RegisterResponse>(create);
   static RegisterResponse? _defaultInstance;
 
   /// 注册是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
-  set success($core.bool v) { $_setBool(0, v); }
+  set success($core.bool value) => $_setBool(0, value);
   @$pb.TagNumber(1)
   $core.bool hasSuccess() => $_has(0);
   @$pb.TagNumber(1)
@@ -659,7 +661,7 @@ class RegisterResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get errorMessage => $_getSZ(1);
   @$pb.TagNumber(2)
-  set errorMessage($core.String v) { $_setString(1, v); }
+  set errorMessage($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasErrorMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -670,7 +672,7 @@ class RegisterResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   UserInfo get user => $_getN(2);
   @$pb.TagNumber(3)
-  set user(UserInfo v) { $_setField(3, v); }
+  set user(UserInfo value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasUser() => $_has(2);
   @$pb.TagNumber(3)
@@ -683,7 +685,7 @@ class RegisterResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   TokenPair get tokens => $_getN(3);
   @$pb.TagNumber(4)
-  set tokens(TokenPair v) { $_setField(4, v); }
+  set tokens(TokenPair value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasTokens() => $_has(3);
   @$pb.TagNumber(4)
@@ -699,55 +701,58 @@ class ResetPasswordRequest extends $pb.GeneratedMessage {
     $core.String? verificationCode,
     $core.String? newPassword,
   }) {
-    final $result = create();
-    if (phoneNumber != null) {
-      $result.phoneNumber = phoneNumber;
-    }
-    if (verificationCode != null) {
-      $result.verificationCode = verificationCode;
-    }
-    if (newPassword != null) {
-      $result.newPassword = newPassword;
-    }
-    return $result;
+    final result = create();
+    if (phoneNumber != null) result.phoneNumber = phoneNumber;
+    if (verificationCode != null) result.verificationCode = verificationCode;
+    if (newPassword != null) result.newPassword = newPassword;
+    return result;
   }
-  ResetPasswordRequest._() : super();
-  factory ResetPasswordRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ResetPasswordRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ResetPasswordRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  ResetPasswordRequest._();
+
+  factory ResetPasswordRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ResetPasswordRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ResetPasswordRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'phoneNumber')
     ..aOS(2, _omitFieldNames ? '' : 'verificationCode')
     ..aOS(3, _omitFieldNames ? '' : 'newPassword')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  ResetPasswordRequest clone() => ResetPasswordRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  ResetPasswordRequest copyWith(void Function(ResetPasswordRequest) updates) => super.copyWith((message) => updates(message as ResetPasswordRequest)) as ResetPasswordRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ResetPasswordRequest clone() =>
+      ResetPasswordRequest()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ResetPasswordRequest copyWith(void Function(ResetPasswordRequest) updates) =>
+      super.copyWith((message) => updates(message as ResetPasswordRequest))
+          as ResetPasswordRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static ResetPasswordRequest create() => ResetPasswordRequest._();
+  @$core.override
   ResetPasswordRequest createEmptyInstance() => create();
-  static $pb.PbList<ResetPasswordRequest> createRepeated() => $pb.PbList<ResetPasswordRequest>();
+  static $pb.PbList<ResetPasswordRequest> createRepeated() =>
+      $pb.PbList<ResetPasswordRequest>();
   @$core.pragma('dart2js:noInline')
-  static ResetPasswordRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ResetPasswordRequest>(create);
+  static ResetPasswordRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ResetPasswordRequest>(create);
   static ResetPasswordRequest? _defaultInstance;
 
   /// 手机号
   @$pb.TagNumber(1)
   $core.String get phoneNumber => $_getSZ(0);
   @$pb.TagNumber(1)
-  set phoneNumber($core.String v) { $_setString(0, v); }
+  set phoneNumber($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasPhoneNumber() => $_has(0);
   @$pb.TagNumber(1)
@@ -757,7 +762,7 @@ class ResetPasswordRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get verificationCode => $_getSZ(1);
   @$pb.TagNumber(2)
-  set verificationCode($core.String v) { $_setString(1, v); }
+  set verificationCode($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasVerificationCode() => $_has(1);
   @$pb.TagNumber(2)
@@ -767,7 +772,7 @@ class ResetPasswordRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get newPassword => $_getSZ(2);
   @$pb.TagNumber(3)
-  set newPassword($core.String v) { $_setString(2, v); }
+  set newPassword($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasNewPassword() => $_has(2);
   @$pb.TagNumber(3)
@@ -780,51 +785,55 @@ class SendCodeRequest extends $pb.GeneratedMessage {
     $core.String? phoneNumber,
     $core.String? purpose,
   }) {
-    final $result = create();
-    if (phoneNumber != null) {
-      $result.phoneNumber = phoneNumber;
-    }
-    if (purpose != null) {
-      $result.purpose = purpose;
-    }
-    return $result;
+    final result = create();
+    if (phoneNumber != null) result.phoneNumber = phoneNumber;
+    if (purpose != null) result.purpose = purpose;
+    return result;
   }
-  SendCodeRequest._() : super();
-  factory SendCodeRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SendCodeRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SendCodeRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  SendCodeRequest._();
+
+  factory SendCodeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SendCodeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendCodeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'phoneNumber')
     ..aOS(2, _omitFieldNames ? '' : 'purpose')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SendCodeRequest clone() => SendCodeRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SendCodeRequest copyWith(void Function(SendCodeRequest) updates) => super.copyWith((message) => updates(message as SendCodeRequest)) as SendCodeRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendCodeRequest copyWith(void Function(SendCodeRequest) updates) =>
+      super.copyWith((message) => updates(message as SendCodeRequest))
+          as SendCodeRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static SendCodeRequest create() => SendCodeRequest._();
+  @$core.override
   SendCodeRequest createEmptyInstance() => create();
-  static $pb.PbList<SendCodeRequest> createRepeated() => $pb.PbList<SendCodeRequest>();
+  static $pb.PbList<SendCodeRequest> createRepeated() =>
+      $pb.PbList<SendCodeRequest>();
   @$core.pragma('dart2js:noInline')
-  static SendCodeRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendCodeRequest>(create);
+  static SendCodeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SendCodeRequest>(create);
   static SendCodeRequest? _defaultInstance;
 
   /// 手机号
   @$pb.TagNumber(1)
   $core.String get phoneNumber => $_getSZ(0);
   @$pb.TagNumber(1)
-  set phoneNumber($core.String v) { $_setString(0, v); }
+  set phoneNumber($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasPhoneNumber() => $_has(0);
   @$pb.TagNumber(1)
@@ -834,7 +843,7 @@ class SendCodeRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get purpose => $_getSZ(1);
   @$pb.TagNumber(2)
-  set purpose($core.String v) { $_setString(1, v); }
+  set purpose($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasPurpose() => $_has(1);
   @$pb.TagNumber(2)
@@ -849,59 +858,59 @@ class SendCodeResponse extends $pb.GeneratedMessage {
     $fixnum.Int64? timestamp,
     $core.int? cooldown,
   }) {
-    final $result = create();
-    if (success != null) {
-      $result.success = success;
-    }
-    if (message != null) {
-      $result.message = message;
-    }
-    if (timestamp != null) {
-      $result.timestamp = timestamp;
-    }
-    if (cooldown != null) {
-      $result.cooldown = cooldown;
-    }
-    return $result;
+    final result = create();
+    if (success != null) result.success = success;
+    if (message != null) result.message = message;
+    if (timestamp != null) result.timestamp = timestamp;
+    if (cooldown != null) result.cooldown = cooldown;
+    return result;
   }
-  SendCodeResponse._() : super();
-  factory SendCodeResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SendCodeResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SendCodeResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  SendCodeResponse._();
+
+  factory SendCodeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SendCodeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendCodeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'message')
     ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
     ..a<$core.int>(4, _omitFieldNames ? '' : 'cooldown', $pb.PbFieldType.O3)
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SendCodeResponse clone() => SendCodeResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SendCodeResponse copyWith(void Function(SendCodeResponse) updates) => super.copyWith((message) => updates(message as SendCodeResponse)) as SendCodeResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendCodeResponse copyWith(void Function(SendCodeResponse) updates) =>
+      super.copyWith((message) => updates(message as SendCodeResponse))
+          as SendCodeResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static SendCodeResponse create() => SendCodeResponse._();
+  @$core.override
   SendCodeResponse createEmptyInstance() => create();
-  static $pb.PbList<SendCodeResponse> createRepeated() => $pb.PbList<SendCodeResponse>();
+  static $pb.PbList<SendCodeResponse> createRepeated() =>
+      $pb.PbList<SendCodeResponse>();
   @$core.pragma('dart2js:noInline')
-  static SendCodeResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendCodeResponse>(create);
+  static SendCodeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SendCodeResponse>(create);
   static SendCodeResponse? _defaultInstance;
 
   /// 是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
-  set success($core.bool v) { $_setBool(0, v); }
+  set success($core.bool value) => $_setBool(0, value);
   @$pb.TagNumber(1)
   $core.bool hasSuccess() => $_has(0);
   @$pb.TagNumber(1)
@@ -911,7 +920,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get message => $_getSZ(1);
   @$pb.TagNumber(2)
-  set message($core.String v) { $_setString(1, v); }
+  set message($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -921,7 +930,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $fixnum.Int64 get timestamp => $_getI64(2);
   @$pb.TagNumber(3)
-  set timestamp($fixnum.Int64 v) { $_setInt64(2, v); }
+  set timestamp($fixnum.Int64 value) => $_setInt64(2, value);
   @$pb.TagNumber(3)
   $core.bool hasTimestamp() => $_has(2);
   @$pb.TagNumber(3)
@@ -931,7 +940,7 @@ class SendCodeResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.int get cooldown => $_getIZ(3);
   @$pb.TagNumber(4)
-  set cooldown($core.int v) { $_setSignedInt32(3, v); }
+  set cooldown($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
   $core.bool hasCooldown() => $_has(3);
   @$pb.TagNumber(4)
@@ -944,47 +953,53 @@ class VerifyTokenRequest extends $pb.GeneratedMessage {
   factory VerifyTokenRequest({
     $core.String? token,
   }) {
-    final $result = create();
-    if (token != null) {
-      $result.token = token;
-    }
-    return $result;
+    final result = create();
+    if (token != null) result.token = token;
+    return result;
   }
-  VerifyTokenRequest._() : super();
-  factory VerifyTokenRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory VerifyTokenRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VerifyTokenRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  VerifyTokenRequest._();
+
+  factory VerifyTokenRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory VerifyTokenRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VerifyTokenRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'token')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   VerifyTokenRequest clone() => VerifyTokenRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  VerifyTokenRequest copyWith(void Function(VerifyTokenRequest) updates) => super.copyWith((message) => updates(message as VerifyTokenRequest)) as VerifyTokenRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VerifyTokenRequest copyWith(void Function(VerifyTokenRequest) updates) =>
+      super.copyWith((message) => updates(message as VerifyTokenRequest))
+          as VerifyTokenRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static VerifyTokenRequest create() => VerifyTokenRequest._();
+  @$core.override
   VerifyTokenRequest createEmptyInstance() => create();
-  static $pb.PbList<VerifyTokenRequest> createRepeated() => $pb.PbList<VerifyTokenRequest>();
+  static $pb.PbList<VerifyTokenRequest> createRepeated() =>
+      $pb.PbList<VerifyTokenRequest>();
   @$core.pragma('dart2js:noInline')
-  static VerifyTokenRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VerifyTokenRequest>(create);
+  static VerifyTokenRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VerifyTokenRequest>(create);
   static VerifyTokenRequest? _defaultInstance;
 
   /// 要验证的令牌
   @$pb.TagNumber(1)
   $core.String get token => $_getSZ(0);
   @$pb.TagNumber(1)
-  set token($core.String v) { $_setString(0, v); }
+  set token($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasToken() => $_has(0);
   @$pb.TagNumber(1)
@@ -1001,63 +1016,62 @@ class VerifyTokenResponse extends $pb.GeneratedMessage {
     $core.String? newToken,
     $fixnum.Int64? newTokenExpiresAt,
   }) {
-    final $result = create();
-    if (valid != null) {
-      $result.valid = valid;
-    }
-    if (errorMessage != null) {
-      $result.errorMessage = errorMessage;
-    }
-    if (user != null) {
-      $result.user = user;
-    }
-    if (newToken != null) {
-      $result.newToken = newToken;
-    }
-    if (newTokenExpiresAt != null) {
-      $result.newTokenExpiresAt = newTokenExpiresAt;
-    }
-    return $result;
+    final result = create();
+    if (valid != null) result.valid = valid;
+    if (errorMessage != null) result.errorMessage = errorMessage;
+    if (user != null) result.user = user;
+    if (newToken != null) result.newToken = newToken;
+    if (newTokenExpiresAt != null) result.newTokenExpiresAt = newTokenExpiresAt;
+    return result;
   }
-  VerifyTokenResponse._() : super();
-  factory VerifyTokenResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory VerifyTokenResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VerifyTokenResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  VerifyTokenResponse._();
+
+  factory VerifyTokenResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory VerifyTokenResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VerifyTokenResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'valid')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
-    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user', subBuilder: UserInfo.create)
+    ..aOM<UserInfo>(3, _omitFieldNames ? '' : 'user',
+        subBuilder: UserInfo.create)
     ..aOS(4, _omitFieldNames ? '' : 'newToken')
     ..aInt64(5, _omitFieldNames ? '' : 'newTokenExpiresAt')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   VerifyTokenResponse clone() => VerifyTokenResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  VerifyTokenResponse copyWith(void Function(VerifyTokenResponse) updates) => super.copyWith((message) => updates(message as VerifyTokenResponse)) as VerifyTokenResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VerifyTokenResponse copyWith(void Function(VerifyTokenResponse) updates) =>
+      super.copyWith((message) => updates(message as VerifyTokenResponse))
+          as VerifyTokenResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static VerifyTokenResponse create() => VerifyTokenResponse._();
+  @$core.override
   VerifyTokenResponse createEmptyInstance() => create();
-  static $pb.PbList<VerifyTokenResponse> createRepeated() => $pb.PbList<VerifyTokenResponse>();
+  static $pb.PbList<VerifyTokenResponse> createRepeated() =>
+      $pb.PbList<VerifyTokenResponse>();
   @$core.pragma('dart2js:noInline')
-  static VerifyTokenResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VerifyTokenResponse>(create);
+  static VerifyTokenResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VerifyTokenResponse>(create);
   static VerifyTokenResponse? _defaultInstance;
 
   /// 验证是否成功
   @$pb.TagNumber(1)
   $core.bool get valid => $_getBF(0);
   @$pb.TagNumber(1)
-  set valid($core.bool v) { $_setBool(0, v); }
+  set valid($core.bool value) => $_setBool(0, value);
   @$pb.TagNumber(1)
   $core.bool hasValid() => $_has(0);
   @$pb.TagNumber(1)
@@ -1068,7 +1082,7 @@ class VerifyTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get errorMessage => $_getSZ(1);
   @$pb.TagNumber(2)
-  set errorMessage($core.String v) { $_setString(1, v); }
+  set errorMessage($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasErrorMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -1079,7 +1093,7 @@ class VerifyTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   UserInfo get user => $_getN(2);
   @$pb.TagNumber(3)
-  set user(UserInfo v) { $_setField(3, v); }
+  set user(UserInfo value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasUser() => $_has(2);
   @$pb.TagNumber(3)
@@ -1092,7 +1106,7 @@ class VerifyTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.String get newToken => $_getSZ(3);
   @$pb.TagNumber(4)
-  set newToken($core.String v) { $_setString(3, v); }
+  set newToken($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasNewToken() => $_has(3);
   @$pb.TagNumber(4)
@@ -1102,7 +1116,7 @@ class VerifyTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   $fixnum.Int64 get newTokenExpiresAt => $_getI64(4);
   @$pb.TagNumber(5)
-  set newTokenExpiresAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  set newTokenExpiresAt($fixnum.Int64 value) => $_setInt64(4, value);
   @$pb.TagNumber(5)
   $core.bool hasNewTokenExpiresAt() => $_has(4);
   @$pb.TagNumber(5)
@@ -1119,56 +1133,52 @@ class DeviceInfo extends $pb.GeneratedMessage {
     $core.String? osVersion,
     $core.String? appVersion,
   }) {
-    final $result = create();
-    if (deviceId != null) {
-      $result.deviceId = deviceId;
-    }
-    if (deviceType != null) {
-      $result.deviceType = deviceType;
-    }
-    if (deviceModel != null) {
-      $result.deviceModel = deviceModel;
-    }
-    if (osVersion != null) {
-      $result.osVersion = osVersion;
-    }
-    if (appVersion != null) {
-      $result.appVersion = appVersion;
-    }
-    return $result;
+    final result = create();
+    if (deviceId != null) result.deviceId = deviceId;
+    if (deviceType != null) result.deviceType = deviceType;
+    if (deviceModel != null) result.deviceModel = deviceModel;
+    if (osVersion != null) result.osVersion = osVersion;
+    if (appVersion != null) result.appVersion = appVersion;
+    return result;
   }
-  DeviceInfo._() : super();
-  factory DeviceInfo.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory DeviceInfo.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'DeviceInfo', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  DeviceInfo._();
+
+  factory DeviceInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeviceInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeviceInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'deviceId')
     ..aOS(2, _omitFieldNames ? '' : 'deviceType')
     ..aOS(3, _omitFieldNames ? '' : 'deviceModel')
     ..aOS(4, _omitFieldNames ? '' : 'osVersion')
     ..aOS(5, _omitFieldNames ? '' : 'appVersion')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   DeviceInfo clone() => DeviceInfo()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  DeviceInfo copyWith(void Function(DeviceInfo) updates) => super.copyWith((message) => updates(message as DeviceInfo)) as DeviceInfo;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceInfo copyWith(void Function(DeviceInfo) updates) =>
+      super.copyWith((message) => updates(message as DeviceInfo)) as DeviceInfo;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static DeviceInfo create() => DeviceInfo._();
+  @$core.override
   DeviceInfo createEmptyInstance() => create();
   static $pb.PbList<DeviceInfo> createRepeated() => $pb.PbList<DeviceInfo>();
   @$core.pragma('dart2js:noInline')
-  static DeviceInfo getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<DeviceInfo>(create);
+  static DeviceInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeviceInfo>(create);
   static DeviceInfo? _defaultInstance;
 
   /// 设备ID
@@ -1176,7 +1186,7 @@ class DeviceInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $core.String get deviceId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set deviceId($core.String v) { $_setString(0, v); }
+  set deviceId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasDeviceId() => $_has(0);
   @$pb.TagNumber(1)
@@ -1187,7 +1197,7 @@ class DeviceInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get deviceType => $_getSZ(1);
   @$pb.TagNumber(2)
-  set deviceType($core.String v) { $_setString(1, v); }
+  set deviceType($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasDeviceType() => $_has(1);
   @$pb.TagNumber(2)
@@ -1198,7 +1208,7 @@ class DeviceInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get deviceModel => $_getSZ(2);
   @$pb.TagNumber(3)
-  set deviceModel($core.String v) { $_setString(2, v); }
+  set deviceModel($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasDeviceModel() => $_has(2);
   @$pb.TagNumber(3)
@@ -1209,7 +1219,7 @@ class DeviceInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.String get osVersion => $_getSZ(3);
   @$pb.TagNumber(4)
-  set osVersion($core.String v) { $_setString(3, v); }
+  set osVersion($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasOsVersion() => $_has(3);
   @$pb.TagNumber(4)
@@ -1220,7 +1230,7 @@ class DeviceInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   $core.String get appVersion => $_getSZ(4);
   @$pb.TagNumber(5)
-  set appVersion($core.String v) { $_setString(4, v); }
+  set appVersion($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasAppVersion() => $_has(4);
   @$pb.TagNumber(5)
@@ -1239,35 +1249,30 @@ class UserInfo extends $pb.GeneratedMessage {
     $fixnum.Int64? createdAt,
     $fixnum.Int64? lastLoginAt,
   }) {
-    final $result = create();
-    if (userId != null) {
-      $result.userId = userId;
-    }
-    if (username != null) {
-      $result.username = username;
-    }
-    if (phone != null) {
-      $result.phone = phone;
-    }
-    if (email != null) {
-      $result.email = email;
-    }
-    if (avatar != null) {
-      $result.avatar = avatar;
-    }
-    if (createdAt != null) {
-      $result.createdAt = createdAt;
-    }
-    if (lastLoginAt != null) {
-      $result.lastLoginAt = lastLoginAt;
-    }
-    return $result;
+    final result = create();
+    if (userId != null) result.userId = userId;
+    if (username != null) result.username = username;
+    if (phone != null) result.phone = phone;
+    if (email != null) result.email = email;
+    if (avatar != null) result.avatar = avatar;
+    if (createdAt != null) result.createdAt = createdAt;
+    if (lastLoginAt != null) result.lastLoginAt = lastLoginAt;
+    return result;
   }
-  UserInfo._() : super();
-  factory UserInfo.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UserInfo.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserInfo', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  UserInfo._();
+
+  factory UserInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UserInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UserInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
     ..aOS(2, _omitFieldNames ? '' : 'username')
     ..aOS(3, _omitFieldNames ? '' : 'phone')
@@ -1275,28 +1280,25 @@ class UserInfo extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'avatar')
     ..aInt64(6, _omitFieldNames ? '' : 'createdAt')
     ..aInt64(7, _omitFieldNames ? '' : 'lastLoginAt')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   UserInfo clone() => UserInfo()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UserInfo copyWith(void Function(UserInfo) updates) => super.copyWith((message) => updates(message as UserInfo)) as UserInfo;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UserInfo copyWith(void Function(UserInfo) updates) =>
+      super.copyWith((message) => updates(message as UserInfo)) as UserInfo;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static UserInfo create() => UserInfo._();
+  @$core.override
   UserInfo createEmptyInstance() => create();
   static $pb.PbList<UserInfo> createRepeated() => $pb.PbList<UserInfo>();
   @$core.pragma('dart2js:noInline')
-  static UserInfo getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserInfo>(create);
+  static UserInfo getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserInfo>(create);
   static UserInfo? _defaultInstance;
 
   /// 用户ID
@@ -1304,7 +1306,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set userId($core.String v) { $_setString(0, v); }
+  set userId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasUserId() => $_has(0);
   @$pb.TagNumber(1)
@@ -1315,7 +1317,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get username => $_getSZ(1);
   @$pb.TagNumber(2)
-  set username($core.String v) { $_setString(1, v); }
+  set username($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasUsername() => $_has(1);
   @$pb.TagNumber(2)
@@ -1326,7 +1328,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get phone => $_getSZ(2);
   @$pb.TagNumber(3)
-  set phone($core.String v) { $_setString(2, v); }
+  set phone($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasPhone() => $_has(2);
   @$pb.TagNumber(3)
@@ -1337,7 +1339,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.String get email => $_getSZ(3);
   @$pb.TagNumber(4)
-  set email($core.String v) { $_setString(3, v); }
+  set email($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasEmail() => $_has(3);
   @$pb.TagNumber(4)
@@ -1348,7 +1350,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   $core.String get avatar => $_getSZ(4);
   @$pb.TagNumber(5)
-  set avatar($core.String v) { $_setString(4, v); }
+  set avatar($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasAvatar() => $_has(4);
   @$pb.TagNumber(5)
@@ -1358,7 +1360,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   $fixnum.Int64 get createdAt => $_getI64(5);
   @$pb.TagNumber(6)
-  set createdAt($fixnum.Int64 v) { $_setInt64(5, v); }
+  set createdAt($fixnum.Int64 value) => $_setInt64(5, value);
   @$pb.TagNumber(6)
   $core.bool hasCreatedAt() => $_has(5);
   @$pb.TagNumber(6)
@@ -1368,7 +1370,7 @@ class UserInfo extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   $fixnum.Int64 get lastLoginAt => $_getI64(6);
   @$pb.TagNumber(7)
-  set lastLoginAt($fixnum.Int64 v) { $_setInt64(6, v); }
+  set lastLoginAt($fixnum.Int64 value) => $_setInt64(6, value);
   @$pb.TagNumber(7)
   $core.bool hasLastLoginAt() => $_has(6);
   @$pb.TagNumber(7)
@@ -1384,52 +1386,52 @@ class TokenPair extends $pb.GeneratedMessage {
     $core.String? socketToken,
     $fixnum.Int64? socketTokenExpiresAt,
   }) {
-    final $result = create();
-    if (refreshToken != null) {
-      $result.refreshToken = refreshToken;
-    }
-    if (refreshTokenExpiresAt != null) {
-      $result.refreshTokenExpiresAt = refreshTokenExpiresAt;
-    }
-    if (socketToken != null) {
-      $result.socketToken = socketToken;
-    }
-    if (socketTokenExpiresAt != null) {
-      $result.socketTokenExpiresAt = socketTokenExpiresAt;
-    }
-    return $result;
+    final result = create();
+    if (refreshToken != null) result.refreshToken = refreshToken;
+    if (refreshTokenExpiresAt != null)
+      result.refreshTokenExpiresAt = refreshTokenExpiresAt;
+    if (socketToken != null) result.socketToken = socketToken;
+    if (socketTokenExpiresAt != null)
+      result.socketTokenExpiresAt = socketTokenExpiresAt;
+    return result;
   }
-  TokenPair._() : super();
-  factory TokenPair.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory TokenPair.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TokenPair', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  TokenPair._();
+
+  factory TokenPair.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory TokenPair.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TokenPair',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'refreshToken')
     ..aInt64(2, _omitFieldNames ? '' : 'refreshTokenExpiresAt')
     ..aOS(3, _omitFieldNames ? '' : 'socketToken')
     ..aInt64(4, _omitFieldNames ? '' : 'socketTokenExpiresAt')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   TokenPair clone() => TokenPair()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  TokenPair copyWith(void Function(TokenPair) updates) => super.copyWith((message) => updates(message as TokenPair)) as TokenPair;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TokenPair copyWith(void Function(TokenPair) updates) =>
+      super.copyWith((message) => updates(message as TokenPair)) as TokenPair;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static TokenPair create() => TokenPair._();
+  @$core.override
   TokenPair createEmptyInstance() => create();
   static $pb.PbList<TokenPair> createRepeated() => $pb.PbList<TokenPair>();
   @$core.pragma('dart2js:noInline')
-  static TokenPair getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TokenPair>(create);
+  static TokenPair getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TokenPair>(create);
   static TokenPair? _defaultInstance;
 
   /// Refresh Token
@@ -1437,7 +1439,7 @@ class TokenPair extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $core.String get refreshToken => $_getSZ(0);
   @$pb.TagNumber(1)
-  set refreshToken($core.String v) { $_setString(0, v); }
+  set refreshToken($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasRefreshToken() => $_has(0);
   @$pb.TagNumber(1)
@@ -1447,7 +1449,7 @@ class TokenPair extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $fixnum.Int64 get refreshTokenExpiresAt => $_getI64(1);
   @$pb.TagNumber(2)
-  set refreshTokenExpiresAt($fixnum.Int64 v) { $_setInt64(1, v); }
+  set refreshTokenExpiresAt($fixnum.Int64 value) => $_setInt64(1, value);
   @$pb.TagNumber(2)
   $core.bool hasRefreshTokenExpiresAt() => $_has(1);
   @$pb.TagNumber(2)
@@ -1458,7 +1460,7 @@ class TokenPair extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get socketToken => $_getSZ(2);
   @$pb.TagNumber(3)
-  set socketToken($core.String v) { $_setString(2, v); }
+  set socketToken($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasSocketToken() => $_has(2);
   @$pb.TagNumber(3)
@@ -1468,7 +1470,7 @@ class TokenPair extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $fixnum.Int64 get socketTokenExpiresAt => $_getI64(3);
   @$pb.TagNumber(4)
-  set socketTokenExpiresAt($fixnum.Int64 v) { $_setInt64(3, v); }
+  set socketTokenExpiresAt($fixnum.Int64 value) => $_setInt64(3, value);
   @$pb.TagNumber(4)
   $core.bool hasSocketTokenExpiresAt() => $_has(3);
   @$pb.TagNumber(4)
@@ -1483,48 +1485,53 @@ class RefreshSocketTokenRequest extends $pb.GeneratedMessage {
     $fixnum.Int64? timestamp,
     DeviceInfo? device,
   }) {
-    final $result = create();
-    if (refreshToken != null) {
-      $result.refreshToken = refreshToken;
-    }
-    if (timestamp != null) {
-      $result.timestamp = timestamp;
-    }
-    if (device != null) {
-      $result.device = device;
-    }
-    return $result;
+    final result = create();
+    if (refreshToken != null) result.refreshToken = refreshToken;
+    if (timestamp != null) result.timestamp = timestamp;
+    if (device != null) result.device = device;
+    return result;
   }
-  RefreshSocketTokenRequest._() : super();
-  factory RefreshSocketTokenRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory RefreshSocketTokenRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RefreshSocketTokenRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  RefreshSocketTokenRequest._();
+
+  factory RefreshSocketTokenRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RefreshSocketTokenRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RefreshSocketTokenRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'refreshToken')
     ..aInt64(2, _omitFieldNames ? '' : 'timestamp')
-    ..aOM<DeviceInfo>(3, _omitFieldNames ? '' : 'device', subBuilder: DeviceInfo.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<DeviceInfo>(3, _omitFieldNames ? '' : 'device',
+        subBuilder: DeviceInfo.create)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  RefreshSocketTokenRequest clone() => RefreshSocketTokenRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  RefreshSocketTokenRequest copyWith(void Function(RefreshSocketTokenRequest) updates) => super.copyWith((message) => updates(message as RefreshSocketTokenRequest)) as RefreshSocketTokenRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshSocketTokenRequest clone() =>
+      RefreshSocketTokenRequest()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshSocketTokenRequest copyWith(
+          void Function(RefreshSocketTokenRequest) updates) =>
+      super.copyWith((message) => updates(message as RefreshSocketTokenRequest))
+          as RefreshSocketTokenRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static RefreshSocketTokenRequest create() => RefreshSocketTokenRequest._();
+  @$core.override
   RefreshSocketTokenRequest createEmptyInstance() => create();
-  static $pb.PbList<RefreshSocketTokenRequest> createRepeated() => $pb.PbList<RefreshSocketTokenRequest>();
+  static $pb.PbList<RefreshSocketTokenRequest> createRepeated() =>
+      $pb.PbList<RefreshSocketTokenRequest>();
   @$core.pragma('dart2js:noInline')
-  static RefreshSocketTokenRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RefreshSocketTokenRequest>(create);
+  static RefreshSocketTokenRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RefreshSocketTokenRequest>(create);
   static RefreshSocketTokenRequest? _defaultInstance;
 
   /// Refresh Token
@@ -1532,7 +1539,7 @@ class RefreshSocketTokenRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $core.String get refreshToken => $_getSZ(0);
   @$pb.TagNumber(1)
-  set refreshToken($core.String v) { $_setString(0, v); }
+  set refreshToken($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasRefreshToken() => $_has(0);
   @$pb.TagNumber(1)
@@ -1542,7 +1549,7 @@ class RefreshSocketTokenRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $fixnum.Int64 get timestamp => $_getI64(1);
   @$pb.TagNumber(2)
-  set timestamp($fixnum.Int64 v) { $_setInt64(1, v); }
+  set timestamp($fixnum.Int64 value) => $_setInt64(1, value);
   @$pb.TagNumber(2)
   $core.bool hasTimestamp() => $_has(1);
   @$pb.TagNumber(2)
@@ -1553,7 +1560,7 @@ class RefreshSocketTokenRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   DeviceInfo get device => $_getN(2);
   @$pb.TagNumber(3)
-  set device(DeviceInfo v) { $_setField(3, v); }
+  set device(DeviceInfo value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasDevice() => $_has(2);
   @$pb.TagNumber(3)
@@ -1571,59 +1578,63 @@ class RefreshSocketTokenResponse extends $pb.GeneratedMessage {
     TokenPair? tokens,
     $fixnum.Int64? timestamp,
   }) {
-    final $result = create();
-    if (success != null) {
-      $result.success = success;
-    }
-    if (errorMessage != null) {
-      $result.errorMessage = errorMessage;
-    }
-    if (tokens != null) {
-      $result.tokens = tokens;
-    }
-    if (timestamp != null) {
-      $result.timestamp = timestamp;
-    }
-    return $result;
+    final result = create();
+    if (success != null) result.success = success;
+    if (errorMessage != null) result.errorMessage = errorMessage;
+    if (tokens != null) result.tokens = tokens;
+    if (timestamp != null) result.timestamp = timestamp;
+    return result;
   }
-  RefreshSocketTokenResponse._() : super();
-  factory RefreshSocketTokenResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory RefreshSocketTokenResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'RefreshSocketTokenResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  RefreshSocketTokenResponse._();
+
+  factory RefreshSocketTokenResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RefreshSocketTokenResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RefreshSocketTokenResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
-    ..aOM<TokenPair>(3, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
+    ..aOM<TokenPair>(3, _omitFieldNames ? '' : 'tokens',
+        subBuilder: TokenPair.create)
     ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  RefreshSocketTokenResponse clone() => RefreshSocketTokenResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  RefreshSocketTokenResponse copyWith(void Function(RefreshSocketTokenResponse) updates) => super.copyWith((message) => updates(message as RefreshSocketTokenResponse)) as RefreshSocketTokenResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshSocketTokenResponse clone() =>
+      RefreshSocketTokenResponse()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshSocketTokenResponse copyWith(
+          void Function(RefreshSocketTokenResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as RefreshSocketTokenResponse))
+          as RefreshSocketTokenResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static RefreshSocketTokenResponse create() => RefreshSocketTokenResponse._();
+  @$core.override
   RefreshSocketTokenResponse createEmptyInstance() => create();
-  static $pb.PbList<RefreshSocketTokenResponse> createRepeated() => $pb.PbList<RefreshSocketTokenResponse>();
+  static $pb.PbList<RefreshSocketTokenResponse> createRepeated() =>
+      $pb.PbList<RefreshSocketTokenResponse>();
   @$core.pragma('dart2js:noInline')
-  static RefreshSocketTokenResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RefreshSocketTokenResponse>(create);
+  static RefreshSocketTokenResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RefreshSocketTokenResponse>(create);
   static RefreshSocketTokenResponse? _defaultInstance;
 
   /// 刷新是否成功
   @$pb.TagNumber(1)
   $core.bool get success => $_getBF(0);
   @$pb.TagNumber(1)
-  set success($core.bool v) { $_setBool(0, v); }
+  set success($core.bool value) => $_setBool(0, value);
   @$pb.TagNumber(1)
   $core.bool hasSuccess() => $_has(0);
   @$pb.TagNumber(1)
@@ -1634,7 +1645,7 @@ class RefreshSocketTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.String get errorMessage => $_getSZ(1);
   @$pb.TagNumber(2)
-  set errorMessage($core.String v) { $_setString(1, v); }
+  set errorMessage($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasErrorMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -1645,7 +1656,7 @@ class RefreshSocketTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   TokenPair get tokens => $_getN(2);
   @$pb.TagNumber(3)
-  set tokens(TokenPair v) { $_setField(3, v); }
+  set tokens(TokenPair value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasTokens() => $_has(2);
   @$pb.TagNumber(3)
@@ -1657,7 +1668,7 @@ class RefreshSocketTokenResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $fixnum.Int64 get timestamp => $_getI64(3);
   @$pb.TagNumber(4)
-  set timestamp($fixnum.Int64 v) { $_setInt64(3, v); }
+  set timestamp($fixnum.Int64 value) => $_setInt64(3, value);
   @$pb.TagNumber(4)
   $core.bool hasTimestamp() => $_has(3);
   @$pb.TagNumber(4)
@@ -1674,63 +1685,61 @@ class UserSession extends $pb.GeneratedMessage {
     $fixnum.Int64? createdAt,
     $fixnum.Int64? lastActiveAt,
   }) {
-    final $result = create();
-    if (userId != null) {
-      $result.userId = userId;
-    }
-    if (tokens != null) {
-      $result.tokens = tokens;
-    }
-    if (phoneNumber != null) {
-      $result.phoneNumber = phoneNumber;
-    }
-    if (createdAt != null) {
-      $result.createdAt = createdAt;
-    }
-    if (lastActiveAt != null) {
-      $result.lastActiveAt = lastActiveAt;
-    }
-    return $result;
+    final result = create();
+    if (userId != null) result.userId = userId;
+    if (tokens != null) result.tokens = tokens;
+    if (phoneNumber != null) result.phoneNumber = phoneNumber;
+    if (createdAt != null) result.createdAt = createdAt;
+    if (lastActiveAt != null) result.lastActiveAt = lastActiveAt;
+    return result;
   }
-  UserSession._() : super();
-  factory UserSession.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UserSession.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UserSession', package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'), createEmptyInstance: create)
+  UserSession._();
+
+  factory UserSession.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UserSession.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UserSession',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOM<TokenPair>(2, _omitFieldNames ? '' : 'tokens', subBuilder: TokenPair.create)
+    ..aOM<TokenPair>(2, _omitFieldNames ? '' : 'tokens',
+        subBuilder: TokenPair.create)
     ..aOS(3, _omitFieldNames ? '' : 'phoneNumber')
     ..aInt64(4, _omitFieldNames ? '' : 'createdAt')
     ..aInt64(5, _omitFieldNames ? '' : 'lastActiveAt')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   UserSession clone() => UserSession()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UserSession copyWith(void Function(UserSession) updates) => super.copyWith((message) => updates(message as UserSession)) as UserSession;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UserSession copyWith(void Function(UserSession) updates) =>
+      super.copyWith((message) => updates(message as UserSession))
+          as UserSession;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
   static UserSession create() => UserSession._();
+  @$core.override
   UserSession createEmptyInstance() => create();
   static $pb.PbList<UserSession> createRepeated() => $pb.PbList<UserSession>();
   @$core.pragma('dart2js:noInline')
-  static UserSession getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UserSession>(create);
+  static UserSession getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UserSession>(create);
   static UserSession? _defaultInstance;
 
   /// 用户ID
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set userId($core.String v) { $_setString(0, v); }
+  set userId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasUserId() => $_has(0);
   @$pb.TagNumber(1)
@@ -1741,7 +1750,7 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   TokenPair get tokens => $_getN(1);
   @$pb.TagNumber(2)
-  set tokens(TokenPair v) { $_setField(2, v); }
+  set tokens(TokenPair value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasTokens() => $_has(1);
   @$pb.TagNumber(2)
@@ -1753,7 +1762,7 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get phoneNumber => $_getSZ(2);
   @$pb.TagNumber(3)
-  set phoneNumber($core.String v) { $_setString(2, v); }
+  set phoneNumber($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasPhoneNumber() => $_has(2);
   @$pb.TagNumber(3)
@@ -1763,7 +1772,7 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $fixnum.Int64 get createdAt => $_getI64(3);
   @$pb.TagNumber(4)
-  set createdAt($fixnum.Int64 v) { $_setInt64(3, v); }
+  set createdAt($fixnum.Int64 value) => $_setInt64(3, value);
   @$pb.TagNumber(4)
   $core.bool hasCreatedAt() => $_has(3);
   @$pb.TagNumber(4)
@@ -1773,13 +1782,14 @@ class UserSession extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   $fixnum.Int64 get lastActiveAt => $_getI64(4);
   @$pb.TagNumber(5)
-  set lastActiveAt($fixnum.Int64 v) { $_setInt64(4, v); }
+  set lastActiveAt($fixnum.Int64 value) => $_setInt64(4, value);
   @$pb.TagNumber(5)
   $core.bool hasLastActiveAt() => $_has(4);
   @$pb.TagNumber(5)
   void clearLastActiveAt() => $_clearField(5);
 }
 
-
-const _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
-const _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');
+const $core.bool _omitFieldNames =
+    $core.bool.fromEnvironment('protobuf.omit_field_names');
+const $core.bool _omitMessageNames =
+    $core.bool.fromEnvironment('protobuf.omit_message_names');

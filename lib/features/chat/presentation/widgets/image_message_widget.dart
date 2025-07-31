@@ -66,6 +66,11 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     return mediaInfo?['fs_id'] as String?;
   }
 
+  String? _getMediaUrl() {
+    final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
+    return mediaInfo?['media_url'] as String?;
+  }
+
   bool get _hasNewFileServerFields {
     final mediaInfo = MessageAdapter.extractMediaInfo(widget.message.content);
     return mediaInfo?['hasNewFileServerFields'] as bool? ?? false;
@@ -119,6 +124,16 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
         'hasNewFields': _hasNewFileServerFields,
         'isCurrentUser': widget.isCurrentUser,
       });
+
+      // 🆕 检查是否有直接的media_url
+      final directMediaUrl = _getMediaUrl();
+      if (directMediaUrl != null && directMediaUrl.isNotEmpty) {
+        _debugLog('🖼️ 发现直接media_url，跳过缩略图加载', extra: {
+          'directMediaUrl': directMediaUrl,
+        });
+        await _loadImageFromUrl(directMediaUrl);
+        return;
+      }
 
       // 使用新的MediaUrlBuilder构建URL
       final constructedFileUrl = await _mediaUrlBuilder.buildMainFileUrl(widget.message);
@@ -277,6 +292,25 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       _preloadImage();
     } catch (error) {
       _logger.e('从路径加载图片失败', error: error);
+      _setError('图片加载失败: $error');
+    }
+  }
+
+  /// 🆕 从URL直接加载图片（用于有media_url的情况）
+  Future<void> _loadImageFromUrl(String imageUrl) async {
+    try {
+      _debugLog('从URL直接加载图片', extra: {'url': imageUrl});
+
+      setState(() {
+        _imageProvider = NetworkImage(imageUrl);
+        _isLoading = false;
+        _hasError = false;
+      });
+
+      // 预加载图片以获取尺寸信息
+      _preloadImage();
+    } catch (error) {
+      _logger.e('从URL加载图片失败', error: error);
       _setError('图片加载失败: $error');
     }
   }

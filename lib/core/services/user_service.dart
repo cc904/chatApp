@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/services/log_service.dart';
@@ -10,6 +9,7 @@ import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
+import 'package:cc/core/database/current_user_builder.dart';
 import 'package:drift/drift.dart' as drift;
 
 /// 用户服务
@@ -249,6 +249,12 @@ class UserService {
 
       // 2. 更新数据库
       if (DatabaseInitializer.isInitialized) {
+        _logger.d('开始更新数据库用户信息', extra: {
+          'userId': currentUser.userId,
+          'name': currentUser.name,
+          'roleId': currentUser.roleId,
+        });
+        
         final db = DatabaseInitializer.database;
         await db.into(db.currentUsers).insertOnConflictUpdate(CurrentUsersCompanion.insert(
           userId: currentUser.userId,
@@ -259,8 +265,21 @@ class UserService {
           status: drift.Value(currentUser.status),
           lastLoginTime: drift.Value(currentUser.lastLoginTime),
           hasSetPassword: drift.Value(currentUser.hasSetPassword),
+          roleId: drift.Value(currentUser.roleId), // 添加roleId字段
         ));
-        _logger.d('数据库用户信息已更新');
+        
+        // 验证插入结果
+        final savedUsers = await db.select(db.currentUsers).get();
+        _logger.i('数据库用户信息已更新', extra: {
+          'totalUsers': savedUsers.length,
+          'savedUser': savedUsers.isNotEmpty ? {
+            'userId': savedUsers.first.userId,
+            'name': savedUsers.first.name,
+            'roleId': savedUsers.first.roleId,
+          } : null,
+        });
+      } else {
+        _logger.w('数据库未初始化，无法更新用户信息');
       }
 
       // 3. 更新安全存储
@@ -298,19 +317,9 @@ class UserService {
   /// 构建 CurrentUser 对象从 CurrentUserProto
   ///
   /// 将服务器返回的 Proto 对象转换为本地数据库模型
+  /// 使用全局构建器确保所有字段都被正确处理
   CurrentUser currentUserFromProto(CurrentUserProto proto) {
-    return CurrentUser(
-      userId: proto.userId,
-      name: proto.name,
-      avatar: proto.avatar.isNotEmpty ? proto.avatar : null,
-      phone: proto.phone.isNotEmpty ? proto.phone : null,
-      email: proto.email.isNotEmpty ? proto.email : null,
-      lastLoginTime: proto.hasLastLoginTime()
-          ? DateTime.fromMillisecondsSinceEpoch(proto.lastLoginTime.toInt())
-          : null,
-      status: proto.status.isNotEmpty ? proto.status : null,
-      hasSetPassword: proto.hasSetPassword,
-    );
+    return CurrentUserBuilder.fromProto(proto);
   }
 
   /// 构建 CurrentUserProto 对象从 CurrentUser

@@ -12,6 +12,8 @@ import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/verification_code_timer.dart';
 import 'package:cc/core/services/version_update_service.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
+import 'package:cc/core/widgets/phone_input_with_history.dart';
+import 'package:cc/core/services/phone_history_service.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -49,14 +51,71 @@ class _AuthPageState extends State<AuthPage>
     _initializeAuthSystem();
   }
 
+  /// 加载最后使用的手机号
+  Future<void> _loadLastUsedPhoneNumber() async {
+    try {
+      final phoneHistoryService = PhoneHistoryService();
+      final phoneHistory = await phoneHistoryService.getPhoneHistory();
+      
+      // 如果有历史记录，使用第一个（最近使用的）
+      if (phoneHistory.isNotEmpty) {
+        final lastUsedPhone = phoneHistory.first;
+        _phoneController.text = lastUsedPhone;
+        
+        _logger.i('加载最后使用的手机号', extra: {
+          'lastUsedPhone': lastUsedPhone,
+          'historyCount': phoneHistory.length,
+        });
+      } else {
+        _logger.d('没有手机号历史记录');
+      }
+    } catch (e) {
+      _logger.e('加载最后使用的手机号失败', error: e);
+    }
+  }
+
   /// 初始化认证系统
   Future<void> _initializeAuthSystem() async {
     try {
       // 1. 初始化AppConfig（获取服务器列表）
       await _appConfig.init();
 
-      // 2. 使用初始化后的AppConfig创建AuthCubit
-      _authCubit = AuthCubit(serverUrl: _appConfig.serverUrl);
+      // 2. 加载最后使用的手机号
+      await _loadLastUsedPhoneNumber();
+
+      // 3. 使用初始化后的AppConfig创建AuthCubit，保持现有的表单状态
+      _authCubit = AuthCubit(
+        serverUrl: _appConfig.serverUrl,
+        initialPhoneNumber: _phoneController.text,
+        initialVerificationCode: _verificationCodeController.text,
+        initialPassword: _passwordController.text,
+      );
+
+      // 3. 设置双向状态同步回调
+      _authCubit!.setControllerCallbacks(
+        phoneCallback: (value) {
+          _logger.d('收到手机号控制器回调', extra: {
+            'newValue': value,
+            'currentControllerText': _phoneController.text,
+          });
+          if (_phoneController.text != value) {
+            _phoneController.text = value;
+            _logger.d('更新了控制器文本', extra: {'text': value});
+          } else {
+            _logger.d('控制器文本无需更新');
+          }
+        },
+        verificationCodeCallback: (value) {
+          if (_verificationCodeController.text != value) {
+            _verificationCodeController.text = value;
+          }
+        },
+        passwordCallback: (value) {
+          if (_passwordController.text != value) {
+            _passwordController.text = value;
+          }
+        },
+      );
 
       // 3. 触发重建以显示认证界面
       if (mounted) {
@@ -234,18 +293,36 @@ class _AuthPageState extends State<AuthPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // 手机号输入框
-                          TextField(
+                          // 手机号输入框（带历史记录）
+                          PhoneInputWithHistory(
                             controller: _phoneController,
-                            decoration: InputDecoration(
-                              labelText: localizations.phoneNumber,
-                              prefixIcon: const Icon(Icons.phone),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 16, horizontal: 16),
-                            ),
-                            keyboardType: TextInputType.phone,
-                            onChanged: (value) =>
-                                _authCubit!.updatePhoneNumber(value),
+                            onChanged: (value) {
+                              _logger.d('手机号输入框onChanged', extra: {
+                                'newValue': value,
+                                'controllerText': _phoneController.text,
+                              });
+                              _authCubit!.updatePhoneNumber(value);
+                              // 从UI同步状态到Cubit
+                              _authCubit!.syncFromControllers(
+                                _phoneController.text,
+                                _verificationCodeController.text,
+                                _passwordController.text,
+                              );
+                            },
+                            getPhoneHistory: () async {
+                              return await _authCubit!.getPhoneHistory();
+                            },
+                            removePhoneFromHistory: (phone) async {
+                              await _authCubit!.removePhoneFromHistory(phone);
+                            },
+                            onPhoneSelected: (phone) {
+                              _logger.d('历史记录选择回调', extra: {
+                                'selectedPhone': phone,
+                              });
+                              _authCubit!.selectPhoneFromHistory(phone);
+                            },
+                            labelText: localizations.phoneNumber,
+                            prefixIcon: const Icon(Icons.phone),
                           ),
                           const SizedBox(height: 24),
 
@@ -380,6 +457,10 @@ class _AuthPageState extends State<AuthPage>
       // 🔧 修复：防止重复导航到Home页面
       _hasNavigatedToHome = true;
       _logger.i('认证成功，直接导航到Home页面');
+      
+      // 保存成功登录的手机号到历史记录
+      _savePhoneToHistory();
+      
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const HomePage(),
@@ -395,6 +476,23 @@ class _AuthPageState extends State<AuthPage>
     }
   }
 
+  /// 保存手机号到历史记录
+  Future<void> _savePhoneToHistory() async {
+    try {
+      final phoneNumber = _phoneController.text.trim();
+      if (phoneNumber.isNotEmpty && phoneNumber.length == 11) {
+        final phoneHistoryService = PhoneHistoryService();
+        await phoneHistoryService.addPhoneToHistory(phoneNumber);
+        
+        _logger.i('保存手机号到历史记录', extra: {
+          'phoneNumber': phoneNumber,
+        });
+      }
+    } catch (e) {
+      _logger.e('保存手机号到历史记录失败', error: e);
+    }
+  }
+
   /// 检查登录时的版本更新
   void _checkLoginVersionUpdate(BuildContext context) {
     // 延迟检查，确保导航完成后再检查
@@ -405,7 +503,7 @@ class _AuthPageState extends State<AuthPage>
       final navigatorKey = UINotificationService.instance.navigatorKey;
       final currentContext = navigatorKey.currentContext;
 
-      if (currentContext != null) {
+      if (currentContext != null && mounted) {
         await VersionUpdateService.instance
             .checkAndHandleLoginVersionUpdate(currentContext);
       }
@@ -426,7 +524,15 @@ class _AuthPageState extends State<AuthPage>
               contentPadding:
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
-            onChanged: (value) => _authCubit!.updateVerificationCode(value),
+            onChanged: (value) {
+              _authCubit!.updateVerificationCode(value);
+              // 从UI同步状态到Cubit
+              _authCubit!.syncFromControllers(
+                _phoneController.text,
+                _verificationCodeController.text,
+                _passwordController.text,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -511,7 +617,15 @@ class _AuthPageState extends State<AuthPage>
                   const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             ),
             obscureText: true,
-            onChanged: (value) => _authCubit!.updatePassword(value),
+            onChanged: (value) {
+              _authCubit!.updatePassword(value);
+              // 从UI同步状态到Cubit
+              _authCubit!.syncFromControllers(
+                _phoneController.text,
+                _verificationCodeController.text,
+                _passwordController.text,
+              );
+            },
           ),
         ));
   }

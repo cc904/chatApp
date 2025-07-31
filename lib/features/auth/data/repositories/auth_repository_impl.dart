@@ -7,14 +7,13 @@ import 'package:cc/core/services/device_manager.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/auth/domain/repositories/auth_repository.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:dio/dio.dart';
 
 import 'package:cc/core/utils/api_error_handler.dart';
 import 'package:cc/core/services/version_info_service.dart';
 import 'package:cc/core/services/file_server_config_service.dart';
 import 'package:cc/core/services/server_selection_service.dart';
+import 'package:cc/core/database/current_user_builder.dart';
 
 /// AuthRepository的实现类
 /// 负责认证相关的业务逻辑，支持多设备登录和新Token管理
@@ -462,35 +461,8 @@ class AuthRepositoryImpl implements AuthRepository {
           'lastLoginTime': userData['lastLoginTime'],
         });
 
-        // 创建CurrentUserProto对象
-        final userProto = CurrentUserProto()
-          ..userId = userData['userId']?.toString() ?? ''
-          ..name = userData['nickname']?.toString() ??
-              userData['name']?.toString() ??
-              userData['username']?.toString() ??
-              '用户${userData['userId']?.toString().substring(0, 6) ?? 'Unknown'}'
-          ..phone = userData['phone']?.toString() ?? ''
-          ..email = userData['email']?.toString() ?? ''
-          ..avatar = userData['avatar']?.toString() ?? ''
-          ..status = userData['status']?.toString() ?? 'offline'
-          ..hasSetPassword = userData['hasSetPassword'] ?? false;
-
-        // 处理lastLoginTime
-        if (userData['lastLoginTime'] != null) {
-          userProto.lastLoginTime = Int64(userData['lastLoginTime']);
-        }
-
-        // 创建CurrentUser对象
-        final currentUser = CurrentUser(
-          userId: userProto.userId,
-          name: userProto.name,
-          phone: userProto.phone.isEmpty ? null : userProto.phone,
-          email: userProto.email.isEmpty ? null : userProto.email,
-          avatar: userProto.avatar.isEmpty ? null : userProto.avatar,
-          status: userProto.status.isEmpty ? null : userProto.status,
-          lastLoginTime: userProto.hasLastLoginTime() ? DateTime.fromMillisecondsSinceEpoch(userProto.lastLoginTime.toInt()) : null,
-          hasSetPassword: userProto.hasSetPassword,
-        );
+        // 🔧 使用全局构建方法创建CurrentUser，确保所有字段都被正确处理
+        final currentUser = CurrentUserBuilder.fromJson(userData);
 
         // 记录最终创建的用户对象
         _logger.d('创建的CurrentUser对象', extra: {

@@ -102,10 +102,6 @@ class AutoDomainEncryptor {
       try {
         domainsData = jsonDecode(jsonContent);
         
-        if (domainsData is! Map<String, dynamic>) {
-          throw '不支持的JSON格式，期望包含development和production的对象';
-        }
-        
         // 验证必需的环境配置
         final devDomains = domainsData['development'];    
         final prodDomains = domainsData['production'];

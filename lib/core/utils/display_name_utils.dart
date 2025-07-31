@@ -2,6 +2,7 @@ import 'package:cc/core/proto/generated/user.pb.dart' as proto;
 import 'package:cc/core/database/drift_database.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:cc/core/services/log_service.dart';
 
 /// 显示名称工具类
 /// 统一处理联系人姓名显示的优先级逻辑
@@ -210,21 +211,45 @@ class DisplayNameUtils {
   /// [currentUserId] - 当前用户ID，用于在私聊中区分对方
   /// 返回：应该显示的会话名称
   static String getConversationDisplayName(dynamic conversation, String currentUserId) {
+    final _logger = LogService.instance;
+    
+    _logger.i('🏷️🏷️🏷️ DisplayNameUtils获取会话显示名称', extra: {
+      'conversationId': conversation.conversationId,
+      'conversationType': conversation.type,
+      'conversationName': conversation.name,
+      'currentUserId': currentUserId,
+    });
+    
     // 群聊或频道直接返回会话名称
     if (conversation.type == 'GROUP' || conversation.type == 'CHANNEL') {
-      return conversation.name ?? '未命名${conversation.type == 'GROUP' ? '群聊' : '频道'}';
+      final displayName = conversation.name ?? '未命名${conversation.type == 'GROUP' ? '群聊' : '频道'}';
+      _logger.i('群聊/频道显示名称', extra: {'displayName': displayName});
+      return displayName;
     }
     
     // 私聊会话：需要获取对方用户的信息
     if (conversation.type == 'PRIVATE') {
+      _logger.i('🔍🔍🔍 处理私聊会话显示名称', extra: {
+        'participantsJson': conversation.participants,
+      });
+      
       final otherUser = getOtherUserFromConversation(conversation, currentUserId);
       if (otherUser != null) {
-        return getDisplayNameFromParticipant(otherUser);
+        final displayName = getDisplayNameFromParticipant(otherUser);
+        _logger.i('✅✅✅ 私聊会话显示名称获取成功', extra: {
+          'otherUser': otherUser,
+          'displayName': displayName,
+        });
+        return displayName;
+      } else {
+        _logger.w('⚠️⚠️⚠️ 私聊会话中未找到对方用户');
       }
     }
     
     // 兜底返回会话名称或当前用户ID
-    return conversation.name ?? currentUserId;
+    final fallbackName = conversation.name ?? currentUserId;
+    _logger.i('🔄🔄🔄 使用兜底显示名称', extra: {'fallbackName': fallbackName});
+    return fallbackName;
   }
 
   /// 从会话参与者中获取对方用户信息（私聊场景）
@@ -233,19 +258,51 @@ class DisplayNameUtils {
   /// [currentUserId] - 当前用户ID
   /// 返回：对方用户的参与者信息，如果找不到则返回null
   static Map<String, dynamic>? getOtherUserFromConversation(dynamic conversation, String currentUserId) {
+    final _logger = LogService.instance;
+    
     try {
       final participantsJson = conversation.participants as String;
+      _logger.i('🔍🔍🔍 解析私聊会话参与者', extra: {
+        'conversationId': conversation.conversationId,
+        'participantsJson': participantsJson,
+        'currentUserId': currentUserId,
+      });
+      
       final List<dynamic> participantsList = json.decode(participantsJson);
       final participantsMap = participantsList.cast<Map<String, dynamic>>();
       
+      _logger.i('📋📋📋 参与者列表解析完成', extra: {
+        'participantsCount': participantsMap.length,
+        'participants': participantsMap,
+      });
+      
       // 在私聊中找到不是当前用户的另一个用户
       for (final participant in participantsMap) {
+        final userId = participant['user_id'] as String?;
+        final userName = participant['name'] as String?;
+        final roleId = participant['role_id'] as int?;
+        
+        _logger.i('👤👤👤 检查参与者', extra: {
+          'userId': userId,
+          'userName': userName,
+          'roleId': roleId,
+          'isCurrentUser': userId == currentUserId,
+        });
+        
         if (participant['user_id'] != currentUserId) {
+          _logger.i('🎯🎯🎯 找到对方用户', extra: {
+            'otherUserId': userId,
+            'otherUserName': userName,
+            'otherUserRoleId': roleId,
+            'participant': participant,
+          });
           return participant;
         }
       }
+      
+      _logger.w('⚠️⚠️⚠️ 未找到对方用户');
     } catch (e) {
-      // JSON解析失败或其他错误
+      _logger.e('❌❌❌ 解析会话参与者失败', error: e);
     }
     
     return null;

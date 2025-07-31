@@ -26,11 +26,9 @@ class ConversationPreviewNotificationService {
   final UINotificationService _uiNotificationService = UINotificationService.instance;
   final NotificationSettingsService _settingsService = NotificationSettingsService.instance;
   
-  CurrentUser? _currentUser;
-
   /// 设置当前用户
   void setCurrentUser(CurrentUser currentUser) {
-    _currentUser = currentUser;
+    // 当前用户信息已保存到其他服务中，这里不需要存储
   }
 
   /// 处理会话预览更新事件
@@ -290,6 +288,8 @@ class ConversationPreviewNotificationService {
       conversationId: previewUpdate.conversationId,
       senderId: 'unknown', // 无法从preview获取具体senderId
       senderName: previewUpdate.lastMessageName.isNotEmpty ? previewUpdate.lastMessageName : null,
+      senderAvatar: null,
+      senderRoleId: 0, // 默认值，无法从preview获取roleId
       createdAt: previewUpdate.hasLastMessageTime() 
           ? DateTime.fromMillisecondsSinceEpoch(previewUpdate.lastMessageTime.toInt())
           : DateTime.now(),
@@ -393,7 +393,6 @@ class ConversationPreviewNotificationService {
 
   /// 清理资源
   void dispose() {
-    _currentUser = null;
     _logger.d('会话预览通知服务已清理');
   }
 

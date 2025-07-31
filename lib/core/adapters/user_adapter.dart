@@ -24,6 +24,7 @@ class UserAdapter {
           : null,
       status: protoUser.hasStatus() ? protoUser.status : null,
       hasSetPassword: protoUser.hasHasSetPassword() ? protoUser.hasSetPassword : false,
+      roleId: protoUser.hasRoleId() ? protoUser.roleId : 0,
     );
   }
 
@@ -40,6 +41,7 @@ class UserAdapter {
       email: protoUser.hasEmail() ? protoUser.email : null,
       online: false, // 默认值
       isFriend: false, // 默认值
+      roleId: protoUser.hasRoleId() ? protoUser.roleId : 0, // 添加roleId支持
     );
   }
 
@@ -52,6 +54,10 @@ class UserAdapter {
       userId: user.userId,
       nickName: user.nickName,
       avatar: user.avatar,
+      phone: user.phone,
+      email: user.email,
+      status: user.status,
+      roleId: user.roleId,
     );
   }
 
@@ -71,6 +77,7 @@ class UserAdapter {
           : null,
       status: currentUser.status,
       hasSetPassword: currentUser.hasSetPassword,
+      roleId: currentUser.roleId,
     );
   }
 

@@ -1,4 +1,3 @@
-import 'dart:typed_data' if (dart.library.html) 'dart:typed_data';
 import 'dart:io' if (dart.library.io) 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -173,7 +172,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         return Scaffold(
           backgroundColor: const Color(0xFFF2F2F7),
           appBar: _buildAppBar(),
-          body: _buildBody(),
+          body: _buildBody(state),
         );
       },
     );
@@ -215,7 +214,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(ProfileState state) {
     return SingleChildScrollView(
       child: Form(
         key: _formKey,
@@ -224,7 +223,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             const SizedBox(height: 20),
 
             // 头像编辑区域
-            _buildAvatarSection(),
+            _buildAvatarSection(state),
 
             const SizedBox(height: 30),
 
@@ -243,7 +242,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildAvatarSection() {
+  Widget _buildAvatarSection(ProfileState state) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30),
       child: Column(
@@ -278,6 +277,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           name: _nicknameController.text.isNotEmpty ? _nicknameController.text : '用户',
                           radius: 60,
                           backgroundColor: AppColors.primary,
+                          roleId: state.user?.roleId,
                         ),
                 ),
 

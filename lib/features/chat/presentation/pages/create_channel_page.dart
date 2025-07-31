@@ -274,6 +274,7 @@ class _CreateChannelPageState extends State<CreateChannelPage> {
                       lastLoginTime: null,
                       status: null,
                       hasSetPassword: false,
+                      roleId: 0, // 默认角色ID
                     ),
                     initialConversation: conversation,
                   ),

@@ -335,6 +335,23 @@ class _MyAppState extends State<MyApp> {
             scaffoldMessengerKey: UINotificationService.instance.scaffoldMessengerKey,
             // 💢💢💢 注册路由观察者
             navigatorObservers: [routeObserver],
+            // 🌐 桌面端宽度限制（手机平板保持全宽）
+            builder: (context, child) {
+              final screenWidth = MediaQuery.of(context).size.width;
+              
+              // 只在桌面端（屏幕宽度大于1024px）限制宽度
+              if (screenWidth > 1024) {
+                return Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: child,
+                  ),
+                );
+              }
+              
+              // 手机和平板保持全宽
+              return child!;
+            },
             theme: ThemeData(
               colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,

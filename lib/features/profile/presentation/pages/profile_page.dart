@@ -1,28 +1,21 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:cc/core/database/database_initializer.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
-import 'package:cc/core/services/enhanced_token_manager.dart';
-import 'package:cc/core/utils/debug_commands.dart';
-import 'package:cc/core/constants/app_config.dart';
 import 'package:cc/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:cc/features/profile/presentation/pages/edit_profile_page.dart';
 import 'package:cc/features/profile/presentation/pages/my_qr_code_page.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:cc/core/database/drift_database.dart';
-import 'package:flutter/foundation.dart';
 import 'package:cc/features/profile/presentation/pages/language_settings_page.dart';
 import 'package:cc/features/profile/presentation/pages/notification_settings_page.dart';
 import 'package:cc/features/profile/presentation/pages/account_security_page.dart';
 import 'package:cc/features/profile/presentation/pages/about_page.dart';
 import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
-import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/services/user_service.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 import 'package:cc/features/chat/presentation/pages/chats_page.dart';
@@ -278,29 +271,17 @@ class _ProfilePageState extends State<ProfilePage>
                 );
               }
 
-              // 如果状态为success但没有用户数据，说明数据已被重置，跳转到登录页面
-              // 临时修复：在Web环境下不显示数据重置界面，显示空用户界面
-              if (state.status == ProfileStatus.success && state.user == null && !kIsWeb) {
+              // 如果状态为success但没有用户数据，说明用户未登录或数据已重置，直接跳转
+              if (state.status == ProfileStatus.success && state.user == null) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _handleDataResetComplete(context);
+                  _logger.i('用户数据为空，跳转到登录页面');
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const AuthPage()),
+                    (route) => false,
+                  );
                 });
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.restart_alt,
-                        size: 64,
-                        color: Colors.orange,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        localizations.dataResetComplete,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
+                return const Center(
+                  child: CircularProgressIndicator(),
                 );
               }
 
@@ -443,6 +424,7 @@ class _ProfilePageState extends State<ProfilePage>
                 name: user?.name ?? '用户',
                 radius: 40,
                 backgroundColor: Colors.green,
+                roleId: user?.roleId, // 添加VIP支持
               ),
               // 编辑按钮 - 放在头像左下角
               Positioned(
@@ -779,11 +761,6 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  /// 处理数据重置完成
-  void _handleDataResetComplete([BuildContext? context]) {
-    _logger.i('数据重置完成');
-    // 这里可以添加数据重置后的处理逻辑
-  }
 
   /// 构建开发者选项
   Widget _buildDeveloperOptions([dynamic localizations]) {
@@ -860,7 +837,7 @@ class _ProfilePageState extends State<ProfilePage>
       _logger.i('已清除所有认证状态');
     } catch (e) {
       _logger.e('清除认证状态失败', error: e);
-      throw e;
+      rethrow;
     }
   }
 }

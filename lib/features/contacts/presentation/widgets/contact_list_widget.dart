@@ -5,6 +5,7 @@ import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/core/constants/app_colors.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// 联系人列表显示模式
 enum ContactListMode {
@@ -533,12 +534,22 @@ class _ContactListWidgetState extends State<ContactListWidget> {
 
   /// 构建联系人头像
   Widget _buildContactAvatar(User contact) {
+    // 🔥🔥🔥 详细的调试日志
+    final _logger = LogService.instance;
+    _logger.i('📋📋📋 ContactList构建头像', extra: {
+      'contactName': contact.nickName,
+      'contactId': contact.userId,
+      'roleId': contact.roleId,
+      'avatar': contact.avatar,
+    });
+    
     return Stack(
       children: [
         UserAvatar(
           avatarUrl: contact.avatar,
           name: contact.nickName,
           radius: 20,
+          roleId: contact.roleId,
         ),
         // 在线状态指示器
         if (_isContactOnline(contact))

@@ -94,6 +94,7 @@ class _NewConversationBottomSheetState
                     userId: '', 
                     name: '',
                     hasSetPassword: false,
+                    roleId: 0, // 默认角色ID
                   ), // 这会被ChatCubit正确初始化
                   initialConversation: conversation,
                 ),

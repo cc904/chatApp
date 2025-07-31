@@ -110,6 +110,7 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
                 name: user?.name ?? '用户',
                 radius: 30,
                 backgroundColor: Colors.green,
+                roleId: user?.roleId,
               ),
               const SizedBox(width: 16),
               Expanded(

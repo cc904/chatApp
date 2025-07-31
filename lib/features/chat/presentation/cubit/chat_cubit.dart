@@ -21,6 +21,7 @@ import 'package:cc/features/chat/domain/entities/conversation_update_event.dart'
 
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:cc/features/chat/data/repositories/quick_reply_repository.dart';
 
 /// 滚动恢复类型
 enum ScrollRestoreType {
@@ -118,16 +119,29 @@ class ChatCubit extends Cubit<ChatState> {
     if (participant == null) return false;
     return participant['muted'] as bool? ?? false;
   }
+
+  /// 检查当前用户是否有快捷回复权限
+  bool _hasQuickReplyPermission() {
+    final roleId = _currentUser.roleId;
+    final isCustomerService = roleId == 3;
+    final isVip = roleId == 4;
+    return isCustomerService || isVip;
+  }
   final ChatRepository _chatRepository;
   final ChatRepositorySend _chatRepositorySend;
   final ChatsRepository _chatsRepository;
   final String _conversationId;
   final CurrentUser _currentUser;
+  final QuickReplyRepository _quickReplyRepository = QuickReplyRepository();
 
   final LogService _logger = LogService.instance;
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
+
+  // 🔧 防抖Timer：避免频繁的已读状态更新
+  Timer? _readStatusUpdateTimer;
+  int? _pendingReadMessageIndex;
 
   // 💢💢💢 暂存的临时消息，用于不连续时的重新合并
   List<Message>? _pendingTempMessages;
@@ -190,6 +204,11 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 🔄 第3步：执行消息同步（此时新消息会被暂存）
       initMessages();
+
+      // 🔄 第4步：如果用户有快捷回复权限，初始化快捷回复数据
+      if (_hasQuickReplyPermission()) {
+        initializeQuickReplies();
+      }
     } catch (error) {
       _logger.e('初始同步失败', error: error);
       emit(state.copyWith(
@@ -599,17 +618,17 @@ class ChatCubit extends Cubit<ChatState> {
     final listIndex =
         _convertProcessedIndexToMessageIndex(bottomPosition.index);
 
-    // 💢💢💢 详细调试：索引转换过程
-    _logger.d('💢 索引转换结果', extra: {
-      'bottomPositionIndex': bottomPosition.index,
-      'convertedListIndex': listIndex,
-      'messagesLength': state.messages.length,
-      'bottomPosition': {
-        'index': bottomPosition.index,
-        'leadingEdge': bottomPosition.itemLeadingEdge,
-        'trailingEdge': bottomPosition.itemTrailingEdge,
-      },
-    });
+    // 💢💢💢 详细调试：索引转换过程（减少日志噪声）
+    // _logger.d('💢 索引转换结果', extra: {
+    //   'bottomPositionIndex': bottomPosition.index,
+    //   'convertedListIndex': listIndex,
+    //   'messagesLength': state.messages.length,
+    //   'bottomPosition': {
+    //     'index': bottomPosition.index,
+    //     'leadingEdge': bottomPosition.itemLeadingEdge,
+    //     'trailingEdge': bottomPosition.itemTrailingEdge,
+    //   },
+    // });
 
     // 💢💢💢 双重检查索引有效性
     if (listIndex >= 0 && listIndex < state.messages.length) {
@@ -677,12 +696,13 @@ class ChatCubit extends Cubit<ChatState> {
             currentScrollPosition: currentScrollPosition,
           ));
         } else {
-          _logger.d('滚动位置未实际变化，跳过状态更新', extra: {
-            'currentScrollPositionMessageID': currentScrollPosition.messageId,
-            'previousMessageID': previousPosition.messageId,
-            'currentRelativePos': currentScrollPosition.relativePosition,
-            'previousRelativePos': previousPosition.relativePosition,
-          });
+          // 🔧 减少日志噪声：滚动位置未变化时不输出日志
+          // _logger.d('滚动位置未实际变化，跳过状态更新', extra: {
+          //   'currentScrollPositionMessageID': currentScrollPosition.messageId,
+          //   'previousMessageID': previousPosition.messageId,
+          //   'currentRelativePos': currentScrollPosition.relativePosition,
+          //   'previousRelativePos': previousPosition.relativePosition,
+          // });
         }
       }
     }
@@ -913,10 +933,11 @@ class ChatCubit extends Cubit<ChatState> {
   /// 参数：
   /// - [targetMessageIndex] 目标消息的messageIndex
   Future<void> jumpToMessageIndex(int targetMessageIndex) async {
-    if (targetMessageIndex <= 0) {
+    if (targetMessageIndex < 1) {
       _logger.w('无效的跳转参数', extra: {
         'targetMessageIndex': targetMessageIndex,
         'conversationId': _conversationId,
+        'reason': '消息索引必须大于等于1',
       });
       return;
     }
@@ -2593,6 +2614,30 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 💢💢💢 简化：更新已读状态（直接传入messageIndex）
   void _updateReadStatus(int latestReadMessageIndex) {
+    // 🔧 防抖机制：避免频繁的已读状态更新
+    _pendingReadMessageIndex = latestReadMessageIndex;
+    _readStatusUpdateTimer?.cancel();
+    
+    _readStatusUpdateTimer = Timer(const Duration(milliseconds: 500), () {
+      _performReadStatusUpdate(_pendingReadMessageIndex!);
+    });
+  }
+
+  /// 🆕 手动更新已读状态（用于消息未满一页的情况）
+  void updateReadStatusManually(int latestReadMessageIndex) {
+    if (latestReadMessageIndex <= 0) return;
+    
+    _logger.i('手动更新已读状态', extra: {
+      'latestReadMessageIndex': latestReadMessageIndex,
+      'conversationId': _conversationId,
+      'trigger': 'visibility_based',
+    });
+    
+    _performReadStatusUpdate(latestReadMessageIndex);
+  }
+
+  /// 🔧 实际执行已读状态更新的方法
+  void _performReadStatusUpdate(int latestReadMessageIndex) {
     // 💢💢💢 获取当前用户的参与者信息
     final currentUserId = _currentUser.userId;
     final participant = _getParticipant(state.conversation, currentUserId);
@@ -2607,8 +2652,9 @@ class ChatCubit extends Cubit<ChatState> {
 
     final lastReadMessageIndex = _getLastReadMessageIndex(participant);
 
-    // 💢💢💢 简化：直接判断是否比当前已读索引更新
-    if (latestReadMessageIndex > lastReadMessageIndex) {
+    // 🔧 增强：严格检查，避免重复更新同一个索引
+    if (latestReadMessageIndex > lastReadMessageIndex && 
+        _pendingReadMessageIndex == latestReadMessageIndex) {
       _chatsRepository.updateParticipantSettings(
         _conversationId,
         readMessageIndex: latestReadMessageIndex,
@@ -2617,6 +2663,11 @@ class ChatCubit extends Cubit<ChatState> {
         'latestReadMessageIndex': latestReadMessageIndex,
         'previousLastReadMessageIndex': lastReadMessageIndex,
       });
+      
+      // 🔧 清除待处理的索引，避免重复处理
+      _pendingReadMessageIndex = null;
+    } else {
+      // 跳过重复的已读状态更新
     }
   }
 
@@ -2658,12 +2709,17 @@ class ChatCubit extends Cubit<ChatState> {
   void _handleConversationMetadataUpdate(Conversation? updatedConversation) {
     if (isClosed || updatedConversation == null) return;
 
-    _logger.d('会话元数据更新', extra: {
-      'conversationId': updatedConversation.conversationId,
-      'name': updatedConversation.name,
-      'avatar': updatedConversation.avatar,
-      'lastMessagePreview': updatedConversation.lastMessagePreview,
-    });
+    // 🔧 检查是否真的需要更新，避免不必要的emit
+    final currentConversation = state.conversation;
+    if (currentConversation.conversationId == updatedConversation.conversationId &&
+        currentConversation.name == updatedConversation.name &&
+        currentConversation.avatar == updatedConversation.avatar &&
+        currentConversation.lastMessagePreview == updatedConversation.lastMessagePreview) {
+      // 会话元数据无变化，跳过更新
+      return;
+    }
+
+    // 会话元数据更新
 
     // 更新ChatPage中的会话状态，确保与ChatsPage同步
     emit(state.copyWith(conversation: updatedConversation));
@@ -2913,11 +2969,19 @@ class ChatCubit extends Cubit<ChatState> {
       _pendingTempMessages = null;
     }
 
+    // 🔧 取消防抖Timer
+    _readStatusUpdateTimer?.cancel();
+    _readStatusUpdateTimer = null;
+    _pendingReadMessageIndex = null;
+
     // 取消所有订阅
     for (final subscription in _subscriptions.values) {
       await subscription.cancel();
     }
     _subscriptions.clear();
+
+    // 清理快捷回复资源
+    _quickReplyRepository.dispose();
 
     // 离开会话
     await leaveConversation();
@@ -3215,5 +3279,54 @@ class ChatCubit extends Cubit<ChatState> {
         emit(state.copyWith(errorMessage: '切换静音状态失败: ${error.toString()}'));
       }
     }
+  }
+
+  /// 初始化快捷回复数据
+  Future<void> initializeQuickReplies() async {
+    try {
+      emit(state.copyWith(isQuickReplyLoading: true));
+      final replies = await _quickReplyRepository.getAllQuickReplies();
+      if (!isClosed) {
+        emit(state.copyWith(
+          quickReplies: replies,
+          isQuickReplyLoading: false,
+        ));
+      }
+    } catch (error) {
+      _logger.e('初始化快捷回复失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          quickReplies: [],
+          isQuickReplyLoading: false,
+        ));
+      }
+    }
+  }
+
+  /// 刷新快捷回复数据
+  Future<void> refreshQuickReplies() async {
+    try {
+      emit(state.copyWith(isQuickReplyLoading: true));
+      final replies = await _quickReplyRepository.forceRefresh();
+      if (!isClosed) {
+        emit(state.copyWith(
+          quickReplies: replies,
+          isQuickReplyLoading: false,
+        ));
+      }
+    } catch (error) {
+      _logger.e('刷新快捷回复失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(
+          quickReplies: state.quickReplies ?? [],
+          isQuickReplyLoading: false,
+        ));
+      }
+    }
+  }
+
+  /// 标记快捷回复为已使用
+  void markQuickReplyAsUsed(int replyId) {
+    _quickReplyRepository.markReplyAsUsed(replyId);
   }
 }

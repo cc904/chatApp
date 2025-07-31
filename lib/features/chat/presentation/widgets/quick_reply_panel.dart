@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cc/core/database/drift_database.dart';
-import '../cubit/quick_reply_cubit.dart';
+import '../cubit/chat_cubit.dart';
+import '../cubit/chat_state.dart';
 
 /// 快捷回复面板
 class QuickReplyPanel extends StatelessWidget {
@@ -18,9 +19,10 @@ class QuickReplyPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isVisible) return const SizedBox.shrink();
 
-    return BlocBuilder<QuickReplyCubit, QuickReplyState>(
+    return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
-        if (state.quickReplies.isEmpty) {
+        final quickReplies = state.quickReplies ?? [];
+        if (quickReplies.isEmpty) {
           return _buildEmptyState(context);
         }
 
@@ -35,7 +37,7 @@ class QuickReplyPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(context),
-              _buildQuickReplyList(context, state.quickReplies),
+              _buildQuickReplyList(context, quickReplies),
             ],
           ),
         );
@@ -71,9 +73,9 @@ class QuickReplyPanel extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           // 显示同步状态
-          BlocBuilder<QuickReplyCubit, QuickReplyState>(
+          BlocBuilder<ChatCubit, ChatState>(
             builder: (context, state) {
-              if (state.isLoading) {
+              if (state.isQuickReplyLoading) {
                 return SizedBox(
                   width: 12,
                   height: 12,
@@ -90,7 +92,7 @@ class QuickReplyPanel extends StatelessWidget {
           // 刷新按钮
           GestureDetector(
             onTap: () {
-              context.read<QuickReplyCubit>().refreshFromServer();
+              context.read<ChatCubit>().refreshQuickReplies();
             },
             child: Icon(
               Icons.refresh,
@@ -246,7 +248,7 @@ class QuickReplyPanel extends StatelessWidget {
 
   void _handleQuickReply(BuildContext context, QuickReply reply) {
     // 记录使用次数
-    context.read<QuickReplyCubit>().markReplyAsUsed(reply.id);
+    context.read<ChatCubit>().markQuickReplyAsUsed(reply.id);
     
     // 回调填入文本到输入框（不直接发送）
     onQuickReply(reply.content);

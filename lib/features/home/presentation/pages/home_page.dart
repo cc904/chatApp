@@ -17,6 +17,7 @@ import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
+import 'package:cc/features/profile/data/repositories/profile_repository.dart';
 import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 
@@ -203,10 +204,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    _logger.i('HomePage 应用生命周期状态变化', extra: {
-      'state': state.toString(),
-      'isInitialized': _isInitialized,
-    });
+    // 🔧 简化日志：只有resumed和paused状态才输出info级别，其他状态用debug级别
+    if (state == AppLifecycleState.resumed || state == AppLifecycleState.paused) {
+      _logger.i('HomePage 应用生命周期状态变化', extra: {
+        'state': state.toString(),
+        'isInitialized': _isInitialized,
+      });
+    } else {
+      _logger.d('HomePage 应用生命周期状态变化', extra: {
+        'state': state.toString(),
+        'isInitialized': _isInitialized,
+      });
+    }
 
     // 🔧 强化：当应用从后台恢复时，检查状态是否需要重新初始化
     if (state == AppLifecycleState.resumed && 
@@ -269,7 +278,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     });
 
     try {
-      final currentUser = await _secureStorage.readUserCredentials();
+      CurrentUser? currentUser = await _secureStorage.readUserCredentials();
 
       if (currentUser == null) {
         _logger.e('无法获取用户信息，返回登录页面');
@@ -281,6 +290,61 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         return;
       }
 
+      // 🚨🚨🚨 错误检查：初始化时currentUser的roleId不应该为0
+      _logger.e('❌❌❌ INITIAL_USER_CHECK: 从安全存储读取的用户信息检查', extra: {
+        'userId': currentUser.userId,
+        'name': currentUser.name,
+        'roleId': currentUser.roleId,
+        'hasSetPassword': currentUser.hasSetPassword,
+        'avatar': currentUser.avatar != null ? 'HAS_AVATAR' : 'NO_AVATAR',
+        'phone': currentUser.phone != null ? 'HAS_PHONE' : 'NO_PHONE',
+        'email': currentUser.email != null ? 'HAS_EMAIL' : 'NO_EMAIL',
+      });
+
+      // 🔥🔥🔥 错误：如果roleId为0，说明数据来源有问题
+      if (currentUser.roleId == 0) {
+        _logger.e('🚨🚨🚨 CRITICAL_ERROR: currentUser的roleId为0是错误的！', extra: {
+          'possibleCauses': [
+            '1. 服务器登录响应没有正确传递roleId',
+            '2. SecureStorageService保存时丢失了roleId',
+            '3. 数据库同步时roleId未正确更新',
+            '4. Proto转换过程中roleId丢失'
+          ],
+          'currentUserData': {
+            'userId': currentUser.userId,
+            'name': currentUser.name,
+            'roleId': currentUser.roleId,
+            'expectedRoleId': '应该是1,2,3,4中的一个，不应该是0'
+          }
+        });
+        _logger.w('安全存储中的用户roleId为0，尝试从数据库获取最新用户信息');
+        _logger.i('🔄🔄🔄 FIXING_ROLE_ID: secureStorageRoleId=${currentUser.roleId}, fetching from database...');
+        
+        try {
+          final profileRepository = ProfileRepository();
+          final databaseUser = await profileRepository.getCurrentUser();
+          
+          if (databaseUser != null && databaseUser.roleId != 0) {
+            _logger.i('从数据库获取到正确的用户信息', extra: {
+              'secureStorageRoleId': currentUser.roleId,
+              'databaseRoleId': databaseUser.roleId,
+            });
+            _logger.d('🔄🔄🔄 FIXED_ROLE_ID: databaseRoleId=${databaseUser.roleId}');
+            
+            // 使用数据库中的用户信息，并重新保存到安全存储
+            currentUser = databaseUser;
+            await _secureStorage.saveUserCredentials(currentUser);
+            _logger.i('已将正确的用户信息保存到安全存储');
+          } else {
+            _logger.w('数据库中也没有找到有效的用户roleId信息');
+            _logger.w('🔄🔄🔄 DATABASE_ALSO_NO_ROLE_ID: databaseUser=${databaseUser?.roleId}');
+          }
+        } catch (e) {
+          _logger.e('从数据库获取用户信息失败', error: e);
+          _logger.e('🔄🔄🔄 DATABASE_FETCH_ERROR: $e');
+        }
+      }
+
       _currentUser = currentUser;
       
       if (mounted) {
@@ -288,7 +352,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         });
       }
 
-      _homeCubit = HomeCubit(currentUser: currentUser);
+      // 确保currentUser不为null（前面已经有null检查）
+      assert(currentUser != null, 'currentUser should not be null at this point');
+      _homeCubit = HomeCubit(currentUser: currentUser!);
 
       // 初始化用户会话
       final success = await _homeCubit!.initUserSession();

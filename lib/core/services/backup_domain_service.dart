@@ -92,25 +92,15 @@ class BackupDomainService {
       // 验证域名格式
       _cachedDomains = domains.where(_isValidDomain).toList();
       
-      // 🔓 打印解密后的API服务器地址
+      // 记录解密后的API服务器地址到日志系统
       if (_cachedDomains!.isNotEmpty) {
-        // 使用print确保所有模式都能显示
-        final modeInfo = kDebugMode ? 'Debug模式' : 'Release模式';
-        print('🔓 $modeInfo - 已解密API服务器地址 ($environmentMode):');
-        for (int i = 0; i < _cachedDomains!.length; i++) {
-          final server = _cachedDomains![i];
-          final isHttps = server.startsWith('https://');
-          final icon = isHttps ? '🔒' : '🌐';
-          print('   $icon ${i + 1}. $server');
-        }
-        // 同时记录到日志系统
+        const modeInfo = kDebugMode ? 'Debug模式' : 'Release模式';
         _logger.i('🔓 已解密API服务器地址:', extra: {
           'servers': _cachedDomains,
           'mode': modeInfo,
           'environment': environmentMode
         });
       } else {
-        print('⚠️  解密后未找到有效的API服务器地址');
         _logger.w('⚠️  解密后未找到有效的API服务器地址');
       }
 

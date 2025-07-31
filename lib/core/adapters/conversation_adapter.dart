@@ -1,6 +1,7 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
+import 'package:cc/core/services/log_service.dart';
 import 'dart:convert';
 
 /// 会话数据转换适配器
@@ -22,10 +23,34 @@ class ConversationAdapter {
   static Conversation fromProto(proto.ConversationProto protoConv,
       {String? currentUserId}) {
     
+    final _logger = LogService.instance;
+    
+    // 🔥🔥🔥 详细记录参与者转换过程
+    _logger.i('🔄🔄🔄 ConversationAdapter.fromProto开始转换', extra: {
+      'conversationId': protoConv.conversationId,
+      'type': protoConv.type.toString(),
+      'currentUserId': currentUserId,
+      'participantsCount': protoConv.participants.length,
+    });
+    
     // 将参与者Proto列表转换为JSON字符串
-    final participantsJson = jsonEncode(
-      protoConv.participants.map((p) => _participantProtoToMap(p)).toList()
-    );
+    final participantMaps = protoConv.participants.map((p) {
+      final participantMap = _participantProtoToMap(p);
+      _logger.i('👤👤👤 参与者Proto转Map', extra: {
+        'userId': p.userId,
+        'name': p.name,
+        'hasRoleId': p.hasRoleId(),
+        'roleId': p.hasRoleId() ? p.roleId : 0,
+        'participantMap': participantMap,
+      });
+      return participantMap;
+    }).toList();
+    
+    final participantsJson = jsonEncode(participantMaps);
+    
+    _logger.i('📝📝📝 参与者JSON生成完成', extra: {
+      'participantsJson': participantsJson,
+    });
     
     // Extract current user's participant settings
     final currentUserParticipant = currentUserId != null 
@@ -108,6 +133,7 @@ class ConversationAdapter {
       'is_active': participant.hasIsActive() ? participant.isActive : true,
       'delivered_message_index': participant.hasDeliveredMessageIndex() ? participant.deliveredMessageIndex : 0,
       'read_message_index': participant.hasReadMessageIndex() ? participant.readMessageIndex : 0,
+      'role_id': participant.hasRoleId() ? participant.roleId : 0,
     };
   }
 
@@ -126,6 +152,7 @@ class ConversationAdapter {
       isActive: map['is_active'] as bool? ?? true,
       deliveredMessageIndex: map['delivered_message_index'] as int? ?? 0,
       readMessageIndex: map['read_message_index'] as int? ?? 0,
+      roleId: map['role_id'] as int? ?? 0,
     );
   }
 
@@ -261,5 +288,67 @@ class ConversationAdapter {
     final readMessageIndex = currentUserParticipant['read_message_index'] as int? ?? 0;
     
     return (lastMessageIndex - readMessageIndex).clamp(0, double.infinity).toInt();
+  }
+
+  /// 获取会话头像应该显示的用户的roleId
+  /// 
+  /// [participantsJson] - 参与者JSON字符串
+  /// [conversationType] - 会话类型
+  /// [currentUserId] - 当前用户ID
+  /// 返回：应该显示的用户roleId，私聊返回对方roleId，群聊返回null
+  static int? getDisplayRoleId(String participantsJson, String conversationType, String currentUserId) {
+    final _logger = LogService.instance;
+    
+    try {
+      _logger.i('💬💬💬 ConversationAdapter获取显示RoleId', extra: {
+        'conversationType': conversationType,
+        'currentUserId': currentUserId,
+        'participantsJsonLength': participantsJson.length,
+        'participantsJson': participantsJson,
+      });
+      
+      // 只有私聊才显示对方的roleId
+      if (conversationType != 'PRIVATE') {
+        _logger.i('非私聊会话，不显示roleId', extra: {'type': conversationType});
+        return null;
+      }
+
+      final List<dynamic> participantsList = jsonDecode(participantsJson);
+      final participantsMap = participantsList.cast<Map<String, dynamic>>();
+      
+      _logger.i('解析参与者列表', extra: {
+        'participantsCount': participantsMap.length,
+        'participants': participantsMap,
+      });
+      
+      // 在私聊中找到对方用户的roleId
+      for (final participant in participantsMap) {
+        final userId = participant['user_id'] as String?;
+        final roleId = participant['role_id'] as int? ?? 0;
+        final userName = participant['name'] as String? ?? 'Unknown';
+        
+        _logger.i('检查参与者', extra: {
+          'userId': userId,
+          'userName': userName,
+          'roleId': roleId,
+          'isCurrentUser': userId == currentUserId,
+        });
+        
+        if (userId != null && userId != currentUserId) {
+          _logger.i('🎯🎯🎯 找到对方用户，返回roleId', extra: {
+            'otherUserId': userId,
+            'otherUserName': userName,
+            'otherUserRoleId': roleId,
+          });
+          return roleId;
+        }
+      }
+      
+      _logger.w('未找到对方用户');
+      return null;
+    } catch (e) {
+      _logger.e('获取显示RoleId失败', error: e);
+      return null;
+    }
   }
 }

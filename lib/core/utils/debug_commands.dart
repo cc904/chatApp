@@ -256,12 +256,13 @@ class DebugCommands {
       final now = DateTime.now();
       final testMessages = <Message>[
         // 创建不同时间的消息进行排序测试
-        Message(
+        Message( 
           messageId: 'msg_1',
           conversationId: 'test_conv',
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
+          senderRoleId: 0,
           createdAt: now.subtract(const Duration(minutes: 5)),
           updatedAt: null,
           messageIndex: 100,
@@ -278,12 +279,13 @@ class DebugCommands {
           tags: null,
           content: '{"text": "消息1（最早）"}',
         ),
-        Message(
+        Message( 
           messageId: 'msg_2',
           conversationId: 'test_conv',
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
+          senderRoleId: 0,
           createdAt: now.subtract(const Duration(minutes: 4)),
           updatedAt: null,
           messageIndex: 200,
@@ -300,12 +302,13 @@ class DebugCommands {
           tags: null,
           content: '{"text": "消息2"}',
         ),
-        Message(
+        Message( 
           messageId: 'msg_3',
           conversationId: 'test_conv',
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
+          senderRoleId: 0,
           createdAt: now.subtract(const Duration(minutes: 3)),
           updatedAt: null,
           messageIndex: 300,
@@ -322,12 +325,13 @@ class DebugCommands {
           tags: null,
           content: '{"text": "消息3"}',
         ),
-        Message(
+        Message( 
           messageId: 'msg_4',
           conversationId: 'test_conv',
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
+          senderRoleId: 0,
           createdAt: now.subtract(const Duration(minutes: 2)),
           updatedAt: null,
           messageIndex: 400,
@@ -344,12 +348,13 @@ class DebugCommands {
           tags: null,
           content: '{"text": "消息4"}',
         ),
-        Message(
+        Message( 
           messageId: 'msg_5',
           conversationId: 'test_conv',
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
+          senderRoleId: 0,
           createdAt: now.subtract(const Duration(minutes: 1)),
           updatedAt: null,
           messageIndex: 500,
@@ -366,12 +371,13 @@ class DebugCommands {
           tags: null,
           content: '{"text": "消息5"}',
         ),
-        Message(
+        Message( 
           messageId: 'msg_6',
           conversationId: 'test_conv',
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
+          senderRoleId: 0,
           createdAt: now,
           updatedAt: null,
           messageIndex: 600,

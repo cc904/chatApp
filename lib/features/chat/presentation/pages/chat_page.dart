@@ -90,8 +90,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return DisplayNameUtils.getConversationDisplayName(conversation, currentUserId);
   }
 
+  /// 获取会话显示的roleId（仅对私聊有效）
+  int? _getConversationDisplayRoleId(Conversation conversation, String currentUserId) {
+    return ConversationAdapter.getDisplayRoleId(
+      conversation.participants, 
+      conversation.type, 
+      currentUserId
+    );
+  }
+
   Timer? _scrollDebounceTimer;
   Timer? _searchDebounceTimer; // 💢💢💢 新增：搜索防抖Timer
+  Timer? _visibilityReadUpdateTimer; // 🆕 可见性已读更新定时器
 
   /// 滚动控制器 - 用于控制列表滚动位置
   final ItemScrollController _itemScrollController = ItemScrollController();
@@ -260,6 +270,76 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     // 页面初始化后，同步当前会话详情
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // 🔥🔥🔥 检查ChatCubit的初始状态
+        final chatCubit = context.read<ChatCubit>();
+        final state = chatCubit.state;
+        final roleId = state.currentUser.roleId;
+        final hasPermission = _hasQuickReplyPermission(roleId);
+        
+        _logger.i('📋📋📋 ChatCubit初始状态检查', extra: {
+          'currentUserId': state.currentUser.userId,
+          'currentUserName': state.currentUser.name,
+          'currentUserRoleId': roleId,
+          'hasQuickReplyPermission': hasPermission,
+          'conversationType': state.conversation.type,
+        });
+        
+        // 🚨🚨🚨 关键对比：ChatCubit的currentUser vs 会话参与者数据
+        int? participantRoleId;
+        try {
+          if (state.conversation.participants != null) {
+            final participantsJson = jsonDecode(state.conversation.participants!);
+            if (participantsJson is List) {
+              for (final participant in participantsJson) {
+                if (participant['user_id'] == state.currentUser.userId) {
+                  participantRoleId = participant['role_id'] as int?;
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // JSON解析失败，忽略
+        }
+        
+        _logger.e('🚨🚨🚨 DATA_SOURCE_COMPARISON: 发现数据源不一致！', extra: {
+          'chatCubitCurrentUser': {
+            'userId': state.currentUser.userId,
+            'name': state.currentUser.name,
+            'roleId': state.currentUser.roleId,
+            'dataSource': 'ChatCubit (来自HomePage初始化时的安全存储)'
+          },
+          'conversationParticipantData': {
+            'userId': state.currentUser.userId,
+            'roleIdFromParticipants': participantRoleId,
+            'dataSource': '会话参与者JSON (来自服务器最新数据)'
+          },
+          'inconsistency': {
+            'chatCubitRoleId': state.currentUser.roleId,
+            'participantRoleId': participantRoleId,
+            'areEqual': state.currentUser.roleId == participantRoleId,
+            'conclusion': state.currentUser.roleId != participantRoleId 
+              ? '数据不一致！ChatCubit使用的是过期的用户数据' 
+              : '数据一致'
+          }
+        });
+        
+        // 记录权限状态
+        _logger.i('📋📋📋 CHAT_CUBIT_INIT: userId=${state.currentUser.userId}, name=${state.currentUser.name}, roleId=$roleId, hasPermission=$hasPermission');
+        
+        // 🔥🔥🔥 额外的权限测试
+        _testQuickReplyPermissions(roleId);
+        
+        // 🔧 初始化快捷回复（如果用户有权限）
+        if (hasPermission) {
+          try {
+            context.read<ChatCubit>().initializeQuickReplies();
+            _logger.i('✅ 快捷回复已初始化');
+          } catch (e) {
+            _logger.w('快捷回复初始化失败', extra: {'error': e.toString()});
+          }
+        }
+        
         context.read<ChatCubit>().syncCurrentConversation();
       }
     });
@@ -295,6 +375,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _scrollDebounceTimer?.cancel();
     _searchDebounceTimer?.cancel();
     _recordingTimer?.cancel();
+    _visibilityReadUpdateTimer?.cancel();
     // 释放媒体录制服务
     _voiceRecordService.dispose();
     // 🆕 停止音频播放
@@ -755,12 +836,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         });
       }
 
-      // 🔧 修复：确保在UI重建后重新获取焦点
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _focusNode.canRequestFocus) {
-          _focusNode.requestFocus();
-        }
-      });
+      // 🔧 优化后的焦点管理：由于BlocBuilder不再因isSending变化重建，焦点自然保持
 
       // 轻微震动反馈
       HapticFeedback.lightImpact();
@@ -970,6 +1046,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 avatarUrl: state.conversation.avatar,
                 name: _getConversationDisplayName(state.conversation, state.currentUser.userId),
                 radius: 18.0,
+                roleId: _getConversationDisplayRoleId(state.conversation, state.currentUser.userId),
               ),
             ),
           ),
@@ -1100,15 +1177,26 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             buildWhen: (previous, current) {
               // 💢💢💢 合并后的BlocBuilder：统一处理所有相关状态变化
 
-              // 1. 消息列表变化（最重要的重建条件）
-              if (!identical(previous.messages, current.messages)) {
-                _logger.i('💢 BlocBuilder：消息列表变化', extra: {
-                  'previousLength': previous.messages.length,
-                  'currentLength': current.messages.length,
-                  'lengthDiff':
-                      current.messages.length - previous.messages.length,
+              // 1. 消息列表数量变化（真正影响UI结构的变化）
+              if (previous.messages.length != current.messages.length) {
+                _logger.i('🔥 消息数量变化', extra: {
+                  'from': previous.messages.length,
+                  'to': current.messages.length,
                 });
                 return true;
+              }
+
+              // 2. 消息列表内容变化（但数量相同时，检查是否有新消息替换）
+              if (previous.messages.length == current.messages.length && 
+                  previous.messages.isNotEmpty && 
+                  current.messages.isNotEmpty) {
+                // 检查第一条消息ID是否变化（有新消息加入并可能有旧消息被移除）
+                final prevFirstId = previous.messages.first.messageId;
+                final currFirstId = current.messages.first.messageId;
+                if (prevFirstId != currFirstId) {
+                  _logger.i('🔥 消息结构变化');
+                  return true;
+                }
               }
 
               // 2. 搜索状态变化（影响消息高亮和显示）
@@ -1118,7 +1206,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                       current.currentSearchResultIndex ||
                   !identical(previous.searchResultMessageIndexes,
                       current.searchResultMessageIndexes)) {
-                _logger.i('💢 BlocBuilder：搜索状态变化');
+                _logger.i('🔥 搜索状态变化');
                 return true;
               }
 
@@ -1126,33 +1214,27 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               if (previous.conversation.conversationId !=
                       current.conversation.conversationId ||
                   previous.conversation.type != current.conversation.type) {
-                _logger.i('💢 BlocBuilder：会话信息变化');
+                _logger.i('🔥 会话信息变化');
                 return true;
               }
 
-              // 5. 消息更新触发器变化（强制更新机制）
-              if (previous.messageUpdateTrigger !=
-                  current.messageUpdateTrigger) {
-                _logger.i('💢 BlocBuilder：消息更新触发器变化', extra: {
-                  'prevTrigger': previous.messageUpdateTrigger,
-                  'currTrigger': current.messageUpdateTrigger,
-                });
+              // 5. 高亮消息变化（用户跳转到特定消息时）
+              if (previous.highlightedMessageId != current.highlightedMessageId) {
+                _logger.i('🔥 高亮消息变化');
                 return true;
               }
 
-              _logger.d('💢 BlocBuilder：无相关状态变化');
+              // 🔧 最后检查：如果只是滚动位置变化，不重建消息列表
+              if (previous.currentScrollPosition != current.currentScrollPosition) {
+                return false;
+              }
+
               return false;
             },
             builder: (context, state) {
-              _logger.i('💢 BlocBuilder 重绘',
-                  extra: {
-                    'messageCount': state.messages.length,
-                    'currentScrollPositionMessageID':
-                        state.currentScrollPosition.messageId,
-                    'currentScrollPositionIndex': state.currentScrollPosition
-                        .getListIndex(state.messages),
-                  },
-                  stackTrace: StackTrace.current);
+              _logger.i('🚀 BlocBuilder 重绘消息列表', extra: {
+                'messageCount': state.messages.length,
+              });
 
               // 💢💢💢 每次重建时重置首次位置检查标志
               _hasCheckedInitialPosition = false;
@@ -1173,7 +1255,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   Expanded(
                     child: ScrollablePositionedList.builder(
                       key: ValueKey(
-                          'message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}_${state.messageUpdateTrigger}'),
+                          'message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}'),
                       itemCount: processedItems.length,
                       itemBuilder: (context, index) {
                         final item = processedItems[index];
@@ -1251,20 +1333,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           final anchorIndex = processedItems.indexWhere((item) {
                             if (item is MessageListItemData) {
                               if (item.message.messageId == anchorId) {
-                                _logger.d('💢 初始滚动索引计算', extra: {
-                                  'anchorMessageIndex':
-                                      item.message.messageIndex,
-                                  'foundAnchorMessageId': anchorId,
-                                });
+                                // 找到锚点消息
                                 return true; // 🔥 找到匹配的消息，返回 true
                               }
                             }
                             return false; // 🔥 没有匹配，返回 false
                           });
 
-                          _logger.d('💢 初始滚动索引计算', extra: {
-                            'anchorIndex': anchorIndex,
-                          });
+                          // 计算锚点索引
                           if (anchorIndex >= 0) {
                             return anchorIndex;
                           }
@@ -1283,8 +1359,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                         // - 1.0: 消息底部在物理屏幕顶部（反向列表的逻辑终点）
                         // - 0.907: 消息底部在物理屏幕顶部附近（90.7%位置）
                         // 恢复时直接使用 itemLeadingEdge 作为 initialAlignment
-                        _logger.d('💢 初始对齐计算',
-                            extra: {'itemLeadingEdge': itemLeadingEdge});
                         return itemLeadingEdge;
                       })(),
                       reverse: true,
@@ -1332,10 +1406,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Widget _buildInputArea() {
     return BlocBuilder<ChatCubit, ChatState>(
       buildWhen: (previous, current) {
-        // 只在发送状态或网络状态变化时重建
-        return previous.isSending != current.isSending ||
-            previous.networkStatus != current.networkStatus ||
-            previous.conversation.conversationId != current.conversation.conversationId;
+        // 优化：避免仅因isSending状态变化而重建输入区域（修复焦点丢失问题）
+        // 只在网络状态或会话变化时重建，isSending变化不影响输入区域UI
+        return previous.networkStatus != current.networkStatus ||
+            previous.conversation.conversationId != current.conversation.conversationId ||
+            previous.conversation.type != current.conversation.type ||
+            previous.conversation.participants != current.conversation.participants ||
+            previous.currentUser.roleId != current.currentUser.roleId; // 角色ID变化时重建，影响快捷回复显示
       },
       builder: (context, state) {
         final isEnabled =
@@ -1343,6 +1420,21 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 !state.isSending;
         final conversation = state.conversation;
         final currentUserId = state.currentUser.userId;
+        
+        // 🔥🔥🔥 详细记录用户roleId和快捷回复权限状态
+        final currentRoleId = state.currentUser.roleId;
+        final hasQuickReplyPermission = _hasQuickReplyPermission(currentRoleId);
+        
+        _logger.i('💬💬💬 ChatPage输入区域构建', extra: {
+          'currentUserId': currentUserId,
+          'currentUserRoleId': currentRoleId,
+          'conversationType': conversation.type,
+          'isEnabled': isEnabled,
+          'hasQuickReplyPermission': hasQuickReplyPermission,
+        });
+        
+        // 记录输入区域权限状态
+        _logger.d('🔥🔥🔥 INPUT_AREA_BUILD: userId=$currentUserId, roleId=$currentRoleId, hasPermission=$hasQuickReplyPermission');
 
         // 检查是否为频道
         if (conversation.type == 'CHANNEL') {
@@ -1361,24 +1453,41 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 对于非频道或频道管理员/所有者，显示正常输入区域
         return Column(
           children: [
-            // 快捷回复面板
-            QuickReplyPanel(
-              isVisible: _showQuickReplyPanel,
-              onQuickReply: (content) {
-                // 将快捷回复内容填入输入框，不直接发送
-                _textController.text = content;
-                _textNotifier.value = content;
-                setState(() {
-                  _showQuickReplyPanel = false;
-                });
-                // 自动获取焦点，方便用户编辑或直接发送
-                _focusNode.requestFocus();
-                // 将光标移动到文本末尾
-                _textController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: _textController.text.length),
-                );
-              },
-            ),
+            // 快捷回复面板 - 仅对有权限的用户显示
+            ...() {
+              final hasPermission = _hasQuickReplyPermission(state.currentUser.roleId);
+              _logger.i('🔥🔥🔥 快捷回复面板条件判断', extra: {
+                'currentUserRoleId': state.currentUser.roleId,
+                'hasPermission': hasPermission,
+                'willShowPanel': hasPermission,
+                'panelVisible': _showQuickReplyPanel,
+                'currentUserId': state.currentUser.userId,
+              });
+              
+              if (hasPermission) {
+                return [QuickReplyPanel(
+                  isVisible: _showQuickReplyPanel,
+                  onQuickReply: (content) {
+                    _logger.i('🔥🔥🔥 快捷回复被选择', extra: {'content': content});
+                    // 将快捷回复内容填入输入框，不直接发送
+                    _textController.text = content;
+                    _textNotifier.value = content;
+                    setState(() {
+                      _showQuickReplyPanel = false;
+                    });
+                    // 自动获取焦点，方便用户编辑或直接发送
+                    _focusNode.requestFocus();
+                    // 将光标移动到文本末尾
+                    _textController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _textController.text.length),
+                    );
+                  },
+                )];
+              } else {
+                _logger.w('🔥🔥🔥 快捷回复面板被隐藏 - 用户没有权限');
+                return <Widget>[];
+              }
+            }(),
             // 主输入栏
             Container(
               padding:
@@ -1460,30 +1569,47 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
                     const SizedBox(width: 8),
 
-                    // 快捷回复按钮
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _showQuickReplyPanel = !_showQuickReplyPanel;
-                          if (_showQuickReplyPanel) {
-                            _showMoreOptions = false;
-                            _showEmojiPanel = false;
-                            _focusNode.unfocus();
-                          }
-                        });
-                      },
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: Icon(
-                          Icons.flash_on,
-                          size: 32,
-                          color: _showQuickReplyPanel 
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
+                    // 快捷回复按钮 - 仅对有权限的用户显示
+                    ...() {
+                      final hasPermission = _hasQuickReplyPermission(state.currentUser.roleId);
+                      _logger.i('🚨🚨🚨 快捷回复按钮条件判断', extra: {
+                        'currentUserRoleId': state.currentUser.roleId,
+                        'hasPermission': hasPermission,
+                        'willShowButton': hasPermission,
+                        'currentUserId': state.currentUser.userId,
+                        'currentUserName': state.currentUser.name,
+                      });
+                      
+                      if (hasPermission) {
+                        return [GestureDetector(
+                          onTap: () {
+                            _logger.i('🚨🚨🚨 快捷回复按钮被点击');
+                            setState(() {
+                              _showQuickReplyPanel = !_showQuickReplyPanel;
+                              if (_showQuickReplyPanel) {
+                                _showMoreOptions = false;
+                                _showEmojiPanel = false;
+                                _focusNode.unfocus();
+                              }
+                            });
+                          },
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: Icon(
+                              Icons.flash_on,
+                              size: 32,
+                              color: _showQuickReplyPanel 
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        )];
+                      } else {
+                        _logger.w('🚨🚨🚨 快捷回复按钮被隐藏 - 用户没有权限');
+                        return <Widget>[];
+                      }
+                    }(),
 
                     const SizedBox(width: 8),
 
@@ -1695,15 +1821,26 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             height: 1.4, // 调整行高以适应更大的表情
           ),
           textInputAction: TextInputAction.send,
-          onSubmitted: isEnabled ? (text) => _sendMessage() : null,
+          onSubmitted: isEnabled ? (text) {
+            _sendMessage();
+            // 🔧 修复：onSubmitted后主动恢复焦点
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _focusNode.canRequestFocus) {
+                _focusNode.requestFocus();
+              }
+            });
+          } : null,
           onChanged: (text) {
             // 文本变化已通过ValueNotifier自动处理，无需setState
           },
           onTap: () {
-            setState(() {
-              _showMoreOptions = false;
-              _showEmojiPanel = false;
-            });
+            // 🔧 优化：只在真正需要时才调用setState，避免不必要的重建
+            if (_showMoreOptions || _showEmojiPanel) {
+              setState(() {
+                _showMoreOptions = false;
+                _showEmojiPanel = false;
+              });
+            }
           },
         ),
       ),
@@ -3968,11 +4105,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 暂时跳过这个复杂的逻辑，直接使用消息本身的状态
       if (false) { // 禁用这个分支 - 需要重新实现参与者解析逻辑
         // 这里原本是复杂的参与者状态逻辑，暂时禁用
-        return MessageDisplayStatus(
-          isRead: false,
-          isDelivered: false,
-          messageStatus: message.messageStatus,
-        );
       }
     }
 
@@ -4022,12 +4154,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 🆕 计算未读指示器信息
   _UnreadIndicatorInfo _calculateUnreadIndicatorInfo(ChatState state) {
-    final currentUserId = state.currentUser.userId;
     final conversation = state.conversation;
 
     // 获取未读数量
     final unreadCount = conversation.unreadCount;
     if (unreadCount <= 0) {
+      return const _UnreadIndicatorInfo(
+        hasUnread: false,
+        unreadCount: 0,
+        direction: _UnreadDirection.none,
+        indicatorText: '',
+      );
+    }
+
+    // 新增：检查是否所有消息都在可视范围内
+    if (_areAllMessagesVisible(state)) {
+      // 所有消息可见时不显示指示器，但触发已读更新
+      _scheduleReadUpdateForVisibleMessages(state);
       return const _UnreadIndicatorInfo(
         hasUnread: false,
         unreadCount: 0,
@@ -4098,48 +4241,117 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
+  /// 🆕 检查是否所有消息都在可视范围内（未满一页的情况）
+  bool _areAllMessagesVisible(ChatState state) {
+    if (state.messages.isEmpty) return true;
+    
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return false;
+    
+    // 获取可见的处理后索引
+    final visibleProcessedIndices = positions.map((p) => p.index).toSet();
+    
+    // 优化：一次性获取processedItems，避免重复计算
+    final processedItems = MessageListProcessor.processMessages(
+      messages: state.messages,
+      currentUserId: state.currentUser.userId,
+      isNotGroupChat: state.conversation.type != 'GROUP',
+    );
+    
+    // 查找第一条和最后一条消息在processedItems中的索引
+    final firstMessage = state.messages[0];
+    final lastMessage = state.messages[state.messages.length - 1];
+    
+    int? firstMessageProcessedIndex;
+    int? lastMessageProcessedIndex;
+    
+    for (int i = 0; i < processedItems.length; i++) {
+      final item = processedItems[i];
+      if (item is MessageListItemData) {
+        if (item.message.messageId == firstMessage.messageId) {
+          firstMessageProcessedIndex = i;
+        }
+        if (item.message.messageId == lastMessage.messageId) {
+          lastMessageProcessedIndex = i;
+        }
+      }
+    }
+    
+    // 如果第一条和最后一条消息都可见，则认为所有消息都可见
+    final allVisible = firstMessageProcessedIndex != null &&
+                      lastMessageProcessedIndex != null &&
+                      visibleProcessedIndices.contains(firstMessageProcessedIndex) && 
+                      visibleProcessedIndices.contains(lastMessageProcessedIndex);
+                      
+    return allVisible;
+  }
+
+  /// 🆕 为可见消息安排已读更新
+  void _scheduleReadUpdateForVisibleMessages(ChatState state) {
+    if (state.messages.isEmpty) return;
+    
+    // 获取最后一条消息的索引作为已读标记
+    final latestMessageIndex = state.messages.last.messageIndex;
+    
+    // 使用定时器延迟触发，避免频繁调用
+    _visibilityReadUpdateTimer?.cancel();
+    _visibilityReadUpdateTimer = Timer(const Duration(milliseconds: 1000), () {
+      context.read<ChatCubit>().updateReadStatusManually(latestMessageIndex);
+    });
+  }
+
   /// 🆕 滚动到最新的未读消息（会话中的最后一条消息）
   Future<void> _scrollToLastUnreadMessage(ChatState state) async {
     try {
-      final currentUserId = state.currentUser.userId;
       final conversation = state.conversation;
 
-      // 获取最新未读消息的索引（即最后一条消息的索引）
-      final lastUnreadIndex =
-          conversation.readMessageIndex;
+      // 计算第一条未读消息的索引
+      // readMessageIndex 是已读消息索引，第一条未读消息应该是 readMessageIndex + 1
+      final firstUnreadIndex = conversation.readMessageIndex + 1;
+      
+      // 获取会话中的最后一条消息索引（最新未读消息）
+      final lastMessageIndex = conversation.lastMessageIndex;
+      
+      // 如果没有未读消息，直接返回
+      if (firstUnreadIndex > lastMessageIndex) {
+        _logger.i('没有未读消息', extra: {
+          'readMessageIndex': conversation.readMessageIndex,
+          'lastMessageIndex': lastMessageIndex,
+        });
+        return;
+      }
+
+      // 优先跳转到最新的消息（最后一条消息）
+      final targetIndex = lastMessageIndex;
 
       // 在当前消息列表中查找对应的消息
-      final lastUnreadMessage = state.messages
-          .where((msg) => msg.messageIndex == lastUnreadIndex)
+      final targetMessage = state.messages
+          .where((msg) => msg.messageIndex == targetIndex)
           .firstOrNull;
 
-      if (lastUnreadMessage != null) {
+      if (targetMessage != null) {
         // 如果消息在当前列表中，直接滚动到该消息
         await _scrollToMessage(
-          lastUnreadMessage.messageIndex,
+          targetMessage.messageIndex,
           alignment: 0.5, // 在屏幕中央显示
           showHighlight: true,
         );
 
-        _logger.i('滚动到最新未读消息成功', extra: {
-          'messageId': lastUnreadMessage.messageId,
-          'messageIndex': lastUnreadIndex,
-          'isLastMessage': true,
+        _logger.i('滚动到最新消息成功', extra: {
+          'messageId': targetMessage.messageId,
+          'messageIndex': targetIndex,
+          'unreadCount': lastMessageIndex - conversation.readMessageIndex,
         });
       } else {
-        _logger.w('最新未读消息不在当前列表中，使用jumpToMessageIndex加载', extra: {
-          'lastUnreadIndex': lastUnreadIndex,
-          'messageRange': state.messages.isEmpty
-              ? 'empty'
-              : '${state.messages.last.messageIndex}-${state.messages.first.messageIndex}',
+        _logger.w('最新消息不在当前列表中，使用jumpToMessageIndex加载', extra: {
+          'targetIndex': targetIndex,
+          'currentListSize': state.messages.length,
+          'listRange': state.messages.isEmpty ? 'empty' : 
+            '${state.messages.first.messageIndex}-${state.messages.last.messageIndex}',
         });
 
-        // 使用jumpToMessageIndex来加载并跳转到最新未读消息
-        await context.read<ChatCubit>().jumpToMessageIndex(lastUnreadIndex);
-
-        _logger.i('已请求跳转到最新未读消息', extra: {
-          'targetIndex': lastUnreadIndex,
-        });
+        // 使用jumpToMessageIndex来加载并跳转到最新消息
+        await context.read<ChatCubit>().jumpToMessageIndex(targetIndex);
       }
 
       // 触觉反馈
@@ -4226,6 +4438,45 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         );
       }
     }
+  }
+
+  /// 测试快捷回复权限逻辑
+  void _testQuickReplyPermissions(int currentRoleId) {
+    print('🧪🧪🧪 PERMISSION_TEST_START: currentRoleId=$currentRoleId');
+    
+    // 测试所有可能的roleId值
+    for (int testRoleId = 0; testRoleId <= 5; testRoleId++) {
+      final isCustomerService = testRoleId == 3;
+      final isVip = testRoleId == 4;  
+      final hasPermission = isCustomerService || isVip;
+      final isCurrent = testRoleId == currentRoleId;
+      
+      print('🧪 TEST roleId=$testRoleId: isCS=$isCustomerService, isVip=$isVip, hasPermission=$hasPermission ${isCurrent ? '← CURRENT' : ''}');
+    }
+    
+    print('🧪🧪🧪 PERMISSION_TEST_END');
+  }
+
+  /// 检查用户是否有快捷回复权限
+  /// 只有 roleId 为 3 或 4 的用户才能使用快捷回复功能
+  bool _hasQuickReplyPermission(int roleId) {
+    final isCustomerService = roleId == 3;
+    final isVip = roleId == 4;
+    final hasPermission = isCustomerService || isVip;
+    
+    _logger.i('⚡⚡⚡ 快捷回复权限检查详细信息', extra: {
+      'originalRoleId': roleId,
+      'roleIdType': roleId.runtimeType.toString(),
+      'isCustomerService_3': isCustomerService,
+      'isVip_4': isVip,
+      'hasPermission': hasPermission,
+      'calculation': '$roleId == 3 || $roleId == 4 = $hasPermission',
+    });
+    
+    // 强制打印到控制台，确保能看到
+    print('🚀🚀🚀 QUICK_REPLY_PERMISSION: roleId=$roleId, hasPermission=$hasPermission');
+    
+    return hasPermission;
   }
 }
 

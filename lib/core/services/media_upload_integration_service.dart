@@ -599,38 +599,7 @@ class MediaUploadIntegrationService {
     return MediaType.document;
   }
 
-  /// 安全地获取文件路径，支持 XFile 和 File 两种类型
-  String _getFilePath(dynamic file) {
-    if (file is XFile) {
-      return file.path;
-    } else if (file is File) {
-      return file.path;
-    } else {
-      throw ArgumentError('不支持的文件类型: ${file.runtimeType}');
-    }
-  }
 
-  /// 根据文件名获取 MIME 类型
-  String _getMimeTypeFromFileName(String fileName) {
-    final extension = fileName.toLowerCase().split('.').last;
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'bmp':
-        return 'image/bmp';
-      case 'svg':
-        return 'image/svg+xml';
-      default:
-        return 'application/octet-stream';
-    }
-  }
 
   /// 获取图片尺寸
   /// 支持 File 和 XFile 两种类型，兼容不同平台

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/core/services/proto_events.dart';
-import 'package:cc/core/services/network_latency_service.dart';
 import 'package:protobuf/protobuf.dart';
 
 /// 通信服务

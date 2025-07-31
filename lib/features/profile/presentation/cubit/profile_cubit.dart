@@ -24,14 +24,25 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> _loadUserInfo() async {
     try {
+      // 🔧 修复：检查Cubit是否已关闭
+      if (isClosed) return;
+      
       emit(state.copyWith(status: ProfileStatus.loading));
       final user = await _repository.getCurrentUser();
+      
+      // 再次检查Cubit是否已关闭
+      if (isClosed) return;
+      
       emit(state.copyWith(
         status: ProfileStatus.success,
         user: user,
       ));
     } catch (e) {
       _logger.e('加载用户信息失败', error: e);
+      
+      // 检查Cubit是否已关闭
+      if (isClosed) return;
+      
       emit(state.copyWith(
         status: ProfileStatus.error,
         error: e.toString(),
@@ -50,14 +61,17 @@ class ProfileCubit extends Cubit<ProfileState> {
     String? status,
   }) async {
     // 🔧 修复：防止重复更新操作
-    if (_isUpdating) {
-      _logger.w('用户信息更新操作正在进行中，忽略重复请求');
+    if (_isUpdating || isClosed) {
+      _logger.w('用户信息更新操作正在进行中或Cubit已关闭，忽略请求');
       return;
     }
 
     try {
       _isUpdating = true;
+      
+      if (isClosed) return;
       emit(state.copyWith(status: ProfileStatus.loading));
+      
       await _repository.updateUserInfo(
         nickname: nickname,
         avatar: avatar,
@@ -68,6 +82,8 @@ class ProfileCubit extends Cubit<ProfileState> {
       await _loadUserInfo();
     } catch (e) {
       _logger.e('更新用户信息失败', error: e);
+      
+      if (isClosed) return;
       emit(state.copyWith(
         status: ProfileStatus.error,
         error: e.toString(),
@@ -79,14 +95,20 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> updateServerUrl(String url) async {
     try {
+      if (isClosed) return;
       emit(state.copyWith(status: ProfileStatus.loading));
+      
       await _repository.updateServerUrl(url);
+      
+      if (isClosed) return;
       emit(state.copyWith(
         status: ProfileStatus.success,
         serverUrl: url,
       ));
     } catch (e) {
       _logger.e('更新服务器URL失败', error: e);
+      
+      if (isClosed) return;
       emit(state.copyWith(
         status: ProfileStatus.error,
         error: e.toString(),
@@ -96,9 +118,13 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> resetAllData() async {
     try {
+      if (isClosed) return;
       emit(state.copyWith(status: ProfileStatus.loading));
+      
       await _repository.resetAllData();
-      // 数据重置成功后，清除用户状态
+      
+      if (isClosed) return;
+      // 数据重置成功后，清除用户状态，这会触发自动跳转到登录页面
       emit(const ProfileState(
         status: ProfileStatus.success,
         user: null,
@@ -107,6 +133,8 @@ class ProfileCubit extends Cubit<ProfileState> {
       ));
     } catch (e) {
       _logger.e('重置数据失败', error: e);
+      
+      if (isClosed) return;
       emit(state.copyWith(
         status: ProfileStatus.error,
         error: e.toString(),
@@ -119,6 +147,7 @@ class ProfileCubit extends Cubit<ProfileState> {
   /// 使用新的Token验证接口，支持自动刷新即将过期的Token
   Future<void> verifyTokenAndRefresh() async {
     try {
+      if (isClosed) return;
       emit(state.copyWith(status: ProfileStatus.loading));
       
       // 获取设备信息
@@ -146,6 +175,8 @@ class ProfileCubit extends Cubit<ProfileState> {
         autoRefresh: true,
       );
 
+      if (isClosed) return;
+
       if (result != null && result['success'] == true) {
         // 检查是否有更新的用户信息
         if (result['currentUser'] != null || result['user'] != null) {
@@ -155,12 +186,15 @@ class ProfileCubit extends Cubit<ProfileState> {
           _logger.i('Token验证成功，用户信息已更新');
         }
         
+        if (isClosed) return;
         emit(state.copyWith(
           status: ProfileStatus.success,
           error: null,
         ));
       } else {
         _logger.w('Token验证失败，可能需要重新登录');
+        
+        if (isClosed) return;
         emit(state.copyWith(
           status: ProfileStatus.error,
           error: 'Token验证失败，请重新登录',
@@ -168,6 +202,8 @@ class ProfileCubit extends Cubit<ProfileState> {
       }
     } catch (e) {
       _logger.e('Token验证失败', error: e);
+      
+      if (isClosed) return;
       emit(state.copyWith(
         status: ProfileStatus.error,
         error: e.toString(),

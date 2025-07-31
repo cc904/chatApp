@@ -94,6 +94,13 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 将 UserProto 转换为 User 对象并保存到数据库
       for (final userProto in data.users) {
+        _logger.i('🔥🔥🔥 联系人同步事件处理', extra: {
+          'userName': userProto.nickName,
+          'userId': userProto.userId,
+          'roleId': userProto.hasRoleId() ? userProto.roleId : 0,
+          'hasRoleId': userProto.hasRoleId(),
+        });
+        
         await _db.into(_db.users).insertOnConflictUpdate(UsersCompanion.insert(
           userId: userProto.userId,
           nickName: userProto.nickName,
@@ -105,6 +112,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
               ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
               : null),
           status: Value(userProto.status.isEmpty ? null : userProto.status),
+          roleId: Value(userProto.hasRoleId() ? userProto.roleId : 0),
           isFriend: const Value(true),
         ));
       }
@@ -134,6 +142,12 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 将 UserProto 转换为 User 对象并保存到数据库
       for (final userProto in response.contacts) {
+        _logger.i('🚀🚀🚀 联系人同步结果处理', extra: {
+          'userName': userProto.nickName,
+          'userId': userProto.userId,
+          'roleId': userProto.hasRoleId() ? userProto.roleId : 0,
+          'hasRoleId': userProto.hasRoleId(),
+        });
         // 检查是否已存在相同userId的联系人
         final existingUser = await (_db.select(_db.users)
               ..where((tbl) => tbl.userId.equals(userProto.userId)))
@@ -153,6 +167,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
                 ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
                 : null),
             status: Value(userProto.status.isEmpty ? null : userProto.status),
+            roleId: Value(userProto.hasRoleId() ? userProto.roleId : 0),
             isFriend: const Value(true),
           ));
         } else {
@@ -168,6 +183,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
                 ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
                 : null),
             status: Value(userProto.status.isEmpty ? null : userProto.status),
+            roleId: Value(userProto.hasRoleId() ? userProto.roleId : 0),
             isFriend: const Value(true),
           ));
         }
@@ -215,6 +231,18 @@ class ContactsRepositoryImpl implements ContactsRepository {
     try {
       // 返回本地数据库中的联系人列表
       final users = await (_db.select(_db.users)..where((tbl) => tbl.isFriend.equals(true))).get();
+      
+      // 🔥🔥🔥 详细的数据库查询结果日志
+      for (final user in users) {
+        _logger.i('🗃️🗃️🗃️ 数据库中的联系人', extra: {
+          'userName': user.nickName,
+          'userId': user.userId,
+          'roleId': user.roleId,
+          'isFriend': user.isFriend,
+          'avatar': user.avatar,
+        });
+      }
+      
       _logger.i('从本地数据库中获取 - ${users.length} 个联系人');
       return users;
     } catch (error) {
@@ -276,6 +304,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         pinyin: Value(contact.pinyin),
         lastActiveTime: Value(contact.lastActiveTime),
         status: Value(contact.status),
+        roleId: Value(contact.roleId),
         isFriend: const Value(true),
       ));
       return true;
@@ -301,6 +330,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         pinyin: Value(contact.pinyin),
         lastActiveTime: Value(contact.lastActiveTime),
         status: Value(contact.status),
+        roleId: Value(contact.roleId),
       ));
       return true;
     } catch (error) {
@@ -527,6 +557,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         await _db.into(_db.users).insert(UsersCompanion.insert(
           userId: request.senderId,
           nickName: request.senderId, // 使用userId作为默认名称
+          roleId: const Value(0), // 默认角色ID
           isFriend: const Value(true),
         ));
       } else {

@@ -9,6 +9,7 @@ import 'package:cc/core/proto/generated/conversation.pbenum.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -77,6 +78,15 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   /// - 群聊/频道：返回会话的name字段
   String _getConversationDisplayName(Conversation conversation, String currentUserId) {
     return DisplayNameUtils.getConversationDisplayName(conversation, currentUserId);
+  }
+
+  /// 获取会话显示的roleId（仅对私聊有效）
+  int? _getConversationDisplayRoleId(Conversation conversation, String currentUserId) {
+    return ConversationAdapter.getDisplayRoleId(
+      conversation.participants, 
+      conversation.type, 
+      currentUserId
+    );
   }
 
   @override
@@ -553,6 +563,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     name: _getConversationDisplayName(conversation, state.currentUser.userId),
                     radius: 50,
                     backgroundColor: Colors.cyan,
+                    roleId: _getConversationDisplayRoleId(conversation, state.currentUser.userId),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -710,6 +721,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
               name: _getConversationDisplayName(state.conversation, state.currentUser.userId),
               radius: 50,
               backgroundColor: Colors.cyan,
+              roleId: _getConversationDisplayRoleId(state.conversation, state.currentUser.userId),
             ),
           ),
           const SizedBox(height: 16),
@@ -1704,9 +1716,10 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   _buildContactItem(
                     avatar: participant['avatar'],
                     name: participant['name'] ?? 'Unknown',
-                    role: _getRoleDisplayName(participant['role'] ?? 'MEMBER'),
+                    role: _getRoleDisplayName(participant['role']),
                     isOnline: participant['online'] == true,
                     lastSeen: (participant['online'] == true) ? null : 'last seen recently',
+                    roleId: participant['roleId'],
                   ),
                   if (!isLast) const Divider(height: 1, indent: 68),
                 ],
@@ -1725,6 +1738,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     required String role,
     required bool isOnline,
     String? lastSeen,
+    int? roleId,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1737,6 +1751,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 avatarUrl: avatar,
                 name: name,
                 radius: 26,
+                roleId: roleId,
               ),
               // 在线状态指示器
               if (isOnline)
@@ -1814,10 +1829,29 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     );
   }
 
+  // 将角色值转换为字符串（处理 protobuf 枚举值）
+  String _convertRoleToString(dynamic role) {
+    if (role is int) {
+      switch (role) {
+        case 0:
+          return 'MEMBER';
+        case 1:
+          return 'ADMIN';
+        case 2:
+          return 'OWNER';
+        default:
+          return 'MEMBER';
+      }
+    }
+    return role?.toString() ?? 'MEMBER';
+  }
+
   // 获取角色显示名称
-  String _getRoleDisplayName(String role) {
+  String _getRoleDisplayName(dynamic role) {
     final localizations = AppLocalizations.of(context);
-    switch (role) {
+    final roleString = _convertRoleToString(role);
+    
+    switch (roleString) {
       case 'OWNER':
         return localizations.owner;
       case 'ADMIN':
@@ -2148,7 +2182,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 群主可以对所有人操作，管理员只能对普通成员操作
     final canOperate = canManage &&
         (currentUserRole == 'OWNER' ||
-            (participant['role'] ?? 'MEMBER') == 'MEMBER');
+            _convertRoleToString(participant['role']) == 'MEMBER');
 
     // 💢💢💢 只有群主可以管理管理员权限
     final canManageAdminRole = currentUserRole == 'OWNER' &&
@@ -2168,7 +2202,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
     // 管理员权限按钮（只有群主可以操作）
     if (canManageAdminRole) {
-      final participantRole = participant['role'] ?? 'MEMBER';
+      final participantRole = _convertRoleToString(participant['role']);
       final label = participantRole == 'ADMIN'
           ? localizations.removeAdminRole
           : localizations.setAsAdmin;
@@ -2351,7 +2385,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 💢💢💢 新增：切换管理员权限
   Future<void> _toggleAdminRole(Map<String, dynamic> participant) async {
-    final isCurrentlyAdmin = (participant['role'] ?? 'MEMBER') == 'ADMIN';
+    final isCurrentlyAdmin = _convertRoleToString(participant['role']) == 'ADMIN';
     final localizations = AppLocalizations.of(context);
     final actionText = isCurrentlyAdmin
         ? localizations.removeAdminRole
@@ -2489,6 +2523,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   avatarUrl: participant['avatar'],
                   name: participant['name'] ?? 'Unknown',
                   radius: 26,
+                  roleId: participant['roleId'],
                 ),
                 // 在线状态指示器
                 if (participant['online'] == true)
@@ -2531,19 +2566,19 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                         ),
                       ),
                       // 角色标识
-                      if ((participant['role'] ?? 'MEMBER') != 'MEMBER')
+                      if (_convertRoleToString(participant['role']) != 'MEMBER')
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _getMemberRoleColor(participant['role'] ?? 'MEMBER'),
+                            color: _getMemberRoleColor(_convertRoleToString(participant['role'])),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            _getMemberRoleDisplayName(participant['role'] ?? 'MEMBER'),
+                            _getMemberRoleDisplayName(_convertRoleToString(participant['role'])),
                             style: TextStyle(
                               fontSize: 12,
-                              color: _getMemberRoleTextColor(participant['role'] ?? 'MEMBER'),
+                              color: _getMemberRoleTextColor(_convertRoleToString(participant['role'])),
                               fontWeight: FontWeight.w500,
                             ),
                           ),

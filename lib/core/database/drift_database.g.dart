@@ -50,6 +50,13 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
       'status', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _roleIdMeta = const VerificationMeta('roleId');
+  @override
+  late final GeneratedColumn<int> roleId = GeneratedColumn<int>(
+      'role_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _onlineMeta = const VerificationMeta('online');
   @override
   late final GeneratedColumn<bool> online = GeneratedColumn<bool>(
@@ -85,6 +92,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         pinyin,
         lastActiveTime,
         status,
+        roleId,
         online,
         isFriend,
         customNickname
@@ -137,6 +145,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
     }
+    if (data.containsKey('role_id')) {
+      context.handle(_roleIdMeta,
+          roleId.isAcceptableOrUnknown(data['role_id']!, _roleIdMeta));
+    }
     if (data.containsKey('online')) {
       context.handle(_onlineMeta,
           online.isAcceptableOrUnknown(data['online']!, _onlineMeta));
@@ -176,6 +188,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           DriftSqlType.dateTime, data['${effectivePrefix}last_active_time']),
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status']),
+      roleId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}role_id'])!,
       online: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}online'])!,
       isFriend: attachedDatabase.typeMapping
@@ -200,6 +214,7 @@ class User extends DataClass implements Insertable<User> {
   final String? pinyin;
   final DateTime? lastActiveTime;
   final String? status;
+  final int roleId;
   final bool online;
   final bool isFriend;
   final String? customNickname;
@@ -212,6 +227,7 @@ class User extends DataClass implements Insertable<User> {
       this.pinyin,
       this.lastActiveTime,
       this.status,
+      required this.roleId,
       required this.online,
       required this.isFriend,
       this.customNickname});
@@ -238,6 +254,7 @@ class User extends DataClass implements Insertable<User> {
     if (!nullToAbsent || status != null) {
       map['status'] = Variable<String>(status);
     }
+    map['role_id'] = Variable<int>(roleId);
     map['online'] = Variable<bool>(online);
     map['is_friend'] = Variable<bool>(isFriend);
     if (!nullToAbsent || customNickname != null) {
@@ -263,6 +280,7 @@ class User extends DataClass implements Insertable<User> {
           : Value(lastActiveTime),
       status:
           status == null && nullToAbsent ? const Value.absent() : Value(status),
+      roleId: Value(roleId),
       online: Value(online),
       isFriend: Value(isFriend),
       customNickname: customNickname == null && nullToAbsent
@@ -283,6 +301,7 @@ class User extends DataClass implements Insertable<User> {
       pinyin: serializer.fromJson<String?>(json['pinyin']),
       lastActiveTime: serializer.fromJson<DateTime?>(json['lastActiveTime']),
       status: serializer.fromJson<String?>(json['status']),
+      roleId: serializer.fromJson<int>(json['roleId']),
       online: serializer.fromJson<bool>(json['online']),
       isFriend: serializer.fromJson<bool>(json['isFriend']),
       customNickname: serializer.fromJson<String?>(json['customNickname']),
@@ -300,6 +319,7 @@ class User extends DataClass implements Insertable<User> {
       'pinyin': serializer.toJson<String?>(pinyin),
       'lastActiveTime': serializer.toJson<DateTime?>(lastActiveTime),
       'status': serializer.toJson<String?>(status),
+      'roleId': serializer.toJson<int>(roleId),
       'online': serializer.toJson<bool>(online),
       'isFriend': serializer.toJson<bool>(isFriend),
       'customNickname': serializer.toJson<String?>(customNickname),
@@ -315,6 +335,7 @@ class User extends DataClass implements Insertable<User> {
           Value<String?> pinyin = const Value.absent(),
           Value<DateTime?> lastActiveTime = const Value.absent(),
           Value<String?> status = const Value.absent(),
+          int? roleId,
           bool? online,
           bool? isFriend,
           Value<String?> customNickname = const Value.absent()}) =>
@@ -328,6 +349,7 @@ class User extends DataClass implements Insertable<User> {
         lastActiveTime:
             lastActiveTime.present ? lastActiveTime.value : this.lastActiveTime,
         status: status.present ? status.value : this.status,
+        roleId: roleId ?? this.roleId,
         online: online ?? this.online,
         isFriend: isFriend ?? this.isFriend,
         customNickname:
@@ -345,6 +367,7 @@ class User extends DataClass implements Insertable<User> {
           ? data.lastActiveTime.value
           : this.lastActiveTime,
       status: data.status.present ? data.status.value : this.status,
+      roleId: data.roleId.present ? data.roleId.value : this.roleId,
       online: data.online.present ? data.online.value : this.online,
       isFriend: data.isFriend.present ? data.isFriend.value : this.isFriend,
       customNickname: data.customNickname.present
@@ -364,6 +387,7 @@ class User extends DataClass implements Insertable<User> {
           ..write('pinyin: $pinyin, ')
           ..write('lastActiveTime: $lastActiveTime, ')
           ..write('status: $status, ')
+          ..write('roleId: $roleId, ')
           ..write('online: $online, ')
           ..write('isFriend: $isFriend, ')
           ..write('customNickname: $customNickname')
@@ -373,7 +397,7 @@ class User extends DataClass implements Insertable<User> {
 
   @override
   int get hashCode => Object.hash(userId, nickName, avatar, phone, email,
-      pinyin, lastActiveTime, status, online, isFriend, customNickname);
+      pinyin, lastActiveTime, status, roleId, online, isFriend, customNickname);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -386,6 +410,7 @@ class User extends DataClass implements Insertable<User> {
           other.pinyin == this.pinyin &&
           other.lastActiveTime == this.lastActiveTime &&
           other.status == this.status &&
+          other.roleId == this.roleId &&
           other.online == this.online &&
           other.isFriend == this.isFriend &&
           other.customNickname == this.customNickname);
@@ -400,6 +425,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String?> pinyin;
   final Value<DateTime?> lastActiveTime;
   final Value<String?> status;
+  final Value<int> roleId;
   final Value<bool> online;
   final Value<bool> isFriend;
   final Value<String?> customNickname;
@@ -413,6 +439,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.pinyin = const Value.absent(),
     this.lastActiveTime = const Value.absent(),
     this.status = const Value.absent(),
+    this.roleId = const Value.absent(),
     this.online = const Value.absent(),
     this.isFriend = const Value.absent(),
     this.customNickname = const Value.absent(),
@@ -427,6 +454,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.pinyin = const Value.absent(),
     this.lastActiveTime = const Value.absent(),
     this.status = const Value.absent(),
+    this.roleId = const Value.absent(),
     this.online = const Value.absent(),
     this.isFriend = const Value.absent(),
     this.customNickname = const Value.absent(),
@@ -442,6 +470,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? pinyin,
     Expression<DateTime>? lastActiveTime,
     Expression<String>? status,
+    Expression<int>? roleId,
     Expression<bool>? online,
     Expression<bool>? isFriend,
     Expression<String>? customNickname,
@@ -456,6 +485,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (pinyin != null) 'pinyin': pinyin,
       if (lastActiveTime != null) 'last_active_time': lastActiveTime,
       if (status != null) 'status': status,
+      if (roleId != null) 'role_id': roleId,
       if (online != null) 'online': online,
       if (isFriend != null) 'is_friend': isFriend,
       if (customNickname != null) 'custom_nickname': customNickname,
@@ -472,6 +502,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       Value<String?>? pinyin,
       Value<DateTime?>? lastActiveTime,
       Value<String?>? status,
+      Value<int>? roleId,
       Value<bool>? online,
       Value<bool>? isFriend,
       Value<String?>? customNickname,
@@ -485,6 +516,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       pinyin: pinyin ?? this.pinyin,
       lastActiveTime: lastActiveTime ?? this.lastActiveTime,
       status: status ?? this.status,
+      roleId: roleId ?? this.roleId,
       online: online ?? this.online,
       isFriend: isFriend ?? this.isFriend,
       customNickname: customNickname ?? this.customNickname,
@@ -519,6 +551,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (roleId.present) {
+      map['role_id'] = Variable<int>(roleId.value);
+    }
     if (online.present) {
       map['online'] = Variable<bool>(online.value);
     }
@@ -545,6 +580,7 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('pinyin: $pinyin, ')
           ..write('lastActiveTime: $lastActiveTime, ')
           ..write('status: $status, ')
+          ..write('roleId: $roleId, ')
           ..write('online: $online, ')
           ..write('isFriend: $isFriend, ')
           ..write('customNickname: $customNickname, ')
@@ -606,6 +642,13 @@ class $CurrentUsersTable extends CurrentUsers
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("has_set_password" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _roleIdMeta = const VerificationMeta('roleId');
+  @override
+  late final GeneratedColumn<int> roleId = GeneratedColumn<int>(
+      'role_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   @override
   List<GeneratedColumn> get $columns => [
         userId,
@@ -615,7 +658,8 @@ class $CurrentUsersTable extends CurrentUsers
         email,
         lastLoginTime,
         status,
-        hasSetPassword
+        hasSetPassword,
+        roleId
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -667,6 +711,10 @@ class $CurrentUsersTable extends CurrentUsers
           hasSetPassword.isAcceptableOrUnknown(
               data['has_set_password']!, _hasSetPasswordMeta));
     }
+    if (data.containsKey('role_id')) {
+      context.handle(_roleIdMeta,
+          roleId.isAcceptableOrUnknown(data['role_id']!, _roleIdMeta));
+    }
     return context;
   }
 
@@ -692,6 +740,8 @@ class $CurrentUsersTable extends CurrentUsers
           .read(DriftSqlType.string, data['${effectivePrefix}status']),
       hasSetPassword: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}has_set_password'])!,
+      roleId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}role_id'])!,
     );
   }
 
@@ -710,6 +760,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
   final DateTime? lastLoginTime;
   final String? status;
   final bool hasSetPassword;
+  final int roleId;
   const CurrentUser(
       {required this.userId,
       required this.name,
@@ -718,7 +769,8 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       this.email,
       this.lastLoginTime,
       this.status,
-      required this.hasSetPassword});
+      required this.hasSetPassword,
+      required this.roleId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -740,6 +792,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       map['status'] = Variable<String>(status);
     }
     map['has_set_password'] = Variable<bool>(hasSetPassword);
+    map['role_id'] = Variable<int>(roleId);
     return map;
   }
 
@@ -759,6 +812,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       status:
           status == null && nullToAbsent ? const Value.absent() : Value(status),
       hasSetPassword: Value(hasSetPassword),
+      roleId: Value(roleId),
     );
   }
 
@@ -774,6 +828,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       lastLoginTime: serializer.fromJson<DateTime?>(json['lastLoginTime']),
       status: serializer.fromJson<String?>(json['status']),
       hasSetPassword: serializer.fromJson<bool>(json['hasSetPassword']),
+      roleId: serializer.fromJson<int>(json['roleId']),
     );
   }
   @override
@@ -788,6 +843,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       'lastLoginTime': serializer.toJson<DateTime?>(lastLoginTime),
       'status': serializer.toJson<String?>(status),
       'hasSetPassword': serializer.toJson<bool>(hasSetPassword),
+      'roleId': serializer.toJson<int>(roleId),
     };
   }
 
@@ -799,7 +855,8 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
           Value<String?> email = const Value.absent(),
           Value<DateTime?> lastLoginTime = const Value.absent(),
           Value<String?> status = const Value.absent(),
-          bool? hasSetPassword}) =>
+          bool? hasSetPassword,
+          int? roleId}) =>
       CurrentUser(
         userId: userId ?? this.userId,
         name: name ?? this.name,
@@ -810,6 +867,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
             lastLoginTime.present ? lastLoginTime.value : this.lastLoginTime,
         status: status.present ? status.value : this.status,
         hasSetPassword: hasSetPassword ?? this.hasSetPassword,
+        roleId: roleId ?? this.roleId,
       );
   CurrentUser copyWithCompanion(CurrentUsersCompanion data) {
     return CurrentUser(
@@ -825,6 +883,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       hasSetPassword: data.hasSetPassword.present
           ? data.hasSetPassword.value
           : this.hasSetPassword,
+      roleId: data.roleId.present ? data.roleId.value : this.roleId,
     );
   }
 
@@ -838,14 +897,15 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
           ..write('email: $email, ')
           ..write('lastLoginTime: $lastLoginTime, ')
           ..write('status: $status, ')
-          ..write('hasSetPassword: $hasSetPassword')
+          ..write('hasSetPassword: $hasSetPassword, ')
+          ..write('roleId: $roleId')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(userId, name, avatar, phone, email,
-      lastLoginTime, status, hasSetPassword);
+      lastLoginTime, status, hasSetPassword, roleId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -857,7 +917,8 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
           other.email == this.email &&
           other.lastLoginTime == this.lastLoginTime &&
           other.status == this.status &&
-          other.hasSetPassword == this.hasSetPassword);
+          other.hasSetPassword == this.hasSetPassword &&
+          other.roleId == this.roleId);
 }
 
 class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
@@ -869,6 +930,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
   final Value<DateTime?> lastLoginTime;
   final Value<String?> status;
   final Value<bool> hasSetPassword;
+  final Value<int> roleId;
   final Value<int> rowid;
   const CurrentUsersCompanion({
     this.userId = const Value.absent(),
@@ -879,6 +941,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
     this.lastLoginTime = const Value.absent(),
     this.status = const Value.absent(),
     this.hasSetPassword = const Value.absent(),
+    this.roleId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CurrentUsersCompanion.insert({
@@ -890,6 +953,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
     this.lastLoginTime = const Value.absent(),
     this.status = const Value.absent(),
     this.hasSetPassword = const Value.absent(),
+    this.roleId = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : userId = Value(userId),
         name = Value(name);
@@ -902,6 +966,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
     Expression<DateTime>? lastLoginTime,
     Expression<String>? status,
     Expression<bool>? hasSetPassword,
+    Expression<int>? roleId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -913,6 +978,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
       if (lastLoginTime != null) 'last_login_time': lastLoginTime,
       if (status != null) 'status': status,
       if (hasSetPassword != null) 'has_set_password': hasSetPassword,
+      if (roleId != null) 'role_id': roleId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -926,6 +992,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
       Value<DateTime?>? lastLoginTime,
       Value<String?>? status,
       Value<bool>? hasSetPassword,
+      Value<int>? roleId,
       Value<int>? rowid}) {
     return CurrentUsersCompanion(
       userId: userId ?? this.userId,
@@ -936,6 +1003,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
       lastLoginTime: lastLoginTime ?? this.lastLoginTime,
       status: status ?? this.status,
       hasSetPassword: hasSetPassword ?? this.hasSetPassword,
+      roleId: roleId ?? this.roleId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -967,6 +1035,9 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
     if (hasSetPassword.present) {
       map['has_set_password'] = Variable<bool>(hasSetPassword.value);
     }
+    if (roleId.present) {
+      map['role_id'] = Variable<int>(roleId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -984,6 +1055,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
           ..write('lastLoginTime: $lastLoginTime, ')
           ..write('status: $status, ')
           ..write('hasSetPassword: $hasSetPassword, ')
+          ..write('roleId: $roleId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1946,6 +2018,14 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
   late final GeneratedColumn<String> senderAvatar = GeneratedColumn<String>(
       'sender_avatar', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _senderRoleIdMeta =
+      const VerificationMeta('senderRoleId');
+  @override
+  late final GeneratedColumn<int> senderRoleId = GeneratedColumn<int>(
+      'sender_role_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -2051,6 +2131,7 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
         senderId,
         senderName,
         senderAvatar,
+        senderRoleId,
         createdAt,
         updatedAt,
         messageIndex,
@@ -2108,6 +2189,12 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           _senderAvatarMeta,
           senderAvatar.isAcceptableOrUnknown(
               data['sender_avatar']!, _senderAvatarMeta));
+    }
+    if (data.containsKey('sender_role_id')) {
+      context.handle(
+          _senderRoleIdMeta,
+          senderRoleId.isAcceptableOrUnknown(
+              data['sender_role_id']!, _senderRoleIdMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
@@ -2211,6 +2298,8 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           .read(DriftSqlType.string, data['${effectivePrefix}sender_name']),
       senderAvatar: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}sender_avatar']),
+      senderRoleId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sender_role_id'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -2258,6 +2347,7 @@ class Message extends DataClass implements Insertable<Message> {
   final String senderId;
   final String? senderName;
   final String? senderAvatar;
+  final int senderRoleId;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final int messageIndex;
@@ -2279,6 +2369,7 @@ class Message extends DataClass implements Insertable<Message> {
       required this.senderId,
       this.senderName,
       this.senderAvatar,
+      required this.senderRoleId,
       required this.createdAt,
       this.updatedAt,
       required this.messageIndex,
@@ -2306,6 +2397,7 @@ class Message extends DataClass implements Insertable<Message> {
     if (!nullToAbsent || senderAvatar != null) {
       map['sender_avatar'] = Variable<String>(senderAvatar);
     }
+    map['sender_role_id'] = Variable<int>(senderRoleId);
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2355,6 +2447,7 @@ class Message extends DataClass implements Insertable<Message> {
       senderAvatar: senderAvatar == null && nullToAbsent
           ? const Value.absent()
           : Value(senderAvatar),
+      senderRoleId: Value(senderRoleId),
       createdAt: Value(createdAt),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
@@ -2399,6 +2492,7 @@ class Message extends DataClass implements Insertable<Message> {
       senderId: serializer.fromJson<String>(json['senderId']),
       senderName: serializer.fromJson<String?>(json['senderName']),
       senderAvatar: serializer.fromJson<String?>(json['senderAvatar']),
+      senderRoleId: serializer.fromJson<int>(json['senderRoleId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       messageIndex: serializer.fromJson<int>(json['messageIndex']),
@@ -2428,6 +2522,7 @@ class Message extends DataClass implements Insertable<Message> {
       'senderId': serializer.toJson<String>(senderId),
       'senderName': serializer.toJson<String?>(senderName),
       'senderAvatar': serializer.toJson<String?>(senderAvatar),
+      'senderRoleId': serializer.toJson<int>(senderRoleId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'messageIndex': serializer.toJson<int>(messageIndex),
@@ -2454,6 +2549,7 @@ class Message extends DataClass implements Insertable<Message> {
           String? senderId,
           Value<String?> senderName = const Value.absent(),
           Value<String?> senderAvatar = const Value.absent(),
+          int? senderRoleId,
           DateTime? createdAt,
           Value<DateTime?> updatedAt = const Value.absent(),
           int? messageIndex,
@@ -2476,6 +2572,7 @@ class Message extends DataClass implements Insertable<Message> {
         senderName: senderName.present ? senderName.value : this.senderName,
         senderAvatar:
             senderAvatar.present ? senderAvatar.value : this.senderAvatar,
+        senderRoleId: senderRoleId ?? this.senderRoleId,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
         messageIndex: messageIndex ?? this.messageIndex,
@@ -2512,6 +2609,9 @@ class Message extends DataClass implements Insertable<Message> {
       senderAvatar: data.senderAvatar.present
           ? data.senderAvatar.value
           : this.senderAvatar,
+      senderRoleId: data.senderRoleId.present
+          ? data.senderRoleId.value
+          : this.senderRoleId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       messageIndex: data.messageIndex.present
@@ -2551,6 +2651,7 @@ class Message extends DataClass implements Insertable<Message> {
           ..write('senderId: $senderId, ')
           ..write('senderName: $senderName, ')
           ..write('senderAvatar: $senderAvatar, ')
+          ..write('senderRoleId: $senderRoleId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('messageIndex: $messageIndex, ')
@@ -2571,27 +2672,29 @@ class Message extends DataClass implements Insertable<Message> {
   }
 
   @override
-  int get hashCode => Object.hash(
-      messageId,
-      conversationId,
-      senderId,
-      senderName,
-      senderAvatar,
-      createdAt,
-      updatedAt,
-      messageIndex,
-      messageType,
-      messageStatus,
-      quotedMessageId,
-      repliedToMessageId,
-      forwardedFromConversationId,
-      forwardedFromMessageId,
-      isEdited,
-      editedAt,
-      isPinned,
-      reactions,
-      tags,
-      content);
+  int get hashCode => Object.hashAll([
+        messageId,
+        conversationId,
+        senderId,
+        senderName,
+        senderAvatar,
+        senderRoleId,
+        createdAt,
+        updatedAt,
+        messageIndex,
+        messageType,
+        messageStatus,
+        quotedMessageId,
+        repliedToMessageId,
+        forwardedFromConversationId,
+        forwardedFromMessageId,
+        isEdited,
+        editedAt,
+        isPinned,
+        reactions,
+        tags,
+        content
+      ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2601,6 +2704,7 @@ class Message extends DataClass implements Insertable<Message> {
           other.senderId == this.senderId &&
           other.senderName == this.senderName &&
           other.senderAvatar == this.senderAvatar &&
+          other.senderRoleId == this.senderRoleId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.messageIndex == this.messageIndex &&
@@ -2625,6 +2729,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
   final Value<String> senderId;
   final Value<String?> senderName;
   final Value<String?> senderAvatar;
+  final Value<int> senderRoleId;
   final Value<DateTime> createdAt;
   final Value<DateTime?> updatedAt;
   final Value<int> messageIndex;
@@ -2647,6 +2752,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.senderId = const Value.absent(),
     this.senderName = const Value.absent(),
     this.senderAvatar = const Value.absent(),
+    this.senderRoleId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.messageIndex = const Value.absent(),
@@ -2670,6 +2776,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     required String senderId,
     this.senderName = const Value.absent(),
     this.senderAvatar = const Value.absent(),
+    this.senderRoleId = const Value.absent(),
     required DateTime createdAt,
     this.updatedAt = const Value.absent(),
     required int messageIndex,
@@ -2699,6 +2806,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     Expression<String>? senderId,
     Expression<String>? senderName,
     Expression<String>? senderAvatar,
+    Expression<int>? senderRoleId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? messageIndex,
@@ -2722,6 +2830,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       if (senderId != null) 'sender_id': senderId,
       if (senderName != null) 'sender_name': senderName,
       if (senderAvatar != null) 'sender_avatar': senderAvatar,
+      if (senderRoleId != null) 'sender_role_id': senderRoleId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (messageIndex != null) 'message_index': messageIndex,
@@ -2750,6 +2859,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       Value<String>? senderId,
       Value<String?>? senderName,
       Value<String?>? senderAvatar,
+      Value<int>? senderRoleId,
       Value<DateTime>? createdAt,
       Value<DateTime?>? updatedAt,
       Value<int>? messageIndex,
@@ -2772,6 +2882,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       senderId: senderId ?? this.senderId,
       senderName: senderName ?? this.senderName,
       senderAvatar: senderAvatar ?? this.senderAvatar,
+      senderRoleId: senderRoleId ?? this.senderRoleId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       messageIndex: messageIndex ?? this.messageIndex,
@@ -2810,6 +2921,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     }
     if (senderAvatar.present) {
       map['sender_avatar'] = Variable<String>(senderAvatar.value);
+    }
+    if (senderRoleId.present) {
+      map['sender_role_id'] = Variable<int>(senderRoleId.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -2872,6 +2986,7 @@ class MessagesCompanion extends UpdateCompanion<Message> {
           ..write('senderId: $senderId, ')
           ..write('senderName: $senderName, ')
           ..write('senderAvatar: $senderAvatar, ')
+          ..write('senderRoleId: $senderRoleId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('messageIndex: $messageIndex, ')
@@ -3696,6 +3811,7 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   Value<String?> pinyin,
   Value<DateTime?> lastActiveTime,
   Value<String?> status,
+  Value<int> roleId,
   Value<bool> online,
   Value<bool> isFriend,
   Value<String?> customNickname,
@@ -3710,6 +3826,7 @@ typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<String?> pinyin,
   Value<DateTime?> lastActiveTime,
   Value<String?> status,
+  Value<int> roleId,
   Value<bool> online,
   Value<bool> isFriend,
   Value<String?> customNickname,
@@ -3748,6 +3865,9 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get roleId => $composableBuilder(
+      column: $table.roleId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get online => $composableBuilder(
       column: $table.online, builder: (column) => ColumnFilters(column));
@@ -3794,6 +3914,9 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get roleId => $composableBuilder(
+      column: $table.roleId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get online => $composableBuilder(
       column: $table.online, builder: (column) => ColumnOrderings(column));
 
@@ -3838,6 +3961,9 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
+  GeneratedColumn<int> get roleId =>
+      $composableBuilder(column: $table.roleId, builder: (column) => column);
+
   GeneratedColumn<bool> get online =>
       $composableBuilder(column: $table.online, builder: (column) => column);
 
@@ -3879,6 +4005,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String?> pinyin = const Value.absent(),
             Value<DateTime?> lastActiveTime = const Value.absent(),
             Value<String?> status = const Value.absent(),
+            Value<int> roleId = const Value.absent(),
             Value<bool> online = const Value.absent(),
             Value<bool> isFriend = const Value.absent(),
             Value<String?> customNickname = const Value.absent(),
@@ -3893,6 +4020,7 @@ class $$UsersTableTableManager extends RootTableManager<
             pinyin: pinyin,
             lastActiveTime: lastActiveTime,
             status: status,
+            roleId: roleId,
             online: online,
             isFriend: isFriend,
             customNickname: customNickname,
@@ -3907,6 +4035,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String?> pinyin = const Value.absent(),
             Value<DateTime?> lastActiveTime = const Value.absent(),
             Value<String?> status = const Value.absent(),
+            Value<int> roleId = const Value.absent(),
             Value<bool> online = const Value.absent(),
             Value<bool> isFriend = const Value.absent(),
             Value<String?> customNickname = const Value.absent(),
@@ -3921,6 +4050,7 @@ class $$UsersTableTableManager extends RootTableManager<
             pinyin: pinyin,
             lastActiveTime: lastActiveTime,
             status: status,
+            roleId: roleId,
             online: online,
             isFriend: isFriend,
             customNickname: customNickname,
@@ -3955,6 +4085,7 @@ typedef $$CurrentUsersTableCreateCompanionBuilder = CurrentUsersCompanion
   Value<DateTime?> lastLoginTime,
   Value<String?> status,
   Value<bool> hasSetPassword,
+  Value<int> roleId,
   Value<int> rowid,
 });
 typedef $$CurrentUsersTableUpdateCompanionBuilder = CurrentUsersCompanion
@@ -3967,6 +4098,7 @@ typedef $$CurrentUsersTableUpdateCompanionBuilder = CurrentUsersCompanion
   Value<DateTime?> lastLoginTime,
   Value<String?> status,
   Value<bool> hasSetPassword,
+  Value<int> roleId,
   Value<int> rowid,
 });
 
@@ -4003,6 +4135,9 @@ class $$CurrentUsersTableFilterComposer
   ColumnFilters<bool> get hasSetPassword => $composableBuilder(
       column: $table.hasSetPassword,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get roleId => $composableBuilder(
+      column: $table.roleId, builder: (column) => ColumnFilters(column));
 }
 
 class $$CurrentUsersTableOrderingComposer
@@ -4039,6 +4174,9 @@ class $$CurrentUsersTableOrderingComposer
   ColumnOrderings<bool> get hasSetPassword => $composableBuilder(
       column: $table.hasSetPassword,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get roleId => $composableBuilder(
+      column: $table.roleId, builder: (column) => ColumnOrderings(column));
 }
 
 class $$CurrentUsersTableAnnotationComposer
@@ -4073,6 +4211,9 @@ class $$CurrentUsersTableAnnotationComposer
 
   GeneratedColumn<bool> get hasSetPassword => $composableBuilder(
       column: $table.hasSetPassword, builder: (column) => column);
+
+  GeneratedColumn<int> get roleId =>
+      $composableBuilder(column: $table.roleId, builder: (column) => column);
 }
 
 class $$CurrentUsersTableTableManager extends RootTableManager<
@@ -4109,6 +4250,7 @@ class $$CurrentUsersTableTableManager extends RootTableManager<
             Value<DateTime?> lastLoginTime = const Value.absent(),
             Value<String?> status = const Value.absent(),
             Value<bool> hasSetPassword = const Value.absent(),
+            Value<int> roleId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               CurrentUsersCompanion(
@@ -4120,6 +4262,7 @@ class $$CurrentUsersTableTableManager extends RootTableManager<
             lastLoginTime: lastLoginTime,
             status: status,
             hasSetPassword: hasSetPassword,
+            roleId: roleId,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -4131,6 +4274,7 @@ class $$CurrentUsersTableTableManager extends RootTableManager<
             Value<DateTime?> lastLoginTime = const Value.absent(),
             Value<String?> status = const Value.absent(),
             Value<bool> hasSetPassword = const Value.absent(),
+            Value<int> roleId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               CurrentUsersCompanion.insert(
@@ -4142,6 +4286,7 @@ class $$CurrentUsersTableTableManager extends RootTableManager<
             lastLoginTime: lastLoginTime,
             status: status,
             hasSetPassword: hasSetPassword,
+            roleId: roleId,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -4573,6 +4718,7 @@ typedef $$MessagesTableCreateCompanionBuilder = MessagesCompanion Function({
   required String senderId,
   Value<String?> senderName,
   Value<String?> senderAvatar,
+  Value<int> senderRoleId,
   required DateTime createdAt,
   Value<DateTime?> updatedAt,
   required int messageIndex,
@@ -4596,6 +4742,7 @@ typedef $$MessagesTableUpdateCompanionBuilder = MessagesCompanion Function({
   Value<String> senderId,
   Value<String?> senderName,
   Value<String?> senderAvatar,
+  Value<int> senderRoleId,
   Value<DateTime> createdAt,
   Value<DateTime?> updatedAt,
   Value<int> messageIndex,
@@ -4638,6 +4785,9 @@ class $$MessagesTableFilterComposer
 
   ColumnFilters<String> get senderAvatar => $composableBuilder(
       column: $table.senderAvatar, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get senderRoleId => $composableBuilder(
+      column: $table.senderRoleId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -4713,6 +4863,10 @@ class $$MessagesTableOrderingComposer
 
   ColumnOrderings<String> get senderAvatar => $composableBuilder(
       column: $table.senderAvatar,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get senderRoleId => $composableBuilder(
+      column: $table.senderRoleId,
       builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
@@ -4791,6 +4945,9 @@ class $$MessagesTableAnnotationComposer
   GeneratedColumn<String> get senderAvatar => $composableBuilder(
       column: $table.senderAvatar, builder: (column) => column);
 
+  GeneratedColumn<int> get senderRoleId => $composableBuilder(
+      column: $table.senderRoleId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4865,6 +5022,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             Value<String> senderId = const Value.absent(),
             Value<String?> senderName = const Value.absent(),
             Value<String?> senderAvatar = const Value.absent(),
+            Value<int> senderRoleId = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime?> updatedAt = const Value.absent(),
             Value<int> messageIndex = const Value.absent(),
@@ -4888,6 +5046,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             senderId: senderId,
             senderName: senderName,
             senderAvatar: senderAvatar,
+            senderRoleId: senderRoleId,
             createdAt: createdAt,
             updatedAt: updatedAt,
             messageIndex: messageIndex,
@@ -4911,6 +5070,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             required String senderId,
             Value<String?> senderName = const Value.absent(),
             Value<String?> senderAvatar = const Value.absent(),
+            Value<int> senderRoleId = const Value.absent(),
             required DateTime createdAt,
             Value<DateTime?> updatedAt = const Value.absent(),
             required int messageIndex,
@@ -4934,6 +5094,7 @@ class $$MessagesTableTableManager extends RootTableManager<
             senderId: senderId,
             senderName: senderName,
             senderAvatar: senderAvatar,
+            senderRoleId: senderRoleId,
             createdAt: createdAt,
             updatedAt: updatedAt,
             messageIndex: messageIndex,

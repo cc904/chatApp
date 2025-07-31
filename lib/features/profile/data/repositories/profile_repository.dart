@@ -39,23 +39,47 @@ class ProfileRepository {
   ///   - CurrentUser?: 当前登录用户信息，如果未登录则为null
   Future<CurrentUser?> getCurrentUser() async {
     try {
+      _logger.d('开始获取用户信息', extra: {
+        'isInitialized': DatabaseInitializer.isInitialized,
+        'currentUserId': DatabaseInitializer.currentUser?.userId,
+      });
+
       if (!DatabaseInitializer.isInitialized) {
         _logger.w('数据库未初始化，无法获取用户信息');
         return null;
       }
 
-      final users = await DatabaseInitializer.database
-          .select(DatabaseInitializer.database.currentUsers)
+      final db = DatabaseInitializer.database;
+
+      _logger.d('准备查询数据库用户信息');
+      final users = await db
+          .select(db.currentUsers)
           .get();
+      
+      _logger.d('数据库查询结果', extra: {
+        'userCount': users.length,
+        'users': users.map((u) => {'userId': u.userId, 'name': u.name, 'roleId': u.roleId}).toList(),
+      });
+
       if (users.isEmpty) {
+        _logger.w('数据库中没有用户信息，可能是数据同步问题');
         return null;
       }
 
       // 直接返回 CurrentUser
       final user = users.first;
+      _logger.i('成功从数据库获取到用户信息', extra: {
+        'userId': user.userId,
+        'name': user.name,
+        'roleId': user.roleId,
+      });
+      
+      // 记录数据库中的roleId
+      _logger.d('🏪🏪🏪 DATABASE_USER: userId=${user.userId}, name=${user.name}, roleId=${user.roleId}');
+      
       return user;
     } catch (e) {
-      _logger.e('获取用户信息失败', error: e);
+      _logger.e('获取用户信息失败', error: e, stackTrace: StackTrace.current);
       return null;
     }
   }

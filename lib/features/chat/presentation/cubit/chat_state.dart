@@ -210,6 +210,13 @@ class ChatState extends Equatable {
   /// 💢💢💢 新增：高亮显示的消息ID
   final String? highlightedMessageId;
 
+  /// 快捷回复相关字段
+  /// 快捷回复列表
+  final List<QuickReply>? quickReplies;
+
+  /// 是否正在加载快捷回复
+  final bool isQuickReplyLoading;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -253,6 +260,8 @@ class ChatState extends Equatable {
     required this.isLoadingLinks,
     this.shouldNavigateBack = false,
     this.highlightedMessageId,
+    this.quickReplies,
+    this.isQuickReplyLoading = false,
   });
 
   /// 初始状态
@@ -317,6 +326,8 @@ class ChatState extends Equatable {
       isLoadingLinks: false,
       shouldNavigateBack: false,
       highlightedMessageId: null,
+      quickReplies: null,
+      isQuickReplyLoading: false,
     );
   }
 
@@ -365,6 +376,8 @@ class ChatState extends Equatable {
     bool? shouldNavigateBack,
     String? highlightedMessageId,
     bool clearHighlightedMessageId = false,
+    List<QuickReply>? quickReplies,
+    bool? isQuickReplyLoading,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -418,6 +431,8 @@ class ChatState extends Equatable {
       highlightedMessageId: clearHighlightedMessageId
           ? null
           : (highlightedMessageId ?? this.highlightedMessageId),
+      quickReplies: quickReplies ?? this.quickReplies,
+      isQuickReplyLoading: isQuickReplyLoading ?? this.isQuickReplyLoading,
     );
   }
 
@@ -492,5 +507,7 @@ class ChatState extends Equatable {
         isLoadingLinks,
         shouldNavigateBack,
         highlightedMessageId,
+        quickReplies,
+        isQuickReplyLoading,
       ];
 }

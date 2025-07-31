@@ -1,13 +1,14 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: user.proto
-//
+// Generated from user.proto.
+
 // @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
@@ -39,8 +40,15 @@ const UserProto$json = {
     {'1': 'pinyin', '3': 6, '4': 1, '5': 9, '10': 'pinyin'},
     {'1': 'last_active_time', '3': 7, '4': 1, '5': 3, '10': 'lastActiveTime'},
     {'1': 'status', '3': 8, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'role_id', '3': 9, '4': 1, '5': 5, '10': 'roleId'},
     {'1': 'is_typing', '3': 12, '4': 1, '5': 8, '10': 'isTyping'},
-    {'1': 'typing_in_conversation', '3': 13, '4': 1, '5': 9, '10': 'typingInConversation'},
+    {
+      '1': 'typing_in_conversation',
+      '3': 13,
+      '4': 1,
+      '5': 9,
+      '10': 'typingInConversation'
+    },
     {'1': 'custom_nickname', '3': 14, '4': 1, '5': 9, '10': 'customNickname'},
   ],
 };
@@ -51,9 +59,9 @@ final $typed_data.Uint8List userProtoDescriptor = $convert.base64Decode(
     'IIbmlja05hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISFAoFcGhvbmUYBCABKAlSBXBob25l'
     'EhQKBWVtYWlsGAUgASgJUgVlbWFpbBIWCgZwaW55aW4YBiABKAlSBnBpbnlpbhIoChBsYXN0X2'
     'FjdGl2ZV90aW1lGAcgASgDUg5sYXN0QWN0aXZlVGltZRIWCgZzdGF0dXMYCCABKAlSBnN0YXR1'
-    'cxIbCglpc190eXBpbmcYDCABKAhSCGlzVHlwaW5nEjQKFnR5cGluZ19pbl9jb252ZXJzYXRpb2'
-    '4YDSABKAlSFHR5cGluZ0luQ29udmVyc2F0aW9uEicKD2N1c3RvbV9uaWNrbmFtZRgOIAEoCVIO'
-    'Y3VzdG9tTmlja25hbWU=');
+    'cxIXCgdyb2xlX2lkGAkgASgFUgZyb2xlSWQSGwoJaXNfdHlwaW5nGAwgASgIUghpc1R5cGluZx'
+    'I0ChZ0eXBpbmdfaW5fY29udmVyc2F0aW9uGA0gASgJUhR0eXBpbmdJbkNvbnZlcnNhdGlvbhIn'
+    'Cg9jdXN0b21fbmlja25hbWUYDiABKAlSDmN1c3RvbU5pY2tuYW1l');
 
 @$core.Deprecated('Use currentUserProtoDescriptor instead')
 const CurrentUserProto$json = {
@@ -67,6 +75,7 @@ const CurrentUserProto$json = {
     {'1': 'last_login_time', '3': 6, '4': 1, '5': 3, '10': 'lastLoginTime'},
     {'1': 'status', '3': 7, '4': 1, '5': 9, '10': 'status'},
     {'1': 'has_set_password', '3': 8, '4': 1, '5': 8, '10': 'hasSetPassword'},
+    {'1': 'role_id', '3': 9, '4': 1, '5': 5, '10': 'roleId'},
   ],
 };
 
@@ -76,7 +85,7 @@ final $typed_data.Uint8List currentUserProtoDescriptor = $convert.base64Decode(
     'gJUgRuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFyEhQKBXBob25lGAQgASgJUgVwaG9uZRIU'
     'CgVlbWFpbBgFIAEoCVIFZW1haWwSJgoPbGFzdF9sb2dpbl90aW1lGAYgASgDUg1sYXN0TG9naW'
     '5UaW1lEhYKBnN0YXR1cxgHIAEoCVIGc3RhdHVzEigKEGhhc19zZXRfcGFzc3dvcmQYCCABKAhS'
-    'Dmhhc1NldFBhc3N3b3Jk');
+    'Dmhhc1NldFBhc3N3b3JkEhcKB3JvbGVfaWQYCSABKAVSBnJvbGVJZA==');
 
 @$core.Deprecated('Use setCurrentUserRequestDescriptor instead')
 const SetCurrentUserRequest$json = {
@@ -112,7 +121,14 @@ const SetCurrentUserResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'user', '3': 3, '4': 1, '5': 11, '6': '.cc.CurrentUserProto', '10': 'user'},
+    {
+      '1': 'user',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.CurrentUserProto',
+      '10': 'user'
+    },
     {'1': 'timestamp', '3': 4, '4': 1, '5': 3, '10': 'timestamp'},
   ],
 };
@@ -127,7 +143,14 @@ final $typed_data.Uint8List setCurrentUserResponseDescriptor = $convert.base64De
 const CurrentUserUpdateEvent$json = {
   '1': 'CurrentUserUpdateEvent',
   '2': [
-    {'1': 'user', '3': 1, '4': 1, '5': 11, '6': '.cc.CurrentUserProto', '10': 'user'},
+    {
+      '1': 'user',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.CurrentUserProto',
+      '10': 'user'
+    },
     {'1': 'updated_fields', '3': 2, '4': 3, '5': 9, '10': 'updatedFields'},
     {'1': 'timestamp', '3': 3, '4': 1, '5': 3, '10': 'timestamp'},
     {'1': 'update_source', '3': 4, '4': 1, '5': 9, '10': 'updateSource'},
@@ -209,7 +232,14 @@ final $typed_data.Uint8List userResponseDescriptor = $convert.base64Decode(
 const UserCollection$json = {
   '1': 'UserCollection',
   '2': [
-    {'1': 'users', '3': 1, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'users'},
+    {
+      '1': 'users',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.UserProto',
+      '10': 'users'
+    },
   ],
 };
 
@@ -238,9 +268,30 @@ const UserSettings$json = {
   '1': 'UserSettings',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {'1': 'notifications', '3': 2, '4': 1, '5': 11, '6': '.cc.NotificationSettings', '10': 'notifications'},
-    {'1': 'privacy', '3': 3, '4': 1, '5': 11, '6': '.cc.PrivacySettings', '10': 'privacy'},
-    {'1': 'theme', '3': 4, '4': 1, '5': 11, '6': '.cc.ThemeSettings', '10': 'theme'},
+    {
+      '1': 'notifications',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.NotificationSettings',
+      '10': 'notifications'
+    },
+    {
+      '1': 'privacy',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.PrivacySettings',
+      '10': 'privacy'
+    },
+    {
+      '1': 'theme',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.cc.ThemeSettings',
+      '10': 'theme'
+    },
     {'1': 'language', '3': 5, '4': 1, '5': 9, '10': 'language'},
     {'1': 'timezone', '3': 6, '4': 1, '5': 9, '10': 'timezone'},
   ],
@@ -258,12 +309,42 @@ final $typed_data.Uint8List userSettingsDescriptor = $convert.base64Decode(
 const NotificationSettings$json = {
   '1': 'NotificationSettings',
   '2': [
-    {'1': 'message_notifications', '3': 1, '4': 1, '5': 8, '10': 'messageNotifications'},
-    {'1': 'friend_request_notifications', '3': 2, '4': 1, '5': 8, '10': 'friendRequestNotifications'},
-    {'1': 'group_notifications', '3': 3, '4': 1, '5': 8, '10': 'groupNotifications'},
+    {
+      '1': 'message_notifications',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '10': 'messageNotifications'
+    },
+    {
+      '1': 'friend_request_notifications',
+      '3': 2,
+      '4': 1,
+      '5': 8,
+      '10': 'friendRequestNotifications'
+    },
+    {
+      '1': 'group_notifications',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '10': 'groupNotifications'
+    },
     {'1': 'do_not_disturb', '3': 4, '4': 1, '5': 8, '10': 'doNotDisturb'},
-    {'1': 'do_not_disturb_start', '3': 5, '4': 1, '5': 9, '10': 'doNotDisturbStart'},
-    {'1': 'do_not_disturb_end', '3': 6, '4': 1, '5': 9, '10': 'doNotDisturbEnd'},
+    {
+      '1': 'do_not_disturb_start',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'doNotDisturbStart'
+    },
+    {
+      '1': 'do_not_disturb_end',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'doNotDisturbEnd'
+    },
   ],
 };
 
@@ -280,9 +361,27 @@ final $typed_data.Uint8List notificationSettingsDescriptor = $convert.base64Deco
 const PrivacySettings$json = {
   '1': 'PrivacySettings',
   '2': [
-    {'1': 'allow_profile_view', '3': 1, '4': 1, '5': 8, '10': 'allowProfileView'},
-    {'1': 'allow_friend_requests', '3': 2, '4': 1, '5': 8, '10': 'allowFriendRequests'},
-    {'1': 'show_online_status', '3': 3, '4': 1, '5': 8, '10': 'showOnlineStatus'},
+    {
+      '1': 'allow_profile_view',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '10': 'allowProfileView'
+    },
+    {
+      '1': 'allow_friend_requests',
+      '3': 2,
+      '4': 1,
+      '5': 8,
+      '10': 'allowFriendRequests'
+    },
+    {
+      '1': 'show_online_status',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '10': 'showOnlineStatus'
+    },
     {'1': 'show_last_active', '3': 4, '4': 1, '5': 8, '10': 'showLastActive'},
     {'1': 'show_read_status', '3': 5, '4': 1, '5': 8, '10': 'showReadStatus'},
   ],
@@ -369,12 +468,32 @@ const UniversalSearchResponse$json = {
   '2': [
     {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-    {'1': 'users', '3': 3, '4': 3, '5': 11, '6': '.cc.UserProto', '10': 'users'},
-    {'1': 'conversations', '3': 4, '4': 3, '5': 11, '6': '.cc.ConversationProto', '10': 'conversations'},
+    {
+      '1': 'users',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.UserProto',
+      '10': 'users'
+    },
+    {
+      '1': 'conversations',
+      '3': 4,
+      '4': 3,
+      '5': 11,
+      '6': '.cc.ConversationProto',
+      '10': 'conversations'
+    },
     {'1': 'query', '3': 5, '4': 1, '5': 9, '10': 'query'},
     {'1': 'searched_types', '3': 6, '4': 3, '5': 9, '10': 'searchedTypes'},
     {'1': 'user_count', '3': 7, '4': 1, '5': 5, '10': 'userCount'},
-    {'1': 'conversation_count', '3': 8, '4': 1, '5': 5, '10': 'conversationCount'},
+    {
+      '1': 'conversation_count',
+      '3': 8,
+      '4': 1,
+      '5': 5,
+      '10': 'conversationCount'
+    },
     {'1': 'timestamp', '3': 9, '4': 1, '5': 3, '10': 'timestamp'},
   ],
 };
@@ -460,4 +579,3 @@ const SetPasswordResponse$json = {
 final $typed_data.Uint8List setPasswordResponseDescriptor = $convert.base64Decode(
     'ChNTZXRQYXNzd29yZFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSGAoHbWVzc2'
     'FnZRgCIAEoCVIHbWVzc2FnZRIcCgl0aW1lc3RhbXAYAyABKANSCXRpbWVzdGFtcA==');
-

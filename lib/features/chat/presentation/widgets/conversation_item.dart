@@ -10,6 +10,8 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
 import 'package:cc/core/utils/display_name_utils.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// 会话列表项组件
 ///
@@ -116,6 +118,30 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建头像部分
   Widget _buildAvatar(Conversation conversation) {
+    final displayName = DisplayNameUtils.getConversationDisplayName(
+      conversation, 
+      currentUser.userId
+    );
+    final displayRoleId = ConversationAdapter.getDisplayRoleId(
+      conversation.participants,
+      conversation.type,
+      currentUser.userId,
+    );
+    
+    // 🔥🔥🔥 详细的调试日志
+    final _logger = LogService.instance;
+    _logger.i('💭💭💭 ConversationItem构建头像', extra: {
+      'conversationId': conversation.conversationId,
+      'conversationType': conversation.type,
+      'displayName': displayName,
+      'displayRoleId': displayRoleId,
+      'currentUserId': currentUser.userId,
+      'participantsLength': conversation.participants.length,
+      'participants': conversation.participants,
+      'isPrivate': conversation.type == 'PRIVATE',
+      'shouldShowRoleId': conversation.type == 'PRIVATE' && displayRoleId != null,
+    });
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
@@ -123,12 +149,10 @@ class ConversationItem extends StatelessWidget {
         height: 60,
         child: UserAvatar(
           avatarUrl: conversation.avatar,
-          name: DisplayNameUtils.getConversationDisplayName(
-            conversation, 
-            currentUser.userId
-          ),
+          name: displayName,
           radius: 60 / 2,
           backgroundColor: AppColors.primary,
+          roleId: displayRoleId,
         ),
       ),
     );

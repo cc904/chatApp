@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/database/drift_database.dart';
@@ -57,14 +56,11 @@ class QuickReplyCubit extends Cubit<QuickReplyState> {
         isLoading: false,
         error: null,
       ));
-      
-      debugPrint('快捷回复初始化完成，共加载${replies.length}条');
     } catch (e) {
       emit(state.copyWith(
         error: '加载快捷回复失败: ${e.toString()}',
         isLoading: false,
       ));
-      debugPrint('快捷回复初始化失败: $e');
     }
   }
 
@@ -80,14 +76,11 @@ class QuickReplyCubit extends Cubit<QuickReplyState> {
         isLoading: false,
         error: null,
       ));
-      
-      debugPrint('快捷回复刷新完成，共${replies.length}条');
     } catch (e) {
       emit(state.copyWith(
         error: '刷新快捷回复失败: ${e.toString()}',
         isLoading: false,
       ));
-      debugPrint('快捷回复刷新失败: $e');
     }
   }
 

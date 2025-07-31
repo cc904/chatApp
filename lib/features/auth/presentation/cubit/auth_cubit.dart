@@ -9,6 +9,7 @@ import 'package:cc/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/utils/api_error_handler.dart';
 import 'package:cc/core/services/upload_api_service.dart';
+import 'package:cc/core/services/phone_history_service.dart';
 
 part 'auth_state.dart';
 
@@ -18,13 +19,24 @@ class AuthCubit extends Cubit<AuthState> {
   // 认证仓库
   final AuthRepository _authRepository;
   final EnhancedTokenManager _tokenManager = EnhancedTokenManager.instance;
+  final PhoneHistoryService _phoneHistoryService = PhoneHistoryService();
 
-  // 服务器URL
+  // 用于同步TextEditingController状态的回调
+  Function(String)? _phoneControllerCallback;
+  Function(String)? _verificationCodeControllerCallback;
+  Function(String)? _passwordControllerCallback;
 
   AuthCubit({
     required String serverUrl,
+    String? initialPhoneNumber,
+    String? initialVerificationCode,
+    String? initialPassword,
   })  : _authRepository = AuthRepositoryImpl.getInstance(serverUrl: serverUrl),
-        super(AuthState.initial()) {
+        super(AuthState.initial().copyWith(
+          phoneNumber: initialPhoneNumber,
+          verificationCode: initialVerificationCode,
+          password: initialPassword,
+        )) {
     _init();
   }
 
@@ -37,23 +49,84 @@ class AuthCubit extends Cubit<AuthState> {
       await loginWithToken();
     } catch (error) {
       _logger.e('token登录失败', error: error, stackTrace: StackTrace.current);
-      emit(state.toErrorState(error.toString()));
+      // 保持现有的表单数据，只更新加载状态和错误状态
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: null, // 不显示token登录失败的错误信息，让用户正常输入
+      ));
     }
   }
 
+  /// 设置TextEditingController同步回调
+  void setControllerCallbacks({
+    Function(String)? phoneCallback,
+    Function(String)? verificationCodeCallback,
+    Function(String)? passwordCallback,
+  }) {
+    _phoneControllerCallback = phoneCallback;
+    _verificationCodeControllerCallback = verificationCodeCallback;
+    _passwordControllerCallback = passwordCallback;
+  }
+
+  /// 从UI控制器同步状态到Cubit
+  void syncFromControllers(String phoneNumber, String verificationCode, String password) {
+    emit(state.copyWith(
+      phoneNumber: phoneNumber,
+      verificationCode: verificationCode,
+      password: password,
+    ));
+  }
+
   void updatePhoneNumber(String phoneNumber) {
-    // _logger.x('更新手机号', extra: {'phoneNumber': phoneNumber});
+    _logger.d('更新手机号状态', extra: {
+      'newPhone': phoneNumber,
+      'oldPhone': state.phoneNumber,
+      'hasCallback': _phoneControllerCallback != null,
+    });
     emit(state.copyWith(phoneNumber: phoneNumber));
+    // 同步到TextEditingController
+    if (_phoneControllerCallback != null) {
+      try {
+        _logger.d('调用手机号控制器回调');
+        _phoneControllerCallback!(phoneNumber);
+        _logger.d('手机号控制器回调执行完成');
+      } catch (e) {
+        _logger.e('手机号控制器回调执行失败', error: e);
+      }
+    } else {
+      _logger.w('没有设置手机号控制器回调');
+    }
   }
 
   void updateVerificationCode(String code) {
-    // _logger.x('更新验证码', extra: {'code': code});
     emit(state.copyWith(verificationCode: code));
+    // 同步到TextEditingController
+    _verificationCodeControllerCallback?.call(code);
   }
 
   void updatePassword(String password) {
-    // _logger.x('更新密码');
     emit(state.copyWith(password: password));
+    // 同步到TextEditingController
+    _passwordControllerCallback?.call(password);
+  }
+
+  /// 获取手机号码历史记录
+  Future<List<String>> getPhoneHistory() async {
+    return await _phoneHistoryService.getPhoneHistory();
+  }
+
+  /// 从历史记录删除手机号码
+  Future<void> removePhoneFromHistory(String phoneNumber) async {
+    await _phoneHistoryService.removePhoneFromHistory(phoneNumber);
+  }
+
+  /// 选择历史手机号码
+  void selectPhoneFromHistory(String phoneNumber) {
+    _logger.d('从历史记录选择手机号', extra: {
+      'selectedPhone': phoneNumber,
+      'currentStatePhone': state.phoneNumber,
+    });
+    updatePhoneNumber(phoneNumber);
   }
 
   void updateNickname(String nickname) {
@@ -127,6 +200,7 @@ class AuthCubit extends Cubit<AuthState> {
               ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
               : DateTime.now(),
           hasSetPassword: userData['hasSetPassword'] ?? false,
+          roleId: userData['roleId'] ?? 0, // 角色ID，默认为0
         );
 
         // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
@@ -222,12 +296,18 @@ class AuthCubit extends Cubit<AuthState> {
             ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
             : DateTime.now(),
         hasSetPassword: userData['hasSetPassword'] ?? false,
+        roleId: userData['roleId'] ?? 0, // 角色ID，默认为0
       );
 
       // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 
       // 初始化文件上传服务
       await _initializeFileUploadService();
+
+      // 保存手机号码到历史记录 (仅在用户主动登录时保存)
+      if (state.phoneNumber != null) {
+        await _phoneHistoryService.addPhoneToHistory(state.phoneNumber!);
+      }
 
       emit(state.toAuthenticatedState(
         currentUser: currentUser,
@@ -298,12 +378,18 @@ class AuthCubit extends Cubit<AuthState> {
             ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
             : DateTime.now(),
         hasSetPassword: userData['hasSetPassword'] ?? false,
+        roleId: userData['roleId'] ?? 0, // 角色ID，默认为0
       );
 
       // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 
       // 初始化文件上传服务
       await _initializeFileUploadService();
+
+      // 保存手机号码到历史记录 (注册成功后也保存)
+      if (state.phoneNumber != null) {
+        await _phoneHistoryService.addPhoneToHistory(state.phoneNumber!);
+      }
 
       emit(state.toAuthenticatedState(
         currentUser: currentUser,
