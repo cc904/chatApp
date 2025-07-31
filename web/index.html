@@ -15,11 +15,11 @@
   <title>ThisApp</title>
   <link rel="manifest" href="manifest.json">
   
-  <!-- 简化字体CSS -->
+  <!-- 动态字体加载CSS -->
   <link rel="stylesheet" href="fonts.css" type="text/css">
   
-  <!-- MiniTex免字体渲染器 -->
-  <script src="minitex.min.js"></script>
+  <!-- 动态字体切片服务 -->
+  <script src="font-slicer.js" async></script>
   
   <!-- 启动屏样式 -->
   <style>
@@ -180,7 +180,8 @@
   </div>
 
   <script>
-    console.log('🔍 Flutter Web - 完全本地化版本');
+    console.log('🔍 Flutter Web - 动态字体加载版本');
+    console.log('🚀 启动动态字体切片系统');
     
     // 启动屏管理
     window.addEventListener('load', function() {

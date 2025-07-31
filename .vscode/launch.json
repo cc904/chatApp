@@ -21,6 +21,58 @@
             "args": [
                 "--release"
             ]
+        },
+        {
+            "name": "Flutter iOS Simulator",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "deviceId": "com.apple.CoreSimulator.SimRuntime.iOS-18-4"
+        },
+        {
+            "name": "Flutter Web",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "deviceId": "chrome"
+        },
+        {
+            "name": "Flutter Web (Edge)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "deviceId": "chrome",
+            "env": {
+                "CHROME_EXECUTABLE": "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
+            }
+        },
+        {
+            "name": "Flutter Web Server (Debug)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "deviceId": "web-server",
+            "args": [
+                "--web-port=9003",
+                "--web-hostname=localhost"
+            ],
+            "env": {
+                "FONT_SERVER_URL": "http://localhost:7000"
+            }
+        },
+        {
+            "name": "Flutter Web Server (Font Dev)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "deviceId": "web-server",
+            "args": [
+                "--web-port=7002",
+                "--web-hostname=localhost"
+            ],
+            "env": {
+                "FONT_SERVER_URL": "http://localhost:3001"
+            }
         }
     ]
 }
