@@ -71,7 +71,7 @@
                 "--web-hostname=localhost"
             ],
             "env": {
-                "FONT_SERVER_URL": "http://localhost:3001"
+                "FONT_SERVER_URL": "http://localhost:7000"
             }
         }
     ]

@@ -20,12 +20,12 @@ RUN mkdir -p cache && chown -R node:node /app
 USER node
 
 # 暴露端口
-EXPOSE 3001
+EXPOSE 7000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD node -e "const http = require('http'); \
-    const options = { hostname: 'localhost', port: 3001, path: '/health', method: 'GET' }; \
+    const options = { hostname: 'localhost', port: 7000, path: '/health', method: 'GET' }; \
     const req = http.request(options, (res) => { \
       if (res.statusCode === 200) { process.exit(0); } else { process.exit(1); } \
     }); \

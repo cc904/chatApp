@@ -5,7 +5,7 @@ const fs = require('fs').promises;
 const crypto = require('crypto');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 7000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
