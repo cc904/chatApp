@@ -275,10 +275,55 @@
       FontQueue.add(text);
     },
     
-    preloadCommonChars() {
-      // 预加载常用汉字
-      const commonChars = '的一是在不了有和人这中大为上个国我以要他时来用们生到作地于出就分对成会可主发年动同工也能下过子说产种面而方后多定行学法所民得经十三四五六七八九零';
-      FontQueue.add(commonChars);
+    async preloadCommonChars() {
+      // 预加载项目中实际使用的常用字符
+      try {
+        const response = await fetch('/character-sets/character_sets.js');
+        if (response.ok) {
+          const text = await response.text();
+          // 简单解析出 COMMON_CHARS
+          const match = text.match(/COMMON_CHARS:\s*"([^"]+)"/);
+          if (match) {
+            const commonChars = match[1];
+            FontQueue.add(commonChars);
+            console.log(`📚 预加载项目常用字符: ${commonChars.length} 个`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('无法加载项目字符集，使用默认常用字符');
+      }
+      
+      // 回退到默认常用字符
+      const defaultCommonChars = '的一是在不了有和人这中大为上个国我以要他时来用们生到作地于出就分对成会可主发年动同工也能下过子说产种面而方后多定行学法所民得经十三四五六七八九零';
+      FontQueue.add(defaultCommonChars);
+    },
+
+    async preloadProjectChars() {
+      // 预加载项目中所有使用的中文字符
+      try {
+        const response = await fetch('/character-sets/character_sets.js');
+        if (response.ok) {
+          const text = await response.text();
+          const match = text.match(/CHINESE_CHARS:\s*"([^"]+)"/);
+          if (match) {
+            const chineseChars = match[1];
+            // 分批加载，避免一次性加载过多
+            const batchSize = 200;
+            for (let i = 0; i < chineseChars.length; i += batchSize) {
+              const batch = chineseChars.substring(i, i + batchSize);
+              FontQueue.add(batch);
+              // 添加小延迟，避免阻塞UI
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            console.log(`🎯 预加载项目中文字符: ${chineseChars.length} 个`);
+            return true;
+          }
+        }
+      } catch (error) {
+        console.warn('无法加载项目字符集:', error);
+      }
+      return false;
     },
     
     extractAndLoad() {
@@ -288,14 +333,22 @@
   };
 
   // 初始化
-  function init() {
+  async function init() {
     console.log('🚀 初始化字体切片器...');
     
     // 启动观察器
     Observer.init();
     
-    // 预加载常用字符
-    window.FontSlicer.preloadCommonChars();
+    // 预加载项目字符（优先级：常用字符 -> 项目字符 -> 现有文本）
+    await window.FontSlicer.preloadCommonChars();
+    
+    // 延迟预加载完整项目字符集
+    setTimeout(async () => {
+      const projectLoaded = await window.FontSlicer.preloadProjectChars();
+      if (projectLoaded) {
+        console.log('🎉 项目字符集预加载完成');
+      }
+    }, 1000);
     
     // 提取现有文本
     setTimeout(() => {

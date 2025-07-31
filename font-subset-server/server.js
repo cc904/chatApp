@@ -37,6 +37,7 @@ app.use((req, res, next) => {
 
 // 缓存目录
 const CACHE_DIR = path.join(__dirname, 'cache');
+const CHARACTER_SETS_DIR = path.join(__dirname, 'character-sets');
 
 // 确保缓存目录存在
 async function ensureCacheDir() {
@@ -124,6 +125,53 @@ app.get('/manifest', (req, res) => {
     ],
     version: '1.0.0'
   });
+});
+
+// 字符集文件服务
+app.use('/character-sets', express.static(CHARACTER_SETS_DIR, {
+  setHeaders: (res, path) => {
+    // 设置适当的缓存头
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1小时缓存
+    } else if (path.endsWith('.txt')) {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+}));
+
+// 字符集统计API
+app.get('/api/character-stats', async (req, res) => {
+  try {
+    const reportPath = path.join(CHARACTER_SETS_DIR, 'character_report.md');
+    const reportContent = await fs.readFile(reportPath, 'utf-8');
+    
+    // 解析统计数据
+    const stats = {};
+    const lines = reportContent.split('\n');
+    
+    for (const line of lines) {
+      if (line.startsWith('- 总字符数:')) {
+        stats.totalChars = parseInt(line.match(/\d+/)[0]);
+      } else if (line.startsWith('- 中文字符:')) {
+        stats.chineseChars = parseInt(line.match(/\d+/)[0]);
+      } else if (line.startsWith('- 标点符号:')) {
+        stats.punctuationChars = parseInt(line.match(/\d+/)[0]);
+      }
+    }
+    
+    res.json({
+      status: 'success',
+      data: stats,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Character stats error:', error);
+    res.status(500).json({ error: 'Failed to load character statistics' });
+  }
 });
 
 // 启动服务器
