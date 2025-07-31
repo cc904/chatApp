@@ -25,6 +25,11 @@ class CharacterExtractor {
   final Set<String> _chineseChars = <String>{};
   final Set<String> _punctuationChars = <String>{};
   
+  // 公共访问器
+  Set<String> get allChars => Set.from(_allChars);
+  Set<String> get chineseChars => Set.from(_chineseChars);
+  Set<String> get punctuationChars => Set.from(_punctuationChars);
+  
   /// 扫描项目目录
   Future<void> scanDirectory(String path) async {
     final dir = Directory(path);

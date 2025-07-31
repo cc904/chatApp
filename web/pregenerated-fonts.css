@@ -1,0 +1,27 @@
+/* 预生成字体CSS */
+/* 自动生成，请勿手动编辑 */
+/* 生成时间: 2025-07-31T23:26:32.902963 */
+
+@font-face {
+  font-family: 'PreGeneratedCJK';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local(''),
+       url('/fonts/pregenerated/slice_001.woff2') format('woff2');
+  unicode-range: U+4E00-9FFF; /* CJK统一汉字 */
+}
+
+/* 动态字体应用 */
+.pregenerated-font {
+  font-family: 'PreGeneratedCJK', 'PingFang SC', 'Hiragino Sans GB', 
+               'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC', 
+               system-ui, sans-serif !important;
+}
+
+/* 全局应用预生成字体 */
+body, html, * {
+  font-family: 'PreGeneratedCJK', 'PingFang SC', 'Hiragino Sans GB',
+               'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC',
+               system-ui, sans-serif !important;
+}
