@@ -22,9 +22,7 @@ import 'package:cc/core/services/server_selection_service.dart';
 import 'package:cc/core/services/backup_domain_service.dart';
 
 // 条件导入：根据平台导入不同的平台特定功能
-import 'platform_stub.dart'
-    if (dart.library.io) 'platform_io.dart'
-    if (dart.library.html) 'platform_web.dart';
+import 'platform_stub.dart' if (dart.library.io) 'platform_io.dart' if (dart.library.html) 'platform_web.dart';
 
 /// 检查和修复Token状态
 Future<void> _checkAndFixTokenStatus() async {
@@ -285,7 +283,7 @@ class _MyAppState extends State<MyApp> {
   /// 启动时检查版本更新
   void _checkVersionOnStartup() {
     _logger.i('🚀 开始启动时版本检查');
-    
+
     // 使用异步执行，不阻塞UI构建
     Future.microtask(() async {
       try {
@@ -300,7 +298,7 @@ class _MyAppState extends State<MyApp> {
           'hasContext': context != null,
           'navigatorKeyHashCode': navigatorKey.hashCode,
         });
-        
+
         if (context != null && context.mounted) {
           _logger.i('🚀 调用版本更新服务');
           await VersionUpdateService.instance.checkUpdateOnStartup(context);
@@ -338,7 +336,7 @@ class _MyAppState extends State<MyApp> {
             // 🌐 桌面端宽度限制（手机平板保持全宽）
             builder: (context, child) {
               final screenWidth = MediaQuery.of(context).size.width;
-              
+
               // 只在桌面端（屏幕宽度大于1024px）限制宽度
               if (screenWidth > 1024) {
                 return Center(
@@ -348,7 +346,7 @@ class _MyAppState extends State<MyApp> {
                   ),
                 );
               }
-              
+
               // 手机和平板保持全宽
               return child!;
             },
@@ -360,7 +358,7 @@ class _MyAppState extends State<MyApp> {
               // 使用系统默认字体，支持动态加载
               fontFamilyFallback: const [
                 'system-ui',
-                '-apple-system', 
+                '-apple-system',
                 'BlinkMacSystemFont',
                 'Segoe UI',
                 'PingFang SC',
@@ -373,29 +371,11 @@ class _MyAppState extends State<MyApp> {
               // 为所有Material组件明确指定字体
               textTheme: ThemeData.light().textTheme.apply(
                 fontFamily: 'system-ui',
-                fontFamilyFallback: const [
-                  'system-ui',
-                  '-apple-system', 
-                  'BlinkMacSystemFont',
-                  'Segoe UI',
-                  'PingFang SC',
-                  'Hiragino Sans GB',
-                  'Microsoft YaHei',
-                  'sans-serif'
-                ],
+                fontFamilyFallback: const ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'sans-serif'],
               ),
               primaryTextTheme: ThemeData.light().primaryTextTheme.apply(
                 fontFamily: 'system-ui',
-                fontFamilyFallback: const [
-                  'system-ui',
-                  '-apple-system', 
-                  'BlinkMacSystemFont',
-                  'Segoe UI',
-                  'PingFang SC',
-                  'Hiragino Sans GB',
-                  'Microsoft YaHei',
-                  'sans-serif'
-                ],
+                fontFamilyFallback: const ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'sans-serif'],
               ),
               appBarTheme: AppBarTheme(
                 backgroundColor: AppColors.surfaceVariant,

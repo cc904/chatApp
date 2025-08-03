@@ -109,15 +109,14 @@ create_deployment_package() {
 
 ## 部署信息
 - 构建版本: \`$VERSION_TAG\`
-- 环境标签: \`$ENV_TAG\`$([ -n "$GIT_VERSION_TAG" ] && echo "
-- Git版本: \`$GIT_VERSION_TAG\`")
+- 环境标签: \`$ENV_TAG\`
+- 版本+Git标签: \`$VERSION_GIT_TAG\`
 - 构建时间: \`$(date '+%Y-%m-%d %H:%M:%S')\`
 - 镜像仓库: \`$REGISTRY/$IMAGE_NAME\`
 
 ## 可用镜像标签
 - \`$REGISTRY/$IMAGE_NAME:$ENV_TAG\` (环境标签)
-- \`$REGISTRY/$IMAGE_NAME:$VERSION_TAG\` (版本标签)$([ -n "$GIT_VERSION_TAG" ] && echo "
-- \`$REGISTRY/$IMAGE_NAME:$GIT_VERSION_TAG\` (Git标签)")
+- \`$REGISTRY/$IMAGE_NAME:$VERSION_GIT_TAG\` (版本+Git标签)
 
 ## 快速部署
 
@@ -190,10 +189,7 @@ EOF
         echo "╚══════════════════════════════════════════════╝"
         echo ""
         echo "📦 本地镜像: $IMAGE_NAME:$ENV_TAG"
-        echo "🏷️  版本标签: $VERSION_TAG"
-        if [ -n "$GIT_VERSION_TAG" ]; then
-            echo "🔖 Git标签: $GIT_VERSION_TAG"
-        fi
+        echo "🏷️  版本+Git标签: $VERSION_GIT_TAG"
         echo "🌐 远程仓库: $REGISTRY/$IMAGE_NAME"
         echo "📁 部署包: $BUILD_OUTPUT_DIR/$ARCHIVE_NAME"
         echo ""
@@ -425,10 +421,12 @@ if [ "$DO_DOCKER" = true ]; then
     fi
     REGISTRY="nrt.vultrcr.com/ex00"
     
-    # 定义所有标签
+    # 定义标签 - 合并版本和git为一个标签
     VERSION_TAG="v$BUILD_VERSION"
     if [ -n "$GIT_HASH" ]; then
-        GIT_VERSION_TAG="v$BUILD_VERSION-$GIT_HASH"
+        VERSION_GIT_TAG="v$BUILD_VERSION-$GIT_HASH"
+    else
+        VERSION_GIT_TAG="v$BUILD_VERSION"
     fi
 
     echo "┌──────────────────────────────────────────────┐"
@@ -437,10 +435,7 @@ if [ "$DO_DOCKER" = true ]; then
     echo "🔧 构建模式: $BUILD_MODE"
     echo "📄 Dockerfile: $DOCKERFILE"
     echo "📦 本地镜像: $IMAGE_NAME:$ENV_TAG"
-    echo "🏷️  版本标签: $VERSION_TAG"
-    if [ -n "$GIT_VERSION_TAG" ]; then
-        echo "🔖 Git标签: $GIT_VERSION_TAG"
-    fi
+    echo "🏷️  版本+Git标签: $VERSION_GIT_TAG"
     echo ""
 
     # 构建镜像（使用环境标签作为主标签）
@@ -454,15 +449,9 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "🏷️  为镜像添加多个标签..."
     
-    # 添加版本标签
-    docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$VERSION_TAG
-    echo "   ✅ 版本标签: $IMAGE_NAME:$VERSION_TAG"
-    
-    # 添加Git版本标签（如果有）
-    if [ -n "$GIT_VERSION_TAG" ]; then
-        docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$GIT_VERSION_TAG
-        echo "   ✅ Git标签: $IMAGE_NAME:$GIT_VERSION_TAG"
-    fi
+    # 添加合并的版本+git标签
+    docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$VERSION_GIT_TAG
+    echo "   ✅ 版本+Git标签: $IMAGE_NAME:$VERSION_GIT_TAG"
     
     echo ""
     echo "┌──────────────────────────────────────────────┐"
@@ -513,26 +502,17 @@ if [ $? -eq 0 ]; then
     echo "│              📤 推送到仓库                  │"
     echo "└──────────────────────────────────────────────┘"
     
-    # 定义所有远程标签
+    # 定义远程标签
     REMOTE_ENV_TAG="$REGISTRY/$IMAGE_NAME:$ENV_TAG"
-    REMOTE_VERSION_TAG="$REGISTRY/$IMAGE_NAME:$VERSION_TAG"
-    REMOTE_GIT_VERSION_TAG=""
-    if [ -n "$GIT_VERSION_TAG" ]; then
-        REMOTE_GIT_VERSION_TAG="$REGISTRY/$IMAGE_NAME:$GIT_VERSION_TAG"
-    fi
+    REMOTE_VERSION_GIT_TAG="$REGISTRY/$IMAGE_NAME:$VERSION_GIT_TAG"
     
     # 为镜像添加远程标签
     echo "🏷️  为镜像添加远程标签..."
     docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_ENV_TAG
     echo "   ✅ 环境标签: $REMOTE_ENV_TAG"
     
-    docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_VERSION_TAG
-    echo "   ✅ 版本标签: $REMOTE_VERSION_TAG"
-    
-    if [ -n "$REMOTE_GIT_VERSION_TAG" ]; then
-        docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_GIT_VERSION_TAG
-        echo "   ✅ Git标签: $REMOTE_GIT_VERSION_TAG"
-    fi
+    docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_VERSION_GIT_TAG
+    echo "   ✅ 版本+Git标签: $REMOTE_VERSION_GIT_TAG"
     
     echo ""
     echo "📤 推送所有标签到私有仓库..."
@@ -546,16 +526,9 @@ if [ $? -eq 0 ]; then
             success=false
         fi
         
-        echo "🎯 推送版本标签: $REMOTE_VERSION_TAG"
-        if ! docker push $REMOTE_VERSION_TAG; then
+        echo "🎯 推送版本+Git标签: $REMOTE_VERSION_GIT_TAG"
+        if ! docker push $REMOTE_VERSION_GIT_TAG; then
             success=false
-        fi
-        
-        if [ -n "$REMOTE_GIT_VERSION_TAG" ]; then
-            echo "🎯 推送Git标签: $REMOTE_GIT_VERSION_TAG"
-            if ! docker push $REMOTE_GIT_VERSION_TAG; then
-                success=false
-            fi
         fi
         
         return $([ "$success" = true ] && echo 0 || echo 1)

@@ -1,524 +1,156 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A Flutter chat application.">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="ThisApp">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
   <title>ThisApp</title>
-  <link rel="manifest" href="manifest.json">
-  
-  <!-- 动态字体加载CSS -->
-  <link rel="stylesheet" href="fonts.css" type="text/css">
-  
-  
-  <!-- Flutter Web 配置加载器 -->
-  <script>
-    // 动态加载配置文件
-    window.FlutterConfig = {
-      config: null,
-      
-      // 加载配置
-      async loadConfig() {
-        try {
-          const response = await fetch('./app-config.json');
-          this.config = await response.json();
-          console.log('✅ 配置加载成功:', this.config);
-          return this.config;
-        } catch (error) {
-          console.error('❌ 配置加载失败:', error);
-          // 使用默认配置
-          this.config = {
-            environment: 'development',
-            fontService: {
-              baseUrl: 'http://localhost:7002',
-              timeout: 15000,
-              cacheEnabled: true
-            }
-          };
-          return this.config;
-        }
-      },
-      
-      // 获取字体服务地址
-      getFontServiceUrl() {
-        return this.config?.fontService?.baseUrl || 'http://localhost:7002';
-      },
-      
-      // 获取完整配置
-      getConfig() {
-        return this.config;
-      }
-    };
-  </script>
-  
-  <!-- 启动屏样式 -->
   <style>
-    /* 启动屏容器 */
-    .loading-container {
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0175C2; color: white; font-family: Arial, sans-serif; }
+    .loading { 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #0175C2 0%, #1565C0 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
       z-index: 9999;
-      transition: opacity 0.5s ease-in-out;
+      background: #0175C2;
     }
-    
-    /* Logo容器 */
-    .logo-container {
-      text-align: center;
-      margin-bottom: 40px;
+    .spinner { 
+      width: 50px; 
+      height: 50px; 
+      border: 5px solid rgba(255,255,255,0.3); 
+      border-top: 5px solid white; 
+      border-radius: 50%; 
+      animation: spin 1s linear infinite; 
     }
-    
-    /* 应用图标 */
-    .app-icon {
-      width: 120px;
-      height: 120px;
-      border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-      margin-bottom: 20px;
-      animation: logoFloat 2s ease-in-out infinite alternate;
-    }
-    
-    /* Logo浮动动画 */
-    @keyframes logoFloat {
-      0% { transform: translateY(0px); }
-      100% { transform: translateY(-10px); }
-    }
-    
-    /* 应用名称 */
-    .app-name {
-      color: white;
-      font-size: 32px;
-      font-weight: 600;
-      margin: 0;
-      font-family: 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', sans-serif;
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* 应用标语 */
-    .app-tagline {
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 16px;
-      margin: 8px 0 0 0;
-      font-family: 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', sans-serif;
-    }
-    
-    /* 加载动画容器 */
-    .loading-animation {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-top: 40px;
-    }
-    
-    /* 加载圆点 */
-    .loading-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.8);
-      margin: 0 6px;
-      animation: loadingBounce 1.4s ease-in-out infinite both;
-    }
-    
-    .loading-dot:nth-child(1) { animation-delay: -0.32s; }
-    .loading-dot:nth-child(2) { animation-delay: -0.16s; }
-    .loading-dot:nth-child(3) { animation-delay: 0s; }
-    
-    @keyframes loadingBounce {
-      0%, 80%, 100% {
-        transform: scale(0.8);
-        opacity: 0.5;
-      }
-      40% {
-        transform: scale(1.2);
-        opacity: 1;
-      }
-    }
-    
-    /* 加载文本 */
-    .loading-text {
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 14px;
-      margin-top: 20px;
-      font-family: 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', sans-serif;
-      animation: loadingTextPulse 2s ease-in-out infinite;
-    }
-    
-    @keyframes loadingTextPulse {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
-    }
-    
-    /* 版本信息 */
-    .version-info {
-      position: absolute;
-      bottom: 30px;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 12px;
-      font-family: 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', sans-serif;
-    }
-    
-    /* 隐藏启动屏 */
-    .loading-container.fade-out {
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .fade-out {
       opacity: 0;
-      pointer-events: none;
-    }
-    
-    /* 响应式设计 */
-    @media (max-width: 768px) {
-      .app-icon {
-        width: 100px;
-        height: 100px;
-      }
-      
-      .app-name {
-        font-size: 28px;
-      }
-      
-      .app-tagline {
-        font-size: 14px;
-      }
+      transition: opacity 0.3s ease-out;
     }
   </style>
 </head>
-
 <body>
-  <!-- 启动屏 -->
-  <div id="loading-screen" class="loading-container">
-    <div class="logo-container">
-      <img src="icons/Icon-192.png" alt="ThisApp" class="app-icon">
-      <h1 class="app-name">ThisApp</h1>
-      <p class="app-tagline">安全高效的即时通讯</p>
-    </div>
-    
-    <div class="loading-animation">
-      <div class="loading-dot"></div>
-      <div class="loading-dot"></div>
-      <div class="loading-dot"></div>
-    </div>
-    
-    <div class="loading-text">正在加载应用...</div>
-    
-    <div class="version-info">版本 1.0.2</div>
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p style="margin-top: 20px;">正在加载...</p>
   </div>
-
-  <!-- 🍎 智能渲染器选择 + Safari兼容性优化脚本 -->
+  
   <script>
-    console.log('🔍 Flutter Web - 预生成字体版本 + 智能渲染器选择');
-    console.log('🚀 预生成字体系统已就绪');
+    // 强制使用HTML渲染器避免兼容性问题
+    window.flutterWebRenderer = 'html';
     
-    // 🛡️ 智能浏览器检测
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    const isMacSafari = /Macintosh/.test(navigator.userAgent) && isSafari;
-    const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && isSafari;
-    const isEdge = /Edg/.test(navigator.userAgent);
-    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edg/.test(navigator.userAgent);
-    const isFirefox = /Firefox/.test(navigator.userAgent);
-    
-    // 🎯 Safari专用兼容性处理 - 优化版本
-    if (isSafari || isMacSafari || isIOSSafari) {
-      console.log('🍎 检测到Safari，启用兼容性模式 - 强制HTML渲染器');
-      console.log('🔧 Safari版本:', navigator.userAgent);
-      
-      // 🍎 Safari强制HTML渲染器 - 多重保险
-      window.flutterWebRenderer = "html";
-      window.flutterConfiguration = { renderer: "html" };
-      localStorage.setItem('flutter_force_html', 'true');
-      sessionStorage.setItem('flutter_renderer', 'html');
-      
-      // 🔧 Safari专用：优化的CanvasKit拦截（仅拦截关键资源）
-      const originalFetch = window.fetch;
-      window.fetch = function(url, options) {
-        const urlStr = typeof url === 'string' ? url : url.toString();
-        
-        // 只拦截CanvasKit的wasm文件，不拦截其他资源
-        if (urlStr.includes('canvaskit.wasm') || urlStr.includes('canvaskit.js')) {
-          console.log('🚫 Safari模式：拦截CanvasKit资源:', urlStr);
-          return Promise.reject(new Error('CanvasKit disabled for Safari compatibility'));
-        }
-        return originalFetch.apply(this, arguments);
-      };
-      
-      // 🔧 禁用WebAssembly（仅在Safari中）
-      if (window.WebAssembly) {
-        const originalInstantiate = WebAssembly.instantiate;
-        const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
-        
-        WebAssembly.instantiate = function(bytes, imports) {
-          // 检查是否为CanvasKit相关的WASM
-          console.log('🚫 Safari模式：阻止WebAssembly实例化');
-          return Promise.reject(new Error('WebAssembly disabled for Safari compatibility'));
-        };
-        
-        if (originalInstantiateStreaming) {
-          WebAssembly.instantiateStreaming = function(source, imports) {
-            console.log('🚫 Safari模式：阻止WebAssembly流式实例化');
-            return Promise.reject(new Error('WebAssembly streaming disabled for Safari compatibility'));
-          };
-        }
+    // 必需的构建配置
+    window._flutter = {
+      buildConfig: {
+        "engineRevision": "ef0cd000916d64fa0c5d09cc809fa7ad244a5767",
+        "builds": [{
+          "compileTarget": "dart2js",
+          "renderer": "html",
+          "mainJsPath": "main.dart.js"
+        }]
       }
-      
-      // 🍎 Safari专用启动标记
-      window.safariMode = true;
-      window.flutterRendererForced = true;
-      
-    } else {
-      // 🚀 其他浏览器：允许CanvasKit但提供降级机制
-      console.log(`🌐 检测到${isChrome ? 'Chrome' : isEdge ? 'Edge' : isFirefox ? 'Firefox' : '其他浏览器'}，允许CanvasKit渲染器`);
-      
-      // 🎯 智能渲染器选择：优先CanvasKit，降级到HTML
-      // 不强制设置渲染器，让Flutter自动选择
-      
-      // 🛡️ 降级保护：如果CanvasKit失败，自动切换到HTML
-      let canvasKitFailed = false;
-      
-      const fallbackToHtml = (reason) => {
-        if (!canvasKitFailed) {
-          canvasKitFailed = true;
-          console.log('🔄 CanvasKit失败，自动降级到HTML渲染器:', reason);
-          window.flutterWebRenderer = "html";
-          localStorage.setItem('flutter_force_html', 'true');
-          // 可以选择重新加载页面以应用新的渲染器
-          // location.reload();
-        }
-      };
-      
-      // 🚨 监听CanvasKit相关错误
-      window.addEventListener('error', function(event) {
-        const errorMessage = event.message || '';
-        const canvasKitErrorPatterns = [
-          /CanvasKit.*not.*defined/i,
-          /canvaskit\.js/i,
-          /canvaskit\.wasm/i,
-          /WebGL.*error/i,
-          /WebAssembly.*error/i
-        ];
-        
-        const isCanvasKitError = canvasKitErrorPatterns.some(pattern => 
-          pattern.test(errorMessage)
-        );
-        
-        if (isCanvasKitError) {
-          fallbackToHtml(errorMessage);
-        }
-      });
-      
-      // 🔧 监听Promise错误
-      window.addEventListener('unhandledrejection', function(event) {
-        const reason = event.reason || '';
-        const reasonStr = reason.toString ? reason.toString() : String(reason);
-        
-        if (reasonStr.includes('CanvasKit') || reasonStr.includes('canvaskit')) {
-          fallbackToHtml(reasonStr);
-        }
-      });
-    }
-    
-    // 📱 注册智能渲染器Service Worker（Safari优化）
-    if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.safariMode) {
-      // Safari模式下暂时跳过Service Worker注册，避免兼容性问题
-      const swPath = './safari-sw.js';
-      
-      navigator.serviceWorker.register(swPath, {
-        scope: './'
-      })
-        .then(function(registration) {
-          console.log('🛡️ 智能渲染器Service Worker注册成功:', registration.scope);
-        })
-        .catch(function(error) {
-          console.log('⚠️ Service Worker注册失败:', error);
-          console.log('💡 这不会影响应用运行');
-        });
-    } else if (window.safariMode) {
-      console.log('🍎 Safari模式：跳过Service Worker注册以提高兼容性');
-    }
-    
-    // 异步加载配置
-    if (window.FlutterConfig) {
-      window.FlutterConfig.loadConfig().then(() => {
-        console.log('🔧 Flutter配置已加载:', window.FlutterConfig.getConfig());
-      });
-    }
-    
-    // 🍎 Safari专用：页面加载调试
-    if (window.safariMode) {
-      console.log('🍎 Safari：页面开始加载');
-      console.log('🍎 Safari：渲染器设置为', window.flutterWebRenderer);
-      console.log('🍎 Safari：本地存储', localStorage.getItem('flutter_force_html'));
-    }
-    
-    // 启动屏管理
-    window.addEventListener('load', function() {
-      // 当Flutter应用加载完成后隐藏启动屏
-      const hideLoadingScreen = () => {
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) {
-          loadingScreen.classList.add('fade-out');
-          setTimeout(() => {
-            loadingScreen.style.display = 'none';
-          }, 500);
-        }
-      };
-      
-      // 监听Flutter应用就绪事件
-      window._flutter = window._flutter || {};
-      window._flutter.loader = window._flutter.loader || {};
-      
-      // 设置最小显示时间（确保用户能看到启动屏）
-      let minDisplayTime = new Promise(resolve => setTimeout(resolve, 1500));
-      let flutterReady = false;
-      
-      // 当Flutter准备就绪时 - Safari优化版本
-      const checkFlutterReady = () => {
-        // Safari模式下使用不同的检测逻辑
-        if (window.safariMode) {
-          // Safari：检查flutter-view或Flutter DOM元素
-          if (document.querySelector('flutter-view') || 
-              document.querySelector('flt-scene-host') ||
-              document.querySelector('[flt-renderer]') ||
-              document.body.children.length > 2) { // 包含启动屏+Flutter内容
-            console.log('🍎 Safari: Flutter应用已就绪');
-            flutterReady = true;
-            minDisplayTime.then(hideLoadingScreen);
-          } else {
-            setTimeout(checkFlutterReady, 100);
-          }
-        } else {
-          // 其他浏览器：使用原有逻辑
-          if (window.flutterCanvasKit || document.querySelector('flutter-view')) {
-            flutterReady = true;
-            minDisplayTime.then(hideLoadingScreen);
-          } else {
-            setTimeout(checkFlutterReady, 100);
-          }
-        }
-      };
-      
-      // 开始检查Flutter状态
-      if (window.safariMode) {
-        console.log('🍎 Safari：开始检查Flutter状态');
-        setTimeout(checkFlutterReady, 1000); // Safari稍微延迟
-      } else {
-        setTimeout(checkFlutterReady, 500);
-      }
-      
-      // 兜底机制：Safari使用更长超时时间
-      const timeoutDuration = window.safariMode ? 10000 : 5000;
+    };
+
+    // 隐藏加载页面的函数
+    function hideLoadingScreen() {
+      const loading = document.getElementById('loading');
+      loading.classList.add('fade-out');
       setTimeout(() => {
-        if (!flutterReady) {
-          console.log(`⏰ 启动屏显示超时（${timeoutDuration/1000}秒），强制隐藏`);
-          if (window.safariMode) {
-            console.log('🍎 Safari：可能需要手动刷新页面');
-          }
-          hideLoadingScreen();
-        }
-      }, timeoutDuration);
-    });
+        loading.style.display = 'none';
+      }, 300);
+    }
   </script>
   
+  <script>
+    // 字体服务器配置
+    const FONT_SERVER_CONFIG = {
+      // 本地字体服务器地址
+      LOCAL_FONT_SERVER: 'https://popoopoo.com:7000',
+      // 需要拦截的谷歌字体域名
+      GOOGLE_FONTS_DOMAINS: [
+        'fonts.googleapis.com',
+        'fonts.gstatic.com',
+        'ajax.googleapis.com'
+      ]
+    };
+
+    // 替换谷歌字体服务器的拦截器
+    (function() {
+      const originalFetch = window.fetch;
+      const originalCreateElement = document.createElement;
+
+      // 拦截fetch请求
+      window.fetch = function(input, init) {
+        let url = typeof input === 'string' ? input : input.url;
+        
+        // 替换谷歌字体请求
+        FONT_SERVER_CONFIG.GOOGLE_FONTS_DOMAINS.forEach(domain => {
+          if (url.includes(domain)) {
+            const newUrl = url.replace(domain, FONT_SERVER_CONFIG.LOCAL_FONT_SERVER.replace('http://', ''));
+            console.log('🔄 替换字体请求:', url, '->', newUrl);
+            url = newUrl;
+          }
+        });
+
+        if (typeof input === 'string') {
+          return originalFetch.call(this, url, init);
+        } else {
+          return originalFetch.call(this, Object.assign(input, { url }), init);
+        }
+      };
+
+      // 拦截动态创建link标签
+      document.createElement = function(tagName) {
+        const element = originalCreateElement.call(this, tagName);
+        
+        if (tagName.toLowerCase() === 'link') {
+          const originalSetAttribute = element.setAttribute;
+          element.setAttribute = function(name, value) {
+            if (name.toLowerCase() === 'href' && typeof value === 'string') {
+              FONT_SERVER_CONFIG.GOOGLE_FONTS_DOMAINS.forEach(domain => {
+                if (value.includes(domain)) {
+                  const newValue = value.replace(domain, FONT_SERVER_CONFIG.LOCAL_FONT_SERVER.replace('http://', ''));
+                  console.log('🔄 替换字体CSS:', value, '->', newValue);
+                  value = newValue;
+                }
+              });
+            }
+            return originalSetAttribute.call(this, name, value);
+          };
+        }
+        
+        return element;
+      };
+
+      console.log('✅ 谷歌字体服务器替换已启用');
+    })();
+
+    // 动态设置字体服务器地址
+    window.setFontServer = function(serverUrl) {
+      FONT_SERVER_CONFIG.LOCAL_FONT_SERVER = serverUrl;
+      console.log('📝 字体服务器地址已更新为:', serverUrl);
+    };
+  </script>
+  
+  <script src="flutter.js" defer></script>
   
   <script>
-    // 创建自定义bootstrap脚本内容
-    {{flutter_js}}
-    {{flutter_build_config}}
-    
-    // 自定义初始化 - 使用动态配置的字体服务
-    _flutter.loader.load({
-      onEntrypointLoaded: async function(engineInitializer) {
-        // 确保配置已加载
-        if (!window.FlutterConfig.config) {
-          console.log('⏳ 等待配置加载...');
-          await window.FlutterConfig.loadConfig();
-        }
-        
-        // 获取字体服务地址
-        const fontServiceUrl = window.FlutterConfig.getFontServiceUrl();
-        const config = window.FlutterConfig.getConfig();
-        
-        console.log('🔤 使用字体服务:', fontServiceUrl);
-        console.log('⚙️ 应用配置:', {
-          environment: config.environment,
-          fontService: config.fontService,
-          debug: config.debug?.enabled
-        });
-        
-        // 🍎 Safari专用配置
-        const engineConfig = {
-          fontFallbackBaseUrl: fontServiceUrl,
-          useColorEmoji: true
-        };
-        
-        // Safari模式下不设置canvasKitBaseUrl
-        if (!window.safariMode) {
-          engineConfig.canvasKitBaseUrl = "./canvaskit/";
-        }
-        
-        console.log('🚀 初始化Flutter引擎，配置:', engineConfig);
-        console.log('🍎 Safari模式:', window.safariMode || false);
-        console.log('🎨 渲染器:', window.flutterWebRenderer);
-        
-        try {
-          const appRunner = await engineInitializer.initializeEngine(engineConfig);
-          console.log('✅ Flutter引擎初始化成功');
-          
+    window.addEventListener('load', function() {
+      _flutter.loader.load({
+        onEntrypointLoaded: async function(engineInitializer) {
+          const appRunner = await engineInitializer.initializeEngine();
           await appRunner.runApp();
-          console.log('✅ Flutter应用启动成功');
-          
-          // Safari专用：额外的启动屏隐藏检查
-          if (window.safariMode) {
-            setTimeout(() => {
-              const loadingScreen = document.getElementById('loading-screen');
-              if (loadingScreen && loadingScreen.style.display !== 'none') {
-                console.log('🍎 Safari：强制隐藏启动屏');
-                loadingScreen.classList.add('fade-out');
-                setTimeout(() => {
-                  loadingScreen.style.display = 'none';
-                }, 500);
-              }
-            }, 2000);
-          }
-          
-        } catch (error) {
-          console.error('❌ Flutter引擎初始化失败:', error);
-          
-          // Safari失败时的备用方案
-          if (window.safariMode) {
-            console.log('🍎 Safari：尝试备用初始化方案...');
-            
-            // 强制隐藏启动屏并显示错误信息
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-              loadingScreen.innerHTML = `
-                <div style="text-align: center; color: white; padding: 20px;">
-                  <h2>🍎 Safari 兼容性问题</h2>
-                  <p>正在尝试修复...</p>
-                  <p>错误: ${error.message}</p>
-                  <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px; background: #007AFF; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    重新加载
-                  </button>
-                </div>
-              `;
-            }
-          }
-          
-          throw error;
+          // 确保Flutter完全加载后隐藏加载页面
+          hideLoadingScreen();
         }
-      }
+      });
     });
   </script>
 </body>

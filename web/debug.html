@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Flutter Web 调试页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    .debug-panel {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 4px;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .warning { background: #fff3cd; color: #856404; }
+    .info { background: #d1ecf1; color: #0c5460; }
+    pre {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .iframe-container {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Flutter Web 白屏问题调试</h1>
+  
+  <div class="debug-panel">
+    <h2>📊 系统检测</h2>
+    <div id="system-info"></div>
+  </div>
+  
+  <div class="debug-panel">
+    <h2>🌐 网络检测</h2>
+    <div id="network-info"></div>
+    <button onclick="testNetworkResources()">测试网络资源</button>
+  </div>
+  
+  <div class="debug-panel">
+    <h2>🔧 Flutter 环境检测</h2>
+    <div id="flutter-info"></div>
+    <button onclick="testFlutterEnvironment()">检测 Flutter 环境</button>
+  </div>
+  
+  <div class="debug-panel">
+    <h2>📝 控制台日志</h2>
+    <div id="console-logs"></div>
+    <button onclick="clearLogs()">清空日志</button>
+  </div>
+  
+  <div class="debug-panel">
+    <h2>🎯 Flutter 应用测试</h2>
+    <button onclick="loadFlutterApp()">加载 Flutter 应用</button>
+    <button onclick="reloadFlutterApp()">重新加载应用</button>
+    <div class="iframe-container">
+      <iframe id="flutter-iframe" src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <script>
+    // 日志收集
+    const logs = [];
+    const originalConsole = {
+      log: console.log,
+      error: console.error,
+      warn: console.warn,
+      info: console.info
+    };
+    
+    function addLog(type, message) {
+      const timestamp = new Date().toLocaleTimeString();
+      logs.push({ type, message, timestamp });
+      updateConsoleLogs();
+    }
+    
+    // 重写控制台方法
+    console.log = function(...args) {
+      originalConsole.log.apply(console, args);
+      addLog('info', args.join(' '));
+    };
+    
+    console.error = function(...args) {
+      originalConsole.error.apply(console, args);
+      addLog('error', args.join(' '));
+    };
+    
+    console.warn = function(...args) {
+      originalConsole.warn.apply(console, args);
+      addLog('warning', args.join(' '));
+    };
+    
+    console.info = function(...args) {
+      originalConsole.info.apply(console, args);
+      addLog('info', args.join(' '));
+    };
+    
+    function updateConsoleLogs() {
+      const container = document.getElementById('console-logs');
+      container.innerHTML = logs.slice(-20).map(log => 
+        `<div class="status ${log.type}">
+          <strong>[${log.timestamp}]</strong> ${log.message}
+        </div>`
+      ).join('');
+    }
+    
+    function clearLogs() {
+      logs.length = 0;
+      updateConsoleLogs();
+    }
+    
+    // 系统信息检测
+    function detectSystemInfo() {
+      const info = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        cookieEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine,
+        webGL: !!window.WebGLRenderingContext,
+        webAssembly: typeof WebAssembly !== 'undefined',
+        serviceWorker: 'serviceWorker' in navigator,
+        localStorage: typeof Storage !== 'undefined'
+      };
+      
+      const container = document.getElementById('system-info');
+      container.innerHTML = Object.entries(info).map(([key, value]) => 
+        `<div class="status ${value ? 'success' : 'error'}">
+          <strong>${key}:</strong> ${value}
+        </div>`
+      ).join('');
+      
+      console.log('系统信息检测完成:', info);
+    }
+    
+    // 网络资源测试
+    async function testNetworkResources() {
+      const resources = [
+        './flutter.js',
+        './main.dart.js',
+        './assets/FontManifest.json',
+        './app-config.json',
+        './version.json'
+      ];
+      
+      const container = document.getElementById('network-info');
+      container.innerHTML = '<div class="status info">正在测试网络资源...</div>';
+      
+      const results = [];
+      
+      for (const resource of resources) {
+        try {
+          const response = await fetch(resource);
+          const status = response.ok ? 'success' : 'error';
+          const message = `${resource}: ${response.status} ${response.statusText}`;
+          results.push({ status, message });
+          console.log(`资源测试: ${message}`);
+        } catch (error) {
+          results.push({ status: 'error', message: `${resource}: ${error.message}` });
+          console.error(`资源测试失败: ${resource}`, error);
+        }
+      }
+      
+      container.innerHTML = results.map(result => 
+        `<div class="status ${result.status}">${result.message}</div>`
+      ).join('');
+    }
+    
+    // Flutter 环境测试
+    async function testFlutterEnvironment() {
+      const container = document.getElementById('flutter-info');
+      container.innerHTML = '<div class="status info">正在检测 Flutter 环境...</div>';
+      
+      const checks = [];
+      
+      // 检查 Flutter 脚本
+      try {
+        const response = await fetch('./flutter.js');
+        if (response.ok) {
+          checks.push({ status: 'success', message: 'flutter.js 加载成功' });
+          
+          // 动态加载 Flutter 脚本
+          const script = document.createElement('script');
+          script.src = './flutter.js';
+          script.onload = () => {
+            console.log('Flutter 脚本加载完成');
+            
+            // 检查 Flutter 对象
+            setTimeout(() => {
+              const flutterChecks = [
+                { name: 'window._flutter', value: !!window._flutter },
+                { name: 'window._flutter.loader', value: !!(window._flutter && window._flutter.loader) },
+                { name: 'window._flutter.loader.load', value: !!(window._flutter && window._flutter.loader && window._flutter.loader.load) }
+              ];
+              
+              flutterChecks.forEach(check => {
+                checks.push({ 
+                  status: check.value ? 'success' : 'error', 
+                  message: `${check.name}: ${check.value}` 
+                });
+              });
+              
+              container.innerHTML = checks.map(check => 
+                `<div class="status ${check.status}">${check.message}</div>`
+              ).join('');
+            }, 1000);
+          };
+          
+          script.onerror = () => {
+            checks.push({ status: 'error', message: 'Flutter 脚本加载失败' });
+            container.innerHTML = checks.map(check => 
+              `<div class="status ${check.status}">${check.message}</div>`
+            ).join('');
+          };
+          
+          document.head.appendChild(script);
+        } else {
+          checks.push({ status: 'error', message: `flutter.js 请求失败: ${response.status}` });
+        }
+      } catch (error) {
+        checks.push({ status: 'error', message: `Flutter 脚本检测失败: ${error.message}` });
+      }
+      
+      if (checks.length > 0) {
+        container.innerHTML = checks.map(check => 
+          `<div class="status ${check.status}">${check.message}</div>`
+        ).join('');
+      }
+    }
+    
+    // 加载 Flutter 应用
+    function loadFlutterApp() {
+      const iframe = document.getElementById('flutter-iframe');
+      iframe.src = './index.html';
+      console.log('开始加载 Flutter 应用');
+      
+      iframe.onload = () => {
+        console.log('Flutter 应用 iframe 加载完成');
+        
+        // 监听 iframe 内的错误
+        try {
+          iframe.contentWindow.addEventListener('error', (event) => {
+            console.error('Flutter 应用错误:', event.error);
+          });
+          
+          iframe.contentWindow.addEventListener('unhandledrejection', (event) => {
+            console.error('Flutter 应用 Promise 拒绝:', event.reason);
+          });
+        } catch (e) {
+          console.warn('无法监听 iframe 内部事件（跨域限制）');
+        }
+      };
+      
+      iframe.onerror = () => {
+        console.error('Flutter 应用 iframe 加载失败');
+      };
+    }
+    
+    // 重新加载 Flutter 应用
+    function reloadFlutterApp() {
+      const iframe = document.getElementById('flutter-iframe');
+      iframe.src = iframe.src;
+      console.log('重新加载 Flutter 应用');
+    }
+    
+    // 页面加载完成后自动检测
+    window.addEventListener('load', () => {
+      console.log('调试页面加载完成，开始自动检测');
+      detectSystemInfo();
+      testNetworkResources();
+    });
+    
+    // 错误监听
+    window.addEventListener('error', (event) => {
+      console.error('页面错误:', event.error);
+    });
+    
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('未处理的 Promise 拒绝:', event.reason);
+    });
+  </script>
+</body>
+</html>
