@@ -23,7 +23,9 @@ services:
       - APP_NAME=Flutter Web App
       - APP_VERSION=1.0.0
       - FONT_SERVICE_URL=https://popoopoo.com:7000  # 开发环境字体服务地址
-    # volumes:
+    volumes:
+      # 字体缓存持久化
+      - font-cache-dev:/app/cache
       # 可选：如果有SSL证书才挂载
       # - ./ssl-certs:/app/ssl-certs:ro
     networks:

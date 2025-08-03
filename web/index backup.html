@@ -82,6 +82,89 @@
       }
     </script>
 
+    {#
+    <script>
+      // 字体服务器配置
+      const FONT_SERVER_CONFIG = {
+        // 本地字体服务器地址 - 使用相对路径
+        LOCAL_FONT_SERVER: window.location.origin,
+        // 需要拦截的谷歌字体域名
+        GOOGLE_FONTS_DOMAINS: [
+          "fonts.googleapis.com",
+          "fonts.gstatic.com",
+          "ajax.googleapis.com",
+        ],
+      };
+
+      // 替换谷歌字体服务器的拦截器
+      (function () {
+        const originalFetch = window.fetch;
+        const originalCreateElement = document.createElement;
+
+        // 拦截fetch请求
+        window.fetch = function (input, init) {
+          let url = typeof input === "string" ? input : input.url;
+
+          // 替换谷歌字体请求
+          FONT_SERVER_CONFIG.GOOGLE_FONTS_DOMAINS.forEach((domain) => {
+            if (url.includes(domain)) {
+              const newUrl = url.replace(
+                new RegExp(`https?://${domain}`, "g"),
+                FONT_SERVER_CONFIG.LOCAL_FONT_SERVER + "1"
+              );
+              console.log("🔄 替换字体请求:", url, "->", newUrl);
+              url = newUrl;
+            }
+          });
+
+          if (typeof input === "string") {
+            return originalFetch.call(this, url, init);
+          } else {
+            return originalFetch.call(
+              this,
+              Object.assign(input, { url }),
+              init
+            );
+          }
+        };
+
+        // 拦截动态创建link标签
+        document.createElement = function (tagName) {
+          const element = originalCreateElement.call(this, tagName);
+
+          if (tagName.toLowerCase() === "link") {
+            const originalSetAttribute = element.setAttribute;
+            element.setAttribute = function (name, value) {
+              if (name.toLowerCase() === "href" && typeof value === "string") {
+                FONT_SERVER_CONFIG.GOOGLE_FONTS_DOMAINS.forEach((domain) => {
+                  if (value.includes(domain)) {
+                    const newValue = value.replace(
+                      new RegExp(`https?://${domain}`, "g"),
+                      FONT_SERVER_CONFIG.LOCAL_FONT_SERVER + "2"
+                    );
+                    console.log("🔄 替换字体CSS:", value, "->", newValue);
+                    value = newValue;
+                  }
+                });
+              }
+              return originalSetAttribute.call(this, name, value);
+            };
+          }
+
+          return element;
+        };
+
+        console.log("✅ 谷歌字体服务器替换已启用");
+      })();
+
+      // 动态设置字体服务器地址
+      window.setFontServer = function (serverUrl) {
+        FONT_SERVER_CONFIG.LOCAL_FONT_SERVER = serverUrl;
+        console.log("📝 字体服务器地址已更新为:", serverUrl);
+      };
+    </script>
+    #}
+
     <script>
       // 等待flutter_bootstrap.js加载完成后执行
       function initFlutter() {
@@ -97,7 +180,7 @@
               engineInitializer
                 .initializeEngine({
                   // 配置本地字体服务器地址
-                  fontFallbackBaseUrl: window.location.origin + "/fonts/",
+                  fontFallbackBaseUrl: window.location.origin + "/xxx/",
                 })
                 .then(function (appRunner) {
                   console.log("✅ Flutter应用准备运行");

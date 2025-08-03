@@ -15,6 +15,9 @@ COPY login_domains.json ./
 COPY docker-entrypoint.sh ./
 # current_server.json 是可选文件，不复制（程序会自动创建）
 
+# 安装node-fetch依赖用于Google Fonts代理
+RUN npm install node-fetch@2 --save-prod
+
 # 修改Node.js服务器配置和设置权限
 RUN sed -i 's|build/web|web|g' server.js && \
     chmod +x docker-entrypoint.sh && \

@@ -232,6 +232,14 @@ if [ "$DO_CLEAN" = true ] || [ "$DO_BUILD" = true ]; then
         echo "✅ 清理完成"
         echo ""
     fi
+
+    # 确保删除旧的build/web目录，避免旧文件干扰
+    if [ -d "build/web" ]; then
+        echo "🗑️  删除旧的build/web目录..."
+        rm -rf build/web
+        echo "✅ build/web目录已删除"
+        echo ""
+    fi
     
     if [ "$DO_BUILD" = true ]; then
         echo "📦 获取依赖..."
@@ -310,9 +318,7 @@ except Exception as e:
         
         if [ "$BUILD_MODE" = "debug" ]; then
             echo "🐛 构建Debug版本..."
-            if flutter build web --debug \
-                --no-web-resources-cdn \
-                --dart-define=FLUTTER_WEB_CANVASKIT_URL=./canvaskit/; then
+            if flutter build web --debug; then
                 echo "✅ Debug Web构建成功 (包含调试符号 + 详细日志)"
             else
                 echo "❌ Debug Web构建失败"
@@ -320,9 +326,7 @@ except Exception as e:
             fi
         else
             echo "🚀 构建Release版本..."
-            if flutter build web --release \
-                --no-web-resources-cdn \
-                --dart-define=FLUTTER_WEB_CANVASKIT_URL=./canvaskit/; then
+            if flutter build web --release;  then
                 echo "✅ Release Web构建成功 (CanvasKit本地化 + 完全无CDN依赖)"
             else
                 echo "❌ Release Web构建失败"
