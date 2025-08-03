@@ -34,7 +34,6 @@ class UserProto extends $pb.GeneratedMessage {
     $core.String? pinyin,
     $fixnum.Int64? lastActiveTime,
     $core.String? status,
-    $core.int? roleId,
     $core.bool? isTyping,
     $core.String? typingInConversation,
     $core.String? customNickname,
@@ -48,7 +47,6 @@ class UserProto extends $pb.GeneratedMessage {
     if (pinyin != null) result.pinyin = pinyin;
     if (lastActiveTime != null) result.lastActiveTime = lastActiveTime;
     if (status != null) result.status = status;
-    if (roleId != null) result.roleId = roleId;
     if (isTyping != null) result.isTyping = isTyping;
     if (typingInConversation != null)
       result.typingInConversation = typingInConversation;
@@ -77,7 +75,6 @@ class UserProto extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'pinyin')
     ..aInt64(7, _omitFieldNames ? '' : 'lastActiveTime')
     ..aOS(8, _omitFieldNames ? '' : 'status')
-    ..a<$core.int>(9, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..aOB(12, _omitFieldNames ? '' : 'isTyping')
     ..aOS(13, _omitFieldNames ? '' : 'typingInConversation')
     ..aOS(14, _omitFieldNames ? '' : 'customNickname')
@@ -183,44 +180,34 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(8)
   void clearStatus() => $_clearField(8);
 
-  /// 用户角色ID
-  @$pb.TagNumber(9)
-  $core.int get roleId => $_getIZ(8);
-  @$pb.TagNumber(9)
-  set roleId($core.int value) => $_setSignedInt32(8, value);
-  @$pb.TagNumber(9)
-  $core.bool hasRoleId() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearRoleId() => $_clearField(9);
-
   /// 扩展字段，用于通信但数据库中没有
   /// 是否正在输入
   @$pb.TagNumber(12)
-  $core.bool get isTyping => $_getBF(9);
+  $core.bool get isTyping => $_getBF(8);
   @$pb.TagNumber(12)
-  set isTyping($core.bool value) => $_setBool(9, value);
+  set isTyping($core.bool value) => $_setBool(8, value);
   @$pb.TagNumber(12)
-  $core.bool hasIsTyping() => $_has(9);
+  $core.bool hasIsTyping() => $_has(8);
   @$pb.TagNumber(12)
   void clearIsTyping() => $_clearField(12);
 
   /// 在哪个会话中输入
   @$pb.TagNumber(13)
-  $core.String get typingInConversation => $_getSZ(10);
+  $core.String get typingInConversation => $_getSZ(9);
   @$pb.TagNumber(13)
-  set typingInConversation($core.String value) => $_setString(10, value);
+  set typingInConversation($core.String value) => $_setString(9, value);
   @$pb.TagNumber(13)
-  $core.bool hasTypingInConversation() => $_has(10);
+  $core.bool hasTypingInConversation() => $_has(9);
   @$pb.TagNumber(13)
   void clearTypingInConversation() => $_clearField(13);
 
   /// 自定义联系人昵称（当前用户为此联系人设置的昵称，对应数据库Contact.nickname字段）
   @$pb.TagNumber(14)
-  $core.String get customNickname => $_getSZ(11);
+  $core.String get customNickname => $_getSZ(10);
   @$pb.TagNumber(14)
-  set customNickname($core.String value) => $_setString(11, value);
+  set customNickname($core.String value) => $_setString(10, value);
   @$pb.TagNumber(14)
-  $core.bool hasCustomNickname() => $_has(11);
+  $core.bool hasCustomNickname() => $_has(10);
   @$pb.TagNumber(14)
   void clearCustomNickname() => $_clearField(14);
 }
@@ -236,7 +223,6 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     $fixnum.Int64? lastLoginTime,
     $core.String? status,
     $core.bool? hasSetPassword,
-    $core.int? roleId,
   }) {
     final result = create();
     if (userId != null) result.userId = userId;
@@ -247,7 +233,6 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     if (lastLoginTime != null) result.lastLoginTime = lastLoginTime;
     if (status != null) result.status = status;
     if (hasSetPassword != null) result.hasSetPassword = hasSetPassword;
-    if (roleId != null) result.roleId = roleId;
     return result;
   }
 
@@ -272,7 +257,6 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     ..aInt64(6, _omitFieldNames ? '' : 'lastLoginTime')
     ..aOS(7, _omitFieldNames ? '' : 'status')
     ..aOB(8, _omitFieldNames ? '' : 'hasSetPassword')
-    ..a<$core.int>(9, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -375,16 +359,6 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   $core.bool hasHasSetPassword() => $_has(7);
   @$pb.TagNumber(8)
   void clearHasSetPassword() => $_clearField(8);
-
-  /// 用户角色ID
-  @$pb.TagNumber(9)
-  $core.int get roleId => $_getIZ(8);
-  @$pb.TagNumber(9)
-  set roleId($core.int value) => $_setSignedInt32(8, value);
-  @$pb.TagNumber(9)
-  $core.bool hasRoleId() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearRoleId() => $_clearField(9);
 }
 
 /// 设置当前用户信息请求

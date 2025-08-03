@@ -344,7 +344,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       senderId: _currentUser.userId,
       senderName: _currentUser.name,
       senderAvatar: _currentUser.avatar,
-      senderRoleId: _currentUser.roleId, // 使用当前用户的roleId
+      // senderRoleId: _currentUser.roleId, // 字段已移除
       createdAt: now,
       updatedAt: null,
       messageIndex: 0, // 初始为0，等待服务器返回真实索引

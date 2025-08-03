@@ -2018,14 +2018,6 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
   late final GeneratedColumn<String> senderAvatar = GeneratedColumn<String>(
       'sender_avatar', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _senderRoleIdMeta =
-      const VerificationMeta('senderRoleId');
-  @override
-  late final GeneratedColumn<int> senderRoleId = GeneratedColumn<int>(
-      'sender_role_id', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -2131,7 +2123,6 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
         senderId,
         senderName,
         senderAvatar,
-        senderRoleId,
         createdAt,
         updatedAt,
         messageIndex,
@@ -2189,12 +2180,6 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           _senderAvatarMeta,
           senderAvatar.isAcceptableOrUnknown(
               data['sender_avatar']!, _senderAvatarMeta));
-    }
-    if (data.containsKey('sender_role_id')) {
-      context.handle(
-          _senderRoleIdMeta,
-          senderRoleId.isAcceptableOrUnknown(
-              data['sender_role_id']!, _senderRoleIdMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
@@ -2298,8 +2283,6 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
           .read(DriftSqlType.string, data['${effectivePrefix}sender_name']),
       senderAvatar: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}sender_avatar']),
-      senderRoleId: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}sender_role_id'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -2347,7 +2330,6 @@ class Message extends DataClass implements Insertable<Message> {
   final String senderId;
   final String? senderName;
   final String? senderAvatar;
-  final int senderRoleId;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final int messageIndex;
@@ -2369,7 +2351,6 @@ class Message extends DataClass implements Insertable<Message> {
       required this.senderId,
       this.senderName,
       this.senderAvatar,
-      required this.senderRoleId,
       required this.createdAt,
       this.updatedAt,
       required this.messageIndex,
@@ -2397,7 +2378,6 @@ class Message extends DataClass implements Insertable<Message> {
     if (!nullToAbsent || senderAvatar != null) {
       map['sender_avatar'] = Variable<String>(senderAvatar);
     }
-    map['sender_role_id'] = Variable<int>(senderRoleId);
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2447,7 +2427,6 @@ class Message extends DataClass implements Insertable<Message> {
       senderAvatar: senderAvatar == null && nullToAbsent
           ? const Value.absent()
           : Value(senderAvatar),
-      senderRoleId: Value(senderRoleId),
       createdAt: Value(createdAt),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
@@ -2492,7 +2471,6 @@ class Message extends DataClass implements Insertable<Message> {
       senderId: serializer.fromJson<String>(json['senderId']),
       senderName: serializer.fromJson<String?>(json['senderName']),
       senderAvatar: serializer.fromJson<String?>(json['senderAvatar']),
-      senderRoleId: serializer.fromJson<int>(json['senderRoleId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       messageIndex: serializer.fromJson<int>(json['messageIndex']),
@@ -2522,7 +2500,6 @@ class Message extends DataClass implements Insertable<Message> {
       'senderId': serializer.toJson<String>(senderId),
       'senderName': serializer.toJson<String?>(senderName),
       'senderAvatar': serializer.toJson<String?>(senderAvatar),
-      'senderRoleId': serializer.toJson<int>(senderRoleId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'messageIndex': serializer.toJson<int>(messageIndex),
@@ -2549,7 +2526,6 @@ class Message extends DataClass implements Insertable<Message> {
           String? senderId,
           Value<String?> senderName = const Value.absent(),
           Value<String?> senderAvatar = const Value.absent(),
-          int? senderRoleId,
           DateTime? createdAt,
           Value<DateTime?> updatedAt = const Value.absent(),
           int? messageIndex,
@@ -2572,7 +2548,6 @@ class Message extends DataClass implements Insertable<Message> {
         senderName: senderName.present ? senderName.value : this.senderName,
         senderAvatar:
             senderAvatar.present ? senderAvatar.value : this.senderAvatar,
-        senderRoleId: senderRoleId ?? this.senderRoleId,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
         messageIndex: messageIndex ?? this.messageIndex,
@@ -2609,9 +2584,6 @@ class Message extends DataClass implements Insertable<Message> {
       senderAvatar: data.senderAvatar.present
           ? data.senderAvatar.value
           : this.senderAvatar,
-      senderRoleId: data.senderRoleId.present
-          ? data.senderRoleId.value
-          : this.senderRoleId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       messageIndex: data.messageIndex.present
@@ -2651,7 +2623,6 @@ class Message extends DataClass implements Insertable<Message> {
           ..write('senderId: $senderId, ')
           ..write('senderName: $senderName, ')
           ..write('senderAvatar: $senderAvatar, ')
-          ..write('senderRoleId: $senderRoleId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('messageIndex: $messageIndex, ')
@@ -2672,29 +2643,27 @@ class Message extends DataClass implements Insertable<Message> {
   }
 
   @override
-  int get hashCode => Object.hashAll([
-        messageId,
-        conversationId,
-        senderId,
-        senderName,
-        senderAvatar,
-        senderRoleId,
-        createdAt,
-        updatedAt,
-        messageIndex,
-        messageType,
-        messageStatus,
-        quotedMessageId,
-        repliedToMessageId,
-        forwardedFromConversationId,
-        forwardedFromMessageId,
-        isEdited,
-        editedAt,
-        isPinned,
-        reactions,
-        tags,
-        content
-      ]);
+  int get hashCode => Object.hash(
+      messageId,
+      conversationId,
+      senderId,
+      senderName,
+      senderAvatar,
+      createdAt,
+      updatedAt,
+      messageIndex,
+      messageType,
+      messageStatus,
+      quotedMessageId,
+      repliedToMessageId,
+      forwardedFromConversationId,
+      forwardedFromMessageId,
+      isEdited,
+      editedAt,
+      isPinned,
+      reactions,
+      tags,
+      content);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2704,7 +2673,6 @@ class Message extends DataClass implements Insertable<Message> {
           other.senderId == this.senderId &&
           other.senderName == this.senderName &&
           other.senderAvatar == this.senderAvatar &&
-          other.senderRoleId == this.senderRoleId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.messageIndex == this.messageIndex &&
@@ -2729,7 +2697,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
   final Value<String> senderId;
   final Value<String?> senderName;
   final Value<String?> senderAvatar;
-  final Value<int> senderRoleId;
   final Value<DateTime> createdAt;
   final Value<DateTime?> updatedAt;
   final Value<int> messageIndex;
@@ -2752,7 +2719,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.senderId = const Value.absent(),
     this.senderName = const Value.absent(),
     this.senderAvatar = const Value.absent(),
-    this.senderRoleId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.messageIndex = const Value.absent(),
@@ -2776,7 +2742,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     required String senderId,
     this.senderName = const Value.absent(),
     this.senderAvatar = const Value.absent(),
-    this.senderRoleId = const Value.absent(),
     required DateTime createdAt,
     this.updatedAt = const Value.absent(),
     required int messageIndex,
@@ -2806,7 +2771,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     Expression<String>? senderId,
     Expression<String>? senderName,
     Expression<String>? senderAvatar,
-    Expression<int>? senderRoleId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? messageIndex,
@@ -2830,7 +2794,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       if (senderId != null) 'sender_id': senderId,
       if (senderName != null) 'sender_name': senderName,
       if (senderAvatar != null) 'sender_avatar': senderAvatar,
-      if (senderRoleId != null) 'sender_role_id': senderRoleId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (messageIndex != null) 'message_index': messageIndex,
@@ -2859,7 +2822,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       Value<String>? senderId,
       Value<String?>? senderName,
       Value<String?>? senderAvatar,
-      Value<int>? senderRoleId,
       Value<DateTime>? createdAt,
       Value<DateTime?>? updatedAt,
       Value<int>? messageIndex,
@@ -2882,7 +2844,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       senderId: senderId ?? this.senderId,
       senderName: senderName ?? this.senderName,
       senderAvatar: senderAvatar ?? this.senderAvatar,
-      senderRoleId: senderRoleId ?? this.senderRoleId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       messageIndex: messageIndex ?? this.messageIndex,
@@ -2921,9 +2882,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     }
     if (senderAvatar.present) {
       map['sender_avatar'] = Variable<String>(senderAvatar.value);
-    }
-    if (senderRoleId.present) {
-      map['sender_role_id'] = Variable<int>(senderRoleId.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -2986,7 +2944,6 @@ class MessagesCompanion extends UpdateCompanion<Message> {
           ..write('senderId: $senderId, ')
           ..write('senderName: $senderName, ')
           ..write('senderAvatar: $senderAvatar, ')
-          ..write('senderRoleId: $senderRoleId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('messageIndex: $messageIndex, ')
@@ -4718,7 +4675,6 @@ typedef $$MessagesTableCreateCompanionBuilder = MessagesCompanion Function({
   required String senderId,
   Value<String?> senderName,
   Value<String?> senderAvatar,
-  Value<int> senderRoleId,
   required DateTime createdAt,
   Value<DateTime?> updatedAt,
   required int messageIndex,
@@ -4742,7 +4698,6 @@ typedef $$MessagesTableUpdateCompanionBuilder = MessagesCompanion Function({
   Value<String> senderId,
   Value<String?> senderName,
   Value<String?> senderAvatar,
-  Value<int> senderRoleId,
   Value<DateTime> createdAt,
   Value<DateTime?> updatedAt,
   Value<int> messageIndex,
@@ -4785,9 +4740,6 @@ class $$MessagesTableFilterComposer
 
   ColumnFilters<String> get senderAvatar => $composableBuilder(
       column: $table.senderAvatar, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get senderRoleId => $composableBuilder(
-      column: $table.senderRoleId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -4863,10 +4815,6 @@ class $$MessagesTableOrderingComposer
 
   ColumnOrderings<String> get senderAvatar => $composableBuilder(
       column: $table.senderAvatar,
-      builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get senderRoleId => $composableBuilder(
-      column: $table.senderRoleId,
       builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
@@ -4945,9 +4893,6 @@ class $$MessagesTableAnnotationComposer
   GeneratedColumn<String> get senderAvatar => $composableBuilder(
       column: $table.senderAvatar, builder: (column) => column);
 
-  GeneratedColumn<int> get senderRoleId => $composableBuilder(
-      column: $table.senderRoleId, builder: (column) => column);
-
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -5022,7 +4967,6 @@ class $$MessagesTableTableManager extends RootTableManager<
             Value<String> senderId = const Value.absent(),
             Value<String?> senderName = const Value.absent(),
             Value<String?> senderAvatar = const Value.absent(),
-            Value<int> senderRoleId = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime?> updatedAt = const Value.absent(),
             Value<int> messageIndex = const Value.absent(),
@@ -5046,7 +4990,6 @@ class $$MessagesTableTableManager extends RootTableManager<
             senderId: senderId,
             senderName: senderName,
             senderAvatar: senderAvatar,
-            senderRoleId: senderRoleId,
             createdAt: createdAt,
             updatedAt: updatedAt,
             messageIndex: messageIndex,
@@ -5070,7 +5013,6 @@ class $$MessagesTableTableManager extends RootTableManager<
             required String senderId,
             Value<String?> senderName = const Value.absent(),
             Value<String?> senderAvatar = const Value.absent(),
-            Value<int> senderRoleId = const Value.absent(),
             required DateTime createdAt,
             Value<DateTime?> updatedAt = const Value.absent(),
             required int messageIndex,
@@ -5094,7 +5036,6 @@ class $$MessagesTableTableManager extends RootTableManager<
             senderId: senderId,
             senderName: senderName,
             senderAvatar: senderAvatar,
-            senderRoleId: senderRoleId,
             createdAt: createdAt,
             updatedAt: updatedAt,
             messageIndex: messageIndex,

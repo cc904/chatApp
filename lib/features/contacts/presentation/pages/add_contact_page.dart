@@ -192,7 +192,7 @@ class _AddContactPageState extends State<AddContactPage> {
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
                   name: user.nickName,
                   radius: 25,
-                  roleId: user.roleId,
+                  roleId: 0 // Proto中没有roleId字段,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -834,7 +834,7 @@ class _AddContactPageState extends State<AddContactPage> {
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
                   name: user.nickName,
                   radius: 20,
-                  roleId: user.roleId,
+                  roleId: 0 // Proto中没有roleId字段,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -896,7 +896,7 @@ class _AddContactPageState extends State<AddContactPage> {
       // 在私聊中找到对方用户的roleId
       for (final participant in conversation.participants) {
         if (participant.userId != currentUser.userId) {
-          return participant.hasRoleId() ? participant.roleId : null;
+          return participant.hasRole() ? participant.role.value : null;
         }
       }
     } catch (e) {

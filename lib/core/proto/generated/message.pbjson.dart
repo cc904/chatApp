@@ -103,13 +103,12 @@ const MessageProto$json = {
     {'1': 'sender_id', '3': 3, '4': 1, '5': 9, '10': 'senderId'},
     {'1': 'sender_name', '3': 4, '4': 1, '5': 9, '10': 'senderName'},
     {'1': 'sender_avatar', '3': 5, '4': 1, '5': 9, '10': 'senderAvatar'},
-    {'1': 'sender_role_id', '3': 6, '4': 1, '5': 5, '10': 'senderRoleId'},
-    {'1': 'created_at', '3': 7, '4': 1, '5': 3, '10': 'createdAt'},
-    {'1': 'updated_at', '3': 8, '4': 1, '5': 3, '10': 'updatedAt'},
-    {'1': 'index', '3': 9, '4': 1, '5': 5, '10': 'index'},
+    {'1': 'created_at', '3': 6, '4': 1, '5': 3, '10': 'createdAt'},
+    {'1': 'updated_at', '3': 7, '4': 1, '5': 3, '10': 'updatedAt'},
+    {'1': 'index', '3': 8, '4': 1, '5': 5, '10': 'index'},
     {
       '1': 'type',
-      '3': 10,
+      '3': 9,
       '4': 1,
       '5': 14,
       '6': '.cc.MessageType',
@@ -117,7 +116,7 @@ const MessageProto$json = {
     },
     {
       '1': 'status',
-      '3': 11,
+      '3': 10,
       '4': 1,
       '5': 14,
       '6': '.cc.MessageStatus',
@@ -257,27 +256,27 @@ final $typed_data.Uint8List messageProtoDescriptor = $convert.base64Decode(
     'CgxNZXNzYWdlUHJvdG8SHQoKbWVzc2FnZV9pZBgBIAEoCVIJbWVzc2FnZUlkEicKD2NvbnZlcn'
     'NhdGlvbl9pZBgCIAEoCVIOY29udmVyc2F0aW9uSWQSGwoJc2VuZGVyX2lkGAMgASgJUghzZW5k'
     'ZXJJZBIfCgtzZW5kZXJfbmFtZRgEIAEoCVIKc2VuZGVyTmFtZRIjCg1zZW5kZXJfYXZhdGFyGA'
-    'UgASgJUgxzZW5kZXJBdmF0YXISJAoOc2VuZGVyX3JvbGVfaWQYBiABKAVSDHNlbmRlclJvbGVJ'
-    'ZBIdCgpjcmVhdGVkX2F0GAcgASgDUgljcmVhdGVkQXQSHQoKdXBkYXRlZF9hdBgIIAEoA1IJdX'
-    'BkYXRlZEF0EhQKBWluZGV4GAkgASgFUgVpbmRleBIjCgR0eXBlGAogASgOMg8uY2MuTWVzc2Fn'
-    'ZVR5cGVSBHR5cGUSKQoGc3RhdHVzGAsgASgOMhEuY2MuTWVzc2FnZVN0YXR1c1IGc3RhdHVzEi'
-    'oKEXF1b3RlZF9tZXNzYWdlX2lkGBUgASgJUg9xdW90ZWRNZXNzYWdlSWQSGwoJaXNfZWRpdGVk'
-    'GBggASgIUghpc0VkaXRlZBIbCgllZGl0ZWRfYXQYGSABKANSCGVkaXRlZEF0EjEKFXJlcGxpZW'
-    'RfdG9fbWVzc2FnZV9pZBgfIAEoCVIScmVwbGllZFRvTWVzc2FnZUlkEkMKHmZvcndhcmRlZF9m'
-    'cm9tX2NvbnZlcnNhdGlvbl9pZBggIAEoCVIbZm9yd2FyZGVkRnJvbUNvbnZlcnNhdGlvbklkEj'
-    'kKGWZvcndhcmRlZF9mcm9tX21lc3NhZ2VfaWQYISABKAlSFmZvcndhcmRlZEZyb21NZXNzYWdl'
-    'SWQSPQoJcmVhY3Rpb25zGCIgAygLMh8uY2MuTWVzc2FnZVByb3RvLlJlYWN0aW9uc0VudHJ5Ug'
-    'lyZWFjdGlvbnMSEgoEdGFncxgkIAMoCVIEdGFncxIbCglpc19waW5uZWQYJSABKAhSCGlzUGlu'
-    'bmVkEjQKDHRleHRfbWVzc2FnZRgmIAEoCzIPLmNjLlRleHRNZXNzYWdlSABSC3RleHRNZXNzYW'
-    'dlEjcKDW1lZGlhX21lc3NhZ2UYJyABKAsyEC5jYy5NZWRpYU1lc3NhZ2VIAFIMbWVkaWFNZXNz'
-    'YWdlEjoKDnN5c3RlbV9tZXNzYWdlGCkgASgLMhEuY2MuU3lzdGVtTWVzc2FnZUgAUg1zeXN0ZW'
-    '1NZXNzYWdlEj0KD3N0aWNrZXJfbWVzc2FnZRgqIAEoCzISLmNjLlN0aWNrZXJNZXNzYWdlSABS'
-    'DnN0aWNrZXJNZXNzYWdlEj0KD2NvbnRhY3RfbWVzc2FnZRgrIAEoCzISLmNjLkNvbnRhY3RNZX'
-    'NzYWdlSABSDmNvbnRhY3RNZXNzYWdlEjQKDHBvbGxfbWVzc2FnZRgsIAEoCzIPLmNjLlBvbGxN'
-    'ZXNzYWdlSABSC3BvbGxNZXNzYWdlEjQKDGxpbmtfbWVzc2FnZRgtIAEoCzIPLmNjLkxpbmtNZX'
-    'NzYWdlSABSC2xpbmtNZXNzYWdlEkYKEm1lbWJlcnNoaXBfbWVzc2FnZRguIAEoCzIVLmNjLk1l'
-    'bWJlcnNoaXBNZXNzYWdlSABSEW1lbWJlcnNoaXBNZXNzYWdlGjwKDlJlYWN0aW9uc0VudHJ5Eh'
-    'AKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgFUgV2YWx1ZToCOAFCCQoHY29udGVudA==');
+    'UgASgJUgxzZW5kZXJBdmF0YXISHQoKY3JlYXRlZF9hdBgGIAEoA1IJY3JlYXRlZEF0Eh0KCnVw'
+    'ZGF0ZWRfYXQYByABKANSCXVwZGF0ZWRBdBIUCgVpbmRleBgIIAEoBVIFaW5kZXgSIwoEdHlwZR'
+    'gJIAEoDjIPLmNjLk1lc3NhZ2VUeXBlUgR0eXBlEikKBnN0YXR1cxgKIAEoDjIRLmNjLk1lc3Nh'
+    'Z2VTdGF0dXNSBnN0YXR1cxIqChFxdW90ZWRfbWVzc2FnZV9pZBgVIAEoCVIPcXVvdGVkTWVzc2'
+    'FnZUlkEhsKCWlzX2VkaXRlZBgYIAEoCFIIaXNFZGl0ZWQSGwoJZWRpdGVkX2F0GBkgASgDUghl'
+    'ZGl0ZWRBdBIxChVyZXBsaWVkX3RvX21lc3NhZ2VfaWQYHyABKAlSEnJlcGxpZWRUb01lc3NhZ2'
+    'VJZBJDCh5mb3J3YXJkZWRfZnJvbV9jb252ZXJzYXRpb25faWQYICABKAlSG2ZvcndhcmRlZEZy'
+    'b21Db252ZXJzYXRpb25JZBI5Chlmb3J3YXJkZWRfZnJvbV9tZXNzYWdlX2lkGCEgASgJUhZmb3'
+    'J3YXJkZWRGcm9tTWVzc2FnZUlkEj0KCXJlYWN0aW9ucxgiIAMoCzIfLmNjLk1lc3NhZ2VQcm90'
+    'by5SZWFjdGlvbnNFbnRyeVIJcmVhY3Rpb25zEhIKBHRhZ3MYJCADKAlSBHRhZ3MSGwoJaXNfcG'
+    'lubmVkGCUgASgIUghpc1Bpbm5lZBI0Cgx0ZXh0X21lc3NhZ2UYJiABKAsyDy5jYy5UZXh0TWVz'
+    'c2FnZUgAUgt0ZXh0TWVzc2FnZRI3Cg1tZWRpYV9tZXNzYWdlGCcgASgLMhAuY2MuTWVkaWFNZX'
+    'NzYWdlSABSDG1lZGlhTWVzc2FnZRI6Cg5zeXN0ZW1fbWVzc2FnZRgpIAEoCzIRLmNjLlN5c3Rl'
+    'bU1lc3NhZ2VIAFINc3lzdGVtTWVzc2FnZRI9Cg9zdGlja2VyX21lc3NhZ2UYKiABKAsyEi5jYy'
+    '5TdGlja2VyTWVzc2FnZUgAUg5zdGlja2VyTWVzc2FnZRI9Cg9jb250YWN0X21lc3NhZ2UYKyAB'
+    'KAsyEi5jYy5Db250YWN0TWVzc2FnZUgAUg5jb250YWN0TWVzc2FnZRI0Cgxwb2xsX21lc3NhZ2'
+    'UYLCABKAsyDy5jYy5Qb2xsTWVzc2FnZUgAUgtwb2xsTWVzc2FnZRI0CgxsaW5rX21lc3NhZ2UY'
+    'LSABKAsyDy5jYy5MaW5rTWVzc2FnZUgAUgtsaW5rTWVzc2FnZRJGChJtZW1iZXJzaGlwX21lc3'
+    'NhZ2UYLiABKAsyFS5jYy5NZW1iZXJzaGlwTWVzc2FnZUgAUhFtZW1iZXJzaGlwTWVzc2FnZRo8'
+    'Cg5SZWFjdGlvbnNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoBVIFdmFsdW'
+    'U6AjgBQgkKB2NvbnRlbnQ=');
 
 @$core.Deprecated('Use textMessageDescriptor instead')
 const TextMessage$json = {

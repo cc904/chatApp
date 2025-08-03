@@ -138,7 +138,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       // 使用新的MediaUrlBuilder构建URL
       final constructedFileUrl = await _mediaUrlBuilder.buildMainFileUrl(widget.message);
       final constructedThumbnailUrl = await _mediaUrlBuilder.buildThumbnailUrl(widget.message);
-      
+
       _debugLog('🖼️ URL构建完成', extra: {
         'constructedFileUrl': constructedFileUrl,
         'constructedThumbnailUrl': constructedThumbnailUrl,
@@ -157,8 +157,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       }
 
       // 1. 检查原始图片是否已缓存
-      final cachedImagePath = await _mediaCache.getCachedMediaPath(
-          constructedFileUrl, 'images', messageDate: widget.message.createdAt);
+      final cachedImagePath = await _mediaCache.getCachedMediaPath(constructedFileUrl, 'images', messageDate: widget.message.createdAt);
       if (cachedImagePath != null) {
         _debugLog('🖼️ 使用缓存的原始图片');
         await _loadImageFromPath(cachedImagePath);
@@ -166,8 +165,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       }
 
       // 2. 原始图片未缓存，先尝试显示缩略图
-      if (constructedThumbnailUrl != null &&
-          constructedThumbnailUrl.isNotEmpty) {
+      if (constructedThumbnailUrl != null && constructedThumbnailUrl.isNotEmpty) {
         _debugLog('🖼️ 原始图片未缓存，先显示缩略图');
         await _showThumbnailWhileDownloading(constructedThumbnailUrl, constructedFileUrl);
       } else {
@@ -218,8 +216,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
     try {
       _debugLog('开始后台下载原始图片');
-      final originalImagePath =
-          await _mediaCache.getImage(originalUrl, messageDate: widget.message.createdAt);
+      final originalImagePath = await _mediaCache.getImage(originalUrl, messageDate: widget.message.createdAt);
 
       if (originalImagePath != null && mounted) {
         _debugLog('原始图片下载完成，替换缩略图');
@@ -248,8 +245,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       });
 
       _debugLog('直接下载原始图片');
-      final originalImagePath =
-          await _mediaCache.getImage(originalUrl, messageDate: widget.message.createdAt);
+      final originalImagePath = await _mediaCache.getImage(originalUrl, messageDate: widget.message.createdAt);
 
       if (originalImagePath != null) {
         await _loadImageFromPath(originalImagePath);
@@ -319,8 +315,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   void _preloadImage() {
     if (_imageProvider == null) return;
 
-    final ImageStream stream =
-        _imageProvider!.resolve(ImageConfiguration.empty);
+    final ImageStream stream = _imageProvider!.resolve(ImageConfiguration.empty);
     late ImageStreamListener listener;
 
     listener = ImageStreamListener(
@@ -330,10 +325,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
           final actualRatio = info.image.width / info.image.height;
 
           // 如果消息中已有宽高信息，则不更新实际宽高比，避免布局跳动
-          final hasMessageDimensions = _getWidth() != null &&
-              _getHeight() != null &&
-              _getWidth()! > 0 &&
-              _getHeight()! > 0;
+          final hasMessageDimensions = _getWidth() != null && _getHeight() != null && _getWidth()! > 0 && _getHeight()! > 0;
 
           setState(() {
             // 只有在消息中没有宽高信息时才使用实际宽高比
@@ -342,12 +334,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
             }
           });
 
-          _batchDebugLog([
-            '图片预加载完成',
-            '实际比例: $actualRatio',
-            '使用消息尺寸: $hasMessageDimensions',
-            '显示缩略图: $_isShowingThumbnail'
-          ]);
+          _batchDebugLog(['图片预加载完成', '实际比例: $actualRatio', '使用消息尺寸: $hasMessageDimensions', '显示缩略图: $_isShowingThumbnail']);
         }
         stream.removeListener(listener);
       },
@@ -376,10 +363,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
   /// 计算图片宽高比
   double _calculateAspectRatio() {
     // 1. 优先使用消息中保存的宽高信息（避免布局跳动）
-    if (_getWidth() != null &&
-        _getHeight() != null &&
-        _getWidth()! > 0 &&
-        _getHeight()! > 0) {
+    if (_getWidth() != null && _getHeight() != null && _getWidth()! > 0 && _getHeight()! > 0) {
       final ratio = _getWidth()! / _getHeight()!;
       return ratio;
     }
@@ -431,8 +415,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
     final maxHeight = widget.maxHeight ?? screenSize.height * 0.4;
 
     // 检查是否有caption文字
-    final hasCaption = _getCaption() != null &&
-        _getCaption()!.trim().isNotEmpty;
+    final hasCaption = _getCaption() != null && _getCaption()!.trim().isNotEmpty;
 
     if (hasCaption) {
       // 图片 + 文字组合形式
@@ -481,8 +464,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
                               ),
                             ),
@@ -552,8 +534,7 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           ),
                         ),

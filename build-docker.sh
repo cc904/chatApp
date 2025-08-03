@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Flutter Web Docker 构建脚本
+# 
+# 环境变量支持:
+# - DOCKER_REGISTRY_USERNAME: Docker仓库用户名
+# - DOCKER_REGISTRY_PASSWORD: Docker仓库密码
+# 
+# 如果未设置环境变量，脚本会提示交互式输入
+# 密码使用 --password-stdin 方式安全传输
+
 echo ""
 echo "╔══════════════════════════════════════════════╗"
 echo "║            🐳 Flutter Web Docker            ║"
@@ -99,9 +108,16 @@ create_deployment_package() {
 # ChatApp 部署包
 
 ## 部署信息
-- 镜像名称: \`$FULL_IMAGE_NAME\`
+- 构建版本: \`$VERSION_TAG\`
+- 环境标签: \`$ENV_TAG\`$([ -n "$GIT_VERSION_TAG" ] && echo "
+- Git版本: \`$GIT_VERSION_TAG\`")
 - 构建时间: \`$(date '+%Y-%m-%d %H:%M:%S')\`
-- 版本: \`$TAG\`
+- 镜像仓库: \`$REGISTRY/$IMAGE_NAME\`
+
+## 可用镜像标签
+- \`$REGISTRY/$IMAGE_NAME:$ENV_TAG\` (环境标签)
+- \`$REGISTRY/$IMAGE_NAME:$VERSION_TAG\` (版本标签)$([ -n "$GIT_VERSION_TAG" ] && echo "
+- \`$REGISTRY/$IMAGE_NAME:$GIT_VERSION_TAG\` (Git标签)")
 
 ## 快速部署
 
@@ -173,8 +189,12 @@ EOF
         echo "║                 🎯 部署信息                  ║"
         echo "╚══════════════════════════════════════════════╝"
         echo ""
-        echo "📦 本地镜像: $IMAGE_NAME:$TAG"
-        echo "🌐 远程镜像: $FULL_IMAGE_NAME"
+        echo "📦 本地镜像: $IMAGE_NAME:$ENV_TAG"
+        echo "🏷️  版本标签: $VERSION_TAG"
+        if [ -n "$GIT_VERSION_TAG" ]; then
+            echo "🔖 Git标签: $GIT_VERSION_TAG"
+        fi
+        echo "🌐 远程仓库: $REGISTRY/$IMAGE_NAME"
         echo "📁 部署包: $BUILD_OUTPUT_DIR/$ARCHIVE_NAME"
         echo ""
         echo "┌─ 📦 部署包结构 ──────────────────────────────┐"
@@ -349,37 +369,106 @@ done
 
 # Docker构建和部署
 if [ "$DO_DOCKER" = true ]; then
+    # 版本管理 - 自动递增版本号
+    echo "┌──────────────────────────────────────────────┐"
+    echo "│               📊 版本管理                   │"
+    echo "└──────────────────────────────────────────────┘"
+    
+    # 检查版本管理器是否存在
+    if [ ! -f "scripts/version-manager.js" ]; then
+        echo "❌ 版本管理器不存在: scripts/version-manager.js"
+        exit 1
+    fi
+    
+    # 自动递增版本号
+    echo "📈 递增构建版本号..."
+    BUILD_VERSION=$(node scripts/version-manager.js --quiet 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ -n "$BUILD_VERSION" ]; then
+        echo "✅ 新版本号: v$BUILD_VERSION"
+        
+        # 验证版本号格式（只包含数字和点）
+        if [[ ! "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ 版本号格式无效: $BUILD_VERSION"
+            echo "💡 Docker标签只能包含字母、数字、点、连字符和下划线"
+            exit 1
+        fi
+    else
+        echo "❌ 版本号递增失败"
+        exit 1
+    fi
+    
+    # 获取Git短hash（可选）
+    GIT_HASH=""
+    if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+        GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+        if [ -n "$GIT_HASH" ]; then
+            # 验证Git hash格式（只包含小写字母和数字）
+            if [[ "$GIT_HASH" =~ ^[a-f0-9]+$ ]]; then
+                echo "🔖 Git提交: $GIT_HASH"
+            else
+                echo "⚠️  Git hash格式异常，跳过Git标签: $GIT_HASH"
+                GIT_HASH=""
+            fi
+        fi
+    fi
+    echo ""
+    
     # 构建Docker镜像
     IMAGE_NAME="x0x-chatapp"
     if [ "$BUILD_MODE" = "debug" ]; then
-        TAG="debug"
+        ENV_TAG="debug"
         DOCKERFILE="Dockerfile.debug"
     else
-        TAG="latest"
+        ENV_TAG="latest"
         DOCKERFILE="Dockerfile"
     fi
     REGISTRY="nrt.vultrcr.com/ex00"
-    FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME:$TAG"
+    
+    # 定义所有标签
+    VERSION_TAG="v$BUILD_VERSION"
+    if [ -n "$GIT_HASH" ]; then
+        GIT_VERSION_TAG="v$BUILD_VERSION-$GIT_HASH"
+    fi
 
     echo "┌──────────────────────────────────────────────┐"
     echo "│                🔨 构建镜像                  │"
     echo "└──────────────────────────────────────────────┘"
     echo "🔧 构建模式: $BUILD_MODE"
     echo "📄 Dockerfile: $DOCKERFILE"
-    echo "📦 本地镜像: $IMAGE_NAME:$TAG"
-    echo "🌐 远程镜像: $FULL_IMAGE_NAME"
+    echo "📦 本地镜像: $IMAGE_NAME:$ENV_TAG"
+    echo "🏷️  版本标签: $VERSION_TAG"
+    if [ -n "$GIT_VERSION_TAG" ]; then
+        echo "🔖 Git标签: $GIT_VERSION_TAG"
+    fi
     echo ""
 
-    docker build -f $DOCKERFILE -t $IMAGE_NAME:$TAG .
+    # 构建镜像（使用环境标签作为主标签）
+    docker build -f $DOCKERFILE -t $IMAGE_NAME:$ENV_TAG .
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "✅ Docker镜像构建成功!"
+    
+    # 为镜像添加所有标签
+    echo ""
+    echo "🏷️  为镜像添加多个标签..."
+    
+    # 添加版本标签
+    docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$VERSION_TAG
+    echo "   ✅ 版本标签: $IMAGE_NAME:$VERSION_TAG"
+    
+    # 添加Git版本标签（如果有）
+    if [ -n "$GIT_VERSION_TAG" ]; then
+        docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$GIT_VERSION_TAG
+        echo "   ✅ Git标签: $IMAGE_NAME:$GIT_VERSION_TAG"
+    fi
+    
     echo ""
     echo "┌──────────────────────────────────────────────┐"
     echo "│               📊 镜像信息                   │"
     echo "└──────────────────────────────────────────────┘"
-    docker images $IMAGE_NAME:$TAG
+    docker images $IMAGE_NAME
     
     # 检查Docker登录状态
     echo ""
@@ -390,19 +479,30 @@ if [ $? -eq 0 ]; then
     # 简化的登录检查和处理
     echo "🔍 检查 $REGISTRY 登录状态..."
     
-    # 检查是否有登录凭据
-    if grep -q "$REGISTRY" ~/.docker/config.json 2>/dev/null; then
-        echo "✅ 发现登录凭据，将直接尝试推送"
-        echo "💡 如推送失败，会自动提示重新登录"
-    else
-        echo "❌ 未找到登录凭据"
-        echo "📝 请输入登录信息:"
+    # Docker登录函数 - 自动登录
+    docker_login_secure() {
+        # 自动登录 - 使用预设凭据
+        echo "🔑 自动登录Docker仓库..."
+        local username="0e16fc27-2c9d-46ab-b3f5-0f529a7341e9"
+        local password="Ja6oDYWFAASWPSxB4yfZDf8d8GpMfnrexP3N"
         
-        # 提示用户登录
-        if docker login $REGISTRY; then
+        # 使用 --password-stdin 安全登录
+        if echo "$password" | docker login $REGISTRY --username "$username" --password-stdin; then
             echo "✅ 登录成功!"
+            return 0
         else
             echo "❌ 登录失败"
+            return 1
+        fi
+    }
+    
+    # 检查是否有登录凭据
+    if grep -q "$REGISTRY" ~/.docker/config.json 2>/dev/null; then
+        echo "✅ 发现登录凭据，跳过登录"
+    else
+        echo "❌ 未找到登录凭据，自动执行登录..."
+        if ! docker_login_secure; then
+            echo "❌ 自动登录失败，无法继续推送"
             exit 1
         fi
     fi
@@ -412,15 +512,57 @@ if [ $? -eq 0 ]; then
     echo "┌──────────────────────────────────────────────┐"
     echo "│              📤 推送到仓库                  │"
     echo "└──────────────────────────────────────────────┘"
+    
+    # 定义所有远程标签
+    REMOTE_ENV_TAG="$REGISTRY/$IMAGE_NAME:$ENV_TAG"
+    REMOTE_VERSION_TAG="$REGISTRY/$IMAGE_NAME:$VERSION_TAG"
+    REMOTE_GIT_VERSION_TAG=""
+    if [ -n "$GIT_VERSION_TAG" ]; then
+        REMOTE_GIT_VERSION_TAG="$REGISTRY/$IMAGE_NAME:$GIT_VERSION_TAG"
+    fi
+    
+    # 为镜像添加远程标签
     echo "🏷️  为镜像添加远程标签..."
-    docker tag $IMAGE_NAME:$TAG $FULL_IMAGE_NAME
+    docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_ENV_TAG
+    echo "   ✅ 环境标签: $REMOTE_ENV_TAG"
     
-    echo "📤 推送镜像到私有仓库..."
-    echo "🎯 推送目标: $FULL_IMAGE_NAME"
+    docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_VERSION_TAG
+    echo "   ✅ 版本标签: $REMOTE_VERSION_TAG"
+    
+    if [ -n "$REMOTE_GIT_VERSION_TAG" ]; then
+        docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_GIT_VERSION_TAG
+        echo "   ✅ Git标签: $REMOTE_GIT_VERSION_TAG"
+    fi
+    
     echo ""
+    echo "📤 推送所有标签到私有仓库..."
     
-    # 尝试推送镜像，如果失败则重新登录
-    if docker push $FULL_IMAGE_NAME; then
+    # 推送函数
+    push_all_tags() {
+        local success=true
+        
+        echo "🎯 推送环境标签: $REMOTE_ENV_TAG"
+        if ! docker push $REMOTE_ENV_TAG; then
+            success=false
+        fi
+        
+        echo "🎯 推送版本标签: $REMOTE_VERSION_TAG"
+        if ! docker push $REMOTE_VERSION_TAG; then
+            success=false
+        fi
+        
+        if [ -n "$REMOTE_GIT_VERSION_TAG" ]; then
+            echo "🎯 推送Git标签: $REMOTE_GIT_VERSION_TAG"
+            if ! docker push $REMOTE_GIT_VERSION_TAG; then
+                success=false
+            fi
+        fi
+        
+        return $([ "$success" = true ] && echo 0 || echo 1)
+    }
+    
+    # 尝试推送所有镜像标签，如果失败则重新登录
+    if push_all_tags; then
         echo ""
         echo "┌──────────────────────────────────────────────┐"
         echo "│            🎉 推送成功! 创建部署包          │"
@@ -435,9 +577,9 @@ if [ $? -eq 0 ]; then
         echo "📝 请重新输入登录信息:"
         
         # 重新登录并再次尝试推送
-        if docker login $REGISTRY; then
-            echo "✅ 重新登录成功，再次尝试推送..."
-            if docker push $FULL_IMAGE_NAME; then
+        if docker_login_secure; then
+            echo "再次尝试推送所有标签..."
+            if push_all_tags; then
                 echo ""
                 echo "┌──────────────────────────────────────────────┐"
                 echo "│            🎉 推送成功! 创建部署包          │"

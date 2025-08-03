@@ -97,8 +97,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
         _logger.i('🔥🔥🔥 联系人同步事件处理', extra: {
           'userName': userProto.nickName,
           'userId': userProto.userId,
-          'roleId': userProto.hasRoleId() ? userProto.roleId : 0,
-          'hasRoleId': userProto.hasRoleId(),
+          'roleId': 0, // Proto中没有roleId字段
+          'hasRoleId': false, // Proto中没有roleId字段
         });
         
         await _db.into(_db.users).insertOnConflictUpdate(UsersCompanion.insert(
@@ -112,7 +112,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
               ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
               : null),
           status: Value(userProto.status.isEmpty ? null : userProto.status),
-          roleId: Value(userProto.hasRoleId() ? userProto.roleId : 0),
+          roleId: const Value(0), // Proto中没有roleId字段
           isFriend: const Value(true),
         ));
       }
@@ -145,8 +145,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
         _logger.i('🚀🚀🚀 联系人同步结果处理', extra: {
           'userName': userProto.nickName,
           'userId': userProto.userId,
-          'roleId': userProto.hasRoleId() ? userProto.roleId : 0,
-          'hasRoleId': userProto.hasRoleId(),
+          'roleId': 0, // Proto中没有roleId字段
+          'hasRoleId': false, // Proto中没有roleId字段
         });
         // 检查是否已存在相同userId的联系人
         final existingUser = await (_db.select(_db.users)
@@ -167,7 +167,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
                 ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
                 : null),
             status: Value(userProto.status.isEmpty ? null : userProto.status),
-            roleId: Value(userProto.hasRoleId() ? userProto.roleId : 0),
+            roleId: const Value(0), // Proto中没有roleId字段
             isFriend: const Value(true),
           ));
         } else {
@@ -183,7 +183,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
                 ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
                 : null),
             status: Value(userProto.status.isEmpty ? null : userProto.status),
-            roleId: Value(userProto.hasRoleId() ? userProto.roleId : 0),
+            roleId: const Value(0), // Proto中没有roleId字段
             isFriend: const Value(true),
           ));
         }

@@ -58,7 +58,10 @@ class _PhoneInputWithHistoryState extends State<PhoneInputWithHistory> {
 
   void _onFocusChanged() {
     if (_focusNode.hasFocus && _phoneHistory.isNotEmpty) {
-      _showOverlay();
+      // 如果输入框已经输入满11位手机号码，则不显示下拉菜单
+      if (widget.controller.text.length < 11) {
+        _showOverlay();
+      }
     } else {
       // 延迟隐藏下拉列表，给点击事件时间执行
       Future.delayed(const Duration(milliseconds: 150), () {
@@ -142,7 +145,7 @@ class _PhoneInputWithHistoryState extends State<PhoneInputWithHistory> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
         ),
         child: Row(
@@ -218,9 +221,15 @@ class _PhoneInputWithHistoryState extends State<PhoneInputWithHistory> {
           contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
         keyboardType: TextInputType.phone,
-        onChanged: widget.onChanged,
+        onChanged: (value) {
+          widget.onChanged(value);
+          // 检查是否输入满11位手机号码，如果是则隐藏下拉菜单
+          if (value.length >= 11 && _isOverlayVisible) {
+            _hideOverlay();
+          }
+        },
         onTap: () {
-          if (_phoneHistory.isNotEmpty && !_isOverlayVisible) {
+          if (_phoneHistory.isNotEmpty && !_isOverlayVisible && widget.controller.text.length < 11) {
             _showOverlay();
           }
         },

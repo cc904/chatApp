@@ -40,7 +40,6 @@ const UserProto$json = {
     {'1': 'pinyin', '3': 6, '4': 1, '5': 9, '10': 'pinyin'},
     {'1': 'last_active_time', '3': 7, '4': 1, '5': 3, '10': 'lastActiveTime'},
     {'1': 'status', '3': 8, '4': 1, '5': 9, '10': 'status'},
-    {'1': 'role_id', '3': 9, '4': 1, '5': 5, '10': 'roleId'},
     {'1': 'is_typing', '3': 12, '4': 1, '5': 8, '10': 'isTyping'},
     {
       '1': 'typing_in_conversation',
@@ -59,9 +58,9 @@ final $typed_data.Uint8List userProtoDescriptor = $convert.base64Decode(
     'IIbmlja05hbWUSFgoGYXZhdGFyGAMgASgJUgZhdmF0YXISFAoFcGhvbmUYBCABKAlSBXBob25l'
     'EhQKBWVtYWlsGAUgASgJUgVlbWFpbBIWCgZwaW55aW4YBiABKAlSBnBpbnlpbhIoChBsYXN0X2'
     'FjdGl2ZV90aW1lGAcgASgDUg5sYXN0QWN0aXZlVGltZRIWCgZzdGF0dXMYCCABKAlSBnN0YXR1'
-    'cxIXCgdyb2xlX2lkGAkgASgFUgZyb2xlSWQSGwoJaXNfdHlwaW5nGAwgASgIUghpc1R5cGluZx'
-    'I0ChZ0eXBpbmdfaW5fY29udmVyc2F0aW9uGA0gASgJUhR0eXBpbmdJbkNvbnZlcnNhdGlvbhIn'
-    'Cg9jdXN0b21fbmlja25hbWUYDiABKAlSDmN1c3RvbU5pY2tuYW1l');
+    'cxIbCglpc190eXBpbmcYDCABKAhSCGlzVHlwaW5nEjQKFnR5cGluZ19pbl9jb252ZXJzYXRpb2'
+    '4YDSABKAlSFHR5cGluZ0luQ29udmVyc2F0aW9uEicKD2N1c3RvbV9uaWNrbmFtZRgOIAEoCVIO'
+    'Y3VzdG9tTmlja25hbWU=');
 
 @$core.Deprecated('Use currentUserProtoDescriptor instead')
 const CurrentUserProto$json = {
@@ -75,7 +74,6 @@ const CurrentUserProto$json = {
     {'1': 'last_login_time', '3': 6, '4': 1, '5': 3, '10': 'lastLoginTime'},
     {'1': 'status', '3': 7, '4': 1, '5': 9, '10': 'status'},
     {'1': 'has_set_password', '3': 8, '4': 1, '5': 8, '10': 'hasSetPassword'},
-    {'1': 'role_id', '3': 9, '4': 1, '5': 5, '10': 'roleId'},
   ],
 };
 
@@ -85,7 +83,7 @@ final $typed_data.Uint8List currentUserProtoDescriptor = $convert.base64Decode(
     'gJUgRuYW1lEhYKBmF2YXRhchgDIAEoCVIGYXZhdGFyEhQKBXBob25lGAQgASgJUgVwaG9uZRIU'
     'CgVlbWFpbBgFIAEoCVIFZW1haWwSJgoPbGFzdF9sb2dpbl90aW1lGAYgASgDUg1sYXN0TG9naW'
     '5UaW1lEhYKBnN0YXR1cxgHIAEoCVIGc3RhdHVzEigKEGhhc19zZXRfcGFzc3dvcmQYCCABKAhS'
-    'Dmhhc1NldFBhc3N3b3JkEhcKB3JvbGVfaWQYCSABKAVSBnJvbGVJZA==');
+    'Dmhhc1NldFBhc3N3b3Jk');
 
 @$core.Deprecated('Use setCurrentUserRequestDescriptor instead')
 const SetCurrentUserRequest$json = {

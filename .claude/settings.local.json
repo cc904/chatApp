@@ -107,7 +107,16 @@
       "Bash(./verify-docker-config.sh:*)",
       "Bash(protoc:*)",
       "Bash(md5:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "WebFetch(domain:docs.flutter.dev)",
+      "WebFetch(domain:gwfh.mranftl.com)",
+      "Bash(ln:*)",
+      "Bash(npm start)",
+      "WebFetch(domain:developers.google.com)",
+      "Bash(./scripts/generate-web-config.sh:*)",
+      "Bash(./scripts/generate-local-config.sh:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(kill:*)"
     ],
     "deny": []
   }

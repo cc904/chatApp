@@ -262,7 +262,7 @@ class DebugCommands {
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
-          senderRoleId: 0,
+          // senderRoleId: 0, // 字段已移除
           createdAt: now.subtract(const Duration(minutes: 5)),
           updatedAt: null,
           messageIndex: 100,
@@ -285,7 +285,7 @@ class DebugCommands {
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
-          senderRoleId: 0,
+          // senderRoleId: 0, // 字段已移除
           createdAt: now.subtract(const Duration(minutes: 4)),
           updatedAt: null,
           messageIndex: 200,
@@ -308,7 +308,7 @@ class DebugCommands {
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
-          senderRoleId: 0,
+          // senderRoleId: 0, // 字段已移除
           createdAt: now.subtract(const Duration(minutes: 3)),
           updatedAt: null,
           messageIndex: 300,
@@ -331,7 +331,7 @@ class DebugCommands {
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
-          senderRoleId: 0,
+          // senderRoleId: 0, // 字段已移除
           createdAt: now.subtract(const Duration(minutes: 2)),
           updatedAt: null,
           messageIndex: 400,
@@ -354,7 +354,7 @@ class DebugCommands {
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
-          senderRoleId: 0,
+          // senderRoleId: 0, // 字段已移除
           createdAt: now.subtract(const Duration(minutes: 1)),
           updatedAt: null,
           messageIndex: 500,
@@ -377,7 +377,7 @@ class DebugCommands {
           senderId: 'test_user',
           senderName: 'Test User',
           senderAvatar: null,
-          senderRoleId: 0,
+          // senderRoleId: 0, // 字段已移除
           createdAt: now,
           updatedAt: null,
           messageIndex: 600,

@@ -89,7 +89,6 @@ class Messages extends Table {
   TextColumn get senderId => text()();            // sender_id
   TextColumn get senderName => text().nullable()(); // sender_name
   TextColumn get senderAvatar => text().nullable()(); // sender_avatar
-  IntColumn get senderRoleId => integer().withDefault(const Constant(0))(); // sender_role_id 发送者角色ID
   DateTimeColumn get createdAt => dateTime()();   // created_at (DateTime)
   DateTimeColumn get updatedAt => dateTime().nullable()(); // updated_at (DateTime)
   
@@ -189,9 +188,8 @@ class AppDatabase extends _$AppDatabase {
         _logger.i('数据库迁移完成: 添加role_id字段到users表');
       }
       if (from == 3 && to == 4) {
-        // 添加senderRoleId字段到messages表
-        await m.addColumn(messages, messages.senderRoleId);
-        _logger.i('数据库迁移完成: 添加sender_role_id字段到messages表');
+        // 原本添加senderRoleId字段，现已移除该字段
+        _logger.i('数据库迁移跳过: sender_role_id字段已移除');
       }
       if (from == 1 && to == 3) {
         // 从版本1直接升级到版本3
@@ -203,14 +201,14 @@ class AppDatabase extends _$AppDatabase {
         // 从版本1直接升级到版本4
         await m.addColumn(currentUsers, currentUsers.roleId);
         await m.addColumn(users, users.roleId);
-        await m.addColumn(messages, messages.senderRoleId);
-        _logger.i('数据库迁移完成: 添加role_id和sender_role_id字段');
+        // sender_role_id字段已移除
+        _logger.i('数据库迁移完成: 添加role_id字段，跳过sender_role_id');
       }
       if (from == 2 && to == 4) {
         // 从版本2直接升级到版本4
         await m.addColumn(users, users.roleId);
-        await m.addColumn(messages, messages.senderRoleId);
-        _logger.i('数据库迁移完成: 添加role_id字段到users表和sender_role_id字段到messages表');
+        // sender_role_id字段已移除
+        _logger.i('数据库迁移完成: 添加role_id字段到users表，跳过sender_role_id');
       }
     },
   );

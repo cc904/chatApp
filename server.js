@@ -131,8 +131,9 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false'; // 默认启用HTTPS
 const DISABLE_CORS_HEADERS = process.env.DISABLE_CORS_HEADERS === 'true'; // 禁用CORS头部
-const SSL_CERT_PATH = process.env.SSL_CERT_PATH || './ssl-certs/fullchain.pem';
-const SSL_KEY_PATH = process.env.SSL_KEY_PATH || './ssl-certs/privkey.pem';
+// 容器内固定SSL证书路径（不使用环境变量，避免被.env.prod覆盖）
+const SSL_CERT_PATH = '/app/ssl-certs/fullchain.pem';
+const SSL_KEY_PATH = '/app/ssl-certs/privkey.pem';
 
 // Docker容器外部访问地址配置
 const EXTERNAL_HTTP_PORT = process.env.EXTERNAL_HTTP_PORT || PORT;

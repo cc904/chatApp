@@ -355,6 +355,8 @@ class _MyAppState extends State<MyApp> {
             theme: ThemeData(
               colorScheme: AppColors.lightColorScheme,
               useMaterial3: true,
+              // 明确使用系统字体，禁用谷歌字体
+              fontFamily: 'system-ui',
               // 使用系统默认字体，支持动态加载
               fontFamilyFallback: const [
                 'system-ui',
@@ -368,6 +370,33 @@ class _MyAppState extends State<MyApp> {
                 'Arial',
                 'sans-serif'
               ],
+              // 为所有Material组件明确指定字体
+              textTheme: ThemeData.light().textTheme.apply(
+                fontFamily: 'system-ui',
+                fontFamilyFallback: const [
+                  'system-ui',
+                  '-apple-system', 
+                  'BlinkMacSystemFont',
+                  'Segoe UI',
+                  'PingFang SC',
+                  'Hiragino Sans GB',
+                  'Microsoft YaHei',
+                  'sans-serif'
+                ],
+              ),
+              primaryTextTheme: ThemeData.light().primaryTextTheme.apply(
+                fontFamily: 'system-ui',
+                fontFamilyFallback: const [
+                  'system-ui',
+                  '-apple-system', 
+                  'BlinkMacSystemFont',
+                  'Segoe UI',
+                  'PingFang SC',
+                  'Hiragino Sans GB',
+                  'Microsoft YaHei',
+                  'sans-serif'
+                ],
+              ),
               appBarTheme: AppBarTheme(
                 backgroundColor: AppColors.surfaceVariant,
                 foregroundColor: AppColors.textPrimary,

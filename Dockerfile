@@ -12,29 +12,13 @@ COPY build/web ./web/
 # 复制Node.js服务器和配置文件
 COPY server.js ./
 COPY login_domains.json ./
+COPY docker-entrypoint.sh ./
 # current_server.json 是可选文件，不复制（程序会自动创建）
 
-# 创建启动脚本，确保正确的MIME类型支持
-RUN printf '#!/bin/sh\n\
-set -e\n\
-\n\
-echo "🚀 Flutter Web Docker 启动"\n\
-echo "📱 应用名称: ${APP_NAME}"\n\
-echo "🏷️  版本: ${APP_VERSION}"\n\
-echo "🌐 监听: ${HOST}:${PORT}"\n\
-echo "🔧 环境: ${NODE_ENV}"\n\
-echo "📊 日志级别: ${LOG_LEVEL}"\n\
-echo "🔧 WASM MIME支持: 已启用"\n\
-echo "📦 字体: 完全本地化"\n\
-\n\
-# 启动Node.js服务器（支持正确的MIME类型）\n\
-cd /app\n\
-exec node server.js\n' > start.sh
-
-# 修改Node.js服务器配置
-RUN sed -i 's|build/web|web|g' server.js
-
-RUN chmod +x start.sh
+# 修改Node.js服务器配置和设置权限
+RUN sed -i 's|build/web|web|g' server.js && \
+    chmod +x docker-entrypoint.sh && \
+    ls -la docker-entrypoint.sh
 
 # 环境变量配置
 ENV NODE_ENV=production
@@ -51,23 +35,32 @@ EXPOSE 80 443
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
   CMD curl -k -f https://localhost:443/ || curl -f http://localhost:80/ || exit 1
 
-# 检查并使用现有用户或创建新用户
-RUN if getent passwd 1000 > /dev/null 2>&1; then \
-        # 如果UID 1000已存在，使用该用户
-        existing_user=$(getent passwd 1000 | cut -d: -f1) && \
+# 动态用户创建（支持环境变量）
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+RUN if getent passwd $USER_ID > /dev/null 2>&1; then \
+        # 如果用户ID已存在，使用该用户
+        existing_user=$(getent passwd $USER_ID | cut -d: -f1) && \
         chown -R $existing_user:$(id -gn $existing_user) /app && \
         chmod -R 755 /app && \
-        echo "Using existing user: $existing_user"; \
+        chmod +x /app/docker-entrypoint.sh && \
+        echo "Using existing user: $existing_user (UID: $USER_ID)" && \
+        ls -la /app/docker-entrypoint.sh; \
     else \
-        # 如果UID 1000不存在，创建新用户
-        adduser -D -u 1000 appuser && \
-        chown -R appuser:appuser /app && \
+        # 创建新用户和组
+        addgroup -g $GROUP_ID appgroup && \
+        adduser -D -u $USER_ID -G appgroup appuser && \
+        chown -R appuser:appgroup /app && \
         chmod -R 755 /app && \
-        echo "Created new user: appuser"; \
+        chmod +x /app/docker-entrypoint.sh && \
+        echo "Created new user: appuser (UID: $USER_ID, GID: $GROUP_ID)" && \
+        ls -la /app/docker-entrypoint.sh; \
     fi
 
-# 切换到UID 1000用户（无论用户名是什么）
-USER 1000
+# 切换到指定用户
+USER $USER_ID
 
-# 启动命令
-CMD ["./start.sh"]
+# 启动命令 - 使用entrypoint生成配置后启动服务器
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["node", "server.js"]

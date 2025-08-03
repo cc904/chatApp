@@ -12,16 +12,17 @@ services:
     
     # 用户配置已移至Dockerfile中
     
-    # 环境变量
+    # 环境变量 (从.env.prod读取并传递给容器)
+    # 逻辑: .env.prod文件 → Docker Compose读取 → environment传递 → 容器程序使用
+    # 注意: 容器内程序直接使用这些环境变量，不读取.env文件
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - HOST=${HOST:-0.0.0.0}
-      - ENABLE_HTTPS=${ENABLE_HTTPS:-true}
-      - APP_NAME=${APP_NAME:-X0X Chat App}
+      - APP_NAME=${APP_NAME:-Chat App}
       - APP_VERSION=${APP_VERSION:-1.0.0}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - DISABLE_CORS_HEADERS=${DISABLE_CORS_HEADERS:-false}
-    
+      - FONT_SERVICE_URL=${FONT_SERVICE_URL}  # 字体服务地址，由docker-entrypoint.sh生成app-config.json
     # SSL证书挂载
     volumes:
       - "${SSL_CERT_PATH:-../ssl-certs}:/app/ssl-certs:ro"
@@ -54,13 +55,6 @@ services:
       options:
         max-size: "${LOG_MAX_SIZE:-10m}"
         max-file: "${LOG_MAX_FILES:-3}"
-    
-    # 标签
-    labels:
-      - "app=x0x-chatapp"
-      - "environment=production"
-      - "version=${APP_VERSION:-1.0.0}"
-      - "maintainer=dev-team"
 
 # 网络配置
 networks: 
@@ -68,8 +62,3 @@ networks:
     external: true
     driver: bridge
     name: x0x-network
-
-# 可选：如果需要数据持久化
-volumes:
-  app-logs:
-    driver: local

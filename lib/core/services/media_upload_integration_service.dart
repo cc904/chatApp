@@ -19,8 +19,7 @@ class MediaUploadIntegrationService {
   bool _isInitialized = false;
 
   // 单例模式
-  static final MediaUploadIntegrationService _instance =
-      MediaUploadIntegrationService._internal();
+  static final MediaUploadIntegrationService _instance = MediaUploadIntegrationService._internal();
   factory MediaUploadIntegrationService() => _instance;
   MediaUploadIntegrationService._internal();
 
@@ -85,97 +84,97 @@ class MediaUploadIntegrationService {
   }
 
   /// Web平台发送图片消息
-   Future<Message> _sendImageMessageWeb(
-     XFile imageFile,
-     String conversationId, {
-     String? caption,
-     Function(int)? onUploadProgress,
-     Function(String)? onStatusUpdate,
-   }) async {
-     try {
-       _logger.i('🌐 开始Web平台图片上传流程', extra: {
-         'conversationId': conversationId,
-         'fileName': imageFile.name,
-         'filePath': imageFile.path,
-         'caption': caption,
-       });
+  Future<Message> _sendImageMessageWeb(
+    XFile imageFile,
+    String conversationId, {
+    String? caption,
+    Function(int)? onUploadProgress,
+    Function(String)? onStatusUpdate,
+  }) async {
+    try {
+      _logger.i('🌐 开始Web平台图片上传流程', extra: {
+        'conversationId': conversationId,
+        'fileName': imageFile.name,
+        'filePath': imageFile.path,
+        'caption': caption,
+      });
 
-       // 1. 获取图片尺寸
-       final dimensions = await _getImageDimensions(imageFile);
-       _logger.i('🌐 获取图片尺寸完成', extra: {
-         'width': dimensions?.width,
-         'height': dimensions?.height,
-       });
+      // 1. 获取图片尺寸
+      final dimensions = await _getImageDimensions(imageFile);
+      _logger.i('🌐 获取图片尺寸完成', extra: {
+        'width': dimensions?.width,
+        'height': dimensions?.height,
+      });
 
-       // 2. 上传图片到服务器 (Web平台使用XFile)
-       onStatusUpdate?.call('正在上传图片...');
-       _logger.i('🌐 开始上传图片到服务器');
-       
-       final uploadResult = await _uploadService.uploadImageFromXFile(
-         imageFile,
-         conversationId: conversationId,
-         caption: caption,
-         width: dimensions?.width,
-         height: dimensions?.height,
-         onProgress: onUploadProgress,
-       );
+      // 2. 上传图片到服务器 (Web平台使用XFile)
+      onStatusUpdate?.call('正在上传图片...');
+      _logger.i('🌐 开始上传图片到服务器');
 
-       _logger.i('🌐 图片上传到服务器完成', extra: {
-         'uploadResult_url': uploadResult.url,
-         'uploadResult_fsId': uploadResult.fsId,
-         'uploadResult_fileName': uploadResult.fileName,
-         'uploadResult_metadata_size': uploadResult.metadata?.size,
-         'uploadResult_metadata_mimeType': uploadResult.metadata?.mimeType,
-         'uploadResult_metadata_width': uploadResult.metadata?.width,
-         'uploadResult_metadata_height': uploadResult.metadata?.height,
-       });
+      final uploadResult = await _uploadService.uploadImageFromXFile(
+        imageFile,
+        conversationId: conversationId,
+        caption: caption,
+        width: dimensions?.width,
+        height: dimensions?.height,
+        onProgress: onUploadProgress,
+      );
 
-       // 3. 发送消息
-       onStatusUpdate?.call('正在发送消息...');
-       _logger.i('🌐 开始发送图片消息', extra: {
-         'conversationId': conversationId,
-         'localPath': imageFile.path,
-         'mediaUrl': uploadResult.url,
-         'fsId': uploadResult.fsId,
-         'fileName': uploadResult.fileName,
-         'width': dimensions?.width,
-         'height': dimensions?.height,
-         'fileSize': uploadResult.metadata?.size.toDouble(),
-         'mimeType': uploadResult.metadata?.mimeType,
-         'caption': caption,
-       });
-       
-       final message = await _chatRepo.sendImageMessage(
-         conversationId,
-         imageFile.path, // Web平台使用blob URL作为本地路径
-         mediaUrl: uploadResult.url, // 使用服务器返回的URL
-         caption: caption,
-         fsId: uploadResult.fsId, // 使用服务器返回的fsId
-         fileName: uploadResult.fileName, // 使用服务器返回的fileName
-         width: dimensions?.width,
-         height: dimensions?.height,
-         fileSize: uploadResult.metadata?.size.toDouble(),
-         mimeType: uploadResult.metadata?.mimeType,
-       );
+      _logger.i('🌐 图片上传到服务器完成', extra: {
+        'uploadResult_url': uploadResult.url,
+        'uploadResult_fsId': uploadResult.fsId,
+        'uploadResult_fileName': uploadResult.fileName,
+        'uploadResult_metadata_size': uploadResult.metadata?.size,
+        'uploadResult_metadata_mimeType': uploadResult.metadata?.mimeType,
+        'uploadResult_metadata_width': uploadResult.metadata?.width,
+        'uploadResult_metadata_height': uploadResult.metadata?.height,
+      });
 
-       onStatusUpdate?.call('图片消息发送成功');
-       _logger.i('🌐 Web平台图片消息发送完成', extra: {
-         'conversationId': conversationId,
-         'messageId': message.messageId,
-         'messageContent': message.content,
-         'fsId': uploadResult.fsId,
-         'fileName': uploadResult.fileName,
-         'width': dimensions?.width,
-         'height': dimensions?.height,
-         'fileSize': uploadResult.metadata?.size,
-       });
+      // 3. 发送消息
+      onStatusUpdate?.call('正在发送消息...');
+      _logger.i('🌐 开始发送图片消息', extra: {
+        'conversationId': conversationId,
+        'localPath': imageFile.path,
+        'mediaUrl': uploadResult.url,
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
+        'width': dimensions?.width,
+        'height': dimensions?.height,
+        'fileSize': uploadResult.metadata?.size.toDouble(),
+        'mimeType': uploadResult.metadata?.mimeType,
+        'caption': caption,
+      });
 
-       return message;
-     } catch (error) {
-       _logger.e('🌐 Web平台发送图片消息失败', error: error);
-       rethrow;
-     }
-   }
+      final message = await _chatRepo.sendImageMessage(
+        conversationId,
+        imageFile.path, // Web平台使用blob URL作为本地路径
+        mediaUrl: uploadResult.url, // 使用服务器返回的URL
+        caption: caption,
+        fsId: uploadResult.fsId, // 使用服务器返回的fsId
+        fileName: uploadResult.fileName, // 使用服务器返回的fileName
+        width: dimensions?.width,
+        height: dimensions?.height,
+        fileSize: uploadResult.metadata?.size.toDouble(),
+        mimeType: uploadResult.metadata?.mimeType,
+      );
+
+      onStatusUpdate?.call('图片消息发送成功');
+      _logger.i('🌐 Web平台图片消息发送完成', extra: {
+        'conversationId': conversationId,
+        'messageId': message.messageId,
+        'messageContent': message.content,
+        'fsId': uploadResult.fsId,
+        'fileName': uploadResult.fileName,
+        'width': dimensions?.width,
+        'height': dimensions?.height,
+        'fileSize': uploadResult.metadata?.size,
+      });
+
+      return message;
+    } catch (error) {
+      _logger.e('🌐 Web平台发送图片消息失败', error: error);
+      rethrow;
+    }
+  }
 
   /// IO平台发送图片消息
   Future<Message> _sendImageMessageIO(
@@ -220,7 +219,7 @@ class MediaUploadIntegrationService {
 
       // 3. 发送消息
       onStatusUpdate?.call('正在发送消息...');
-      
+
       final message = await _chatRepo.sendImageMessage(
         conversationId,
         imageFile.path,
@@ -432,7 +431,7 @@ class MediaUploadIntegrationService {
             mediaUrl: uploadResult.url,
             isServerProcessed: true,
           );
-          
+
           // 文件服务器信息已通过sendVideoMessage处理
           break;
 
@@ -460,7 +459,7 @@ class MediaUploadIntegrationService {
             fileSize,
             mediaUrl: uploadResult.url,
           );
-          
+
           // 文件服务器信息已通过sendFileMessage处理
           break;
       }
@@ -571,8 +570,7 @@ class MediaUploadIntegrationService {
           file: file,
           conversationId: conversationId,
           mediaType: mediaType,
-          onStatusUpdate: (status) =>
-              onStatusUpdate?.call('文件 ${i + 1}: $status'),
+          onStatusUpdate: (status) => onStatusUpdate?.call('文件 ${i + 1}: $status'),
         );
         messages.add(message);
       } catch (error) {
@@ -598,8 +596,6 @@ class MediaUploadIntegrationService {
     }
     return MediaType.document;
   }
-
-
 
   /// 获取图片尺寸
   /// 支持 File 和 XFile 两种类型，兼容不同平台
@@ -629,8 +625,7 @@ class MediaUploadIntegrationService {
 
       _logger.d('开始获取图片尺寸', extra: {'filePath': filePath});
 
-      final ImageStream stream =
-          imageProvider.resolve(ImageConfiguration.empty);
+      final ImageStream stream = imageProvider.resolve(ImageConfiguration.empty);
 
       // 创建一个Completer来等待图片加载完成
       final completer = Completer<ImageDimensions?>();
@@ -685,7 +680,6 @@ class MediaUploadIntegrationService {
       return {};
     }
   }
-
 }
 
 /// 媒体类型枚举

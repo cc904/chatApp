@@ -289,7 +289,7 @@ class ConversationPreviewNotificationService {
       senderId: 'unknown', // 无法从preview获取具体senderId
       senderName: previewUpdate.lastMessageName.isNotEmpty ? previewUpdate.lastMessageName : null,
       senderAvatar: null,
-      senderRoleId: 0, // 默认值，无法从preview获取roleId
+      // senderRoleId: 0, // 字段已移除
       createdAt: previewUpdate.hasLastMessageTime() 
           ? DateTime.fromMillisecondsSinceEpoch(previewUpdate.lastMessageTime.toInt())
           : DateTime.now(),

@@ -1177,7 +1177,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
           'participants': conv.participants.map((p) => {
             'userId': p.userId,
             'name': p.name,
-            'roleId': p.hasRoleId() ? p.roleId : 0,
+            'roleId': p.hasRole() ? p.role.value : 0,
           }).toList(),
         });
 

@@ -1,0 +1,17 @@
+{
+  "name": "chatapp-flutter",
+  "version": "1.0.34",
+  "description": "Flutter Chat Application - Docker Build Version Management",
+  "private": true,
+  "scripts": {
+    "version:increment": "node scripts/version-manager.js",
+    "version:get": "node scripts/version-manager.js --quiet"
+  },
+  "keywords": [
+    "flutter",
+    "chat",
+    "docker"
+  ],
+  "author": "ChatApp Team",
+  "license": "MIT"
+}

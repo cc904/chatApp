@@ -37,7 +37,6 @@ class ParticipantProto extends $pb.GeneratedMessage {
     $core.String? addedBy,
     $core.bool? online,
     $core.bool? isActive,
-    $core.int? roleId,
   }) {
     final result = create();
     if (userId != null) result.userId = userId;
@@ -54,7 +53,6 @@ class ParticipantProto extends $pb.GeneratedMessage {
     if (addedBy != null) result.addedBy = addedBy;
     if (online != null) result.online = online;
     if (isActive != null) result.isActive = isActive;
-    if (roleId != null) result.roleId = roleId;
     return result;
   }
 
@@ -89,7 +87,6 @@ class ParticipantProto extends $pb.GeneratedMessage {
     ..aOS(11, _omitFieldNames ? '' : 'addedBy')
     ..aOB(12, _omitFieldNames ? '' : 'online')
     ..aOB(13, _omitFieldNames ? '' : 'isActive')
-    ..a<$core.int>(14, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -242,16 +239,6 @@ class ParticipantProto extends $pb.GeneratedMessage {
   $core.bool hasIsActive() => $_has(12);
   @$pb.TagNumber(13)
   void clearIsActive() => $_clearField(13);
-
-  /// 用户角色ID
-  @$pb.TagNumber(14)
-  $core.int get roleId => $_getIZ(13);
-  @$pb.TagNumber(14)
-  set roleId($core.int value) => $_setSignedInt32(13, value);
-  @$pb.TagNumber(14)
-  $core.bool hasRoleId() => $_has(13);
-  @$pb.TagNumber(14)
-  void clearRoleId() => $_clearField(14);
 }
 
 /// 会话消息类型，匹配数据库模型

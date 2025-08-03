@@ -39,8 +39,8 @@ class ConversationAdapter {
       _logger.i('👤👤👤 参与者Proto转Map', extra: {
         'userId': p.userId,
         'name': p.name,
-        'hasRoleId': p.hasRoleId(),
-        'roleId': p.hasRoleId() ? p.roleId : 0,
+        'hasRole': p.hasRole(),
+        'role': p.hasRole() ? p.role.value : 0,
         'participantMap': participantMap,
       });
       return participantMap;
@@ -133,7 +133,7 @@ class ConversationAdapter {
       'is_active': participant.hasIsActive() ? participant.isActive : true,
       'delivered_message_index': participant.hasDeliveredMessageIndex() ? participant.deliveredMessageIndex : 0,
       'read_message_index': participant.hasReadMessageIndex() ? participant.readMessageIndex : 0,
-      'role_id': participant.hasRoleId() ? participant.roleId : 0,
+      'role_id': participant.hasRole() ? participant.role.value : 0,
     };
   }
 
@@ -143,7 +143,7 @@ class ConversationAdapter {
       userId: map['user_id'] as String,
       name: map['name'] as String,
       avatar: map['avatar'] as String?,
-      role: proto.MemberRole.valueOf(map['role'] as int) ?? proto.MemberRole.MEMBER,
+      role: _intToMemberRole(map['role_id'] as int? ?? 0),
       joinedAt: map['joined_at'] != null ? Int64(map['joined_at'] as int) : null,
       addedBy: map['added_by'] as String?,
       muted: map['muted'] as bool? ?? false,
@@ -152,8 +152,21 @@ class ConversationAdapter {
       isActive: map['is_active'] as bool? ?? true,
       deliveredMessageIndex: map['delivered_message_index'] as int? ?? 0,
       readMessageIndex: map['read_message_index'] as int? ?? 0,
-      roleId: map['role_id'] as int? ?? 0,
     );
+  }
+
+  /// 将整数转换为MemberRole枚举
+  static proto.MemberRole _intToMemberRole(int roleId) {
+    switch (roleId) {
+      case 0:
+        return proto.MemberRole.MEMBER;
+      case 1:
+        return proto.MemberRole.ADMIN;
+      case 2:
+        return proto.MemberRole.OWNER;
+      default:
+        return proto.MemberRole.MEMBER;
+    }
   }
 
   /// 从JSON字符串解析参与者列表

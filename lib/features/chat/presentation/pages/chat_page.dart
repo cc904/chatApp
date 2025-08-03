@@ -28,8 +28,8 @@ import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/media_upload_integration_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
 import 'package:cc/core/services/permission_service.dart';
-import 'package:cc/core/services/clipboard_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:cc/core/services/clipboard_service.dart';
 import 'package:cc/features/chat/presentation/widgets/unread_indicator_button.dart';
 import 'package:cc/features/chat/presentation/widgets/quick_reply_panel.dart';
 import 'package:mime/mime.dart';
@@ -2256,6 +2256,22 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Future<void> _pickImageFromGallery() async {
     try {
       _logger.i('开始从相册选择图片');
+
+      // 检查并请求照片库权限
+      var status = await Permission.photos.status;
+      if (!status.isGranted) {
+        _logger.i('请求照片库权限');
+        status = await Permission.photos.request();
+        if (!status.isGranted) {
+          _logger.w('照片库权限被拒绝');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('需要照片库权限才能选择图片')),
+            );
+          }
+          return;
+        }
+      }
 
       final pickedFile = await _mediaService.pickImage(fromCamera: false);
       if (pickedFile != null) {

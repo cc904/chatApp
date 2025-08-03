@@ -24,7 +24,7 @@ class UserAdapter {
           : null,
       status: protoUser.hasStatus() ? protoUser.status : null,
       hasSetPassword: protoUser.hasHasSetPassword() ? protoUser.hasSetPassword : false,
-      roleId: protoUser.hasRoleId() ? protoUser.roleId : 0,
+      roleId: 0, // roleId字段在proto中不存在，使用默认值 // roleId字段在proto中不存在，使用默认值
     );
   }
 
@@ -41,7 +41,7 @@ class UserAdapter {
       email: protoUser.hasEmail() ? protoUser.email : null,
       online: false, // 默认值
       isFriend: false, // 默认值
-      roleId: protoUser.hasRoleId() ? protoUser.roleId : 0, // 添加roleId支持
+      roleId: 0, // roleId字段在proto中不存在，使用默认值 // roleId字段在proto中不存在，使用默认值 // 添加roleId支持
     );
   }
 
@@ -57,7 +57,7 @@ class UserAdapter {
       phone: user.phone,
       email: user.email,
       status: user.status,
-      roleId: user.roleId,
+      // roleId: user.roleId, // Proto中没有此字段
     );
   }
 
@@ -77,7 +77,7 @@ class UserAdapter {
           : null,
       status: currentUser.status,
       hasSetPassword: currentUser.hasSetPassword,
-      roleId: currentUser.roleId,
+      // roleId: currentUser.roleId, // Proto中没有此字段
     );
   }
 

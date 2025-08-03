@@ -275,7 +275,7 @@ class MessageItem extends StatelessWidget {
       avatarUrl: message.senderAvatar,
       radius: 16.0,
       backgroundColor: DisplayNameUtils.generateUserColor(message.senderName),
-      roleId: message.senderRoleId,
+      // roleId: message.senderRoleId, // 字段已移除
     );
   }
 
