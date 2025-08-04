@@ -116,7 +116,8 @@
       "Bash(./scripts/generate-web-config.sh:*)",
       "Bash(./scripts/generate-local-config.sh:*)",
       "Bash(git rev-parse:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(keytool:*)"
     ],
     "deny": []
   }

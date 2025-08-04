@@ -326,7 +326,7 @@ except Exception as e:
             fi
         else
             echo "🚀 构建Release版本..."
-            if flutter build web --release;  then
+            if flutter build web --release; then
                 echo "✅ Release Web构建成功 (CanvasKit本地化 + 完全无CDN依赖)"
             else
                 echo "❌ Release Web构建失败"
@@ -429,8 +429,16 @@ if [ "$DO_DOCKER" = true ]; then
     VERSION_TAG="v$BUILD_VERSION"
     if [ -n "$GIT_HASH" ]; then
         VERSION_GIT_TAG="v$BUILD_VERSION-$GIT_HASH"
+        # Debug模式下的特殊标签：debug+版本+git
+        if [ "$BUILD_MODE" = "debug" ]; then
+            DEBUG_VERSION_GIT_TAG="debug-v$BUILD_VERSION-$GIT_HASH"
+        fi
     else
         VERSION_GIT_TAG="v$BUILD_VERSION"
+        # Debug模式下的特殊标签：debug+版本
+        if [ "$BUILD_MODE" = "debug" ]; then
+            DEBUG_VERSION_GIT_TAG="debug-v$BUILD_VERSION"
+        fi
     fi
 
     echo "┌──────────────────────────────────────────────┐"
@@ -440,6 +448,9 @@ if [ "$DO_DOCKER" = true ]; then
     echo "📄 Dockerfile: $DOCKERFILE"
     echo "📦 本地镜像: $IMAGE_NAME:$ENV_TAG"
     echo "🏷️  版本+Git标签: $VERSION_GIT_TAG"
+    if [ "$BUILD_MODE" = "debug" ] && [ -n "$DEBUG_VERSION_GIT_TAG" ]; then
+        echo "🐛 Debug版本+Git标签: $DEBUG_VERSION_GIT_TAG"
+    fi
     echo ""
 
     # 构建镜像（使用环境标签作为主标签）
@@ -456,6 +467,12 @@ if [ $? -eq 0 ]; then
     # 添加合并的版本+git标签
     docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$VERSION_GIT_TAG
     echo "   ✅ 版本+Git标签: $IMAGE_NAME:$VERSION_GIT_TAG"
+    
+    # Debug模式下添加debug+版本+git标签
+    if [ "$BUILD_MODE" = "debug" ] && [ -n "$DEBUG_VERSION_GIT_TAG" ]; then
+        docker tag $IMAGE_NAME:$ENV_TAG $IMAGE_NAME:$DEBUG_VERSION_GIT_TAG
+        echo "   ✅ Debug版本+Git标签: $IMAGE_NAME:$DEBUG_VERSION_GIT_TAG"
+    fi
     
     echo ""
     echo "┌──────────────────────────────────────────────┐"
@@ -510,6 +527,11 @@ if [ $? -eq 0 ]; then
     REMOTE_ENV_TAG="$REGISTRY/$IMAGE_NAME:$ENV_TAG"
     REMOTE_VERSION_GIT_TAG="$REGISTRY/$IMAGE_NAME:$VERSION_GIT_TAG"
     
+    # Debug模式下的额外远程标签
+    if [ "$BUILD_MODE" = "debug" ] && [ -n "$DEBUG_VERSION_GIT_TAG" ]; then
+        REMOTE_DEBUG_VERSION_GIT_TAG="$REGISTRY/$IMAGE_NAME:$DEBUG_VERSION_GIT_TAG"
+    fi
+    
     # 为镜像添加远程标签
     echo "🏷️  为镜像添加远程标签..."
     docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_ENV_TAG
@@ -517,6 +539,12 @@ if [ $? -eq 0 ]; then
     
     docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_VERSION_GIT_TAG
     echo "   ✅ 版本+Git标签: $REMOTE_VERSION_GIT_TAG"
+    
+    # Debug模式下添加debug+版本+git远程标签
+    if [ "$BUILD_MODE" = "debug" ] && [ -n "$REMOTE_DEBUG_VERSION_GIT_TAG" ]; then
+        docker tag $IMAGE_NAME:$ENV_TAG $REMOTE_DEBUG_VERSION_GIT_TAG
+        echo "   ✅ Debug版本+Git标签: $REMOTE_DEBUG_VERSION_GIT_TAG"
+    fi
     
     echo ""
     echo "📤 推送所有标签到私有仓库..."
@@ -533,6 +561,14 @@ if [ $? -eq 0 ]; then
         echo "🎯 推送版本+Git标签: $REMOTE_VERSION_GIT_TAG"
         if ! docker push $REMOTE_VERSION_GIT_TAG; then
             success=false
+        fi
+        
+        # Debug模式下推送debug+版本+git标签
+        if [ "$BUILD_MODE" = "debug" ] && [ -n "$REMOTE_DEBUG_VERSION_GIT_TAG" ]; then
+            echo "🎯 推送Debug版本+Git标签: $REMOTE_DEBUG_VERSION_GIT_TAG"
+            if ! docker push $REMOTE_DEBUG_VERSION_GIT_TAG; then
+                success=false
+            fi
         fi
         
         return $([ "$success" = true ] && echo 0 || echo 1)
