@@ -1,40 +1,147 @@
-name: Build Windows App
+name: Build Flutter Windows
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:   # 允许手动触发
 
 jobs:
-  build-windows:
+  windows:
     runs-on: windows-latest
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.29.3'
-        channel: 'stable'
-    
-    - name: Enable Windows Desktop
-      run: flutter config --enable-windows-desktop
-    
-    - name: Install dependencies
-      run: flutter pub get
-    
-    - name: Build Windows Release
-      run: flutter build windows --release
-    
-    - name: Create Windows Archive
-      run: |
-        Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath windows-release.zip
-    
-    - name: Upload Windows Build
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-release
-        path: windows-release.zip
+      # 1) 检出源码
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) 配置 Flutter（缓存可显著提速）
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # 3) 启用 Windows 桌面支持
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      # 4) 安装依赖
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5) 构建 Windows Release 版本
+      - name: Build Windows
+        run: flutter build windows --release
+
+      # 6) 安装 Inno Setup
+      - name: Install Inno Setup
+        run: |
+          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "innosetup-installer.exe"
+          Start-Process -FilePath "innosetup-installer.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+
+      # 7) 验证构建文件是否存在
+      - name: Verify Build Files
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "build\windows\x64\runner\Release\cc.exe")) {
+            Write-Error "构建的可执行文件不存在！"
+            exit 1
+          }
+          Write-Host "✓ 构建文件验证通过"
+
+      # 8) 创建 Inno Setup 脚本
+      - name: Create Inno Setup Script
+        shell: pwsh
+        run: |
+          # 确保输出目录存在
+          New-Item -ItemType Directory -Force -Path "build\windows\installer"
+          
+          $script = @"
+          [Setup]
+          AppName=CC Chat
+          AppVersion=1.0.2
+          AppPublisher=CC Team
+          AppPublisherURL=https://github.com/your-org/cc
+          AppSupportURL=https://github.com/your-org/cc/issues
+          AppUpdatesURL=https://github.com/your-org/cc/releases
+          DefaultDirName={autopf}\CC Chat
+          DefaultGroupName=CC Chat
+          AllowNoIcons=yes
+          LicenseFile=
+          OutputDir=build\windows\installer
+          OutputBaseFilename=cc-chat-setup
+          SetupIconFile=
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+          ArchitecturesAllowed=x64
+          WizardStyle=modern
+          
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
+          Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+          
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
+          
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          
+          [Icons]
+          Name: "{group}\CC Chat"; Filename: "{app}\cc.exe"
+          Name: "{group}\{cm:UninstallProgram,CC Chat}"; Filename: "{uninstallexe}"
+          Name: "{autodesktop}\CC Chat"; Filename: "{app}\cc.exe"; Tasks: desktopicon
+          Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\CC Chat"; Filename: "{app}\cc.exe"; Tasks: quicklaunchicon
+          
+          [Run]
+          Filename: "{app}\cc.exe"; Description: "{cm:LaunchProgram,CC Chat}"; Flags: nowait postinstall skipifsilent
+          
+          [UninstallDelete]
+          Type: filesandordirs; Name: "{app}"
+          "@
+          $script | Out-File -FilePath "setup.iss" -Encoding UTF8
+
+      # 9) 使用 Inno Setup 创建安装程序
+      - name: Create Installer with Inno Setup
+        shell: pwsh
+        run: |
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $innoPath)) {
+            Write-Error "Inno Setup 未正确安装！"
+            exit 1
+          }
+          
+          Write-Host "开始创建安装程序..."
+          & $innoPath setup.iss
+          
+          if (-not (Test-Path "build\windows\installer\cc-chat-setup.exe")) {
+            Write-Error "安装程序创建失败！"
+            exit 1
+          }
+          Write-Host "✓ 安装程序创建成功"
+
+      # 10) 压缩可执行文件目录（用于便携版）
+      - name: Create Portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build\windows\portable"
+          Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "build\windows\portable\" -Recurse
+          Compress-Archive `
+            -Path "build\windows\portable\*" `
+            -DestinationPath "cc-chat-portable.zip"
+
+      # 11) 上传安装程序
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-chat-installer
+          path: build/windows/installer/cc-chat-setup.exe
+
+      # 12) 上传便携版压缩包
+      - name: Upload Portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-chat-portable
+          path: cc-chat-portable.zip
