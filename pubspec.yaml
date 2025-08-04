@@ -170,7 +170,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    - assets/sounds/
+    # - assets/sounds/
     - assets/
 
   # 动态字体加载系统 - 无需静态字体文件，按需动态加载
