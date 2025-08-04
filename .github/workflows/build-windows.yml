@@ -44,7 +44,7 @@ jobs:
       - name: Verify Build Files
         shell: pwsh
         run: |
-          if (-not (Test-Path "build\windows\x64\runner\Release\cc.exe")) {
+          if (-not (Test-Path "build\windows\x64\runner\Release\ThisApp.exe")) {
             Write-Error "构建的可执行文件不存在！"
             exit 1
           }
@@ -90,13 +90,13 @@ jobs:
           Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
           
           [Icons]
-          Name: "{group}\CC Chat"; Filename: "{app}\cc.exe"
+          Name: "{group}\CC Chat"; Filename: "{app}\ThisApp.exe"
           Name: "{group}\{cm:UninstallProgram,CC Chat}"; Filename: "{uninstallexe}"
-          Name: "{autodesktop}\CC Chat"; Filename: "{app}\cc.exe"; Tasks: desktopicon
-          Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\CC Chat"; Filename: "{app}\cc.exe"; Tasks: quicklaunchicon
+          Name: "{autodesktop}\CC Chat"; Filename: "{app}\ThisApp.exe"; Tasks: desktopicon
+          Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\CC Chat"; Filename: "{app}\ThisApp.exe"; Tasks: quicklaunchicon
           
           [Run]
-          Filename: "{app}\cc.exe"; Description: "{cm:LaunchProgram,CC Chat}"; Flags: nowait postinstall skipifsilent
+          Filename: "{app}\ThisApp.exe"; Description: "{cm:LaunchProgram,CC Chat}"; Flags: nowait postinstall skipifsilent
           
           [UninstallDelete]
           Type: filesandordirs; Name: "{app}"

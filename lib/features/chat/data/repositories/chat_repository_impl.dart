@@ -406,7 +406,7 @@ class ChatRepositoryImpl implements ChatRepository {
           ..where((msg) => msg.messageId.equals(messageId)))
           .write(MessagesCompanion(
         messageStatus: const Value('FAILED'),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(TimezoneUtils.nowUtc()),
       ));
       
       if (updated > 0) {
@@ -414,6 +414,24 @@ class ChatRepositoryImpl implements ChatRepository {
           'messageId': messageId,
           'reason': errorReason,
         });
+        
+        // 获取消息的conversationId以发送更新事件
+        final message = await (_database.select(_database.messages)
+            ..where((tbl) => tbl.messageId.equals(messageId)))
+            .getSingleOrNull();
+            
+        if (message != null) {
+          // 通知UI消息状态更新
+          _notifyMessagesEvent(MessageUpdatedEvent(
+            conversationId: message.conversationId,
+            messageId: messageId,
+            timestamp: TimezoneUtils.nowUtc(),
+            updatedFields: {
+              'status': 'FAILED',
+              'updatedAt': TimezoneUtils.nowUtc().toIso8601String(),
+            },
+          ));
+        }
       } else {
         _logger.w('⚠️ 未找到需要标记失败的消息', extra: {
           'messageId': messageId,
@@ -478,13 +496,6 @@ class ChatRepositoryImpl implements ChatRepository {
         'conversationId': response.conversationId,
         'msg': response.msg,
       });
-
-      if (response.messageId.isEmpty) {
-        _logger.w('💌 消息发送响应缺少消息ID，无法匹配本地消息', extra: {
-          'conversationId': response.conversationId,
-        });
-        return;
-      }
 
       // 💢💢💢 直接按messageId查找消息
       final message = await (_database.select(_database.messages)
