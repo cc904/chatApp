@@ -33,7 +33,7 @@ class MediaUrlBuilder {
       fsId: fsId,
       type: _getFileTypeFromMimeType(mediaInfo['mime_type'] as String?),
       conversationId: message.conversationId,
-      timestamp: message.createdAt.toString(),
+      messageCreatedAt: message.createdAt,
       userId: message.senderId,
       fileName: mediaInfo['file_name'] as String,
     );
@@ -56,7 +56,7 @@ class MediaUrlBuilder {
       fsId: fsId,
       type: 'thumbnail',
       conversationId: message.conversationId,
-      timestamp: message.createdAt.toString(),
+      messageCreatedAt: message.createdAt,
       userId: message.senderId,
       fileName: thumbnailFileName,
     );
@@ -151,7 +151,7 @@ class MediaUrlBuilder {
     required String fsId,
     required String type,
     required String conversationId,
-    required String timestamp,
+    required DateTime messageCreatedAt,
     required String userId,
     required String fileName,
   }) async {
@@ -163,8 +163,8 @@ class MediaUrlBuilder {
         return null;
       }
 
-      // 从时间戳提取日期
-      final date = _extractDateFromTimestamp(timestamp);
+      // 从消息创建时间提取日期
+      final date = _extractDateFromDateTime(messageCreatedAt);
 
       // 构建完整URL：{fileServerUrl}/{type}/{conversationId}/{date}/{userId}/{fileName}
       final url = '$fileServerUrl/$type/$conversationId/$date/$userId/$fileName';
@@ -173,6 +173,8 @@ class MediaUrlBuilder {
         'fsId': fsId,
         'type': type,
         'url': url,
+        'messageCreatedAt': messageCreatedAt.toIso8601String(),
+        'extractedDate': date,
       });
 
       return url;
@@ -182,27 +184,21 @@ class MediaUrlBuilder {
         'type': type,
         'conversationId': conversationId,
         'fileName': fileName,
+        'messageCreatedAt': messageCreatedAt.toIso8601String(),
       });
       return null;
     }
   }
 
-  /// 从时间戳提取日期字符串
-  String _extractDateFromTimestamp(String timestamp) {
-    try {
-      final parsed = int.tryParse(timestamp);
-      if (parsed != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(parsed).toUtc();
-        return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      }
-    } catch (e) {
-      _logger.w('时间戳解析失败，使用当前日期', extra: {'timestamp': timestamp});
-    }
-    
-    // 备用：使用当前UTC日期
-    final now = DateTime.now().toUtc();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  /// 从DateTime对象提取日期字符串（推荐使用）
+  /// 使用消息的创建时间，确保URL中的日期与消息实际创建时间一致
+  String _extractDateFromDateTime(DateTime dateTime) {
+    // 使用消息的创建时间，转换为UTC确保一致性
+    final utcDate = dateTime.toUtc();
+    return '${utcDate.year}-${utcDate.month.toString().padLeft(2, '0')}-${utcDate.day.toString().padLeft(2, '0')}';
   }
+
+
 
   /// 检查消息是否有构建URL所需的完整字段
   static bool canBuildUrl(Message message) {

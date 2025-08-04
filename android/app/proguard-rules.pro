@@ -56,3 +56,41 @@
 # Play Core 相关类的虚拟实现（避免R8错误）
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
+
+# ========== APK大小优化规则 ==========
+
+# 移除日志代码（Release版本）
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int i(...);
+    public static int w(...);
+    public static int d(...);
+    public static int e(...);
+}
+
+# 移除调试相关代码
+-assumenosideeffects class java.io.PrintStream {
+    public void println(%);
+    public void println(**);
+}
+
+# R8兼容的代码压缩
+-allowaccessmodification
+-repackageclasses ''
+
+# 移除未使用的资源
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}
+
+# 移除断言
+-assumenosideeffects class * {
+    boolean assert*(...);
+}
+
+# 保持必要的调试信息（R8推荐）
+-keepattributes SourceFile,LineNumberTable
+
+# R8优化配置
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*

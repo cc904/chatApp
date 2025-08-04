@@ -213,7 +213,7 @@ class DatePickerUtility {
                 colorScheme: ColorScheme.light(
                   primary: Theme.of(context).colorScheme.primary,
                 ),
-                dialogTheme: const DialogThemeData(
+                dialogTheme: DialogThemeData(
                   backgroundColor: Colors.white,
                 ),
               ),
