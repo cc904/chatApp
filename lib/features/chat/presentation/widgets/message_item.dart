@@ -50,6 +50,9 @@ class MessageItem extends StatelessWidget {
   // 高亮相关参数
   final bool isHighlighted;
 
+  // 获取被回复消息的回调
+  final Message? Function(String messageId)? getQuotedMessage;
+
   const MessageItem({
     super.key,
     required this.message,
@@ -71,6 +74,7 @@ class MessageItem extends StatelessWidget {
     this.onDelete,
     this.displayStatus,
     this.isHighlighted = false,
+    this.getQuotedMessage,
   });
 
   /// Helper method to extract text from message content JSON
@@ -497,6 +501,9 @@ class MessageItem extends StatelessWidget {
                   ),
                 ),
               ),
+            // 显示回复的消息
+            if (message.quotedMessageId != null)
+              _buildQuotedMessage(context),
             _buildMessageContent(context),
             const SizedBox(height: 2.0),
             _buildTimeAndStatusRow(),
@@ -610,12 +617,23 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildTimeAndStatusRow() {
+    // 🔥🔥🔥 添加明显日志：构建时间状态行
+    print('🔥🔥🔥 [DEBUG] 🏗️ 构建时间状态行');
+    print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
+    print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
+    print('🔥🔥🔥 [DEBUG] 是否当前用户: $isCurrentUser');
+
+    final timeText = _formatMessageTimeSync(message.createdAt);
+    
+    // 🔥🔥🔥 添加明显日志：时间文本
+    print('🔥🔥🔥 [DEBUG] 最终显示时间: $timeText');
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          _formatMessageTimeSync(message.createdAt),
+          timeText,
           style: TextStyle(
             fontSize: 11.0,
             color: Colors.grey[600],
@@ -631,7 +649,19 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildMessageStatusIcon() {
+    // 🔥🔥🔥 添加明显日志：构建消息状态图标
+    print('🔥🔥🔥 [DEBUG] 🎯 构建消息状态图标');
+    print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
+    print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
+    print('🔥🔥🔥 [DEBUG] displayStatus: $displayStatus');
+
     if (displayStatus != null) {
+      // 🔥🔥🔥 添加明显日志：使用displayStatus
+      print('🔥🔥🔥 [DEBUG] 使用displayStatus');
+      print('🔥🔥🔥 [DEBUG] displayStatus.messageStatus: ${displayStatus!.messageStatus}');
+      print('🔥🔥🔥 [DEBUG] displayStatus.isDelivered: ${displayStatus!.isDelivered}');
+      print('🔥🔥🔥 [DEBUG] displayStatus.isRead: ${displayStatus!.isRead}');
+
       return _buildStatusIcon(
         displayStatus!.messageStatus,
         displayStatus!.isDelivered,
@@ -639,37 +669,198 @@ class MessageItem extends StatelessWidget {
       );
     }
 
+    // 🔥🔥🔥 添加明显日志：使用message状态
+    print('🔥🔥🔥 [DEBUG] 使用message状态');
+    print('🔥🔥🔥 [DEBUG] message.messageStatus: ${message.messageStatus}');
+
     return _buildStatusIcon(message.messageStatus, false, false);
   }
 
   Widget _buildStatusIcon(String status, bool isDelivered, bool isRead) {
+    // 🔥🔥🔥 添加明显日志：状态图标选择
+    print('🔥🔥🔥 [DEBUG] 🎯 选择状态图标');
+    print('🔥🔥🔥 [DEBUG] 状态值: "$status"');
+    print('🔥🔥🔥 [DEBUG] 是否已送达: $isDelivered');
+    print('🔥🔥🔥 [DEBUG] 是否已读: $isRead');
+
     switch (status) {
       case 'SENDING':
+        print('🔥🔥🔥 [DEBUG] 返回：小时钟图标 (SENDING)');
         return Icon(Icons.schedule, size: 14.0, color: Colors.grey[600]);
       case 'SENT':
         if (isRead) {
+          print('🔥🔥🔥 [DEBUG] 返回：蓝色双勾图标 (SENT + 已读)');
           return const Icon(Icons.done_all,
               size: 14.0, color: AppColors.primary);
         } else if (isDelivered) {
+          print('🔥🔥🔥 [DEBUG] 返回：灰色双勾图标 (SENT + 已送达)');
           return Icon(Icons.done_all, size: 14.0, color: Colors.grey[600]);
         } else {
+          print('🔥🔥🔥 [DEBUG] 返回：灰色单勾图标 (SENT)');
           return Icon(Icons.done, size: 14.0, color: Colors.grey[600]);
         }
       case 'FAILED':
+        print('🔥🔥🔥 [DEBUG] 返回：红色错误图标 (FAILED)');
         return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);
       case 'DELETED':
+        print('🔥🔥🔥 [DEBUG] 返回：橙色删除图标 (DELETED)');
         return const Icon(Icons.delete_outline,
             size: 14.0, color: Colors.orange);
       case 'REVOKED':
+        print('🔥🔥🔥 [DEBUG] 返回：橙色撤回图标 (REVOKED)');
         return const Icon(Icons.undo, size: 14.0, color: Colors.orange);
       default:
+        print('🔥🔥🔥 [DEBUG] ⚠️ 未知状态，返回空组件: "$status"');
         return const SizedBox.shrink();
+    }
+  }
+
+  /// 构建被回复的消息显示
+  Widget _buildQuotedMessage(BuildContext context) {
+    final quotedSenderName = _getQuotedMessageSenderName();
+    final quotedPreview = _getQuotedMessagePreview();
+    
+    // 计算自适应宽度，基于内容长度和屏幕宽度
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxWidth = screenWidth * 0.7; // 最大宽度为屏幕宽度的70%
+    final minWidth = screenWidth * 0.3; // 最小宽度为屏幕宽度的30%
+    
+    // 根据内容长度估算宽度
+    final contentLength = quotedSenderName.length + quotedPreview.length;
+    double estimatedWidth = (contentLength * 8.0) + 60.0; // 每个字符约8像素 + 内边距
+    
+    // 限制在最小和最大宽度之间
+    estimatedWidth = estimatedWidth.clamp(minWidth, maxWidth);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6.0),
+      child: IntrinsicWidth(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: minWidth,
+            maxWidth: maxWidth,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(8.0),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8.0),
+              border: Border(
+                left: BorderSide(
+                  color: isCurrentUser ? AppColors.primary : Colors.grey[400]!,
+                  width: 3.0,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.reply,
+                      size: 12.0,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4.0),
+                    Flexible(
+                      child: Text(
+                        quotedSenderName,
+                        style: TextStyle(
+                          fontSize: 11.0,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  quotedPreview,
+                  style: TextStyle(
+                    fontSize: 13.0,
+                    color: Colors.grey[700],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 获取被回复消息发送者的名称
+  String _getQuotedMessageSenderName() {
+    if (message.quotedMessageId == null || getQuotedMessage == null) {
+      return '未知用户';
+    }
+    
+    try {
+      final quotedMessage = getQuotedMessage!(message.quotedMessageId!);
+      if (quotedMessage == null) {
+        return '未知用户';
+      }
+      
+      return quotedMessage.senderName ?? '未知用户';
+    } catch (e) {
+      return '未知用户';
+    }
+  }
+
+  /// 获取被回复消息的预览文本
+  String _getQuotedMessagePreview() {
+    if (message.quotedMessageId == null || getQuotedMessage == null) {
+      return '原始消息内容...';
+    }
+    
+    try {
+      final quotedMessage = getQuotedMessage!(message.quotedMessageId!);
+      if (quotedMessage == null) {
+        return '消息已删除或不存在';
+      }
+      
+      // 根据消息类型返回不同的预览文本
+      switch (quotedMessage.messageType) {
+        case 'TEXT':
+          final text = MessageAdapter.extractTextFromContent(quotedMessage.content);
+          return text?.isNotEmpty == true ? text! : '[文本消息]';
+        case 'IMAGE':
+          return '[图片]';
+        case 'VIDEO':
+          return '[视频]';
+        case 'VOICE':
+          return '[语音]';
+        case 'FILE':
+          final mediaInfo = MessageAdapter.extractMediaInfo(quotedMessage.content);
+          final fileName = mediaInfo?['file_name'] as String?;
+          return fileName != null ? '[文件] $fileName' : '[文件]';
+        case 'SYSTEM':
+          final text = MessageAdapter.extractTextFromContent(quotedMessage.content);
+          return text?.isNotEmpty == true ? text! : '[系统消息]';
+        default:
+          return '[未知消息类型]';
+      }
+    } catch (e) {
+      return '获取消息失败';
     }
   }
 
   /// 同步时间格式化方法，避免FutureBuilder导致的布局跳变
   String _formatMessageTimeSync(DateTime timestamp) {
     try {
+      // 🔥🔥🔥 添加明显日志：时间格式化
+      print('🔥🔥🔥 [DEBUG] 🕐 格式化消息时间');
+      print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
+      print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
+      print('🔥🔥🔥 [DEBUG] 原始时间戳: $timestamp');
+
       // 使用简单的本地时间格式化，避免异步操作
       final now = DateTime.now();
       final localTime = timestamp.toLocal();
@@ -678,28 +869,43 @@ class MessageItem extends StatelessWidget {
       final yesterday = today.subtract(const Duration(days: 1));
       final messageDate = DateTime(localTime.year, localTime.month, localTime.day);
       
+      String formattedTime;
       if (messageDate == today) {
         // 今天：只显示时间
-        return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+        formattedTime = '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       } else if (messageDate == yesterday) {
         // 昨天：显示"昨天 HH:mm"
-        return '昨天 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+        formattedTime = '昨天 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       } else if (now.difference(messageDate).inDays < 7) {
         // 一周内：显示"星期X HH:mm"
         final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
         final weekday = weekdays[localTime.weekday - 1];
-        return '$weekday ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+        formattedTime = '$weekday ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       } else if (localTime.year == now.year) {
         // 今年：显示"MM月dd日 HH:mm"
-        return '${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+        formattedTime = '${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       } else {
         // 更早：显示"yyyy年MM月dd日 HH:mm"
-        return '${localTime.year}年${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+        formattedTime = '${localTime.year}年${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       }
+
+      // 🔥🔥🔥 添加明显日志：格式化结果
+      print('🔥🔥🔥 [DEBUG] 格式化结果: $formattedTime');
+      
+      return formattedTime;
     } catch (e) {
+      // 🔥🔥🔥 添加明显日志：格式化异常
+      print('🔥🔥🔥 [DEBUG] ❌ 时间格式化异常: $e');
+      print('🔥🔥🔥 [DEBUG] 使用简单格式');
+
       // 格式化失败时返回简单格式
       final localTime = timestamp.toLocal();
-      return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      final simpleFormat = '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      
+      // 🔥🔥🔥 添加明显日志：简单格式结果
+      print('🔥🔥🔥 [DEBUG] 简单格式结果: $simpleFormat');
+      
+      return simpleFormat;
     }
   }
 

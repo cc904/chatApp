@@ -217,6 +217,10 @@ class ChatState extends Equatable {
   /// 是否正在加载快捷回复
   final bool isQuickReplyLoading;
 
+  /// 回复相关字段
+  /// 正在回复的消息
+  final Message? replyingToMessage;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -262,6 +266,7 @@ class ChatState extends Equatable {
     this.highlightedMessageId,
     this.quickReplies,
     this.isQuickReplyLoading = false,
+    this.replyingToMessage,
   });
 
   /// 初始状态
@@ -328,6 +333,7 @@ class ChatState extends Equatable {
       highlightedMessageId: null,
       quickReplies: null,
       isQuickReplyLoading: false,
+      replyingToMessage: null,
     );
   }
 
@@ -378,14 +384,15 @@ class ChatState extends Equatable {
     bool clearHighlightedMessageId = false,
     List<QuickReply>? quickReplies,
     bool? isQuickReplyLoading,
+    Message? replyingToMessage,
+    bool clearReplyingToMessage = false,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
       currentUser: currentUser ?? this.currentUser,
       messages: messages ?? this.messages,
       isLoadingMessages: isLoadingMessages ?? this.isLoadingMessages,
-      isLoadingMoreMessages:
-          isLoadingMoreMessages ?? this.isLoadingMoreMessages,
+      isLoadingMoreMessages: isLoadingMoreMessages ?? this.isLoadingMoreMessages,
       isFetching: isFetching ?? this.isFetching,
       isSending: isSending ?? this.isSending,
       networkStatus: networkStatus ?? this.networkStatus,
@@ -394,23 +401,16 @@ class ChatState extends Equatable {
       hasMoreBefore: hasMoreBefore ?? this.hasMoreBefore,
       hasMoreAfter: hasMoreAfter ?? this.hasMoreAfter,
       firstUnreadMessageId: firstUnreadMessageId ?? this.firstUnreadMessageId,
-      currentScrollPosition:
-          currentScrollPosition ?? this.currentScrollPosition,
+      currentScrollPosition: currentScrollPosition ?? this.currentScrollPosition,
       isSearchMode: isSearchMode ?? this.isSearchMode,
       searchQuery: searchQuery ?? this.searchQuery,
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
-      searchDateFilter: clearSearchDateFilter
-          ? null
-          : (searchDateFilter ?? this.searchDateFilter),
-      searchResultMessageIndexes:
-          searchResultMessageIndexes ?? this.searchResultMessageIndexes,
-      currentSearchResultIndex:
-          currentSearchResultIndex ?? this.currentSearchResultIndex,
-      isShowingSearchAsList:
-          isShowingSearchAsList ?? this.isShowingSearchAsList,
-      searchResultTotalCount:
-          searchResultTotalCount ?? this.searchResultTotalCount,
+      searchDateFilter: clearSearchDateFilter ? null : (searchDateFilter ?? this.searchDateFilter),
+      searchResultMessageIndexes: searchResultMessageIndexes ?? this.searchResultMessageIndexes,
+      currentSearchResultIndex: currentSearchResultIndex ?? this.currentSearchResultIndex,
+      isShowingSearchAsList: isShowingSearchAsList ?? this.isShowingSearchAsList,
+      searchResultTotalCount: searchResultTotalCount ?? this.searchResultTotalCount,
       originalMessages: originalMessages ?? this.originalMessages,
       isCleaningMessages: isCleaningMessages ?? this.isCleaningMessages,
       messageUpdateTrigger: messageUpdateTrigger ?? this.messageUpdateTrigger,
@@ -428,11 +428,10 @@ class ChatState extends Equatable {
       isLoadingVoice: isLoadingVoice ?? this.isLoadingVoice,
       isLoadingLinks: isLoadingLinks ?? this.isLoadingLinks,
       shouldNavigateBack: shouldNavigateBack ?? this.shouldNavigateBack,
-      highlightedMessageId: clearHighlightedMessageId
-          ? null
-          : (highlightedMessageId ?? this.highlightedMessageId),
+      highlightedMessageId: clearHighlightedMessageId ? null : (highlightedMessageId ?? this.highlightedMessageId),
       quickReplies: quickReplies ?? this.quickReplies,
       isQuickReplyLoading: isQuickReplyLoading ?? this.isQuickReplyLoading,
+      replyingToMessage: clearReplyingToMessage ? null : (replyingToMessage ?? this.replyingToMessage),
     );
   }
 
@@ -448,12 +447,8 @@ class ChatState extends Equatable {
       'totalMessages': messages.length,
       'hasMoreBefore': hasMoreBefore,
       'hasMoreAfter': hasMoreAfter,
-      'firstMessageTime': messages.isNotEmpty
-          ? messages.first.createdAt.toIso8601String()
-          : null,
-      'lastMessageTime': messages.isNotEmpty
-          ? messages.last.createdAt.toIso8601String()
-          : null,
+      'firstMessageTime': messages.isNotEmpty ? messages.first.createdAt.toIso8601String() : null,
+      'lastMessageTime': messages.isNotEmpty ? messages.last.createdAt.toIso8601String() : null,
     };
   }
 
@@ -509,5 +504,6 @@ class ChatState extends Equatable {
         highlightedMessageId,
         quickReplies,
         isQuickReplyLoading,
+        replyingToMessage,
       ];
 }

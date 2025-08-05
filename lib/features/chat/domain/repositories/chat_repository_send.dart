@@ -12,6 +12,13 @@ abstract class ChatRepositorySend {
   /// 返回创建的消息对象
   Future<Message> sendTextMessage(String conversationId, String text);
 
+  /// 发送回复文本消息
+  /// [conversationId] - 会话ID
+  /// [text] - 消息文本内容
+  /// [quotedMessageId] - 被回复的消息ID
+  /// 返回创建的消息对象
+  Future<Message> sendReplyTextMessage(String conversationId, String text, String quotedMessageId);
+
   /// 发送图片消息
   /// [conversationId] - 会话ID
   /// [localPath] - 图片本地路径
@@ -37,9 +44,7 @@ abstract class ChatRepositorySend {
   /// [fileSize] - 文件大小
   /// [mimeType] - MIME类型
   /// 返回创建的消息对象
-  Future<Message> sendVoiceMessage(
-      String conversationId, String localPath, int duration,
-      {String? mediaUrl, String? fsId, String? fileName, double? fileSize, String? mimeType});
+  Future<Message> sendVoiceMessage(String conversationId, String localPath, int duration, {String? mediaUrl, String? fsId, String? fileName, double? fileSize, String? mimeType});
 
   /// 发送文件消息
   /// [conversationId] - 会话ID
@@ -48,9 +53,7 @@ abstract class ChatRepositorySend {
   /// [fileSize] - 文件大小
   /// [mediaUrl] - 可选的媒体URL,如已上传则直接使用
   /// 返回创建的消息对象
-  Future<Message> sendFileMessage(
-      String conversationId, String localPath, String fileName, double fileSize,
-      {String? mediaUrl});
+  Future<Message> sendFileMessage(String conversationId, String localPath, String fileName, double fileSize, {String? mediaUrl});
 
   /// 发送视频消息
   /// [conversationId] - 会话ID
@@ -60,9 +63,7 @@ abstract class ChatRepositorySend {
   /// [mediaUrl] - 可选的媒体URL,如已上传则直接使用
   /// [isServerProcessed] - 是否由服务器处理缩略图
   /// 返回创建的消息对象
-  Future<Message> sendVideoMessage(
-      String conversationId, String localPath, int duration,
-      {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false});
+  Future<Message> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false});
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    消息管理    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
@@ -71,14 +72,12 @@ abstract class ChatRepositorySend {
   /// [content] - 消息内容
   /// [type] - 消息类型
   /// 返回创建的临时消息对象
-  Future<Message> createTempMessage(
-      String conversationId, String content, MessageType type);
+  Future<Message> createTempMessage(String conversationId, String content, MessageType type);
 
   /// 发送消息（带超时机制，不等待响应）
   /// [message] - 要发送的消息对象
   /// [timeout] - 超时时间，默认5秒
-  Future<void> sendMessageWithTimeout(Message message,
-      {Duration timeout = const Duration(seconds: 5)});
+  Future<void> sendMessageWithTimeout(Message message, {Duration timeout = const Duration(seconds: 5)});
 
   /// 重新发送失败的消息
   /// [messageId] - 要重发的消息ID

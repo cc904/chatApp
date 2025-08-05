@@ -8,6 +8,7 @@ import 'package:cc/core/database/drift_database.dart';
 // Proto imports removed as they're not currently used
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
+import 'package:cc/core/adapters/message_adapter.dart';
 import 'dart:convert';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
@@ -121,6 +122,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 输入框文本变化通知器
   final ValueNotifier<String> _textNotifier = ValueNotifier<String>('');
+
+  /// 复制提示状态
+  final ValueNotifier<String> _copyMessageNotifier = ValueNotifier<String>('');
+  Timer? _copyMessageTimer;
 
   /// 新增：输入模式状态
   bool _isVoiceMode = false;
@@ -371,10 +376,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _searchController.dispose();
     _focusNode.dispose();
     _textNotifier.dispose();
+    _copyMessageNotifier.dispose();
     _waveAnimationController.dispose();
     _scrollDebounceTimer?.cancel();
     _searchDebounceTimer?.cancel();
     _recordingTimer?.cancel();
+    _copyMessageTimer?.cancel();
     _visibilityReadUpdateTimer?.cancel();
     // 释放媒体录制服务
     _voiceRecordService.dispose();
@@ -820,7 +827,16 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
     // 发送消息
     try {
-      context.read<ChatCubit>().sendTextMessage(text);
+      final chatCubit = context.read<ChatCubit>();
+      final state = chatCubit.state;
+      
+      // 根据是否有回复消息选择发送方法
+      if (state.replyingToMessage != null) {
+        chatCubit.sendReplyTextMessage(text);
+      } else {
+        chatCubit.sendTextMessage(text);
+      }
+      
       _textController.clear();
 
       // 🆕 如果用户在底部，发送成功后自动滚动到新消息
@@ -1197,9 +1213,44 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   _logger.i('🔥 消息结构变化');
                   return true;
                 }
+
+                // 🔥🔥🔥 新增：检查消息内容变化（状态更新等）
+                // 当消息数量相同时，检查是否有消息的状态或内容发生了变化
+                for (int i = 0; i < previous.messages.length; i++) {
+                  final prevMessage = previous.messages[i];
+                  final currMessage = current.messages[i];
+                  
+                  // 检查消息状态变化
+                  if (prevMessage.messageStatus != currMessage.messageStatus) {
+                    _logger.i('🔥 消息状态变化', extra: {
+                      'messageId': prevMessage.messageId,
+                      'from': prevMessage.messageStatus,
+                      'to': currMessage.messageStatus,
+                    });
+                    return true;
+                  }
+                  
+                  // 检查消息内容变化
+                  if (prevMessage.content != currMessage.content) {
+                    _logger.i('🔥 消息内容变化', extra: {
+                      'messageId': prevMessage.messageId,
+                    });
+                    return true;
+                  }
+                  
+                  // 检查消息更新时间变化
+                  if (prevMessage.updatedAt != currMessage.updatedAt) {
+                    _logger.i('🔥 消息更新时间变化', extra: {
+                      'messageId': prevMessage.messageId,
+                      'from': prevMessage.updatedAt,
+                      'to': currMessage.updatedAt,
+                    });
+                    return true;
+                  }
+                }
               }
 
-              // 2. 搜索状态变化（影响消息高亮和显示）
+              // 3. 搜索状态变化（影响消息高亮和显示）
               if (previous.isSearchMode != current.isSearchMode ||
                   previous.searchQuery != current.searchQuery ||
                   previous.currentSearchResultIndex !=
@@ -1210,7 +1261,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 return true;
               }
 
-              // 3. 会话信息变化（影响消息显示状态和类型判断）
+              // 4. 会话信息变化（影响消息显示状态和类型判断）
               if (previous.conversation.conversationId !=
                       current.conversation.conversationId ||
                   previous.conversation.type != current.conversation.type) {
@@ -1311,6 +1362,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                             onDelete: () => _onDeleteMessage(message),
                             searchQuery: searchQuery,
                             displayStatus: displayStatus, // 💢💢💢 新增：预计算的显示状态
+                            getQuotedMessage: (messageId) => _getQuotedMessage(messageId), // 🔥 新增：获取被回复消息的回调
                           );
                         } else if (item is MessageListItemDateSeparator) {
                           return DateSeparator(
@@ -1372,7 +1424,58 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               );
             },
           ),
-        )
+        ),
+        // 自定义复制提示组件 - 从消息列表底部弹出
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: ValueListenableBuilder<String>(
+            valueListenable: _copyMessageNotifier,
+            builder: (context, message, child) {
+              if (message.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              
+              return AnimatedSlide(
+                offset: message.isNotEmpty ? const Offset(0, 0) : const Offset(0, 1),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutBack,
+                child: AnimatedOpacity(
+                  opacity: message.isNotEmpty ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 14.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 12.0,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.0,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -1412,7 +1515,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             previous.conversation.conversationId != current.conversation.conversationId ||
             previous.conversation.type != current.conversation.type ||
             previous.conversation.participants != current.conversation.participants ||
-            previous.currentUser.roleId != current.currentUser.roleId; // 角色ID变化时重建，影响快捷回复显示
+            previous.currentUser.roleId != current.currentUser.roleId || // 角色ID变化时重建，影响快捷回复显示
+            previous.replyingToMessage != current.replyingToMessage; // 回复消息状态变化时重建
       },
       builder: (context, state) {
         final isEnabled =
@@ -1488,6 +1592,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 return <Widget>[];
               }
             }(),
+            // 回复消息显示
+            if (state.replyingToMessage != null)
+              _buildReplyingToMessage(state.replyingToMessage!),
             // 主输入栏
             Container(
               padding:
@@ -3396,7 +3503,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 回复消息
   void _onReplyMessage(Message message) {
     _logger.d('回复消息', extra: {'messageId': message.messageId});
-    // TODO: 实现回复功能
+    
+    // 设置回复的消息
+    context.read<ChatCubit>().setReplyingToMessage(message);
+    
+    // 聚焦到输入框
+    _focusNode.requestFocus();
   }
 
   /// 转发消息
@@ -3405,17 +3517,152 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     // TODO: 实现转发功能
   }
 
-  /// 复制消息
+  /// 复制消息文本到剪贴板
+  /// 
+  /// 根据消息类型提取相应的文本内容：
+  /// - 文本消息：提取 text_message.text
+  /// - 媒体消息：提取 media_message.caption（如果有）
+  /// - 系统消息：提取 system_message.text
+  /// 
+  /// [message] - 要复制的消息对象
   void _onCopyMessage(Message message) {
-    final messageText = _getTextFromMessage(message);
-    _logger.d('复制消息', extra: {'messageText': messageText});
+    String? messageText;
+    
+    _logger.d('开始复制消息', extra: {
+      'messageId': message.messageId,
+      'messageType': message.messageType,
+      'hasContent': message.content != null,
+      'contentLength': message.content?.length ?? 0,
+    });
+    
+    try {
+      // 使用MessageAdapter提取文本内容（推荐方式）
+      messageText = MessageAdapter.extractTextFromContent(message.content);
+      
+      _logger.d('MessageAdapter提取结果', extra: {
+        'messageId': message.messageId,
+        'extractedText': messageText,
+        'textLength': messageText?.length ?? 0,
+      });
+      
+      // 如果MessageAdapter没有提取到内容，尝试手动解析
+      if (messageText == null || messageText.isEmpty) {
+        if (message.content != null && message.content!.isNotEmpty) {
+          try {
+            final contentMap = jsonDecode(message.content!) as Map<String, dynamic>;
+            
+            // 根据消息类型提取文本
+            switch (message.messageType) {
+              case 'TEXT':
+                // 文本消息：提取 text_message.text
+                if (contentMap.containsKey('text_message')) {
+                  final textData = contentMap['text_message'] as Map<String, dynamic>;
+                  messageText = textData['text'] as String?;
+                }
+                break;
+                
+              case 'IMAGE':
+              case 'VOICE':
+              case 'VIDEO':
+              case 'FILE':
+                // 媒体消息：提取 media_message.caption
+                if (contentMap.containsKey('media_message')) {
+                  final mediaData = contentMap['media_message'] as Map<String, dynamic>;
+                  messageText = mediaData['caption'] as String?;
+                }
+                break;
+                
+              case 'SYSTEM':
+                // 系统消息：提取 system_message.text
+                if (contentMap.containsKey('system_message')) {
+                  final systemData = contentMap['system_message'] as Map<String, dynamic>;
+                  messageText = systemData['text'] as String?;
+                }
+                break;
+                
+              default:
+                // 其他类型，尝试通用字段
+                messageText = contentMap['text'] as String? ?? 
+                             contentMap['caption'] as String? ??
+                             contentMap['message'] as String?;
+            }
+            
+            _logger.d('手动解析结果', extra: {
+              'messageId': message.messageId,
+              'messageType': message.messageType,
+              'extractedText': messageText,
+              'contentStructure': contentMap.keys.toList(),
+            });
+            
+          } catch (e) {
+             _logger.w('JSON解析失败，尝试直接使用content', extra: {
+               'messageId': message.messageId,
+               'content': message.content,
+               'error': e.toString(),
+             });
+            // 如果JSON解析失败，直接使用content作为文本（兜底方案）
+            messageText = message.content;
+          }
+        }
+      }
+    } catch (e) {
+      _logger.e('提取消息文本时出错', error: e, extra: {
+        'messageId': message.messageId,
+        'messageType': message.messageType,
+      });
+    }
+    
+    // 执行复制操作
     if (messageText?.isNotEmpty == true) {
       Clipboard.setData(ClipboardData(text: messageText!));
       final localizations = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.copiedToClipboard)),
-      );
+      _showCopyMessage(localizations.copiedToClipboard, 1500);
+      _logger.i('消息复制成功', extra: {
+        'messageId': message.messageId,
+        'messageType': message.messageType,
+        'textLength': messageText!.length,
+        'copiedText': messageText.length <= 100 ? messageText : '${messageText.substring(0, 100)}...',
+      });
+    } else {
+      _logger.w('没有可复制的文本内容', extra: {
+        'messageId': message.messageId,
+        'messageType': message.messageType,
+        'contentPreview': message.content != null && message.content!.length > 200 
+             ? '${message.content!.substring(0, 200)}...' 
+             : message.content,
+      });
+      
+      // 根据消息类型显示不同的提示
+      String noContentMessage;
+      switch (message.messageType) {
+        case 'TEXT':
+          noContentMessage = '文本消息内容为空';
+          break;
+        case 'IMAGE':
+        case 'VOICE':
+        case 'VIDEO':
+        case 'FILE':
+          noContentMessage = '媒体消息没有说明文字';
+          break;
+        case 'SYSTEM':
+          noContentMessage = '系统消息内容为空';
+          break;
+        default:
+          noContentMessage = '没有可复制的内容';
+      }
+      
+      _showCopyMessage(noContentMessage, 1200);
     }
+  }
+
+  /// 显示复制消息提示
+  void _showCopyMessage(String message, int durationMs) {
+    _copyMessageTimer?.cancel();
+    _copyMessageNotifier.value = message;
+    
+    _copyMessageTimer = Timer(Duration(milliseconds: durationMs), () {
+      _copyMessageNotifier.value = '';
+    });
   }
 
   /// 撤回消息
@@ -4494,6 +4741,26 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     
     return hasPermission;
   }
+
+  /// 根据消息ID获取消息（用于显示被回复的消息）
+  Message? _getQuotedMessage(String messageId) {
+    final chatCubit = context.read<ChatCubit>();
+    final state = chatCubit.state;
+    
+    // 在当前消息列表中查找
+    try {
+      return state.messages.firstWhere(
+        (message) => message.messageId == messageId,
+      );
+    } catch (e) {
+      // 消息不在当前列表中，可能已被删除或不在当前加载范围内
+      _logger.w('无法找到被回复的消息', extra: {
+        'quotedMessageId': messageId,
+        'currentMessagesCount': state.messages.length,
+      });
+      return null;
+    }
+  }
 }
 
 /// 自定义日期选择器对话框
@@ -5424,5 +5691,165 @@ class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
           ? null
           : _captionController.text.trim(),
     });
+  }
+
+
+}
+
+extension _ChatPageReplyExtension on _ChatPageState {
+  /// 构建回复消息显示组件
+  Widget _buildReplyingToMessage(Message replyingToMessage) {
+    // 计算自适应宽度
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxWidth = screenWidth * 0.8; // 最大宽度为屏幕宽度的80%
+    final minWidth = screenWidth * 0.4; // 最小宽度为屏幕宽度的40%
+    
+    final senderName = replyingToMessage.senderName ?? '未知用户';
+    final messagePreview = _getReplyMessagePreview(replyingToMessage);
+    
+    // 根据内容长度估算宽度
+    final contentLength = senderName.length + messagePreview.length;
+    double estimatedWidth = (contentLength * 8.0) + 80.0; // 每个字符约8像素 + 图标和内边距
+    
+    // 限制在最小和最大宽度之间
+    final containerWidth = estimatedWidth.clamp(minWidth, maxWidth);
+    
+    // 判断是否是当前用户发送的消息
+    final isCurrentUserMessage = replyingToMessage.senderId == context.read<ChatCubit>().state.currentUser.userId;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0), // 增加上下2px间距
+      child: Row(
+        children: [
+          // 根据发送人决定对齐方式，如果是当前用户消息，在左侧添加空白
+          if (isCurrentUserMessage) const Spacer(),
+          
+          // 回复消息内容容器
+          IntrinsicWidth(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: minWidth,
+                maxWidth: containerWidth,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                  border: Border(
+                    left: BorderSide(
+                      color: Theme.of(context).primaryColor,
+                      width: 3,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 回复图标
+                    Icon(
+                      Icons.reply,
+                      size: 16,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    
+                    // 回复内容
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 被回复用户名
+                          Text(
+                            senderName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          
+                          // 被回复消息内容
+                          Text(
+                            messagePreview,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 8),
+          
+          // 关闭按钮 - 独立放置在最右边
+          GestureDetector(
+            onTap: () {
+              context.read<ChatCubit>().clearReplyingToMessage();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.close,
+                size: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          
+          // 如果不是当前用户消息，在右侧添加空白
+          if (!isCurrentUserMessage) const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  /// 获取回复消息的预览文本
+  String _getReplyMessagePreview(Message message) {
+    try {
+      // 使用MessageAdapter提取文本内容
+      final text = MessageAdapter.extractTextFromContent(message.content);
+      if (text != null && text.isNotEmpty) {
+        return text;
+      }
+
+      // 根据消息类型返回不同的预览文本
+      switch (message.messageType) {
+        case 'IMAGE':
+          return '[图片]';
+        case 'VOICE':
+          return '[语音]';
+        case 'VIDEO':
+          return '[视频]';
+        case 'FILE':
+          return '[文件]';
+        case 'SYSTEM':
+          return '[系统消息]';
+        default:
+          return '[消息]';
+      }
+    } catch (e) {
+       _ChatPageState._logger.w('获取回复消息预览失败', extra: {
+         'messageId': message.messageId,
+         'messageType': message.messageType,
+         'error': e.toString(),
+       });
+       return '[消息]';
+     }
   }
 }

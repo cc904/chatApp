@@ -27,8 +27,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   AppDatabase get _database => DatabaseInitializer.database;
 
   // 消息发送状态流控制器
-  final _messageSendStatusController =
-      StreamController<MessageSendEvent>.broadcast();
+  final _messageSendStatusController = StreamController<MessageSendEvent>.broadcast();
 
   /// 构造函数
   ChatRepositorySendImpl({
@@ -40,8 +39,15 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   /// 发送文本消息
   @override
   Future<Message> sendTextMessage(String conversationId, String text) async {
-    final message =
-        await _createMessage(conversationId, text, 'TEXT');
+    final message = await _createMessage(conversationId, text, 'TEXT');
+    await sendMessageWithTimeout(message);
+    return message;
+  }
+
+  /// 发送回复文本消息
+  @override
+  Future<Message> sendReplyTextMessage(String conversationId, String text, String quotedMessageId) async {
+    final message = await _createMessage(conversationId, text, 'TEXT', quotedMessageId: quotedMessageId);
     await sendMessageWithTimeout(message);
     return message;
   }
@@ -50,7 +56,6 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   @override
   Future<Message> sendImageMessage(String conversationId, String localPath,
       {String? mediaUrl, String? caption, String? fsId, String? fileName, int? width, int? height, double? fileSize, String? mimeType}) async {
-    
     _logger.i('📤 开始构建图片消息', extra: {
       'conversationId': conversationId,
       'localPath': localPath,
@@ -79,32 +84,30 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         if (mimeType != null) 'mime_type': mimeType,
       },
     };
-    
+
     _logger.i('📤 图片消息内容构建完成', extra: {
       'contentJson': jsonEncode(content),
       'mediaMessage_fsId': content['media_message']?['fs_id'],
       'mediaMessage_fileName': content['media_message']?['file_name'],
       'mediaMessage_mediaUrl': content['media_message']?['media_url'],
     });
-    
+
     final message = await _createMessage(conversationId, '', 'IMAGE', content: content);
-    
+
     _logger.i('📤 图片消息对象创建完成', extra: {
       'messageId': message.messageId,
       'messageContent': message.content,
       'messageType': message.messageType,
     });
-    
+
     await sendMessageWithTimeout(message);
     return message;
   }
 
   /// 发送语音消息
   @override
-  Future<Message> sendVoiceMessage(
-      String conversationId, String localPath, int duration,
+  Future<Message> sendVoiceMessage(String conversationId, String localPath, int duration,
       {String? mediaUrl, String? fsId, String? fileName, double? fileSize, String? mimeType}) async {
-    
     // 构建媒体内容JSON - 包装在 media_message 字段中
     final content = <String, dynamic>{
       'media_message': {
@@ -118,7 +121,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         if (mimeType != null) 'mime_type': mimeType,
       },
     };
-    
+
     final message = await _createMessage(conversationId, '', 'VOICE', content: content);
     await sendMessageWithTimeout(message);
     return message;
@@ -126,10 +129,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
   /// 发送文件消息
   @override
-  Future<Message> sendFileMessage(
-      String conversationId, String localPath, String fileName, double fileSize,
-      {String? mediaUrl}) async {
-    
+  Future<Message> sendFileMessage(String conversationId, String localPath, String fileName, double fileSize, {String? mediaUrl}) async {
     // 构建媒体内容JSON - 包装在 media_message 字段中
     final content = <String, dynamic>{
       'media_message': {
@@ -140,7 +140,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         if (mediaUrl != null) 'media_url': mediaUrl,
       },
     };
-    
+
     final message = await _createMessage(conversationId, '', 'FILE', content: content);
     await sendMessageWithTimeout(message);
     return message;
@@ -148,12 +148,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
   /// 发送视频消息
   @override
-  Future<Message> sendVideoMessage(
-      String conversationId, String localPath, int duration,
-      {String? thumbnailUrl,
-      String? mediaUrl,
-      bool isServerProcessed = false}) async {
-    
+  Future<Message> sendVideoMessage(String conversationId, String localPath, int duration, {String? thumbnailUrl, String? mediaUrl, bool isServerProcessed = false}) async {
     // 构建媒体内容JSON - 包装在 media_message 字段中
     final content = <String, dynamic>{
       'media_message': {
@@ -165,7 +160,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
         'is_server_processed': isServerProcessed,
       },
     };
-    
+
     final message = await _createMessage(conversationId, '', 'VIDEO', content: content);
     await sendMessageWithTimeout(message);
     return message;
@@ -173,8 +168,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
   /// 创建临时消息
   @override
-  Future<Message> createTempMessage(
-      String conversationId, String content, MessageType type) async {
+  Future<Message> createTempMessage(String conversationId, String content, MessageType type) async {
     // Convert MessageType enum to string for internal use
     final typeString = type.name;
     return await _createMessage(conversationId, content, typeString);
@@ -182,8 +176,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
   /// 发送消息（带超时机制）
   @override
-  Future<void> sendMessageWithTimeout(Message message,
-      {Duration timeout = const Duration(seconds: 10)}) async {
+  Future<void> sendMessageWithTimeout(Message message, {Duration timeout = const Duration(seconds: 10)}) async {
     // 保存到数据库
     await _database.into(_database.messages).insert(message);
 
@@ -191,7 +184,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
     // 发送到服务器
     final protoMsg = MessageAdapter.toProto(message);
-    
+
     // 添加详细的发送前调试信息
     _logger.i('💌 准备发送消息到服务器', extra: {
       'messageId': message.messageId,
@@ -200,17 +193,14 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       'protoSize': protoMsg.writeToBuffer().length,
       'hasContent': message.content != null && message.content!.isNotEmpty,
       'contentLength': message.content?.length ?? 0,
-      'contentPreview': message.content != null && message.content!.length <= 200 
-          ? message.content 
-          : '${message.content?.substring(0, 200)}...',
+      'contentPreview': message.content != null && message.content!.length <= 200 ? message.content : '${message.content?.substring(0, 200)}...',
       'senderId': message.senderId,
       'senderName': message.senderName,
       'hasTextMessage': protoMsg.hasTextMessage(),
       'hasMediaMessage': protoMsg.hasMediaMessage(),
     });
-    
-    final sendSuccess =
-        await _communicationService.emitProto('message:send', protoMsg);
+
+    final sendSuccess = await _communicationService.emitProto('message:send', protoMsg);
 
     _logger.i('💌 消息发送请求已发出', extra: {
       'messageId': message.messageId, // 💢💢💢 使用messageId
@@ -224,22 +214,19 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       _logger.w('💌 消息发送立即失败，网络连接问题', extra: {
         'messageId': message.messageId, // 💢💢💢 使用messageId
       });
-      await markMessageAsFailed(
-          message.messageId, '网络连接失败'); // 💢💢💢 传递messageId
+      await markMessageAsFailed(message.messageId, '网络连接失败'); // 💢💢💢 传递messageId
       return;
     }
 
     // 超时处理 - 延长超时时间到10秒，给网络更多时间
     Timer(timeout, () async {
-      final currentMessage =
-          await getMessageById(message.messageId); // 💢💢💢 使用messageId查找
+      final currentMessage = await getMessageById(message.messageId); // 💢💢💢 使用messageId查找
       if (currentMessage?.messageStatus == 'SENDING') {
         _logger.w('💌 消息发送超时', extra: {
           'messageId': message.messageId, // 💢💢💢 使用messageId
           'timeoutSeconds': timeout.inSeconds,
         });
-        await markMessageAsFailed(message.messageId,
-            '发送超时(${timeout.inSeconds}秒)'); // 💢💢💢 传递messageId
+        await markMessageAsFailed(message.messageId, '发送超时(${timeout.inSeconds}秒)'); // 💢💢💢 传递messageId
       }
     });
   }
@@ -265,8 +252,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   @override
   Future<Message?> getMessageById(String messageId) async {
     // 💢💢💢 直接按messageId查找
-    return await (_database.select(_database.messages)
-        ..where((m) => m.messageId.equals(messageId))).getSingleOrNull();
+    return await (_database.select(_database.messages)..where((m) => m.messageId.equals(messageId))).getSingleOrNull();
   }
 
   /// 更新消息状态
@@ -311,11 +297,11 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   }
 
   /// 创建消息对象
-  Future<Message> _createMessage(String conversationId, String text, String type, {Map<String, dynamic>? content}) async {
+  Future<Message> _createMessage(String conversationId, String text, String type, {Map<String, dynamic>? content, String? quotedMessageId}) async {
     // 使用UUID生成唯一的消息ID
     final messageId = _uuid.v4();
     final now = TimezoneUtils.nowUtc();
-    
+
     // 🔧 修复：将内容转换为MessageAdapter期望的JSON格式
     String? contentJson;
     if (content != null) {
@@ -350,8 +336,8 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       messageIndex: 0, // 初始为0，等待服务器返回真实索引
       messageType: type,
       messageStatus: 'SENDING',
-      quotedMessageId: null,
-      repliedToMessageId: null,
+      quotedMessageId: quotedMessageId,
+      repliedToMessageId: quotedMessageId, // 回复消息时，repliedToMessageId 和 quotedMessageId 相同
       forwardedFromConversationId: null,
       forwardedFromMessageId: null,
       isEdited: false,

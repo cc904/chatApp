@@ -77,12 +77,16 @@ ICON_CONFIGS = {
         {"size": 1024, "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png"},
     ],
     
-    # Windows icons
+    # Windows icons - 增加高分辨率支持
     "windows": [
         {"size": 16, "path": "windows/runner/resources/app_icon_16.ico"},
         {"size": 32, "path": "windows/runner/resources/app_icon_32.ico"},
         {"size": 48, "path": "windows/runner/resources/app_icon_48.ico"},
-        {"size": 256, "path": "windows/runner/resources/app_icon.ico"},
+        {"size": 64, "path": "windows/runner/resources/app_icon_64.ico"},
+        {"size": 128, "path": "windows/runner/resources/app_icon_128.ico"},
+        {"size": 256, "path": "windows/runner/resources/app_icon_256.ico"},
+        {"size": 512, "path": "windows/runner/resources/app_icon_512.ico"},
+        {"size": 1024, "path": "windows/runner/resources/app_icon.ico"},  # 主图标使用最高分辨率
     ]
 }
 
@@ -107,13 +111,23 @@ def create_rounded_icon(image, corner_radius_ratio=0.2237):
     return rounded_image
 
 def svg_to_png(svg_path, output_path, size):
-    """Convert SVG to PNG with specified size"""
+    """Convert SVG to PNG with specified size and high quality"""
     try:
-        # Convert SVG to PNG using cairosvg
+        # 对于高分辨率图标，使用更大的渲染尺寸然后缩放，以获得更好的质量
+        render_size = size
+        if size <= 64:
+            # 小尺寸图标使用4倍超采样
+            render_size = size * 4
+        elif size <= 256:
+            # 中等尺寸图标使用2倍超采样
+            render_size = size * 2
+        
+        # Convert SVG to PNG using cairosvg with high quality settings
         png_data = cairosvg.svg2png(
             url=str(svg_path),
-            output_width=size,
-            output_height=size
+            output_width=render_size,
+            output_height=render_size,
+            dpi=300  # 高DPI渲染
         )
         
         # Open with PIL for further processing
@@ -122,6 +136,13 @@ def svg_to_png(svg_path, output_path, size):
         # Ensure RGBA mode
         if image.mode != 'RGBA':
             image = image.convert('RGBA')
+        
+        # 如果使用了超采样，缩放到目标尺寸
+        if render_size != size:
+            image = image.resize((size, size), Image.Resampling.LANCZOS)
+            # 对缩放后的小图标进行轻微锐化
+            if size <= 64:
+                image = image.filter(ImageFilter.UnsharpMask(radius=0.3, percent=120, threshold=1))
         
         return image
         
@@ -169,12 +190,31 @@ def generate_icons():
                 
                 # Save the image
                 if output_path.suffix.lower() == '.ico':
-                    # For ICO files (Windows), save with multiple sizes
-                    ico_sizes = [(16, 16), (32, 32), (48, 48), (256, 256)]
+                    # For ICO files (Windows), save with multiple sizes for better quality
+                    # 根据目标尺寸决定包含的ICO尺寸
+                    if size >= 1024:
+                        # 主图标包含所有尺寸
+                        ico_sizes = [(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), 
+                                   (64, 64), (96, 96), (128, 128), (256, 256), (512, 512), (1024, 1024)]
+                    elif size >= 512:
+                        ico_sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256), (512, 512)]
+                    elif size >= 256:
+                        ico_sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+                    elif size >= 128:
+                        ico_sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128)]
+                    elif size >= 64:
+                        ico_sizes = [(16, 16), (32, 32), (48, 48), (64, 64)]
+                    else:
+                        ico_sizes = [(size, size)]
+                    
                     images = []
                     for ico_size in ico_sizes:
                         if ico_size[0] <= size:
+                            # 使用高质量重采样算法
                             resized = image.resize(ico_size, Image.Resampling.LANCZOS)
+                            # 对小尺寸图标进行锐化处理以提高清晰度
+                            if ico_size[0] <= 48:
+                                resized = resized.filter(ImageFilter.UnsharpMask(radius=0.5, percent=150, threshold=2))
                             images.append(resized)
                     
                     if images:
