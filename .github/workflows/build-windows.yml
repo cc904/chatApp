@@ -320,15 +320,265 @@ jobs:
             exit 1
           }
 
-      # 10) 压缩可执行文件目录（用于便携版）
-      - name: Create Portable ZIP
+      # 10) 创建便携版（包含运行时库）
+      - name: Create Portable ZIP with Runtime
         shell: pwsh
         run: |
+          Write-Host "创建便携版压缩包（包含运行时库）..."
+          
+          # 创建便携版目录
           New-Item -ItemType Directory -Force -Path "build\windows\portable"
+          
+          # 复制应用程序文件
           Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "build\windows\portable\" -Recurse
-          Compress-Archive `
-            -Path "build\windows\portable\*" `
-            -DestinationPath "cc-chat-portable.zip"
+          Write-Host "✓ 应用程序文件复制完成"
+          
+          # 下载 Visual C++ Redistributable 运行时库
+          Write-Host "下载 Visual C++ Redistributable 运行时库..."
+          $vcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          $vcRedistPath = "build\windows\portable\vc_redist.x64.exe"
+          
+          try {
+            Invoke-WebRequest -Uri $vcRedistUrl -OutFile $vcRedistPath -UseBasicParsing
+            Write-Host "✓ Visual C++ Redistributable 下载完成"
+          } catch {
+            Write-Warning "无法下载 Visual C++ Redistributable: $($_.Exception.Message)"
+            Write-Host "用户需要手动安装 Visual C++ Redistributable"
+          }
+          
+          # 创建使用说明文件
+          $readmeLines = @(
+            "# CC Chat 便携版使用说明",
+            "",
+            "## 🚀 快速开始",
+            "",
+            "### 推荐方式（自动化）：",
+            "1. **双击运行 `"启动 CC Chat.bat`"** - 智能启动器会自动检测并安装所需依赖",
+            "2. 如果是首次运行，启动器会自动安装 Visual C++ 运行时库",
+            "3. 安装完成后会自动启动 CC Chat",
+            "",
+            "### 传统方式：",
+            "1. 如果遇到 `"缺少 vcruntime140_1.dll`" 错误",
+            "2. 双击运行 `"自动安装运行时库.bat`"",
+            "3. 安装完成后双击 `"ThisApp.exe`" 启动应用",
+            "",
+            "## 📁 文件说明",
+            "",
+            "- **启动 CC Chat.bat** - 智能启动器（推荐使用）",
+            "  - 自动检测运行时库",
+            "  - 自动安装缺失的依赖",
+            "  - 自动启动应用",
+            "",
+            "- **自动安装运行时库.bat** - 专用安装工具",
+            "  - 仅用于安装 Visual C++ 运行时库",
+            "  - 支持静默安装和交互式安装",
+            "",
+            "- **vc_redist.x64.exe** - Microsoft Visual C++ Redistributable",
+            "  - 官方运行时库安装程序",
+            "  - 可手动运行安装",
+            "",
+            "- **ThisApp.exe** - CC Chat 主程序",
+            "  - 需要运行时库支持",
+            "",
+            "## 🔧 故障排除",
+            "",
+            "### 如果自动安装失败：",
+            "",
+            "**方法一：手动安装（推荐）**",
+            "1. 双击运行 `"vc_redist.x64.exe`"",
+            "2. 按照安装向导完成安装",
+            "3. 重新运行应用",
+            "",
+            "**方法二：从官网下载**",
+            "1. 访问：https://aka.ms/vs/17/release/vc_redist.x64.exe",
+            "2. 下载并安装最新版本",
+            "3. 重新运行应用",
+            "",
+            "**方法三：使用包管理器**",
+            "- Chocolatey: `choco install vcredist140`",
+            "- Winget: `winget install Microsoft.VCRedist.2015+.x64`",
+            "",
+            "### 如果应用无法启动：",
+            "1. 确保已安装 Visual C++ 运行时库",
+            "2. 尝试以管理员身份运行",
+            "3. 检查防火墙和杀毒软件设置",
+            "4. 重启计算机后再试",
+            "",
+            "## 📝 注意事项",
+            "",
+            "- **便携版特性**：不会在系统中注册，删除文件夹即可完全卸载",
+            "- **数据存储**：应用数据保存在用户目录下，不会随便携版一起删除",
+            "- **完全卸载**：如需完全卸载，请同时删除用户数据目录",
+            "- **权限要求**：首次安装运行时库可能需要管理员权限",
+            "",
+            "## 🆘 技术支持",
+            "",
+            "如遇问题，请访问：https://github.com/your-org/cc/issues",
+            "",
+            "---",
+            "CC Chat 便携版 - 开箱即用，智能安装"
+          )
+          $readmeLines | Out-File -FilePath "build\windows\portable\README.txt" -Encoding UTF8
+          Write-Host "✓ 使用说明文件创建完成"
+          
+          # 创建智能启动脚本（自动检测和安装运行时库）
+          $launchLines = @(
+            "@echo off",
+            "chcp 65001 >nul",
+            "title CC Chat 启动器",
+            "echo.",
+            "echo ==========================================",
+            "echo           CC Chat 智能启动器",
+            "echo ==========================================",
+            "echo.",
+            "",
+            "REM 检查是否存在必要的运行时库",
+            "echo [1/3] 检查 Visual C++ 运行时库...",
+            "where vcruntime140_1.dll >nul 2>&1",
+            "if %errorlevel% equ 0 (",
+            "    echo ✓ Visual C++ 运行时库已安装",
+            "    goto :start_app",
+            ")",
+            "",
+            "echo ⚠ 检测到缺少 Visual C++ 运行时库",
+            "echo.",
+            "",
+            "REM 检查是否存在安装程序",
+            "if not exist `"vc_redist.x64.exe`" (",
+            "    echo ❌ 未找到运行时库安装程序",
+            "    echo 请手动下载并安装 Visual C++ Redistributable",
+            "    echo 下载地址: https://aka.ms/vs/17/release/vc_redist.x64.exe",
+            "    echo.",
+            "    pause",
+            "    exit /b 1",
+            ")",
+            "",
+            "echo [2/3] 自动安装 Visual C++ 运行时库...",
+            "echo.",
+            "echo 正在启动安装程序，请按照提示完成安装...",
+            "echo （安装程序可能需要管理员权限）",
+            "echo.",
+            "",
+            "REM 静默安装运行时库",
+            "start /wait `"`" `"vc_redist.x64.exe`" /quiet /norestart",
+            "if %errorlevel% equ 0 (",
+            "    echo ✓ Visual C++ 运行时库安装成功",
+            "    echo.",
+            ") else (",
+            "    echo ⚠ 自动安装失败，尝试交互式安装...",
+            "    echo 请在弹出的安装向导中完成安装",
+            "    start /wait `"`" `"vc_redist.x64.exe`"",
+            "    if %errorlevel% neq 0 (",
+            "        echo ❌ 安装失败，请手动安装运行时库",
+            "        echo 或查看 README.txt 了解详细说明",
+            "        pause",
+            "        exit /b 1",
+            "    )",
+            ")",
+            "",
+            "REM 再次检查安装结果",
+            "echo 验证安装结果...",
+            "timeout /t 2 /nobreak >nul",
+            "where vcruntime140_1.dll >nul 2>&1",
+            "if %errorlevel% neq 0 (",
+            "    echo ⚠ 运行时库可能未正确安装",
+            "    echo 请重启计算机后再试，或手动安装",
+            "    pause",
+            "    exit /b 1",
+            ")",
+            "",
+            ":start_app",
+            "echo [3/3] 启动 CC Chat...",
+            "echo ✓ 所有依赖项检查完成",
+            "echo.",
+            "timeout /t 1 /nobreak >nul",
+            "",
+            "REM 启动应用",
+            "start `"`" `"ThisApp.exe`"",
+            "if %errorlevel% equ 0 (",
+            "    echo ✓ CC Chat 启动成功",
+            "    timeout /t 2 /nobreak >nul",
+            ") else (",
+            "    echo ❌ 应用启动失败",
+            "    pause",
+            ")"
+          )
+          $launchLines | Out-File -FilePath "build\windows\portable\启动 CC Chat.bat" -Encoding Default
+          Write-Host "✓ 智能启动脚本创建完成"
+          
+          # 创建简单的自动安装脚本
+          $autoInstallLines = @(
+            "@echo off",
+            "chcp 65001 >nul",
+            "title 自动安装 Visual C++ 运行时库",
+            "echo.",
+            "echo ==========================================",
+            "echo      自动安装 Visual C++ 运行时库",
+            "echo ==========================================",
+            "echo.",
+            "",
+            "REM 检查运行时库是否已安装",
+            "where vcruntime140_1.dll >nul 2>&1",
+            "if %errorlevel% equ 0 (",
+            "    echo ✓ Visual C++ 运行时库已经安装",
+            "    echo 无需重复安装",
+            "    timeout /t 3 /nobreak >nul",
+            "    exit /b 0",
+            ")",
+            "",
+            "echo 正在检测运行时库安装程序...",
+            "if not exist `"vc_redist.x64.exe`" (",
+            "    echo ❌ 未找到 vc_redist.x64.exe",
+            "    echo 请确保该文件在同一目录下",
+            "    pause",
+            "    exit /b 1",
+            ")",
+            "",
+            "echo ✓ 找到安装程序，开始自动安装...",
+            "echo.",
+            "echo 注意：安装过程可能需要管理员权限",
+            "echo 如果弹出 UAC 提示，请点击 `"是`"",
+            "echo.",
+            "",
+            "REM 尝试静默安装",
+            "echo 尝试静默安装...",
+            "`"vc_redist.x64.exe`" /quiet /norestart",
+            "if %errorlevel% equ 0 (",
+            "    echo ✓ 安装成功！",
+            "    echo.",
+            "    echo 现在可以正常运行 CC Chat 了",
+            "    timeout /t 3 /nobreak >nul",
+            "    exit /b 0",
+            ")",
+            "",
+            "REM 如果静默安装失败，尝试交互式安装",
+            "echo 静默安装失败，启动交互式安装...",
+            "echo 请按照安装向导完成安装",
+            "`"vc_redist.x64.exe`"",
+            "if %errorlevel% equ 0 (",
+            "    echo ✓ 安装完成！",
+            ") else (",
+            "    echo ❌ 安装失败",
+            "    echo 请手动运行 vc_redist.x64.exe 或查看 README.txt",
+            ")",
+            "",
+            "pause"
+          )
+          $autoInstallLines | Out-File -FilePath "build\windows\portable\自动安装运行时库.bat" -Encoding Default
+          Write-Host "✓ 自动安装脚本创建完成"
+          
+          # 显示便携版目录内容
+          Write-Host "便携版目录内容："
+          Get-ChildItem "build\windows\portable" | ForEach-Object { 
+            $size = if ($_.PSIsContainer) { "文件夹" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+            Write-Host "  - $($_.Name) ($size)"
+          }
+          
+          # 创建压缩包
+          Compress-Archive -Path "build\windows\portable\*" -DestinationPath "cc-chat-portable.zip" -Force
+          
+          $zipSize = (Get-Item "cc-chat-portable.zip").Length / 1MB
+          Write-Host "✓ 便携版压缩包创建完成: cc-chat-portable.zip ($([math]::Round($zipSize, 2)) MB)"
 
       # 11) 上传安装程序
       - name: Upload Installer
