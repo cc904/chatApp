@@ -102,6 +102,9 @@ jobs:
           $chineseLangFile = Join-Path $nsisLangDir "SimpChinese.nlf"
           $hasChineseSupport = Test-Path $chineseLangFile
           
+          # 检查 LICENSE 文件是否存在
+          $hasLicense = Test-Path "LICENSE"
+          
           if ($hasChineseSupport) {
             Write-Host "✓ 将创建支持中英文的安装程序"
             $languageSection = @"
@@ -115,6 +118,17 @@ jobs:
           !include "MUI2.nsh"
           !insertmacro MUI_LANGUAGE "English"
           "@
+          }
+          
+          # 根据 LICENSE 文件存在性决定是否包含许可证页面
+          if ($hasLicense) {
+            Write-Host "✓ 将包含许可证页面"
+            $licensePageSection = @"
+          !insertmacro MUI_PAGE_LICENSE "LICENSE"
+          "@
+          } else {
+            Write-Host "⚠ 未找到 LICENSE 文件，跳过许可证页面"
+            $licensePageSection = ""
           }
           
           $script = @"
@@ -146,7 +160,7 @@ jobs:
           
           ; 安装页面
           !insertmacro MUI_PAGE_WELCOME
-          !insertmacro MUI_PAGE_LICENSE "LICENSE"
+          $licensePageSection
           !insertmacro MUI_PAGE_COMPONENTS
           !insertmacro MUI_PAGE_DIRECTORY
           !insertmacro MUI_PAGE_INSTFILES
