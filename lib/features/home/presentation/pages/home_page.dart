@@ -58,7 +58,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   bool _isInitialized = false;
   bool _isInitializing = false;
   bool _isInitializingRepositories = false;
-  
+
   // 🔧 调试用：跟踪初始化调用次数
   static int _initCallCounter = 0;
 
@@ -218,12 +218,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     }
 
     // 🔧 强化：当应用从后台恢复时，检查状态是否需要重新初始化
-    if (state == AppLifecycleState.resumed && 
-        !_isInitialized && 
-        !_isInitializing && 
-        _homeCubit == null &&
-        _contactCubit == null &&
-        _chatsCubit == null) {
+    if (state == AppLifecycleState.resumed && !_isInitialized && !_isInitializing && _homeCubit == null && _contactCubit == null && _chatsCubit == null) {
       _logger.w('应用从后台恢复，但状态未初始化，重新初始化', extra: {
         'isInitialized': _isInitialized,
         'isInitializing': _isInitializing,
@@ -256,7 +251,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       'isInitialized': _isInitialized,
       'isInitializing': _isInitializing,
     });
-    
+
     // 🔧 修复：简化保护逻辑，移除可能永远为true的_globalInitializationInProgress检查
     if (_homeCubit != null || _isInitialized || _isInitializing) {
       _logger.d('初始化已进行或进行中，跳过重复调用', extra: {
@@ -264,13 +259,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         'homeCubitExists': _homeCubit != null,
         'isInitialized': _isInitialized,
         'isInitializing': _isInitializing,
-        'reason': _homeCubit != null ? 'HomeCubit已存在' : 
-                 _isInitialized ? '已初始化完成' :
-                 _isInitializing ? '正在初始化中' : '未知',
+        'reason': _homeCubit != null
+            ? 'HomeCubit已存在'
+            : _isInitialized
+                ? '已初始化完成'
+                : _isInitializing
+                    ? '正在初始化中'
+                    : '未知',
       });
       return;
     }
-
 
     setState(() {
       _isInitializing = true;
@@ -304,33 +302,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       // 🔥🔥🔥 错误：如果roleId为0，说明数据来源有问题
       if (currentUser.roleId == 0) {
         _logger.e('🚨🚨🚨 CRITICAL_ERROR: currentUser的roleId为0是错误的！', extra: {
-          'possibleCauses': [
-            '1. 服务器登录响应没有正确传递roleId',
-            '2. SecureStorageService保存时丢失了roleId',
-            '3. 数据库同步时roleId未正确更新',
-            '4. Proto转换过程中roleId丢失'
-          ],
-          'currentUserData': {
-            'userId': currentUser.userId,
-            'name': currentUser.name,
-            'roleId': currentUser.roleId,
-            'expectedRoleId': '应该是1,2,3,4中的一个，不应该是0'
-          }
+          'possibleCauses': ['1. 服务器登录响应没有正确传递roleId', '2. SecureStorageService保存时丢失了roleId', '3. 数据库同步时roleId未正确更新', '4. Proto转换过程中roleId丢失'],
+          'currentUserData': {'userId': currentUser.userId, 'name': currentUser.name, 'roleId': currentUser.roleId, 'expectedRoleId': '应该是1,2,3,4中的一个，不应该是0'}
         });
         _logger.w('安全存储中的用户roleId为0，尝试从数据库获取最新用户信息');
         _logger.i('🔄🔄🔄 FIXING_ROLE_ID: secureStorageRoleId=${currentUser.roleId}, fetching from database...');
-        
+
         try {
           final profileRepository = ProfileRepository();
           final databaseUser = await profileRepository.getCurrentUser();
-          
+
           if (databaseUser != null && databaseUser.roleId != 0) {
             _logger.i('从数据库获取到正确的用户信息', extra: {
               'secureStorageRoleId': currentUser.roleId,
               'databaseRoleId': databaseUser.roleId,
             });
             _logger.d('🔄🔄🔄 FIXED_ROLE_ID: databaseRoleId=${databaseUser.roleId}');
-            
+
             // 使用数据库中的用户信息，并重新保存到安全存储
             currentUser = databaseUser;
             await _secureStorage.saveUserCredentials(currentUser);
@@ -346,10 +334,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       }
 
       _currentUser = currentUser;
-      
+
       if (mounted) {
-        setState(() {
-        });
+        setState(() {});
       }
 
       // 确保currentUser不为null（前面已经有null检查）
@@ -367,13 +354,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         });
         return;
       }
-      
+
       _logger.i('🎉 用户会话初始化成功，准备初始化服务');
 
       // 🔧 优化：并行初始化所有Repository和Cubit，减少等待时间
       if (mounted) {
-        setState(() {
-        });
+        setState(() {});
       }
 
       // 🔧 修复：在调用initializeRepositoriesAndCubits前检查mounted状态
@@ -381,7 +367,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         _logger.w('Widget已unmounted，取消Repository初始化');
         return;
       }
-      
+
       await _initializeRepositoriesAndCubits(currentUser);
 
       // 🔧 修复：初始化完成后再次检查mounted状态
@@ -393,7 +379,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       // 🔧 新增：标记初始化完成
       _isInitializing = false;
       _isInitialized = true; // 🔧 修复：在初始化完成后才设置为true
-      
+
       _logger.i('HomePage 初始化完成', extra: {
         'isInitialized': _isInitialized,
         'isInitializing': _isInitializing,
@@ -414,7 +400,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
           _initializeDataSync();
         }
       });
-
     } catch (error) {
       _logger.e('HomePage 初始化失败', error: error);
       if (mounted) {
@@ -423,7 +408,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
           _isInitialized = false; // 初始化失败，重置状态
         });
       }
-      
+
       // 初始化失败，返回登录页面
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacement(
@@ -442,20 +427,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       'mounted': mounted,
       'stackTrace': StackTrace.current.toString().split('\n').take(5).join('\n'),
     });
-    
+
     // 🔧 强化检查：多重保护机制
     if (!mounted) {
       _logger.w('Widget已unmounted，取消初始化');
       return;
     }
-    
+
     if (_isInitializingRepositories) {
       _logger.w('Repository和Cubit正在初始化中，跳过重复调用', extra: {
         'isInitializingRepositories': _isInitializingRepositories,
       });
       return;
     }
-    
+
     if (_contactCubit != null && _chatsCubit != null) {
       _logger.i('Repository和Cubit已存在，跳过初始化', extra: {
         'contactCubitInstanceId': (_contactCubit as dynamic)?._instanceId,
@@ -463,10 +448,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       });
       return;
     }
-    
+
     // 🔧 设置初始化锁
     _isInitializingRepositories = true;
-    
+
     // 如果有部分初始化的实例，先清理
     if (_contactCubit != null) {
       _logger.w('发现已存在的ContactCubit，先清理');
@@ -478,7 +463,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       await _chatsCubit!.close();
       _chatsCubit = null;
     }
-    
+
     try {
       // 并行创建所有Repository（它们相互独立）
       final futures = await Future.wait([
@@ -500,12 +485,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       // 并行创建所有Cubit
       final cubitFutures = await Future.wait([
         Future(() => ChatsCubit(
-          chatsRepository: _chatsRepository!,
-          currentUser: currentUser,
-        )),
+              chatsRepository: _chatsRepository!,
+              currentUser: currentUser,
+            )),
         Future(() => ContactCubit(
-          contactsRepository: contactsRepository,
-        )),
+              contactsRepository: contactsRepository,
+            )),
       ]);
 
       _chatsCubit = cubitFutures[0] as ChatsCubit;
@@ -527,20 +512,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   /// 🔧 新增：初始化数据同步
   void _initializeDataSync() {
     _logger.i('开始初始化数据同步');
-    
+
     // 设置初始网络重连同步权限（默认ChatsPage可见）
     _updateNetworkReconnectSyncPermissions(_currentIndex.value);
-    
+
     // 异步开始数据同步，不阻塞UI
     Future.microtask(() async {
       try {
         // 优先同步会话列表（用户最关心的）
         _chatsCubit?.requestSyncConversations();
-        
+
+        // 🎯🎯🎯 预加载联系人到缓存，减少名称闪烁问题
+        _logger.i('📇📇📇 开始预加载联系人');
+        _contactCubit?.loadContacts();
+
         // 稍后同步联系人
         await Future.delayed(const Duration(milliseconds: 500));
         _contactCubit?.syncContacts();
-        
+
         _logger.i('数据同步已启动');
       } catch (error) {
         _logger.e('数据同步启动失败', error: error);
@@ -701,7 +690,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 _buildTabContent(0, localizations), // 聊天页面
-                _buildTabContent(1, localizations), // 联系人页面  
+                _buildTabContent(1, localizations), // 联系人页面
                 _buildTabContent(2, localizations), // 个人资料页面
               ],
             ),
@@ -736,7 +725,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
   Widget _buildTabContent(int tabIndex, AppLocalizations localizations) {
     // 🔧 增强调试：记录为什么显示骨架屏
     final shouldShowSkeleton = _isInitializing || !_isInitialized || _homeCubit == null || _chatsCubit == null || _contactCubit == null;
-    
+
     if (shouldShowSkeleton) {
       _logger.d('显示骨架屏', extra: {
         'tabIndex': tabIndex,
@@ -745,11 +734,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         'hasHomeCubit': _homeCubit != null,
         'hasChatsCubit': _chatsCubit != null,
         'hasContactCubit': _contactCubit != null,
-        'reason': _isInitializing ? '正在初始化' :
-                 !_isInitialized ? '未初始化完成' :
-                 _homeCubit == null ? 'HomeCubit为空' :
-                 _chatsCubit == null ? 'ChatsCubit为空' :
-                 _contactCubit == null ? 'ContactCubit为空' : '未知',
+        'reason': _isInitializing
+            ? '正在初始化'
+            : !_isInitialized
+                ? '未初始化完成'
+                : _homeCubit == null
+                    ? 'HomeCubit为空'
+                    : _chatsCubit == null
+                        ? 'ChatsCubit为空'
+                        : _contactCubit == null
+                            ? 'ContactCubit为空'
+                            : '未知',
       });
       return _buildSkeletonContent(tabIndex, localizations);
     }
@@ -761,7 +756,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
       'isInitializing': _isInitializing,
       'allCubitsReady': true,
     });
-    
+
     return MultiRepositoryProvider(
       providers: [
         // Repository providers - 全局共享

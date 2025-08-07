@@ -220,7 +220,7 @@ class ConversationPreviewNotificationService {
       final notificationStyle = _settingsService.getNotificationStyle();
       
       // 使用新的顶部消息通知
-      final senderName = sender?.nickName ?? previewUpdate.lastMessageName;
+      final senderName = sender?.name ?? previewUpdate.lastMessageName;
       final messageText = notificationStyle.showPreview ? previewUpdate.lastMessagePreview : '新消息';
       final conversationName = conversation.type == 'PRIVATE' ? null : conversation.name;
       
@@ -315,9 +315,9 @@ class ConversationPreviewNotificationService {
   /// 构建通知标题
   String _buildNotificationTitle(Conversation conversation, User? sender) {
     if (conversation.type == 'PRIVATE') {
-      return sender?.nickName ?? conversation.name ?? '私聊';
+      return sender?.name ?? conversation.name ?? '私聊';
     } else {
-      final senderName = sender?.nickName ?? '某人';
+      final senderName = sender?.name ?? '某人';
       return '${conversation.name ?? '群聊'} ($senderName)';
     }
   }

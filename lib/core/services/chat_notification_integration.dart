@@ -67,7 +67,7 @@ class ChatNotificationIntegration {
       _logger.i('已显示消息通知', extra: {
         'messageId': message.messageId,
         'conversationId': conversation.conversationId,
-        'senderName': sender.nickName,
+        'senderName': sender.name,
       });
 
     } catch (error, stackTrace) {

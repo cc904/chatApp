@@ -188,22 +188,12 @@ class AuthCubit extends Cubit<AuthState> {
       if (userData != null) {
         _logger.i('令牌登录成功', extra: {'userId': userData['userId']});
 
-        // 创建CurrentUser对象
-        final currentUser = CurrentUser(
-          userId: userData['userId'] ?? '',
-          name: userData['nickname'] ?? userData['name'] ?? '',
-          phone: userData['phone'],
-          email: userData['email'],
-          avatar: userData['avatar'],
-          status: userData['status'],
-          lastLoginTime: userData['lastLoginTime'] != null
-              ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-              : DateTime.now(),
-          hasSetPassword: userData['hasSetPassword'] ?? false,
-          roleId: userData['roleId'] ?? 0, // 角色ID，默认为0
-        );
-
-        // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
+        // 统一字段名，使用 name 而不是 nickname
+        final normalizedUserData = Map<String, dynamic>.from(userData);
+        normalizedUserData['name'] = userData['nickname'] ?? userData['name'] ?? '';
+        
+        // 使用 fromJson 创建 CurrentUser 对象
+        final currentUser = CurrentUser.fromJson(normalizedUserData);
 
         // 初始化文件上传服务
         await _initializeFileUploadService();
@@ -284,20 +274,12 @@ class AuthCubit extends Cubit<AuthState> {
       // 登录成功
       _logger.i('登录成功，用户信息: ${userData['userId']}');
 
-      // 创建CurrentUser对象
-      final currentUser = CurrentUser(
-        userId: userData['userId'] ?? '',
-        name: userData['nickname'] ?? userData['name'] ?? '',
-        phone: userData['phone'],
-        email: userData['email'],
-        avatar: userData['avatar'],
-        status: userData['status'],
-        lastLoginTime: userData['lastLoginTime'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-            : DateTime.now(),
-        hasSetPassword: userData['hasSetPassword'] ?? false,
-        roleId: userData['roleId'] ?? 0, // 角色ID，默认为0
-      );
+      // 统一字段名，使用 name 而不是 nickname
+      final normalizedUserData = Map<String, dynamic>.from(userData);
+      normalizedUserData['name'] = userData['nickname'] ?? userData['name'] ?? '';
+      
+      // 使用 fromJson 创建 CurrentUser 对象
+      final currentUser = CurrentUser.fromJson(normalizedUserData);
 
       // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 
@@ -366,20 +348,12 @@ class AuthCubit extends Cubit<AuthState> {
       // 注册成功
       _logger.i('注册成功，用户信息: ${userData['userId']}');
 
-      // 创建CurrentUser对象
-      final currentUser = CurrentUser(
-        userId: userData['userId'] ?? '',
-        name: userData['nickname'] ?? userData['name'] ?? '',
-        phone: userData['phone'],
-        email: userData['email'],
-        avatar: userData['avatar'],
-        status: userData['status'],
-        lastLoginTime: userData['lastLoginTime'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(userData['lastLoginTime'])
-            : DateTime.now(),
-        hasSetPassword: userData['hasSetPassword'] ?? false,
-        roleId: userData['roleId'] ?? 0, // 角色ID，默认为0
-      );
+      // 统一字段名，使用 name 而不是 nickname
+      final normalizedUserData = Map<String, dynamic>.from(userData);
+      normalizedUserData['name'] = userData['nickname'] ?? userData['name'] ?? '';
+      
+      // 使用 fromJson 创建 CurrentUser 对象
+      final currentUser = CurrentUser.fromJson(normalizedUserData);
 
       // 注意：Token管理现在由EnhancedTokenManager和各服务自行处理
 

@@ -398,9 +398,9 @@ class MessageNotificationService {
   /// 构建通知标题
   String _buildNotificationTitle(Conversation conversation, User sender) {
     if (conversation.type == 'PRIVATE') {
-      return sender.nickName;
+      return sender.name;
     } else {
-      return '${conversation.name ?? '群聊'} (${sender.nickName})';
+      return '${conversation.name ?? '群聊'} (${sender.name})';
     }
   }
 
