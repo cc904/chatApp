@@ -12,19 +12,20 @@ part 'drift_database.g.dart';
 /// 用户表 - 基于 UserProto
 class Users extends Table {
   TextColumn get userId => text()();              // user_id
-  TextColumn get nickName => text()();            // nick_name
+  TextColumn get name => text()();                // name (用户真实昵称)
   TextColumn get avatar => text().nullable()();   // avatar
   TextColumn get phone => text().nullable()();    // phone
   TextColumn get email => text().nullable()();    // email
   TextColumn get pinyin => text().nullable()();   // pinyin
   DateTimeColumn get lastActiveTime => dateTime().nullable()(); // last_active_time (DateTime)
   TextColumn get status => text().nullable()();   // status
-  IntColumn get roleId => integer().withDefault(const Constant(0))(); // role_id 用户角色ID
+  IntColumn get roleId => integer().withDefault(const Constant(2))(); // role_id 用户角色ID，默认为普通用户
   
   // 本地扩展字段
   BoolColumn get online => boolean().withDefault(const Constant(false))();
   BoolColumn get isFriend => boolean().withDefault(const Constant(false))();
-  TextColumn get customNickname => text().nullable()(); // custom_nickname 自定义联系人昵称
+  TextColumn get nickname => text().nullable()(); // nickname 自定义联系人昵称
+  TextColumn get remark => text().nullable()(); // remark 联系人备注
   
   @override
   Set<Column> get primaryKey => {userId};
@@ -40,7 +41,7 @@ class CurrentUsers extends Table {
   DateTimeColumn get lastLoginTime => dateTime().nullable()(); // last_login_time (DateTime)
   TextColumn get status => text().nullable()();   // status
   BoolColumn get hasSetPassword => boolean().withDefault(const Constant(false))(); // has_set_password
-  IntColumn get roleId => integer().withDefault(const Constant(0))(); // role_id 用户角色ID
+  IntColumn get roleId => integer().withDefault(const Constant(2))(); // role_id 用户角色ID，默认为普通用户
   
   @override
   Set<Column> get primaryKey => {userId};

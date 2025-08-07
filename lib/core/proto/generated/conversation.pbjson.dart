@@ -95,6 +95,7 @@ const ParticipantProto$json = {
     {'1': 'added_by', '3': 11, '4': 1, '5': 9, '10': 'addedBy'},
     {'1': 'online', '3': 12, '4': 1, '5': 8, '10': 'online'},
     {'1': 'is_active', '3': 13, '4': 1, '5': 8, '10': 'isActive'},
+    {'1': 'role_id', '3': 14, '4': 1, '5': 5, '10': 'roleId'},
   ],
 };
 
@@ -107,7 +108,7 @@ final $typed_data.Uint8List participantProtoDescriptor = $convert.base64Decode(
     'ZXgYCCABKAVSFWRlbGl2ZXJlZE1lc3NhZ2VJbmRleBIsChJyZWFkX21lc3NhZ2VfaW5kZXgYCS'
     'ABKAVSEHJlYWRNZXNzYWdlSW5kZXgSIgoEcm9sZRgKIAEoDjIOLmNjLk1lbWJlclJvbGVSBHJv'
     'bGUSGQoIYWRkZWRfYnkYCyABKAlSB2FkZGVkQnkSFgoGb25saW5lGAwgASgIUgZvbmxpbmUSGw'
-    'oJaXNfYWN0aXZlGA0gASgIUghpc0FjdGl2ZQ==');
+    'oJaXNfYWN0aXZlGA0gASgIUghpc0FjdGl2ZRIXCgdyb2xlX2lkGA4gASgFUgZyb2xlSWQ=');
 
 @$core.Deprecated('Use conversationProtoDescriptor instead')
 const ConversationProto$json = {

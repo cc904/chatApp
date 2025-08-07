@@ -25,6 +25,8 @@ class QuickReply extends $pb.GeneratedMessage {
     $core.String? category,
     $core.int? orderIndex,
     $core.bool? isEnabled,
+    $core.String? userId,
+    $core.String? type,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -32,6 +34,8 @@ class QuickReply extends $pb.GeneratedMessage {
     if (category != null) result.category = category;
     if (orderIndex != null) result.orderIndex = orderIndex;
     if (isEnabled != null) result.isEnabled = isEnabled;
+    if (userId != null) result.userId = userId;
+    if (type != null) result.type = type;
     return result;
   }
 
@@ -53,6 +57,8 @@ class QuickReply extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'category')
     ..a<$core.int>(4, _omitFieldNames ? '' : 'orderIndex', $pb.PbFieldType.O3)
     ..aOB(5, _omitFieldNames ? '' : 'isEnabled')
+    ..aOS(6, _omitFieldNames ? '' : 'userId')
+    ..aOS(7, _omitFieldNames ? '' : 'type')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -118,6 +124,24 @@ class QuickReply extends $pb.GeneratedMessage {
   $core.bool hasIsEnabled() => $_has(4);
   @$pb.TagNumber(5)
   void clearIsEnabled() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get userId => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set userId($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasUserId() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearUserId() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get type => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set type($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasType() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearType() => $_clearField(7);
 }
 
 /// 获取快捷回复请求
@@ -235,6 +259,410 @@ class GetQuickRepliesResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<QuickReply> get quickReplies => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get timestamp => $_getI64(1);
+  @$pb.TagNumber(2)
+  set timestamp($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTimestamp() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTimestamp() => $_clearField(2);
+}
+
+/// 创建快捷回复请求
+class CreateQuickReplyRequest extends $pb.GeneratedMessage {
+  factory CreateQuickReplyRequest({
+    $core.String? content,
+    $core.String? category,
+    $core.int? orderIndex,
+    $core.bool? isEnabled,
+  }) {
+    final result = create();
+    if (content != null) result.content = content;
+    if (category != null) result.category = category;
+    if (orderIndex != null) result.orderIndex = orderIndex;
+    if (isEnabled != null) result.isEnabled = isEnabled;
+    return result;
+  }
+
+  CreateQuickReplyRequest._();
+
+  factory CreateQuickReplyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateQuickReplyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateQuickReplyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'quick_reply'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'content')
+    ..aOS(2, _omitFieldNames ? '' : 'category')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'orderIndex', $pb.PbFieldType.O3)
+    ..aOB(4, _omitFieldNames ? '' : 'isEnabled')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateQuickReplyRequest clone() =>
+      CreateQuickReplyRequest()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateQuickReplyRequest copyWith(
+          void Function(CreateQuickReplyRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateQuickReplyRequest))
+          as CreateQuickReplyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateQuickReplyRequest create() => CreateQuickReplyRequest._();
+  @$core.override
+  CreateQuickReplyRequest createEmptyInstance() => create();
+  static $pb.PbList<CreateQuickReplyRequest> createRepeated() =>
+      $pb.PbList<CreateQuickReplyRequest>();
+  @$core.pragma('dart2js:noInline')
+  static CreateQuickReplyRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateQuickReplyRequest>(create);
+  static CreateQuickReplyRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get content => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set content($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasContent() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContent() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get category => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set category($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCategory() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCategory() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get orderIndex => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set orderIndex($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasOrderIndex() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearOrderIndex() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get isEnabled => $_getBF(3);
+  @$pb.TagNumber(4)
+  set isEnabled($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasIsEnabled() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearIsEnabled() => $_clearField(4);
+}
+
+/// 更新快捷回复请求
+class UpdateQuickReplyRequest extends $pb.GeneratedMessage {
+  factory UpdateQuickReplyRequest({
+    $fixnum.Int64? id,
+    $core.String? content,
+    $core.String? category,
+    $core.int? orderIndex,
+    $core.bool? isEnabled,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (content != null) result.content = content;
+    if (category != null) result.category = category;
+    if (orderIndex != null) result.orderIndex = orderIndex;
+    if (isEnabled != null) result.isEnabled = isEnabled;
+    return result;
+  }
+
+  UpdateQuickReplyRequest._();
+
+  factory UpdateQuickReplyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateQuickReplyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateQuickReplyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'quick_reply'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'content')
+    ..aOS(3, _omitFieldNames ? '' : 'category')
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'orderIndex', $pb.PbFieldType.O3)
+    ..aOB(5, _omitFieldNames ? '' : 'isEnabled')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateQuickReplyRequest clone() =>
+      UpdateQuickReplyRequest()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateQuickReplyRequest copyWith(
+          void Function(UpdateQuickReplyRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateQuickReplyRequest))
+          as UpdateQuickReplyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateQuickReplyRequest create() => UpdateQuickReplyRequest._();
+  @$core.override
+  UpdateQuickReplyRequest createEmptyInstance() => create();
+  static $pb.PbList<UpdateQuickReplyRequest> createRepeated() =>
+      $pb.PbList<UpdateQuickReplyRequest>();
+  @$core.pragma('dart2js:noInline')
+  static UpdateQuickReplyRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateQuickReplyRequest>(create);
+  static UpdateQuickReplyRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get content => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set content($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasContent() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearContent() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get category => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set category($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCategory() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCategory() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get orderIndex => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set orderIndex($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasOrderIndex() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearOrderIndex() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get isEnabled => $_getBF(4);
+  @$pb.TagNumber(5)
+  set isEnabled($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasIsEnabled() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearIsEnabled() => $_clearField(5);
+}
+
+/// 删除快捷回复请求
+class DeleteQuickReplyRequest extends $pb.GeneratedMessage {
+  factory DeleteQuickReplyRequest({
+    $fixnum.Int64? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteQuickReplyRequest._();
+
+  factory DeleteQuickReplyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteQuickReplyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteQuickReplyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'quick_reply'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteQuickReplyRequest clone() =>
+      DeleteQuickReplyRequest()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteQuickReplyRequest copyWith(
+          void Function(DeleteQuickReplyRequest) updates) =>
+      super.copyWith((message) => updates(message as DeleteQuickReplyRequest))
+          as DeleteQuickReplyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteQuickReplyRequest create() => DeleteQuickReplyRequest._();
+  @$core.override
+  DeleteQuickReplyRequest createEmptyInstance() => create();
+  static $pb.PbList<DeleteQuickReplyRequest> createRepeated() =>
+      $pb.PbList<DeleteQuickReplyRequest>();
+  @$core.pragma('dart2js:noInline')
+  static DeleteQuickReplyRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteQuickReplyRequest>(create);
+  static DeleteQuickReplyRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+/// 单个快捷回复响应
+class QuickReplyResponse extends $pb.GeneratedMessage {
+  factory QuickReplyResponse({
+    QuickReply? quickReply,
+    $fixnum.Int64? timestamp,
+  }) {
+    final result = create();
+    if (quickReply != null) result.quickReply = quickReply;
+    if (timestamp != null) result.timestamp = timestamp;
+    return result;
+  }
+
+  QuickReplyResponse._();
+
+  factory QuickReplyResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory QuickReplyResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'QuickReplyResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'quick_reply'),
+      createEmptyInstance: create)
+    ..aOM<QuickReply>(1, _omitFieldNames ? '' : 'quickReply',
+        subBuilder: QuickReply.create)
+    ..aInt64(2, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  QuickReplyResponse clone() => QuickReplyResponse()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  QuickReplyResponse copyWith(void Function(QuickReplyResponse) updates) =>
+      super.copyWith((message) => updates(message as QuickReplyResponse))
+          as QuickReplyResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static QuickReplyResponse create() => QuickReplyResponse._();
+  @$core.override
+  QuickReplyResponse createEmptyInstance() => create();
+  static $pb.PbList<QuickReplyResponse> createRepeated() =>
+      $pb.PbList<QuickReplyResponse>();
+  @$core.pragma('dart2js:noInline')
+  static QuickReplyResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<QuickReplyResponse>(create);
+  static QuickReplyResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  QuickReply get quickReply => $_getN(0);
+  @$pb.TagNumber(1)
+  set quickReply(QuickReply value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasQuickReply() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearQuickReply() => $_clearField(1);
+  @$pb.TagNumber(1)
+  QuickReply ensureQuickReply() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get timestamp => $_getI64(1);
+  @$pb.TagNumber(2)
+  set timestamp($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTimestamp() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTimestamp() => $_clearField(2);
+}
+
+/// 删除响应
+class DeleteQuickReplyResponse extends $pb.GeneratedMessage {
+  factory DeleteQuickReplyResponse({
+    $fixnum.Int64? id,
+    $fixnum.Int64? timestamp,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (timestamp != null) result.timestamp = timestamp;
+    return result;
+  }
+
+  DeleteQuickReplyResponse._();
+
+  factory DeleteQuickReplyResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteQuickReplyResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteQuickReplyResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'quick_reply'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..aInt64(2, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteQuickReplyResponse clone() =>
+      DeleteQuickReplyResponse()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteQuickReplyResponse copyWith(
+          void Function(DeleteQuickReplyResponse) updates) =>
+      super.copyWith((message) => updates(message as DeleteQuickReplyResponse))
+          as DeleteQuickReplyResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteQuickReplyResponse create() => DeleteQuickReplyResponse._();
+  @$core.override
+  DeleteQuickReplyResponse createEmptyInstance() => create();
+  static $pb.PbList<DeleteQuickReplyResponse> createRepeated() =>
+      $pb.PbList<DeleteQuickReplyResponse>();
+  @$core.pragma('dart2js:noInline')
+  static DeleteQuickReplyResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteQuickReplyResponse>(create);
+  static DeleteQuickReplyResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $fixnum.Int64 get timestamp => $_getI64(1);

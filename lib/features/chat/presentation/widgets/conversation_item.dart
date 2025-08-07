@@ -6,10 +6,11 @@ import 'package:cc/features/chat/presentation/pages/chat_page.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
-import 'package:cc/core/utils/display_name_utils.dart';
+
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
 
@@ -79,9 +80,7 @@ class ConversationItem extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10.0),
               width: double.infinity, // 确保宽度占满整行
               // 为置顶会话添加浅色背景
-              color: conversation.pinned
-                  ? AppColors.primary.withAlpha(15)
-                  : Colors.transparent,
+              color: conversation.pinned ? AppColors.primary.withAlpha(15) : Colors.transparent,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center, // 确保垂直居中
                 children: [
@@ -118,30 +117,12 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建头像部分
   Widget _buildAvatar(Conversation conversation) {
-    final displayName = DisplayNameUtils.getConversationDisplayName(
-      conversation, 
-      currentUser.userId
-    );
     final displayRoleId = ConversationAdapter.getDisplayRoleId(
       conversation.participants,
       conversation.type,
       currentUser.userId,
     );
-    
-    // 🔥🔥🔥 详细的调试日志
-    final _logger = LogService.instance;
-    _logger.i('💭💭💭 ConversationItem构建头像', extra: {
-      'conversationId': conversation.conversationId,
-      'conversationType': conversation.type,
-      'displayName': displayName,
-      'displayRoleId': displayRoleId,
-      'currentUserId': currentUser.userId,
-      'participantsLength': conversation.participants.length,
-      'participants': conversation.participants,
-      'isPrivate': conversation.type == 'PRIVATE',
-      'shouldShowRoleId': conversation.type == 'PRIVATE' && displayRoleId != null,
-    });
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
@@ -149,7 +130,7 @@ class ConversationItem extends StatelessWidget {
         height: 60,
         child: UserAvatar(
           avatarUrl: conversation.avatar,
-          name: displayName,
+          name: _getAvatarDisplayName(conversation),
           radius: 60 / 2,
           backgroundColor: AppColors.primary,
           roleId: displayRoleId,
@@ -206,7 +187,7 @@ class ConversationItem extends StatelessWidget {
                       ),
                     ),
 
-                  // 会话名称
+                  // 会话名称 - 直接使用会话名称
                   Flexible(
                     child: Text(
                       _getDisplayName(conversation, isGroup, isChannel),
@@ -222,8 +203,7 @@ class ConversationItem extends StatelessWidget {
                   if (conversation.muted)
                     const Padding(
                       padding: EdgeInsets.only(left: 4.0),
-                      child:
-                          Icon(Icons.volume_off, size: 16, color: Colors.grey),
+                      child: Icon(Icons.volume_off, size: 16, color: Colors.grey),
                     ),
                 ],
               ),
@@ -254,17 +234,14 @@ class ConversationItem extends StatelessWidget {
   /// 构建群聊或频道的消息预览
   Widget _buildGroupMessagePreview(Conversation conversation, bool isChannel) {
     // 检查是否为系统消息，如果是系统消息则不显示发送者名称
-    final bool isSystemMessage =
-        _isSystemMessage(conversation.lastMessagePreview);
+    final bool isSystemMessage = _isSystemMessage(conversation.lastMessagePreview);
 
     return RichText(
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
         children: [
-          if (!isSystemMessage &&
-              conversation.lastMessageName != null &&
-              conversation.lastMessageName!.isNotEmpty)
+          if (!isSystemMessage && conversation.lastMessageName != null && conversation.lastMessageName!.isNotEmpty)
             TextSpan(
               text: '${conversation.lastMessageName}: ',
               style: TextStyle(
@@ -306,24 +283,49 @@ class ConversationItem extends StatelessWidget {
     ];
 
     final lowerPreview = messagePreview.toLowerCase();
-    return systemKeywords
-        .any((keyword) => lowerPreview.contains(keyword.toLowerCase()));
+    return systemKeywords.any((keyword) => lowerPreview.contains(keyword.toLowerCase()));
   }
 
-  /// 获取会话显示名称，对群聊和频道名称进行长度限制
-  String _getDisplayName(
-      Conversation conversation, bool isGroup, bool isChannel) {
-    // 🔧 修复：使用DisplayNameUtils正确处理私聊会话的显示名称
-    String name = DisplayNameUtils.getConversationDisplayName(
-      conversation, 
-      currentUser.userId
-    );
+  /// 获取会话显示名称，对群聊和频道名称进行长度限制（同步版本）
+  String _getDisplayName(Conversation conversation, bool isGroup, bool isChannel) {
+    // 私聊时使用对方的名称
+    if (conversation.type == 'PRIVATE') {
+      final partnerName = ConversationAdapter.getPrivateChatPartnerName(
+        conversation.participants,
+        conversation.type,
+        currentUser.userId,
+      );
+      if (partnerName != null && partnerName.isNotEmpty) {
+        return partnerName;
+      }
+    }
+
+    String name = conversation.name ?? '未命名会话';
 
     if ((isGroup || isChannel) && name.length > 24) {
       return name.substring(0, 24);
     }
 
     return name;
+  }
+
+  /// 获取头像显示名称
+  /// 私聊时使用对方的名称，群聊时使用会话名称
+  String _getAvatarDisplayName(Conversation conversation) {
+    // 私聊时使用对方的名称
+    if (conversation.type == 'PRIVATE') {
+      final partnerName = ConversationAdapter.getPrivateChatPartnerName(
+        conversation.participants,
+        conversation.type,
+        currentUser.userId,
+      );
+      if (partnerName != null && partnerName.isNotEmpty) {
+        return partnerName;
+      }
+    }
+
+    // 群聊或频道时使用会话名称
+    return conversation.name ?? '未命名';
   }
 
   /// 构建时间和未读数量
@@ -352,10 +354,7 @@ class ConversationItem extends StatelessWidget {
               },
             ),
             // 未读数
-            if (conversation.unreadCount > 0)
-              _buildUnreadBadge(conversation)
-            else
-              const SizedBox(height: 20), // 占位符
+            if (conversation.unreadCount > 0) _buildUnreadBadge(conversation) else const SizedBox(height: 20), // 占位符
           ],
         ),
       ),
@@ -386,11 +385,9 @@ class ConversationItem extends StatelessWidget {
     }
   }
 
-
   /// 构建未读消息徽章
   Widget _buildUnreadBadge(Conversation conversation) {
-    final bool isNewMessage =
-        conversation.unreadCount > 0;
+    final bool isNewMessage = conversation.unreadCount > 0;
 
     // Access unread count from conversation
 
@@ -421,12 +418,31 @@ class ConversationItem extends StatelessWidget {
   }
 
   /// 打开聊天详情页
-  void _openChatDetail(BuildContext context, Conversation conversation,
-      CurrentUser currentUser) async {
+  void _openChatDetail(BuildContext context, Conversation conversation, CurrentUser currentUser) async {
+    final logger = LogService.instance;
+
+    // 💬💬💬 打印会话详细信息
+    logger.i('🚀🚀🚀 用户点击打开会话', extra: {
+      'conversationId': conversation.conversationId,
+      'conversationName': conversation.name,
+      'conversationType': conversation.type,
+      'lastMessagePreview': conversation.lastMessagePreview,
+      'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
+      'lastMessageName': conversation.lastMessageName,
+      'unreadCount': conversation.unreadCount,
+      'pinned': conversation.pinned,
+      'muted': conversation.muted,
+      'avatar': conversation.avatar,
+      'participants': conversation.participants,
+      'currentUserId': currentUser.userId,
+      'currentUserName': currentUser.name,
+    });
+
     // 在导航前获取Repository和Cubit引用
     final chatRepository = context.read<ChatRepository>();
     final chatsRepository = context.read<ChatsRepository>();
     final chatRepositorySend = context.read<ChatRepositorySend>();
+    final chatsCubit = context.read<ChatsCubit>();
     final navigator = Navigator.of(context);
 
     try {
@@ -434,8 +450,7 @@ class ConversationItem extends StatelessWidget {
       await chatsRepository.cleanupExpiredSnapshots();
 
       // 获取状态快照（如果存在）
-      final snapshot =
-          await chatsRepository.getStateSnapshot(conversation.conversationId);
+      final snapshot = await chatsRepository.getStateSnapshot(conversation.conversationId);
 
       if (context.mounted) {
         navigator.push(
@@ -443,20 +458,23 @@ class ConversationItem extends StatelessWidget {
             builder: (context) => MultiRepositoryProvider(
               providers: [
                 RepositoryProvider<ChatRepository>.value(value: chatRepository),
-                RepositoryProvider<ChatsRepository>.value(
-                    value: chatsRepository),
-                RepositoryProvider<ChatRepositorySend>.value(
-                    value: chatRepositorySend),
+                RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+                RepositoryProvider<ChatRepositorySend>.value(value: chatRepositorySend),
               ],
-              child: BlocProvider<ChatCubit>(
-                create: (context) => ChatCubit(
-                  chatRepository: context.read<ChatRepository>(),
-                  chatRepositorySend: context.read<ChatRepositorySend>(),
-                  chatsRepository: context.read<ChatsRepository>(),
-                  currentUser: currentUser,
-                  initialSnapshot: snapshot, // 传入预获取的快照
-                  initialConversation: conversation, // 💢💢💢 传入初始会话信息
-                ),
+              child: MultiBlocProvider(
+                providers: [
+                  BlocProvider<ChatCubit>(
+                    create: (context) => ChatCubit(
+                      chatRepository: context.read<ChatRepository>(),
+                      chatRepositorySend: context.read<ChatRepositorySend>(),
+                      chatsRepository: context.read<ChatsRepository>(),
+                      currentUser: currentUser,
+                      initialSnapshot: snapshot, // 传入预获取的快照
+                      initialConversation: conversation, // 💢💢💢 传入初始会话信息
+                    ),
+                  ),
+                  BlocProvider<ChatsCubit>.value(value: chatsCubit),
+                ],
                 child: ChatPage(
                   conversationId: conversation.conversationId,
                   initialConversation: conversation, // 💢💢💢 传入初始会话信息
@@ -474,10 +492,8 @@ class ConversationItem extends StatelessWidget {
             builder: (context) => MultiRepositoryProvider(
               providers: [
                 RepositoryProvider<ChatRepository>.value(value: chatRepository),
-                RepositoryProvider<ChatsRepository>.value(
-                    value: chatsRepository),
-                RepositoryProvider<ChatRepositorySend>.value(
-                    value: chatRepositorySend),
+                RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+                RepositoryProvider<ChatRepositorySend>.value(value: chatRepositorySend),
               ],
               child: BlocProvider<ChatCubit>(
                 create: (context) => ChatCubit(

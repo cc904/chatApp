@@ -1,5 +1,6 @@
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,7 +25,9 @@ import 'package:cc/core/services/contact_service.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/services/media_cache_service.dart';
 import 'package:cc/core/services/thumbnail_cache_service.dart';
-import 'package:cc/core/utils/display_name_utils.dart';
+
+import 'package:cc/features/chat/presentation/pages/chats_page.dart'; // 导入 routeObserver
+import 'package:cc/core/utils/user_display_utils.dart';
 
 class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage({
@@ -35,8 +38,7 @@ class ChatInfoPage extends StatefulWidget {
   State<ChatInfoPage> createState() => _ChatInfoPageState();
 }
 
-class _ChatInfoPageState extends State<ChatInfoPage>
-    with TickerProviderStateMixin {
+class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMixin, RouteAware {
   final _logger = LogService.instance;
   // 静音按钮动画控制器
   late AnimationController _muteAnimController;
@@ -70,23 +72,123 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   // 💢💢💢 新增：聊天资源分类模块的GlobalKey，用于精确定位位置
   final GlobalKey _chatResourcesKey = GlobalKey();
   final GlobalKey _chatResourcesKeyEditMode = GlobalKey(); // 💢💢💢 编辑模式专用的Key
+  
 
-  /// 获取会话的显示名称
-  /// 
-  /// 根据会话类型返回合适的显示名称：
-  /// - 私聊会话：返回对方用户的显示名称
-  /// - 群聊/频道：返回会话的name字段
+  /// 获取会话的显示名称（同步版本）
+  ///
+  /// 私聊时优先使用对方的name字段，群聊和频道使用会话名称
   String _getConversationDisplayName(Conversation conversation, String currentUserId) {
-    return DisplayNameUtils.getConversationDisplayName(conversation, currentUserId);
+    // 私聊时优先使用对方的name字段
+    if (conversation.type == 'PRIVATE') {
+      final partnerName = ConversationAdapter.getPrivateChatPartnerName(
+        conversation.participants,
+        conversation.type,
+        currentUserId,
+      );
+      if (partnerName != null && partnerName.isNotEmpty) {
+        return partnerName;
+      }
+    }
+
+    // 群聊、频道或获取不到对方名称时使用会话名称
+    return conversation.name ?? '未命名会话';
   }
 
   /// 获取会话显示的roleId（仅对私聊有效）
   int? _getConversationDisplayRoleId(Conversation conversation, String currentUserId) {
-    return ConversationAdapter.getDisplayRoleId(
-      conversation.participants, 
-      conversation.type, 
-      currentUserId
-    );
+    return ConversationAdapter.getDisplayRoleId(conversation.participants, conversation.type, currentUserId);
+  }
+  
+
+  /// 同步获取参与者的显示名称（用于对话框等需要立即显示的场景）
+  ///
+  /// 注意：这是同步版本，为了避免阻塞UI，暂时使用participant name
+  /// 在未来可以考虑使用缓存机制来优化
+  ///
+  /// [participant] - 参与者信息Map
+  /// 返回：应该显示的参与者名称
+  String _getParticipantDisplayName(Map<String, dynamic> participant) {
+    // 对于对话框等需要立即显示的场景，暂时使用participant name
+    // 这样可以避免同步数据库查询阻塞UI
+    return participant['name'] ?? 'Unknown';
+  }
+
+  /// 加载联系人的完整信息到编辑控制器
+  ///
+  /// [userId] - 联系人的用户ID
+  Future<void> _loadContactInfo(String userId) async {
+    try {
+      final database = AppDatabase.instance;
+      final contact = await (database.select(database.users)..where((u) => u.userId.equals(userId))).getSingleOrNull();
+
+      if (contact != null && mounted) {
+        setState(() {
+          // 设置昵称：优先使用自定义昵称，其次使用联系人名称
+          if (contact.nickname != null && contact.nickname!.isNotEmpty) {
+            _nicknameController.text = contact.nickname!;
+          } else if (contact.name.isNotEmpty) {
+            _nicknameController.text = contact.name;
+          } else {
+            _nicknameController.text = contact.userId;
+          }
+
+          // 设置备注信息
+          _remarkController.text = contact.remark ?? '';
+        });
+        
+        _logger.i('已重新加载联系人信息并刷新UI', extra: {
+          'userId': userId,
+          'nickname': _nicknameController.text,
+          'remark': _remarkController.text,
+        });
+      }
+    } catch (e) {
+      _logger.e('加载联系人信息失败', error: e);
+    }
+  }
+
+  /// 异步获取参与者的显示名称，优先使用自定义联系人名称
+  ///
+  /// 显示优先级：
+  /// 1. 自定义联系人名称 (nickname) - 当前用户为此联系人设置的昵称
+  /// 2. 会话成员名称 (participant.name) - 会话中存储的成员名称
+  /// 3. 用户ID - 如果前两者都没有
+  ///
+  /// [participant] - 参与者信息Map
+  /// 返回：应该显示的参与者名称
+  Future<String> _getParticipantDisplayNameAsync(Map<String, dynamic> participant) async {
+    final userId = participant['userId'] as String?;
+    if (userId == null || userId.isEmpty) {
+      return participant['name'] ?? 'Unknown';
+    }
+
+    try {
+      // 从数据库查询联系人信息，获取自定义名称
+      final database = AppDatabase.instance;
+      final contact = await (database.select(database.users)..where((u) => u.userId.equals(userId))).getSingleOrNull();
+
+      if (contact != null) {
+        // 1. 优先使用自定义联系人名称
+        if (contact.nickname != null && contact.nickname!.isNotEmpty) {
+          return contact.nickname!;
+        }
+
+        // 2. 其次使用联系人的昵称
+        if (contact.name.isNotEmpty) {
+          return contact.name;
+        }
+
+        // 3. 使用用户ID
+        return contact.userId;
+      } else {
+        // 如果数据库中没有联系人信息，使用会话参与者的名称
+        return participant['name'] ?? userId;
+      }
+    } catch (e) {
+      _logger.e('获取参与者显示名称失败', error: e);
+      // 出错时使用会话参与者的名称作为fallback
+      return participant['name'] ?? userId;
+    }
   }
 
   @override
@@ -132,7 +234,39 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 💢💢💢 注册 RouteObserver，监听页面返回事件
+    final ModalRoute? route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  /// 💢💢💢 页面返回时触发 - 用户从其他页面返回到ChatInfoPage
+  @override
+  void didPopNext() {
+    _logger.i('🚀🚀🚀 ChatInfoPage didPopNext 触发 - 用户从其他页面返回');
+
+    // 页面返回时刷新会话数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _logger.i('ChatInfoPage 页面返回，刷新会话数据');
+        context.read<ChatCubit>().syncCurrentConversation();
+      }
+    });
+  }
+
+  /// 💢💢💢 离开页面时触发
+  @override
+  void didPushNext() {
+    _logger.d('ChatInfoPage didPushNext 触发 - 用户离开当前页面');
+  }
+
+  @override
   void dispose() {
+    // 💢💢💢 取消 RouteObserver 订阅
+    routeObserver.unsubscribe(this);
     _muteAnimController.dispose();
     _nicknameController.dispose();
     _remarkController.dispose();
@@ -163,14 +297,14 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     try {
       // 解析participants JSON
       final participantsData = json.decode(conversation.participants);
-      
+
       if (participantsData is List) {
         // 查找当前用户的参与者信息
         final userParticipant = participantsData.firstWhere(
           (participant) => participant['userId'] == userId,
           orElse: () => null,
         );
-        
+
         if (userParticipant == null) {
           _logger.w('用户不在参与者列表中', extra: {
             'userId': userId,
@@ -178,18 +312,18 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           });
           return false;
         }
-        
+
         // 检查用户角色
         final userRole = userParticipant['role']?.toString().toUpperCase();
         final hasPermission = userRole == 'OWNER' || userRole == 'ADMIN';
-        
+
         _logger.d('检查编辑权限', extra: {
           'userId': userId,
           'userRole': userRole,
           'hasPermission': hasPermission,
           'conversationId': conversation.conversationId,
         });
-        
+
         return hasPermission;
       } else {
         // 如果participants不是List格式，可能是旧的逗号分隔格式
@@ -197,11 +331,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           'participants': conversation.participants,
           'conversationId': conversation.conversationId,
         });
-        
+
         // 回退到简单的参与者检查（旧格式兼容）
         final participantsList = conversation.participants.split(',');
         final isParticipant = participantsList.contains(userId);
-        
+
         // 对于旧格式，暂时允许所有参与者编辑
         // 实际应用中应该迁移到新的JSON格式
         return isParticipant;
@@ -213,7 +347,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         'participants': conversation.participants,
         'error': e.toString(),
       });
-      
+
       // 解析失败时的回退逻辑：尝试简单的逗号分隔检查
       try {
         final participantsList = conversation.participants.split(',');
@@ -230,13 +364,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   String? _getUserRole(Conversation conversation, String userId) {
     try {
       final participantsData = json.decode(conversation.participants);
-      
+
       if (participantsData is List) {
         final userParticipant = participantsData.firstWhere(
           (participant) => participant['userId'] == userId,
           orElse: () => null,
         );
-        
+
         return userParticipant?['role']?.toString();
       }
     } catch (e) {
@@ -246,7 +380,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         'error': e.toString(),
       });
     }
-    
+
     return null;
   }
 
@@ -276,9 +410,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   void _scrollToTop() {
     _logger.d('_scrollToTop方法被调用', extra: {
       'hasClients': _scrollController.hasClients,
-      'currentPosition': _scrollController.hasClients
-          ? _scrollController.position.pixels
-          : null,
+      'currentPosition': _scrollController.hasClients ? _scrollController.position.pixels : null,
       'isEditMode': _isEditMode,
     });
 
@@ -289,20 +421,15 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         // 💢💢💢 根据当前模式选择对应的GlobalKey
         GlobalKey? targetKey;
         if (_isEditMode) {
-          targetKey = _chatResourcesKeyEditMode.currentContext != null
-              ? _chatResourcesKeyEditMode
-              : null;
+          targetKey = _chatResourcesKeyEditMode.currentContext != null ? _chatResourcesKeyEditMode : null;
         } else {
-          targetKey = _chatResourcesKey.currentContext != null
-              ? _chatResourcesKey
-              : null;
+          targetKey = _chatResourcesKey.currentContext != null ? _chatResourcesKey : null;
         }
 
         if (targetKey != null) {
           // 💢💢💢 使用postFrameCallback确保布局完成后再执行滚动
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_scrollController.hasClients &&
-                targetKey!.currentContext != null) {
+            if (_scrollController.hasClients && targetKey!.currentContext != null) {
               // 💢💢💢 使用Scrollable.ensureVisible方法
               Scrollable.ensureVisible(
                 targetKey.currentContext!,
@@ -400,9 +527,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     const SizedBox(width: 2),
                     Flexible(
                       child: Text(
-                        _isEditMode
-                            ? AppLocalizations.of(context).chatCancel
-                            : AppLocalizations.of(context).back,
+                        _isEditMode ? AppLocalizations.of(context).chatCancel : AppLocalizations.of(context).back,
                         style: TextStyle(
                           fontSize: 17,
                           color: _isEditMode ? Colors.red : AppColors.primary,
@@ -443,24 +568,27 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                         String? contactId;
                         // 检查是否有参与者信息
                         if (conversation.participants.isNotEmpty) {
-                          final currentUserId =
-                              chatCubit.state.currentUser.userId;
-                          // 从participants字符串中解析联系人ID
+                          final currentUserId = chatCubit.state.currentUser.userId;
+                          // 从participants JSON中解析联系人ID
                           try {
-                            final participantsList = conversation.participants.split(',');
-                            contactId = participantsList.firstWhere(
-                              (id) => id != currentUserId,
-                              orElse: () => '',
+                            final List<dynamic> participantsList = json.decode(conversation.participants);
+                            final participantsMap = participantsList.cast<Map<String, dynamic>>();
+
+                            // 找到对方用户的ID
+                            final otherParticipant = participantsMap.firstWhere(
+                              (participant) => participant['userId'] != currentUserId,
+                              orElse: () => {},
                             );
-                            if (contactId.isEmpty) contactId = null;
+
+                            contactId = otherParticipant['userId'] as String?;
+                            if (contactId?.isEmpty == true) contactId = null;
                           } catch (e) {
                             contactId = null;
                           }
                         }
 
                         if (contactId != null) {
-                          final success =
-                              await ContactService.instance.updateContact(
+                          final success = await ContactService.instance.updateContact(
                             contactId: contactId,
                             nickname: nickname.isNotEmpty ? nickname : null,
                             remark: remark.isNotEmpty ? remark : null,
@@ -468,6 +596,19 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
                           if (success) {
                             UINotificationService().showSuccess('联系人信息已更新');
+                            // 刷新会话数据以显示最新的联系人信息
+                            await chatCubit.syncCurrentConversation();
+                            
+                            // 通知ChatsCubit刷新会话列表，确保会话列表中的显示名称也得到更新
+                            if (context.mounted) {
+                              final chatsCubit = context.read<ChatsCubit>();
+                              await chatsCubit.loadConversations();
+                            }
+                            
+                            // 重新加载当前页面的联系人信息
+                            if (context.mounted) {
+                              await _loadContactInfo(contactId);
+                            }
                           } else {
                             UINotificationService().showError('更新失败，请重试');
                           }
@@ -482,11 +623,10 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                         );
 
                         if (success) {
-                          final typeName =
-                              conversation.type == 'GROUP'
-                                  ? '群聊'
-                                  : '频道';
+                          final typeName = conversation.type == 'GROUP' ? '群聊' : '频道';
                           UINotificationService().showSuccess('$typeName名称已更新');
+                          // 刷新会话数据以显示最新的会话信息
+                          chatCubit.syncCurrentConversation();
                         } else {
                           UINotificationService().showError('更新失败，请重试');
                         }
@@ -503,16 +643,20 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                       // 💡 初始化文本控制器
                       // 根据会话类型初始化编辑内容
                       if (conversation.type == 'PRIVATE') {
-                        // 私聊：获取对方用户的名称作为初始值
-                        final otherUser = DisplayNameUtils.getOtherUserFromConversation(conversation, chatCubit.state.currentUser.userId);
-                        _nicknameController.text = otherUser?['name'] ?? '';
+                        // 私聊：异步获取联系人信息作为初始值
+                        final otherUser = UserDisplayUtils.getOtherUserFromConversation(conversation, chatCubit.state.currentUser.userId);
+                        if (otherUser != null) {
+                          final userId = otherUser['userId'] as String?;
+                          if (userId != null) {
+                            // 从数据库获取联系人的完整信息
+                            _loadContactInfo(userId);
+                          }
+                        }
                       } else {
                         // 群聊/频道：使用会话名称
                         _nicknameController.text = conversation.name ?? '';
+                        _remarkController.text = '';
                       }
-
-                      // 备注信息暂时留空，未来可以从联系人数据中获取
-                      _remarkController.text = '';
 
                       setState(() {
                         _isEditMode = true;
@@ -520,9 +664,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                     }
                   },
                   child: Text(
-                    _isEditMode
-                        ? AppLocalizations.of(context).chatDone
-                        : AppLocalizations.of(context).edit,
+                    _isEditMode ? AppLocalizations.of(context).chatDone : AppLocalizations.of(context).edit,
                     style: const TextStyle(
                       fontSize: 17,
                       color: AppColors.primary,
@@ -532,9 +674,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 ),
             ],
           ),
-          body: _isEditMode
-              ? _buildEditModeContent(conversation)
-              : _buildViewModeContent(conversation, isGroup),
+          body: _isEditMode ? _buildEditModeContent(conversation) : _buildViewModeContent(conversation, isGroup),
         );
       },
     );
@@ -591,8 +731,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                               ? '群聊名称'
                               : '频道名称',
                       hintStyle: const TextStyle(color: Colors.grey),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: InputBorder.none,
                     ),
                   ),
@@ -609,8 +748,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                       decoration: InputDecoration(
                         hintText: AppLocalizations.of(context).remark,
                         hintStyle: const TextStyle(color: Colors.grey),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 16),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         border: InputBorder.none,
                       ),
                     ),
@@ -798,8 +936,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 根据按钮数量计算宽度：私聊5个按钮，群聊/频道4个按钮
     final isPrivate = conversation.type == 'PRIVATE';
     final buttonCount = isPrivate ? 5 : 4;
-    final buttonWidth =
-        (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -845,8 +982,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     final conversation = state.conversation;
     final isPrivate = conversation.type == 'PRIVATE';
     final buttonCount = isPrivate ? 5 : 4;
-    final buttonWidth =
-        (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -901,8 +1037,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   // 文本根据状态变化
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
+                    transitionBuilder: (Widget child, Animation<double> animation) {
                       return FadeTransition(
                         opacity: animation,
                         child: SlideTransition(
@@ -923,9 +1058,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                         final currentUserId = state.currentUser.userId;
                         final isMuted = state.conversation.muted;
                         return Text(
-                          isMuted
-                              ? AppLocalizations.of(context).unmute
-                              : AppLocalizations.of(context).mute,
+                          isMuted ? AppLocalizations.of(context).unmute : AppLocalizations.of(context).mute,
                           key: ValueKey<bool>(isMuted),
                           style: const TextStyle(
                             fontSize: 12,
@@ -950,8 +1083,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     final conversation = state.conversation;
     final isPrivate = conversation.type == 'PRIVATE';
     final buttonCount = isPrivate ? 5 : 4;
-    final buttonWidth =
-        (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
 
     // 获取本地化文本
     String localizedLabel;
@@ -1031,8 +1163,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     final conversation = state.conversation;
     final isPrivate = conversation.type == 'PRIVATE';
     final buttonCount = isPrivate ? 5 : 4;
-    final buttonWidth =
-        (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
+    final buttonWidth = (MediaQuery.of(context).size.width - 32 - 32) / buttonCount;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1045,11 +1176,8 @@ class _ChatInfoPageState extends State<ChatInfoPage>
           color: Colors.white, // 设置菜单背景色为白色，与按钮一致
           elevation: 4, // 轻微的阴影
           itemBuilder: (context) => [
-            _buildPopupMenuItem(
-                Icons.block, AppLocalizations.of(context).block),
-            _buildPopupMenuItem(Icons.delete_forever,
-                AppLocalizations.of(context).clearChatHistory,
-                isDestructive: true),
+            _buildPopupMenuItem(Icons.block, AppLocalizations.of(context).block),
+            _buildPopupMenuItem(Icons.delete_forever, AppLocalizations.of(context).clearChatHistory, isDestructive: true),
           ],
           onSelected: (value) {
             _handleMenuItemSelected(value);
@@ -1068,8 +1196,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.more_horiz,
-                        color: AppColors.primary, size: 26),
+                    const Icon(Icons.more_horiz, color: AppColors.primary, size: 26),
                     const SizedBox(height: 6),
                     Text(
                       AppLocalizations.of(context).more,
@@ -1089,8 +1216,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   }
 
   // 构建弹出菜单项
-  PopupMenuItem<String> _buildPopupMenuItem(IconData icon, String text,
-      {bool isDestructive = false}) {
+  PopupMenuItem<String> _buildPopupMenuItem(IconData icon, String text, {bool isDestructive = false}) {
     return PopupMenuItem<String>(
       value: text,
       child: Row(
@@ -1157,8 +1283,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   }
 
   // 显示功能未开放底部弹窗
-  void _showFeatureNotAvailableDialog(
-      BuildContext context, String featureName) {
+  void _showFeatureNotAvailableDialog(BuildContext context, String featureName) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1357,15 +1482,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       try {
         final participantsList = jsonDecode(conversation.participants) as List;
         final participantsMap = participantsList.cast<Map<String, dynamic>>();
-        
+
         final peer = participantsMap.firstWhere(
-          (p) => p['user_id'] != currentUserId,
+          (p) => p['userId'] != currentUserId,
           orElse: () => {},
         );
-        
-        displayId = peer.isNotEmpty && peer['user_id'] != null 
-            ? peer['user_id'] as String 
-            : conversation.conversationId;
+
+        displayId = peer.isNotEmpty && peer['userId'] != null ? peer['userId'] as String : conversation.conversationId;
       } catch (e) {
         // JSON解析失败，使用会话ID作为后备
         displayId = conversation.conversationId;
@@ -1406,11 +1529,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.only(
-                            left: 16,
-                            right: 16,
-                            bottom: shouldShowDescription ? 16 : 16,
-                            top: 4),
+                        padding: EdgeInsets.only(left: 16, right: 16, bottom: shouldShowDescription ? 16 : 16, top: 4),
                         child: Row(
                           children: [
                             Expanded(
@@ -1427,8 +1546,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                   InkWell(
                                     onTap: () async {
                                       // 复制ID到剪贴板
-                                      Clipboard.setData(
-                                          ClipboardData(text: displayId));
+                                      Clipboard.setData(ClipboardData(text: displayId));
                                       _logger.i('复制ID到剪贴板', extra: {
                                         'id': displayId,
                                         'type': isGroup
@@ -1437,8 +1555,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                                 ? 'channel'
                                                 : 'user'
                                       });
-                                      UINotificationService()
-                                          .showSuccess(successMessage);
+                                      UINotificationService().showSuccess(successMessage);
 
                                       // 设置复制状态
                                       setState(() {
@@ -1446,8 +1563,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                       });
 
                                       // 2秒后恢复原状
-                                      Future.delayed(const Duration(seconds: 2),
-                                          () {
+                                      Future.delayed(const Duration(seconds: 2), () {
                                         if (mounted) {
                                           setState(() {
                                             _isCopied = false;
@@ -1458,14 +1574,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: _isCopied
-                                            ? Colors.green.withAlpha(26)
-                                            : AppColors.primary.withAlpha(26),
+                                        color: _isCopied ? Colors.green.withAlpha(26) : AppColors.primary.withAlpha(26),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: AnimatedSwitcher(
-                                        duration:
-                                            const Duration(milliseconds: 200),
+                                        duration: const Duration(milliseconds: 200),
                                         child: _isCopied
                                             ? const Row(
                                                 key: ValueKey('copied'),
@@ -1482,8 +1595,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.green,
-                                                      fontWeight:
-                                                          FontWeight.w500,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
                                                 ],
@@ -1538,8 +1650,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 child: Divider(height: 1, color: Color(0xFFEEEEEE)),
               ),
               Padding(
-                padding: const EdgeInsets.only(
-                    left: 16, right: 16, top: 16, bottom: 16),
+                padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1569,9 +1680,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                               height: 1.4,
                             ),
                             maxLines: _isDescriptionExpanded ? null : 2,
-                            overflow: _isDescriptionExpanded
-                                ? TextOverflow.visible
-                                : TextOverflow.ellipsis,
+                            overflow: _isDescriptionExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                           ),
                           // 检查是否需要显示more/less按钮
                           LayoutBuilder(
@@ -1599,14 +1708,11 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                                   child: GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        _isDescriptionExpanded =
-                                            !_isDescriptionExpanded;
+                                        _isDescriptionExpanded = !_isDescriptionExpanded;
                                       });
                                     },
                                     child: Text(
-                                      _isDescriptionExpanded
-                                          ? AppLocalizations.of(context).less
-                                          : AppLocalizations.of(context).more,
+                                      _isDescriptionExpanded ? AppLocalizations.of(context).less : AppLocalizations.of(context).more,
                                       style: const TextStyle(
                                         fontSize: 14,
                                         color: AppColors.primary,
@@ -1656,7 +1762,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     try {
       final participantsList = jsonDecode(conversation.participants) as List;
       final participantsMap = participantsList.cast<Map<String, dynamic>>();
-      
+
       nonMemberParticipants = participantsMap
           .where((p) => p['role'] != 0) // 0 = MEMBER, 1 = ADMIN, 2 = OWNER
           .toList();
@@ -1714,12 +1820,10 @@ class _ChatInfoPageState extends State<ChatInfoPage>
               return Column(
                 children: [
                   _buildContactItem(
-                    avatar: participant['avatar'],
-                    name: participant['name'] ?? 'Unknown',
+                    participant: participant,
                     role: _getRoleDisplayName(participant['role']),
                     isOnline: participant['online'] == true,
                     lastSeen: (participant['online'] == true) ? null : 'last seen recently',
-                    roleId: participant['roleId'],
                   ),
                   if (!isLast) const Divider(height: 1, indent: 68),
                 ],
@@ -1733,25 +1837,33 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 构建单个联系人项
   Widget _buildContactItem({
-    required String? avatar,
-    required String name,
+    required Map<String, dynamic> participant,
     required String role,
     required bool isOnline,
     String? lastSeen,
-    int? roleId,
   }) {
+    final avatar = participant['avatar'] as String?;
+    final roleId = participant['roleId'] as int?;
+    final fallbackName = participant['name'] ?? 'Unknown';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // 头像
+          // 头像 - 使用FutureBuilder异步获取显示名称
           Stack(
             children: [
-              UserAvatar(
-                avatarUrl: avatar,
-                name: name,
-                radius: 26,
-                roleId: roleId,
+              FutureBuilder<String>(
+                future: _getParticipantDisplayNameAsync(participant),
+                builder: (context, snapshot) {
+                  final displayName = snapshot.data ?? fallbackName;
+                  return UserAvatar(
+                    avatarUrl: avatar,
+                    name: displayName,
+                    radius: 26,
+                    roleId: roleId,
+                  );
+                },
               ),
               // 在线状态指示器
               if (isOnline)
@@ -1783,21 +1895,26 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: FutureBuilder<String>(
+                        future: _getParticipantDisplayNameAsync(participant),
+                        builder: (context, snapshot) {
+                          final displayName = snapshot.data ?? fallbackName;
+                          return Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
                       ),
                     ),
                     // 角色标识
                     if (role.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: _getRoleColor(role),
                           borderRadius: BorderRadius.circular(12),
@@ -1850,7 +1967,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   String _getRoleDisplayName(dynamic role) {
     final localizations = AppLocalizations.of(context);
     final roleString = _convertRoleToString(role);
-    
+
     switch (roleString) {
       case 'OWNER':
         return localizations.owner;
@@ -1979,9 +2096,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             Expanded(
               child: TabBarView(
                 controller: _tabController, // 💢💢💢 使用手动管理的TabController
-                children: tabs
-                    .map((tab) => _buildTabContent(tab, conversation))
-                    .toList(),
+                children: tabs.map((tab) => _buildTabContent(tab, conversation)).toList(),
               ),
             ),
           ],
@@ -2019,18 +2134,18 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     try {
       final participantsList = jsonDecode(conversation.participants) as List;
       participants = participantsList.cast<Map<String, dynamic>>();
-      
+
       // Sort participants by role and name
       participants.sort((a, b) {
         final roleA = a['role'] ?? 'MEMBER';
         final roleB = b['role'] ?? 'MEMBER';
-        
+
         // Role priority: OWNER < ADMIN < MEMBER
         final priorityA = roleA == 'OWNER' ? 0 : (roleA == 'ADMIN' ? 1 : 2);
         final priorityB = roleB == 'OWNER' ? 0 : (roleB == 'ADMIN' ? 1 : 2);
-        
+
         if (priorityA != priorityB) return priorityA - priorityB;
-        
+
         // Same role, sort by name
         final nameA = a['name'] ?? '';
         final nameB = b['name'] ?? '';
@@ -2159,14 +2274,14 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   Widget _buildMemberItemWithSwipe(Map<String, dynamic> participant) {
     final localizations = AppLocalizations.of(context);
     final currentUserId = context.read<ChatCubit>().state.currentUser.userId;
-    
+
     // Parse participants JSON to get current user's role
     String currentUserRole = 'MEMBER';
     try {
       final participantsList = jsonDecode(context.read<ChatCubit>().state.conversation.participants) as List;
       final participantsMap = participantsList.cast<Map<String, dynamic>>();
       final currentUserParticipant = participantsMap.firstWhere(
-        (p) => p['user_id'] == currentUserId,
+        (p) => p['userId'] == currentUserId,
         orElse: () => {'role': 'MEMBER'},
       );
       currentUserRole = currentUserParticipant['role'] ?? 'MEMBER';
@@ -2175,18 +2290,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     }
 
     // 只有群主和管理员可以执行管理操作，且不能对自己操作
-    final canManage = (currentUserRole == 'OWNER' ||
-            currentUserRole == 'ADMIN') &&
-        participant['user_id'] != currentUserId;
+    final canManage = (currentUserRole == 'OWNER' || currentUserRole == 'ADMIN') && participant['userId'] != currentUserId;
 
     // 群主可以对所有人操作，管理员只能对普通成员操作
-    final canOperate = canManage &&
-        (currentUserRole == 'OWNER' ||
-            _convertRoleToString(participant['role']) == 'MEMBER');
+    final canOperate = canManage && (currentUserRole == 'OWNER' || _convertRoleToString(participant['role']) == 'MEMBER');
 
     // 💢💢💢 只有群主可以管理管理员权限
-    final canManageAdminRole = currentUserRole == 'OWNER' &&
-        participant['user_id'] != currentUserId;
+    final canManageAdminRole = currentUserRole == 'OWNER' && participant['userId'] != currentUserId;
 
     if (!canOperate) {
       // 没有权限操作的成员，返回普通成员项
@@ -2203,21 +2313,15 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 管理员权限按钮（只有群主可以操作）
     if (canManageAdminRole) {
       final participantRole = _convertRoleToString(participant['role']);
-      final label = participantRole == 'ADMIN'
-          ? localizations.removeAdminRole
-          : localizations.setAsAdmin;
+      final label = participantRole == 'ADMIN' ? localizations.removeAdminRole : localizations.setAsAdmin;
       buttonLabels.add(label);
       buttonWidths[label] = 80.0; // 管理员按钮宽度
       actions.add(
         _buildAdaptiveWidthAction(
           onPressed: () => _toggleAdminRole(participant),
-          backgroundColor: participantRole == 'ADMIN'
-              ? Colors.green
-              : AppColors.primary,
+          backgroundColor: participantRole == 'ADMIN' ? Colors.green : AppColors.primary,
           foregroundColor: Colors.white,
-          icon: participantRole == 'ADMIN'
-              ? Icons.admin_panel_settings
-              : Icons.admin_panel_settings_outlined,
+          icon: participantRole == 'ADMIN' ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined,
           label: label,
           isFirst: true,
           width: buttonWidths[label]!,
@@ -2258,8 +2362,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 💢💢💢 直接写死按钮宽度，简单有效
     double totalRequiredWidth = 0;
     for (final label in buttonLabels) {
-      if (label == localizations.removeAdminRole ||
-          label == localizations.setAsAdmin) {
+      if (label == localizations.removeAdminRole || label == localizations.setAsAdmin) {
         totalRequiredWidth += 120.0; // 4个字符 + 图标 + 内边距
       } else if (label == localizations.block) {
         totalRequiredWidth += 64.0; // 2个字符 + 图标 + 内边距
@@ -2275,7 +2378,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     final finalRatio = math.min(preciseRatio, 0.8);
 
     return Slidable(
-      key: Key('member_${participant['user_id']}'),
+      key: Key('member_${participant['userId']}'),
       // 💢💢💢 设置右滑操作 - 使用精确计算的比例
       endActionPane: ActionPane(
         motion: const BehindMotion(), // 使用Behind动画效果更好
@@ -2289,13 +2392,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 💢💢💢 新增：显示移除成员确认对话框
   Future<void> _showRemoveMemberDialog(Map<String, dynamic> participant) async {
+    final displayName = _getParticipantDisplayName(participant);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(AppLocalizations.of(context).removeMember),
-          content: Text(AppLocalizations.of(context)
-              .confirmRemoveMember(participant['name'] ?? 'Unknown')),
+          content: Text(AppLocalizations.of(context).confirmRemoveMember(displayName)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -2320,13 +2423,13 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
   // 💢💢💢 新增：屏蔽成员功能
   Future<void> _blockMember(Map<String, dynamic> participant) async {
+    final displayName = _getParticipantDisplayName(participant);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(AppLocalizations.of(context).blockMember),
-          content: Text(AppLocalizations.of(context)
-              .confirmBlockMember(participant['name'] ?? 'Unknown')),
+          content: Text(AppLocalizations.of(context).confirmBlockMember(displayName)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -2353,33 +2456,31 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   Future<void> _executeBlockMember(Map<String, dynamic> participant) async {
     try {
       _logger.i('开始屏蔽群成员', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
-        'conversationId':
-            context.read<ChatCubit>().state.conversation.conversationId,
+        'conversationId': context.read<ChatCubit>().state.conversation.conversationId,
       });
 
       // 通过ChatCubit执行屏蔽成员操作（遵循DDD架构）
       final chatCubit = context.read<ChatCubit>();
-      await chatCubit.blockMemberInConversation(participant['user_id']);
+      await chatCubit.blockMemberInConversation(participant['userId']);
 
       // 暂时显示成功提示
-      UINotificationService().showSuccess(
-          AppLocalizations.of(context).memberBlocked(participant['name'] ?? 'Unknown'));
+      final displayName = _getParticipantDisplayName(participant);
+      UINotificationService().showSuccess(AppLocalizations.of(context).memberBlocked(displayName));
 
       _logger.i('屏蔽群成员成功', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
       });
     } catch (e) {
       _logger.e('屏蔽群成员失败', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
         'error': e.toString(),
       });
 
-      UINotificationService().showError(
-          AppLocalizations.of(context).blockMemberFailed(e.toString()));
+      UINotificationService().showError(AppLocalizations.of(context).blockMemberFailed(e.toString()));
     }
   }
 
@@ -2387,12 +2488,9 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   Future<void> _toggleAdminRole(Map<String, dynamic> participant) async {
     final isCurrentlyAdmin = _convertRoleToString(participant['role']) == 'ADMIN';
     final localizations = AppLocalizations.of(context);
-    final actionText = isCurrentlyAdmin
-        ? localizations.removeAdminRole
-        : localizations.setAsAdmin;
-    final confirmText = isCurrentlyAdmin
-        ? localizations.removeAdminRole
-        : localizations.setAsAdmin;
+    final displayName = _getParticipantDisplayName(participant);
+    final actionText = isCurrentlyAdmin ? localizations.removeAdminRole : localizations.setAsAdmin;
+    final confirmText = isCurrentlyAdmin ? localizations.removeAdminRole : localizations.setAsAdmin;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -2400,9 +2498,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         return AlertDialog(
           title: Text(actionText),
           content: Text(
-            isCurrentlyAdmin
-                ? localizations.confirmRemoveAdminRole(participant['name'] ?? 'Unknown')
-                : localizations.confirmSetAsAdmin(participant['name'] ?? 'Unknown'),
+            isCurrentlyAdmin ? localizations.confirmRemoveAdminRole(displayName) : localizations.confirmSetAsAdmin(displayName),
           ),
           actions: [
             TextButton(
@@ -2412,8 +2508,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: TextButton.styleFrom(
-                foregroundColor:
-                    isCurrentlyAdmin ? Colors.orange : AppColors.primary,
+                foregroundColor: isCurrentlyAdmin ? Colors.orange : AppColors.primary,
               ),
               child: Text(confirmText),
             ),
@@ -2428,32 +2523,28 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   }
 
   // 💢💢💢 新增：执行管理员权限切换的业务逻辑
-  Future<void> _executeToggleAdminRole(
-      Map<String, dynamic> participant, bool makeAdmin) async {
+  Future<void> _executeToggleAdminRole(Map<String, dynamic> participant, bool makeAdmin) async {
     try {
       final actionText = makeAdmin ? '设为管理员' : '取消管理员权限';
 
       _logger.i('开始$actionText', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
         'makeAdmin': makeAdmin,
-        'conversationId':
-            context.read<ChatCubit>().state.conversation.conversationId,
+        'conversationId': context.read<ChatCubit>().state.conversation.conversationId,
       });
 
       // 通过ChatCubit执行管理员权限切换操作（遵循DDD架构）
       final chatCubit = context.read<ChatCubit>();
-      await chatCubit.updateMemberRole(
-          participant['user_id'], makeAdmin ? MemberRole.ADMIN : MemberRole.MEMBER);
+      await chatCubit.updateMemberRole(participant['userId'], makeAdmin ? MemberRole.ADMIN : MemberRole.MEMBER);
 
       // 暂时显示成功提示
-      UINotificationService().showSuccess(makeAdmin
-          ? AppLocalizations.of(context).setAsAdminSuccess(participant['name'] ?? 'Unknown')
-          : AppLocalizations.of(context)
-              .removeAdminRoleSuccess(participant['name'] ?? 'Unknown'));
+      final displayName = _getParticipantDisplayName(participant);
+      UINotificationService()
+          .showSuccess(makeAdmin ? AppLocalizations.of(context).setAsAdminSuccess(displayName) : AppLocalizations.of(context).removeAdminRoleSuccess(displayName));
 
       _logger.i('$actionText成功', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
         'newRole': makeAdmin ? 'admin' : 'member',
       });
@@ -2461,7 +2552,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       final actionText = makeAdmin ? '设为管理员' : '取消管理员权限';
 
       _logger.e('$actionText失败', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
         'error': e.toString(),
       });
@@ -2474,27 +2565,26 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   Future<void> _removeMember(Map<String, dynamic> participant) async {
     try {
       _logger.i('开始移除群成员', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
-        'conversationId':
-            context.read<ChatCubit>().state.conversation.conversationId,
+        'conversationId': context.read<ChatCubit>().state.conversation.conversationId,
       });
 
       // 通过ChatCubit执行移除成员操作（遵循DDD架构）
       final chatCubit = context.read<ChatCubit>();
-      await chatCubit.removeMemberFromConversation(participant['user_id']);
+      await chatCubit.removeMemberFromConversation(participant['userId']);
 
       // 暂时显示成功提示
-      UINotificationService().showSuccess(
-          AppLocalizations.of(context).memberRemoved(participant['name'] ?? 'Unknown'));
+      final displayName = _getParticipantDisplayName(participant);
+      UINotificationService().showSuccess(AppLocalizations.of(context).memberRemoved(displayName));
 
       _logger.i('移除群成员成功', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
       });
     } catch (e) {
       _logger.e('移除群成员失败', extra: {
-        'participantId': participant['user_id'],
+        'participantId': participant['userId'],
         'participantName': participant['name'],
         'error': e.toString(),
       });
@@ -2508,7 +2598,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     // 获取当前用户
     final currentUser = context.read<ChatCubit>().state.currentUser;
     // 不能与自己创建私聊，但可以与其他任何成员私聊
-    final canOpenChat = participant['user_id'] != currentUser.userId;
+    final canOpenChat = participant['userId'] != currentUser.userId;
 
     return InkWell(
       onTap: canOpenChat ? () => _openPrivateChat(participant) : null,
@@ -2519,11 +2609,17 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             // 头像
             Stack(
               children: [
-                UserAvatar(
-                  avatarUrl: participant['avatar'],
-                  name: participant['name'] ?? 'Unknown',
-                  radius: 26,
-                  roleId: participant['roleId'],
+                FutureBuilder<String>(
+                  future: _getParticipantDisplayNameAsync(participant),
+                  builder: (context, snapshot) {
+                    final displayName = snapshot.data ?? _getParticipantDisplayName(participant);
+                    return UserAvatar(
+                      avatarUrl: participant['avatar'],
+                      name: displayName,
+                      radius: 26,
+                      roleId: participant['roleId'],
+                    );
+                  },
                 ),
                 // 在线状态指示器
                 if (participant['online'] == true)
@@ -2555,21 +2651,26 @@ class _ChatInfoPageState extends State<ChatInfoPage>
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          participant['name'] ?? 'Unknown',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: FutureBuilder<String>(
+                          future: _getParticipantDisplayNameAsync(participant),
+                          builder: (context, snapshot) {
+                            final displayName = snapshot.data ?? _getParticipantDisplayName(participant);
+                            return Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                       ),
                       // 角色标识
                       if (_convertRoleToString(participant['role']) != 'MEMBER')
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: _getMemberRoleColor(_convertRoleToString(participant['role'])),
                             borderRadius: BorderRadius.circular(12),
@@ -2610,13 +2711,12 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       final l10n = AppLocalizations.of(context);
 
       // 检查是否尝试与自己创建私聊
-      if (participant['user_id'] == currentUser.userId) {
+      if (participant['userId'] == currentUser.userId) {
         UINotificationService().showWarning(l10n.cannotCreatePrivateChat);
         return;
       }
 
-      final conversationId = await chatCubit.chatsRepository
-          .createOrGetConversation(participant['user_id']);
+      final conversationId = await chatCubit.chatsRepository.createOrGetConversation(participant['userId']);
       if (conversationId == null) {
         UINotificationService().showError(l10n.failedToCreateChat);
         return;
@@ -2631,8 +2731,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       final navigator = Navigator.of(context);
 
       // 获取会话信息
-      final conversation =
-          await chatsRepository.getConversationById(conversationId);
+      final conversation = await chatsRepository.getConversationById(conversationId);
       if (conversation == null) {
         UINotificationService().showError(l10n.failedToGetConversation);
         return;
@@ -2644,8 +2743,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             providers: [
               RepositoryProvider<ChatRepository>.value(value: chatRepository),
               RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
-              RepositoryProvider<ChatRepositorySend>.value(
-                  value: chatRepositorySend),
+              RepositoryProvider<ChatRepositorySend>.value(value: chatRepositorySend),
             ],
             child: BlocProvider<ChatCubit>(
               create: (context) => ChatCubit(
@@ -2664,8 +2762,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
         ),
       );
     } catch (e) {
-      UINotificationService()
-          .showError(AppLocalizations.of(context).failedToOpenChat);
+      UINotificationService().showError(AppLocalizations.of(context).failedToOpenChat);
     }
   }
 
@@ -2989,8 +3086,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
               // 复制二维码数据到剪贴板
               Clipboard.setData(ClipboardData(text: qrData));
               Navigator.pop(context);
-              UINotificationService()
-                  .showSuccess(AppLocalizations.of(context).qrCodeCopied);
+              UINotificationService().showSuccess(AppLocalizations.of(context).qrCodeCopied);
             },
             child: Text(AppLocalizations.of(context).copy),
           ),
@@ -3039,26 +3135,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
     }
 
     // 如果没有尺寸信息，使用预设的随机高度模式来模拟瀑布流效果
-    final patterns = [
-      120.0,
-      160.0,
-      100.0,
-      140.0,
-      180.0,
-      110.0,
-      150.0,
-      130.0,
-      170.0,
-      200.0,
-      90.0,
-      190.0,
-      135.0,
-      175.0,
-      125.0,
-      155.0,
-      185.0,
-      105.0
-    ];
+    final patterns = [120.0, 160.0, 100.0, 140.0, 180.0, 110.0, 150.0, 130.0, 170.0, 200.0, 90.0, 190.0, 135.0, 175.0, 125.0, 155.0, 185.0, 105.0];
     return patterns[index % patterns.length];
   }
 
@@ -3238,8 +3315,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
 
         // 1. 优先使用缩略图URL
         if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
-          if (thumbnailUrl.startsWith('http://') ||
-              thumbnailUrl.startsWith('https://')) {
+          if (thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://')) {
             return _buildCachedNetworkImage(
               thumbnailUrl,
               'thumbnails',
@@ -3247,79 +3323,79 @@ class _ChatInfoPageState extends State<ChatInfoPage>
             );
           } else if (thumbnailUrl.startsWith('file://')) {
             final filePath = thumbnailUrl.substring(7);
-        final file = File(filePath);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildFallbackThumbnail(message);
-            },
-          );
+            final file = File(filePath);
+            if (file.existsSync()) {
+              return Image.file(
+                file,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildFallbackThumbnail(message);
+                },
+              );
+            }
+          } else {
+            // 直接的文件路径
+            final file = File(thumbnailUrl);
+            if (file.existsSync()) {
+              return Image.file(
+                file,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildFallbackThumbnail(message);
+                },
+              );
+            }
+          }
         }
-      } else {
-        // 直接的文件路径
-        final file = File(thumbnailUrl);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildFallbackThumbnail(message);
-            },
-          );
-        }
-      }
-    }
 
-    // 2. 如果有媒体URL，尝试加载网络图片
-    if (mediaUrl != null && mediaUrl.isNotEmpty) {
-      if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
-        return _buildCachedNetworkImage(
-          mediaUrl,
-          'images',
-          () => _buildFallbackThumbnail(message),
-        );
-      } else if (mediaUrl.startsWith('file://')) {
-        final filePath = mediaUrl.substring(7);
-        final file = File(filePath);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildFallbackThumbnail(message);
-            },
-          );
+        // 2. 如果有媒体URL，尝试加载网络图片
+        if (mediaUrl != null && mediaUrl.isNotEmpty) {
+          if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+            return _buildCachedNetworkImage(
+              mediaUrl,
+              'images',
+              () => _buildFallbackThumbnail(message),
+            );
+          } else if (mediaUrl.startsWith('file://')) {
+            final filePath = mediaUrl.substring(7);
+            final file = File(filePath);
+            if (file.existsSync()) {
+              return Image.file(
+                file,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildFallbackThumbnail(message);
+                },
+              );
+            }
+          } else {
+            // 直接的文件路径
+            final file = File(mediaUrl);
+            if (file.existsSync()) {
+              return Image.file(
+                file,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildFallbackThumbnail(message);
+                },
+              );
+            }
+          }
         }
-      } else {
-        // 直接的文件路径
-        final file = File(mediaUrl);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildFallbackThumbnail(message);
-            },
-          );
-        }
-      }
-    }
 
-    // 3. 最后才尝试使用本地路径（仅当其他都失败时）
-    if (localPath != null && localPath.isNotEmpty) {
-      final localFile = File(localPath);
-      if (localFile.existsSync()) {
-        return Image.file(
-          localFile,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildFallbackThumbnail(message);
-          },
-        );
-      }
-    }
+        // 3. 最后才尝试使用本地路径（仅当其他都失败时）
+        if (localPath != null && localPath.isNotEmpty) {
+          final localFile = File(localPath);
+          if (localFile.existsSync()) {
+            return Image.file(
+              localFile,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildFallbackThumbnail(message);
+              },
+            );
+          }
+        }
 
         // 兜底方案
         return _buildFallbackThumbnail(message);
@@ -3672,8 +3748,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
   }
 
   /// 更新会话名称（群聊和频道）
-  Future<bool> _updateConversationName(
-      String conversationId, String? newName) async {
+  Future<bool> _updateConversationName(String conversationId, String? newName) async {
     try {
       _logger.i('开始更新会话名称', extra: {
         'conversationId': conversationId,
@@ -3681,8 +3756,7 @@ class _ChatInfoPageState extends State<ChatInfoPage>
       });
 
       final chatCubit = context.read<ChatCubit>();
-      final success =
-          await chatCubit.updateConversationName(conversationId, newName);
+      final success = await chatCubit.updateConversationName(conversationId, newName);
 
       _logger.i('会话名称更新结果', extra: {
         'conversationId': conversationId,

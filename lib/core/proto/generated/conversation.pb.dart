@@ -37,6 +37,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
     $core.String? addedBy,
     $core.bool? online,
     $core.bool? isActive,
+    $core.int? roleId,
   }) {
     final result = create();
     if (userId != null) result.userId = userId;
@@ -53,6 +54,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
     if (addedBy != null) result.addedBy = addedBy;
     if (online != null) result.online = online;
     if (isActive != null) result.isActive = isActive;
+    if (roleId != null) result.roleId = roleId;
     return result;
   }
 
@@ -87,6 +89,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
     ..aOS(11, _omitFieldNames ? '' : 'addedBy')
     ..aOB(12, _omitFieldNames ? '' : 'online')
     ..aOB(13, _omitFieldNames ? '' : 'isActive')
+    ..a<$core.int>(14, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -110,7 +113,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ParticipantProto>(create);
   static ParticipantProto? _defaultInstance;
 
-  /// userId
+  /// user_id
   @$pb.TagNumber(1)
   $core.String get userId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -140,7 +143,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearAvatar() => $_clearField(3);
 
-  /// unreadCount
+  /// unread_count
   @$pb.TagNumber(4)
   $core.int get unreadCount => $_getIZ(3);
   @$pb.TagNumber(4)
@@ -170,7 +173,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearPinned() => $_clearField(6);
 
-  /// joinedAt
+  /// joined_at
   @$pb.TagNumber(7)
   $fixnum.Int64 get joinedAt => $_getI64(6);
   @$pb.TagNumber(7)
@@ -210,7 +213,7 @@ class ParticipantProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearRole() => $_clearField(10);
 
-  /// addedBy
+  /// added_by
   @$pb.TagNumber(11)
   $core.String get addedBy => $_getSZ(10);
   @$pb.TagNumber(11)
@@ -239,6 +242,16 @@ class ParticipantProto extends $pb.GeneratedMessage {
   $core.bool hasIsActive() => $_has(12);
   @$pb.TagNumber(13)
   void clearIsActive() => $_clearField(13);
+
+  /// 用户角色ID
+  @$pb.TagNumber(14)
+  $core.int get roleId => $_getIZ(13);
+  @$pb.TagNumber(14)
+  set roleId($core.int value) => $_setSignedInt32(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasRoleId() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearRoleId() => $_clearField(14);
 }
 
 /// 会话消息类型，匹配数据库模型
@@ -337,7 +350,7 @@ class ConversationProto extends $pb.GeneratedMessage {
   static ConversationProto? _defaultInstance;
 
   /// 主要字段，完全匹配数据库模型
-  /// conversationId
+  /// conversation_id
   @$pb.TagNumber(1)
   $core.String get conversationId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -377,7 +390,7 @@ class ConversationProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearAvatar() => $_clearField(4);
 
-  /// createdAt
+  /// created_at
   @$pb.TagNumber(5)
   $fixnum.Int64 get createdAt => $_getI64(4);
   @$pb.TagNumber(5)
@@ -387,7 +400,7 @@ class ConversationProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearCreatedAt() => $_clearField(5);
 
-  /// createdBy
+  /// created_by
   @$pb.TagNumber(6)
   $core.String get createdBy => $_getSZ(5);
   @$pb.TagNumber(6)

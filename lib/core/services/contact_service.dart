@@ -79,13 +79,36 @@ class ContactService {
 
       if (user != null) {
         await database.transaction(() async {
+          // 构建要更新的字段Map
+          final updateMap = <String, dynamic>{};
+          
           if (nickname != null) {
-            // 更新用户昵称
-            await database.update(database.users).replace(
-              user.copyWith(nickName: nickname),
-            );
+            updateMap['nickname'] = nickname;
           }
-          // 备注等字段可扩展到User模型，如果不存在则忽略
+          
+          if (remark != null) {
+            updateMap['remark'] = remark;
+          }
+          
+          // 如果有字段需要更新，则执行更新
+          if (updateMap.isNotEmpty) {
+            final companionMap = <String, Value<Object?>>{};
+            
+            if (nickname != null) {
+              companionMap['nickname'] = Value(nickname);
+            }
+            
+            if (remark != null) {
+              companionMap['remark'] = Value(remark);
+            }
+            
+            await (database.update(database.users)
+              ..where((u) => u.userId.equals(contactId)))
+              .write(UsersCompanion(
+                nickname: nickname != null ? Value(nickname) : const Value.absent(),
+                remark: remark != null ? Value(remark) : const Value.absent(),
+              ));
+          }
         });
 
         _logger.d('本地联系人数据已预更新', extra: {
@@ -288,11 +311,11 @@ class ContactService {
             response.updatedFields.contains('custom_nickname')) {
           // 重新计算显示名称
           final protoUser = UserAdapter.fromUserProto(response.contact);
-          updatedUser = updatedUser.copyWith(nickName: protoUser.nickName);
+          updatedUser = updatedUser.copyWith(name: protoUser.name);
 
           _logger.d('更新联系人显示名称', extra: {
             'contactId': contactId,
-            'newName': protoUser.nickName,
+            'newName': protoUser.name,
           });
         }
 
@@ -497,7 +520,7 @@ class ContactService {
               event.updatedFields.contains('custom_nickname')) {
             // 重新计算显示名称（因为可能涉及自定义昵称更新）
             final protoUser = UserAdapter.fromUserProto(event.contact);
-            updatedUser = updatedUser.copyWith(nickName: protoUser.nickName);
+            updatedUser = updatedUser.copyWith(name: protoUser.name);
           }
 
           if (event.updatedFields.contains('avatar')) {

@@ -27,30 +27,29 @@ export 'user.pbenum.dart';
 class UserProto extends $pb.GeneratedMessage {
   factory UserProto({
     $core.String? userId,
-    $core.String? nickName,
+    $core.String? name,
     $core.String? avatar,
     $core.String? phone,
     $core.String? email,
     $core.String? pinyin,
     $fixnum.Int64? lastActiveTime,
     $core.String? status,
-    $core.bool? isTyping,
-    $core.String? typingInConversation,
-    $core.String? customNickname,
+    $core.int? roleId,
+    $core.String? nickname,
+    $core.String? remark,
   }) {
     final result = create();
     if (userId != null) result.userId = userId;
-    if (nickName != null) result.nickName = nickName;
+    if (name != null) result.name = name;
     if (avatar != null) result.avatar = avatar;
     if (phone != null) result.phone = phone;
     if (email != null) result.email = email;
     if (pinyin != null) result.pinyin = pinyin;
     if (lastActiveTime != null) result.lastActiveTime = lastActiveTime;
     if (status != null) result.status = status;
-    if (isTyping != null) result.isTyping = isTyping;
-    if (typingInConversation != null)
-      result.typingInConversation = typingInConversation;
-    if (customNickname != null) result.customNickname = customNickname;
+    if (roleId != null) result.roleId = roleId;
+    if (nickname != null) result.nickname = nickname;
+    if (remark != null) result.remark = remark;
     return result;
   }
 
@@ -68,16 +67,16 @@ class UserProto extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOS(2, _omitFieldNames ? '' : 'nickName')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'avatar')
     ..aOS(4, _omitFieldNames ? '' : 'phone')
     ..aOS(5, _omitFieldNames ? '' : 'email')
     ..aOS(6, _omitFieldNames ? '' : 'pinyin')
     ..aInt64(7, _omitFieldNames ? '' : 'lastActiveTime')
     ..aOS(8, _omitFieldNames ? '' : 'status')
-    ..aOB(12, _omitFieldNames ? '' : 'isTyping')
-    ..aOS(13, _omitFieldNames ? '' : 'typingInConversation')
-    ..aOS(14, _omitFieldNames ? '' : 'customNickname')
+    ..a<$core.int>(9, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
+    ..aOS(10, _omitFieldNames ? '' : 'nickname')
+    ..aOS(11, _omitFieldNames ? '' : 'remark')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -112,13 +111,13 @@ class UserProto extends $pb.GeneratedMessage {
 
   /// 用户昵称（用户真实昵称，对应数据库User.name字段）
   @$pb.TagNumber(2)
-  $core.String get nickName => $_getSZ(1);
+  $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set nickName($core.String value) => $_setString(1, value);
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasNickName() => $_has(1);
+  $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearNickName() => $_clearField(2);
+  void clearName() => $_clearField(2);
 
   /// 头像
   @$pb.TagNumber(3)
@@ -180,36 +179,35 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(8)
   void clearStatus() => $_clearField(8);
 
-  /// 扩展字段，用于通信但数据库中没有
-  /// 是否正在输入
-  @$pb.TagNumber(12)
-  $core.bool get isTyping => $_getBF(8);
-  @$pb.TagNumber(12)
-  set isTyping($core.bool value) => $_setBool(8, value);
-  @$pb.TagNumber(12)
-  $core.bool hasIsTyping() => $_has(8);
-  @$pb.TagNumber(12)
-  void clearIsTyping() => $_clearField(12);
-
-  /// 在哪个会话中输入
-  @$pb.TagNumber(13)
-  $core.String get typingInConversation => $_getSZ(9);
-  @$pb.TagNumber(13)
-  set typingInConversation($core.String value) => $_setString(9, value);
-  @$pb.TagNumber(13)
-  $core.bool hasTypingInConversation() => $_has(9);
-  @$pb.TagNumber(13)
-  void clearTypingInConversation() => $_clearField(13);
+  /// 用户角色ID
+  @$pb.TagNumber(9)
+  $core.int get roleId => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set roleId($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasRoleId() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearRoleId() => $_clearField(9);
 
   /// 自定义联系人昵称（当前用户为此联系人设置的昵称，对应数据库Contact.nickname字段）
-  @$pb.TagNumber(14)
-  $core.String get customNickname => $_getSZ(10);
-  @$pb.TagNumber(14)
-  set customNickname($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(14)
-  $core.bool hasCustomNickname() => $_has(10);
-  @$pb.TagNumber(14)
-  void clearCustomNickname() => $_clearField(14);
+  @$pb.TagNumber(10)
+  $core.String get nickname => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set nickname($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasNickname() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearNickname() => $_clearField(10);
+
+  /// 联系人备注（当前用户为此联系人设置的备注信息，对应数据库Contact.remark字段）
+  @$pb.TagNumber(11)
+  $core.String get remark => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set remark($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasRemark() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearRemark() => $_clearField(11);
 }
 
 /// 当前登录用户信息
@@ -223,6 +221,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     $fixnum.Int64? lastLoginTime,
     $core.String? status,
     $core.bool? hasSetPassword,
+    $core.int? roleId,
   }) {
     final result = create();
     if (userId != null) result.userId = userId;
@@ -233,6 +232,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     if (lastLoginTime != null) result.lastLoginTime = lastLoginTime;
     if (status != null) result.status = status;
     if (hasSetPassword != null) result.hasSetPassword = hasSetPassword;
+    if (roleId != null) result.roleId = roleId;
     return result;
   }
 
@@ -257,6 +257,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     ..aInt64(6, _omitFieldNames ? '' : 'lastLoginTime')
     ..aOS(7, _omitFieldNames ? '' : 'status')
     ..aOB(8, _omitFieldNames ? '' : 'hasSetPassword')
+    ..a<$core.int>(9, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -359,6 +360,16 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   $core.bool hasHasSetPassword() => $_has(7);
   @$pb.TagNumber(8)
   void clearHasSetPassword() => $_clearField(8);
+
+  /// 用户角色ID
+  @$pb.TagNumber(9)
+  $core.int get roleId => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set roleId($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasRoleId() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearRoleId() => $_clearField(9);
 }
 
 /// 设置当前用户信息请求
@@ -905,7 +916,7 @@ class UserConnectionResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'message')
-    ..aOS(3, _omitFieldNames ? '' : 'userId', protoName: 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'userId')
     ..aInt64(4, _omitFieldNames ? '' : 'timestamp')
     ..hasRequiredFields = false;
 

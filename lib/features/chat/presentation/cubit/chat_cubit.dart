@@ -92,7 +92,7 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 查找指定用户的参与者信息
       for (final participant in participantsMap) {
-        if (participant['user_id'] == userId) {
+        if (participant['userId'] == userId) {
           return participant;
         }
       }
@@ -316,26 +316,8 @@ class ChatCubit extends Cubit<ChatState> {
         'messageIndex': message.messageIndex,
       });
 
-      // 🔥🔥🔥 添加明显日志：消息发送后的状态
-      print('🔥🔥🔥 [DEBUG] 消息发送完成，准备更新UI');
-      print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
-      print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
-      print('🔥🔥🔥 [DEBUG] 消息索引: ${message.messageIndex}');
-      print('🔥🔥🔥 [DEBUG] 消息时间: ${message.createdAt}');
-      print('🔥🔥🔥 [DEBUG] 消息内容: ${message.content}');
-
       // 3. 立即更新UI（乐观更新）
       _mergeNewMessage(message);
-
-      // 🔥🔥🔥 添加明显日志：UI更新后的状态
-      print('🔥🔥🔥 [DEBUG] UI更新完成');
-      print('🔥🔥🔥 [DEBUG] 当前消息数量: ${state.messages.length}');
-      if (state.messages.isNotEmpty) {
-        final latestMessage = state.messages.first;
-        print('🔥🔥🔥 [DEBUG] 最新消息ID: ${latestMessage.messageId}');
-        print('🔥🔥🔥 [DEBUG] 最新消息状态: ${latestMessage.messageStatus}');
-        print('🔥🔥🔥 [DEBUG] 最新消息时间: ${latestMessage.createdAt}');
-      }
 
       _logger.i('💬 消息已添加到UI', extra: {
         'messageId': message.messageId,
@@ -1955,9 +1937,6 @@ class ChatCubit extends Cubit<ChatState> {
   void _handleMessageUpdate(MessagesEvent event) {
     if (isClosed) return;
 
-    // 🔥🔥🔥 添加明显日志：收到消息更新事件
-    print('🔥🔥🔥 [DEBUG] 📨 收到消息更新事件: ${event.runtimeType.toString()}');
-
     _logger.i('📨 收到消息更新事件', extra: {'event': event.runtimeType.toString()});
 
     switch (event) {
@@ -1988,11 +1967,6 @@ class ChatCubit extends Cubit<ChatState> {
         break;
 
       case MessageUpdatedEvent(:final messageId, :final updatedFields):
-        // 🔥🔥🔥 添加明显日志：处理消息更新事件
-        print('🔥🔥🔥 [DEBUG] 📨 处理消息更新事件');
-        print('🔥🔥🔥 [DEBUG] 消息ID: $messageId');
-        print('🔥🔥🔥 [DEBUG] 更新字段: $updatedFields');
-
         _logger.i('📨 处理消息更新事件', extra: {
           'messageId': messageId,
           'updatedFields': updatedFields,
@@ -2014,22 +1988,12 @@ class ChatCubit extends Cubit<ChatState> {
 
   /// 💢💢💢 新增：基于messageId更新消息
   void _updateMessageFields(String messageId, Map<String, dynamic> updatedFields) {
-    // 🔥🔥🔥 添加明显日志：开始更新消息字段
-    print('🔥🔥🔥 [DEBUG] 开始更新消息字段');
-    print('🔥🔥🔥 [DEBUG] 目标消息ID: $messageId');
-    print('🔥🔥🔥 [DEBUG] 要更新的字段: $updatedFields');
-
     final currentMessages = List<Message>.from(state.messages);
 
     // 💢💢💢 直接使用messageId查找消息
     final messageIndex = currentMessages.indexWhere((msg) => msg.messageId == messageId);
 
     if (messageIndex == -1) {
-      // 🔥🔥🔥 添加明显日志：消息未找到
-      print('🔥🔥🔥 [DEBUG] ❌ 要更新的消息未找到');
-      print('🔥🔥🔥 [DEBUG] 当前消息数量: ${currentMessages.length}');
-      print('🔥🔥🔥 [DEBUG] 当前消息ID列表: ${currentMessages.map((m) => m.messageId).toList()}');
-
       _logger.w('要更新的消息未找到', extra: {
         'messageId': messageId,
         'searchedByMessageId': messageId.isNotEmpty,
@@ -2054,11 +2018,6 @@ class ChatCubit extends Cubit<ChatState> {
         case 'status':
           if (value is String) {
             if (message.messageStatus != value) {
-              // 🔥🔥🔥 添加明显日志：状态更新
-              print('🔥🔥🔥 [DEBUG] 📊 更新消息状态');
-              print('🔥🔥🔥 [DEBUG] 旧状态: ${message.messageStatus}');
-              print('🔥🔥🔥 [DEBUG] 新状态: $value');
-
               message = message.copyWith(messageStatus: value);
               hasChanges = true;
             }
@@ -2103,29 +2062,17 @@ class ChatCubit extends Cubit<ChatState> {
     }
 
     if (hasChanges) {
-      // 🔥🔥🔥 添加明显日志：状态更新前
-      print('🔥🔥🔥 [DEBUG] 🔄 准备更新UI状态');
-      print('🔥🔥🔥 [DEBUG] 消息最终状态: ${message.messageStatus}');
-      print('🔥🔥🔥 [DEBUG] 消息创建时间: ${message.createdAt}');
-
       currentMessages[messageIndex] = message;
       emit(state.copyWith(
         messages: currentMessages,
         messageUpdateTrigger: state.messageUpdateTrigger + 1,
       ));
 
-      // 🔥🔥🔥 添加明显日志：状态更新后
-      print('🔥🔥🔥 [DEBUG] ✅ UI状态已更新');
-      print('🔥🔥🔥 [DEBUG] 更新触发器: ${state.messageUpdateTrigger}');
-
       _logger.d('消息字段更新完成', extra: {
         'messageId': messageId,
         'updatedFields': updatedFields.keys.toList(),
         'newStatus': message.messageStatus,
       });
-    } else {
-      // 🔥🔥🔥 添加明显日志：无变化
-      print('🔥🔥🔥 [DEBUG] ⚠️ 没有字段需要更新');
     }
   }
 
@@ -2663,10 +2610,19 @@ class ChatCubit extends Cubit<ChatState> {
     if (currentConversation.conversationId == updatedConversation.conversationId &&
         currentConversation.name == updatedConversation.name &&
         currentConversation.avatar == updatedConversation.avatar &&
+        currentConversation.participants == updatedConversation.participants &&
         currentConversation.lastMessagePreview == updatedConversation.lastMessagePreview) {
       // 会话元数据无变化，跳过更新
       return;
     }
+    
+    _logger.d('会话元数据发生变化，触发更新', extra: {
+      'conversationId': updatedConversation.conversationId,
+      'nameChanged': currentConversation.name != updatedConversation.name,
+      'avatarChanged': currentConversation.avatar != updatedConversation.avatar,
+      'participantsChanged': currentConversation.participants != updatedConversation.participants,
+      'lastMessagePreviewChanged': currentConversation.lastMessagePreview != updatedConversation.lastMessagePreview,
+    });
 
     // 会话元数据更新
 
@@ -2978,14 +2934,6 @@ class ChatCubit extends Cubit<ChatState> {
   void _mergeNewMessage(Message newMessage) {
     if (isClosed) return;
 
-    // 🔥🔥🔥 添加明显日志：开始合并新消息
-    print('🔥🔥🔥 [DEBUG] 开始合并新消息');
-    print('🔥🔥🔥 [DEBUG] 新消息ID: ${newMessage.messageId}');
-    print('🔥🔥🔥 [DEBUG] 新消息状态: ${newMessage.messageStatus}');
-    print('🔥🔥🔥 [DEBUG] 新消息索引: ${newMessage.messageIndex}');
-    print('🔥🔥🔥 [DEBUG] 新消息时间: ${newMessage.createdAt}');
-    print('🔥🔥🔥 [DEBUG] 当前消息数量: ${state.messages.length}');
-
     _logger.i('🆕 处理新消息合并', extra: {
       'messageId': newMessage.messageId,
       'messageIndex': newMessage.messageIndex,
@@ -2998,15 +2946,7 @@ class ChatCubit extends Cubit<ChatState> {
     // 检查消息连续性（考虑临时乐观更新消息）
     bool isContinuous = _isNewMessageContinuous(currentMessages, newMessage);
 
-    // 🔥🔥🔥 添加明显日志：连续性检查结果
-    print('🔥🔥🔥 [DEBUG] 消息连续性检查结果: $isContinuous');
-
     if (!isContinuous) {
-      // 🔥🔥🔥 添加明显日志：消息不连续
-      print('🔥🔥🔥 [DEBUG] ❌ 新消息不连续，直接抛弃新消息');
-      print('🔥🔥🔥 [DEBUG] 当前消息范围: ${_getMessageIndexRange(currentMessages)}');
-      print('🔥🔥🔥 [DEBUG] 新消息索引: ${newMessage.messageIndex}');
-
       _logger.w('❌ 新消息不连续，直接抛弃新消息', extra: {
         'currentRange': _getMessageIndexRange(currentMessages),
         'newMessageIndex': newMessage.messageIndex,
@@ -3048,28 +2988,12 @@ class ChatCubit extends Cubit<ChatState> {
       });
     }
 
-    // 🔥🔥🔥 添加明显日志：准备更新状态
-    print('🔥🔥🔥 [DEBUG] 准备更新状态');
-    print('🔥🔥🔥 [DEBUG] 合并后消息数量: ${mergedMessages.length}');
-    print('🔥🔥🔥 [DEBUG] 用户是否在底部: $isUserAtBottom');
-    print('🔥🔥🔥 [DEBUG] 是否更新滚动位置: ${updatedScrollPosition != null}');
-
     // 更新状态
     emit(state.copyWith(
       messages: mergedMessages,
       currentScrollPosition: updatedScrollPosition ?? state.currentScrollPosition,
       messageUpdateTrigger: state.messageUpdateTrigger + 1,
     ));
-
-    // 🔥🔥🔥 添加明显日志：状态更新完成
-    print('🔥🔥🔥 [DEBUG] ✅ 状态更新完成');
-    print('🔥🔥🔥 [DEBUG] 最终消息数量: ${state.messages.length}');
-    if (state.messages.isNotEmpty) {
-      final firstMessage = state.messages.first;
-      print('🔥🔥🔥 [DEBUG] 第一条消息ID: ${firstMessage.messageId}');
-      print('🔥🔥🔥 [DEBUG] 第一条消息状态: ${firstMessage.messageStatus}');
-      print('🔥🔥🔥 [DEBUG] 第一条消息时间: ${firstMessage.createdAt}');
-    }
 
     _logger.i('✅ 新消息合并完成', extra: {
       'finalMessageCount': mergedMessages.length,

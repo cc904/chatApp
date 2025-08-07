@@ -1804,12 +1804,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
         return;
       }
 
-      // 更新每个相关会话的名称和参与者信息
+      // 更新每个相关会话的名称（联系人备注不影响会话中的成员名称）
       await _database.transaction(() async {
         for (final conversation in relatedConversations) {
           final oldName = conversation.name;
 
-          // 更新会话名称
+          // 💢💢💢 注意：只更新会话名称，不更新participants字段
+          // 联系人的自定义备注名称只在联系人列表中显示，不应影响会话中的成员真实昵称
           final updatedConversation = conversation.copyWith(
             name: Value(updatedContact.nickName),
             avatar: updatedContact.avatar != null ? Value(updatedContact.avatar) : const Value.absent(),

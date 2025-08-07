@@ -13,11 +13,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   late final GeneratedColumn<String> userId = GeneratedColumn<String>(
       'user_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _nickNameMeta =
-      const VerificationMeta('nickName');
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
-  late final GeneratedColumn<String> nickName = GeneratedColumn<String>(
-      'nick_name', aliasedName, false,
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _avatarMeta = const VerificationMeta('avatar');
   @override
@@ -56,7 +55,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       'role_id', aliasedName, false,
       type: DriftSqlType.int,
       requiredDuringInsert: false,
-      defaultValue: const Constant(0));
+      defaultValue: const Constant(2));
   static const VerificationMeta _onlineMeta = const VerificationMeta('online');
   @override
   late final GeneratedColumn<bool> online = GeneratedColumn<bool>(
@@ -76,16 +75,21 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_friend" IN (0, 1))'),
       defaultValue: const Constant(false));
-  static const VerificationMeta _customNicknameMeta =
-      const VerificationMeta('customNickname');
+  static const VerificationMeta _nicknameMeta =
+      const VerificationMeta('nickname');
   @override
-  late final GeneratedColumn<String> customNickname = GeneratedColumn<String>(
-      'custom_nickname', aliasedName, true,
+  late final GeneratedColumn<String> nickname = GeneratedColumn<String>(
+      'nickname', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _remarkMeta = const VerificationMeta('remark');
+  @override
+  late final GeneratedColumn<String> remark = GeneratedColumn<String>(
+      'remark', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         userId,
-        nickName,
+        name,
         avatar,
         phone,
         email,
@@ -95,7 +99,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         roleId,
         online,
         isFriend,
-        customNickname
+        nickname,
+        remark
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -113,11 +118,11 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     } else if (isInserting) {
       context.missing(_userIdMeta);
     }
-    if (data.containsKey('nick_name')) {
-      context.handle(_nickNameMeta,
-          nickName.isAcceptableOrUnknown(data['nick_name']!, _nickNameMeta));
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
     } else if (isInserting) {
-      context.missing(_nickNameMeta);
+      context.missing(_nameMeta);
     }
     if (data.containsKey('avatar')) {
       context.handle(_avatarMeta,
@@ -157,11 +162,13 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       context.handle(_isFriendMeta,
           isFriend.isAcceptableOrUnknown(data['is_friend']!, _isFriendMeta));
     }
-    if (data.containsKey('custom_nickname')) {
-      context.handle(
-          _customNicknameMeta,
-          customNickname.isAcceptableOrUnknown(
-              data['custom_nickname']!, _customNicknameMeta));
+    if (data.containsKey('nickname')) {
+      context.handle(_nicknameMeta,
+          nickname.isAcceptableOrUnknown(data['nickname']!, _nicknameMeta));
+    }
+    if (data.containsKey('remark')) {
+      context.handle(_remarkMeta,
+          remark.isAcceptableOrUnknown(data['remark']!, _remarkMeta));
     }
     return context;
   }
@@ -174,8 +181,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     return User(
       userId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}user_id'])!,
-      nickName: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}nick_name'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       avatar: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}avatar']),
       phone: attachedDatabase.typeMapping
@@ -194,8 +201,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           .read(DriftSqlType.bool, data['${effectivePrefix}online'])!,
       isFriend: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_friend'])!,
-      customNickname: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}custom_nickname']),
+      nickname: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nickname']),
+      remark: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remark']),
     );
   }
 
@@ -207,7 +216,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
 
 class User extends DataClass implements Insertable<User> {
   final String userId;
-  final String nickName;
+  final String name;
   final String? avatar;
   final String? phone;
   final String? email;
@@ -217,10 +226,11 @@ class User extends DataClass implements Insertable<User> {
   final int roleId;
   final bool online;
   final bool isFriend;
-  final String? customNickname;
+  final String? nickname;
+  final String? remark;
   const User(
       {required this.userId,
-      required this.nickName,
+      required this.name,
       this.avatar,
       this.phone,
       this.email,
@@ -230,12 +240,13 @@ class User extends DataClass implements Insertable<User> {
       required this.roleId,
       required this.online,
       required this.isFriend,
-      this.customNickname});
+      this.nickname,
+      this.remark});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['user_id'] = Variable<String>(userId);
-    map['nick_name'] = Variable<String>(nickName);
+    map['name'] = Variable<String>(name);
     if (!nullToAbsent || avatar != null) {
       map['avatar'] = Variable<String>(avatar);
     }
@@ -257,8 +268,11 @@ class User extends DataClass implements Insertable<User> {
     map['role_id'] = Variable<int>(roleId);
     map['online'] = Variable<bool>(online);
     map['is_friend'] = Variable<bool>(isFriend);
-    if (!nullToAbsent || customNickname != null) {
-      map['custom_nickname'] = Variable<String>(customNickname);
+    if (!nullToAbsent || nickname != null) {
+      map['nickname'] = Variable<String>(nickname);
+    }
+    if (!nullToAbsent || remark != null) {
+      map['remark'] = Variable<String>(remark);
     }
     return map;
   }
@@ -266,7 +280,7 @@ class User extends DataClass implements Insertable<User> {
   UsersCompanion toCompanion(bool nullToAbsent) {
     return UsersCompanion(
       userId: Value(userId),
-      nickName: Value(nickName),
+      name: Value(name),
       avatar:
           avatar == null && nullToAbsent ? const Value.absent() : Value(avatar),
       phone:
@@ -283,9 +297,11 @@ class User extends DataClass implements Insertable<User> {
       roleId: Value(roleId),
       online: Value(online),
       isFriend: Value(isFriend),
-      customNickname: customNickname == null && nullToAbsent
+      nickname: nickname == null && nullToAbsent
           ? const Value.absent()
-          : Value(customNickname),
+          : Value(nickname),
+      remark:
+          remark == null && nullToAbsent ? const Value.absent() : Value(remark),
     );
   }
 
@@ -294,7 +310,7 @@ class User extends DataClass implements Insertable<User> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return User(
       userId: serializer.fromJson<String>(json['userId']),
-      nickName: serializer.fromJson<String>(json['nickName']),
+      name: serializer.fromJson<String>(json['name']),
       avatar: serializer.fromJson<String?>(json['avatar']),
       phone: serializer.fromJson<String?>(json['phone']),
       email: serializer.fromJson<String?>(json['email']),
@@ -304,7 +320,8 @@ class User extends DataClass implements Insertable<User> {
       roleId: serializer.fromJson<int>(json['roleId']),
       online: serializer.fromJson<bool>(json['online']),
       isFriend: serializer.fromJson<bool>(json['isFriend']),
-      customNickname: serializer.fromJson<String?>(json['customNickname']),
+      nickname: serializer.fromJson<String?>(json['nickname']),
+      remark: serializer.fromJson<String?>(json['remark']),
     );
   }
   @override
@@ -312,7 +329,7 @@ class User extends DataClass implements Insertable<User> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'userId': serializer.toJson<String>(userId),
-      'nickName': serializer.toJson<String>(nickName),
+      'name': serializer.toJson<String>(name),
       'avatar': serializer.toJson<String?>(avatar),
       'phone': serializer.toJson<String?>(phone),
       'email': serializer.toJson<String?>(email),
@@ -322,13 +339,14 @@ class User extends DataClass implements Insertable<User> {
       'roleId': serializer.toJson<int>(roleId),
       'online': serializer.toJson<bool>(online),
       'isFriend': serializer.toJson<bool>(isFriend),
-      'customNickname': serializer.toJson<String?>(customNickname),
+      'nickname': serializer.toJson<String?>(nickname),
+      'remark': serializer.toJson<String?>(remark),
     };
   }
 
   User copyWith(
           {String? userId,
-          String? nickName,
+          String? name,
           Value<String?> avatar = const Value.absent(),
           Value<String?> phone = const Value.absent(),
           Value<String?> email = const Value.absent(),
@@ -338,10 +356,11 @@ class User extends DataClass implements Insertable<User> {
           int? roleId,
           bool? online,
           bool? isFriend,
-          Value<String?> customNickname = const Value.absent()}) =>
+          Value<String?> nickname = const Value.absent(),
+          Value<String?> remark = const Value.absent()}) =>
       User(
         userId: userId ?? this.userId,
-        nickName: nickName ?? this.nickName,
+        name: name ?? this.name,
         avatar: avatar.present ? avatar.value : this.avatar,
         phone: phone.present ? phone.value : this.phone,
         email: email.present ? email.value : this.email,
@@ -352,13 +371,13 @@ class User extends DataClass implements Insertable<User> {
         roleId: roleId ?? this.roleId,
         online: online ?? this.online,
         isFriend: isFriend ?? this.isFriend,
-        customNickname:
-            customNickname.present ? customNickname.value : this.customNickname,
+        nickname: nickname.present ? nickname.value : this.nickname,
+        remark: remark.present ? remark.value : this.remark,
       );
   User copyWithCompanion(UsersCompanion data) {
     return User(
       userId: data.userId.present ? data.userId.value : this.userId,
-      nickName: data.nickName.present ? data.nickName.value : this.nickName,
+      name: data.name.present ? data.name.value : this.name,
       avatar: data.avatar.present ? data.avatar.value : this.avatar,
       phone: data.phone.present ? data.phone.value : this.phone,
       email: data.email.present ? data.email.value : this.email,
@@ -370,9 +389,8 @@ class User extends DataClass implements Insertable<User> {
       roleId: data.roleId.present ? data.roleId.value : this.roleId,
       online: data.online.present ? data.online.value : this.online,
       isFriend: data.isFriend.present ? data.isFriend.value : this.isFriend,
-      customNickname: data.customNickname.present
-          ? data.customNickname.value
-          : this.customNickname,
+      nickname: data.nickname.present ? data.nickname.value : this.nickname,
+      remark: data.remark.present ? data.remark.value : this.remark,
     );
   }
 
@@ -380,7 +398,7 @@ class User extends DataClass implements Insertable<User> {
   String toString() {
     return (StringBuffer('User(')
           ..write('userId: $userId, ')
-          ..write('nickName: $nickName, ')
+          ..write('name: $name, ')
           ..write('avatar: $avatar, ')
           ..write('phone: $phone, ')
           ..write('email: $email, ')
@@ -390,20 +408,21 @@ class User extends DataClass implements Insertable<User> {
           ..write('roleId: $roleId, ')
           ..write('online: $online, ')
           ..write('isFriend: $isFriend, ')
-          ..write('customNickname: $customNickname')
+          ..write('nickname: $nickname, ')
+          ..write('remark: $remark')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(userId, nickName, avatar, phone, email,
-      pinyin, lastActiveTime, status, roleId, online, isFriend, customNickname);
+  int get hashCode => Object.hash(userId, name, avatar, phone, email, pinyin,
+      lastActiveTime, status, roleId, online, isFriend, nickname, remark);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is User &&
           other.userId == this.userId &&
-          other.nickName == this.nickName &&
+          other.name == this.name &&
           other.avatar == this.avatar &&
           other.phone == this.phone &&
           other.email == this.email &&
@@ -413,12 +432,13 @@ class User extends DataClass implements Insertable<User> {
           other.roleId == this.roleId &&
           other.online == this.online &&
           other.isFriend == this.isFriend &&
-          other.customNickname == this.customNickname);
+          other.nickname == this.nickname &&
+          other.remark == this.remark);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> userId;
-  final Value<String> nickName;
+  final Value<String> name;
   final Value<String?> avatar;
   final Value<String?> phone;
   final Value<String?> email;
@@ -428,11 +448,12 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<int> roleId;
   final Value<bool> online;
   final Value<bool> isFriend;
-  final Value<String?> customNickname;
+  final Value<String?> nickname;
+  final Value<String?> remark;
   final Value<int> rowid;
   const UsersCompanion({
     this.userId = const Value.absent(),
-    this.nickName = const Value.absent(),
+    this.name = const Value.absent(),
     this.avatar = const Value.absent(),
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
@@ -442,12 +463,13 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.roleId = const Value.absent(),
     this.online = const Value.absent(),
     this.isFriend = const Value.absent(),
-    this.customNickname = const Value.absent(),
+    this.nickname = const Value.absent(),
+    this.remark = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UsersCompanion.insert({
     required String userId,
-    required String nickName,
+    required String name,
     this.avatar = const Value.absent(),
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
@@ -457,13 +479,14 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.roleId = const Value.absent(),
     this.online = const Value.absent(),
     this.isFriend = const Value.absent(),
-    this.customNickname = const Value.absent(),
+    this.nickname = const Value.absent(),
+    this.remark = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : userId = Value(userId),
-        nickName = Value(nickName);
+        name = Value(name);
   static Insertable<User> custom({
     Expression<String>? userId,
-    Expression<String>? nickName,
+    Expression<String>? name,
     Expression<String>? avatar,
     Expression<String>? phone,
     Expression<String>? email,
@@ -473,12 +496,13 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<int>? roleId,
     Expression<bool>? online,
     Expression<bool>? isFriend,
-    Expression<String>? customNickname,
+    Expression<String>? nickname,
+    Expression<String>? remark,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (userId != null) 'user_id': userId,
-      if (nickName != null) 'nick_name': nickName,
+      if (name != null) 'name': name,
       if (avatar != null) 'avatar': avatar,
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email,
@@ -488,14 +512,15 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (roleId != null) 'role_id': roleId,
       if (online != null) 'online': online,
       if (isFriend != null) 'is_friend': isFriend,
-      if (customNickname != null) 'custom_nickname': customNickname,
+      if (nickname != null) 'nickname': nickname,
+      if (remark != null) 'remark': remark,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   UsersCompanion copyWith(
       {Value<String>? userId,
-      Value<String>? nickName,
+      Value<String>? name,
       Value<String?>? avatar,
       Value<String?>? phone,
       Value<String?>? email,
@@ -505,11 +530,12 @@ class UsersCompanion extends UpdateCompanion<User> {
       Value<int>? roleId,
       Value<bool>? online,
       Value<bool>? isFriend,
-      Value<String?>? customNickname,
+      Value<String?>? nickname,
+      Value<String?>? remark,
       Value<int>? rowid}) {
     return UsersCompanion(
       userId: userId ?? this.userId,
-      nickName: nickName ?? this.nickName,
+      name: name ?? this.name,
       avatar: avatar ?? this.avatar,
       phone: phone ?? this.phone,
       email: email ?? this.email,
@@ -519,7 +545,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       roleId: roleId ?? this.roleId,
       online: online ?? this.online,
       isFriend: isFriend ?? this.isFriend,
-      customNickname: customNickname ?? this.customNickname,
+      nickname: nickname ?? this.nickname,
+      remark: remark ?? this.remark,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -530,8 +557,8 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (userId.present) {
       map['user_id'] = Variable<String>(userId.value);
     }
-    if (nickName.present) {
-      map['nick_name'] = Variable<String>(nickName.value);
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
     }
     if (avatar.present) {
       map['avatar'] = Variable<String>(avatar.value);
@@ -560,8 +587,11 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (isFriend.present) {
       map['is_friend'] = Variable<bool>(isFriend.value);
     }
-    if (customNickname.present) {
-      map['custom_nickname'] = Variable<String>(customNickname.value);
+    if (nickname.present) {
+      map['nickname'] = Variable<String>(nickname.value);
+    }
+    if (remark.present) {
+      map['remark'] = Variable<String>(remark.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -573,7 +603,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   String toString() {
     return (StringBuffer('UsersCompanion(')
           ..write('userId: $userId, ')
-          ..write('nickName: $nickName, ')
+          ..write('name: $name, ')
           ..write('avatar: $avatar, ')
           ..write('phone: $phone, ')
           ..write('email: $email, ')
@@ -583,7 +613,8 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('roleId: $roleId, ')
           ..write('online: $online, ')
           ..write('isFriend: $isFriend, ')
-          ..write('customNickname: $customNickname, ')
+          ..write('nickname: $nickname, ')
+          ..write('remark: $remark, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -648,7 +679,7 @@ class $CurrentUsersTable extends CurrentUsers
       'role_id', aliasedName, false,
       type: DriftSqlType.int,
       requiredDuringInsert: false,
-      defaultValue: const Constant(0));
+      defaultValue: const Constant(2));
   @override
   List<GeneratedColumn> get $columns => [
         userId,
@@ -3761,7 +3792,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 
 typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   required String userId,
-  required String nickName,
+  required String name,
   Value<String?> avatar,
   Value<String?> phone,
   Value<String?> email,
@@ -3771,12 +3802,13 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   Value<int> roleId,
   Value<bool> online,
   Value<bool> isFriend,
-  Value<String?> customNickname,
+  Value<String?> nickname,
+  Value<String?> remark,
   Value<int> rowid,
 });
 typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<String> userId,
-  Value<String> nickName,
+  Value<String> name,
   Value<String?> avatar,
   Value<String?> phone,
   Value<String?> email,
@@ -3786,7 +3818,8 @@ typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<int> roleId,
   Value<bool> online,
   Value<bool> isFriend,
-  Value<String?> customNickname,
+  Value<String?> nickname,
+  Value<String?> remark,
   Value<int> rowid,
 });
 
@@ -3801,8 +3834,8 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
   ColumnFilters<String> get userId => $composableBuilder(
       column: $table.userId, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get nickName => $composableBuilder(
-      column: $table.nickName, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get avatar => $composableBuilder(
       column: $table.avatar, builder: (column) => ColumnFilters(column));
@@ -3832,9 +3865,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
   ColumnFilters<bool> get isFriend => $composableBuilder(
       column: $table.isFriend, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get customNickname => $composableBuilder(
-      column: $table.customNickname,
-      builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get nickname => $composableBuilder(
+      column: $table.nickname, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remark => $composableBuilder(
+      column: $table.remark, builder: (column) => ColumnFilters(column));
 }
 
 class $$UsersTableOrderingComposer
@@ -3849,8 +3884,8 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<String> get userId => $composableBuilder(
       column: $table.userId, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get nickName => $composableBuilder(
-      column: $table.nickName, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get avatar => $composableBuilder(
       column: $table.avatar, builder: (column) => ColumnOrderings(column));
@@ -3880,9 +3915,11 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<bool> get isFriend => $composableBuilder(
       column: $table.isFriend, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get customNickname => $composableBuilder(
-      column: $table.customNickname,
-      builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get nickname => $composableBuilder(
+      column: $table.nickname, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get remark => $composableBuilder(
+      column: $table.remark, builder: (column) => ColumnOrderings(column));
 }
 
 class $$UsersTableAnnotationComposer
@@ -3897,8 +3934,8 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
 
-  GeneratedColumn<String> get nickName =>
-      $composableBuilder(column: $table.nickName, builder: (column) => column);
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
 
   GeneratedColumn<String> get avatar =>
       $composableBuilder(column: $table.avatar, builder: (column) => column);
@@ -3927,8 +3964,11 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<bool> get isFriend =>
       $composableBuilder(column: $table.isFriend, builder: (column) => column);
 
-  GeneratedColumn<String> get customNickname => $composableBuilder(
-      column: $table.customNickname, builder: (column) => column);
+  GeneratedColumn<String> get nickname =>
+      $composableBuilder(column: $table.nickname, builder: (column) => column);
+
+  GeneratedColumn<String> get remark =>
+      $composableBuilder(column: $table.remark, builder: (column) => column);
 }
 
 class $$UsersTableTableManager extends RootTableManager<
@@ -3955,7 +3995,7 @@ class $$UsersTableTableManager extends RootTableManager<
               $$UsersTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> userId = const Value.absent(),
-            Value<String> nickName = const Value.absent(),
+            Value<String> name = const Value.absent(),
             Value<String?> avatar = const Value.absent(),
             Value<String?> phone = const Value.absent(),
             Value<String?> email = const Value.absent(),
@@ -3965,12 +4005,13 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<int> roleId = const Value.absent(),
             Value<bool> online = const Value.absent(),
             Value<bool> isFriend = const Value.absent(),
-            Value<String?> customNickname = const Value.absent(),
+            Value<String?> nickname = const Value.absent(),
+            Value<String?> remark = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               UsersCompanion(
             userId: userId,
-            nickName: nickName,
+            name: name,
             avatar: avatar,
             phone: phone,
             email: email,
@@ -3980,12 +4021,13 @@ class $$UsersTableTableManager extends RootTableManager<
             roleId: roleId,
             online: online,
             isFriend: isFriend,
-            customNickname: customNickname,
+            nickname: nickname,
+            remark: remark,
             rowid: rowid,
           ),
           createCompanionCallback: ({
             required String userId,
-            required String nickName,
+            required String name,
             Value<String?> avatar = const Value.absent(),
             Value<String?> phone = const Value.absent(),
             Value<String?> email = const Value.absent(),
@@ -3995,12 +4037,13 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<int> roleId = const Value.absent(),
             Value<bool> online = const Value.absent(),
             Value<bool> isFriend = const Value.absent(),
-            Value<String?> customNickname = const Value.absent(),
+            Value<String?> nickname = const Value.absent(),
+            Value<String?> remark = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               UsersCompanion.insert(
             userId: userId,
-            nickName: nickName,
+            name: name,
             avatar: avatar,
             phone: phone,
             email: email,
@@ -4010,7 +4053,8 @@ class $$UsersTableTableManager extends RootTableManager<
             roleId: roleId,
             online: online,
             isFriend: isFriend,
-            customNickname: customNickname,
+            nickname: nickname,
+            remark: remark,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

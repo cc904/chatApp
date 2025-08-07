@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:io' show File;
+import 'dart:io' show File, Platform;
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:image_picker/image_picker.dart' show XFile;
 
@@ -20,6 +20,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 // Message class is now imported from drift_database.dart
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
+import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/widgets/message_item.dart';
 import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
@@ -36,7 +37,7 @@ import 'package:cc/features/chat/presentation/widgets/quick_reply_panel.dart';
 import 'package:mime/mime.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/core/utils/debug_commands.dart';
-import 'package:cc/core/utils/display_name_utils.dart';
+
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
@@ -82,22 +83,29 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return null;
   }
 
-  /// 获取会话的显示名称
-  /// 
-  /// 根据会话类型返回合适的显示名称：
-  /// - 私聊会话：返回对方用户的显示名称
-  /// - 群聊/频道：返回会话的name字段
+  /// 获取会话的显示名称（同步版本）
+  ///
+  /// 私聊时优先使用对方的name字段，群聊和频道使用会话名称
   String _getConversationDisplayName(Conversation conversation, String currentUserId) {
-    return DisplayNameUtils.getConversationDisplayName(conversation, currentUserId);
+    // 私聊时优先使用对方的name字段
+    if (conversation.type == 'PRIVATE') {
+      final partnerName = ConversationAdapter.getPrivateChatPartnerName(
+        conversation.participants,
+        conversation.type,
+        currentUserId,
+      );
+      if (partnerName != null && partnerName.isNotEmpty) {
+        return partnerName;
+      }
+    }
+
+    // 群聊、频道或获取不到对方名称时使用会话名称
+    return conversation.name ?? '未命名会话';
   }
 
   /// 获取会话显示的roleId（仅对私聊有效）
   int? _getConversationDisplayRoleId(Conversation conversation, String currentUserId) {
-    return ConversationAdapter.getDisplayRoleId(
-      conversation.participants, 
-      conversation.type, 
-      currentUserId
-    );
+    return ConversationAdapter.getDisplayRoleId(conversation.participants, conversation.type, currentUserId);
   }
 
   Timer? _scrollDebounceTimer;
@@ -108,8 +116,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final ItemScrollController _itemScrollController = ItemScrollController();
 
   /// 位置监听器 - 用于监听当前可见项的位置
-  final ItemPositionsListener _itemPositionsListener =
-      ItemPositionsListener.create();
+  final ItemPositionsListener _itemPositionsListener = ItemPositionsListener.create();
 
   /// 文本输入控制器
   final TextEditingController _textController = TextEditingController();
@@ -131,7 +138,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   bool _isVoiceMode = false;
   bool _showMoreOptions = false;
   bool _showEmojiPanel = false;
-  bool _showQuickReplyPanel = false;  // 新增：快捷回复面板状态
+  bool _showQuickReplyPanel = false; // 新增：快捷回复面板状态
   bool _isRecording = false;
   bool _isVideoRecording = false;
 
@@ -187,7 +194,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       }
 
       _logger.i('剪贴板检测到图片，开始处理');
-      
+
       // 获取图片数据
       final imageData = await _clipboardService.getImageData();
       if (imageData == null) {
@@ -221,9 +228,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 使用现有的图片预览和发送流程
       await _showImagePreviewAndSend(tempFile);
-      
+
       _showSnackBar('图片粘贴成功');
-      
     } catch (error) {
       _logger.e('处理剪贴板图片粘贴失败', error: error, stackTrace: StackTrace.current);
       if (mounted) {
@@ -235,7 +241,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 显示提示信息
   void _showSnackBar(String message) {
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -280,7 +286,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         final state = chatCubit.state;
         final roleId = state.currentUser.roleId;
         final hasPermission = _hasQuickReplyPermission(roleId);
-        
+
         _logger.i('📋📋📋 ChatCubit初始状态检查', extra: {
           'currentUserId': state.currentUser.userId,
           'currentUserName': state.currentUser.name,
@@ -288,7 +294,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           'hasQuickReplyPermission': hasPermission,
           'conversationType': state.conversation.type,
         });
-        
+
         // 🚨🚨🚨 关键对比：ChatCubit的currentUser vs 会话参与者数据
         int? participantRoleId;
         try {
@@ -296,8 +302,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             final participantsJson = jsonDecode(state.conversation.participants!);
             if (participantsJson is List) {
               for (final participant in participantsJson) {
-                if (participant['user_id'] == state.currentUser.userId) {
-                  participantRoleId = participant['role_id'] as int?;
+                if (participant['userId'] == state.currentUser.userId) {
+                  participantRoleId = participant['roleId'] as int?;
                   break;
                 }
               }
@@ -306,7 +312,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         } catch (e) {
           // JSON解析失败，忽略
         }
-        
+
         _logger.e('🚨🚨🚨 DATA_SOURCE_COMPARISON: 发现数据源不一致！', extra: {
           'chatCubitCurrentUser': {
             'userId': state.currentUser.userId,
@@ -314,27 +320,21 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             'roleId': state.currentUser.roleId,
             'dataSource': 'ChatCubit (来自HomePage初始化时的安全存储)'
           },
-          'conversationParticipantData': {
-            'userId': state.currentUser.userId,
-            'roleIdFromParticipants': participantRoleId,
-            'dataSource': '会话参与者JSON (来自服务器最新数据)'
-          },
+          'conversationParticipantData': {'userId': state.currentUser.userId, 'roleIdFromParticipants': participantRoleId, 'dataSource': '会话参与者JSON (来自服务器最新数据)'},
           'inconsistency': {
             'chatCubitRoleId': state.currentUser.roleId,
             'participantRoleId': participantRoleId,
             'areEqual': state.currentUser.roleId == participantRoleId,
-            'conclusion': state.currentUser.roleId != participantRoleId 
-              ? '数据不一致！ChatCubit使用的是过期的用户数据' 
-              : '数据一致'
+            'conclusion': state.currentUser.roleId != participantRoleId ? '数据不一致！ChatCubit使用的是过期的用户数据' : '数据一致'
           }
         });
-        
+
         // 记录权限状态
         _logger.i('📋📋📋 CHAT_CUBIT_INIT: userId=${state.currentUser.userId}, name=${state.currentUser.name}, roleId=$roleId, hasPermission=$hasPermission');
-        
+
         // 🔥🔥🔥 额外的权限测试
         _testQuickReplyPermissions(roleId);
-        
+
         // 🔧 初始化快捷回复（如果用户有权限）
         if (hasPermission) {
           try {
@@ -344,7 +344,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             _logger.w('快捷回复初始化失败', extra: {'error': e.toString()});
           }
         }
-        
+
         context.read<ChatCubit>().syncCurrentConversation();
       }
     });
@@ -546,8 +546,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 💢💢💢 在processedItems中查找对应的索引
       final processedIndex = processedItems.indexWhere((item) {
-        return item is MessageListItemData &&
-            item.message.messageIndex == targetMessageIndex;
+        return item is MessageListItemData && item.message.messageIndex == targetMessageIndex;
       });
 
       if (processedIndex == -1) {
@@ -668,7 +667,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _logger.d('触发消息高亮效果', extra: {
         'messageId': messageId,
       });
-      
+
       // 通过ChatCubit实现消息高亮
       final chatCubit = context.read<ChatCubit>();
       chatCubit.highlightMessage(messageId);
@@ -713,8 +712,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 检查第一个item（最新消息）是否可见
       // 在reverse列表中，index 0 是最新的消息
-      final firstItemPosition =
-          positions.where((pos) => pos.index == 0).firstOrNull;
+      final firstItemPosition = positions.where((pos) => pos.index == 0).firstOrNull;
 
       if (firstItemPosition != null) {
         // 如果最新消息可见且其trailing edge >= 0.8，认为用户在底部
@@ -734,8 +732,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final topPositions = positions.where((pos) => pos.index <= 2).toList();
       if (topPositions.isNotEmpty) {
         // 如果前几个item可见，认为接近底部
-        final isNearBottom =
-            topPositions.any((pos) => pos.itemTrailingEdge >= 0.5);
+        final isNearBottom = topPositions.any((pos) => pos.itemTrailingEdge >= 0.5);
 
         _logger.d('检查是否接近底部', extra: {
           'topPositions': topPositions
@@ -829,14 +826,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     try {
       final chatCubit = context.read<ChatCubit>();
       final state = chatCubit.state;
-      
+
       // 根据是否有回复消息选择发送方法
       if (state.replyingToMessage != null) {
         chatCubit.sendReplyTextMessage(text);
       } else {
         chatCubit.sendTextMessage(text);
       }
-      
+
       _textController.clear();
 
       // 🆕 如果用户在底部，发送成功后自动滚动到新消息
@@ -931,12 +928,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               previous.searchQuery != current.searchQuery ||
               previous.conversation.muted != current.conversation.muted ||
               previous.conversation.name != current.conversation.name ||
+              previous.conversation.participants != current.conversation.participants ||
               previous.networkStatus != current.networkStatus;
         },
         builder: (context, state) {
           return Scaffold(
-            appBar:
-                state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
+            appBar: state.isSearchMode ? _buildSearchAppBar() : _buildAppBar(state),
             body: Stack(
               children: [
                 Column(
@@ -944,9 +941,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     Expanded(
                       child: _buildMessagesList(),
                     ),
-                    state.isSearchMode
-                        ? _buildSearchBottomBar()
-                        : _buildInputArea(),
+                    state.isSearchMode ? _buildSearchBottomBar() : _buildInputArea(),
                   ],
                 ),
                 // 录制动画覆盖层
@@ -1035,21 +1030,22 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               final chatRepository = context.read<ChatRepository>();
               final chatsRepository = context.read<ChatsRepository>();
               final chatRepositorySend = context.read<ChatRepositorySend>();
+              final chatsCubit = context.read<ChatsCubit>();
 
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => MultiRepositoryProvider(
                     providers: [
-                      RepositoryProvider<ChatRepository>.value(
-                          value: chatRepository),
-                      RepositoryProvider<ChatsRepository>.value(
-                          value: chatsRepository),
-                      RepositoryProvider<ChatRepositorySend>.value(
-                          value: chatRepositorySend),
+                      RepositoryProvider<ChatRepository>.value(value: chatRepository),
+                      RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
+                      RepositoryProvider<ChatRepositorySend>.value(value: chatRepositorySend),
                     ],
-                    child: BlocProvider<ChatCubit>.value(
-                      value: chatCubit,
+                    child: MultiBlocProvider(
+                      providers: [
+                        BlocProvider<ChatCubit>.value(value: chatCubit),
+                        BlocProvider<ChatsCubit>.value(value: chatsCubit),
+                      ],
                       child: const ChatInfoPage(),
                     ),
                   ),
@@ -1060,7 +1056,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               tag: 'chat_avatar_${state.conversation.conversationId}',
               child: UserAvatar(
                 avatarUrl: state.conversation.avatar,
-                name: _getConversationDisplayName(state.conversation, state.currentUser.userId),
+                name: state.conversation.name ?? '未命名会话',
                 radius: 18.0,
                 roleId: _getConversationDisplayRoleId(state.conversation, state.currentUser.userId),
               ),
@@ -1094,11 +1090,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
         ),
       ),
-      errorBuilder:
-          (BuildContext context, Object error, StackTrace? stackTrace) {
+      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
         // 资源加载失败时返回透明容器，不影响UI
-        _logger.w('SVG背景加载失败，使用透明背景',
-            extra: {'pattern': _selectedSvgPattern, 'error': error.toString()});
+        _logger.w('SVG背景加载失败，使用透明背景', extra: {'pattern': _selectedSvgPattern, 'error': error.toString()});
         return Container(color: Colors.transparent);
       },
     );
@@ -1109,10 +1103,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     try {
       await rootBundle.load(_selectedSvgPattern);
     } catch (e) {
-      _logger.w('SVG资源文件不可用，将使用简单背景', extra: {
-        'selectedPattern': _selectedSvgPattern,
-        'error': e.toString()
-      });
+      _logger.w('SVG资源文件不可用，将使用简单背景', extra: {'selectedPattern': _selectedSvgPattern, 'error': e.toString()});
       if (mounted) {
         setState(() {
           _svgAssetsAvailable = false;
@@ -1131,47 +1122,31 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         BlocListener<ChatCubit, ChatState>(
           listenWhen: (previous, current) {
             // 💢💢💢 监听搜索结果索引变化，触发自动滚动
-            final searchResultChanged = previous.currentSearchResultIndex !=
-                    current.currentSearchResultIndex ||
-                (previous.searchResultMessageIndexes.length !=
-                        current.searchResultMessageIndexes.length &&
-                    current.searchResultMessageIndexes.isNotEmpty);
+            final searchResultChanged = previous.currentSearchResultIndex != current.currentSearchResultIndex ||
+                (previous.searchResultMessageIndexes.length != current.searchResultMessageIndexes.length && current.searchResultMessageIndexes.isNotEmpty);
 
             // 💢💢💢 监听滚动位置变化（初始化时自动滚动到最新消息）
-            final scrollPositionChanged =
-                previous.currentScrollPosition.messageId !=
-                        current.currentScrollPosition.messageId &&
-                    current.currentScrollPosition.messageId != null &&
-                    !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
+            final scrollPositionChanged = previous.currentScrollPosition.messageId != current.currentScrollPosition.messageId &&
+                current.currentScrollPosition.messageId != null &&
+                !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
 
             // 💢💢💢 新增：监听消息列表更新，以恢复滚动位置
-            final messageListUpdated =
-                previous.messages.length != current.messages.length &&
-                    current.currentScrollPosition.messageId != null &&
-                    !current.isSearchMode &&
-                    !current.isCleaningMessages; // 清理消息时不触发
+            final messageListUpdated = previous.messages.length != current.messages.length &&
+                current.currentScrollPosition.messageId != null &&
+                !current.isSearchMode &&
+                !current.isCleaningMessages; // 清理消息时不触发
 
             // 🆕 监听新消息到达（用于自动滚动）
-            final newMessageArrived = !current.isSearchMode &&
-                !current.isCleaningMessages &&
-                current.messages.length > previous.messages.length &&
-                current.messages.isNotEmpty;
+            final newMessageArrived = !current.isSearchMode && !current.isCleaningMessages && current.messages.length > previous.messages.length && current.messages.isNotEmpty;
 
-            final shouldListen = searchResultChanged ||
-                scrollPositionChanged ||
-                messageListUpdated ||
-                newMessageArrived;
+            final shouldListen = searchResultChanged || scrollPositionChanged || messageListUpdated || newMessageArrived;
 
             return shouldListen;
           },
           listener: (context, state) {
             // 💢💢💢 自动滚动到当前搜索结果
-            if (state.isSearchMode &&
-                state.searchResultMessageIndexes.isNotEmpty &&
-                state.currentSearchResultIndex <
-                    state.searchResultMessageIndexes.length) {
-              final currentResultMessageIndex = state
-                  .searchResultMessageIndexes[state.currentSearchResultIndex];
+            if (state.isSearchMode && state.searchResultMessageIndexes.isNotEmpty && state.currentSearchResultIndex < state.searchResultMessageIndexes.length) {
+              final currentResultMessageIndex = state.searchResultMessageIndexes[state.currentSearchResultIndex];
 
               _logger.d('💢 BlocListener 搜索模式滚动', extra: {
                 'targetMessageIndex': currentResultMessageIndex,
@@ -1185,9 +1160,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               });
             }
             // 🆕 新消息自动滚动逻辑
-            else if (!state.isSearchMode &&
-                !state.isCleaningMessages &&
-                state.messages.isNotEmpty) {}
+            else if (!state.isSearchMode && !state.isCleaningMessages && state.messages.isNotEmpty) {}
           },
           child: BlocBuilder<ChatCubit, ChatState>(
             buildWhen: (previous, current) {
@@ -1203,9 +1176,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               }
 
               // 2. 消息列表内容变化（但数量相同时，检查是否有新消息替换）
-              if (previous.messages.length == current.messages.length && 
-                  previous.messages.isNotEmpty && 
-                  current.messages.isNotEmpty) {
+              if (previous.messages.length == current.messages.length && previous.messages.isNotEmpty && current.messages.isNotEmpty) {
                 // 检查第一条消息ID是否变化（有新消息加入并可能有旧消息被移除）
                 final prevFirstId = previous.messages.first.messageId;
                 final currFirstId = current.messages.first.messageId;
@@ -1219,7 +1190,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 for (int i = 0; i < previous.messages.length; i++) {
                   final prevMessage = previous.messages[i];
                   final currMessage = current.messages[i];
-                  
+
                   // 检查消息状态变化
                   if (prevMessage.messageStatus != currMessage.messageStatus) {
                     _logger.i('🔥 消息状态变化', extra: {
@@ -1229,7 +1200,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     });
                     return true;
                   }
-                  
+
                   // 检查消息内容变化
                   if (prevMessage.content != currMessage.content) {
                     _logger.i('🔥 消息内容变化', extra: {
@@ -1237,7 +1208,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     });
                     return true;
                   }
-                  
+
                   // 检查消息更新时间变化
                   if (prevMessage.updatedAt != currMessage.updatedAt) {
                     _logger.i('🔥 消息更新时间变化', extra: {
@@ -1253,18 +1224,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               // 3. 搜索状态变化（影响消息高亮和显示）
               if (previous.isSearchMode != current.isSearchMode ||
                   previous.searchQuery != current.searchQuery ||
-                  previous.currentSearchResultIndex !=
-                      current.currentSearchResultIndex ||
-                  !identical(previous.searchResultMessageIndexes,
-                      current.searchResultMessageIndexes)) {
+                  previous.currentSearchResultIndex != current.currentSearchResultIndex ||
+                  !identical(previous.searchResultMessageIndexes, current.searchResultMessageIndexes)) {
                 _logger.i('🔥 搜索状态变化');
                 return true;
               }
 
               // 4. 会话信息变化（影响消息显示状态和类型判断）
-              if (previous.conversation.conversationId !=
-                      current.conversation.conversationId ||
-                  previous.conversation.type != current.conversation.type) {
+              if (previous.conversation.conversationId != current.conversation.conversationId || previous.conversation.type != current.conversation.type) {
                 _logger.i('🔥 会话信息变化');
                 return true;
               }
@@ -1292,8 +1259,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
               // 处理消息列表，添加分隔符
               final currentUserId = state.currentUser.userId;
-              final isNotGroupChat =
-                  state.conversation.type != 'GROUP';
+              final isNotGroupChat = state.conversation.type != 'GROUP';
               final processedItems = MessageListProcessor.processMessages(
                 messages: state.messages, // 直接使用state中的消息列表
                 currentUserId: currentUserId,
@@ -1305,8 +1271,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   // 消息列表 💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢💢
                   Expanded(
                     child: ScrollablePositionedList.builder(
-                      key: ValueKey(
-                          'message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}'),
+                      key: ValueKey('message_list_${state.messages.length}_${state.currentScrollPosition.messageId ?? "empty"}'),
                       itemCount: processedItems.length,
                       itemBuilder: (context, index) {
                         final item = processedItems[index];
@@ -1317,14 +1282,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
                           // 💢💢💢 检查消息是否为搜索结果和高亮状态
                           final chatCubit = context.read<ChatCubit>();
-                          final isSearchResult =
-                              chatCubit.isSearchResult(message.messageIndex);
-                          final isCurrentSearchResult = chatCubit
-                              .isCurrentSearchResult(message.messageIndex);
-                          final isHighlighted = 
-                              chatCubit.isMessageHighlighted(message.messageId);
-                          final searchQuery =
-                              state.isSearchMode ? state.searchQuery : null;
+                          final isSearchResult = chatCubit.isSearchResult(message.messageIndex);
+                          final isCurrentSearchResult = chatCubit.isCurrentSearchResult(message.messageIndex);
+                          final isHighlighted = chatCubit.isMessageHighlighted(message.messageId);
+                          final searchQuery = state.isSearchMode ? state.searchQuery : null;
 
                           // 💢💢💢 计算消息显示状态（仅当前用户消息需要显示状态）
                           MessageDisplayStatus? displayStatus;
@@ -1345,10 +1306,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                             showTail: item.showTail,
                             isNotGroupChat: item.isNotGroupChat,
                             onTap: () => _onMessageTap(message),
-                            onResend: message.messageStatus == 'FAILED' &&
-                                    item.isCurrentUser
-                                ? () => _onResendMessage(message.messageId)
-                                : null, // 💢💢💢 新增：重发回调
+                            onResend: message.messageStatus == 'FAILED' && item.isCurrentUser ? () => _onResendMessage(message.messageId) : null, // 💢💢💢 新增：重发回调
                             // 💢💢💢 新增搜索相关参数
                             isSearchResult: isSearchResult,
                             isCurrentSearchResult: isCurrentSearchResult,
@@ -1366,8 +1324,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           );
                         } else if (item is MessageListItemDateSeparator) {
                           return DateSeparator(
-                            key: ValueKey(
-                                'date_${item.date.millisecondsSinceEpoch}'),
+                            key: ValueKey('date_${item.date.millisecondsSinceEpoch}'),
                             date: item.date,
                           );
                         } else {
@@ -1403,8 +1360,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
                       // 💢💢💢 计算初始对齐：有锚点使用精确位置；否则让消息贴底
                       initialAlignment: (() {
-                        final itemLeadingEdge =
-                            state.currentScrollPosition.relativePosition ?? 0.0;
+                        final itemLeadingEdge = state.currentScrollPosition.relativePosition ?? 0.0;
                         // 💢💢💢 reverse: true 中的对齐恢复逻辑
                         // 保存的 itemLeadingEdge 表示在反向列表中消息底部的逻辑位置：
                         // - 0.0: 消息底部在物理屏幕底部（反向列表的逻辑起点）
@@ -1436,7 +1392,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               if (message.isEmpty) {
                 return const SizedBox.shrink();
               }
-              
+
               return AnimatedSlide(
                 offset: message.isNotEmpty ? const Offset(0, 0) : const Offset(0, 1),
                 duration: const Duration(milliseconds: 300),
@@ -1519,16 +1475,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             previous.replyingToMessage != current.replyingToMessage; // 回复消息状态变化时重建
       },
       builder: (context, state) {
-        final isEnabled =
-            state.networkStatus == ChatState.kNetworkStatusConnected &&
-                !state.isSending;
+        final isEnabled = state.networkStatus == ChatState.kNetworkStatusConnected && !state.isSending;
         final conversation = state.conversation;
         final currentUserId = state.currentUser.userId;
-        
+
         // 🔥🔥🔥 详细记录用户roleId和快捷回复权限状态
         final currentRoleId = state.currentUser.roleId;
         final hasQuickReplyPermission = _hasQuickReplyPermission(currentRoleId);
-        
+
         _logger.i('💬💬💬 ChatPage输入区域构建', extra: {
           'currentUserId': currentUserId,
           'currentUserRoleId': currentRoleId,
@@ -1536,7 +1490,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           'isEnabled': isEnabled,
           'hasQuickReplyPermission': hasQuickReplyPermission,
         });
-        
+
         // 记录输入区域权限状态
         _logger.d('🔥🔥🔥 INPUT_AREA_BUILD: userId=$currentUserId, roleId=$currentRoleId, hasPermission=$hasQuickReplyPermission');
 
@@ -1549,7 +1503,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
           // 如果用户是普通成员，显示静音/取消静音按钮
           final userRole = ConversationAdapter.getUserRole(conversation.participants, currentUserId);
-          if (userRole != null && userRole == 0) { // 0 = MEMBER role
+          if (userRole != null && userRole == 0) {
+            // 0 = MEMBER role
             return _buildChannelMemberControls(state, isEnabled);
           }
         }
@@ -1567,38 +1522,38 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 'panelVisible': _showQuickReplyPanel,
                 'currentUserId': state.currentUser.userId,
               });
-              
+
               if (hasPermission) {
-                return [QuickReplyPanel(
-                  isVisible: _showQuickReplyPanel,
-                  onQuickReply: (content) {
-                    _logger.i('🔥🔥🔥 快捷回复被选择', extra: {'content': content});
-                    // 将快捷回复内容填入输入框，不直接发送
-                    _textController.text = content;
-                    _textNotifier.value = content;
-                    setState(() {
-                      _showQuickReplyPanel = false;
-                    });
-                    // 自动获取焦点，方便用户编辑或直接发送
-                    _focusNode.requestFocus();
-                    // 将光标移动到文本末尾
-                    _textController.selection = TextSelection.fromPosition(
-                      TextPosition(offset: _textController.text.length),
-                    );
-                  },
-                )];
+                return [
+                  QuickReplyPanel(
+                    isVisible: _showQuickReplyPanel,
+                    onQuickReply: (content) {
+                      _logger.i('🔥🔥🔥 快捷回复被选择', extra: {'content': content});
+                      // 将快捷回复内容填入输入框，不直接发送
+                      _textController.text = content;
+                      _textNotifier.value = content;
+                      setState(() {
+                        _showQuickReplyPanel = false;
+                      });
+                      // 自动获取焦点，方便用户编辑或直接发送
+                      _focusNode.requestFocus();
+                      // 将光标移动到文本末尾
+                      _textController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: _textController.text.length),
+                      );
+                    },
+                  )
+                ];
               } else {
                 _logger.w('🔥🔥🔥 快捷回复面板被隐藏 - 用户没有权限');
                 return <Widget>[];
               }
             }(),
             // 回复消息显示
-            if (state.replyingToMessage != null)
-              _buildReplyingToMessage(state.replyingToMessage!),
+            if (state.replyingToMessage != null) _buildReplyingToMessage(state.replyingToMessage!),
             // 主输入栏
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 border: Border(
@@ -1640,9 +1595,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
                     // 输入框或语音按钮
                     Expanded(
-                      child: _isVoiceMode
-                          ? _buildVoiceButton(isEnabled)
-                          : _buildTextInput(isEnabled),
+                      child: _isVoiceMode ? _buildVoiceButton(isEnabled) : _buildTextInput(isEnabled),
                     ),
 
                     const SizedBox(width: 8),
@@ -1686,32 +1639,32 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                         'currentUserId': state.currentUser.userId,
                         'currentUserName': state.currentUser.name,
                       });
-                      
+
                       if (hasPermission) {
-                        return [GestureDetector(
-                          onTap: () {
-                            _logger.i('🚨🚨🚨 快捷回复按钮被点击');
-                            setState(() {
-                              _showQuickReplyPanel = !_showQuickReplyPanel;
-                              if (_showQuickReplyPanel) {
-                                _showMoreOptions = false;
-                                _showEmojiPanel = false;
-                                _focusNode.unfocus();
-                              }
-                            });
-                          },
-                          child: SizedBox(
-                            width: 36,
-                            height: 36,
-                            child: Icon(
-                              Icons.flash_on,
-                              size: 32,
-                              color: _showQuickReplyPanel 
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey.shade600,
+                        return [
+                          GestureDetector(
+                            onTap: () {
+                              _logger.i('🚨🚨🚨 快捷回复按钮被点击');
+                              setState(() {
+                                _showQuickReplyPanel = !_showQuickReplyPanel;
+                                if (_showQuickReplyPanel) {
+                                  _showMoreOptions = false;
+                                  _showEmojiPanel = false;
+                                  _focusNode.unfocus();
+                                }
+                              });
+                            },
+                            child: SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: Icon(
+                                Icons.flash_on,
+                                size: 32,
+                                color: _showQuickReplyPanel ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                              ),
                             ),
-                          ),
-                        )];
+                          )
+                        ];
                       } else {
                         _logger.w('🚨🚨🚨 快捷回复按钮被隐藏 - 用户没有权限');
                         return <Widget>[];
@@ -1724,9 +1677,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     ValueListenableBuilder<String>(
                       valueListenable: _textNotifier,
                       builder: (context, text, child) {
-                        return text.isNotEmpty && !_isVoiceMode
-                            ? _buildSendButton(state, isEnabled)
-                            : _buildAddButton();
+                        return text.isNotEmpty && !_isVoiceMode ? _buildSendButton(state, isEnabled) : _buildAddButton();
                       },
                     ),
                   ],
@@ -1735,10 +1686,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
 
             // 功能面板或表情面板
-            if (_showMoreOptions)
-              _buildMoreOptionsPanel()
-            else if (_showEmojiPanel)
-              _buildEmojiPanel(),
+            if (_showMoreOptions) _buildMoreOptionsPanel() else if (_showEmojiPanel) _buildEmojiPanel(),
           ],
         );
       },
@@ -1779,8 +1727,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     const SizedBox(width: 8),
                     Text(
                       AppLocalizations.of(context).joinChannel,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -1814,8 +1761,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           children: [
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0, vertical: 12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
@@ -1867,9 +1813,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     final chatCubit = context.read<ChatCubit>();
     final isMuted = state.conversation.muted;
 
-    _logger.i(
-        '用户尝试${isMuted ? '取消静音' : '静音'}会话: ${state.conversation.conversationId}');
-    
+    _logger.i('用户尝试${isMuted ? '取消静音' : '静音'}会话: ${state.conversation.conversationId}');
+
     // 调用 ChatCubit 的切换静音方法
     chatCubit.toggleMute();
   }
@@ -1889,15 +1834,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         focusNode: FocusNode(),
         onKeyEvent: (KeyEvent event) {
           if (event is KeyDownEvent) {
-            final isCtrlPressed = event.logicalKey == LogicalKeyboardKey.controlLeft ||
-                event.logicalKey == LogicalKeyboardKey.controlRight;
-            
+            final isCtrlPressed = event.logicalKey == LogicalKeyboardKey.controlLeft || event.logicalKey == LogicalKeyboardKey.controlRight;
+
             // 检测 Ctrl+V 组合键
             if ((isCtrlPressed && event.logicalKey == LogicalKeyboardKey.keyV) ||
-                (event.physicalKey == PhysicalKeyboardKey.controlLeft && 
-                 event.logicalKey == LogicalKeyboardKey.keyV) ||
-                (HardwareKeyboard.instance.isControlPressed && 
-                 event.logicalKey == LogicalKeyboardKey.keyV)) {
+                (event.physicalKey == PhysicalKeyboardKey.controlLeft && event.logicalKey == LogicalKeyboardKey.keyV) ||
+                (HardwareKeyboard.instance.isControlPressed && event.logicalKey == LogicalKeyboardKey.keyV)) {
               _handlePasteAction();
             }
           }
@@ -1909,9 +1851,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           maxLines: 5,
           minLines: 1,
           decoration: InputDecoration(
-            hintText: isEnabled
-                ? AppLocalizations.of(context).inputMessage
-                : AppLocalizations.of(context).connecting,
+            hintText: isEnabled ? AppLocalizations.of(context).inputMessage : AppLocalizations.of(context).connecting,
             hintStyle: TextStyle(
               color: Colors.grey.shade500,
               fontSize: 16,
@@ -1928,15 +1868,17 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             height: 1.4, // 调整行高以适应更大的表情
           ),
           textInputAction: TextInputAction.send,
-          onSubmitted: isEnabled ? (text) {
-            _sendMessage();
-            // 🔧 修复：onSubmitted后主动恢复焦点
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && _focusNode.canRequestFocus) {
-                _focusNode.requestFocus();
-              }
-            });
-          } : null,
+          onSubmitted: isEnabled
+              ? (text) {
+                  _sendMessage();
+                  // 🔧 修复：onSubmitted后主动恢复焦点
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _focusNode.canRequestFocus) {
+                      _focusNode.requestFocus();
+                    }
+                  });
+                }
+              : null,
           onChanged: (text) {
             // 文本变化已通过ValueNotifier自动处理，无需setState
           },
@@ -1982,13 +1924,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ),
         child: Center(
           child: Text(
-            _isRecording
-                ? AppLocalizations.of(context).releaseToFinish
-                : AppLocalizations.of(context).holdToSpeakButtonText,
+            _isRecording ? AppLocalizations.of(context).releaseToFinish : AppLocalizations.of(context).holdToSpeakButtonText,
             style: TextStyle(
               fontSize: 16,
-              color:
-                  _isRecording ? Colors.green.shade700 : Colors.grey.shade600,
+              color: _isRecording ? Colors.green.shade700 : Colors.grey.shade600,
             ),
           ),
         ),
@@ -2002,8 +1941,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _logger.i('用户尝试开始录音，先检查权限');
 
       // 首先检查当前权限状态
-      final currentStatus =
-          await _permissionService.checkMicrophonePermission();
+      final currentStatus = await _permissionService.checkMicrophonePermission();
 
       // 如果已有权限，直接开始录音
       if (currentStatus.isGranted) {
@@ -2014,8 +1952,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 如果没有权限，尝试申请权限
       _logger.i('需要申请麦克风权限');
-      final hasPermission =
-          await _permissionService.ensureMicrophonePermission();
+      final hasPermission = await _permissionService.ensureMicrophonePermission();
 
       if (!hasPermission) {
         _logger.w('麦克风权限未授予，无法开始录音');
@@ -2109,8 +2046,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
             // 🔧 录音时长限制：最大60秒
             if (_recordingSeconds >= VoiceRecordService.maxRecordingDuration) {
-              _logger.i(
-                  '录音达到最大时长${VoiceRecordService.maxRecordingDuration}秒，自动停止');
+              _logger.i('录音达到最大时长${VoiceRecordService.maxRecordingDuration}秒，自动停止');
               timer.cancel();
               _stopRecording();
 
@@ -2118,8 +2054,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               final localizations = AppLocalizations.of(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                      '${localizations.recordingAutoSend}(${VoiceRecordService.maxRecordingDuration}秒)'),
+                  content: Text('${localizations.recordingAutoSend}(${VoiceRecordService.maxRecordingDuration}秒)'),
                   duration: const Duration(seconds: 2),
                 ),
               );
@@ -2323,62 +2258,17 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
   }
 
-  /// 显示图片选择选项
-  void _showImagePickerOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading:
-                  const Icon(Icons.photo_library, color: AppColors.primary),
-              title: Text(AppLocalizations.of(context).selectFromGallery),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImageFromGallery();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.green),
-              title: Text(AppLocalizations.of(context).takePhoto),
-              onTap: () {
-                Navigator.pop(context);
-                _takePicture();
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   /// 从相册选择图片
+  /// 
+  /// 完全依赖 ImagePicker 的内置权限处理机制：
+  /// - iOS/Android: ImagePicker 会自动请求和处理权限
+  /// - macOS: 系统会在首次访问时弹出权限对话框
+  /// - Web: 浏览器会处理文件访问权限
   Future<void> _pickImageFromGallery() async {
     try {
       _logger.i('开始从相册选择图片');
-
-      // 检查并请求照片库权限
-      var status = await Permission.photos.status;
-      if (!status.isGranted) {
-        _logger.i('请求照片库权限');
-        status = await Permission.photos.request();
-        if (!status.isGranted) {
-          _logger.w('照片库权限被拒绝');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('需要照片库权限才能选择图片')),
-            );
-          }
-          return;
-        }
-      }
 
       final pickedFile = await _mediaService.pickImage(fromCamera: false);
       if (pickedFile != null) {
@@ -2406,20 +2296,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// 拍照功能
+  /// 
+  /// 完全依赖 MediaService 和 ImagePicker 的内置处理：
+  /// - 移动平台: 调用相机拍照
+  /// - 桌面平台: MediaService 会自动切换到相册选择
+  /// - Web平台: 根据浏览器支持情况处理
   Future<void> _takePicture() async {
     try {
       _logger.i('开始拍照');
-
-      // 在macOS上提示用户将从相册选择 (Web平台跳过此检查)
-      if (!kIsWeb && mounted) {
-        final localizations = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizations.macOSGalleryTip),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
 
       final pickedFile = await _mediaService.pickImage(fromCamera: true);
       if (pickedFile != null) {
@@ -2471,7 +2355,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final localizations = AppLocalizations.of(context);
       _showUploadProgress(localizations.sendingImage);
 
-      // 使用MediaUploadIntegrationService发送图片消息  
+      // 使用MediaUploadIntegrationService发送图片消息
       // 直接传递动态类型，让服务层处理平台差异
       await _mediaUploadIntegrationService.sendImageMessage(
         imageFile: imageFile,
@@ -2749,15 +2633,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         String errorMessage;
 
         // 针对macOS系统错误提供友好的错误提示
-        if (error.toString().contains('NSXPCSharedListener') ||
-            error.toString().contains('Connection interrupted')) {
+        if (error.toString().contains('NSXPCSharedListener') || error.toString().contains('Connection interrupted')) {
           errorMessage = '系统文件选择器暂时不可用，请稍后重试';
-        } else if (error.toString().contains('permission') ||
-            error.toString().contains('权限')) {
+        } else if (error.toString().contains('permission') || error.toString().contains('权限')) {
           errorMessage = '文件访问权限被拒绝，请在系统设置中授予权限';
         } else {
-          errorMessage =
-              '${localizations.fileSelectionFailed}: ${error.toString().split('\n').first}';
+          errorMessage = '${localizations.fileSelectionFailed}: ${error.toString().split('\n').first}';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2994,11 +2875,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         height: 90,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color:
-              _isVideoRecording ? Colors.red.withAlpha(25) : Colors.transparent,
-          border: _isVideoRecording
-              ? Border.all(color: Colors.red, width: 2)
-              : null,
+          color: _isVideoRecording ? Colors.red.withAlpha(25) : Colors.transparent,
+          border: _isVideoRecording ? Border.all(color: Colors.red, width: 2) : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -3037,8 +2915,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               style: TextStyle(
                 fontSize: 12,
                 color: _isVideoRecording ? Colors.red : AppColors.primary,
-                fontWeight:
-                    _isVideoRecording ? FontWeight.bold : FontWeight.normal,
+                fontWeight: _isVideoRecording ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -3303,8 +3180,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final MediaService _mediaService = MediaService();
 
   /// 媒体上传集成服务
-  final MediaUploadIntegrationService _mediaUploadIntegrationService =
-      MediaUploadIntegrationService();
+  final MediaUploadIntegrationService _mediaUploadIntegrationService = MediaUploadIntegrationService();
 
   /// 音频示波器动画效果
   Widget _buildAudioWaveAnimation() {
@@ -3325,8 +3201,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           animation: _waveAnimationController,
           builder: (context, child) {
             return CustomPaint(
-              painter:
-                  AudioWavePainter(progress: _waveAnimationController.value),
+              painter: AudioWavePainter(progress: _waveAnimationController.value),
             );
           },
         ),
@@ -3347,9 +3222,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     } else {
       // 在光标位置插入表情
-      final newText = currentText.substring(0, currentPosition) +
-          emoji +
-          currentText.substring(currentPosition);
+      final newText = currentText.substring(0, currentPosition) + emoji + currentText.substring(currentPosition);
       _textController.text = newText;
       _textController.selection = TextSelection.fromPosition(
         TextPosition(offset: currentPosition + emoji.length),
@@ -3369,7 +3242,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     final localizations = AppLocalizations.of(context);
 
     if (label == localizations.picture) {
-      _showImagePickerOptions();
+      _pickImageFromGallery();
     } else if (label == localizations.shoot) {
       _showMediaCaptureOptions();
     } else if (label == localizations.fileOption) {
@@ -3450,9 +3323,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 10),
             Text(
-              _isRecording
-                  ? localizations.recordingInProgress
-                  : localizations.longPressRecord,
+              _isRecording ? localizations.recordingInProgress : localizations.longPressRecord,
               style: TextStyle(
                 color: _isRecording ? Colors.red : Colors.grey,
               ),
@@ -3471,8 +3342,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 // TODO: 实现撤回功能
                 // context.read<ChatCubit>().revokeMessage(message.messageId);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(localizations.revokeFeatureComingSoon)),
+                  SnackBar(content: Text(localizations.revokeFeatureComingSoon)),
                 );
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -3482,8 +3352,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               } catch (error) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text("${localizations.revokeFailed}: $error")),
+                    SnackBar(content: Text("${localizations.revokeFailed}: $error")),
                   );
                 }
               }
@@ -3503,10 +3372,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 回复消息
   void _onReplyMessage(Message message) {
     _logger.d('回复消息', extra: {'messageId': message.messageId});
-    
+
     // 设置回复的消息
     context.read<ChatCubit>().setReplyingToMessage(message);
-    
+
     // 聚焦到输入框
     _focusNode.requestFocus();
   }
@@ -3518,39 +3387,39 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// 复制消息文本到剪贴板
-  /// 
+  ///
   /// 根据消息类型提取相应的文本内容：
   /// - 文本消息：提取 text_message.text
   /// - 媒体消息：提取 media_message.caption（如果有）
   /// - 系统消息：提取 system_message.text
-  /// 
+  ///
   /// [message] - 要复制的消息对象
   void _onCopyMessage(Message message) {
     String? messageText;
-    
+
     _logger.d('开始复制消息', extra: {
       'messageId': message.messageId,
       'messageType': message.messageType,
       'hasContent': message.content != null,
       'contentLength': message.content?.length ?? 0,
     });
-    
+
     try {
       // 使用MessageAdapter提取文本内容（推荐方式）
       messageText = MessageAdapter.extractTextFromContent(message.content);
-      
+
       _logger.d('MessageAdapter提取结果', extra: {
         'messageId': message.messageId,
         'extractedText': messageText,
         'textLength': messageText?.length ?? 0,
       });
-      
+
       // 如果MessageAdapter没有提取到内容，尝试手动解析
       if (messageText == null || messageText.isEmpty) {
         if (message.content != null && message.content!.isNotEmpty) {
           try {
             final contentMap = jsonDecode(message.content!) as Map<String, dynamic>;
-            
+
             // 根据消息类型提取文本
             switch (message.messageType) {
               case 'TEXT':
@@ -3560,7 +3429,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   messageText = textData['text'] as String?;
                 }
                 break;
-                
+
               case 'IMAGE':
               case 'VOICE':
               case 'VIDEO':
@@ -3571,7 +3440,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   messageText = mediaData['caption'] as String?;
                 }
                 break;
-                
+
               case 'SYSTEM':
                 // 系统消息：提取 system_message.text
                 if (contentMap.containsKey('system_message')) {
@@ -3579,27 +3448,24 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   messageText = systemData['text'] as String?;
                 }
                 break;
-                
+
               default:
                 // 其他类型，尝试通用字段
-                messageText = contentMap['text'] as String? ?? 
-                             contentMap['caption'] as String? ??
-                             contentMap['message'] as String?;
+                messageText = contentMap['text'] as String? ?? contentMap['caption'] as String? ?? contentMap['message'] as String?;
             }
-            
+
             _logger.d('手动解析结果', extra: {
               'messageId': message.messageId,
               'messageType': message.messageType,
               'extractedText': messageText,
               'contentStructure': contentMap.keys.toList(),
             });
-            
           } catch (e) {
-             _logger.w('JSON解析失败，尝试直接使用content', extra: {
-               'messageId': message.messageId,
-               'content': message.content,
-               'error': e.toString(),
-             });
+            _logger.w('JSON解析失败，尝试直接使用content', extra: {
+              'messageId': message.messageId,
+              'content': message.content,
+              'error': e.toString(),
+            });
             // 如果JSON解析失败，直接使用content作为文本（兜底方案）
             messageText = message.content;
           }
@@ -3611,7 +3477,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         'messageType': message.messageType,
       });
     }
-    
+
     // 执行复制操作
     if (messageText?.isNotEmpty == true) {
       Clipboard.setData(ClipboardData(text: messageText!));
@@ -3627,11 +3493,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _logger.w('没有可复制的文本内容', extra: {
         'messageId': message.messageId,
         'messageType': message.messageType,
-        'contentPreview': message.content != null && message.content!.length > 200 
-             ? '${message.content!.substring(0, 200)}...' 
-             : message.content,
+        'contentPreview': message.content != null && message.content!.length > 200 ? '${message.content!.substring(0, 200)}...' : message.content,
       });
-      
+
       // 根据消息类型显示不同的提示
       String noContentMessage;
       switch (message.messageType) {
@@ -3650,7 +3514,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         default:
           noContentMessage = '没有可复制的内容';
       }
-      
+
       _showCopyMessage(noContentMessage, 1200);
     }
   }
@@ -3659,7 +3523,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   void _showCopyMessage(String message, int durationMs) {
     _copyMessageTimer?.cancel();
     _copyMessageNotifier.value = message;
-    
+
     _copyMessageTimer = Timer(Duration(milliseconds: durationMs), () {
       _copyMessageNotifier.value = '';
     });
@@ -3782,8 +3646,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.check_circle,
-                              color: Colors.green, size: 20),
+                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
                           const SizedBox(width: 8),
                           Text(localizations.messageRevoked),
                         ],
@@ -3811,12 +3674,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.error,
-                              color: Colors.white, size: 20),
+                          const Icon(Icons.error, color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                                '${localizations.revokeFailed}: ${error.toString()}'),
+                            child: Text('${localizations.revokeFailed}: ${error.toString()}'),
                           ),
                         ],
                       ),
@@ -3892,8 +3753,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.check_circle,
-                              color: Colors.green, size: 20),
+                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
                           const SizedBox(width: 8),
                           Text(localizations.messageDeleted),
                         ],
@@ -3921,12 +3781,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.error,
-                              color: Colors.white, size: 20),
+                          const Icon(Icons.error, color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                                '${localizations.deleteFailed}: ${error.toString()}'),
+                            child: Text('${localizations.deleteFailed}: ${error.toString()}'),
                           ),
                         ],
                       ),
@@ -4016,8 +3874,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 💢💢💢 确保在搜索相关状态变化时重建UI
         return previous.searchDateFilter != current.searchDateFilter ||
             previous.searchResultTotalCount != current.searchResultTotalCount ||
-            previous.currentSearchResultIndex !=
-                current.currentSearchResultIndex ||
+            previous.currentSearchResultIndex != current.currentSearchResultIndex ||
             previous.isSearching != current.isSearching ||
             previous.searchQuery != current.searchQuery;
       },
@@ -4193,18 +4050,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                         topLeft: Radius.circular(20),
                         bottomLeft: Radius.circular(20),
                       ),
-                      onTap: canGoNext
-                          ? () =>
-                              context.read<ChatCubit>().goToNextSearchResult()
-                          : null,
+                      onTap: canGoNext ? () => context.read<ChatCubit>().goToNextSearchResult() : null,
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         child: Icon(
                           Icons.keyboard_arrow_up,
                           size: 20,
-                          color: canGoNext
-                              ? Colors.grey.shade700
-                              : Colors.grey.shade400,
+                          color: canGoNext ? Colors.grey.shade700 : Colors.grey.shade400,
                         ),
                       ),
                     ),
@@ -4225,18 +4077,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                         topRight: Radius.circular(20),
                         bottomRight: Radius.circular(20),
                       ),
-                      onTap: canGoPrev
-                          ? () =>
-                              context.read<ChatCubit>().goToPrevSearchResult()
-                          : null,
+                      onTap: canGoPrev ? () => context.read<ChatCubit>().goToPrevSearchResult() : null,
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         child: Icon(
                           Icons.keyboard_arrow_down,
                           size: 20,
-                          color: canGoPrev
-                              ? Colors.grey.shade700
-                              : Colors.grey.shade400,
+                          color: canGoPrev ? Colors.grey.shade700 : Colors.grey.shade400,
                         ),
                       ),
                     ),
@@ -4259,8 +4106,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 如果没有可用日期，显示提示
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(AppLocalizations.of(context).noMessagesInChat)),
+          SnackBar(content: Text(AppLocalizations.of(context).noMessagesInChat)),
         );
       }
       return;
@@ -4283,15 +4129,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// 💢💢💢 新增：跳转到指定日期的第一条消息
-  Future<void> _jumpToDateFirstMessage(
-      BuildContext context, DateTime selectedDate) async {
+  Future<void> _jumpToDateFirstMessage(BuildContext context, DateTime selectedDate) async {
     final chatCubit = context.read<ChatCubit>();
     final messenger = ScaffoldMessenger.of(context);
 
     try {
       // 查找指定日期的第一条消息
-      final firstMessageOfDate =
-          await chatCubit.findFirstMessageOfDate(selectedDate);
+      final firstMessageOfDate = await chatCubit.findFirstMessageOfDate(selectedDate);
 
       if (firstMessageOfDate != null) {
         // 如果找到消息，滚动到该消息
@@ -4312,8 +4156,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           final localizations = AppLocalizations.of(context);
           messenger.showSnackBar(
             SnackBar(
-              content: Text(
-                  '${selectedDate.month}/${selectedDate.day} ${localizations.noMessagesFoundOnDate}'),
+              content: Text('${selectedDate.month}/${selectedDate.day} ${localizations.noMessagesFoundOnDate}'),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -4364,9 +4207,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 在私聊中，使用对方用户的已读状态
       // 在新的 Drift 系统中，我们简化这个逻辑
       // TODO: 实现从参与者JSON中获取对方用户已读状态的逻辑
-      
+
       // 暂时跳过这个复杂的逻辑，直接使用消息本身的状态
-      if (false) { // 禁用这个分支 - 需要重新实现参与者解析逻辑
+      if (false) {
+        // 禁用这个分支 - 需要重新实现参与者解析逻辑
         // 这里原本是复杂的参与者状态逻辑，暂时禁用
       }
     }
@@ -4374,8 +4218,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     // 回退到消息本身的状态
     return MessageDisplayStatus(
       isRead: message.messageStatus == 'READ',
-      isDelivered: message.messageStatus == 'DELIVERED' ||
-          message.messageStatus == 'READ',
+      isDelivered: message.messageStatus == 'DELIVERED' || message.messageStatus == 'READ',
       messageStatus: message.messageStatus,
     );
   }
@@ -4443,8 +4286,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     }
 
     // 获取最新未读消息的索引（用于方向判断）
-    final lastUnreadIndex =
-        conversation.readMessageIndex;
+    final lastUnreadIndex = conversation.readMessageIndex;
 
     // 判断未读消息相对于当前滚动位置的方向（基于最新未读消息）
     final direction = _determineUnreadDirection(state, lastUnreadIndex);
@@ -4462,16 +4304,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// 🆕 判断未读消息相对于当前滚动位置的方向
-  _UnreadDirection _determineUnreadDirection(
-      ChatState state, int firstUnreadIndex) {
+  _UnreadDirection _determineUnreadDirection(ChatState state, int firstUnreadIndex) {
     // 如果没有当前滚动位置信息，认为未读消息在上方（历史消息方向）
     if (state.currentScrollPosition.messageId == null) {
       return _UnreadDirection.up;
     }
 
     // 获取当前滚动位置的消息索引
-    final currentScrollIndex =
-        state.currentScrollPosition.getListIndex(state.messages);
+    final currentScrollIndex = state.currentScrollPosition.getListIndex(state.messages);
     if (currentScrollIndex == -1) {
       return _UnreadDirection.up;
     }
@@ -4490,8 +4330,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   /// 🆕 生成未读指示器文本
-  String _generateUnreadIndicatorText(
-      int unreadCount, _UnreadDirection direction) {
+  String _generateUnreadIndicatorText(int unreadCount, _UnreadDirection direction) {
     final countText = unreadCount.toString();
 
     switch (direction) {
@@ -4507,27 +4346,27 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 🆕 检查是否所有消息都在可视范围内（未满一页的情况）
   bool _areAllMessagesVisible(ChatState state) {
     if (state.messages.isEmpty) return true;
-    
+
     final positions = _itemPositionsListener.itemPositions.value;
     if (positions.isEmpty) return false;
-    
+
     // 获取可见的处理后索引
     final visibleProcessedIndices = positions.map((p) => p.index).toSet();
-    
+
     // 优化：一次性获取processedItems，避免重复计算
     final processedItems = MessageListProcessor.processMessages(
       messages: state.messages,
       currentUserId: state.currentUser.userId,
       isNotGroupChat: state.conversation.type != 'GROUP',
     );
-    
+
     // 查找第一条和最后一条消息在processedItems中的索引
     final firstMessage = state.messages[0];
     final lastMessage = state.messages[state.messages.length - 1];
-    
+
     int? firstMessageProcessedIndex;
     int? lastMessageProcessedIndex;
-    
+
     for (int i = 0; i < processedItems.length; i++) {
       final item = processedItems[i];
       if (item is MessageListItemData) {
@@ -4539,23 +4378,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         }
       }
     }
-    
+
     // 如果第一条和最后一条消息都可见，则认为所有消息都可见
     final allVisible = firstMessageProcessedIndex != null &&
-                      lastMessageProcessedIndex != null &&
-                      visibleProcessedIndices.contains(firstMessageProcessedIndex) && 
-                      visibleProcessedIndices.contains(lastMessageProcessedIndex);
-                      
+        lastMessageProcessedIndex != null &&
+        visibleProcessedIndices.contains(firstMessageProcessedIndex) &&
+        visibleProcessedIndices.contains(lastMessageProcessedIndex);
+
     return allVisible;
   }
 
   /// 🆕 为可见消息安排已读更新
   void _scheduleReadUpdateForVisibleMessages(ChatState state) {
     if (state.messages.isEmpty) return;
-    
+
     // 获取最后一条消息的索引作为已读标记
     final latestMessageIndex = state.messages.last.messageIndex;
-    
+
     // 使用定时器延迟触发，避免频繁调用
     _visibilityReadUpdateTimer?.cancel();
     _visibilityReadUpdateTimer = Timer(const Duration(milliseconds: 1000), () {
@@ -4571,10 +4410,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 计算第一条未读消息的索引
       // readMessageIndex 是已读消息索引，第一条未读消息应该是 readMessageIndex + 1
       final firstUnreadIndex = conversation.readMessageIndex + 1;
-      
+
       // 获取会话中的最后一条消息索引（最新未读消息）
       final lastMessageIndex = conversation.lastMessageIndex;
-      
+
       // 如果没有未读消息，直接返回
       if (firstUnreadIndex > lastMessageIndex) {
         _logger.i('没有未读消息', extra: {
@@ -4588,9 +4427,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final targetIndex = lastMessageIndex;
 
       // 在当前消息列表中查找对应的消息
-      final targetMessage = state.messages
-          .where((msg) => msg.messageIndex == targetIndex)
-          .firstOrNull;
+      final targetMessage = state.messages.where((msg) => msg.messageIndex == targetIndex).firstOrNull;
 
       if (targetMessage != null) {
         // 如果消息在当前列表中，直接滚动到该消息
@@ -4609,8 +4446,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         _logger.w('最新消息不在当前列表中，使用jumpToMessageIndex加载', extra: {
           'targetIndex': targetIndex,
           'currentListSize': state.messages.length,
-          'listRange': state.messages.isEmpty ? 'empty' : 
-            '${state.messages.first.messageIndex}-${state.messages.last.messageIndex}',
+          'listRange': state.messages.isEmpty ? 'empty' : '${state.messages.first.messageIndex}-${state.messages.last.messageIndex}',
         });
 
         // 使用jumpToMessageIndex来加载并跳转到最新消息
@@ -4642,17 +4478,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final conversation = state.conversation;
 
       // 获取第一条未读消息的索引
-      final firstUnreadIndex =
-          conversation.getFirstUnreadMessageIndex(currentUserId);
+      final firstUnreadIndex = conversation.getFirstUnreadMessageIndex(currentUserId);
       if (firstUnreadIndex == null) {
         _logger.w('没有找到第一条未读消息的索引');
         return;
       }
 
       // 在当前消息列表中查找对应的消息
-      final firstUnreadMessage = state.messages
-          .where((msg) => msg.messageIndex == firstUnreadIndex)
-          .firstOrNull;
+      final firstUnreadMessage = state.messages.where((msg) => msg.messageIndex == firstUnreadIndex).firstOrNull;
 
       if (firstUnreadMessage != null) {
         // 如果消息在当前列表中，直接滚动到该消息
@@ -4669,9 +4502,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       } else {
         _logger.w('第一条未读消息不在当前列表中', extra: {
           'firstUnreadIndex': firstUnreadIndex,
-          'messageRange': state.messages.isEmpty
-              ? 'empty'
-              : '${state.messages.last.messageIndex}-${state.messages.first.messageIndex}',
+          'messageRange': state.messages.isEmpty ? 'empty' : '${state.messages.last.messageIndex}-${state.messages.first.messageIndex}',
         });
 
         // 显示提示
@@ -4706,17 +4537,17 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 测试快捷回复权限逻辑
   void _testQuickReplyPermissions(int currentRoleId) {
     print('🧪🧪🧪 PERMISSION_TEST_START: currentRoleId=$currentRoleId');
-    
+
     // 测试所有可能的roleId值
     for (int testRoleId = 0; testRoleId <= 5; testRoleId++) {
       final isCustomerService = testRoleId == 3;
-      final isVip = testRoleId == 4;  
+      final isVip = testRoleId == 4;
       final hasPermission = isCustomerService || isVip;
       final isCurrent = testRoleId == currentRoleId;
-      
+
       print('🧪 TEST roleId=$testRoleId: isCS=$isCustomerService, isVip=$isVip, hasPermission=$hasPermission ${isCurrent ? '← CURRENT' : ''}');
     }
-    
+
     print('🧪🧪🧪 PERMISSION_TEST_END');
   }
 
@@ -4726,7 +4557,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     final isCustomerService = roleId == 3;
     final isVip = roleId == 4;
     final hasPermission = isCustomerService || isVip;
-    
+
     _logger.i('⚡⚡⚡ 快捷回复权限检查详细信息', extra: {
       'originalRoleId': roleId,
       'roleIdType': roleId.runtimeType.toString(),
@@ -4735,10 +4566,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       'hasPermission': hasPermission,
       'calculation': '$roleId == 3 || $roleId == 4 = $hasPermission',
     });
-    
+
     // 强制打印到控制台，确保能看到
     print('🚀🚀🚀 QUICK_REPLY_PERMISSION: roleId=$roleId, hasPermission=$hasPermission');
-    
+
     return hasPermission;
   }
 
@@ -4746,7 +4577,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Message? _getQuotedMessage(String messageId) {
     final chatCubit = context.read<ChatCubit>();
     final state = chatCubit.state;
-    
+
     // 在当前消息列表中查找
     try {
       return state.messages.firstWhere(
@@ -4774,8 +4605,7 @@ class _CustomDatePickerDialog extends StatefulWidget {
   });
 
   @override
-  State<_CustomDatePickerDialog> createState() =>
-      _CustomDatePickerDialogState();
+  State<_CustomDatePickerDialog> createState() => _CustomDatePickerDialogState();
 }
 
 class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
@@ -4788,8 +4618,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
 
     // 如果有可用日期，选择最新的日期；否则使用初始日期
     if (widget.availableDates.isNotEmpty) {
-      final sortedDates = widget.availableDates.toList()
-        ..sort((a, b) => b.compareTo(a)); // 按日期降序排列
+      final sortedDates = widget.availableDates.toList()..sort((a, b) => b.compareTo(a)); // 按日期降序排列
       _currentDate = sortedDates.first; // 选择最新的日期
     } else {
       _currentDate = widget.initialDate;
@@ -4862,10 +4691,8 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
     final minDate = DateTime(now.year - 5, 1, 1);
     final maxDate = DateTime(now.year + 1, 12, 31);
 
-    final canGoPrev = prevMonth.isAfter(minDate) ||
-        prevMonth.isAtSameMomentAs(DateTime(minDate.year, minDate.month));
-    final canGoNext = nextMonth.isBefore(maxDate) ||
-        nextMonth.isAtSameMomentAs(DateTime(maxDate.year, maxDate.month));
+    final canGoPrev = prevMonth.isAfter(minDate) || prevMonth.isAtSameMomentAs(DateTime(minDate.year, minDate.month));
+    final canGoNext = nextMonth.isBefore(maxDate) || nextMonth.isAtSameMomentAs(DateTime(maxDate.year, maxDate.month));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4905,12 +4732,9 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
   }
 
   Widget _buildCalendarGrid() {
-    final daysInMonth =
-        DateTime(_displayMonth.year, _displayMonth.month + 1, 0).day;
-    final firstDayOfMonth =
-        DateTime(_displayMonth.year, _displayMonth.month, 1);
-    final weekdayOfFirstDay =
-        firstDayOfMonth.weekday % 7; // 0 = Sunday, 6 = Saturday
+    final daysInMonth = DateTime(_displayMonth.year, _displayMonth.month + 1, 0).day;
+    final firstDayOfMonth = DateTime(_displayMonth.year, _displayMonth.month, 1);
+    final weekdayOfFirstDay = firstDayOfMonth.weekday % 7; // 0 = Sunday, 6 = Saturday
 
     return Column(
       children: [
@@ -4949,11 +4773,9 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
               }
 
               final day = index - weekdayOfFirstDay + 1;
-              final date =
-                  DateTime(_displayMonth.year, _displayMonth.month, day);
+              final date = DateTime(_displayMonth.year, _displayMonth.month, day);
               final hasMessages = widget.availableDates.contains(date);
-              final isSelected = date.isAtSameMomentAs(DateTime(
-                  _currentDate.year, _currentDate.month, _currentDate.day));
+              final isSelected = date.isAtSameMomentAs(DateTime(_currentDate.year, _currentDate.month, _currentDate.day));
               final isToday = _isSameDay(date, DateTime.now());
 
               return GestureDetector(
@@ -4966,18 +4788,11 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                 child: Container(
                   margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : (hasMessages
-                            ? AppColors.primary.withAlpha(13)
-                            : Colors.transparent),
+                    color: isSelected ? Theme.of(context).primaryColor : (hasMessages ? AppColors.primary.withAlpha(13) : Colors.transparent),
                     borderRadius: BorderRadius.circular(8),
                     border: isToday
-                        ? Border.all(
-                            color: Theme.of(context).primaryColor, width: 2)
-                        : (hasMessages
-                            ? Border.all(color: AppColors.primary.withAlpha(51))
-                            : Border.all(color: Colors.grey.shade200)),
+                        ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+                        : (hasMessages ? Border.all(color: AppColors.primary.withAlpha(51)) : Border.all(color: Colors.grey.shade200)),
                   ),
                   child: Center(
                     child: Text(
@@ -4985,16 +4800,8 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
                       style: TextStyle(
                         color: isSelected
                             ? Colors.white
-                            : (hasMessages
-                                ? (isToday
-                                    ? Theme.of(context).primaryColor
-                                    : AppColors.primary)
-                                : (isToday
-                                    ? Theme.of(context).primaryColor
-                                    : Colors.grey.shade600)),
-                        fontWeight: isSelected || isToday
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                            : (hasMessages ? (isToday ? Theme.of(context).primaryColor : AppColors.primary) : (isToday ? Theme.of(context).primaryColor : Colors.grey.shade600)),
+                        fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
                         fontSize: 16,
                       ),
                     ),
@@ -5010,9 +4817,7 @@ class _CustomDatePickerDialogState extends State<_CustomDatePickerDialog> {
 
   /// 检查两个日期是否是同一天
   bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
+    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
   }
 }
 
@@ -5037,9 +4842,7 @@ class AudioWavePainter extends CustomPainter {
 
       // 创建动态高度效果
       final baseHeight = size.height * 0.3;
-      final animatedHeight = size.height *
-          0.7 *
-          (0.5 + 0.5 * sin((progress * 2 * pi) + (i * 0.5)));
+      final animatedHeight = size.height * 0.7 * (0.5 + 0.5 * sin((progress * 2 * pi) + (i * 0.5)));
 
       final height = baseHeight + animatedHeight;
       final y = (size.height - height) / 2;
@@ -5079,7 +4882,8 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
   }
 
   /// 根据平台构建图片Widget
-  Widget _buildImageWidget(dynamic imageFile, {
+  Widget _buildImageWidget(
+    dynamic imageFile, {
     BoxFit? fit,
     Widget Function(BuildContext, Object, StackTrace?)? errorBuilder,
   }) {
@@ -5165,11 +4969,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.broken_image,
-                                  size: 48, color: Colors.grey),
+                              const Icon(Icons.broken_image, size: 48, color: Colors.grey),
                               const SizedBox(height: 8),
-                              Text(AppLocalizations.of(context).imageLoadFailed,
-                                  style: const TextStyle(color: Colors.grey)),
+                              Text(AppLocalizations.of(context).imageLoadFailed, style: const TextStyle(color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -5206,8 +5008,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _isLoading ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
                       child: Text(AppLocalizations.of(context).cancel),
                     ),
                   ),
@@ -5241,9 +5042,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
     // 返回确认结果和图片说明
     Navigator.of(context).pop({
       'confirmed': true,
-      'caption': _captionController.text.trim().isEmpty
-          ? null
-          : _captionController.text.trim(),
+      'caption': _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
     });
   }
 }
@@ -5353,8 +5152,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: _getFileIconColor(_fileExtension)
-                            .withValues(alpha: 0.1),
+                        color: _getFileIconColor(_fileExtension).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -5395,8 +5193,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _getFileIconColor(_fileExtension)
-                            .withValues(alpha: 0.1),
+                        color: _getFileIconColor(_fileExtension).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -5439,8 +5236,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _isLoading ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
                       child: Text(AppLocalizations.of(context).cancel),
                     ),
                   ),
@@ -5474,9 +5270,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
     // 返回确认结果和文件说明
     Navigator.of(context).pop({
       'confirmed': true,
-      'caption': _captionController.text.trim().isEmpty
-          ? null
-          : _captionController.text.trim(),
+      'caption': _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
     });
   }
 }
@@ -5608,9 +5402,7 @@ class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
                       future: widget.videoFile.length(),
                       builder: (context, snapshot) {
                         final fileSize = snapshot.data ?? 0;
-                        final fileSizeText = fileSize > 1024 * 1024
-                            ? '${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB'
-                            : '${(fileSize / 1024).toStringAsFixed(1)}KB';
+                        final fileSizeText = fileSize > 1024 * 1024 ? '${(fileSize / (1024 * 1024)).toStringAsFixed(1)}MB' : '${(fileSize / 1024).toStringAsFixed(1)}KB';
 
                         return Text(
                           '文件大小: $fileSizeText',
@@ -5652,8 +5444,7 @@ class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _isLoading ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
                       child: Text(AppLocalizations.of(context).cancel),
                     ),
                   ),
@@ -5687,13 +5478,9 @@ class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
     // 返回确认结果和视频说明
     Navigator.of(context).pop({
       'confirmed': true,
-      'caption': _captionController.text.trim().isEmpty
-          ? null
-          : _captionController.text.trim(),
+      'caption': _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
     });
   }
-
-
 }
 
 extension _ChatPageReplyExtension on _ChatPageState {
@@ -5703,27 +5490,27 @@ extension _ChatPageReplyExtension on _ChatPageState {
     final screenWidth = MediaQuery.of(context).size.width;
     final maxWidth = screenWidth * 0.8; // 最大宽度为屏幕宽度的80%
     final minWidth = screenWidth * 0.4; // 最小宽度为屏幕宽度的40%
-    
+
     final senderName = replyingToMessage.senderName ?? '未知用户';
     final messagePreview = _getReplyMessagePreview(replyingToMessage);
-    
+
     // 根据内容长度估算宽度
     final contentLength = senderName.length + messagePreview.length;
     double estimatedWidth = (contentLength * 8.0) + 80.0; // 每个字符约8像素 + 图标和内边距
-    
+
     // 限制在最小和最大宽度之间
     final containerWidth = estimatedWidth.clamp(minWidth, maxWidth);
-    
+
     // 判断是否是当前用户发送的消息
     final isCurrentUserMessage = replyingToMessage.senderId == context.read<ChatCubit>().state.currentUser.userId;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0), // 增加上下2px间距
       child: Row(
         children: [
           // 根据发送人决定对齐方式，如果是当前用户消息，在左侧添加空白
           if (isCurrentUserMessage) const Spacer(),
-          
+
           // 回复消息内容容器
           IntrinsicWidth(
             child: ConstrainedBox(
@@ -5756,7 +5543,7 @@ extension _ChatPageReplyExtension on _ChatPageState {
                       color: Theme.of(context).primaryColor,
                     ),
                     const SizedBox(width: 8),
-                    
+
                     // 回复内容
                     Flexible(
                       child: Column(
@@ -5775,7 +5562,7 @@ extension _ChatPageReplyExtension on _ChatPageState {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
-                          
+
                           // 被回复消息内容
                           Text(
                             messagePreview,
@@ -5794,9 +5581,9 @@ extension _ChatPageReplyExtension on _ChatPageState {
               ),
             ),
           ),
-          
+
           const SizedBox(width: 8),
-          
+
           // 关闭按钮 - 独立放置在最右边
           GestureDetector(
             onTap: () {
@@ -5811,7 +5598,7 @@ extension _ChatPageReplyExtension on _ChatPageState {
               ),
             ),
           ),
-          
+
           // 如果不是当前用户消息，在右侧添加空白
           if (!isCurrentUserMessage) const Spacer(),
         ],
@@ -5844,12 +5631,12 @@ extension _ChatPageReplyExtension on _ChatPageState {
           return '[消息]';
       }
     } catch (e) {
-       _ChatPageState._logger.w('获取回复消息预览失败', extra: {
-         'messageId': message.messageId,
-         'messageType': message.messageType,
-         'error': e.toString(),
-       });
-       return '[消息]';
-     }
+      _ChatPageState._logger.w('获取回复消息预览失败', extra: {
+        'messageId': message.messageId,
+        'messageType': message.messageType,
+        'error': e.toString(),
+      });
+      return '[消息]';
+    }
   }
 }
