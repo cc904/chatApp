@@ -605,12 +605,12 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               return ListTile(
                 leading: UserAvatar(
                   avatarUrl: member.avatar,
-                  name: member.nickName,
+                  name: member.name,
                   radius: 20,
                   roleId: member.roleId,
                 ),
                 title: Text(
-                  member.nickName,
+                    member.name,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,

@@ -10,10 +10,10 @@ import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
-import 'package:cc/core/proto/generated/conversation.pb.dart'
-    as conversation_proto;
+import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/services/conversation_preview_notification.dart';
+import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:drift/drift.dart';
 
@@ -28,16 +28,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
   // 获取当前数据库实例，使用DatabaseInitializer
   AppDatabase get _database => DatabaseInitializer.database;
 
-  // 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  状态快照管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  // 💢💢💢💢💢💢💢💢💢💢💢💢💢  状态快照管理  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   // 状态快照缓存
-  final Map<String, ChatStateSnapshot> _stateSnapshots =
-      <String, ChatStateSnapshot>{};
+  final Map<String, ChatStateSnapshot> _stateSnapshots = <String, ChatStateSnapshot>{};
 
   // 💢💢💢 新架构：会话更新事件流控制器
-  final StreamController<ConversationUpdateEvent>
-      _conversationUpdateController =
-      StreamController<ConversationUpdateEvent>.broadcast();
+  final StreamController<ConversationUpdateEvent> _conversationUpdateController = StreamController<ConversationUpdateEvent>.broadcast();
 
   // 事件订阅列表
   final List<StreamSubscription> _subscriptions = [];
@@ -50,13 +47,12 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   // 构造函数
-  ChatsRepositoryImpl({required CurrentUser currentUser})
-      : _currentUser = currentUser {
+  ChatsRepositoryImpl({required CurrentUser currentUser}) : _currentUser = currentUser {
     _logger.x('ChatsRepositoryImpl 初始化');
-    
+
     // 初始化会话预览通知服务的当前用户
     ConversationPreviewNotificationService.instance.setCurrentUser(currentUser);
-    
+
     _registerEventHandlers();
   }
 
@@ -66,11 +62,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
   void _setupContactUpdateListener() {
     try {
       final protoSocketService = ProtoSocketService();
-      protoSocketService.on('local:conversation:contact_updated',
-          _handleContactUpdatedForConversations);
+      protoSocketService.on('local:conversation:contact_updated', _handleContactUpdatedForConversations);
       // 💢💢💢 新增：监听会话移除事件
-      protoSocketService.on(
-          'local:conversation:removed', _handleConversationRemovedLocally);
+      protoSocketService.on('local:conversation:removed', _handleConversationRemovedLocally);
       _logger.i('联系人更新监听器和会话移除监听器设置成功');
     } catch (e) {
       _logger.e('设置本地事件监听器失败', extra: {'error': e.toString()});
@@ -93,50 +87,17 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
     _logger.i('ChatsRepository Proto事件流 订阅');
     _subscriptions
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationCollection>(
-              'conversation:sync:response')
-          .listen(_handleSyncResponseProto))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationPreviewUpdated>(
-              'conversation:preview:updated')
-          .listen(_handleConversationPreviewUpdated))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationSettingsUpdateResponse>(
-              'conversation:settings:updated')
-          .listen(_handleConversationSettingsUpdate))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationInfoUpdateResponse>(
-              'conversation:info:update:response')
-          .listen(_handleConversationInfoUpdateResponse))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationInfoUpdated>(
-              'conversation:info:updated')
-          .listen(_handleConversationInfoUpdated))
-      ..add(_communicationService
-          .onProto<conversation_proto.UserJoinedNotification>(
-              'conversation:user:joined')
-          .listen(_handleUserJoinedNotification))
-      ..add(_communicationService
-          .onProto<conversation_proto.UserLeftNotification>(
-              'conversation:user:left')
-          .listen(_handleUserLeftNotification))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationDetailResponse>(
-              'conversation:detail:response')
-          .listen(_handleConversationDetailResponse))
-      ..add(_communicationService
-          .onProto<conversation_proto.ParticipantStatusUpdateResponse>(
-              'participant:status:update:response')
-          .listen(_handleParticipantStatusUpdateResponse))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationJoinLeaveResponse>(
-              'conversation:leave:response')
-          .listen(_handleConversationLeaveResponse))
-      ..add(_communicationService
-          .onProto<conversation_proto.ConversationCreateResponse>(
-              'conversation:added')
-          .listen(_handleConversationAdded));
+      ..add(_communicationService.onProto<conversation_proto.ConversationCollection>('conversation:sync:response').listen(_handleSyncResponseProto))
+      ..add(_communicationService.onProto<conversation_proto.ConversationPreviewUpdated>('conversation:preview:updated').listen(_handleConversationPreviewUpdated))
+      ..add(_communicationService.onProto<conversation_proto.ConversationSettingsUpdateResponse>('conversation:settings:updated').listen(_handleConversationSettingsUpdate))
+      ..add(_communicationService.onProto<conversation_proto.ConversationInfoUpdateResponse>('conversation:info:update:response').listen(_handleConversationInfoUpdateResponse))
+      ..add(_communicationService.onProto<conversation_proto.ConversationInfoUpdated>('conversation:info:updated').listen(_handleConversationInfoUpdated))
+      ..add(_communicationService.onProto<conversation_proto.UserJoinedNotification>('conversation:user:joined').listen(_handleUserJoinedNotification))
+      ..add(_communicationService.onProto<conversation_proto.UserLeftNotification>('conversation:user:left').listen(_handleUserLeftNotification))
+      ..add(_communicationService.onProto<conversation_proto.ConversationDetailResponse>('conversation:detail:response').listen(_handleConversationDetailResponse))
+      ..add(_communicationService.onProto<conversation_proto.ParticipantStatusUpdateResponse>('participant:status:update:response').listen(_handleParticipantStatusUpdateResponse))
+      ..add(_communicationService.onProto<conversation_proto.ConversationJoinLeaveResponse>('conversation:leave:response').listen(_handleConversationLeaveResponse))
+      ..add(_communicationService.onProto<conversation_proto.ConversationCreateResponse>('conversation:added').listen(_handleConversationAdded));
 
     // 监听本地联系人更新事件，用于更新私聊会话名称
     _setupContactUpdateListener();
@@ -149,8 +110,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<User?> getContactById(String userId) async {
     try {
-      return await (_database.select(_database.users)
-          ..where((u) => u.userId.equals(userId))).getSingleOrNull();
+      return await (_database.select(_database.users)..where((u) => u.userId.equals(userId))).getSingleOrNull();
     } catch (error) {
       _logger.e('获取联系人信息失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -167,16 +127,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
       // 直接从数据库获取会话列表，不发送同步事件
       final conversations = await (_database.select(_database.conversations)
-          ..orderBy([(c) => OrderingTerm(
-              expression: c.lastMessageTime,
-              mode: OrderingMode.desc,
-          )]))
+            ..orderBy([
+              (c) => OrderingTerm(
+                    expression: c.lastMessageTime,
+                    mode: OrderingMode.desc,
+                  )
+            ]))
           .get();
 
       // 过滤掉未加入的频道 (暂时简化处理)
-      final filteredConversations = conversations
-          .where((c) => c.type != 'CHANNEL')
-          .toList();
+      final filteredConversations = conversations.where((c) => c.type != 'CHANNEL').toList();
 
       // 🔥🔥🔥 详细记录私聊会话的participants信息
       final privateConversations = filteredConversations.where((c) => c.type == 'PRIVATE').toList();
@@ -203,12 +163,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-
   /// 💢💢💢 新增：全量替换所有会话数据
   /// 清空本地所有会话，然后添加新的会话列表
   /// [newConversations] - 新的会话列表（来自服务器的完整数据）
-  Future<void> _replaceAllConversations(
-      List<Conversation> newConversations) async {
+  Future<void> _replaceAllConversations(List<Conversation> newConversations) async {
     try {
       _logger.i('全量替换会话数据', extra: {'新会话数': newConversations.length});
 
@@ -230,7 +188,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
               });
             }
           }
-          
+
           await _database.batch((batch) {
             for (final conv in newConversations) {
               batch.insert(_database.conversations, conv);
@@ -254,8 +212,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<Conversation?> getConversationById(String conversationId) async {
     try {
-      return await (_database.select(_database.conversations)
-          ..where((c) => c.conversationId.equals(conversationId))).getSingleOrNull();
+      return await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(conversationId))).getSingleOrNull();
     } catch (error) {
       _logger.e('获取会话信息失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -267,16 +224,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// [contactUserId] - 联系人ID
   /// 返回会话对象
   @override
-  Future<Conversation> getOrCreatePrivateConversation(
-      String contactUserId) async {
+  Future<Conversation> getOrCreatePrivateConversation(String contactUserId) async {
     try {
       _logger.i('获取或创建私聊会话', extra: {'contactUserId': contactUserId});
 
       // 先查找已有的私聊会话 - 简化处理，通过participants字段查找
-      final privateConversations = await (_database.select(_database.conversations)
-          ..where((c) => c.type.equals('PRIVATE')))
-          .get();
-          
+      final privateConversations = await (_database.select(_database.conversations)..where((c) => c.type.equals('PRIVATE'))).get();
+
       // 在内存中查找包含该联系人的私聊会话
       Conversation? existing;
       for (final conv in privateConversations) {
@@ -311,7 +265,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       final createRequest = conversation_proto.ConversationCreateRequest()
         ..type = conversation_proto.ConversationType.PRIVATE
         ..contactUserId = contactUserId
-        ..name = contact.nickName;
+        ..name = contact.name;
 
       // 设置头像（如果有）
       if (contact.avatar != null && contact.avatar!.isNotEmpty) {
@@ -320,12 +274,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
       _logger.d('发送创建会话请求', extra: {
         'contactUserId': contactUserId,
-        'contactName': contact.nickName,
+        'contactName': contact.name,
       });
 
       // 💢💢💢 发送创建请求到服务器
-      final success = await _communicationService.emitProto(
-          'conversation:create', createRequest);
+      final success = await _communicationService.emitProto('conversation:create', createRequest);
 
       if (!success) {
         throw Exception('发送创建会话请求失败');
@@ -333,11 +286,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
       // 💢💢💢 等待服务器响应
       try {
-        final response = await _communicationService
-            .onProto<conversation_proto.ConversationCreateResponse>(
-                'conversation:create:response')
-            .timeout(const Duration(seconds: 10))
-            .first;
+        final response =
+            await _communicationService.onProto<conversation_proto.ConversationCreateResponse>('conversation:create:response').timeout(const Duration(seconds: 10)).first;
 
         if (!response.success) {
           throw Exception('服务器创建会话失败: ${response.message}');
@@ -366,10 +316,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         throw Exception('创建会话超时，请重试');
       }
     } catch (error) {
-      _logger.e('获取或创建私聊会话失败',
-          error: error,
-          stackTrace: StackTrace.current,
-          extra: {'contactUserId': contactUserId});
+      _logger.e('获取或创建私聊会话失败', error: error, stackTrace: StackTrace.current, extra: {'contactUserId': contactUserId});
       rethrow;
     }
   }
@@ -381,9 +328,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// [avatar] - 可选的群头像
   /// 返回创建的群聊会话
   @override
-  Future<Conversation> createGroupConversation(
-      String name, List<String> memberIds,
-      {String? avatar}) async {
+  Future<Conversation> createGroupConversation(String name, List<String> memberIds, {String? avatar}) async {
     try {
       // 这里需要完整的实现，暂时抛出错误
       throw UnimplementedError('创建群聊功能需要完整实现');
@@ -403,9 +348,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 用于 ChatCubit 监听特定会话的状态变化
   @override
   Stream<Conversation?> watchConversation(String conversationId) {
-    return (_database.select(_database.conversations)
-        ..where((c) => c.conversationId.equals(conversationId)))
-        .watchSingleOrNull();
+    return (_database.select(_database.conversations)..where((c) => c.conversationId.equals(conversationId))).watchSingleOrNull();
   }
 
   /// 删除会话
@@ -414,8 +357,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<void> deleteConversation(String conversationId) async {
     try {
-      await (_database.delete(_database.conversations)
-          ..where((c) => c.conversationId.equals(conversationId))).go();
+      await (_database.delete(_database.conversations)..where((c) => c.conversationId.equals(conversationId))).go();
     } catch (error) {
       _logger.e('删除会话失败', error: error, stackTrace: StackTrace.current);
       rethrow;
@@ -423,7 +365,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 创建或获取与用户的对话
-  /// 如果已存在与该用户的一对一会话,则返回该会话ID
+  /// 如果已存在与该用户的一对一对会话,则返回该会话ID
   /// 否则创建新会话并返回ID
   /// [userId] - 目标用户ID
   @override
@@ -432,10 +374,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
       _logger.i('获取或创建与用户的会话', extra: {'userId': userId});
 
       // 检查是否已有与该用户的私聊会话
-      final existingConversation = await (_database.select(_database.conversations)
-          ..where((c) => c.type.equals('PRIVATE')))
-          .get();
-      
+      final existingConversation = await (_database.select(_database.conversations)..where((c) => c.type.equals('PRIVATE'))).get();
+
       // 简化查找逻辑
       Conversation? found;
       for (final conv in existingConversation) {
@@ -459,15 +399,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
           });
 
           // 删除无效的会话记录
-          await (_database.delete(_database.conversations)
-              ..where((c) => c.conversationId.equals(found!.conversationId))).go();
+          await (_database.delete(_database.conversations)..where((c) => c.conversationId.equals(found!.conversationId))).go();
 
           // 重新通过服务器创建会话
           _logger.i('删除无效会话记录，通过服务器重新创建');
           final conversation = await getOrCreatePrivateConversation(userId);
 
-          _logger.i('重新创建会话成功',
-              extra: {'conversationId': conversation.conversationId});
+          _logger.i('重新创建会话成功', extra: {'conversationId': conversation.conversationId});
           return conversation.conversationId;
         }
 
@@ -480,8 +418,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 💢💢💢 使用现有的getOrCreatePrivateConversation方法
       final conversation = await getOrCreatePrivateConversation(userId);
 
-      _logger
-          .i('成功创建新会话', extra: {'conversationId': conversation.conversationId});
+      _logger.i('成功创建新会话', extra: {'conversationId': conversation.conversationId});
       return conversation.conversationId;
     } catch (error) {
       _logger.e('创建或获取会话失败', error: error, stackTrace: StackTrace.current);
@@ -507,7 +444,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 💢💢💢 优化：智能等待通信服务初始化完成
       if (!_communicationService.isInitialized) {
         _logger.i('通信服务未初始化，智能等待初始化完成...');
-        
+
         final waitResult = await _waitForCommunicationServiceReady();
         if (!waitResult) {
           _logger.w('通信服务初始化失败或超时，跳过会话同步');
@@ -544,37 +481,37 @@ class ChatsRepositoryImpl implements ChatsRepository {
     const maxWaitTime = 15000; // 15秒最大等待时间
     const initialCheckInterval = 100; // 初始检查间隔100ms
     const maxCheckInterval = 1000; // 最大检查间隔1秒
-    
+
     var waitTime = 0;
     var checkInterval = initialCheckInterval;
-    
+
     while (!_communicationService.isInitialized && waitTime < maxWaitTime) {
       // 监听连接状态变化
       if (_communicationService.isConnected) {
         _logger.d('检测到连接已建立，等待初始化完成...');
       }
-      
+
       await Future.delayed(Duration(milliseconds: checkInterval));
       waitTime += checkInterval;
-      
+
       // 渐进式增加检查间隔，减少CPU使用
       if (checkInterval < maxCheckInterval) {
         checkInterval = (checkInterval * 1.2).round().clamp(initialCheckInterval, maxCheckInterval);
       }
-      
+
       // 每5秒输出一次等待状态
       if (waitTime % 5000 == 0) {
-        _logger.d('等待通信服务初始化... (${waitTime/1000}s/${maxWaitTime/1000}s)');
+        _logger.d('等待通信服务初始化... (${waitTime / 1000}s/${maxWaitTime / 1000}s)');
       }
     }
-    
+
     final success = _communicationService.isInitialized;
     if (success) {
       _logger.i('通信服务初始化完成，用时: ${waitTime}ms');
     } else {
       _logger.w('等待通信服务初始化超时: ${maxWaitTime}ms');
     }
-    
+
     return success;
   }
 
@@ -582,8 +519,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   Future<DateTime?> _getLastSyncTime() async {
     try {
       final secureStorage = SecureStorageService();
-      final timestampStr =
-          await secureStorage.read('conversations_last_sync_time');
+      final timestampStr = await secureStorage.read('conversations_last_sync_time');
       if (timestampStr != null) {
         final timestamp = int.tryParse(timestampStr);
         if (timestamp != null) {
@@ -601,8 +537,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   Future<void> _saveLastSyncTime(DateTime syncTime) async {
     try {
       final secureStorage = SecureStorageService();
-      await secureStorage.write('conversations_last_sync_time',
-          syncTime.millisecondsSinceEpoch.toString());
+      await secureStorage.write('conversations_last_sync_time', syncTime.millisecondsSinceEpoch.toString());
       _logger.d('已保存会话同步时间', extra: {
         'syncTime': syncTime.toIso8601String(),
         'timestamp': syncTime.millisecondsSinceEpoch,
@@ -672,9 +607,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         _logger.i('开始同步参与者设置到服务器');
 
         // 创建参与者设置更新请求
-        final participantUpdateRequest =
-            conversation_proto.ParticipantStatusUpdateRequest()
-              ..conversationId = conversationId;
+        final participantUpdateRequest = conversation_proto.ParticipantStatusUpdateRequest()..conversationId = conversationId;
 
         // 设置可选字段
         if (readMessageIndex != null) {
@@ -688,8 +621,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         }
 
         // 发送请求到服务器
-        _communicationService.emitProto(
-            'participant:status:update', participantUpdateRequest);
+        _communicationService.emitProto('participant:status:update', participantUpdateRequest);
 
         // 服务器响应会通过_handleParticipantSettingsUpdate方法处理
       } else {
@@ -719,17 +651,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
         case 0: // 全部会话
           return conversations;
         case 1: // 私聊
-          return conversations
-              .where((c) => c.type == 'PRIVATE')
-              .toList();
+          return conversations.where((c) => c.type == 'PRIVATE').toList();
         case 2: // 群组
-          return conversations
-              .where((c) => c.type == 'GROUP')
-              .toList();
+          return conversations.where((c) => c.type == 'GROUP').toList();
         case 3: // 频道
-          return conversations
-              .where((c) => c.type == 'CHANNEL')
-              .toList();
+          return conversations.where((c) => c.type == 'CHANNEL').toList();
         case 4: // 未读 - 简化处理
           return conversations; // 实际需要根据未读状态过滤
         default:
@@ -750,8 +676,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// [avatar] - 新的会话头像URL
   /// 返回是否更新成功
   @override
-  Future<bool> updateConversationInfo(String conversationId,
-      {String? name, String? avatar, String? description}) async {
+  Future<bool> updateConversationInfo(String conversationId, {String? name, String? avatar, String? description}) async {
     try {
       _logger.i('更新会话信息', extra: {
         'conversationId': conversationId,
@@ -789,14 +714,12 @@ class ChatsRepositoryImpl implements ChatsRepository {
       if (_communicationService.isInitialized) {
         _logger.i('开始同步会话信息到服务器');
 
-        final updateRequest = conversation_proto.ConversationInfoUpdateRequest()
-          ..conversationId = conversationId;
+        final updateRequest = conversation_proto.ConversationInfoUpdateRequest()..conversationId = conversationId;
         if (name != null) updateRequest.name = name;
         if (avatar != null) updateRequest.avatar = avatar;
         if (description != null) updateRequest.description = description;
 
-        _communicationService.emitProto(
-            'conversation:info:update', updateRequest);
+        _communicationService.emitProto('conversation:info:update', updateRequest);
         _logger.i('会话信息更新请求已发送');
         return true;
       } else {
@@ -817,14 +740,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// [pinned] - 是否置顶
   /// 返回是否更新成功
   @override
-  Future<bool> updateConversationSettings(String conversationId,
-      {bool? muted, bool? pinned}) async {
+  Future<bool> updateConversationSettings(String conversationId, {bool? muted, bool? pinned}) async {
     try {
-      _logger.i('更新会话设置', extra: {
-        'conversationId': conversationId,
-        'muted': muted,
-        'pinned': pinned
-      });
+      _logger.i('更新会话设置', extra: {'conversationId': conversationId, 'muted': muted, 'pinned': pinned});
 
       // 验证参数
       if (muted == null && pinned == null) {
@@ -850,34 +768,22 @@ class ChatsRepositoryImpl implements ChatsRepository {
         _logger.i('开始同步会话设置到服务器');
 
         // 创建会话设置更新请求
-        final settingsRequest =
-            conversation_proto.ConversationSettingsUpdateRequest()
-              ..conversationId = conversationId;
+        final settingsRequest = conversation_proto.ConversationSettingsUpdateRequest()..conversationId = conversationId;
 
         if (muted != null) settingsRequest.muted = muted;
         if (pinned != null) settingsRequest.pinned = pinned;
 
         // 发送请求到服务器
-        _communicationService.emitProto(
-            'conversation:settings:update', settingsRequest);
+        _communicationService.emitProto('conversation:settings:update', settingsRequest);
 
         // 监听服务器响应
-        _communicationService
-            .onProto<conversation_proto.ConversationSettingsUpdateResponse>(
-                'conversation:settings:update:response')
-            .first
-            .then((response) {
+        _communicationService.onProto<conversation_proto.ConversationSettingsUpdateResponse>('conversation:settings:update:response').first.then((response) {
           if (response.success) {
-            _logger.i('服务器已更新会话设置', extra: {
-              'conversationId': response.conversationId,
-              'muted': response.muted,
-              'pinned': response.pinned
-            });
+            _logger.i('服务器已更新会话设置', extra: {'conversationId': response.conversationId, 'muted': response.muted, 'pinned': response.pinned});
 
             // ✅ 已移除会话更新事件流，改用数据库监听
           } else {
-            _logger.w('服务器更新会话设置失败',
-                extra: {'conversationId': response.conversationId});
+            _logger.w('服务器更新会话设置失败', extra: {'conversationId': response.conversationId});
           }
         }).catchError((error) {
           _logger.e('接收服务器设置更新响应时出错', error: error);
@@ -913,12 +819,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
       }
 
       // 创建获取会话详情请求
-      final detailRequest = conversation_proto.ConversationDetailRequest()
-        ..conversationId = conversationId;
+      final detailRequest = conversation_proto.ConversationDetailRequest()..conversationId = conversationId;
 
       // 发送请求到服务器
-      _communicationService.emitProto(
-          'conversation:detail:request', detailRequest);
+      _communicationService.emitProto('conversation:detail:request', detailRequest);
 
       return;
     } catch (error, stackTrace) {
@@ -953,8 +857,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// [currentUserId] - 当前用户ID
   /// 返回第一条未读消息的ID，如果没有未读消息则返回null
   @override
-  Future<String?> getFirstUnreadMessageId(
-      String conversationId, String currentUserId) async {
+  Future<String?> getFirstUnreadMessageId(String conversationId, String currentUserId) async {
     try {
       _logger.d('开始查找第一条未读消息ID', extra: {
         'conversationId': conversationId,
@@ -969,8 +872,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       }
 
       // 获取第一条未读消息的索引
-      final firstUnreadIndex =
-          conversation.getFirstUnreadMessageIndex(currentUserId);
+      final firstUnreadIndex = conversation.getFirstUnreadMessageIndex(currentUserId);
       if (firstUnreadIndex == null) {
         _logger.d('没有未读消息', extra: {
           'conversationId': conversationId,
@@ -980,10 +882,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
       }
 
       // 从数据库查询对应索引的消息
-      final message = await (_database.select(_database.messages)
-          ..where((m) => m.conversationId.equals(conversationId) & 
-                        m.messageIndex.equals(firstUnreadIndex)))
-          .getSingleOrNull();
+      final message =
+          await (_database.select(_database.messages)..where((m) => m.conversationId.equals(conversationId) & m.messageIndex.equals(firstUnreadIndex))).getSingleOrNull();
 
       if (message == null) {
         _logger.w('找不到对应索引的消息', extra: {
@@ -1012,8 +912,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 💢💢💢 新增：获取会话中的媒体消息（图片、视频）
   @override
-  Future<List<Message>> getMediaMessages(String conversationId,
-      {int limit = 50, int offset = 0}) async {
+  Future<List<Message>> getMediaMessages(String conversationId, {int limit = 50, int offset = 0}) async {
     try {
       _logger.d('获取媒体消息', extra: {
         'conversationId': conversationId,
@@ -1022,13 +921,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       final messages = await (_database.select(_database.messages)
-          ..where((m) => m.conversationId.equals(conversationId) & 
-                        (m.messageType.equals('IMAGE') | m.messageType.equals('VIDEO')))
-          ..orderBy([(m) => OrderingTerm(
-              expression: m.messageIndex,
-              mode: OrderingMode.desc,
-          )])
-          ..limit(limit, offset: offset))
+            ..where((m) => m.conversationId.equals(conversationId) & (m.messageType.equals('IMAGE') | m.messageType.equals('VIDEO')))
+            ..orderBy([
+              (m) => OrderingTerm(
+                    expression: m.messageIndex,
+                    mode: OrderingMode.desc,
+                  )
+            ])
+            ..limit(limit, offset: offset))
           .get();
 
       _logger.d('获取媒体消息成功', extra: {
@@ -1045,8 +945,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 💢💢💢 新增：获取会话中的文件消息
   @override
-  Future<List<Message>> getFileMessages(String conversationId,
-      {int limit = 50, int offset = 0}) async {
+  Future<List<Message>> getFileMessages(String conversationId, {int limit = 50, int offset = 0}) async {
     try {
       _logger.d('获取文件消息', extra: {
         'conversationId': conversationId,
@@ -1055,13 +954,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       final messages = await (_database.select(_database.messages)
-          ..where((m) => m.conversationId.equals(conversationId) & 
-                        m.messageType.equals('FILE'))
-          ..orderBy([(m) => OrderingTerm(
-              expression: m.messageIndex,
-              mode: OrderingMode.desc,
-          )])
-          ..limit(limit, offset: offset))
+            ..where((m) => m.conversationId.equals(conversationId) & m.messageType.equals('FILE'))
+            ..orderBy([
+              (m) => OrderingTerm(
+                    expression: m.messageIndex,
+                    mode: OrderingMode.desc,
+                  )
+            ])
+            ..limit(limit, offset: offset))
           .get();
 
       _logger.d('获取文件消息成功', extra: {
@@ -1078,8 +978,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 💢💢💢 新增：获取会话中的语音消息
   @override
-  Future<List<Message>> getVoiceMessages(String conversationId,
-      {int limit = 50, int offset = 0}) async {
+  Future<List<Message>> getVoiceMessages(String conversationId, {int limit = 50, int offset = 0}) async {
     try {
       _logger.d('获取语音消息', extra: {
         'conversationId': conversationId,
@@ -1088,13 +987,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       final messages = await (_database.select(_database.messages)
-          ..where((m) => m.conversationId.equals(conversationId) & 
-                        m.messageType.equals('VOICE'))
-          ..orderBy([(m) => OrderingTerm(
-              expression: m.createdAt,
-              mode: OrderingMode.desc,
-          )])
-          ..limit(limit, offset: offset))
+            ..where((m) => m.conversationId.equals(conversationId) & m.messageType.equals('VOICE'))
+            ..orderBy([
+              (m) => OrderingTerm(
+                    expression: m.createdAt,
+                    mode: OrderingMode.desc,
+                  )
+            ])
+            ..limit(limit, offset: offset))
           .get();
 
       _logger.d('获取语音消息成功', extra: {
@@ -1111,8 +1011,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 💢💢💢 新增：获取会话中包含链接的消息
   @override
-  Future<List<Message>> getLinkMessages(String conversationId,
-      {int limit = 50, int offset = 0}) async {
+  Future<List<Message>> getLinkMessages(String conversationId, {int limit = 50, int offset = 0}) async {
     try {
       _logger.d('获取链接消息', extra: {
         'conversationId': conversationId,
@@ -1123,15 +1022,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 查找文本消息中包含链接的消息 - 简化处理
       // 实际需要更复杂的正则匹配逻辑
       final messages = await (_database.select(_database.messages)
-          ..where((m) => m.conversationId.equals(conversationId) & 
-                        m.messageType.equals('TEXT'))
-          ..orderBy([(m) => OrderingTerm(
-              expression: m.createdAt,
-              mode: OrderingMode.desc,
-          )])
-          ..limit(limit, offset: offset))
+            ..where((m) => m.conversationId.equals(conversationId) & m.messageType.equals('TEXT'))
+            ..orderBy([
+              (m) => OrderingTerm(
+                    expression: m.createdAt,
+                    mode: OrderingMode.desc,
+                  )
+            ])
+            ..limit(limit, offset: offset))
           .get();
-      
+
       // 在内存中过滤包含链接的消息
       final filteredMessages = messages.where((m) {
         final content = m.content;
@@ -1157,10 +1057,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 处理会话同步响应事件
   /// 💢💢💢 修改为全量同步：直接覆盖所有会话数据
-  void _handleSyncResponseProto(
-      conversation_proto.ConversationCollection collection) async {
-    _logger.i('收到会话全量同步响应',
-        extra: {'conversations': collection.conversations.length});
+  void _handleSyncResponseProto(conversation_proto.ConversationCollection collection) async {
+    _logger.i('收到会话全量同步响应', extra: {'conversations': collection.conversations.length});
 
     try {
       // 💢💢💢 全量同步：转换服务器会话数据
@@ -1174,23 +1072,25 @@ class ChatsRepositoryImpl implements ChatsRepository {
           'conversationId': conv.conversationId,
           'type': conv.type.toString(),
           'participantsCount': conv.participants.length,
-          'participants': conv.participants.map((p) => {
-            'userId': p.userId,
-            'name': p.name,
-            'roleId': p.hasRole() ? p.role.value : 0,
-          }).toList(),
+          'participants': conv.participants
+              .map((p) => {
+                    'userId': p.userId,
+                    'name': p.name,
+                    'roleId': p.hasRole() ? p.role.value : 0,
+                  })
+              .toList(),
         });
 
         final dbConversation = ConversationAdapter.fromProto(
           conv,
           currentUserId: _currentUser.userId,
         );
-        
+
         _logger.i('✅✅✅ 会话转换完成', extra: {
           'conversationId': dbConversation.conversationId,
           'participants': dbConversation.participants,
         });
-        
+
         dbConversations.add(dbConversation);
       }
 
@@ -1217,23 +1117,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 处理会话更新通知
   /// 根据服务器推送的会话更新通知更新本地会话数据
   /// [notification] - 会话更新通知数据
-  void _handleConversationPreviewUpdated(
-      conversation_proto.ConversationPreviewUpdated previewInfo) async {
+  void _handleConversationPreviewUpdated(conversation_proto.ConversationPreviewUpdated previewInfo) async {
     try {
-      _logger
-          .i('收到会话更新通知', extra: {'conversationId': previewInfo.conversationId});
+      _logger.i('收到会话更新通知', extra: {'conversationId': previewInfo.conversationId});
 
       // 更新本地会话数据 - 简化处理
       final conversation = await getConversationById(previewInfo.conversationId);
-      
+
       if (conversation != null) {
+        // 计算新的未读数量
+        final newLastMessageIndex = previewInfo.hasLastMessageIndex() ? previewInfo.lastMessageIndex : conversation.lastMessageIndex;
+        final newUnreadCount = (newLastMessageIndex - conversation.readMessageIndex).clamp(0, double.infinity).toInt();
+        
         final updatedConversation = conversation.copyWith(
+          lastMessageIndex: newLastMessageIndex,
+          lastMessagePreview: Value(previewInfo.lastMessagePreview.isNotEmpty ? previewInfo.lastMessagePreview : null),
           lastMessageName: Value(previewInfo.lastMessageName.isNotEmpty ? previewInfo.lastMessageName : null),
           lastMessageTime: previewInfo.hasLastMessageTime() && previewInfo.lastMessageTime.toInt() > 0
               ? Value(DateTime.fromMillisecondsSinceEpoch(previewInfo.lastMessageTime.toInt()))
               : const Value.absent(),
+          unreadCount: newUnreadCount,
         );
-        
+
         await _database.update(_database.conversations).replace(updatedConversation);
         _logger.d('已更新本地会话数据', extra: {
           'conversationId': previewInfo.conversationId,
@@ -1243,32 +1148,101 @@ class ChatsRepositoryImpl implements ChatsRepository {
         _notifyConversationUpdate(ConversationUpdatedEvent(
           updatedConversation: updatedConversation,
           updatedFields: [
+            'lastMessageIndex',
+            'lastMessagePreview',
             'lastMessageName',
-            'lastMessageTime'
+            'lastMessageTime',
+            'unreadCount'
           ],
           timestamp: DateTime.now(),
         ));
+
+        // 💢💢💢 新增：处理用户通知
+        await _handlePreviewUpdateNotification(previewInfo, updatedConversation);
       } else {
-        _logger.w('本地找不到对应的会话',
-            extra: {'conversationId': previewInfo.conversationId});
+        _logger.w('本地找不到对应的会话', extra: {'conversationId': previewInfo.conversationId});
       }
     } catch (error, stackTrace) {
       _logger.e('处理会话更新通知失败', error: error, stackTrace: stackTrace);
     }
   }
 
+  /// 处理会话预览更新的用户通知
+  Future<void> _handlePreviewUpdateNotification(
+    conversation_proto.ConversationPreviewUpdated previewInfo,
+    Conversation conversation,
+  ) async {
+    try {
+      _logger.i('处理会话预览更新通知', extra: {
+        'conversationId': previewInfo.conversationId,
+        'lastMessageName': previewInfo.lastMessageName,
+      });
+
+      // 获取应用状态
+      final appLifecycleService = AppLifecycleService.instance;
+      final isAppInForeground = appLifecycleService.isAppActive;
+
+      // 获取发送者信息（如果有发送者名称）
+      User? sender;
+      if (previewInfo.lastMessageName.isNotEmpty) {
+        // 尝试通过名称查找发送者
+        sender = await _getSenderByName(previewInfo.lastMessageName);
+      }
+
+      // 检查是否是自己发送的消息
+      if (sender?.userId == _currentUser.userId) {
+        _logger.d('跳过自己发送的消息通知', extra: {
+          'conversationId': previewInfo.conversationId,
+          'senderId': sender?.userId,
+          'currentUserId': _currentUser.userId,
+        });
+        return;
+      }
+
+      // 调用通知服务处理通知
+      await ConversationPreviewNotificationService.instance.handleConversationPreviewUpdated(
+        previewUpdate: previewInfo,
+        conversation: conversation,
+        sender: sender,
+        isAppInForeground: isAppInForeground,
+        isChatsPageVisible: true, // 简化处理，假设聊天列表页面可见
+        isChatPageVisible: false, // 简化处理，假设不在具体聊天页面
+        currentChatConversationId: null, // 简化处理
+      );
+
+      _logger.d('会话预览更新通知处理完成', extra: {
+        'conversationId': previewInfo.conversationId,
+        'isAppInForeground': isAppInForeground,
+        'hasSender': sender != null,
+      });
+    } catch (error, stackTrace) {
+      _logger.e('处理会话预览更新通知失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 根据名称查找发送者
+  Future<User?> _getSenderByName(String senderName) async {
+    try {
+      if (senderName.isEmpty) return null;
+
+      // 在用户表中查找匹配的用户
+      final user = await (_database.select(_database.users)..where((u) => u.name.equals(senderName))).getSingleOrNull();
+
+      return user;
+    } catch (error) {
+      _logger.e('根据名称查找发送者失败', error: error, extra: {
+        'senderName': senderName,
+      });
+      return null;
+    }
+  }
 
   /// 处理用户加入会话通知
   /// 当其他用户加入会话时接收到的通知
   /// [notification] - 用户加入通知数据
-  void _handleUserJoinedNotification(
-      conversation_proto.UserJoinedNotification notification) {
+  void _handleUserJoinedNotification(conversation_proto.UserJoinedNotification notification) {
     try {
-      _logger.i('收到用户加入会话通知', extra: {
-        'conversationId': notification.conversationId,
-        'userId': notification.userId,
-        'userName': notification.userName
-      });
+      _logger.i('收到用户加入会话通知', extra: {'conversationId': notification.conversationId, 'userId': notification.userId, 'userName': notification.userName});
 
       // TODO 更新会话参与者列表
       // 需要获取用户信息并添加到会话参与者中
@@ -1280,15 +1254,10 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 处理用户离开会话通知
   /// 当其他用户离开会话时接收到的通知
   /// [notification] - 用户离开通知数据
-  void _handleUserLeftNotification(
-      conversation_proto.UserLeftNotification notification) {
+  void _handleUserLeftNotification(conversation_proto.UserLeftNotification notification) {
     try {
-      _logger.i('收到用户离开会话通知', extra: {
-        'conversationId': notification.conversationId,
-        'userId': notification.userId,
-        'userName': notification.userName,
-        'reason': notification.reason
-      });
+      _logger
+          .i('收到用户离开会话通知', extra: {'conversationId': notification.conversationId, 'userId': notification.userId, 'userName': notification.userName, 'reason': notification.reason});
 
       // TODO 更新会话参与者列表
       // 需要从会话参与者中移除该用户
@@ -1301,8 +1270,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 监听服务器推送的会话设置变更（如静音、置顶状态）并更新本地数据库
   /// 主要用于处理来自其他设备同步的设置变更
   /// [response] - 会话设置更新响应数据
-  void _handleConversationSettingsUpdate(
-      conversation_proto.ConversationSettingsUpdateResponse response) async {
+  void _handleConversationSettingsUpdate(conversation_proto.ConversationSettingsUpdateResponse response) async {
     try {
       _logger.i('收到会话设置更新通知', extra: {
         'conversationId': response.conversationId,
@@ -1312,17 +1280,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       if (!response.success) {
-        _logger
-            .w('会话设置更新失败', extra: {'conversationId': response.conversationId});
+        _logger.w('会话设置更新失败', extra: {'conversationId': response.conversationId});
         return;
       }
 
       // 更新本地会话数据
       await _database.transaction(() async {
         // 查找本地会话
-        final conversation = await (_database.select(_database.conversations)
-            ..where((c) => c.conversationId.equals(response.conversationId)))
-            .getSingleOrNull();
+        final conversation = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(response.conversationId))).getSingleOrNull();
 
         if (conversation != null) {
           // 更新当前用户的参与者设置
@@ -1332,8 +1297,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
           );
 
           await _database.update(_database.conversations).replace(updatedConversation);
-          _logger.d('已更新本地会话设置',
-              extra: {'conversationId': response.conversationId});
+          _logger.d('已更新本地会话设置', extra: {'conversationId': response.conversationId});
 
           // 💢💢💢 新架构：发送会话设置更新事件
           final updatedFields = <String>[];
@@ -1346,8 +1310,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
             timestamp: DateTime.now(),
           ));
         } else {
-          _logger.w('本地找不到对应的会话',
-              extra: {'conversationId': response.conversationId});
+          _logger.w('本地找不到对应的会话', extra: {'conversationId': response.conversationId});
         }
       });
     } catch (error, stackTrace) {
@@ -1355,24 +1318,18 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  void _handleConversationDetailResponse(
-      conversation_proto.ConversationDetailResponse response) async {
+  void _handleConversationDetailResponse(conversation_proto.ConversationDetailResponse response) async {
     if (response.success && response.hasConversation()) {
       // 查找现有会话以保留本地字段（如lastReadTime）
-      final existing = await (_database.select(_database.conversations)
-          ..where((c) => c.conversationId.equals(response.conversation.conversationId)))
-          .getSingleOrNull();
+      final existing = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(response.conversation.conversationId))).getSingleOrNull();
 
       final conversation = ConversationAdapter.fromProto(
         response.conversation,
         currentUserId: _currentUser.userId,
       );
 
-      _logger.i('成功获取会话详情', extra: {
-        'conversationId': conversation.conversationId,
-        'conversationType': conversation.type
-      });
-      
+      _logger.i('成功获取会话详情', extra: {'conversationId': conversation.conversationId, 'conversationType': conversation.type});
+
       await _database.transaction(() async {
         if (existing != null) {
           await _database.update(_database.conversations).replace(conversation);
@@ -1386,8 +1343,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 处理参与者状态更新响应
-  void _handleParticipantStatusUpdateResponse(
-      conversation_proto.ParticipantStatusUpdateResponse response) async {
+  void _handleParticipantStatusUpdateResponse(conversation_proto.ParticipantStatusUpdateResponse response) async {
     try {
       _logger.i('收到参与者状态更新响应', extra: {
         'conversationId': response.conversationId,
@@ -1411,9 +1367,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 更新本地数据库 - 简化处理
       await _database.transaction(() async {
         // 查找本地会话
-        final conversation = await (_database.select(_database.conversations)
-            ..where((c) => c.conversationId.equals(response.conversationId)))
-            .getSingleOrNull();
+        final conversation = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(response.conversationId))).getSingleOrNull();
 
         if (conversation != null) {
           final participant = response.participant;
@@ -1426,7 +1380,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
               muted: participant.muted,
               pinned: participant.pinned,
             );
-            
+
             await _database.update(_database.conversations).replace(updatedConversation);
 
             _logger.d('已更新当前用户的参与者设置', extra: {
@@ -1444,11 +1398,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
             ));
           }
 
-          _logger.d('参与者状态更新完成',
-              extra: {'conversationId': response.conversationId});
+          _logger.d('参与者状态更新完成', extra: {'conversationId': response.conversationId});
         } else {
-          _logger.w('本地找不到对应的会话',
-              extra: {'conversationId': response.conversationId});
+          _logger.w('本地找不到对应的会话', extra: {'conversationId': response.conversationId});
         }
       });
     } catch (error, stackTrace) {
@@ -1457,8 +1409,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 处理会话信息更新响应
-  void _handleConversationInfoUpdateResponse(
-      conversation_proto.ConversationInfoUpdateResponse response) async {
+  void _handleConversationInfoUpdateResponse(conversation_proto.ConversationInfoUpdateResponse response) async {
     try {
       _logger.i('收到会话信息更新响应', extra: {
         'success': response.success,
@@ -1479,8 +1430,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 处理会话信息更新通知
-  void _handleConversationInfoUpdated(
-      conversation_proto.ConversationInfoUpdated notification) async {
+  void _handleConversationInfoUpdated(conversation_proto.ConversationInfoUpdated notification) async {
     try {
       _logger.i('收到会话信息更新通知', extra: {
         'conversationId': notification.conversationId,
@@ -1494,9 +1444,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 更新本地会话数据
       await _database.transaction(() async {
         // 查找本地会话
-        final conversation = await (_database.select(_database.conversations)
-            ..where((c) => c.conversationId.equals(notification.conversationId)))
-            .getSingleOrNull();
+        final conversation = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(notification.conversationId))).getSingleOrNull();
 
         if (conversation != null) {
           final oldName = conversation.name;
@@ -1509,15 +1457,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
             avatar: notification.avatar.isNotEmpty ? Value(notification.avatar) : const Value.absent(),
             description: notification.description.isNotEmpty ? Value(notification.description) : const Value.absent(),
           );
-          
+
           await _database.update(_database.conversations).replace(updatedConversation);
 
           // 发出会话更新事件
           _notifyConversationUpdate(ConversationUpdatedEvent(
             updatedConversation: updatedConversation,
             updatedFields: ['name', 'avatar', 'description'],
-            timestamp: DateTime.fromMillisecondsSinceEpoch(
-                notification.updatedAt.toInt()),
+            timestamp: DateTime.fromMillisecondsSinceEpoch(notification.updatedAt.toInt()),
           ));
 
           _logger.i('已更新会话信息', extra: {
@@ -1541,8 +1488,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 处理会话离开响应
-  void _handleConversationLeaveResponse(
-      conversation_proto.ConversationJoinLeaveResponse response) async {
+  void _handleConversationLeaveResponse(conversation_proto.ConversationJoinLeaveResponse response) async {
     try {
       _logger.i('收到会话离开响应', extra: {
         'conversationId': response.conversationId,
@@ -1568,8 +1514,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   /// 处理会话添加通知
   /// 当其他用户创建了新会话并邀请当前用户时收到此通知
   /// [response] - 会话创建响应，包含新会话的完整信息
-  void _handleConversationAdded(
-      conversation_proto.ConversationCreateResponse response) async {
+  void _handleConversationAdded(conversation_proto.ConversationCreateResponse response) async {
     try {
       _logger.i('收到会话添加通知', extra: {
         'success': response.success,
@@ -1593,9 +1538,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
         await _database.transaction(() async {
           // 检查会话是否已存在
-          final existing = await (_database.select(_database.conversations)
-              ..where((c) => c.conversationId.equals(conversation.conversationId)))
-              .getSingleOrNull();
+          final existing = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(conversation.conversationId))).getSingleOrNull();
 
           if (existing == null) {
             // 添加新会话
@@ -1633,9 +1576,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
     try {
       await _database.transaction(() async {
         // 查找本地会话
-        final conversation = await (_database.select(_database.conversations)
-            ..where((c) => c.conversationId.equals(conversationId)))
-            .getSingleOrNull();
+        final conversation = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(conversationId))).getSingleOrNull();
 
         if (conversation != null) {
           // 更新当前用户的最后阅读时间
@@ -1670,8 +1611,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
   /// 保存会话状态快照
   @override
-  Future<void> saveStateSnapshot(
-      ChatStateSnapshot snapshot, String conversationId) async {
+  Future<void> saveStateSnapshot(ChatStateSnapshot snapshot, String conversationId) async {
     try {
       // 💢💢💢 深拷贝消息列表以确保数据独立性
       final snapshotWithCopiedMessages = snapshot.copyWith(
@@ -1683,8 +1623,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       _logger.d('💾 保存会话状态快照', extra: {
         'conversationId': conversationId,
         'messageCount': snapshot.messages.length,
-        'currentScrollPosition':
-            snapshot.currentScrollPosition?.getListIndex(snapshot.messages),
+        'currentScrollPosition': snapshot.currentScrollPosition?.getListIndex(snapshot.messages),
       });
     } catch (error) {
       _logger.e('保存状态快照失败', error: error);
@@ -1733,10 +1672,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   Future<void> cleanupExpiredSnapshots() async {
     try {
-      final invalidKeys = _stateSnapshots.entries
-          .where((entry) => !entry.value.isValid)
-          .map((entry) => entry.key)
-          .toList();
+      final invalidKeys = _stateSnapshots.entries.where((entry) => !entry.value.isValid).map((entry) => entry.key).toList();
 
       for (final key in invalidKeys) {
         _stateSnapshots.remove(key);
@@ -1757,13 +1693,11 @@ class ChatsRepositoryImpl implements ChatsRepository {
   @override
   int get stateSnapshotCount => _stateSnapshots.length;
 
-
   /// 处理联系人更新事件，更新相关的私聊会话名称
   void _handleContactUpdatedForConversations(dynamic data) async {
     try {
       final contactId = data['contactId'] as String?;
-      final updatedFields =
-          (data['updatedFields'] as List?)?.cast<String>() ?? [];
+      final updatedFields = (data['updatedFields'] as List?)?.cast<String>() ?? [];
 
       if (contactId == null) {
         _logger.w('联系人更新事件缺少contactId');
@@ -1776,21 +1710,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       // 只有当名称相关字段更新时才处理
-      if (!updatedFields
-          .any((field) => ['nickname', 'custom_nickname'].contains(field))) {
+      if (!updatedFields.any((field) => ['nickname', 'custom_nickname'].contains(field))) {
         _logger.d('跳过非名称字段更新', extra: {'updatedFields': updatedFields});
         return;
       }
 
       // 查找所有与此联系人相关的私聊会话 - 简化处理，通过participants字段查找
-      final privateConversations = await (_database.select(_database.conversations)
-          ..where((c) => c.type.equals('PRIVATE')))
-          .get();
-          
+      final privateConversations = await (_database.select(_database.conversations)..where((c) => c.type.equals('PRIVATE'))).get();
+
       // 在内存中查找包含该联系人的私聊会话
-      final relatedConversations = privateConversations
-          .where((conv) => conv.participants.contains(contactId))
-          .toList();
+      final relatedConversations = privateConversations.where((conv) => conv.participants.contains(contactId)).toList();
 
       if (relatedConversations.isEmpty) {
         _logger.d('未找到与此联系人相关的私聊会话', extra: {'contactId': contactId});
@@ -1809,10 +1738,18 @@ class ChatsRepositoryImpl implements ChatsRepository {
         for (final conversation in relatedConversations) {
           final oldName = conversation.name;
 
-          // 💢💢💢 注意：只更新会话名称，不更新participants字段
-          // 联系人的自定义备注名称只在联系人列表中显示，不应影响会话中的成员真实昵称
+          // 💢💢💢 修复：使用正确的显示名称优先级：nickname > name > userId
+          String displayName;
+          if (updatedContact.nickname != null && updatedContact.nickname!.isNotEmpty) {
+            displayName = updatedContact.nickname!;
+          } else if (updatedContact.name.isNotEmpty) {
+            displayName = updatedContact.name;
+          } else {
+            displayName = updatedContact.userId;
+          }
+
           final updatedConversation = conversation.copyWith(
-            name: Value(updatedContact.nickName),
+            name: Value(displayName),
             avatar: updatedContact.avatar != null ? Value(updatedContact.avatar) : const Value.absent(),
           );
 
@@ -1830,7 +1767,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
             'conversationId': conversation.conversationId,
             'contactId': contactId,
             'oldName': oldName,
-            'newName': updatedConversation.name,
+            'newName': displayName,
           });
         }
       });
@@ -1866,9 +1803,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       // 💢💢💢 发送会话移除事件到ChatsPage
       final removeEvent = ConversationRemovedEvent(
         conversationId: conversationId,
-        timestamp: timestampStr != null
-            ? DateTime.tryParse(timestampStr) ?? DateTime.now()
-            : DateTime.now(),
+        timestamp: timestampStr != null ? DateTime.tryParse(timestampStr) ?? DateTime.now() : DateTime.now(),
       );
 
       _notifyConversationUpdate(removeEvent);

@@ -905,8 +905,8 @@ class ChatRepositoryImpl implements ChatRepository {
           'conversationId': conversationId,
         });
 
-        // 💢💢💢 本地也标记为删除状态
-        await _markMessageAsDeletedLocally(messageId);
+        // 💢💢💢 移除乐观更新：等待服务器响应后再更新状态
+        // 这样可以避免双重更新导致的闪烁问题
       } else {
         _logger.w('消息删除请求发送失败', extra: {
           'messageId': messageId,
@@ -1877,7 +1877,7 @@ class ChatRepositoryImpl implements ChatRepository {
             conversationId: message.conversationId,
             messageId: message.messageId,
             updatedFields: {
-              'status': 'revoked',
+              'status': 'REVOKED',  // 💢💢💢 修复：使用大写保持一致性
               'revokedAt': message.updatedAt?.toIso8601String(),
             },
           ));
@@ -1930,7 +1930,7 @@ class ChatRepositoryImpl implements ChatRepository {
             conversationId: message.conversationId,
             messageId: message.messageId,
             updatedFields: {
-              'status': 'deleted',
+              'status': 'DELETED',  // 💢💢💢 修复：使用大写保持一致性
               'deletedAt': message.updatedAt?.toIso8601String(),
             },
           ));

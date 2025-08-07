@@ -156,7 +156,7 @@ class _AddContactPageState extends State<AddContactPage> {
 
   /// 处理用户结果点击
   void _handleUserTap(UserProto user) {
-    _logger.i('点击用户结果', extra: {'userId': user.userId, 'name': user.nickName});
+    _logger.i('点击用户结果', extra: {'userId': user.userId, 'name': user.name});
 
     // 显示添加好友对话框
     _showAddFriendDialog(user);
@@ -190,7 +190,7 @@ class _AddContactPageState extends State<AddContactPage> {
               children: [
                 UserAvatar(
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
-                  name: user.nickName,
+                  name: user.name,
                   radius: 25,
                   roleId: 0 // Proto中没有roleId字段,
                 ),
@@ -200,7 +200,7 @@ class _AddContactPageState extends State<AddContactPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.nickName.isNotEmpty ? user.nickName : '未命名用户',
+                        user.name.isNotEmpty ? user.name : '未命名用户',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -286,7 +286,7 @@ class _AddContactPageState extends State<AddContactPage> {
               Navigator.of(context).pop(); // 关闭对话框
 
               // 发送好友申请
-              await _sendFriendRequest(user.userId, message, user.nickName);
+              await _sendFriendRequest(user.userId, message, user.name);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF07C160),
@@ -832,7 +832,7 @@ class _AddContactPageState extends State<AddContactPage> {
                 // 用户头像
                 UserAvatar(
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
-                  name: user.nickName,
+                  name: user.name,
                   radius: 20,
                   roleId: 0 // Proto中没有roleId字段,
                 ),
@@ -842,7 +842,7 @@ class _AddContactPageState extends State<AddContactPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.nickName.isNotEmpty ? user.nickName : '未命名用户',
+                        user.name.isNotEmpty ? user.name : '未命名用户',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,

@@ -58,7 +58,7 @@ class _NewConversationBottomSheetState
 
   /// 处理主页面联系人点击
   void _handleMainPageContactTap(User contact) {
-    _logger.i('选择联系人开始对话', extra: {'contactName': contact.nickName});
+    _logger.i('选择联系人开始对话', extra: {'contactName': contact.name});
 
     // 获取必要的Provider依赖
     final chatsRepository = context.read<ChatsRepository>();
@@ -149,7 +149,7 @@ class _NewConversationBottomSheetState
 
     _logger.i('进入群聊设置页面', extra: {
       'selectedContacts': _selectedContacts.length,
-      'contactNames': _selectedContacts.map((c) => c.nickName).toList(),
+      'contactNames': _selectedContacts.map((c) => c.name).toList(),
     });
 
     // 获取必要的Provider依赖
@@ -476,8 +476,8 @@ class _NewConversationBottomSheetState
                   radius: 12,
                   backgroundColor: AppColors.primary,
                   child: Text(
-                    contact.nickName.isNotEmpty
-                        ? contact.nickName[0].toUpperCase()
+                    contact.name.isNotEmpty
+                        ? contact.name[0].toUpperCase()
                         : 'U',
                     style: const TextStyle(
                       fontSize: 10,
@@ -487,7 +487,7 @@ class _NewConversationBottomSheetState
                   ),
                 ),
                 label: Text(
-                  contact.nickName,
+                  contact.name,
                   style: const TextStyle(fontSize: 12),
                 ),
                 deleteIcon: const Icon(Icons.close, size: 16),

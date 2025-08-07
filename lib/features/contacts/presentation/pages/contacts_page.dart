@@ -67,7 +67,7 @@ class _ContactsPageState extends State<ContactsPage>
   /// 处理联系人点击 - 进入聊天页面
   Future<void> _handleContactTap(User contact) async {
     try {
-      _logger.i('点击联系人，创建或查找会话', extra: {'contactName': contact.nickName});
+      _logger.i('点击联系人，创建或查找会话', extra: {'contactName': contact.name});
 
       // 获取必要的依赖
       final chatsRepository = context.read<ChatsRepository>();
@@ -145,7 +145,7 @@ class _ContactsPageState extends State<ContactsPage>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)
-                  .cannotOpenChatWith(contact.nickName)),
+                  .cannotOpenChatWith(contact.name)),
               backgroundColor: Colors.red,
             ),
           );

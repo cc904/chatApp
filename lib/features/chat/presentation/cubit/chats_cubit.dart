@@ -423,7 +423,7 @@ class ChatsCubit extends Cubit<ChatsState> {
 
     // 如果搜索关键词为空，则直接使用按标签过滤后的会话
     if (query.isEmpty) {
-      finalFilteredConversations = tabFilteredConversations;
+      finalFilteredConversations = List<Conversation>.from(tabFilteredConversations);
     } else {
       // 将搜索关键词转换为小写以进行大小写不敏感的搜索
       final String lowerCaseQuery = query.toLowerCase();

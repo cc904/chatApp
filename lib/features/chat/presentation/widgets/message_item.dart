@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cc/core/database/drift_database.dart';
-import 'package:cc/core/utils/display_name_utils.dart';
+import 'package:cc/core/utils/user_display_utils.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
 import 'voice_message_widget.dart';
 import 'image_message_widget.dart';
@@ -104,8 +104,7 @@ class MessageItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 4.0),
         child: Row(
-          mainAxisAlignment:
-              isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             // 他人消息或私聊中对方消息：头像在左侧
@@ -129,12 +128,7 @@ class MessageItem extends StatelessWidget {
   void _showContextMenu(BuildContext context) {
     HapticFeedback.lightImpact();
 
-    if (onLongPress == null &&
-        onRevoke == null &&
-        onDelete == null &&
-        onReply == null &&
-        onForward == null &&
-        onCopy == null) {
+    if (onLongPress == null && onRevoke == null && onDelete == null && onReply == null && onForward == null && onCopy == null) {
       return;
     }
 
@@ -181,9 +175,7 @@ class MessageItem extends StatelessWidget {
                       child: Text(
                         action.label,
                         style: TextStyle(
-                          color: action.isDestructive
-                              ? Colors.red
-                              : Colors.black87,
+                          color: action.isDestructive ? Colors.red : Colors.black87,
                           fontSize: 16,
                         ),
                       ),
@@ -192,8 +184,7 @@ class MessageItem extends StatelessWidget {
                     Icon(
                       action.icon,
                       size: 18,
-                      color:
-                          action.isDestructive ? Colors.red : Colors.grey[600],
+                      color: action.isDestructive ? Colors.red : Colors.grey[600],
                     ),
                   ],
                 ),
@@ -223,9 +214,7 @@ class MessageItem extends StatelessWidget {
       ));
     }
 
-    if (onForward != null &&
-        message.messageStatus != 'DELETED' &&
-        message.messageType != 'SYSTEM') {
+    if (onForward != null && message.messageStatus != 'DELETED' && message.messageType != 'SYSTEM') {
       actions.add(_MessageMenuAction(
         icon: Icons.forward,
         label: '转发',
@@ -245,11 +234,7 @@ class MessageItem extends StatelessWidget {
       ));
     }
 
-    if (onRevoke != null &&
-        isCurrentUser &&
-        message.messageStatus != 'REVOKED' &&
-        message.messageStatus != 'DELETED' &&
-        message.messageType != 'SYSTEM') {
+    if (onRevoke != null && isCurrentUser && message.messageStatus != 'REVOKED' && message.messageStatus != 'DELETED' && message.messageType != 'SYSTEM') {
       actions.add(_MessageMenuAction(
         icon: Icons.undo,
         label: '撤回',
@@ -258,10 +243,7 @@ class MessageItem extends StatelessWidget {
       ));
     }
 
-    if (onDelete != null &&
-        isCurrentUser &&
-        message.messageStatus != 'DELETED' &&
-        message.messageType != 'SYSTEM') {
+    if (onDelete != null && isCurrentUser && message.messageStatus != 'DELETED' && message.messageType != 'SYSTEM') {
       actions.add(_MessageMenuAction(
         icon: Icons.delete,
         label: '删除',
@@ -278,7 +260,7 @@ class MessageItem extends StatelessWidget {
       name: message.senderName ?? 'Unknown',
       avatarUrl: message.senderAvatar,
       radius: 16.0,
-      backgroundColor: DisplayNameUtils.generateUserColor(message.senderName),
+      backgroundColor: UserDisplayUtils.generateUserColor(message.senderName),
       // roleId: message.senderRoleId, // 字段已移除
     );
   }
@@ -315,8 +297,7 @@ class MessageItem extends StatelessWidget {
     }
 
     // 检查是否为媒体消息（图片或视频）
-    final isMediaMessage =
-        message.messageType == 'IMAGE' || message.messageType == 'VIDEO';
+    final isMediaMessage = message.messageType == 'IMAGE' || message.messageType == 'VIDEO';
 
     if (isMediaMessage) {
       // 媒体消息：白色背景，图片顶部和两侧边距1px，底部无圆角
@@ -340,9 +321,7 @@ class MessageItem extends StatelessWidget {
                     : const Radius.circular(18.0)
                 : const Radius.circular(18.0),
           ),
-          border: highlightBorderColor != null
-              ? Border.all(color: highlightBorderColor, width: borderWidth)
-              : null,
+          border: highlightBorderColor != null ? Border.all(color: highlightBorderColor, width: borderWidth) : null,
           boxShadow: isHighlighted
               ? [
                   BoxShadow(
@@ -362,8 +341,7 @@ class MessageItem extends StatelessWidget {
                   : null,
         ),
         child: Column(
-          crossAxisAlignment:
-              isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             // 置顶标签（如果需要）
             if (message.isPinned)
@@ -395,12 +373,8 @@ class MessageItem extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(1.0, 1.0, 1.0, 0.0),
               child: ClipRRect(
                 borderRadius: BorderRadius.only(
-                  topLeft: message.isPinned
-                      ? const Radius.circular(0.0)
-                      : const Radius.circular(17.0),
-                  topRight: message.isPinned
-                      ? const Radius.circular(0.0)
-                      : const Radius.circular(17.0),
+                  topLeft: message.isPinned ? const Radius.circular(0.0) : const Radius.circular(17.0),
+                  topRight: message.isPinned ? const Radius.circular(0.0) : const Radius.circular(17.0),
                   bottomLeft: const Radius.circular(0.0),
                   bottomRight: const Radius.circular(0.0),
                 ),
@@ -438,9 +412,7 @@ class MessageItem extends StatelessWidget {
                     : const Radius.circular(18.0)
                 : const Radius.circular(18.0),
           ),
-          border: highlightBorderColor != null
-              ? Border.all(color: highlightBorderColor, width: borderWidth)
-              : null,
+          border: highlightBorderColor != null ? Border.all(color: highlightBorderColor, width: borderWidth) : null,
           boxShadow: isHighlighted
               ? [
                   BoxShadow(
@@ -460,8 +432,7 @@ class MessageItem extends StatelessWidget {
                   : null,
         ),
         child: Column(
-          crossAxisAlignment:
-              isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             if (message.isPinned)
               const Padding(
@@ -486,9 +457,7 @@ class MessageItem extends StatelessWidget {
                   ],
                 ),
               ),
-            if (message.senderName != null &&
-                (!isNotGroupChat || isChannel) &&
-                !isCurrentUser)
+            if (message.senderName != null && (!isNotGroupChat || isChannel) && !isCurrentUser)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Text(
@@ -496,14 +465,12 @@ class MessageItem extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.0,
                     fontWeight: FontWeight.bold,
-                    color:
-                        DisplayNameUtils.generateUserColor(message.senderName),
+                    color: UserDisplayUtils.generateUserColor(message.senderName),
                   ),
                 ),
               ),
             // 显示回复的消息
-            if (message.quotedMessageId != null)
-              _buildQuotedMessage(context),
+            if (message.quotedMessageId != null) _buildQuotedMessage(context),
             _buildMessageContent(context),
             const SizedBox(height: 2.0),
             _buildTimeAndStatusRow(),
@@ -542,14 +509,11 @@ class MessageItem extends StatelessWidget {
       case 'TEXT':
         return _buildTextContent(context);
       case 'IMAGE':
-        return ImageMessageWidget(
-            message: message, isCurrentUser: isCurrentUser);
+        return ImageMessageWidget(message: message, isCurrentUser: isCurrentUser);
       case 'VIDEO':
-        return VideoMessageWidget(
-            message: message, isCurrentUser: isCurrentUser);
+        return VideoMessageWidget(message: message, isCurrentUser: isCurrentUser);
       case 'VOICE':
-        return VoiceMessageWidget(
-            message: message, isCurrentUser: isCurrentUser);
+        return VoiceMessageWidget(message: message, isCurrentUser: isCurrentUser);
       case 'FILE':
         return _buildFileContent(context);
       default:
@@ -617,16 +581,7 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildTimeAndStatusRow() {
-    // 🔥🔥🔥 添加明显日志：构建时间状态行
-    print('🔥🔥🔥 [DEBUG] 🏗️ 构建时间状态行');
-    print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
-    print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
-    print('🔥🔥🔥 [DEBUG] 是否当前用户: $isCurrentUser');
-
     final timeText = _formatMessageTimeSync(message.createdAt);
-    
-    // 🔥🔥🔥 添加明显日志：时间文本
-    print('🔥🔥🔥 [DEBUG] 最终显示时间: $timeText');
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -649,19 +604,7 @@ class MessageItem extends StatelessWidget {
   }
 
   Widget _buildMessageStatusIcon() {
-    // 🔥🔥🔥 添加明显日志：构建消息状态图标
-    print('🔥🔥🔥 [DEBUG] 🎯 构建消息状态图标');
-    print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
-    print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
-    print('🔥🔥🔥 [DEBUG] displayStatus: $displayStatus');
-
     if (displayStatus != null) {
-      // 🔥🔥🔥 添加明显日志：使用displayStatus
-      print('🔥🔥🔥 [DEBUG] 使用displayStatus');
-      print('🔥🔥🔥 [DEBUG] displayStatus.messageStatus: ${displayStatus!.messageStatus}');
-      print('🔥🔥🔥 [DEBUG] displayStatus.isDelivered: ${displayStatus!.isDelivered}');
-      print('🔥🔥🔥 [DEBUG] displayStatus.isRead: ${displayStatus!.isRead}');
-
       return _buildStatusIcon(
         displayStatus!.messageStatus,
         displayStatus!.isDelivered,
@@ -669,48 +612,28 @@ class MessageItem extends StatelessWidget {
       );
     }
 
-    // 🔥🔥🔥 添加明显日志：使用message状态
-    print('🔥🔥🔥 [DEBUG] 使用message状态');
-    print('🔥🔥🔥 [DEBUG] message.messageStatus: ${message.messageStatus}');
-
     return _buildStatusIcon(message.messageStatus, false, false);
   }
 
   Widget _buildStatusIcon(String status, bool isDelivered, bool isRead) {
-    // 🔥🔥🔥 添加明显日志：状态图标选择
-    print('🔥🔥🔥 [DEBUG] 🎯 选择状态图标');
-    print('🔥🔥🔥 [DEBUG] 状态值: "$status"');
-    print('🔥🔥🔥 [DEBUG] 是否已送达: $isDelivered');
-    print('🔥🔥🔥 [DEBUG] 是否已读: $isRead');
-
     switch (status) {
       case 'SENDING':
-        print('🔥🔥🔥 [DEBUG] 返回：小时钟图标 (SENDING)');
         return Icon(Icons.schedule, size: 14.0, color: Colors.grey[600]);
       case 'SENT':
         if (isRead) {
-          print('🔥🔥🔥 [DEBUG] 返回：蓝色双勾图标 (SENT + 已读)');
-          return const Icon(Icons.done_all,
-              size: 14.0, color: AppColors.primary);
+          return const Icon(Icons.done_all, size: 14.0, color: AppColors.primary);
         } else if (isDelivered) {
-          print('🔥🔥🔥 [DEBUG] 返回：灰色双勾图标 (SENT + 已送达)');
           return Icon(Icons.done_all, size: 14.0, color: Colors.grey[600]);
         } else {
-          print('🔥🔥🔥 [DEBUG] 返回：灰色单勾图标 (SENT)');
           return Icon(Icons.done, size: 14.0, color: Colors.grey[600]);
         }
       case 'FAILED':
-        print('🔥🔥🔥 [DEBUG] 返回：红色错误图标 (FAILED)');
         return const Icon(Icons.error_outline, size: 14.0, color: Colors.red);
       case 'DELETED':
-        print('🔥🔥🔥 [DEBUG] 返回：橙色删除图标 (DELETED)');
-        return const Icon(Icons.delete_outline,
-            size: 14.0, color: Colors.orange);
+        return const Icon(Icons.delete_outline, size: 14.0, color: Colors.orange);
       case 'REVOKED':
-        print('🔥🔥🔥 [DEBUG] 返回：橙色撤回图标 (REVOKED)');
         return const Icon(Icons.undo, size: 14.0, color: Colors.orange);
       default:
-        print('🔥🔥🔥 [DEBUG] ⚠️ 未知状态，返回空组件: "$status"');
         return const SizedBox.shrink();
     }
   }
@@ -719,19 +642,19 @@ class MessageItem extends StatelessWidget {
   Widget _buildQuotedMessage(BuildContext context) {
     final quotedSenderName = _getQuotedMessageSenderName();
     final quotedPreview = _getQuotedMessagePreview();
-    
+
     // 计算自适应宽度，基于内容长度和屏幕宽度
     final screenWidth = MediaQuery.of(context).size.width;
     final maxWidth = screenWidth * 0.7; // 最大宽度为屏幕宽度的70%
     final minWidth = screenWidth * 0.3; // 最小宽度为屏幕宽度的30%
-    
+
     // 根据内容长度估算宽度
     final contentLength = quotedSenderName.length + quotedPreview.length;
     double estimatedWidth = (contentLength * 8.0) + 60.0; // 每个字符约8像素 + 内边距
-    
+
     // 限制在最小和最大宽度之间
     estimatedWidth = estimatedWidth.clamp(minWidth, maxWidth);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 6.0),
       child: IntrinsicWidth(
@@ -801,13 +724,13 @@ class MessageItem extends StatelessWidget {
     if (message.quotedMessageId == null || getQuotedMessage == null) {
       return '未知用户';
     }
-    
+
     try {
       final quotedMessage = getQuotedMessage!(message.quotedMessageId!);
       if (quotedMessage == null) {
         return '未知用户';
       }
-      
+
       return quotedMessage.senderName ?? '未知用户';
     } catch (e) {
       return '未知用户';
@@ -819,13 +742,13 @@ class MessageItem extends StatelessWidget {
     if (message.quotedMessageId == null || getQuotedMessage == null) {
       return '原始消息内容...';
     }
-    
+
     try {
       final quotedMessage = getQuotedMessage!(message.quotedMessageId!);
       if (quotedMessage == null) {
         return '消息已删除或不存在';
       }
-      
+
       // 根据消息类型返回不同的预览文本
       switch (quotedMessage.messageType) {
         case 'TEXT':
@@ -855,20 +778,14 @@ class MessageItem extends StatelessWidget {
   /// 同步时间格式化方法，避免FutureBuilder导致的布局跳变
   String _formatMessageTimeSync(DateTime timestamp) {
     try {
-      // 🔥🔥🔥 添加明显日志：时间格式化
-      print('🔥🔥🔥 [DEBUG] 🕐 格式化消息时间');
-      print('🔥🔥🔥 [DEBUG] 消息ID: ${message.messageId}');
-      print('🔥🔥🔥 [DEBUG] 消息状态: ${message.messageStatus}');
-      print('🔥🔥🔥 [DEBUG] 原始时间戳: $timestamp');
-
       // 使用简单的本地时间格式化，避免异步操作
       final now = DateTime.now();
       final localTime = timestamp.toLocal();
-      
+
       final today = DateTime(now.year, now.month, now.day);
       final yesterday = today.subtract(const Duration(days: 1));
       final messageDate = DateTime(localTime.year, localTime.month, localTime.day);
-      
+
       String formattedTime;
       if (messageDate == today) {
         // 今天：只显示时间
@@ -889,26 +806,15 @@ class MessageItem extends StatelessWidget {
         formattedTime = '${localTime.year}年${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
       }
 
-      // 🔥🔥🔥 添加明显日志：格式化结果
-      print('🔥🔥🔥 [DEBUG] 格式化结果: $formattedTime');
-      
       return formattedTime;
     } catch (e) {
-      // 🔥🔥🔥 添加明显日志：格式化异常
-      print('🔥🔥🔥 [DEBUG] ❌ 时间格式化异常: $e');
-      print('🔥🔥🔥 [DEBUG] 使用简单格式');
-
       // 格式化失败时返回简单格式
       final localTime = timestamp.toLocal();
       final simpleFormat = '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
-      
-      // 🔥🔥🔥 添加明显日志：简单格式结果
-      print('🔥🔥🔥 [DEBUG] 简单格式结果: $simpleFormat');
-      
+
       return simpleFormat;
     }
   }
-
 }
 
 class _MessageMenuAction {

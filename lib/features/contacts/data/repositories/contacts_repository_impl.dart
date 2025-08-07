@@ -6,6 +6,7 @@ import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/proto/generated/contacts.pb.dart';
+import 'package:cc/core/adapters/user_adapter.dart';
 
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 
@@ -23,15 +24,12 @@ class ContactsRepositoryImpl implements ContactsRepository {
   final List<StreamSubscription> _subscriptions = [];
 
   // 同步状态流
-  final _syncContactsStatusController =
-      StreamController<ContactsSyncStatus>.broadcast();
+  final _syncContactsStatusController = StreamController<ContactsSyncStatus>.broadcast();
   @override
-  Stream<ContactsSyncStatus> get syncStatusStream =>
-      _syncContactsStatusController.stream;
+  Stream<ContactsSyncStatus> get syncStatusStream => _syncContactsStatusController.stream;
 
   // 构造函数
-  ContactsRepositoryImpl({required CurrentUser currentUser})
-      : _currentUser = currentUser {
+  ContactsRepositoryImpl({required CurrentUser currentUser}) : _currentUser = currentUser {
     _logger.x('ContactsRepositoryImpl 初始化');
     _initializeEventHandlers();
   }
@@ -42,30 +40,22 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
     // 监听发送好友请求响应
     _subscriptions.add(
-      _communicationService
-          .onProto<FriendRequestProto>('friend:request:send:response')
-          .listen(_handleFriendRequestSendResponse),
+      _communicationService.onProto<FriendRequestProto>('friend:request:send:response').listen(_handleFriendRequestSendResponse),
     );
 
     // 监听处理好友请求响应
     _subscriptions.add(
-      _communicationService
-          .onProto<FriendRequestProto>('friend:request:process:response')
-          .listen(_handleFriendRequestProcessResponse),
+      _communicationService.onProto<FriendRequestProto>('friend:request:process:response').listen(_handleFriendRequestProcessResponse),
     );
 
     // 监听收到好友请求通知
     _subscriptions.add(
-      _communicationService
-          .onProto<FriendRequestProto>('friend:request:received')
-          .listen(_handleFriendRequestReceived),
+      _communicationService.onProto<FriendRequestProto>('friend:request:received').listen(_handleFriendRequestReceived),
     );
 
     // 监听好友请求处理结果通知
     _subscriptions.add(
-      _communicationService
-          .onProto<FriendRequestProto>('friend:request:processed')
-          .listen(_handleFriendRequestProcessed),
+      _communicationService.onProto<FriendRequestProto>('friend:request:processed').listen(_handleFriendRequestProcessed),
     );
   }
 
@@ -95,26 +85,24 @@ class ContactsRepositoryImpl implements ContactsRepository {
       // 将 UserProto 转换为 User 对象并保存到数据库
       for (final userProto in data.users) {
         _logger.i('🔥🔥🔥 联系人同步事件处理', extra: {
-          'userName': userProto.nickName,
+          'userName': userProto.name,
           'userId': userProto.userId,
           'roleId': 0, // Proto中没有roleId字段
           'hasRoleId': false, // Proto中没有roleId字段
         });
-        
+
         await _db.into(_db.users).insertOnConflictUpdate(UsersCompanion.insert(
-          userId: userProto.userId,
-          nickName: userProto.nickName,
-          avatar: Value(userProto.avatar.isEmpty ? null : userProto.avatar),
-          phone: Value(userProto.phone.isEmpty ? null : userProto.phone),
-          email: Value(userProto.email.isEmpty ? null : userProto.email),
-          pinyin: Value(userProto.pinyin.isEmpty ? null : userProto.pinyin),
-          lastActiveTime: Value(userProto.hasLastActiveTime() 
-              ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
-              : null),
-          status: Value(userProto.status.isEmpty ? null : userProto.status),
-          roleId: const Value(0), // Proto中没有roleId字段
-          isFriend: const Value(true),
-        ));
+              userId: userProto.userId,
+              name: userProto.name,
+              avatar: Value(userProto.avatar.isEmpty ? null : userProto.avatar),
+              phone: Value(userProto.phone.isEmpty ? null : userProto.phone),
+              email: Value(userProto.email.isEmpty ? null : userProto.email),
+              pinyin: Value(userProto.pinyin.isEmpty ? null : userProto.pinyin),
+              lastActiveTime: Value(userProto.hasLastActiveTime() ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt()) : null),
+              status: Value(userProto.status.isEmpty ? null : userProto.status),
+              roleId: const Value(0), // Proto中没有roleId字段
+              isFriend: const Value(true),
+            ));
       }
 
       // 通知同步成功
@@ -130,8 +118,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   /// 处理联系人同步结果事件 - 使用 Protocol Buffer 类型
   void _handleContactsSyncResultProto(SyncContactsResponse response) async {
     try {
-      _logger
-          .i('收到联系人同步结果事件', extra: {'contactsCount': response.contacts.length});
+      _logger.i('收到联系人同步结果事件', extra: {'contactsCount': response.contacts.length});
 
       if (response.contacts.isEmpty) {
         _logger.i('联系人列表为空，这可能是新用户或同步过程中的正常状态');
@@ -143,49 +130,27 @@ class ContactsRepositoryImpl implements ContactsRepository {
       // 将 UserProto 转换为 User 对象并保存到数据库
       for (final userProto in response.contacts) {
         _logger.i('🚀🚀🚀 联系人同步结果处理', extra: {
-          'userName': userProto.nickName,
+          'userName': userProto.name,
           'userId': userProto.userId,
           'roleId': 0, // Proto中没有roleId字段
           'hasRoleId': false, // Proto中没有roleId字段
         });
+
         // 检查是否已存在相同userId的联系人
-        final existingUser = await (_db.select(_db.users)
-              ..where((tbl) => tbl.userId.equals(userProto.userId)))
-            .getSingleOrNull();
-            
+        final existingUser = await (_db.select(_db.users)..where((tbl) => tbl.userId.equals(userProto.userId))).getSingleOrNull();
+
+        // 使用专门的联系人转换方法，统一处理所有字段
+        final user = UserAdapter.fromUserProtoForContact(
+          userProto,
+          existingNickname: existingUser?.nickname,
+        );
+
         if (existingUser != null) {
-          // 更新现有联系人信息
-          await (_db.update(_db.users)
-                ..where((tbl) => tbl.userId.equals(userProto.userId)))
-              .write(UsersCompanion(
-            nickName: Value(userProto.nickName),
-            avatar: Value(userProto.avatar.isEmpty ? null : userProto.avatar),
-            phone: Value(userProto.phone.isEmpty ? null : userProto.phone),
-            email: Value(userProto.email.isEmpty ? null : userProto.email),
-            pinyin: Value(userProto.pinyin.isEmpty ? null : userProto.pinyin),
-            lastActiveTime: Value(userProto.hasLastActiveTime() 
-                ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
-                : null),
-            status: Value(userProto.status.isEmpty ? null : userProto.status),
-            roleId: const Value(0), // Proto中没有roleId字段
-            isFriend: const Value(true),
-          ));
+          // 更新现有联系人信息 - 使用统一的本地模型
+          await (_db.update(_db.users)..where((tbl) => tbl.userId.equals(userProto.userId))).write(UserAdapter.toUsersCompanion(user));
         } else {
-          // 添加新联系人
-          await _db.into(_db.users).insert(UsersCompanion.insert(
-            userId: userProto.userId,
-            nickName: userProto.nickName,
-            avatar: Value(userProto.avatar.isEmpty ? null : userProto.avatar),
-            phone: Value(userProto.phone.isEmpty ? null : userProto.phone),
-            email: Value(userProto.email.isEmpty ? null : userProto.email),
-            pinyin: Value(userProto.pinyin.isEmpty ? null : userProto.pinyin),
-            lastActiveTime: Value(userProto.hasLastActiveTime() 
-                ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt())
-                : null),
-            status: Value(userProto.status.isEmpty ? null : userProto.status),
-            roleId: const Value(0), // Proto中没有roleId字段
-            isFriend: const Value(true),
-          ));
+          // 添加新联系人 - 使用统一的本地模型
+          await _db.into(_db.users).insert(UserAdapter.toUsersCompanion(user));
         }
       }
 
@@ -205,13 +170,9 @@ class ContactsRepositoryImpl implements ContactsRepository {
   /// [isOnline] - 是否在线
   Future<void> _updateUserOnlineStatus(String userId, bool isOnline) async {
     try {
-      final user = await (_db.select(_db.users)
-            ..where((tbl) => tbl.userId.equals(userId)))
-          .getSingleOrNull();
+      final user = await (_db.select(_db.users)..where((tbl) => tbl.userId.equals(userId))).getSingleOrNull();
       if (user != null) {
-        await (_db.update(_db.users)
-              ..where((tbl) => tbl.userId.equals(userId)))
-            .write(UsersCompanion(
+        await (_db.update(_db.users)..where((tbl) => tbl.userId.equals(userId))).write(UsersCompanion(
           status: Value(isOnline ? 'online' : 'offline'),
           lastActiveTime: Value(DateTime.now()),
         ));
@@ -231,23 +192,22 @@ class ContactsRepositoryImpl implements ContactsRepository {
     try {
       // 返回本地数据库中的联系人列表
       final users = await (_db.select(_db.users)..where((tbl) => tbl.isFriend.equals(true))).get();
-      
+
       // 🔥🔥🔥 详细的数据库查询结果日志
       for (final user in users) {
         _logger.i('🗃️🗃️🗃️ 数据库中的联系人', extra: {
-          'userName': user.nickName,
+          'userName': user.name,
           'userId': user.userId,
           'roleId': user.roleId,
           'isFriend': user.isFriend,
           'avatar': user.avatar,
         });
       }
-      
+
       _logger.i('从本地数据库中获取 - ${users.length} 个联系人');
       return users;
     } catch (error) {
-      _logger.e('从本地数据库中获取联系人列表失败',
-          error: error, stackTrace: StackTrace.current);
+      _logger.e('从本地数据库中获取联系人列表失败', error: error, stackTrace: StackTrace.current);
       return [];
     }
   }
@@ -260,12 +220,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
     if (query.isEmpty) return [];
 
     try {
-      final users = await (_db.select(_db.users)
-            ..where((tbl) => 
-                tbl.isFriend.equals(true) & 
-                (tbl.nickName.contains(query) | 
-                 tbl.pinyin.contains(query))))
-          .get();
+      final users = await (_db.select(_db.users)..where((tbl) => tbl.isFriend.equals(true) & (tbl.name.contains(query) | tbl.pinyin.contains(query)))).get();
       return users;
     } catch (error) {
       _logger.e('搜索联系人失败', error: error, stackTrace: StackTrace.current);
@@ -280,9 +235,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<User?> getContactById(String userId) async {
     try {
       // 使用userId字段查询
-      return await (_db.select(_db.users)
-            ..where((tbl) => tbl.userId.equals(userId)))
-          .getSingleOrNull();
+      return await (_db.select(_db.users)..where((tbl) => tbl.userId.equals(userId))).getSingleOrNull();
     } catch (error) {
       _logger.e('获取联系人详情失败', error: error, stackTrace: StackTrace.current);
       return null;
@@ -296,17 +249,17 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<bool> addContact(User contact) async {
     try {
       await _db.into(_db.users).insertOnConflictUpdate(UsersCompanion.insert(
-        userId: contact.userId,
-        nickName: contact.nickName,
-        avatar: Value(contact.avatar),
-        phone: Value(contact.phone),
-        email: Value(contact.email),
-        pinyin: Value(contact.pinyin),
-        lastActiveTime: Value(contact.lastActiveTime),
-        status: Value(contact.status),
-        roleId: Value(contact.roleId),
-        isFriend: const Value(true),
-      ));
+            userId: contact.userId,
+            name: contact.name,
+            avatar: Value(contact.avatar),
+            phone: Value(contact.phone),
+            email: Value(contact.email),
+            pinyin: Value(contact.pinyin),
+            lastActiveTime: Value(contact.lastActiveTime),
+            status: Value(contact.status),
+            roleId: Value(contact.roleId),
+            isFriend: const Value(true),
+          ));
       return true;
     } catch (error) {
       _logger.e('添加联系人失败', error: error, stackTrace: StackTrace.current);
@@ -320,10 +273,8 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> updateContact(User contact) async {
     try {
-      await (_db.update(_db.users)
-            ..where((tbl) => tbl.userId.equals(contact.userId)))
-          .write(UsersCompanion(
-        nickName: Value(contact.nickName),
+      await (_db.update(_db.users)..where((tbl) => tbl.userId.equals(contact.userId))).write(UsersCompanion(
+        name: Value(contact.name),
         avatar: Value(contact.avatar),
         phone: Value(contact.phone),
         email: Value(contact.email),
@@ -345,9 +296,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> deleteContact(String userId) async {
     try {
-      final rowsAffected = await (_db.delete(_db.users)
-            ..where((tbl) => tbl.userId.equals(userId)))
-          .go();
+      final rowsAffected = await (_db.delete(_db.users)..where((tbl) => tbl.userId.equals(userId))).go();
       return rowsAffected > 0;
     } catch (error) {
       _logger.e('删除联系人失败', error: error, stackTrace: StackTrace.current);
@@ -407,8 +356,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
         bool isSyncComplete = false;
 
         // 添加一个临时监听器来检测同步状态变化
-        final syncSubscription =
-            _syncContactsStatusController.stream.listen((status) {
+        final syncSubscription = _syncContactsStatusController.stream.listen((status) {
           if (status != ContactsSyncStatus.syncing) {
             isSyncComplete = true;
           }
@@ -459,11 +407,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   @override
   Future<bool> sendFriendRequest(String targetUserId, String message) async {
     try {
-      _logger.i('发送好友请求', extra: {
-        'event': 'friend:request:send',
-        'targetUserId': targetUserId,
-        'message': message
-      });
+      _logger.i('发送好友请求', extra: {'event': 'friend:request:send', 'targetUserId': targetUserId, 'message': message});
 
       // 检查目标用户是否已经是好友
       final existingContact = await getContactById(targetUserId);
@@ -476,16 +420,16 @@ class ContactsRepositoryImpl implements ContactsRepository {
 
       // 创建好友请求
       final requestId = 'req_${DateTime.now().millisecondsSinceEpoch}';
-      
+
       // 保存到数据库
       await _db.into(_db.friendRequests).insert(FriendRequestsCompanion.insert(
-        requestId: requestId,
-        senderId: _currentUser.userId,
-        receiverId: targetUserId,
-        message: Value(message.isEmpty ? null : message),
-        status: 'PENDING',
-        sentAt: DateTime.now(),
-      ));
+            requestId: requestId,
+            senderId: _currentUser.userId,
+            receiverId: targetUserId,
+            message: Value(message.isEmpty ? null : message),
+            status: 'PENDING',
+            sentAt: DateTime.now(),
+          ));
 
       // 发送请求到服务器
       if (_communicationService.isInitialized) {
@@ -494,8 +438,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..receiverId = targetUserId
           ..message = message;
 
-        await _communicationService.emitProto(
-            'friend:request:send', protoRequest);
+        await _communicationService.emitProto('friend:request:send', protoRequest);
       }
 
       _logger.i('发送好友请求成功', extra: {
@@ -527,9 +470,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 查询请求
-      final request = await (_db.select(_db.friendRequests)
-            ..where((tbl) => tbl.requestId.equals(requestId)))
-          .getSingleOrNull();
+      final request = await (_db.select(_db.friendRequests)..where((tbl) => tbl.requestId.equals(requestId))).getSingleOrNull();
 
       if (request == null) {
         throw '未找到好友请求';
@@ -540,31 +481,25 @@ class ContactsRepositoryImpl implements ContactsRepository {
       }
 
       // 更新请求状态
-      await (_db.update(_db.friendRequests)
-            ..where((tbl) => tbl.requestId.equals(requestId)))
-          .write(FriendRequestsCompanion(
+      await (_db.update(_db.friendRequests)..where((tbl) => tbl.requestId.equals(requestId))).write(FriendRequestsCompanion(
         status: const Value('ACCEPTED'),
         processedAt: Value(DateTime.now()),
       ));
 
       // 查询发送者信息
-      User? sender = await (_db.select(_db.users)
-            ..where((tbl) => tbl.userId.equals(request.senderId)))
-          .getSingleOrNull();
+      User? sender = await (_db.select(_db.users)..where((tbl) => tbl.userId.equals(request.senderId))).getSingleOrNull();
 
       // 如果发送者不在联系人列表中,则创建
       if (sender == null) {
         await _db.into(_db.users).insert(UsersCompanion.insert(
-          userId: request.senderId,
-          nickName: request.senderId, // 使用userId作为默认名称
-          roleId: const Value(0), // 默认角色ID
-          isFriend: const Value(true),
-        ));
+              userId: request.senderId,
+              name: request.senderId, // 使用userId作为默认名称
+              roleId: const Value(0), // 默认角色ID
+              isFriend: const Value(true),
+            ));
       } else {
         // 更新为朋友状态
-        await (_db.update(_db.users)
-              ..where((tbl) => tbl.userId.equals(request.senderId)))
-            .write(const UsersCompanion(
+        await (_db.update(_db.users)..where((tbl) => tbl.userId.equals(request.senderId))).write(const UsersCompanion(
           isFriend: Value(true),
         ));
       }
@@ -575,8 +510,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
           ..requestId = requestId
           ..status = FriendRequestStatus.ACCEPTED;
 
-        await _communicationService.emitProto(
-            'friend:request:process', protoRequest);
+        await _communicationService.emitProto('friend:request:process', protoRequest);
       }
 
       _logger.i('接受好友请求成功', extra: {
@@ -608,9 +542,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       });
 
       // 查询请求
-      final request = await (_db.select(_db.friendRequests)
-            ..where((tbl) => tbl.requestId.equals(requestId)))
-          .getSingleOrNull();
+      final request = await (_db.select(_db.friendRequests)..where((tbl) => tbl.requestId.equals(requestId))).getSingleOrNull();
 
       if (request == null) {
         throw '未找到好友请求';
@@ -621,9 +553,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       }
 
       // 更新请求状态
-      await (_db.update(_db.friendRequests)
-            ..where((tbl) => tbl.requestId.equals(requestId)))
-          .write(FriendRequestsCompanion(
+      await (_db.update(_db.friendRequests)..where((tbl) => tbl.requestId.equals(requestId))).write(FriendRequestsCompanion(
         status: const Value('REJECTED'),
         processedAt: Value(DateTime.now()),
       ));
@@ -659,11 +589,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<List<FriendRequest>> getAllFriendRequests() async {
     try {
       // 查询好友请求
-      final requests = await (_db.select(_db.friendRequests)
-            ..where((tbl) => 
-                tbl.receiverId.equals(_currentUser.userId) | 
-                tbl.senderId.equals(_currentUser.userId)))
-          .get();
+      final requests = await (_db.select(_db.friendRequests)..where((tbl) => tbl.receiverId.equals(_currentUser.userId) | tbl.senderId.equals(_currentUser.userId))).get();
 
       _logger.i('获取所有好友请求成功 - ${requests.length} 个请求');
       return requests;
@@ -726,19 +652,13 @@ class ContactsRepositoryImpl implements ContactsRepository {
   /// 更新本地好友请求状态
   Future<void> _updateLocalFriendRequest(FriendRequestProto response) async {
     try {
-      final request = await (_db.select(_db.friendRequests)
-            ..where((tbl) => tbl.requestId.equals(response.requestId)))
-          .getSingleOrNull();
+      final request = await (_db.select(_db.friendRequests)..where((tbl) => tbl.requestId.equals(response.requestId))).getSingleOrNull();
 
       if (request != null) {
-        await (_db.update(_db.friendRequests)
-              ..where((tbl) => tbl.requestId.equals(response.requestId)))
-            .write(FriendRequestsCompanion(
+        await (_db.update(_db.friendRequests)..where((tbl) => tbl.requestId.equals(response.requestId))).write(FriendRequestsCompanion(
           status: Value(_convertProtoStatus(response.status)),
           processedAt: Value(DateTime.fromMillisecondsSinceEpoch(
-            response.hasProcessedAt()
-                ? response.processedAt.toInt()
-                : DateTime.now().millisecondsSinceEpoch,
+            response.hasProcessedAt() ? response.processedAt.toInt() : DateTime.now().millisecondsSinceEpoch,
           )),
         ));
         _logger.d('本地好友请求状态已更新', extra: {'requestId': response.requestId});
@@ -752,21 +672,16 @@ class ContactsRepositoryImpl implements ContactsRepository {
   Future<void> _saveIncomingFriendRequest(FriendRequestProto request) async {
     try {
       await _db.into(_db.friendRequests).insertOnConflictUpdate(FriendRequestsCompanion.insert(
-        requestId: request.requestId,
-        senderId: request.senderId,
-        receiverId: _currentUser.userId,
-        message: Value(request.hasMessage() ? request.message : null),
-        status: _convertProtoStatus(request.status),
-        sentAt: DateTime.fromMillisecondsSinceEpoch(
-          request.hasSentAt()
-              ? request.sentAt.toInt()
-              : DateTime.now().millisecondsSinceEpoch,
-        ),
-        processedAt: Value(request.hasProcessedAt() &&
-                request.processedAt.toInt() > 0
-            ? DateTime.fromMillisecondsSinceEpoch(request.processedAt.toInt())
-            : null),
-      ));
+            requestId: request.requestId,
+            senderId: request.senderId,
+            receiverId: _currentUser.userId,
+            message: Value(request.hasMessage() ? request.message : null),
+            status: _convertProtoStatus(request.status),
+            sentAt: DateTime.fromMillisecondsSinceEpoch(
+              request.hasSentAt() ? request.sentAt.toInt() : DateTime.now().millisecondsSinceEpoch,
+            ),
+            processedAt: Value(request.hasProcessedAt() && request.processedAt.toInt() > 0 ? DateTime.fromMillisecondsSinceEpoch(request.processedAt.toInt()) : null),
+          ));
 
       _logger.i('收到的好友请求已保存', extra: {'requestId': request.requestId});
     } catch (error) {
@@ -775,8 +690,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
   }
 
   /// 从被接受的请求中添加联系人
-  Future<void> _addContactFromAcceptedRequest(
-      FriendRequestProto response) async {
+  Future<void> _addContactFromAcceptedRequest(FriendRequestProto response) async {
     try {
       // 这里需要根据response中的信息添加联系人
       // 由于FriendRequestProto可能不包含完整的用户信息，

@@ -63,8 +63,22 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
     );
   }
 
+  /// 获取联系人显示名称
+  /// 优先级：nickname > name
+  String _getContactDisplayName() {
+    // 1. 优先使用自定义联系人昵称
+    if (widget.contact.nickname != null && widget.contact.nickname!.isNotEmpty) {
+      return widget.contact.nickname!;
+    }
+
+    // 2. 使用用户昵称
+    return widget.contact.name;
+  }
+
   /// 构建联系人基本信息卡片
   Widget _buildContactInfoCard() {
+    final displayName = _getContactDisplayName();
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -74,7 +88,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
           // 头像
           UserAvatar(
             avatarUrl: widget.contact.avatar,
-            name: widget.contact.nickName,
+            name: displayName,
             radius: 40,
             roleId: widget.contact.roleId,
           ),
@@ -85,7 +99,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.contact.nickName,
+                  displayName,
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -112,13 +126,11 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                     ),
                     const SizedBox(width: 10),
                     IconButton(
-                      icon:
-                          const Icon(Icons.copy, size: 16, color: Colors.grey),
+                      icon: const Icon(Icons.copy, size: 16, color: Colors.grey),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
-                        Clipboard.setData(
-                            ClipboardData(text: widget.contact.userId));
+                        Clipboard.setData(ClipboardData(text: widget.contact.userId));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('ID已复制到剪贴板'),
@@ -288,7 +300,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
 
   /// 打开聊天页面
   void _openChatPage() async {
-    _logger.i('打开与${widget.contact.nickName}的聊天');
+    _logger.i('打开与${widget.contact.name}的聊天');
 
     // final homeCubit = context.read<HomeCubit>();
     // final conversationId =
@@ -316,7 +328,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
     // TODO 实现通话功能
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-                          content: Text('功能暂未开放'),
+        content: Text('功能暂未开放'),
       ),
     );
   }
@@ -384,7 +396,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('删除联系人'),
-          content: Text('确定要删除联系人 ${widget.contact.nickName} 吗？'),
+          content: Text('确定要删除联系人 ${widget.contact.name} 吗？'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -394,7 +406,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
               onPressed: () {
                 Navigator.pop(context);
                 // TODO 实现删除联系人功能
-                _logger.i('删除联系人: ${widget.contact.nickName}');
+                _logger.i('删除联系人: ${widget.contact.name}');
                 Navigator.pop(context); // 返回上一页
               },
               child: const Text('删除', style: TextStyle(color: Colors.red)),

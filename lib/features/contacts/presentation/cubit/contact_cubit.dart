@@ -7,6 +7,7 @@ import 'package:cc/core/proto/generated/contacts.pb.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
+import 'package:cc/core/utils/user_display_utils.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
@@ -20,14 +21,14 @@ class ContactCubit extends Cubit<ContactState> {
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
-  
+
   // 实例计数器，用于调试多实例问题
   static int _instanceCount = 0;
   final int _instanceId;
 
   /// 是否允许网络重连时自动同步
   bool _allowNetworkReconnectSync = true;
-  
+
   /// 同步请求防重复标志
   bool _isSyncing = false;
 
@@ -55,8 +56,7 @@ class ContactCubit extends Cubit<ContactState> {
   void _setupLocalDataSubscriptions() {
     try {
       // 监听联系人同步状态
-      _subscriptions['syncStatus'] =
-          _contactsRepository.syncStatusStream.listen(
+      _subscriptions['syncStatus'] = _contactsRepository.syncStatusStream.listen(
         (status) {
           _logger.i('联系人同步状态更新', extra: {'status': status.toString()});
 
@@ -121,13 +121,12 @@ class ContactCubit extends Cubit<ContactState> {
       // 使用链式调用方式添加订阅
       _subscriptions.addAll({
         // 🔄 监听连接状态变化，重连成功后自动同步联系人
-        'reconnection':
-            communicationService.connectionStateStream.listen((status) {
+        'reconnection': communicationService.connectionStateStream.listen((status) {
           if (status == SocketConnectionStatus.connected) {
             _logger.i('网络重连成功，检查是否允许自动同步联系人', extra: {
               'allowSync': _allowNetworkReconnectSync,
             });
-            
+
             if (_allowNetworkReconnectSync) {
               Future.delayed(const Duration(seconds: 2), () {
                 _logger.i('网络重连2秒后，执行联系人同步');
@@ -140,32 +139,24 @@ class ContactCubit extends Cubit<ContactState> {
         }),
 
         // 订阅用户在线状态事件
-        'userOnline': communicationService
-            .onProto<UserStatusUpdate>('user:online')
-            .listen((data) {
+        'userOnline': communicationService.onProto<UserStatusUpdate>('user:online').listen((data) {
           if (data.hasUserId()) {
             repo.updateUserOnlineStatus(data.userId, true);
           }
         }),
 
         // 订阅用户离线状态事件
-        'userOffline': communicationService
-            .onProto<UserStatusUpdate>('user:offline')
-            .listen((data) {
+        'userOffline': communicationService.onProto<UserStatusUpdate>('user:offline').listen((data) {
           if (data.hasUserId()) {
             repo.updateUserOnlineStatus(data.userId, false);
           }
         }),
 
         // 订阅联系人同步事件
-        'contactSynced': communicationService
-            .onProto<UserCollection>('contact:synced')
-            .listen(repo.handleContactsSyncedEvent),
+        'contactSynced': communicationService.onProto<UserCollection>('contact:synced').listen(repo.handleContactsSyncedEvent),
 
         // 订阅联系人同步结果事件
-        'contactSyncResponse': communicationService
-            .onProto<SyncContactsResponse>('contact:sync:response')
-            .listen((response) {
+        'contactSyncResponse': communicationService.onProto<SyncContactsResponse>('contact:sync:response').listen((response) {
           _logger.d('收到联系人同步结果', extra: {
             'instanceId': _instanceId,
             'responseType': response.runtimeType.toString(),
@@ -247,16 +238,18 @@ class ContactCubit extends Cubit<ContactState> {
       emit(state.toLoadingState());
 
       final contacts = await _contactsRepository.getAllContacts();
-      
+
       // 🔥🔥🔥 详细的联系人数据日志
       for (final contact in contacts) {
         _logger.i('💼💼💼 加载的联系人数据', extra: {
-          'contactName': contact.nickName,
+          'contactName': contact.name,
           'contactId': contact.userId,
           'roleId': contact.roleId,
           'isFriend': contact.isFriend,
         });
       }
+
+      _logger.i('📇📇📇 联系人缓存更新完成', extra: {'count': contacts.length});
 
       emit(state.toLoadedState(
         contacts: contacts,
@@ -434,23 +427,22 @@ class ContactCubit extends Cubit<ContactState> {
   void _setupAppLifecycleListener() {
     try {
       final appLifecycleService = AppLifecycleService.instance;
-      
+
       // 首先取消现有的监听器（如果有的话）
       _subscriptions['appLifecycle']?.cancel();
 
       // 🔧 优化：减少轮询频率到10秒，并添加防重复机制
       CustomAppLifecycleState? lastState;
       DateTime? lastProcessTime;
-      
+
       _subscriptions['appLifecycle'] = Stream.periodic(
         const Duration(seconds: 10), // 进一步降低轮询频率
         (_) => appLifecycleService.currentState,
       ).where((currentState) {
         final now = DateTime.now();
-        
+
         // 只在状态真正发生变化且距离上次处理超过3秒时才处理
-        if (lastState != currentState && 
-            (lastProcessTime == null || now.difference(lastProcessTime!).inSeconds > 3)) {
+        if (lastState != currentState && (lastProcessTime == null || now.difference(lastProcessTime!).inSeconds > 3)) {
           lastState = currentState;
           lastProcessTime = now;
           return true;

@@ -50,8 +50,7 @@ class ContactListWidget extends StatefulWidget {
   final String searchHint;
 
   /// 自定义联系人项构建器
-  final Widget Function(User contact, {VoidCallback? onTap})?
-      contactItemBuilder;
+  final Widget Function(User contact, {VoidCallback? onTap})? contactItemBuilder;
 
   const ContactListWidget({
     super.key,
@@ -119,9 +118,9 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     _groupedContacts.clear();
 
     for (var contact in contacts) {
-      if (contact.nickName.isEmpty) continue;
+      if (contact.name.isEmpty) continue;
 
-      final firstChar = contact.nickName[0];
+      final firstChar = contact.name[0];
       String groupKey;
 
       if (RegExp(r'[A-Za-z]').hasMatch(firstChar)) {
@@ -153,7 +152,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
         if (a.pinyin != null && b.pinyin != null) {
           return a.pinyin!.compareTo(b.pinyin!);
         }
-        return a.nickName.compareTo(b.nickName);
+        return a.name.compareTo(b.name);
       });
     }
 
@@ -175,10 +174,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     setState(() {
       _isFiltering = true;
       _filteredContacts = allContacts
-          .where((contact) =>
-              contact.nickName.toLowerCase().contains(query.toLowerCase()) ||
-              (contact.pinyin?.toLowerCase().contains(query.toLowerCase()) ??
-                  false))
+          .where((contact) => contact.name.toLowerCase().contains(query.toLowerCase()) || (contact.pinyin?.toLowerCase().contains(query.toLowerCase()) ?? false))
           .toList();
     });
   }
@@ -370,8 +366,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
             const SizedBox(height: 8),
             Text('无法加载联系人', style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 4),
-            Text('请检查网络连接',
-                style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            Text('请检查网络连接', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => context.read<ContactCubit>().syncContacts(),
@@ -397,8 +392,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
       return ListView.builder(
         controller: widget.shrinkWrap ? null : _scrollController,
         shrinkWrap: widget.shrinkWrap,
-        physics:
-            widget.shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+        physics: widget.shrinkWrap ? const NeverScrollableScrollPhysics() : null,
         itemCount: contactsToShow.length,
         itemBuilder: (context, index) {
           return _buildContactItem(contactsToShow[index]);
@@ -475,13 +469,25 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     return _buildNormalContactItem(contact);
   }
 
+  /// 获取联系人显示名称
+  /// 优先级：nickname > name
+  String _getContactDisplayName(User contact) {
+    // 1. 优先使用自定义联系人昵称
+    if (contact.nickname != null && contact.nickname!.isNotEmpty) {
+      return contact.nickname!;
+    }
+
+    // 2. 使用用户昵称
+    return contact.name;
+  }
+
   /// 构建普通联系人项
   Widget _buildNormalContactItem(User contact) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: _buildContactAvatar(contact),
       title: Text(
-        contact.nickName,
+        _getContactDisplayName(contact),
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -512,16 +518,14 @@ class _ContactListWidgetState extends State<ContactListWidget> {
               ),
               color: isSelected ? AppColors.primary : Colors.transparent,
             ),
-            child: isSelected
-                ? const Icon(Icons.check, size: 16, color: Colors.white)
-                : null,
+            child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
           ),
           const SizedBox(width: 12),
           _buildContactAvatar(contact),
         ],
       ),
       title: Text(
-        contact.nickName,
+        _getContactDisplayName(contact),
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -536,18 +540,21 @@ class _ContactListWidgetState extends State<ContactListWidget> {
   Widget _buildContactAvatar(User contact) {
     // 🔥🔥🔥 详细的调试日志
     final _logger = LogService.instance;
+    final displayName = _getContactDisplayName(contact);
     _logger.i('📋📋📋 ContactList构建头像', extra: {
-      'contactName': contact.nickName,
+      'contactName': contact.name,
+      'nickname': contact.nickname,
+      'displayName': displayName,
       'contactId': contact.userId,
       'roleId': contact.roleId,
       'avatar': contact.avatar,
     });
-    
+
     return Stack(
       children: [
         UserAvatar(
           avatarUrl: contact.avatar,
-          name: contact.nickName,
+          name: displayName,
           radius: 20,
           roleId: contact.roleId,
         ),
@@ -643,9 +650,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: _currentLetter == index
-                      ? AppColors.primary
-                      : Colors.grey[600],
+                  color: _currentLetter == index ? AppColors.primary : Colors.grey[600],
                 ),
               ),
             ),

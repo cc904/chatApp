@@ -335,21 +335,21 @@ class _ChatsPageState extends State<ChatsPage>
             errorChanged ||
             networkStatusChanged;
 
-        // if (shouldRebuild) {
-        //   _logger.d('ChatsPage 需要重建', extra: {
-        //     'conversationsCountChanged': conversationsCountChanged,
-        //     'filteredConversationsCountChanged':
-        //         filteredConversationsCountChanged,
-        //     'conversationsListChanged': conversationsListChanged,
-        //     'filteredConversationsListChanged':
-        //         filteredConversationsListChanged,
-        //     'searchStateChanged': searchStateChanged,
-        //     'tabChanged': tabChanged,
-        //     'syncStatusChanged': syncStatusChanged,
-        //     'errorChanged': errorChanged,
-        //     'networkStatusChanged': networkStatusChanged,
-        //   });
-        // }
+        if (shouldRebuild) {
+          _logger.d('ChatsPage 需要重建', extra: {
+            'conversationsCountChanged': conversationsCountChanged,
+            'filteredConversationsCountChanged':
+                filteredConversationsCountChanged,
+            'conversationsListChanged': conversationsListChanged,
+            'filteredConversationsListChanged':
+                filteredConversationsListChanged,
+            'searchStateChanged': searchStateChanged,
+            'tabChanged': tabChanged,
+            'syncStatusChanged': syncStatusChanged,
+            'errorChanged': errorChanged,
+            'networkStatusChanged': networkStatusChanged,
+          });
+        }
 
         return shouldRebuild;
       },
@@ -399,7 +399,7 @@ class _ChatsPageState extends State<ChatsPage>
   Widget _buildTabBar() {
     return BlocBuilder<ChatsCubit, ChatsState>(
       buildWhen: (previous, current) =>
-          previous.conversations != current.conversations,
+          !identical(previous.conversations, current.conversations),
       builder: (context, state) {
         final currentUserId = state.currentUser?.userId;
         if (currentUserId == null) {
@@ -591,14 +591,6 @@ class _ChatsPageState extends State<ChatsPage>
 
       // 右侧操作按钮区域
       actions: [
-        // 💢💢💢 手动同步按钮（调试用）
-        IconButton(
-          icon: const Icon(Icons.refresh, color: AppColors.primary),
-          onPressed: () {
-            _logger.i('🔄🔄🔄 手动触发同步');
-            _checkAndSync(force: true);
-          },
-        ),
         // 新建会话按钮
         IconButton(
           icon: const Icon(Icons.edit_square, color: AppColors.primary),
