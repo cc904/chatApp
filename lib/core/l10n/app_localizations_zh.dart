@@ -267,7 +267,7 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get chatCancel => '取消';
   @override
-  String get chatDone => '完成';
+  String get chatDone => '保存';
   @override
   String get call => '通话';
   @override

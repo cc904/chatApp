@@ -308,7 +308,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get chatCancel => 'Cancel';
   @override
-  String get chatDone => 'Done';
+  String get chatDone => 'Save';
   @override
   String get call => 'Call';
   @override
