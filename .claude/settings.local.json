@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(flutter pub:*)",
@@ -118,7 +119,11 @@
       "Bash(git rev-parse:*)",
       "Bash(kill:*)",
       "Bash(keytool:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(-e 's/messageId/message_id/g' )",
+      "Bash(-e 's/senderId/sender_id/g' )",
+      "Bash(*.proto)",
+      "Bash(git rm:*)"
     ],
     "deny": []
   }
