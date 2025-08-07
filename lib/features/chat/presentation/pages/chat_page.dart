@@ -929,6 +929,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               previous.conversation.muted != current.conversation.muted ||
               previous.conversation.name != current.conversation.name ||
               previous.conversation.participants != current.conversation.participants ||
+              // 🆕 未读相关：当未读数或已读索引变化时触发重建
+              previous.conversation.unreadCount != current.conversation.unreadCount ||
+              previous.conversation.readMessageIndex != current.conversation.readMessageIndex ||
               previous.networkStatus != current.networkStatus;
         },
         builder: (context, state) {
