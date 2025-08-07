@@ -929,6 +929,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               previous.conversation.muted != current.conversation.muted ||
               previous.conversation.name != current.conversation.name ||
               previous.conversation.participants != current.conversation.participants ||
+              // 未读指示器依赖滚动位置与最新消息索引
+              previous.currentScrollPosition != current.currentScrollPosition ||
+              previous.conversation.lastMessageIndex != current.conversation.lastMessageIndex ||
               // 🆕 未读相关：当未读数或已读索引变化时触发重建
               previous.conversation.unreadCount != current.conversation.unreadCount ||
               previous.conversation.readMessageIndex != current.conversation.readMessageIndex ||
@@ -4268,22 +4271,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 🆕 计算未读指示器信息
   _UnreadIndicatorInfo _calculateUnreadIndicatorInfo(ChatState state) {
-    final conversation = state.conversation;
-
-    // 获取未读数量
-    final unreadCount = conversation.unreadCount;
-    if (unreadCount <= 0) {
-      return const _UnreadIndicatorInfo(
-        hasUnread: false,
-        unreadCount: 0,
-        direction: _UnreadDirection.none,
-        indicatorText: '',
-      );
-    }
-
-    // 新增：检查是否所有消息都在可视范围内
+    // 设计：显示“往下还有多少未读”，按索引判断：小于等于当前可视区域底部的都视为已读
+    // 1) 若所有消息可见，触发已读并隐藏
     if (_areAllMessagesVisible(state)) {
-      // 所有消息可见时不显示指示器，但触发已读更新
       _scheduleReadUpdateForVisibleMessages(state);
       return const _UnreadIndicatorInfo(
         hasUnread: false,
@@ -4293,21 +4283,38 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     }
 
-    // 获取最新未读消息的索引（用于方向判断）
-    final lastUnreadIndex = conversation.readMessageIndex;
+    // 2) 取当前可视区域“底部”的消息 messageIndex
+    final latestVisibleIndex = _getLatestVisibleMessageIndex(state);
+    if (latestVisibleIndex == null) {
+      return const _UnreadIndicatorInfo(
+        hasUnread: false,
+        unreadCount: 0,
+        direction: _UnreadDirection.none,
+        indicatorText: '',
+      );
+    }
 
-    // 判断未读消息相对于当前滚动位置的方向（基于最新未读消息）
-    final direction = _determineUnreadDirection(state, lastUnreadIndex);
+    // 3) 计算“向下未读条数” = lastMessageIndex - latestVisibleIndex
+    final lastMessageIndex = state.conversation.lastMessageIndex;
+    final unreadBelow = (lastMessageIndex - latestVisibleIndex).clamp(0, 1 << 30);
+    if (unreadBelow <= 0) {
+      return const _UnreadIndicatorInfo(
+        hasUnread: false,
+        unreadCount: 0,
+        direction: _UnreadDirection.none,
+        indicatorText: '',
+      );
+    }
 
-    // 生成指示器文本
-    final indicatorText = _generateUnreadIndicatorText(unreadCount, direction);
+    // 4) 固定向下方向显示
+    final indicatorText = _generateUnreadIndicatorText(unreadBelow, _UnreadDirection.down);
 
     return _UnreadIndicatorInfo(
       hasUnread: true,
-      unreadCount: unreadCount,
-      direction: direction,
+      unreadCount: unreadBelow,
+      direction: _UnreadDirection.down,
       indicatorText: indicatorText,
-      firstUnreadIndex: lastUnreadIndex, // 🔄 现在存储最新未读消息索引
+      firstUnreadIndex: latestVisibleIndex + 1,
     );
   }
 
@@ -4394,6 +4401,32 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         visibleProcessedIndices.contains(lastMessageProcessedIndex);
 
     return allVisible;
+  }
+
+  /// 计算当前可视区域“底部”的消息的 messageIndex
+  /// 在 reverse: true 的列表中，我们以可见的 processed 索引中最小者为“屏幕底部”
+  int? _getLatestVisibleMessageIndex(ChatState state) {
+    if (state.messages.isEmpty) return null;
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return null;
+
+    final visibleIndices = positions.map((p) => p.index).toList()..sort();
+
+    final processedItems = MessageListProcessor.processMessages(
+      messages: state.messages,
+      currentUserId: state.currentUser.userId,
+      isNotGroupChat: state.conversation.type != 'GROUP',
+    );
+
+    for (final idx in visibleIndices) {
+      if (idx >= 0 && idx < processedItems.length) {
+        final item = processedItems[idx];
+        if (item is MessageListItemData) {
+          return item.message.messageIndex;
+        }
+      }
+    }
+    return null;
   }
 
   /// 🆕 为可见消息安排已读更新
