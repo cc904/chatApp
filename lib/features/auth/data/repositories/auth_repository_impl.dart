@@ -436,6 +436,7 @@ class AuthRepositoryImpl implements AuthRepository {
         'hasUser': response.containsKey('user'),
         'hasTokens': response.containsKey('tokens'),
         'hasServerConfig': response.containsKey('serverConfig'),
+        'serverConfig': response['serverConfig'], // 直接打印serverConfig内容
         'hasVersionUpdate': response.containsKey('versionUpdate'),
       });
 

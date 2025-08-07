@@ -69,24 +69,13 @@ class DynamicFileServerConfig {
           'fsUrl': _currentConfig?.fsUrl,
         });
       } else {
-        _logger.i('⚠️ 本地存储中没有文件服务器配置，使用默认配置');
-        _setDefaultConfig();
+        _logger.w('⚠️ 本地存储中没有文件服务器配置');
+        _currentConfig = null;
       }
     } catch (error) {
       _logger.e('❌ 初始化文件服务器配置失败', error: error);
-      _setDefaultConfig();
+      _currentConfig = null;
     }
-  }
-
-  /// 设置默认配置（作为后备方案）
-  void _setDefaultConfig() {
-    _currentConfig = FileServerInfo(
-      ss: {'1': 'http://13.158.26.10:7031'},
-      ls: {'1': 'http://13.158.26.10:7031'},
-      defs: '1',
-      fsUrl: {'1': 'http://13.158.26.10:7031'},
-      limits: FileSizeLimits.defaultLimits(),
-    );
   }
 
   /// 更新文件服务器配置（从登录响应中获取）

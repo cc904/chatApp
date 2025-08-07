@@ -554,6 +554,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
       children: [
         UserAvatar(
           avatarUrl: contact.avatar,
+          userId: contact.userId,
           name: displayName,
           radius: 20,
           roleId: contact.roleId,

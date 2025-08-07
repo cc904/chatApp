@@ -4,6 +4,8 @@ import 'package:cc/core/utils/user_display_utils.dart';
 import 'package:cc/core/enums/vip_level.dart';
 import 'package:cc/core/widgets/vip_badge.dart';
 import 'dart:io';
+import 'package:cc/core/services/file_server_config_service.dart';
+import 'package:cc/core/services/avatar_url_builder.dart';
 
 /// 通用用户头像组件
 ///
@@ -17,6 +19,9 @@ import 'dart:io';
 class UserAvatar extends StatefulWidget {
   /// 头像URL，可以是网络URL或本地文件路径
   final String? avatarUrl;
+
+  /// 当 avatarUrl 为 nanoId 时需要提供 userId 以构建完整URL
+  final String? userId;
 
   /// 用户名，用于生成首字母头像
   final String name;
@@ -48,9 +53,13 @@ class UserAvatar extends StatefulWidget {
   /// VIP标志位置
   final VipBadgePosition vipBadgePosition;
 
+  /// 是否优先使用缩略图（当 avatarUrl 为 nanoId 时生效）
+  final bool useThumbnail;
+
   const UserAvatar({
     super.key,
     this.avatarUrl,
+    this.userId,
     required this.name,
     this.radius = 20,
     this.backgroundColor,
@@ -61,6 +70,7 @@ class UserAvatar extends StatefulWidget {
     this.vipBadgeType = VipBadgeType.crown,
     this.showVipBadge = true,
     this.vipBadgePosition = VipBadgePosition.topRight,
+    this.useThumbnail = true,
   });
 
   @override
@@ -111,11 +121,27 @@ class _UserAvatarState extends State<UserAvatar> {
     try {
       String? localPath;
 
+      String? resolvedUrl = widget.avatarUrl;
+
+      // 如果不是http(s)且不是本地文件协议，视为nanoId，且提供了userId时组装URL
+      final isHttp = widget.avatarUrl!.startsWith('http://') || widget.avatarUrl!.startsWith('https://');
+      final isFileProtocol = widget.avatarUrl!.startsWith('file://');
+
+      if (!isHttp && !isFileProtocol && widget.userId != null && widget.userId!.isNotEmpty) {
+        final baseUrl = await FileServerConfigService.instance.getDefaultFileServerUrl();
+        if (baseUrl != null && baseUrl.isNotEmpty) {
+          final builder = AvatarUrlBuilder(baseUrl);
+          resolvedUrl = widget.useThumbnail
+              ? builder.thumb(widget.userId!, widget.avatarUrl!)
+              : builder.original(widget.userId!, widget.avatarUrl!);
+        }
+      }
+
       // 判断是否为网络URL
-      if (widget.avatarUrl!.startsWith('http://') || widget.avatarUrl!.startsWith('https://')) {
+      if (resolvedUrl != null && (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://'))) {
         // 网络头像 - 使用缓存服务下载到本地
-        localPath = await _avatarCache.getAvatar(widget.avatarUrl!);
-      } else if (widget.avatarUrl!.startsWith('file://')) {
+        localPath = await _avatarCache.getAvatar(resolvedUrl);
+      } else if (isFileProtocol) {
         // file:// 协议的本地文件
         final filePath = widget.avatarUrl!.substring(7);
         final file = File(filePath);

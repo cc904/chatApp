@@ -1056,6 +1056,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               tag: 'chat_avatar_${state.conversation.conversationId}',
               child: UserAvatar(
                 avatarUrl: state.conversation.avatar,
+                userId: state.conversation.type == 'PRIVATE' ?
+                  (ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'] == state.currentUser.userId
+                    ? null
+                    : ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'])
+                  : state.conversation.conversationId,
                 name: state.conversation.name ?? '未命名会话',
                 radius: 18.0,
                 roleId: _getConversationDisplayRoleId(state.conversation, state.currentUser.userId),

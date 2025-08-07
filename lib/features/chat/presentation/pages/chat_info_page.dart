@@ -700,6 +700,11 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                   tag: 'chat_avatar_${conversation.conversationId}',
                   child: UserAvatar(
                     avatarUrl: conversation.avatar,
+                    userId: conversation.type == 'PRIVATE'
+                        ? (ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser.userId)?['userId'] == state.currentUser.userId
+                            ? null
+                            : ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser.userId)?['userId'])
+                        : conversation.conversationId,
                     name: _getConversationDisplayName(conversation, state.currentUser.userId),
                     radius: 50,
                     backgroundColor: Colors.cyan,
@@ -856,6 +861,11 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
             tag: 'chat_avatar_${state.conversation.conversationId}',
             child: UserAvatar(
               avatarUrl: state.conversation.avatar,
+              userId: state.conversation.type == 'PRIVATE'
+                  ? (ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'] == state.currentUser.userId
+                      ? null
+                      : ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'])
+                  : state.conversation.conversationId,
               name: _getConversationDisplayName(state.conversation, state.currentUser.userId),
               radius: 50,
               backgroundColor: Colors.cyan,
@@ -1859,6 +1869,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                   final displayName = snapshot.data ?? fallbackName;
                   return UserAvatar(
                     avatarUrl: avatar,
+                    userId: participant['userId'],
                     name: displayName,
                     radius: 26,
                     roleId: roleId,
@@ -2615,6 +2626,7 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                     final displayName = snapshot.data ?? _getParticipantDisplayName(participant);
                     return UserAvatar(
                       avatarUrl: participant['avatar'],
+                      userId: participant['userId'],
                       name: displayName,
                       radius: 26,
                       roleId: participant['roleId'],

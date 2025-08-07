@@ -29,7 +29,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _emailController;
 
   // 头像相关
-  Object? _selectedAvatarFile; // File on IO platforms, Uint8List on Web
+  XFile? _selectedAvatarFile; // 使用XFile跨平台支持
   String? _currentAvatarUrl;
 
   // 图片选择器
@@ -78,30 +78,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       throw StateError('No image selected');
     }
     
-    if (kIsWeb) {
-      // Web平台：使用MemoryImage
-      return MemoryImage(_selectedAvatarFile as Uint8List);
-    } else {
-      // IO平台：使用FileImage
-      return FileImage(_selectedAvatarFile as File);
-    }
+    // XFile支持所有平台，直接使用path
+    return FileImage(File(_selectedAvatarFile!.path));
   }
 
-  /// 获取文件字节数据（用于上传）
-  Future<Uint8List> _getFileBytes() async {
-    if (_selectedAvatarFile == null) {
-      throw StateError('No image selected');
-    }
-    
-    if (kIsWeb) {
-      // Web平台：直接返回字节数据
-      return _selectedAvatarFile as Uint8List;
-    } else {
-      // IO平台：读取文件字节
-      final file = _selectedAvatarFile as File;
-      return await file.readAsBytes();
-    }
-  }
 
   @override
   void dispose() {
@@ -274,6 +254,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         )
                       : UserAvatar(
                           avatarUrl: _currentAvatarUrl,
+                          userId: state.user?.userId,
                           name: _nicknameController.text.isNotEmpty ? _nicknameController.text : '用户',
                           radius: 60,
                           backgroundColor: AppColors.primary,
@@ -619,22 +600,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
 
       if (image != null) {
-        if (kIsWeb) {
-          // Web平台：读取为字节数据
-          final bytes = await image.readAsBytes();
-          setState(() {
-            _selectedAvatarFile = bytes;
-            _hasUnsavedChanges = true;
-          });
-        } else {
-          // IO平台：使用File
-          setState(() {
-            _selectedAvatarFile = File(image.path);
-            _hasUnsavedChanges = true;
-          });
-        }
+        setState(() {
+          _selectedAvatarFile = image;
+          _hasUnsavedChanges = true;
+        });
 
-        _logger.i('头像已选择', extra: {'imagePath': kIsWeb ? 'Web bytes' : image.path});
+        _logger.i('头像已选择', extra: {'imagePath': image.path});
       }
     } catch (e) {
       _logger.e('选择头像失败', error: e);
@@ -738,11 +709,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         );
 
         try {
-          // 获取文件字节数据
-          final fileBytes = await _getFileBytes();
-          
-          final response = await UserService.instance.uploadAvatar(
-            fileBytes,
+          // 直接使用XFile上传
+          final response = await UserService.instance.uploadAvatarFromXFile(
+            _selectedAvatarFile!,
             onProgress: (progress) {
               // 更新上传进度
               setState(() {

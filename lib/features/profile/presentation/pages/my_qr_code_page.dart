@@ -107,6 +107,7 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
             children: [
               UserAvatar(
                 avatarUrl: user?.avatar,
+                userId: user?.userId,
                 name: user?.name ?? '用户',
                 radius: 30,
                 backgroundColor: Colors.green,

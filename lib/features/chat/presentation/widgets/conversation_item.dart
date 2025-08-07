@@ -130,6 +130,11 @@ class ConversationItem extends StatelessWidget {
         height: 60,
         child: UserAvatar(
           avatarUrl: conversation.avatar,
+          userId: conversation.type == 'PRIVATE'
+              ? (ConversationAdapter.getParticipantInfo(conversation.participants, currentUser.userId)?['userId'] == currentUser.userId
+                  ? null
+                  : ConversationAdapter.getParticipantInfo(conversation.participants, currentUser.userId)?['userId'])
+              : conversation.conversationId,
           name: _getAvatarDisplayName(conversation),
           radius: 60 / 2,
           backgroundColor: AppColors.primary,

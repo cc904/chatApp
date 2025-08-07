@@ -8,6 +8,7 @@ import 'package:cc/core/proto/generated/user.pb.dart';
 import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/database/database_initializer.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
 import 'package:cc/core/database/current_user_builder.dart';
 import 'package:drift/drift.dart' as drift;
@@ -351,7 +352,55 @@ class UserService {
     return proto;
   }
 
-  /// 上传头像并更新用户信息
+  /// 上传头像并更新用户信息 - 支持XFile
+  ///
+  /// [avatarFile] 头像XFile文件
+  /// [onProgress] 上传进度回调，参数为0-100的进度值
+  /// 返回更新后的用户信息响应，如果上传失败则抛出异常
+  Future<SetCurrentUserResponse?> uploadAvatarFromXFile(
+    XFile avatarFile, {
+    Function(int)? onProgress,
+  }) async {
+    try {
+      final fileSize = await avatarFile.length();
+      _logger.i('开始上传头像(nanoId模式)', extra: {
+        'fileType': 'XFile',
+        'fileName': avatarFile.name,
+        'fileSize': fileSize,
+      });
+
+      // 1. 上传头像文件到 /api/upload-avatar，获取 nanoId
+      final nanoId = await _uploadApiService.uploadAvatarNanoIdFromXFile(
+        avatarFile,
+        onProgress: onProgress,
+      );
+
+      if (nanoId.isEmpty) {
+        throw Exception('头像上传失败: nanoId 为空');
+      }
+
+      _logger.i('头像上传成功(nanoId模式)', extra: {
+        'nanoId': nanoId,
+      });
+
+      // 2. 更新用户信息，只更新头像为 nanoId
+      final response = await updateCurrentUser(
+        avatar: nanoId,
+      );
+
+      _logger.i('头像更新完成(nanoId模式)', extra: {
+        'avatarNanoId': nanoId,
+        'success': response?.success ?? false,
+      });
+
+      return response;
+    } catch (error) {
+      _logger.e('上传头像失败', error: error, stackTrace: StackTrace.current);
+      rethrow;
+    }
+  }
+
+  /// 上传头像并更新用户信息（保持向后兼容）
   ///
   /// [avatarFile] 头像文件
   /// [onProgress] 上传进度回调，参数为0-100的进度值
@@ -361,35 +410,34 @@ class UserService {
     Function(int)? onProgress,
   }) async {
     try {
-      _logger.i('开始上传头像', extra: {
+      _logger.i('开始上传头像(nanoId模式)', extra: {
         'fileType': avatarFile.runtimeType.toString(),
-        'fileSize': kIsWeb 
-          ? (avatarFile as Uint8List).length 
+        'fileSize': avatarFile is Uint8List 
+          ? avatarFile.length 
           : (avatarFile as File).lengthSync(),
       });
 
-      // 1. 上传头像文件
-      final uploadResult = await _uploadApiService.uploadAvatar(
+      // 1. 上传头像文件到 /api/upload-avatar，获取 nanoId
+      final nanoId = await _uploadApiService.uploadAvatarNanoId(
         avatarFile,
         onProgress: onProgress,
       );
 
-      if (!uploadResult.success || uploadResult.url == null) {
-        throw Exception('头像上传失败: ${uploadResult.error ?? "未知错误"}');
+      if (nanoId.isEmpty) {
+        throw Exception('头像上传失败: nanoId 为空');
       }
 
-      _logger.i('头像上传成功', extra: {
-        'fileId': uploadResult.fileId,
-        'url': uploadResult.url,
+      _logger.i('头像上传成功(nanoId模式)', extra: {
+        'nanoId': nanoId,
       });
 
-      // 2. 更新用户信息，只更新头像URL
+      // 2. 更新用户信息，只更新头像为 nanoId
       final response = await updateCurrentUser(
-        avatar: uploadResult.url!,
+        avatar: nanoId,
       );
 
-      _logger.i('头像更新完成', extra: {
-        'avatarUrl': uploadResult.url,
+      _logger.i('头像更新完成(nanoId模式)', extra: {
+        'avatarNanoId': nanoId,
         'success': response?.success ?? false,
       });
 

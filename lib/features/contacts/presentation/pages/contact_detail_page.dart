@@ -87,7 +87,8 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
         children: [
           // 头像
           UserAvatar(
-            avatarUrl: widget.contact.avatar,
+        avatarUrl: widget.contact.avatar,
+        userId: widget.contact.userId,
             name: displayName,
             radius: 40,
             roleId: widget.contact.roleId,

@@ -33,7 +33,14 @@ class UploadApiService {
   Future<void> reinitialize() async {
     _logger.i('🔄 重新初始化上传API服务');
     _isInitialized = false;
+    _dio = null; // 清空现有实例
     await _initializeDio();
+  }
+
+  /// 强制刷新配置（当检测到连接问题时调用）
+  Future<void> refreshConfig() async {
+    _logger.i('🔄 强制刷新文件服务器配置');
+    await reinitialize();
   }
 
   /// 通用文件上传方法 - 支持 XFile (Web 平台兼容)
@@ -282,35 +289,25 @@ class UploadApiService {
 
   /// 获取文件服务器基础URL
   Future<String> _getFileServerBaseUrl() async {
-    try {
-      // 优先使用FileServerConfigService获取配置
-      final defaultFileServerUrl =
-          await _fileServerConfigService.getDefaultFileServerUrl();
-      if (defaultFileServerUrl != null && defaultFileServerUrl.isNotEmpty) {
-        _logger.i('✅ 使用ServerConfig中的文件服务器地址',
-            extra: {'url': defaultFileServerUrl});
-        return defaultFileServerUrl;
-      }
-
-      // 如果新的配置不可用，使用DynamicFileServerConfig作为后备
-      final dynamicConfig = DynamicFileServerConfig();
-      final config = dynamicConfig.currentConfig;
-      if (config != null && config.defaultFsUrl.isNotEmpty) {
-        _logger.i('✅ 使用DynamicFileServerConfig中的文件服务器地址',
-            extra: {'url': config.defaultFsUrl});
-        return config.defaultFsUrl;
-      }
-
-      // 如果都不可用，使用默认地址
-      const defaultUrl = 'http://13.158.26.10:7031';
-      _logger.w('⚠️ 未找到文件服务器配置，使用默认地址', extra: {'url': defaultUrl});
-      return defaultUrl;
-    } catch (error) {
-      _logger.e('获取文件服务器地址失败', error: error);
-      // 返回默认地址作为后备
-      const defaultUrl = 'http://13.158.26.10:7031';
-      return defaultUrl;
+    // 优先使用FileServerConfigService获取配置
+    final defaultFileServerUrl =
+        await _fileServerConfigService.getDefaultFileServerUrl();
+    if (defaultFileServerUrl != null && defaultFileServerUrl.isNotEmpty) {
+      _logger.i('✅ 使用ServerConfig中的文件服务器地址', extra: {'url': defaultFileServerUrl});
+      return defaultFileServerUrl;
     }
+
+    // 如果新的配置不可用，使用DynamicFileServerConfig作为后备
+    final dynamicConfig = DynamicFileServerConfig();
+    final config = dynamicConfig.currentConfig;
+    if (config != null && config.defaultFsUrl.isNotEmpty) {
+      _logger.i('✅ 使用DynamicFileServerConfig中的文件服务器地址', extra: {'url': config.defaultFsUrl});
+      return config.defaultFsUrl;
+    }
+
+    // 没有找到任何有效配置，抛出异常
+    _logger.e('❌ 未找到文件服务器配置');
+    throw Exception('文件服务器配置缺失，请重新登录以获取服务器配置');
   }
 
   /// 确保Dio已初始化
@@ -424,7 +421,21 @@ class UploadApiService {
     );
   }
 
-  /// 头像上传
+  /// 头像上传 - 支持XFile
+  Future<UploadApiResult> uploadAvatarFromXFile(
+    XFile avatarFile, {
+    Function(int)? onProgress,
+  }) async {
+    return _uploadFileFromXFile(
+      file: avatarFile,
+      type: 'image', // 头像也使用image类型
+      conversationId: 'avatar', // 使用固定值作为头像标识
+      metadata: null,
+      onProgress: onProgress,
+    );
+  }
+
+  /// 头像上传 - 支持File和Uint8List（保持向后兼容）
   Future<UploadApiResult> uploadAvatar(
     dynamic avatarFile, {  // 支持File和Uint8List
     Function(int)? onProgress,
@@ -436,6 +447,164 @@ class UploadApiService {
       metadata: null,
       onProgress: onProgress,
     );
+  }
+
+  /// 新头像上传端点：POST /api/upload-avatar
+  /// 返回 nanoId，用于客户端构造头像URL
+  Future<String> uploadAvatarNanoIdFromXFile(
+    XFile avatarFile, {
+    Function(int)? onProgress,
+  }) async {
+    try {
+      await _ensureDioInitialized();
+
+      // 表单构建
+      final formData = FormData();
+
+      // 附带 userId
+      final currentUser = DatabaseInitializer.currentUser;
+      if (currentUser != null) {
+        formData.fields.add(MapEntry('userId', currentUser.userId));
+      } else {
+        _logger.w('⚠️ 无法获取用户ID，可能影响头像上传');
+      }
+
+      // 文件
+      final mimeType = lookupMimeType(avatarFile.name) ??
+          lookupMimeType(avatarFile.path) ??
+          'image/jpeg';
+      final bytes = await avatarFile.readAsBytes();
+      formData.files.add(
+        MapEntry(
+          'file',
+          MultipartFile.fromBytes(
+            bytes,
+            filename: 'avatar.jpg',
+            contentType: MediaType.parse(mimeType),
+          ),
+        ),
+      );
+
+      _logger.i('📤 头像上传参数 (/api/upload-avatar, XFile)', extra: {
+        'userId': currentUser?.userId,
+        'fileName': avatarFile.name,
+        'fileSize': bytes.length,
+        'fullUploadUrl': '${_dio?.options.baseUrl}/api/upload-avatar',
+      });
+
+      final response = await _dio!.post(
+        '/api/upload-avatar',
+        data: formData,
+        onSendProgress: (sent, total) {
+          if (onProgress != null && total > 0) {
+            onProgress((sent / total * 100).round());
+          }
+        },
+      );
+
+      return _parseNanoId(response);
+    } catch (error, stack) {
+      _logger.e('上传头像(nanoId, XFile)失败', error: error, stackTrace: stack);
+      throw _handleError(error);
+    }
+  }
+
+  /// 新头像上传端点：POST /api/upload-avatar（File/Uint8List）
+  Future<String> uploadAvatarNanoId(
+    dynamic avatarFile, {
+    Function(int)? onProgress,
+  }) async {
+    try {
+      await _ensureDioInitialized();
+
+      final formData = FormData();
+      final currentUser = DatabaseInitializer.currentUser;
+      if (currentUser != null) {
+        formData.fields.add(MapEntry('userId', currentUser.userId));
+      } else {
+        _logger.w('⚠️ 无法获取用户ID，可能影响头像上传');
+      }
+
+      if (avatarFile is Uint8List) {
+        formData.files.add(
+          MapEntry(
+            'file',
+            MultipartFile.fromBytes(
+              avatarFile,
+              filename: 'avatar.jpg',
+              contentType: MediaType.parse('image/jpeg'),
+            ),
+          ),
+        );
+      } else if (kIsWeb && avatarFile.path.startsWith('blob:')) {
+        final responseBlob = await http.get(Uri.parse(avatarFile.path));
+        if (responseBlob.statusCode != 200) {
+          throw Exception('无法获取blob数据: ${responseBlob.statusCode}');
+        }
+        final Uint8List bytes = responseBlob.bodyBytes;
+        formData.files.add(
+          MapEntry(
+            'file',
+            MultipartFile.fromBytes(
+              bytes,
+              filename: 'avatar.jpg',
+              contentType: MediaType.parse('image/jpeg'),
+            ),
+          ),
+        );
+      } else {
+        final mimeType = lookupMimeType(avatarFile.path) ?? 'image/jpeg';
+        formData.files.add(
+          MapEntry(
+            'file',
+            await MultipartFile.fromFile(
+              avatarFile.path,
+              filename: 'avatar.jpg',
+              contentType: MediaType.parse(mimeType),
+            ),
+          ),
+        );
+      }
+
+      _logger.i('📤 头像上传参数 (/api/upload-avatar)', extra: {
+        'userId': currentUser?.userId,
+        'fullUploadUrl': '${_dio?.options.baseUrl}/api/upload-avatar',
+      });
+
+      final response = await _dio!.post(
+        '/api/upload-avatar',
+        data: formData,
+        onSendProgress: (sent, total) {
+          if (onProgress != null && total > 0) {
+            onProgress((sent / total * 100).round());
+          }
+        },
+      );
+
+      return _parseNanoId(response);
+    } catch (error, stack) {
+      _logger.e('上传头像(nanoId)失败', error: error, stackTrace: stack);
+      throw _handleError(error);
+    }
+  }
+
+  /// 从 /api/upload-avatar 响应解析 nanoId
+  String _extractNanoId(dynamic data) {
+    if (data == null) throw const UploadException('无有效响应');
+    if (data is Map && data['success'] == true) {
+      final d = data['data'] ?? data;
+      final nanoId = d['nanoId'] ?? d['nanoid'] ?? d['nanoid'];
+      if (nanoId is String && nanoId.isNotEmpty) return nanoId;
+    }
+    throw UploadException('无效的上传响应: $data');
+  }
+
+  String _parseNanoId(Response response) {
+    _logger.i('解析头像上传响应(nanoId)', extra: {
+      'statusCode': response.statusCode,
+      'data': response.data,
+    });
+    return _extractNanoId(response.data);
   }
 
   /// 通用文件上传方法
@@ -875,13 +1044,20 @@ class UploadApiService {
             }
         }
       } else if (error.type == DioExceptionType.connectionTimeout) {
-        return const UploadException('连接超时，请检查网络');
+        return const UploadException('文件服务器连接超时，请检查网络连接或稍后重试');
       } else if (error.type == DioExceptionType.sendTimeout) {
-        return const UploadException('上传超时，请重试');
+        return const UploadException('文件上传超时，文件可能过大或网络不稳定');
       } else if (error.type == DioExceptionType.receiveTimeout) {
-        return const UploadException('响应超时，请重试');
+        return const UploadException('服务器响应超时，请稍后重试');
       } else {
-        return UploadException('网络错误：${error.message}');
+        // 特别处理连接拒绝的错误
+        final errorMsg = error.message ?? '';
+        if (errorMsg.contains('Connection refused') || 
+            errorMsg.contains('connection errored') || 
+            errorMsg.contains('errno = 61')) {
+          return const UploadException('文件服务器暂时无法访问，请稍后重试');
+        }
+        return UploadException('网络错误：$errorMsg');
       }
     } else if (error is UploadException) {
       return error;

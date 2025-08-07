@@ -190,6 +190,7 @@ class _AddContactPageState extends State<AddContactPage> {
               children: [
                 UserAvatar(
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
+                  userId: user.userId,
                   name: user.name,
                   radius: 25,
                   roleId: 0 // Proto中没有roleId字段,
@@ -832,6 +833,7 @@ class _AddContactPageState extends State<AddContactPage> {
                 // 用户头像
                 UserAvatar(
                   avatarUrl: user.avatar.isNotEmpty ? user.avatar : null,
+                  userId: user.userId,
                   name: user.name,
                   radius: 20,
                   roleId: 0 // Proto中没有roleId字段,

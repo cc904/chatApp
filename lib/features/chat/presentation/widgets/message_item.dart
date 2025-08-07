@@ -259,6 +259,7 @@ class MessageItem extends StatelessWidget {
     return UserAvatar(
       name: message.senderName ?? 'Unknown',
       avatarUrl: message.senderAvatar,
+      userId: message.senderId,
       radius: 16.0,
       backgroundColor: UserDisplayUtils.generateUserColor(message.senderName),
       // roleId: message.senderRoleId, // 字段已移除

@@ -9,3 +9,8 @@ bool isMobilePlatform() {
 bool isDesktopPlatform() {
   throw UnsupportedError('Platform check is not supported on this platform');
 }
+
+/// Web 专用：读取剪贴板图片（存根，非 Web 返回 null）
+Future<Map<String, dynamic>?> readClipboardImageWeb() async {
+  return null;
+}

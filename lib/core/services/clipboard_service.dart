@@ -1,6 +1,6 @@
 import 'dart:io' show File;
 import 'package:flutter/services.dart';
-import 'package:pasteboard/pasteboard.dart';
+import 'package:pasteboard/pasteboard.dart' if (dart.library.html) 'dart:core';
 import 'package:cc/core/services/log_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -27,8 +27,8 @@ class ClipboardService {
         // 移动端不支持图片粘贴
         return false;
       } else {
-        // 桌面端使用pasteboard检查图片
-        return await _hasImageDesktop();
+        // 桌面端/Web：分别走不同实现
+        return await _hasImageDesktopOrWeb();
       }
     } catch (error) {
       _logger.e('检查剪贴板图片失败', error: error);
@@ -37,21 +37,32 @@ class ClipboardService {
   }
 
   /// 桌面端检查剪贴板图片
-  Future<bool> _hasImageDesktop() async {
-    // 1. 检查文件路径
-    final files = await Pasteboard.files();
-    if (files.isNotEmpty) {
-      for (final file in files) {
-        final extension = path.extension(file).toLowerCase();
-        if (_isImageExtension(extension)) {
-          return true;
+  Future<bool> _hasImageDesktopOrWeb() async {
+    try {
+      // Web：尝试读取一次就能知道有无
+      final webData = await readClipboardImageWeb();
+      if (webData != null) return true;
+    } catch (_) {}
+
+    try {
+      // 桌面：使用 pasteboard
+      final files = await Pasteboard.files();
+      if (files.isNotEmpty) {
+        for (final file in files) {
+          final extension = path.extension(file).toLowerCase();
+          if (_isImageExtension(extension)) {
+            return true;
+          }
         }
       }
+      final imageData = await Pasteboard.image;
+      return imageData != null;
+    } catch (_) {
+      // Web：没有 pasteboard，继续后续判断
     }
 
-    // 2. 检查图片数据
-    final imageData = await Pasteboard.image;
-    return imageData != null;
+    // Web：尝试直接读取
+    return false;
   }
 
   /// 从剪贴板获取图片数据
@@ -65,8 +76,8 @@ class ClipboardService {
         // 移动端不支持图片粘贴
         return null;
       } else {
-        // 桌面端：从剪贴板直接获取
-        return await _getImageDataDesktop();
+        // 桌面/Web：从剪贴板直接获取
+        return await _getImageDataDesktopOrWeb();
       }
     } catch (error) {
       _logger.e('从剪贴板获取图片失败', error: error);
@@ -76,7 +87,11 @@ class ClipboardService {
 
 
   /// 桌面端从剪贴板获取图片数据
-  Future<Map<String, dynamic>?> _getImageDataDesktop() async {
+  Future<Map<String, dynamic>?> _getImageDataDesktopOrWeb() async {
+    // Web 优先
+    final webData = await readClipboardImageWeb();
+    if (webData != null) return webData;
+
     // 1. 首先尝试获取文件路径
     final files = await Pasteboard.files();
     if (files.isNotEmpty) {

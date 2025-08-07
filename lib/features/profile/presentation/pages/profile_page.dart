@@ -421,6 +421,7 @@ class _ProfilePageState extends State<ProfilePage>
             children: [
               UserAvatar(
                 avatarUrl: user?.avatar,
+                userId: user?.userId,
                 name: user?.name ?? '用户',
                 radius: 40,
                 backgroundColor: Colors.green,
