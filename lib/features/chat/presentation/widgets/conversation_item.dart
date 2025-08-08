@@ -335,7 +335,8 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建时间和未读数量
   Widget _buildTimeAndUnreadCount(Conversation conversation) {
-    // Get unread count from conversation
+    // 统一按索引计算未读：未读 = max(0, lastMessageIndex - readMessageIndex)
+    final int unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
 
     return Padding(
       padding: const EdgeInsets.only(right: 16.0, left: 8.0),
@@ -359,7 +360,7 @@ class ConversationItem extends StatelessWidget {
               },
             ),
             // 未读数
-            if (conversation.unreadCount > 0) _buildUnreadBadge(conversation) else const SizedBox(height: 20), // 占位符
+            if (unread > 0) _buildUnreadBadge(conversation, unread) else const SizedBox(height: 20), // 占位符
           ],
         ),
       ),
@@ -391,14 +392,13 @@ class ConversationItem extends StatelessWidget {
   }
 
   /// 构建未读消息徽章
-  Widget _buildUnreadBadge(Conversation conversation) {
-    final bool isNewMessage = conversation.unreadCount > 0;
+  Widget _buildUnreadBadge(Conversation conversation, int unread) {
+    final bool isNewMessage = unread > 0;
 
     // Access unread count from conversation
 
     // 获取未读数量（用于Text显示）
-    final displayUnreadCount = conversation.unreadCount;
-    final formattedCount = _formatUnreadCount(displayUnreadCount);
+    final formattedCount = _formatUnreadCount(unread);
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
@@ -426,6 +426,9 @@ class ConversationItem extends StatelessWidget {
   void _openChatDetail(BuildContext context, Conversation conversation, CurrentUser currentUser) async {
     final logger = LogService.instance;
 
+    // 进入会话前，按索引即时计算当前未读
+    final int unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+
     // 💬💬💬 打印会话详细信息
     logger.i('🚀🚀🚀 用户点击打开会话', extra: {
       'conversationId': conversation.conversationId,
@@ -434,7 +437,7 @@ class ConversationItem extends StatelessWidget {
       'lastMessagePreview': conversation.lastMessagePreview,
       'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
       'lastMessageName': conversation.lastMessageName,
-      'unreadCount': conversation.unreadCount,
+      'unreadCount': unread,
       'pinned': conversation.pinned,
       'muted': conversation.muted,
       'avatar': conversation.avatar,

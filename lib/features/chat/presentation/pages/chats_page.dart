@@ -325,6 +325,19 @@ class _ChatsPageState extends State<ChatsPage>
             previous.isConnected != current.isConnected ||
                 previous.networkStatus != current.networkStatus;
 
+        // 10. 未读相关字段变化：当任一会话的 readMessageIndex 或 lastMessageIndex 改变
+        bool unreadFieldsChanged = false;
+        if (!identical(previous.conversations, current.conversations)) {
+          final prevMap = {for (final c in previous.conversations) c.conversationId: c};
+          for (final c in current.conversations) {
+            final p = prevMap[c.conversationId];
+            if (p == null) { unreadFieldsChanged = true; break; }
+            if (p.readMessageIndex != c.readMessageIndex || p.lastMessageIndex != c.lastMessageIndex || p.unreadCount != c.unreadCount) {
+              unreadFieldsChanged = true; break;
+            }
+          }
+        }
+
         final shouldRebuild = conversationsCountChanged ||
             filteredConversationsCountChanged ||
             conversationsListChanged ||
@@ -333,7 +346,8 @@ class _ChatsPageState extends State<ChatsPage>
             tabChanged ||
             syncStatusChanged ||
             errorChanged ||
-            networkStatusChanged;
+            networkStatusChanged ||
+            unreadFieldsChanged;
 
         if (shouldRebuild) {
           _logger.d('ChatsPage 需要重建', extra: {
