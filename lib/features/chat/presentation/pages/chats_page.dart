@@ -913,6 +913,20 @@ class _ChatsPageState extends State<ChatsPage>
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final conversation = pinnedConversations[index];
+              // 调试：构建置顶会话item日志
+              final unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+              _logger.d('ChatsPage 构建置顶会话Item', extra: {
+                'conversationId': conversation.conversationId,
+                'name': conversation.name,
+                'type': conversation.type,
+                'lastMessageIndex': conversation.lastMessageIndex,
+                'readMessageIndex': conversation.readMessageIndex,
+                'unreadByIndex': unread,
+                'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
+                'lastMessagePreview': conversation.lastMessagePreview,
+                'pinned': conversation.pinned,
+                'muted': conversation.muted,
+              });
 
               return ConversationItem(
                 key: ValueKey('pinned_${conversation.conversationId}'),
@@ -935,6 +949,20 @@ class _ChatsPageState extends State<ChatsPage>
           delegate: SliverChildBuilderDelegate(
             (context, index) {
               final conversation = unpinnedConversations[index];
+              // 调试：构建非置顶会话item日志
+              final unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+              _logger.d('ChatsPage 构建会话Item', extra: {
+                'conversationId': conversation.conversationId,
+                'name': conversation.name,
+                'type': conversation.type,
+                'lastMessageIndex': conversation.lastMessageIndex,
+                'readMessageIndex': conversation.readMessageIndex,
+                'unreadByIndex': unread,
+                'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
+                'lastMessagePreview': conversation.lastMessagePreview,
+                'pinned': conversation.pinned,
+                'muted': conversation.muted,
+              });
 
               return ConversationItem(
                 key: ValueKey(conversation.conversationId),
