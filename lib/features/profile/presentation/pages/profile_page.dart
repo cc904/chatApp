@@ -155,7 +155,7 @@ class _ProfilePageState extends State<ProfilePage>
 
     // 💢💢💢 应用从后台恢复时触发同步
     if (state == AppLifecycleState.resumed && _isPageVisible) {
-      _logger.i('应用从后台恢复，ProfilePage 检查是否需要同步');
+      // _logger.i('应用从后台恢复，ProfilePage 检查是否需要同步');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           // 💢💢💢 重要：检查当前是否是可见的Tab页面
@@ -165,17 +165,17 @@ class _ProfilePageState extends State<ProfilePage>
             final currentTabIndex = homeCubit.state.currentTabIndex;
             final isCurrentTabVisible = currentTabIndex == 2;
             
-            _logger.i('ProfilePage 应用恢复检查可见性', extra: {
-              'currentTabIndex': currentTabIndex,
-              'isProfileTabVisible': isCurrentTabVisible,
-              'shouldSync': isCurrentTabVisible,
-            });
+            // _logger.i('ProfilePage 应用恢复检查可见性', extra: {
+            //   'currentTabIndex': currentTabIndex,
+            //   'isProfileTabVisible': isCurrentTabVisible,
+            //   'shouldSync': isCurrentTabVisible,
+            // });
 
             if (isCurrentTabVisible) {
               _logger.i('ProfilePage 当前可见且应用恢复，执行同步');
               _checkAndSync(force: true);
             } else {
-              _logger.d('ProfilePage 当前不可见，跳过应用恢复同步');
+              // _logger.d('ProfilePage 当前不可见，跳过应用恢复同步');
             }
           } catch (e) {
             // 如果获取HomeCubit失败，作为fallback还是执行同步

@@ -6,6 +6,7 @@ import 'package:cc/core/widgets/vip_badge.dart';
 import 'dart:io';
 import 'package:cc/core/services/file_server_config_service.dart';
 import 'package:cc/core/services/avatar_url_builder.dart';
+import 'package:cc/core/services/log_service.dart';
 
 /// 通用用户头像组件
 ///
@@ -79,6 +80,7 @@ class UserAvatar extends StatefulWidget {
 
 class _UserAvatarState extends State<UserAvatar> {
   final AvatarCacheService _avatarCache = AvatarCacheService();
+  final LogService _logger = LogService.instance;
 
   // 头像加载状态
   bool _isLoading = false;
@@ -95,15 +97,35 @@ class _UserAvatarState extends State<UserAvatar> {
   void didUpdateWidget(UserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     // 如果头像URL发生变化，重新加载
-    if (oldWidget.avatarUrl != widget.avatarUrl) {
+    if (oldWidget.avatarUrl != widget.avatarUrl ||
+        oldWidget.userId != widget.userId ||
+        oldWidget.useThumbnail != widget.useThumbnail) {
+      _logger.i('🌀 UserAvatar 参数变更，准备重新加载', extra: {
+        'name': widget.name,
+        'avatarUrl_old': oldWidget.avatarUrl,
+        'avatarUrl_new': widget.avatarUrl,
+        'userId_old': oldWidget.userId,
+        'userId_new': widget.userId,
+        'useThumbnail_old': oldWidget.useThumbnail,
+        'useThumbnail_new': widget.useThumbnail,
+      });
       _loadAvatar();
     }
   }
 
   /// 加载头像
   void _loadAvatar() async {
+    _logger.i('🎯 UserAvatar 开始加载', extra: {
+      'name': widget.name,
+      'avatarUrl': widget.avatarUrl,
+      'userId': widget.userId,
+      'useThumbnail': widget.useThumbnail,
+    });
     if (widget.avatarUrl == null || widget.avatarUrl!.isEmpty) {
       // 没有头像URL，直接显示首字母头像
+      _logger.w('⚠️ avatarUrl 为空，使用首字母头像', extra: {
+        'name': widget.name,
+      });
       setState(() {
         _isLoading = false;
         _hasError = false;
@@ -126,32 +148,88 @@ class _UserAvatarState extends State<UserAvatar> {
       // 如果不是http(s)且不是本地文件协议，视为nanoId，且提供了userId时组装URL
       final isHttp = widget.avatarUrl!.startsWith('http://') || widget.avatarUrl!.startsWith('https://');
       final isFileProtocol = widget.avatarUrl!.startsWith('file://');
+      _logger.d('🔎 URL 类型检测', extra: {
+        'isHttp': isHttp,
+        'isFileProtocol': isFileProtocol,
+      });
 
       if (!isHttp && !isFileProtocol && widget.userId != null && widget.userId!.isNotEmpty) {
         final baseUrl = await FileServerConfigService.instance.getDefaultFileServerUrl();
+        _logger.d('🧩 使用 nanoId 构建头像URL', extra: {
+          'baseUrl': baseUrl,
+          'userId': widget.userId,
+        });
         if (baseUrl != null && baseUrl.isNotEmpty) {
           final builder = AvatarUrlBuilder(baseUrl);
           resolvedUrl = widget.useThumbnail
               ? builder.thumb(widget.userId!, widget.avatarUrl!)
               : builder.original(widget.userId!, widget.avatarUrl!);
+          _logger.i('✅ 构建完成 resolvedUrl', extra: {
+            'resolvedUrl': resolvedUrl,
+          });
+        }
+      } else if (!isHttp && !isFileProtocol) {
+        _logger.w('⚠️ avatarUrl 为 nanoId 但缺少 userId，无法构建URL');
+      }
+
+      // 统一强制使用拼接后的URL：如果是http/https但不属于文件服务器域名，则忽略
+      if (isHttp) {
+        final allowedBase = await FileServerConfigService.instance.getDefaultFileServerUrl();
+        final isInternal = allowedBase != null && allowedBase.isNotEmpty
+            ? (widget.avatarUrl?.startsWith(allowedBase) ?? false)
+            : true; // 未配置base时放过
+        if (!isInternal) {
+          _logger.w('⛔️ 外部原始URL被忽略，要求使用nanoId并拼接', extra: {
+            'avatarUrl': widget.avatarUrl,
+            'allowedBase': allowedBase,
+          });
+          // 若此前未能构建 resolvedUrl，则保留为空，后续走首字母
         }
       }
 
-      // 判断是否为网络URL
+      // 判断是否为网络URL（仅允许文件服务器域名）
       if (resolvedUrl != null && (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://'))) {
-        // 网络头像 - 使用缓存服务下载到本地
-        localPath = await _avatarCache.getAvatar(resolvedUrl);
+        final allowedBase = await FileServerConfigService.instance.getDefaultFileServerUrl();
+        final isInternal = allowedBase != null && allowedBase.isNotEmpty
+            ? resolvedUrl.startsWith(allowedBase)
+            : true; // 若未配置base，默认允许
+
+        if (!isInternal) {
+          _logger.w('⛔️ 外部头像URL被忽略，仅使用文件服务器拼接的URL', extra: {
+            'resolvedUrl': resolvedUrl,
+            'allowedBase': allowedBase,
+          });
+        } else {
+          // 网络头像 - 使用缓存服务下载到本地
+          _logger.d('⬇️ 下载网络头像并缓存', extra: {
+            'resolvedUrl': resolvedUrl,
+          });
+          localPath = await _avatarCache.getAvatar(resolvedUrl);
+          _logger.i(localPath != null ? '📦 缓存获取成功' : '❌ 缓存获取失败', extra: {
+            'localPath': localPath,
+          });
+        }
       } else if (isFileProtocol) {
         // file:// 协议的本地文件
         final filePath = widget.avatarUrl!.substring(7);
         final file = File(filePath);
-        if (file.existsSync()) {
+        final exists = file.existsSync();
+        _logger.d('📁 file:// 本地文件检测', extra: {
+          'filePath': filePath,
+          'exists': exists,
+        });
+        if (exists) {
           localPath = filePath;
         }
       } else {
         // 直接的文件路径
         final file = File(widget.avatarUrl!);
-        if (file.existsSync()) {
+        final exists = file.existsSync();
+        _logger.d('📄 直接本地路径检测', extra: {
+          'filePath': widget.avatarUrl,
+          'exists': exists,
+        });
+        if (exists) {
           localPath = widget.avatarUrl!;
         }
       }
@@ -162,8 +240,13 @@ class _UserAvatarState extends State<UserAvatar> {
           _hasError = localPath == null;
           _localAvatarPath = localPath;
         });
+        _logger.i('🧪 UserAvatar 加载完成', extra: {
+          'hasError': _hasError,
+          'localAvatarPath': _localAvatarPath,
+        });
       }
     } catch (error) {
+      _logger.e('💥 UserAvatar 加载异常', error: error, stackTrace: StackTrace.current);
       if (mounted) {
         setState(() {
           _isLoading = false;

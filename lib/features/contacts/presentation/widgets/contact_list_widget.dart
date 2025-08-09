@@ -580,14 +580,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
 
   /// 构建联系人副标题
   Widget _buildContactSubtitle(User contact) {
-    if (contact.status?.isNotEmpty == true) {
-      return Text(
-        contact.status!,
-        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
+    // status 改为数值枚举后，这里优先显示最近活跃时间
 
     if (contact.lastActiveTime != null) {
       final now = DateTime.now();

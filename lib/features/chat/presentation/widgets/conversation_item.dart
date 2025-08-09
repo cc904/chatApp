@@ -13,6 +13,7 @@ import 'package:cc/core/utils/timezone_utils.dart';
 
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/utils/user_display_utils.dart';
 
 /// 会话列表项组件
 ///
@@ -123,17 +124,32 @@ class ConversationItem extends StatelessWidget {
       currentUser.userId,
     );
 
+    final logger = LogService.instance;
+    final other = conversation.type == 'PRIVATE'
+        ? UserDisplayUtils.getOtherUserFromConversation(conversation, currentUser.userId)
+        : null;
+
+    logger.i('🧭 ConversationItem 准备渲染头像', extra: {
+      'conversationId': conversation.conversationId,
+      'type': conversation.type,
+      'conversationAvatar': conversation.avatar,
+      'currentUserId': currentUser.userId,
+      'otherUserId': other != null ? other['userId'] : null,
+      'otherAvatar': other != null ? other['avatar'] : null,
+      'nameForAvatar': _getAvatarDisplayName(conversation),
+    });
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
         width: 60,
         height: 60,
         child: UserAvatar(
-          avatarUrl: conversation.avatar,
+          avatarUrl: conversation.type == 'PRIVATE'
+              ? (other != null ? other['avatar'] as String? : null)
+              : conversation.avatar,
           userId: conversation.type == 'PRIVATE'
-              ? (ConversationAdapter.getParticipantInfo(conversation.participants, currentUser.userId)?['userId'] == currentUser.userId
-                  ? null
-                  : ConversationAdapter.getParticipantInfo(conversation.participants, currentUser.userId)?['userId'])
+              ? (other != null ? other['userId'] as String? : null)
               : conversation.conversationId,
           name: _getAvatarDisplayName(conversation),
           radius: 60 / 2,
@@ -335,8 +351,15 @@ class ConversationItem extends StatelessWidget {
 
   /// 构建时间和未读数量
   Widget _buildTimeAndUnreadCount(Conversation conversation) {
-    // 统一按索引计算未读：未读 = max(0, lastMessageIndex - readMessageIndex)
-    final int unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+    // 统一按索引计算未读：优先使用当前用户在 participants 中的 read_message_index
+    final participantInfo = ConversationAdapter.getParticipantInfo(
+      conversation.participants,
+      currentUser.userId,
+    );
+    final int? userReadIndex = participantInfo?.readMessageIndex;
+    final int? unread = userReadIndex != null
+        ? (conversation.lastMessageIndex - userReadIndex).clamp(0, 1 << 30)
+        : null;
 
     return Padding(
       padding: const EdgeInsets.only(right: 16.0, left: 8.0),
@@ -359,8 +382,11 @@ class ConversationItem extends StatelessWidget {
                 );
               },
             ),
-            // 未读数
-            if (unread > 0) _buildUnreadBadge(conversation, unread) else const SizedBox(height: 20), // 占位符
+            // 未读数（仅在存在 read_message_index 且未读>0 时显示）
+            if (unread != null && unread > 0)
+              _buildUnreadBadge(conversation, unread)
+            else
+              const SizedBox(height: 20), // 占位符
           ],
         ),
       ),
@@ -427,7 +453,14 @@ class ConversationItem extends StatelessWidget {
     final logger = LogService.instance;
 
     // 进入会话前，按索引即时计算当前未读
-    final int unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+    final participantInfo = ConversationAdapter.getParticipantInfo(
+      conversation.participants,
+      currentUser.userId,
+    );
+    final int? userReadIndex = participantInfo?.readMessageIndex;
+    final int? unread = userReadIndex != null
+        ? (conversation.lastMessageIndex - userReadIndex).clamp(0, 1 << 30)
+        : null;
 
     // 💬💬💬 打印会话详细信息
     logger.i('🚀🚀🚀 用户点击打开会话', extra: {
@@ -438,6 +471,7 @@ class ConversationItem extends StatelessWidget {
       'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
       'lastMessageName': conversation.lastMessageName,
       'unreadCount': unread,
+      'computedReadMessageIndex': userReadIndex,
       'pinned': conversation.pinned,
       'muted': conversation.muted,
       'avatar': conversation.avatar,

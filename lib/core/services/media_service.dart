@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:path/path.dart' as path;
-import 'package:uuid/uuid.dart';
+import 'package:nanoid/nanoid.dart';
 import 'package:dio/dio.dart';
 
 // 条件导入：根据平台导入不同的媒体平台操作实现
@@ -20,7 +20,6 @@ class MediaService {
   final _logger = LogService.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final AudioRecorder _audioRecorder = AudioRecorder();
-  final Uuid _uuid = const Uuid();
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(minutes: 10),
@@ -52,7 +51,7 @@ class MediaService {
       if (await _audioRecorder.hasPermission()) {
         // 创建临时文件用于存储录音
         final tempDir = await getTemporaryDirectory();
-        final String fileName = '${_uuid.v4()}.aac';
+        final String fileName = '${nanoid(21)}.aac';
         final String filePath = '${tempDir.path}/$fileName';
 
         // 保存原始路径,用于后续的文件操作
@@ -192,7 +191,7 @@ class MediaService {
       }
 
       // 生成唯一文件名
-      final fileName = '${_uuid.v4()}${path.extension(file.path)}';
+      final fileName = '${nanoid(21)}${path.extension(file.path)}';
       final targetPath = '${targetDir.path}/$fileName';
 
       // 复制文件到目标路径

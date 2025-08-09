@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:io' show File, Platform;
+import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:image_picker/image_picker.dart' show XFile;
 
@@ -9,6 +9,7 @@ import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
+import 'package:cc/features/chat/domain/entities/participant.dart';
 import 'dart:convert';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
@@ -37,6 +38,7 @@ import 'package:cc/features/chat/presentation/widgets/quick_reply_panel.dart';
 import 'package:mime/mime.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
 import 'package:cc/core/utils/debug_commands.dart';
+import 'package:cc/core/utils/user_display_utils.dart';
 
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
@@ -70,18 +72,8 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   static final _logger = LogService.instance;
 
-  /// Helper method to extract text from message content JSON
-  String? _getTextFromMessage(Message message) {
-    try {
-      if (message.content != null) {
-        final content = jsonDecode(message.content!);
-        return content['text'];
-      }
-    } catch (e) {
-      // JSON parsing failed
-    }
-    return null;
-  }
+  // 已不再使用
+  // String? _getTextFromMessage(Message message) => null;
 
   /// 获取会话的显示名称（同步版本）
   ///
@@ -298,19 +290,17 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 🚨🚨🚨 关键对比：ChatCubit的currentUser vs 会话参与者数据
         int? participantRoleId;
         try {
-          if (state.conversation.participants != null) {
-            final participantsJson = jsonDecode(state.conversation.participants!);
-            if (participantsJson is List) {
-              for (final participant in participantsJson) {
-                if (participant['userId'] == state.currentUser.userId) {
-                  participantRoleId = participant['roleId'] as int?;
-                  break;
-                }
-              }
-            }
+          final plist = ConversationAdapter.parseParticipants(state.conversation.participants);
+          Participant? me;
+          if (plist.isNotEmpty) {
+            me = plist.firstWhere(
+              (p) => p.userId == state.currentUser.userId,
+              orElse: () => plist.first,
+            );
           }
+          participantRoleId = me?.roleId;
         } catch (e) {
-          // JSON解析失败，忽略
+          // ignore
         }
 
         _logger.e('🚨🚨🚨 DATA_SOURCE_COMPARISON: 发现数据源不一致！', extra: {
@@ -934,7 +924,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               previous.conversation.lastMessageIndex != current.conversation.lastMessageIndex ||
               // 🆕 未读相关：当未读数或已读索引变化时触发重建
               previous.conversation.unreadCount != current.conversation.unreadCount ||
-              previous.conversation.readMessageIndex != current.conversation.readMessageIndex ||
               previous.networkStatus != current.networkStatus;
         },
         builder: (context, state) {
@@ -1002,16 +991,20 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 ),
             ],
           ),
-          // 副标题：在线状态
+          // 副标题：在线状态 / 正在输入
           Hero(
             tag: 'chat_subtitle_${state.conversation.conversationId}',
             child: Material(
               color: Colors.transparent,
               child: Text(
-                _getLastSeenText(state),
+                (state.conversation.type == 'PRIVATE' && state.isOtherUserTyping)
+                    ? AppLocalizations.of(context).typing
+                    : _getLastSeenText(state),
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600],
+                  color: (state.conversation.type == 'PRIVATE' && state.isOtherUserTyping)
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey[600],
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1061,11 +1054,25 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             child: Hero(
               tag: 'chat_avatar_${state.conversation.conversationId}',
               child: UserAvatar(
-                avatarUrl: state.conversation.avatar,
+                avatarUrl: (() {
+                  if (state.conversation.type == 'PRIVATE') {
+                    final other = UserDisplayUtils.getOtherUserFromConversation(state.conversation, state.currentUser.userId);
+                    return other != null ? other['avatar'] as String? : null;
+                  }
+                  return state.conversation.avatar;
+                })(),
                 userId: state.conversation.type == 'PRIVATE' ?
-                  (ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'] == state.currentUser.userId
-                    ? null
-                    : ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'])
+                  (() {
+                    final other = UserDisplayUtils.getOtherUserFromConversation(state.conversation, state.currentUser.userId);
+                    LogService.instance.i('🧭 ChatPage AppBar 头像参数', extra: {
+                      'conversationId': state.conversation.conversationId,
+                      'conversationAvatar': state.conversation.avatar,
+                      'currentUserId': state.currentUser.userId,
+                      'otherUserId': other != null ? other['userId'] : null,
+                      'otherAvatar': other != null ? other['avatar'] : null,
+                    });
+                    return other != null ? other['userId'] as String? : null;
+                  })()
                   : state.conversation.conversationId,
                 name: state.conversation.name ?? '未命名会话',
                 radius: 18.0,
@@ -1523,6 +1530,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 对于非频道或频道管理员/所有者，显示正常输入区域
         return Column(
           children: [
+            // 正在输入提示已移动到 AppBar 副标题，不在底部显示
             // 快捷回复面板 - 仅对有权限的用户显示
             ...() {
               final hasPermission = _hasQuickReplyPermission(state.currentUser.roleId);
@@ -1643,13 +1651,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     // 快捷回复按钮 - 仅对有权限的用户显示
                     ...() {
                       final hasPermission = _hasQuickReplyPermission(state.currentUser.roleId);
-                      _logger.i('🚨🚨🚨 快捷回复按钮条件判断', extra: {
-                        'currentUserRoleId': state.currentUser.roleId,
-                        'hasPermission': hasPermission,
-                        'willShowButton': hasPermission,
-                        'currentUserId': state.currentUser.userId,
-                        'currentUserName': state.currentUser.name,
-                      });
+                      // _logger.i('🚨🚨🚨 快捷回复按钮条件判断', extra: {
+                      //   'currentUserRoleId': state.currentUser.roleId,
+                      //   'hasPermission': hasPermission,
+                      //   'willShowButton': hasPermission,
+                      //   'currentUserId': state.currentUser.userId,
+                      //   'currentUserName': state.currentUser.name,
+                      // });
 
                       if (hasPermission) {
                         return [
@@ -1677,7 +1685,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           )
                         ];
                       } else {
-                        _logger.w('🚨🚨🚨 快捷回复按钮被隐藏 - 用户没有权限');
+                        // _logger.w('🚨🚨🚨 快捷回复按钮被隐藏 - 用户没有权限');
                         return <Widget>[];
                       }
                     }(),
@@ -1753,7 +1761,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 构建频道普通成员控制区域
   Widget _buildChannelMemberControls(ChatState state, bool isEnabled) {
     final conversation = state.conversation;
-    final currentUserId = state.currentUser.userId;
     final isMuted = conversation.muted;
 
     return Container(
@@ -1891,7 +1898,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 }
               : null,
           onChanged: (text) {
-            // 文本变化已通过ValueNotifier自动处理，无需setState
+            // 更新本地输入文本
+            _textNotifier.value = text;
+            // 通知 Cubit 打字状态（节流/保活 由 Cubit 处理）
+            context.read<ChatCubit>().onInputTextChanged(text);
           },
           onTap: () {
             // 🔧 优化：只在真正需要时才调用setState，避免不必要的重建
@@ -3497,7 +3507,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       _logger.i('消息复制成功', extra: {
         'messageId': message.messageId,
         'messageType': message.messageType,
-        'textLength': messageText!.length,
+        'textLength': messageText.length,
         'copiedText': messageText.length <= 100 ? messageText : '${messageText.substring(0, 100)}...',
       });
     } else {
@@ -4213,20 +4223,52 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     CurrentUser? currentUser,
     bool isNotGroupChat,
   ) {
-    // 如果是私聊且有会话和当前用户信息，使用参与者信息计算
+    // 私聊中，当前用户发送的消息：根据对方的 delivered/read 索引来决定双勾/已读
     if (isNotGroupChat && currentUser != null) {
-      // 在私聊中，使用对方用户的已读状态
-      // 在新的 Drift 系统中，我们简化这个逻辑
-      // TODO: 实现从参与者JSON中获取对方用户已读状态的逻辑
+      final isCurrentUserMessage = message.senderId == currentUser.userId;
+      if (isCurrentUserMessage) {
+        try {
+          // 解析对方参与者（强类型）
+          final list = ConversationAdapter.parseParticipants(conversation.participants);
+          final other = list.isNotEmpty
+              ? list.firstWhere((p) => p.userId != currentUser.userId, orElse: () => list.first)
+              : null;
 
-      // 暂时跳过这个复杂的逻辑，直接使用消息本身的状态
-      if (false) {
-        // 禁用这个分支 - 需要重新实现参与者解析逻辑
-        // 这里原本是复杂的参与者状态逻辑，暂时禁用
+          if (other != null) {
+            final int deliveredIdx = other.deliveredMessageIndex;
+            final int readIdx = other.readMessageIndex;
+            final bool isDelivered = deliveredIdx >= message.messageIndex || readIdx >= message.messageIndex;
+            final bool isRead = readIdx >= message.messageIndex;
+
+            // 调试日志
+            // _logger.d('消息送达/已读计算', extra: {
+            //   'conversationId': conversation.conversationId,
+            //   'messageId': message.messageId,
+            //   'messageIndex': message.messageIndex,
+            //   'other.deliveredMessageIndex': deliveredIdx,
+            //   'other.readMessageIndex': readIdx,
+            //   'computed.isDelivered': isDelivered,
+            //   'computed.isRead': isRead,
+            //   'fallback.messageStatus': message.messageStatus,
+            // });
+
+            return MessageDisplayStatus(
+              isRead: isRead,
+              isDelivered: isDelivered,
+              messageStatus: message.messageStatus,
+            );
+          }
+        } catch (e) {
+          _logger.w('解析对方参与者以计算送达/已读失败', extra: {
+            'error': e.toString(),
+            'conversationId': conversation.conversationId,
+            'messageId': message.messageId,
+          });
+        }
       }
     }
 
-    // 回退到消息本身的状态
+    // 回退到消息本身的状态（群聊、对方消息、或解析失败）
     return MessageDisplayStatus(
       isRead: message.messageStatus == 'READ',
       isDelivered: message.messageStatus == 'DELIVERED' || message.messageStatus == 'READ',
@@ -4271,7 +4313,20 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   /// 🆕 计算未读指示器信息
   _UnreadIndicatorInfo _calculateUnreadIndicatorInfo(ChatState state) {
-    // 设计：显示“往下还有多少未读”，按索引判断：小于等于当前可视区域底部的都视为已读
+    // 在底部视口时：不显示浮标，并触发一次已读更新（避免闪烁）
+    if (_isUserAtBottom()) {
+      _scheduleReadUpdateForVisibleMessages(state);
+      return const _UnreadIndicatorInfo(
+        hasUnread: false,
+        unreadCount: 0,
+        direction: _UnreadDirection.none,
+        indicatorText: '',
+      );
+    }
+
+    // 设计（简化版）：直接使用参与者的 read_message_index 作为基线
+    // 未读 = lastMessageIndex - participantReadIndex
+    // 与会话列表/标签页口径完全一致，且不随滚动变化
     // 1) 若所有消息可见，触发已读并隐藏
     if (_areAllMessagesVisible(state)) {
       _scheduleReadUpdateForVisibleMessages(state);
@@ -4283,9 +4338,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     }
 
-    // 2) 取当前可视区域“底部”的消息 messageIndex
-    final latestVisibleIndex = _getLatestVisibleMessageIndex(state);
-    if (latestVisibleIndex == null) {
+    // 2) 获取参与者的 read index
+    final pi = ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId);
+    final int? participantReadIndex = pi?.readMessageIndex;
+
+    // 若缺少 read_message_index，视为无从计算未读，不显示浮标
+    if (participantReadIndex == null) {
       return const _UnreadIndicatorInfo(
         hasUnread: false,
         unreadCount: 0,
@@ -4294,9 +4352,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     }
 
-    // 3) 计算“向下未读条数” = lastMessageIndex - latestVisibleIndex
+    // 3) 计算"向下未读条数" = lastMessageIndex - participantReadIndex
     final lastMessageIndex = state.conversation.lastMessageIndex;
-    final unreadBelow = (lastMessageIndex - latestVisibleIndex).clamp(0, 1 << 30);
+    final unreadBelow = (lastMessageIndex - participantReadIndex).clamp(0, 1 << 30);
     if (unreadBelow <= 0) {
       return const _UnreadIndicatorInfo(
         hasUnread: false,
@@ -4306,7 +4364,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       );
     }
 
-    // 4) 固定向下方向显示
+    // 固定向下方向显示
     final indicatorText = _generateUnreadIndicatorText(unreadBelow, _UnreadDirection.down);
 
     return _UnreadIndicatorInfo(
@@ -4314,35 +4372,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       unreadCount: unreadBelow,
       direction: _UnreadDirection.down,
       indicatorText: indicatorText,
-      firstUnreadIndex: latestVisibleIndex + 1,
+      firstUnreadIndex: participantReadIndex + 1,
     );
   }
 
-  /// 🆕 判断未读消息相对于当前滚动位置的方向
-  _UnreadDirection _determineUnreadDirection(ChatState state, int firstUnreadIndex) {
-    // 如果没有当前滚动位置信息，认为未读消息在上方（历史消息方向）
-    if (state.currentScrollPosition.messageId == null) {
-      return _UnreadDirection.up;
-    }
-
-    // 获取当前滚动位置的消息索引
-    final currentScrollIndex = state.currentScrollPosition.getListIndex(state.messages);
-    if (currentScrollIndex == -1) {
-      return _UnreadDirection.up;
-    }
-
-    final currentMessage = state.messages[currentScrollIndex];
-    final currentMessageIndex = currentMessage.messageIndex;
-
-    // 比较消息索引来判断方向
-    if (firstUnreadIndex > currentMessageIndex) {
-      // 第一条未读消息的索引更大，说明在更新的位置（下方）
-      return _UnreadDirection.down;
-    } else {
-      // 第一条未读消息的索引更小，说明在更老的位置（上方）
-      return _UnreadDirection.up;
-    }
-  }
+  // 未使用：判断未读方向
+  // _UnreadDirection _determineUnreadDirection(ChatState state, int firstUnreadIndex) => _UnreadDirection.none;
 
   /// 🆕 生成未读指示器文本
   String _generateUnreadIndicatorText(int unreadCount, _UnreadDirection direction) {
@@ -4403,31 +4438,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     return allVisible;
   }
 
-  /// 计算当前可视区域“底部”的消息的 messageIndex
-  /// 在 reverse: true 的列表中，我们以可见的 processed 索引中最小者为“屏幕底部”
-  int? _getLatestVisibleMessageIndex(ChatState state) {
-    if (state.messages.isEmpty) return null;
-    final positions = _itemPositionsListener.itemPositions.value;
-    if (positions.isEmpty) return null;
-
-    final visibleIndices = positions.map((p) => p.index).toList()..sort();
-
-    final processedItems = MessageListProcessor.processMessages(
-      messages: state.messages,
-      currentUserId: state.currentUser.userId,
-      isNotGroupChat: state.conversation.type != 'GROUP',
-    );
-
-    for (final idx in visibleIndices) {
-      if (idx >= 0 && idx < processedItems.length) {
-        final item = processedItems[idx];
-        if (item is MessageListItemData) {
-          return item.message.messageIndex;
-        }
-      }
-    }
-    return null;
-  }
+  // 未使用：计算可视底部消息索引
+  // int? _getLatestVisibleMessageIndex(ChatState state) => null;
 
   /// 🆕 为可见消息安排已读更新
   void _scheduleReadUpdateForVisibleMessages(ChatState state) {
@@ -4448,9 +4460,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     try {
       final conversation = state.conversation;
 
-      // 计算第一条未读消息的索引
-      // readMessageIndex 是已读消息索引，第一条未读消息应该是 readMessageIndex + 1
-      final firstUnreadIndex = conversation.readMessageIndex + 1;
+      // 计算第一条未读消息的索引（基于参与者的 readMessageIndex）
+      final pi = ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser.userId);
+      final readIdx = pi?.readMessageIndex ?? conversation.lastMessageIndex;
+      final firstUnreadIndex = readIdx + 1;
 
       // 获取会话中的最后一条消息索引（最新未读消息）
       final lastMessageIndex = conversation.lastMessageIndex;
@@ -4458,7 +4471,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 如果没有未读消息，直接返回
       if (firstUnreadIndex > lastMessageIndex) {
         _logger.i('没有未读消息', extra: {
-          'readMessageIndex': conversation.readMessageIndex,
+          'computedReadMessageIndex': readIdx,
           'lastMessageIndex': lastMessageIndex,
         });
         return;
@@ -4481,7 +4494,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         _logger.i('滚动到最新消息成功', extra: {
           'messageId': targetMessage.messageId,
           'messageIndex': targetIndex,
-          'unreadCount': lastMessageIndex - conversation.readMessageIndex,
+          'unreadCount': lastMessageIndex - readIdx,
         });
       } else {
         _logger.w('最新消息不在当前列表中，使用jumpToMessageIndex加载', extra: {
@@ -4599,17 +4612,15 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     final isVip = roleId == 4;
     final hasPermission = isCustomerService || isVip;
 
-    _logger.i('⚡⚡⚡ 快捷回复权限检查详细信息', extra: {
-      'originalRoleId': roleId,
-      'roleIdType': roleId.runtimeType.toString(),
-      'isCustomerService_3': isCustomerService,
-      'isVip_4': isVip,
-      'hasPermission': hasPermission,
-      'calculation': '$roleId == 3 || $roleId == 4 = $hasPermission',
-    });
+    // _logger.i('⚡⚡⚡ 快捷回复权限检查详细信息', extra: {
+    //   'originalRoleId': roleId,
+    //   'roleIdType': roleId.runtimeType.toString(),
+    //   'isCustomerService_3': isCustomerService,
+    //   'isVip_4': isVip,
+    //   'hasPermission': hasPermission,
+    //   'calculation': '$roleId == 3 || $roleId == 4 = $hasPermission',
+    // });
 
-    // 强制打印到控制台，确保能看到
-    print('🚀🚀🚀 QUICK_REPLY_PERMISSION: roleId=$roleId, hasPermission=$hasPermission');
 
     return hasPermission;
   }

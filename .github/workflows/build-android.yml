@@ -1,0 +1,80 @@
+name: Build Flutter Android
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare Android Keystore from Secrets
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        shell: bash
+        run: |
+          echo "Decoding keystore from secret..."
+          mkdir -p android/app
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/cc-release-key.jks
+          echo "Creating key.properties at repo root..."
+          cat > key.properties <<'PROP'
+          storeFile=android/app/cc-release-key.jks
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          PROP
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses
+
+      - name: Build Android APK (per-ABI) - Mainstream
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build Android AppBundle - Mainstream
+        run: flutter build appbundle --release
+
+      - name: Build Android Universal APK - Compatibility
+        run: flutter build apk --release
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks-mainstream
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-mainstream
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      - name: Upload Universal APK (Compatibility)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-compat
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+

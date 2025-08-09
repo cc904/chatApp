@@ -205,17 +205,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     super.didChangeAppLifecycleState(state);
 
     // 🔧 简化日志：只有resumed和paused状态才输出info级别，其他状态用debug级别
-    if (state == AppLifecycleState.resumed || state == AppLifecycleState.paused) {
-      _logger.i('HomePage 应用生命周期状态变化', extra: {
-        'state': state.toString(),
-        'isInitialized': _isInitialized,
-      });
-    } else {
-      _logger.d('HomePage 应用生命周期状态变化', extra: {
-        'state': state.toString(),
-        'isInitialized': _isInitialized,
-      });
-    }
+    // if (state == AppLifecycleState.resumed || state == AppLifecycleState.paused) {
+    //   _logger.i('HomePage 应用生命周期状态变化', extra: {
+    //     'state': state.toString(),
+    //     'isInitialized': _isInitialized,
+    //   });
+    // } else {
+    //   _logger.d('HomePage 应用生命周期状态变化', extra: {
+    //     'state': state.toString(),
+    //     'isInitialized': _isInitialized,
+    //   });
+    // }
 
     // 🔧 强化：当应用从后台恢复时，检查状态是否需要重新初始化
     if (state == AppLifecycleState.resumed && !_isInitialized && !_isInitializing && _homeCubit == null && _contactCubit == null && _chatsCubit == null) {
@@ -232,13 +232,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
         }
       });
     } else if (state == AppLifecycleState.resumed) {
-      _logger.d('应用从后台恢复，但初始化状态正常，跳过重新初始化', extra: {
-        'isInitialized': _isInitialized,
-        'isInitializing': _isInitializing,
-        'hasHomeCubit': _homeCubit != null,
-        'hasContactCubit': _contactCubit != null,
-        'hasChatsCubit': _chatsCubit != null,
-      });
+      // _logger.d('应用从后台恢复，但初始化状态正常，跳过重新初始化', extra: {
+      //   'isInitialized': _isInitialized,
+      //   'isInitializing': _isInitializing,
+      //   'hasHomeCubit': _homeCubit != null,
+      //   'hasContactCubit': _contactCubit != null,
+      //   'hasChatsCubit': _chatsCubit != null,
+      // });
     }
   }
 

@@ -1,5 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
+import 'package:cc/features/chat/domain/entities/participant.dart';
 
 /// 用户显示工具类
 /// 提供用户头像颜色生成和首字母获取功能
@@ -78,37 +79,18 @@ class UserDisplayUtils {
     dynamic conversation,
     String currentUserId,
   ) {
-    if (conversation == null || conversation.participants == null) {
+    if (conversation == null) {
       return null;
     }
 
     try {
-      List<dynamic> participants;
-      
-      // 处理不同的数据格式
-      if (conversation.participants is String) {
-        // 数据库中的JSON字符串格式
-        final participantsJson = json.decode(conversation.participants as String);
-        if (participantsJson is List) {
-          participants = participantsJson;
-        } else {
-          return null;
-        }
-      } else if (conversation.participants is List) {
-        // 直接的列表格式
-        participants = conversation.participants as List<dynamic>;
-      } else {
-        return null;
-      }
-      
+      final List<Participant> participants =
+          ConversationAdapter.parseParticipants(conversation.participants);
       if (participants.isEmpty) return null;
 
-      for (final participant in participants) {
-        if (participant is Map<String, dynamic>) {
-          final userId = participant['userId'];
-          if (userId != null && userId != currentUserId) {
-            return participant;
-          }
+      for (final p in participants) {
+        if (p.userId != currentUserId) {
+          return p.toMap();
         }
       }
     } catch (e) {

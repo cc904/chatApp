@@ -14,3 +14,13 @@ bool isDesktopPlatform() {
 Future<Map<String, dynamic>?> readClipboardImageWeb() async {
   return null;
 }
+
+/// 桌面平台：是否有剪贴板图片（存根）
+Future<bool> platformHasClipboardImage() async {
+  return false;
+}
+
+/// 桌面平台：获取剪贴板图片数据（存根）
+Future<Map<String, dynamic>?> platformGetClipboardImageData() async {
+  return null;
+}

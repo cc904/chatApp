@@ -62,7 +62,7 @@ class UserService {
     String? avatar,
     String? phone,
     String? email,
-    String? status,
+    int? status,
   }) async {
     try {
       _logger.i('更新用户信息请求', extra: {
@@ -90,8 +90,11 @@ class UserService {
       if (email != null && email.isNotEmpty) {
         request.email = email;
       }
-      if (status != null && status.isNotEmpty) {
-        request.status = status;
+      if (status != null) {
+        final enumVal = UserStatusEnum.valueOf(status);
+        if (enumVal != null) {
+          request.status = enumVal;
+        }
       }
 
       // 检查通信服务状态
@@ -217,7 +220,7 @@ class UserService {
   /// 当服务器成功返回用户信息时调用
   void _onGetCurrentUserResponseSuccess(SetCurrentUserResponse response) async {
     try {
-      _logger.i('处理获取用户信息成功响应', extra: {
+          _logger.i('处理获取用户信息成功响应', extra: {
         'userId': response.user.userId,
         'message': response.message,
       });
@@ -263,7 +266,7 @@ class UserService {
           phone: drift.Value(currentUser.phone),
           email: drift.Value(currentUser.email),
           avatar: drift.Value(currentUser.avatar),
-          status: drift.Value(currentUser.status),
+           status: drift.Value(currentUser.status),
           lastLoginTime: drift.Value(currentUser.lastLoginTime),
           hasSetPassword: drift.Value(currentUser.hasSetPassword),
           roleId: drift.Value(currentUser.roleId), // 添加roleId字段
@@ -343,8 +346,11 @@ class UserService {
     if (user.lastLoginTime != null) {
       proto.lastLoginTime = Int64(user.lastLoginTime!.millisecondsSinceEpoch);
     }
-    if (user.status != null && user.status!.isNotEmpty) {
-      proto.status = user.status!;
+    if (user.status != null) {
+      final enumVal = UserStatusEnum.valueOf(user.status!);
+      if (enumVal != null) {
+        proto.status = enumVal;
+      }
     }
     
     proto.hasSetPassword = user.hasSetPassword;

@@ -1,6 +1,5 @@
 import 'dart:io' show File;
 import 'package:flutter/services.dart';
-import 'package:pasteboard/pasteboard.dart' if (dart.library.html) 'dart:core';
 import 'package:cc/core/services/log_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -38,31 +37,11 @@ class ClipboardService {
 
   /// 桌面端检查剪贴板图片
   Future<bool> _hasImageDesktopOrWeb() async {
-    try {
-      // Web：尝试读取一次就能知道有无
-      final webData = await readClipboardImageWeb();
-      if (webData != null) return true;
-    } catch (_) {}
-
-    try {
-      // 桌面：使用 pasteboard
-      final files = await Pasteboard.files();
-      if (files.isNotEmpty) {
-        for (final file in files) {
-          final extension = path.extension(file).toLowerCase();
-          if (_isImageExtension(extension)) {
-            return true;
-          }
-        }
-      }
-      final imageData = await Pasteboard.image;
-      return imageData != null;
-    } catch (_) {
-      // Web：没有 pasteboard，继续后续判断
-    }
-
-    // Web：尝试直接读取
-    return false;
+    // 先尝试 Web（IO 平台实现会返回 null）
+    final webData = await readClipboardImageWeb();
+    if (webData != null) return true;
+    // 再走平台特定的桌面实现
+    return await platformHasClipboardImage();
   }
 
   /// 从剪贴板获取图片数据
@@ -88,58 +67,11 @@ class ClipboardService {
 
   /// 桌面端从剪贴板获取图片数据
   Future<Map<String, dynamic>?> _getImageDataDesktopOrWeb() async {
-    // Web 优先
+    // Web 优先（IO 平台实现会返回 null）
     final webData = await readClipboardImageWeb();
     if (webData != null) return webData;
-
-    // 1. 首先尝试获取文件路径
-    final files = await Pasteboard.files();
-    if (files.isNotEmpty) {
-      for (final filePath in files) {
-        final extension = path.extension(filePath).toLowerCase();
-        if (_isImageExtension(extension)) {
-          final file = File(filePath);
-          if (await file.exists()) {
-            final data = await file.readAsBytes();
-            final fileName = path.basename(filePath);
-            final mimeType = _getMimeTypeFromExtension(extension);
-            
-            _logger.i('从剪贴板获取图片文件', extra: {
-              'fileName': fileName,
-              'size': data.length,
-              'mimeType': mimeType,
-            });
-            
-            return {
-              'data': data,
-              'name': fileName,
-              'mimeType': mimeType,
-              'isUrl': false,
-            };
-          }
-        }
-      }
-    }
-
-    // 2. 尝试获取图片数据
-    final imageData = await Pasteboard.image;
-    if (imageData != null) {
-      final fileName = 'clipboard_image_${DateTime.now().millisecondsSinceEpoch}.png';
-      
-      _logger.i('从剪贴板获取图片数据', extra: {
-        'fileName': fileName,
-        'size': imageData.length,
-      });
-      
-      return {
-        'data': imageData,
-        'name': fileName,
-        'mimeType': 'image/png',
-        'isUrl': false,
-      };
-    }
-    
-    return null;
+    // 桌面平台专用
+    return await platformGetClipboardImageData();
   }
 
   /// 获取剪贴板文本内容
@@ -186,40 +118,7 @@ class ClipboardService {
   }
 
 
-  /// 检查文件扩展名是否为支持的图片格式
-  bool _isImageExtension(String extension) {
-    const supportedExtensions = [
-      '.jpg', '.jpeg', '.png', '.gif', '.bmp', 
-      '.webp', '.tiff', '.tif', '.ico', '.svg'
-    ];
-    return supportedExtensions.contains(extension.toLowerCase());
-  }
-
-  /// 根据文件扩展名获取MIME类型
-  String _getMimeTypeFromExtension(String extension) {
-    switch (extension.toLowerCase()) {
-      case '.jpg':
-      case '.jpeg':
-        return 'image/jpeg';
-      case '.png':
-        return 'image/png';
-      case '.gif':
-        return 'image/gif';
-      case '.bmp':
-        return 'image/bmp';
-      case '.webp':
-        return 'image/webp';
-      case '.tiff':
-      case '.tif':
-        return 'image/tiff';
-      case '.ico':
-        return 'image/x-icon';
-      case '.svg':
-        return 'image/svg+xml';
-      default:
-        return 'image/png';
-    }
-  }
+  // 已由平台实现负责扩展/类型判断
 
 
   /// 清空剪贴板

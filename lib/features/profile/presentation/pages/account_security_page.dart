@@ -556,7 +556,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
               _buildInfoRow('用户名', user?.name ?? '未知'),
               _buildInfoRow('手机号', user?.phone ?? '未绑定'),
               _buildInfoRow('邮箱', user?.email ?? '未绑定'),
-              _buildInfoRow('状态', user?.status ?? '正常'),
+              _buildInfoRow('状态', _statusText(user?.status)),
               _buildInfoRow('密码状态', user?.hasSetPassword == true ? '已设置' : '未设置'),
               _buildInfoRow('创建时间', '未开放'),
               _buildInfoRow('最后登录', '未开放'),
@@ -571,6 +571,19 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
         ],
       ),
     );
+  }
+
+  String _statusText(int? status) {
+    switch (status) {
+      case 1:
+        return '在线';
+      case 2:
+        return '挂起';
+      case 0:
+        return '离线';
+      default:
+        return '未知';
+    }
   }
 
   // 构建信息行

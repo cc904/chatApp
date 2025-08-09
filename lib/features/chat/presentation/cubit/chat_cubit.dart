@@ -1,7 +1,6 @@
 // ignore_for_file: unused_element
 
 import 'dart:async';
-import 'dart:convert';
 import 'package:collection/collection.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,6 +21,7 @@ import 'package:cc/features/chat/domain/entities/conversation_update_event.dart'
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:cc/features/chat/data/repositories/quick_reply_repository.dart';
+import 'package:cc/core/services/communication_service.dart';
 
 /// 滚动恢复类型
 enum ScrollRestoreType {
@@ -64,6 +64,18 @@ class ScrollRestoreInfo {
 /// 单个聊天会话的业务逻辑Cubit
 /// 简化版本，使用ChatRepository中的状态快照功能
 class ChatCubit extends Cubit<ChatState> {
+  // ============================
+  // 打字状态（本端）
+  // ============================
+  bool _isTypingSelf = false;
+  DateTime _lastTypingSendAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastKeyAt = DateTime.now();
+  Timer? _typingIdleTimer;
+  final Duration _keepAliveInterval = const Duration(seconds: 3);
+  final Duration _idleDelay = const Duration(seconds: 2);
+  // 对方打字UI兜底超时
+  Timer? _peerTypingTimeoutTimer;
+  final Duration _peerTypingTimeout = const Duration(seconds: 6);
   /// 辅助函数：检查会话是否是频道类型
   bool _isChannel(Conversation conversation) {
     return conversation.type == 'CHANNEL';
@@ -86,14 +98,9 @@ class ChatCubit extends Cubit<ChatState> {
   /// 辅助函数：获取会话参与者信息
   Map<String, dynamic>? _getParticipant(Conversation conversation, String userId) {
     try {
-      final participantsJson = conversation.participants;
-      final List<dynamic> participantsList = jsonDecode(participantsJson);
-      final participantsMap = participantsList.cast<Map<String, dynamic>>();
-
-      // 查找指定用户的参与者信息
-      for (final participant in participantsMap) {
-        if (participant['userId'] == userId) {
-          return participant;
+      for (final p in conversation.participants) {
+        if (p.userId == userId) {
+          return p.toMap();
         }
       }
     } catch (e) {
@@ -102,14 +109,14 @@ class ChatCubit extends Cubit<ChatState> {
         'userId': userId,
       });
     }
-
     return null;
   }
 
   /// 辅助函数：获取用户的最后已读消息索引
   int _getLastReadMessageIndex(Map<String, dynamic>? participant) {
     if (participant == null) return 0;
-    return participant['read_message_index'] as int? ?? 0;
+    final int? camel = participant['readMessageIndex'] as int?;
+    return camel ?? 0;
   }
 
   /// 辅助函数：检查用户是否在会话中被静音
@@ -195,6 +202,22 @@ class ChatCubit extends Cubit<ChatState> {
       // 🔄 第1步：设置Repository Stream监听（必须在加入房间前设置）
       _setupRepositoryListeners();
 
+      // 🔄 新增：监听重连成功后重新加入房间并补发打字状态
+      _subscriptions['socketReconnect'] = CommunicationService()
+          .reconnectSuccessStream
+          .listen((_) async {
+        _logger.i('Socket重连成功，重新加入房间并补发打字状态', extra: {
+          'conversationId': _conversationId,
+          'isTypingSelf': _isTypingSelf,
+        });
+        try {
+          await joinConversation();
+          await _emitTyping(_isTypingSelf);
+        } catch (e) {
+          _logger.e('重连后补发打字状态失败', error: e);
+        }
+      });
+
       // 🔄 第2步：加入会话房间开始接收实时消息
       await joinConversation();
 
@@ -210,6 +233,63 @@ class ChatCubit extends Cubit<ChatState> {
       emit(state.copyWith(
         errorMessage: '同步失败: ${error.toString()}',
       ));
+    }
+  }
+
+  // ============================
+  // 打字状态：对外方法（供UI调用）
+  // ============================
+  void onInputTextChanged(String text) {
+    _lastKeyAt = DateTime.now();
+
+    // 空文本 -> 若在打字中，立即停止
+    if (text.isEmpty) {
+      if (_isTypingSelf) {
+        stopTyping();
+      }
+      return;
+    }
+
+    // 首次从空变非空 -> 立即发送 true
+    if (!_isTypingSelf) {
+      _isTypingSelf = true;
+      _emitTyping(true);
+    } else {
+      // 保活：间隔到达则续发 true
+      if (DateTime.now().difference(_lastTypingSendAt) >= _keepAliveInterval) {
+        _emitTyping(true);
+      }
+    }
+
+    // 安排空闲检测（停止输入后2秒发 false）
+    _scheduleTypingIdleCheck();
+  }
+
+  void _scheduleTypingIdleCheck() {
+    _typingIdleTimer?.cancel();
+    _typingIdleTimer = Timer(_idleDelay, () {
+      if (DateTime.now().difference(_lastKeyAt) >= _idleDelay && _isTypingSelf) {
+        stopTyping();
+      }
+    });
+  }
+
+  Future<void> stopTyping() async {
+    if (!_isTypingSelf) return;
+    _isTypingSelf = false;
+    await _emitTyping(false);
+  }
+
+  Future<void> _emitTyping(bool isTyping) async {
+    _lastTypingSendAt = DateTime.now();
+    try {
+      await _chatRepository.sendTypingStatus(_conversationId, isTyping);
+    } catch (e) {
+      _logger.w('发送打字状态失败', extra: {
+        'conversationId': _conversationId,
+        'isTyping': isTyping,
+        'error': e.toString(),
+      });
     }
   }
 
@@ -300,6 +380,9 @@ class ChatCubit extends Cubit<ChatState> {
         emit(state.copyWith(isSending: true));
         _logger.d('💬 设置发送状态为true');
       }
+
+      // 发送消息前，若正在打字则立即发送一次停止打字
+      await stopTyping();
 
       // 2. 直接通过ChatRepositorySend发送文本消息
       final message = await _chatRepositorySend.sendTextMessage(
@@ -2114,7 +2197,8 @@ class ChatCubit extends Cubit<ChatState> {
   void _mergeMessages(AddedEventType addedEventType, List<Message> newMessages, {int? jumpIndex}) {
     if (newMessages.isEmpty) return;
 
-    var currentMessages = state.messages;
+    // 强制为 List<Message>，避免在 Web 上泛型擦除导致 reduce 类型不匹配
+    List<Message> currentMessages = List<Message>.from(state.messages);
 
     // 🆕 连续性检查：如果消息索引不连续，抛弃原有数据
     if (currentMessages.isNotEmpty && !_isMessagesContinuous(currentMessages, newMessages)) {
@@ -2481,6 +2565,7 @@ class ChatCubit extends Cubit<ChatState> {
 
     final conversationId = event['conversationId'] as String?;
     final isTyping = event['isTyping'] as bool? ?? false;
+    final userId = event['userId'] as String?; // 可能不存在
 
     if (conversationId == _conversationId) {
       _logger.d('输入状态变化', extra: {
@@ -2488,10 +2573,25 @@ class ChatCubit extends Cubit<ChatState> {
         'isTyping': isTyping,
       });
 
-      // 更新输入状态（这里可以根据需要扩展状态）
-      // emit(state.copyWith(isOtherUserTyping: isTyping));
+      // 仅在私聊会话中展示对方输入状态，且忽略自己
+      final isPrivate = !_isChannel(state.conversation) && state.conversation.type == 'PRIVATE';
+      final isSelf = userId != null && userId == state.currentUser.userId;
+      if (isPrivate && !isSelf) {
+        emit(state.copyWith(isOtherUserTyping: isTyping));
+        // 兜底超时：收到 true 则重置计时，超时后自动隐藏；收到 false 则立即取消
+        _peerTypingTimeoutTimer?.cancel();
+        if (isTyping) {
+          _peerTypingTimeoutTimer = Timer(_peerTypingTimeout, () {
+            if (!isClosed) {
+              emit(state.copyWith(isOtherUserTyping: false));
+            }
+          });
+        }
+      }
     }
   }
+
+  // 注意：真正的 close() 在文件末尾已存在，这里不重复定义
 
   /// 💢💢💢 获取最新一条阅读的消息Index
   int _getLatestReadMessageIndex(List<ItemPosition> sortedPositions) {
@@ -2549,6 +2649,14 @@ class ChatCubit extends Cubit<ChatState> {
 
     final lastReadMessageIndex = _getLastReadMessageIndex(participant);
 
+    // 调试：打印参与者的已读字段（兼容两种命名）
+    _logger.d('已读更新检查', extra: {
+      'conversationId': _conversationId,
+      'latestReadMessageIndex': latestReadMessageIndex,
+      'participant.readMessageIndex': participant['readMessageIndex'],
+      'computedLastReadMessageIndex': lastReadMessageIndex,
+    });
+
     // 🔧 增强：严格检查，避免重复更新同一个索引
     if (latestReadMessageIndex > lastReadMessageIndex && _pendingReadMessageIndex == latestReadMessageIndex) {
       _chatsRepository.updateParticipantSettings(
@@ -2563,7 +2671,9 @@ class ChatCubit extends Cubit<ChatState> {
       // 🔧 清除待处理的索引，避免重复处理
       _pendingReadMessageIndex = null;
     } else {
-      // 跳过重复的已读状态更新
+      _logger.d('已读更新跳过', extra: {
+        'reason': latestReadMessageIndex <= lastReadMessageIndex ? 'not_advanced' : 'pending_index_changed',
+      });
     }
   }
 
@@ -2858,6 +2968,12 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> close() async {
     _logger.i('关闭ChatCubit', extra: {'conversationId': _conversationId});
 
+    // 取消本地打字相关计时器
+    _typingIdleTimer?.cancel();
+    _typingIdleTimer = null;
+    _peerTypingTimeoutTimer?.cancel();
+    _peerTypingTimeoutTimer = null;
+
     // 💢💢💢 清理暂存的临时消息
     if (_pendingTempMessages != null && _pendingTempMessages!.isNotEmpty) {
       _logger.d('清理暂存的临时消息', extra: {
@@ -2941,7 +3057,7 @@ class ChatCubit extends Cubit<ChatState> {
       'currentMessageCount': state.messages.length,
     });
 
-    var currentMessages = state.messages;
+    List<Message> currentMessages = List<Message>.from(state.messages);
 
     // 检查消息连续性（考虑临时乐观更新消息）
     bool isContinuous = _isNewMessageContinuous(currentMessages, newMessage);
@@ -3020,7 +3136,9 @@ class ChatCubit extends Cubit<ChatState> {
         latestNewMessage.messageIndex == state.conversation.lastMessageIndex + 1; // 允许下一个索引
 
     // 判断条件2：当前最新消息是否在屏幕中（简化判断）
-    final currentLatestMessage = currentMessages.isNotEmpty ? currentMessages.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b) : null;
+    final currentLatestMessage = currentMessages.isNotEmpty
+        ? currentMessages.reduce((Message a, Message b) => a.createdAt.isAfter(b.createdAt) ? a : b)
+        : null;
 
     // 简化判断：如果当前有消息且最新消息的messageIndex接近conversation.lastMessageIndex，认为在屏幕中
     final isCurrentLatestVisible =
@@ -3039,8 +3157,8 @@ class ChatCubit extends Cubit<ChatState> {
     }
 
     // 进行详细的连续性检查
-    final allMessages = [...currentMessages, newMessage];
-    allMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final List<Message> allMessages = <Message>[...currentMessages, newMessage];
+    allMessages.sort((Message a, Message b) => a.createdAt.compareTo(b.createdAt));
 
     // 分离有效索引消息和临时消息用于分析
     final validMessages = allMessages.where((msg) => msg.messageIndex > 0).toList();

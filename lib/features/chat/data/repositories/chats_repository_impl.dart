@@ -12,6 +12,7 @@ import 'package:cc/features/chat/domain/entities/conversation_update_event.dart'
 
 import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
 import 'package:cc/core/services/secure_storage_service.dart';
+// import 'package:cc/features/chat/domain/entities/participant.dart';
 import 'package:cc/core/services/conversation_preview_notification.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:fixnum/fixnum.dart';
@@ -96,6 +97,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
       ..add(_communicationService.onProto<conversation_proto.UserLeftNotification>('conversation:user:left').listen(_handleUserLeftNotification))
       ..add(_communicationService.onProto<conversation_proto.ConversationDetailResponse>('conversation:detail:response').listen(_handleConversationDetailResponse))
       ..add(_communicationService.onProto<conversation_proto.ParticipantStatusUpdateResponse>('participant:status:update:response').listen(_handleParticipantStatusUpdateResponse))
+      ..add(_communicationService.onProto<conversation_proto.ParticipantIndexUpdatedNotification>('conversation:participant:index:updated').listen(_handleParticipantIndexUpdated))
       ..add(_communicationService.onProto<conversation_proto.ConversationJoinLeaveResponse>('conversation:leave:response').listen(_handleConversationLeaveResponse))
       ..add(_communicationService.onProto<conversation_proto.ConversationCreateResponse>('conversation:added').listen(_handleConversationAdded));
 
@@ -612,6 +614,46 @@ class ChatsRepositoryImpl implements ChatsRepository {
         // 设置可选字段
         if (readMessageIndex != null) {
           participantUpdateRequest.readMessageIndex = readMessageIndex;
+          // 🟢 本地乐观更新：更新 participants JSON 中当前用户的 readMessageIndex，并重算未读
+          try {
+            final conversation = await getConversationById(conversationId);
+            if (conversation != null) {
+              final participants = ConversationAdapter.parseParticipants(conversation.participants);
+              bool updated = false; // 保留变量以便未来使用（可用于其他字段变动）
+              for (int i = 0; i < participants.length; i++) {
+                final p = participants[i];
+                if (p.userId == _currentUser.userId) {
+                  if (p.readMessageIndex != readMessageIndex) {
+                    participants[i] = p.copyWith(readMessageIndex: readMessageIndex);
+                    updated = true;
+                  }
+                  break;
+                }
+              }
+              final int newUnread = (conversation.lastMessageIndex - readMessageIndex).clamp(0, double.infinity).toInt();
+
+              final updatedConversation = conversation.copyWith(
+                participants: participants,
+                unreadCount: newUnread,
+              );
+              await _database.update(_database.conversations).replace(updatedConversation);
+              _notifyConversationUpdate(ConversationUpdatedEvent(
+                updatedConversation: updatedConversation,
+                updatedFields: ['participants', 'unreadCount'],
+                timestamp: DateTime.now(),
+              ));
+              _logger.d('已本地乐观更新参与者read并通知UI', extra: {
+                'conversationId': conversationId,
+                'readMessageIndex': readMessageIndex,
+                'unreadCount': newUnread,
+              });
+            }
+          } catch (e, s) {
+            _logger.w('本地乐观更新参与者read失败（不中断网络发送）', stackTrace: s, extra: {
+              'conversationId': conversationId,
+              'error': e.toString(),
+            });
+          }
         }
         if (muted != null) {
           participantUpdateRequest.muted = muted;
@@ -1125,9 +1167,15 @@ class ChatsRepositoryImpl implements ChatsRepository {
       final conversation = await getConversationById(previewInfo.conversationId);
 
       if (conversation != null) {
-        // 计算新的未读数量
+        // 计算新的未读数量（基于 participants 中当前用户的 readMessageIndex）
         final newLastMessageIndex = previewInfo.hasLastMessageIndex() ? previewInfo.lastMessageIndex : conversation.lastMessageIndex;
-        final newUnreadCount = (newLastMessageIndex - conversation.readMessageIndex).clamp(0, double.infinity).toInt();
+        int userReadIndex = 0;
+        try {
+          final participants = ConversationAdapter.parseParticipants(conversation.participants);
+          final me = participants.firstWhere((p) => p.userId == _currentUser.userId, orElse: () => participants.first);
+          userReadIndex = me.readMessageIndex;
+        } catch (_) {}
+        final newUnreadCount = (newLastMessageIndex - userReadIndex).clamp(0, double.infinity).toInt();
         
         final updatedConversation = conversation.copyWith(
           lastMessageIndex: newLastMessageIndex,
@@ -1405,6 +1453,64 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
     } catch (error, stackTrace) {
       _logger.e('处理参与者状态更新响应失败', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  /// 处理参与者索引更新通知（统一事件）
+  void _handleParticipantIndexUpdated(conversation_proto.ParticipantIndexUpdatedNotification notification) async {
+    try {
+      final conversationId = notification.conversationId;
+      final conv = await getConversationById(conversationId);
+      if (conv == null) return;
+
+      final participants = ConversationAdapter.parseParticipants(conv.participants);
+      bool changed = false;
+      for (int i = 0; i < participants.length; i++) {
+        final p = participants[i];
+        if (p.userId == notification.userId) {
+          int newRead = p.readMessageIndex;
+          int newDelivered = p.deliveredMessageIndex;
+          if (notification.hasReadMessageIndex()) {
+            final incoming = notification.readMessageIndex;
+            if (incoming > newRead) newRead = incoming;
+          }
+          if (notification.hasDeliveredMessageIndex()) {
+            final incoming = notification.deliveredMessageIndex;
+            if (incoming > newDelivered) newDelivered = incoming;
+          }
+          if (newRead != p.readMessageIndex || newDelivered != p.deliveredMessageIndex) {
+            participants[i] = p.copyWith(
+              readMessageIndex: newRead,
+              deliveredMessageIndex: newDelivered,
+            );
+            changed = true;
+          }
+          break;
+        }
+      }
+
+      if (!changed) return;
+
+      // 重新计算未读数（基于当前用户）
+      int userReadIndex = 0;
+      try {
+        final me = participants.firstWhere((p) => p.userId == _currentUser.userId, orElse: () => participants.first);
+        userReadIndex = me.readMessageIndex;
+      } catch (_) {}
+
+      final int newUnread = (conv.lastMessageIndex - userReadIndex).clamp(0, double.infinity).toInt();
+      final updatedConversation = conv.copyWith(
+        participants: participants,
+        unreadCount: newUnread,
+      );
+      await _database.update(_database.conversations).replace(updatedConversation);
+      _notifyConversationUpdate(ConversationUpdatedEvent(
+        updatedConversation: updatedConversation,
+        updatedFields: ['participants', 'unreadCount'],
+        timestamp: DateTime.now(),
+      ));
+    } catch (error, stackTrace) {
+      _logger.e('处理参与者索引更新失败', error: error, stackTrace: stackTrace);
     }
   }
 

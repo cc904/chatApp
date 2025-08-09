@@ -28,6 +28,7 @@ import 'package:cc/core/services/thumbnail_cache_service.dart';
 
 import 'package:cc/features/chat/presentation/pages/chats_page.dart'; // 导入 routeObserver
 import 'package:cc/core/utils/user_display_utils.dart';
+import 'package:cc/features/chat/domain/entities/participant.dart';
 
 class ChatInfoPage extends StatefulWidget {
   const ChatInfoPage({
@@ -216,7 +217,6 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
         final conversation = chatCubit.state.conversation;
 
         // 根据会话的静音状态设置动画
-        final currentUserId = chatCubit.state.currentUser.userId;
         if (conversation.muted) {
           _muteAnimController.value = 1.0; // 直接设置到终点
         } else {
@@ -294,100 +294,40 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
   /// 通过解析participants JSON来确定用户角色
   /// 只有群主(OWNER)和管理员(ADMIN)可以编辑会话信息
   bool _hasEditPermission(Conversation conversation, String userId) {
-    try {
-      // 解析participants JSON
-      final participantsData = json.decode(conversation.participants);
-
-      if (participantsData is List) {
-        // 查找当前用户的参与者信息
-        final userParticipant = participantsData.firstWhere(
-          (participant) => participant['userId'] == userId,
-          orElse: () => null,
-        );
-
-        if (userParticipant == null) {
-          _logger.w('用户不在参与者列表中', extra: {
-            'userId': userId,
-            'conversationId': conversation.conversationId,
-          });
-          return false;
-        }
-
-        // 检查用户角色
-        final userRole = userParticipant['role']?.toString().toUpperCase();
-        final hasPermission = userRole == 'OWNER' || userRole == 'ADMIN';
-
-        _logger.d('检查编辑权限', extra: {
-          'userId': userId,
-          'userRole': userRole,
-          'hasPermission': hasPermission,
-          'conversationId': conversation.conversationId,
-        });
-
-        return hasPermission;
-      } else {
-        // 如果participants不是List格式，可能是旧的逗号分隔格式
-        _logger.w('participants格式不是JSON数组，尝试逗号分隔解析', extra: {
-          'participants': conversation.participants,
-          'conversationId': conversation.conversationId,
-        });
-
-        // 回退到简单的参与者检查（旧格式兼容）
-        final participantsList = conversation.participants.split(',');
-        final isParticipant = participantsList.contains(userId);
-
-        // 对于旧格式，暂时允许所有参与者编辑
-        // 实际应用中应该迁移到新的JSON格式
-        return isParticipant;
-      }
-    } catch (e) {
-      _logger.w('解析参与者JSON失败', extra: {
-        'userId': userId,
-        'conversationId': conversation.conversationId,
-        'participants': conversation.participants,
-        'error': e.toString(),
-      });
-
-      // 解析失败时的回退逻辑：尝试简单的逗号分隔检查
-      try {
-        final participantsList = conversation.participants.split(',');
-        return participantsList.contains(userId);
-      } catch (fallbackError) {
-        _logger.e('回退解析也失败', error: fallbackError);
-        return false;
-      }
-    }
+    final List<Participant> participants = ConversationAdapter.parseParticipants(conversation.participants);
+    final user = participants.firstWhere(
+      (p) => p.userId == userId,
+      orElse: () => const Participant(
+        userId: '',
+        name: '',
+        role: 0,
+        muted: false,
+        pinned: false,
+        online: false,
+        isActive: true,
+        deliveredMessageIndex: 0,
+        readMessageIndex: 0,
+        roleId: 2,
+      ),
+    );
+    if (user.userId.isEmpty) return false;
+    final hasPermission = user.role == 2 || user.role == 1; // OWNER(2) or ADMIN(1)
+    _logger.d('检查编辑权限', extra: {
+      'userId': userId,
+      'userRole': user.role,
+      'hasPermission': hasPermission,
+      'conversationId': conversation.conversationId,
+    });
+    return hasPermission;
   }
 
   /// 从participants JSON中获取用户角色
   /// 返回用户在会话中的角色，如果用户不在会话中则返回null
-  String? _getUserRole(Conversation conversation, String userId) {
-    try {
-      final participantsData = json.decode(conversation.participants);
-
-      if (participantsData is List) {
-        final userParticipant = participantsData.firstWhere(
-          (participant) => participant['userId'] == userId,
-          orElse: () => null,
-        );
-
-        return userParticipant?['role']?.toString();
-      }
-    } catch (e) {
-      _logger.w('获取用户角色失败', extra: {
-        'userId': userId,
-        'conversationId': conversation.conversationId,
-        'error': e.toString(),
-      });
-    }
-
-    return null;
-  }
+  // String? _getUserRole(Conversation conversation, String userId) { return null; }
 
   // 切换静音状态
   void _toggleMuteState() {
     final chatCubit = context.read<ChatCubit>();
-    final currentUserId = chatCubit.state.currentUser.userId;
 
     final currentMuteStatus = chatCubit.state.conversation.muted;
     final newMuteStatus = !currentMuteStatus;
@@ -569,19 +509,24 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                         // 检查是否有参与者信息
                         if (conversation.participants.isNotEmpty) {
                           final currentUserId = chatCubit.state.currentUser.userId;
-                          // 从participants JSON中解析联系人ID
                           try {
-                            final List<dynamic> participantsList = json.decode(conversation.participants);
-                            final participantsMap = participantsList.cast<Map<String, dynamic>>();
-
-                            // 找到对方用户的ID
-                            final otherParticipant = participantsMap.firstWhere(
-                              (participant) => participant['userId'] != currentUserId,
-                              orElse: () => {},
+                            final list = ConversationAdapter.parseParticipants(conversation.participants);
+                            final other = list.firstWhere(
+                              (p) => p.userId != currentUserId,
+                              orElse: () => const Participant(
+                                userId: '',
+                                name: '',
+                                role: 0,
+                                muted: false,
+                                pinned: false,
+                                online: false,
+                                isActive: true,
+                                deliveredMessageIndex: 0,
+                                readMessageIndex: 0,
+                                roleId: 2,
+                              ),
                             );
-
-                            contactId = otherParticipant['userId'] as String?;
-                            if (contactId?.isEmpty == true) contactId = null;
+                            contactId = other.userId.isEmpty ? null : other.userId;
                           } catch (e) {
                             contactId = null;
                           }
@@ -701,9 +646,10 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                   child: UserAvatar(
                     avatarUrl: conversation.avatar,
                     userId: conversation.type == 'PRIVATE'
-                        ? (ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser.userId)?['userId'] == state.currentUser.userId
-                            ? null
-                            : ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser.userId)?['userId'])
+                        ? (() {
+                            final p = ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser.userId);
+                            return (p?.userId == state.currentUser.userId) ? null : p?.userId;
+                          })()
                         : conversation.conversationId,
                     name: _getConversationDisplayName(conversation, state.currentUser.userId),
                     radius: 50,
@@ -860,11 +806,25 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
           Hero(
             tag: 'chat_avatar_${state.conversation.conversationId}',
             child: UserAvatar(
-              avatarUrl: state.conversation.avatar,
+              avatarUrl: (() {
+                if (state.conversation.type == 'PRIVATE') {
+                  final other = UserDisplayUtils.getOtherUserFromConversation(state.conversation, state.currentUser.userId);
+                  return other != null ? other['avatar'] as String? : null;
+                }
+                return state.conversation.avatar;
+              })(),
               userId: state.conversation.type == 'PRIVATE'
-                  ? (ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'] == state.currentUser.userId
-                      ? null
-                      : ConversationAdapter.getParticipantInfo(state.conversation.participants, state.currentUser.userId)?['userId'])
+                  ? (() {
+                      final other = UserDisplayUtils.getOtherUserFromConversation(state.conversation, state.currentUser.userId);
+                      LogService.instance.i('🧭 ChatInfoPage 头像参数', extra: {
+                        'conversationId': state.conversation.conversationId,
+                        'conversationAvatar': state.conversation.avatar,
+                        'currentUserId': state.currentUser.userId,
+                        'otherUserId': other != null ? other['userId'] : null,
+                        'otherAvatar': other != null ? other['avatar'] : null,
+                      });
+                      return other != null ? other['userId'] as String? : null;
+                    })()
                   : state.conversation.conversationId,
               name: _getConversationDisplayName(state.conversation, state.currentUser.userId),
               radius: 50,
@@ -1061,11 +1021,9 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                     },
                     child: BlocBuilder<ChatCubit, ChatState>(
                       buildWhen: (previous, current) {
-                        final currentUserId = current.currentUser.userId;
                         return previous.conversation.muted != current.conversation.muted;
                       },
                       builder: (context, state) {
-                        final currentUserId = state.currentUser.userId;
                         final isMuted = state.conversation.muted;
                         return Text(
                           isMuted ? AppLocalizations.of(context).unmute : AppLocalizations.of(context).mute,
@@ -1487,20 +1445,27 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
       labelText = AppLocalizations.of(context).channelId;
       successMessage = AppLocalizations.of(context).channelIdCopied;
     } else {
-      // 私聊：从参与者JSON中获取对方用户ID，排除当前用户
+      // 私聊：从参与者列表中获取对方用户ID
       final currentUserId = state.currentUser.userId;
       try {
-        final participantsList = jsonDecode(conversation.participants) as List;
-        final participantsMap = participantsList.cast<Map<String, dynamic>>();
-
-        final peer = participantsMap.firstWhere(
-          (p) => p['userId'] != currentUserId,
-          orElse: () => {},
+        final list = ConversationAdapter.parseParticipants(conversation.participants);
+        final other = list.firstWhere(
+          (p) => p.userId != currentUserId,
+          orElse: () => const Participant(
+            userId: '',
+            name: '',
+            role: 0,
+            muted: false,
+            pinned: false,
+            online: false,
+            isActive: true,
+            deliveredMessageIndex: 0,
+            readMessageIndex: 0,
+            roleId: 2,
+          ),
         );
-
-        displayId = peer.isNotEmpty && peer['userId'] != null ? peer['userId'] as String : conversation.conversationId;
+        displayId = other.userId.isEmpty ? conversation.conversationId : other.userId;
       } catch (e) {
-        // JSON解析失败，使用会话ID作为后备
         displayId = conversation.conversationId;
       }
       labelText = AppLocalizations.of(context).userId;
@@ -1768,16 +1733,10 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
     }
 
     // 获取非普通成员（管理员、所有者等）
-    List<Map<String, dynamic>> nonMemberParticipants = [];
-    try {
-      final participantsList = jsonDecode(conversation.participants) as List;
-      final participantsMap = participantsList.cast<Map<String, dynamic>>();
+    final list = ConversationAdapter.parseParticipants(conversation.participants);
+    final nonMemberParticipants = list.where((p) => p.role != 0).toList();
 
-      nonMemberParticipants = participantsMap
-          .where((p) => p['role'] != 0) // 0 = MEMBER, 1 = ADMIN, 2 = OWNER
-          .toList();
-    } catch (e) {
-      // JSON解析失败，返回空区域
+    if (nonMemberParticipants.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -1830,10 +1789,17 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
               return Column(
                 children: [
                   _buildContactItem(
-                    participant: participant,
-                    role: _getRoleDisplayName(participant['role']),
-                    isOnline: participant['online'] == true,
-                    lastSeen: (participant['online'] == true) ? null : 'last seen recently',
+                    participant: {
+                      'userId': participant.userId,
+                      'name': participant.name,
+                      'avatar': participant.avatar,
+                      'role': participant.role,
+                      'online': participant.online,
+                      'roleId': participant.roleId,
+                    },
+                    role: _getRoleDisplayName(participant.role),
+                    isOnline: participant.online,
+                    lastSeen: participant.online ? null : 'last seen recently',
                   ),
                   if (!isLast) const Divider(height: 1, indent: 68),
                 ],
@@ -2140,31 +2106,15 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
 
   // 群成员Tab内容
   Widget _buildMembersTabContent(Conversation conversation) {
-    // Parse participants JSON and convert to sorted list
-    List<Map<String, dynamic>> participants = [];
-    try {
-      final participantsList = jsonDecode(conversation.participants) as List;
-      participants = participantsList.cast<Map<String, dynamic>>();
-
-      // Sort participants by role and name
-      participants.sort((a, b) {
-        final roleA = a['role'] ?? 'MEMBER';
-        final roleB = b['role'] ?? 'MEMBER';
-
-        // Role priority: OWNER < ADMIN < MEMBER
-        final priorityA = roleA == 'OWNER' ? 0 : (roleA == 'ADMIN' ? 1 : 2);
-        final priorityB = roleB == 'OWNER' ? 0 : (roleB == 'ADMIN' ? 1 : 2);
-
-        if (priorityA != priorityB) return priorityA - priorityB;
-
-        // Same role, sort by name
-        final nameA = a['name'] ?? '';
-        final nameB = b['name'] ?? '';
-        return nameA.compareTo(nameB);
-      });
-    } catch (e) {
-      // JSON parsing failed, use empty list
-    }
+    // 解析强类型参与者并排序
+    final participants = ConversationAdapter.parseParticipants(conversation.participants);
+    int prio(int role) => role == 2 ? 0 : (role == 1 ? 1 : 2); // OWNER(2) < ADMIN(1) < MEMBER(0)
+    participants.sort((a, b) {
+      final pa = prio(a.role);
+      final pb = prio(b.role);
+      if (pa != pb) return pa - pb;
+      return a.name.compareTo(b.name);
+    });
 
     if (participants.isEmpty) {
       return const Center(
@@ -2213,7 +2163,14 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
 
           return Column(
             children: [
-              _buildMemberItemWithSwipe(participant),
+              _buildMemberItemWithSwipe({
+                'userId': participant.userId,
+                'name': participant.name,
+                'avatar': participant.avatar,
+                'role': participant.role,
+                'online': participant.online,
+                'roleId': participant.roleId,
+              }),
               if (!isLast) const Divider(height: 1, indent: 68),
             ],
           );
@@ -2286,19 +2243,26 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
     final localizations = AppLocalizations.of(context);
     final currentUserId = context.read<ChatCubit>().state.currentUser.userId;
 
-    // Parse participants JSON to get current user's role
-    String currentUserRole = 'MEMBER';
-    try {
-      final participantsList = jsonDecode(context.read<ChatCubit>().state.conversation.participants) as List;
-      final participantsMap = participantsList.cast<Map<String, dynamic>>();
-      final currentUserParticipant = participantsMap.firstWhere(
-        (p) => p['userId'] == currentUserId,
-        orElse: () => {'role': 'MEMBER'},
-      );
-      currentUserRole = currentUserParticipant['role'] ?? 'MEMBER';
-    } catch (e) {
-      // JSON parsing failed, use default
-    }
+    // 从强类型参与者中读取当前用户角色
+    final plist = ConversationAdapter.parseParticipants(context.read<ChatCubit>().state.conversation.participants);
+    final me = plist.firstWhere(
+      (p) => p.userId == currentUserId,
+      orElse: () => plist.isNotEmpty
+          ? plist.first
+          : const Participant(
+              userId: '',
+              name: '',
+              role: 0,
+              muted: false,
+              pinned: false,
+              online: false,
+              isActive: true,
+              deliveredMessageIndex: 0,
+              readMessageIndex: 0,
+              roleId: 2,
+            ),
+    );
+    final currentUserRole = _convertRoleToString(me.role);
 
     // 只有群主和管理员可以执行管理操作，且不能对自己操作
     final canManage = (currentUserRole == 'OWNER' || currentUserRole == 'ADMIN') && participant['userId'] != currentUserId;

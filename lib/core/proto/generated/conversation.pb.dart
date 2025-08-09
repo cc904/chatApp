@@ -1953,6 +1953,126 @@ class ParticipantStatusUpdateResponse extends $pb.GeneratedMessage {
   ParticipantProto ensureParticipant() => $_ensure(2);
 }
 
+/// 会话参与者索引更新通知
+/// Socket.io事件: conversation:participant:index:updated
+class ParticipantIndexUpdatedNotification extends $pb.GeneratedMessage {
+  factory ParticipantIndexUpdatedNotification({
+    $core.String? conversationId,
+    $core.String? userId,
+    $core.int? readMessageIndex,
+    $core.int? deliveredMessageIndex,
+    $fixnum.Int64? timestamp,
+  }) {
+    final result = create();
+    if (conversationId != null) result.conversationId = conversationId;
+    if (userId != null) result.userId = userId;
+    if (readMessageIndex != null) result.readMessageIndex = readMessageIndex;
+    if (deliveredMessageIndex != null)
+      result.deliveredMessageIndex = deliveredMessageIndex;
+    if (timestamp != null) result.timestamp = timestamp;
+    return result;
+  }
+
+  ParticipantIndexUpdatedNotification._();
+
+  factory ParticipantIndexUpdatedNotification.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ParticipantIndexUpdatedNotification.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ParticipantIndexUpdatedNotification',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..a<$core.int>(
+        3, _omitFieldNames ? '' : 'readMessageIndex', $pb.PbFieldType.O3)
+    ..a<$core.int>(
+        4, _omitFieldNames ? '' : 'deliveredMessageIndex', $pb.PbFieldType.O3)
+    ..aInt64(5, _omitFieldNames ? '' : 'timestamp')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ParticipantIndexUpdatedNotification clone() =>
+      ParticipantIndexUpdatedNotification()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ParticipantIndexUpdatedNotification copyWith(
+          void Function(ParticipantIndexUpdatedNotification) updates) =>
+      super.copyWith((message) =>
+              updates(message as ParticipantIndexUpdatedNotification))
+          as ParticipantIndexUpdatedNotification;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ParticipantIndexUpdatedNotification create() =>
+      ParticipantIndexUpdatedNotification._();
+  @$core.override
+  ParticipantIndexUpdatedNotification createEmptyInstance() => create();
+  static $pb.PbList<ParticipantIndexUpdatedNotification> createRepeated() =>
+      $pb.PbList<ParticipantIndexUpdatedNotification>();
+  @$core.pragma('dart2js:noInline')
+  static ParticipantIndexUpdatedNotification getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          ParticipantIndexUpdatedNotification>(create);
+  static ParticipantIndexUpdatedNotification? _defaultInstance;
+
+  /// 会话ID
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  /// 用户ID（被更新索引的参与者）
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  /// 最新已读消息索引（可选，存在则表示有更新）
+  @$pb.TagNumber(3)
+  $core.int get readMessageIndex => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set readMessageIndex($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasReadMessageIndex() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearReadMessageIndex() => $_clearField(3);
+
+  /// 最新送达消息索引（可选，存在则表示有更新）
+  @$pb.TagNumber(4)
+  $core.int get deliveredMessageIndex => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set deliveredMessageIndex($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDeliveredMessageIndex() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDeliveredMessageIndex() => $_clearField(4);
+
+  /// 服务器时间戳（毫秒）
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get timestamp => $_getI64(4);
+  @$pb.TagNumber(5)
+  set timestamp($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTimestamp() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTimestamp() => $_clearField(5);
+}
+
 /// 获取会话成员请求
 class ConversationMembersRequest extends $pb.GeneratedMessage {
   factory ConversationMembersRequest({

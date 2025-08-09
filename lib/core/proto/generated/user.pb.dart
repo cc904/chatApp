@@ -16,6 +16,7 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'conversation.pb.dart' as $0;
+import 'user.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -33,7 +34,7 @@ class UserProto extends $pb.GeneratedMessage {
     $core.String? email,
     $core.String? pinyin,
     $fixnum.Int64? lastActiveTime,
-    $core.String? status,
+    UserStatusEnum? status,
     $core.int? roleId,
     $core.String? nickname,
     $core.String? remark,
@@ -73,7 +74,10 @@ class UserProto extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'email')
     ..aOS(6, _omitFieldNames ? '' : 'pinyin')
     ..aInt64(7, _omitFieldNames ? '' : 'lastActiveTime')
-    ..aOS(8, _omitFieldNames ? '' : 'status')
+    ..e<UserStatusEnum>(8, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE,
+        defaultOrMaker: UserStatusEnum.OFFLINE,
+        valueOf: UserStatusEnum.valueOf,
+        enumValues: UserStatusEnum.values)
     ..a<$core.int>(9, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..aOS(10, _omitFieldNames ? '' : 'nickname')
     ..aOS(11, _omitFieldNames ? '' : 'remark')
@@ -169,11 +173,11 @@ class UserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearLastActiveTime() => $_clearField(7);
 
-  /// 状态
+  /// 状态（0=OFFLINE, 1=ONLINE, 2=AWAY）
   @$pb.TagNumber(8)
-  $core.String get status => $_getSZ(7);
+  UserStatusEnum get status => $_getN(7);
   @$pb.TagNumber(8)
-  set status($core.String value) => $_setString(7, value);
+  set status(UserStatusEnum value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasStatus() => $_has(7);
   @$pb.TagNumber(8)
@@ -219,7 +223,7 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     $core.String? phone,
     $core.String? email,
     $fixnum.Int64? lastLoginTime,
-    $core.String? status,
+    UserStatusEnum? status,
     $core.bool? hasSetPassword,
     $core.int? roleId,
   }) {
@@ -255,7 +259,10 @@ class CurrentUserProto extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'phone')
     ..aOS(5, _omitFieldNames ? '' : 'email')
     ..aInt64(6, _omitFieldNames ? '' : 'lastLoginTime')
-    ..aOS(7, _omitFieldNames ? '' : 'status')
+    ..e<UserStatusEnum>(7, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE,
+        defaultOrMaker: UserStatusEnum.OFFLINE,
+        valueOf: UserStatusEnum.valueOf,
+        enumValues: UserStatusEnum.values)
     ..aOB(8, _omitFieldNames ? '' : 'hasSetPassword')
     ..a<$core.int>(9, _omitFieldNames ? '' : 'roleId', $pb.PbFieldType.O3)
     ..hasRequiredFields = false;
@@ -341,11 +348,11 @@ class CurrentUserProto extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearLastLoginTime() => $_clearField(6);
 
-  /// 状态
+  /// 状态（0=OFFLINE, 1=ONLINE, 2=AWAY）
   @$pb.TagNumber(7)
-  $core.String get status => $_getSZ(6);
+  UserStatusEnum get status => $_getN(6);
   @$pb.TagNumber(7)
-  set status($core.String value) => $_setString(6, value);
+  set status(UserStatusEnum value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasStatus() => $_has(6);
   @$pb.TagNumber(7)
@@ -381,7 +388,7 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
     $core.String? avatar,
     $core.String? phone,
     $core.String? email,
-    $core.String? status,
+    UserStatusEnum? status,
     $fixnum.Int64? timestamp,
   }) {
     final result = create();
@@ -411,7 +418,10 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'avatar')
     ..aOS(3, _omitFieldNames ? '' : 'phone')
     ..aOS(4, _omitFieldNames ? '' : 'email')
-    ..aOS(5, _omitFieldNames ? '' : 'status')
+    ..e<UserStatusEnum>(5, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE,
+        defaultOrMaker: UserStatusEnum.OFFLINE,
+        valueOf: UserStatusEnum.valueOf,
+        enumValues: UserStatusEnum.values)
     ..aInt64(6, _omitFieldNames ? '' : 'timestamp')
     ..hasRequiredFields = false;
 
@@ -482,12 +492,12 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearEmail() => $_clearField(4);
 
-  /// 状态（可选）
+  /// 状态（可选） 0=OFFLINE, 1=ONLINE, 2=AWAY
   /// 如果为空则不更新此字段
   @$pb.TagNumber(5)
-  $core.String get status => $_getSZ(4);
+  UserStatusEnum get status => $_getN(4);
   @$pb.TagNumber(5)
-  set status($core.String value) => $_setString(4, value);
+  set status(UserStatusEnum value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasStatus() => $_has(4);
   @$pb.TagNumber(5)
@@ -712,7 +722,7 @@ class CurrentUserUpdateEvent extends $pb.GeneratedMessage {
 class UserStatusUpdate extends $pb.GeneratedMessage {
   factory UserStatusUpdate({
     $core.String? userId,
-    $core.String? status,
+    UserStatusEnum? status,
     $fixnum.Int64? timestamp,
   }) {
     final result = create();
@@ -736,7 +746,10 @@ class UserStatusUpdate extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..aOS(2, _omitFieldNames ? '' : 'status')
+    ..e<UserStatusEnum>(2, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE,
+        defaultOrMaker: UserStatusEnum.OFFLINE,
+        valueOf: UserStatusEnum.valueOf,
+        enumValues: UserStatusEnum.values)
     ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
     ..hasRequiredFields = false;
 
@@ -770,11 +783,11 @@ class UserStatusUpdate extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
-  /// 使用字符串保持一致性
+  /// 使用数值枚举保持一致性（0=OFFLINE, 1=ONLINE, 2=AWAY）
   @$pb.TagNumber(2)
-  $core.String get status => $_getSZ(1);
+  UserStatusEnum get status => $_getN(1);
   @$pb.TagNumber(2)
-  set status($core.String value) => $_setString(1, value);
+  set status(UserStatusEnum value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasStatus() => $_has(1);
   @$pb.TagNumber(2)

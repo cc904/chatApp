@@ -7,15 +7,19 @@ import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 // import 'package:cc/core/adapters/conversation_adapter.dart'; // 暂时不用
 import 'package:cc/core/adapters/message_adapter.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/communication_service.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
 import 'package:cc/core/services/ui_notification_service.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
 import 'package:cc/core/proto/generated/message.pb.dart' as message_proto;
+import 'package:cc/core/proto/generated/user.pb.dart' as user_proto;
+import 'package:fixnum/fixnum.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart'
     as conversation_proto;
 import 'package:drift/drift.dart';
+import 'package:cc/features/chat/domain/entities/participant.dart';
 
 /// 🔥 临时兼容类已全部移除 - Index方案完全替代了复杂的游标系统
 
@@ -57,6 +61,12 @@ class ChatRepositoryImpl implements ChatRepository {
   final List<StreamSubscription> _subscriptions = [];
 
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢  辅助方法  💢💢💢💢💢💢💢💢💢💢💢💢💢💢
+  int _roleStringToInt(String? role) {
+    final r = role?.toUpperCase();
+    if (r == 'OWNER') return 2;
+    if (r == 'ADMIN') return 1;
+    return 0;
+  }
 
   /// 从消息内容中提取文本
   String? _extractTextFromMessage(Message message) {
@@ -116,12 +126,14 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<void> sendTypingStatus(String conversationId, bool isTyping) async {
     if (_communicationService.isInitialized) {
       try {
-        final typingProto = message_proto.TypingProto()
+        final typingUpdate = user_proto.UserTypingUpdate()
+          ..userId = _currentUser.userId
           ..conversationId = conversationId
-          ..isTyping = isTyping;
+          ..isTyping = isTyping
+          ..timestamp = Int64(DateTime.now().millisecondsSinceEpoch);
 
         _communicationService.emitProto(
-            isTyping ? 'user:typing' : 'user:typing:stop', typingProto);
+            isTyping ? 'user:typing' : 'user:typing:stop', typingUpdate);
         return;
       } catch (error) {
         _logger.e('发送打字状态失败', error: error, stackTrace: StackTrace.current);
@@ -218,14 +230,11 @@ class ChatRepositoryImpl implements ChatRepository {
     if (_communicationService.isInitialized) {
       _logger.i('ChatRepository Proto事件流 订阅');
       _subscriptions
-        // ..add(_communicationService
-        //     .onProto<message_proto.MessageReadProto>('message:read')
-        //     .listen(_handleMessageRead))
         ..add(_communicationService
-            .onProto<message_proto.TypingProto>('user:typing')
+            .onProto<user_proto.UserTypingUpdate>('user:typing')
             .listen(_handleTypingStatus))
         ..add(_communicationService
-            .onProto<message_proto.TypingProto>('user:typing:stop')
+            .onProto<user_proto.UserTypingUpdate>('user:typing:stop')
             .listen(_handleTypingStop))
         ..add(_communicationService
             .onProto<message_proto.MessagesFetchResponse>(
@@ -264,7 +273,11 @@ class ChatRepositoryImpl implements ChatRepository {
         ..add(_communicationService
             .onProto<conversation_proto.ConversationRemovedNotification>(
                 'conversation:removed')
-            .listen(_handleConversationRemovedNotification));
+            .listen(_handleConversationRemovedNotification))
+        ..add(_communicationService
+            .onProto<conversation_proto.ParticipantIndexUpdatedNotification>(
+                'conversation:participant:index:updated')
+            .listen(_handleParticipantIndexUpdated));
 
       _logger.i('所有事件处理器已注册', extra: {
         'subscriptionCount': _subscriptions.length,
@@ -275,11 +288,13 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理打字状态事件
-  void _handleTypingStatus(message_proto.TypingProto data) {
+  void _handleTypingStatus(user_proto.UserTypingUpdate data) {
     try {
       _typingStatusController.add({
         'conversationId': data.conversationId,
         'isTyping': data.isTyping,
+        'userId': data.userId,
+        'timestamp': data.timestamp,
       });
     } catch (error) {
       _logger.e('处理打字状态事件失败', error: error, stackTrace: StackTrace.current);
@@ -287,11 +302,13 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   /// 处理停止打字事件
-  void _handleTypingStop(message_proto.TypingProto data) {
+  void _handleTypingStop(user_proto.UserTypingUpdate data) {
     try {
       _typingStatusController.add({
         'conversationId': data.conversationId,
-        'isTyping': data.isTyping,
+        'isTyping': false,
+        'userId': data.userId,
+        'timestamp': data.timestamp,
       });
     } catch (error) {
       _logger.e('处理停止打字事件失败', error: error, stackTrace: StackTrace.current);
@@ -2315,83 +2332,66 @@ class ChatRepositoryImpl implements ChatRepository {
         return;
       }
 
-      // 解析当前参与者列表（JSON格式）
-      List<Map<String, dynamic>> participants = [];
-      try {
-        if (conversation.participants.isNotEmpty) {
-          final participantsData = json.decode(conversation.participants);
-          if (participantsData is List) {
-            participants = participantsData.cast<Map<String, dynamic>>();
-          }
-        }
-      } catch (e) {
-        _logger.w('解析参与者列表失败，使用空列表', extra: {
-          'conversationId': conversationId,
-          'error': e.toString(),
-        });
-        participants = [];
-      }
+      // 解析为强类型参与者
+      List<Participant> participants = ConversationAdapter.parseParticipants(conversation.participants);
 
       // 根据操作类型更新参与者列表
       switch (action) {
         case 'add':
           // 添加新参与者
-          final existingIndex = participants.indexWhere(
-            (p) => p['userId'] == userId,
-          );
+          final existingIndex = participants.indexWhere((p) => p.userId == userId);
           
-          final participantData = {
-            'userId': userId,
-            'role': role ?? 'MEMBER',
-            'joinedAt': (joinedAt ?? DateTime.now()).millisecondsSinceEpoch,
-            'muted': muted ?? false,
-            'lastReadIndex': 0,
-          };
+          final participantData = Participant(
+            userId: userId,
+            name: '',
+            role: _roleStringToInt(role),
+            joinedAt: (joinedAt ?? DateTime.now()).millisecondsSinceEpoch,
+            addedBy: null,
+            avatar: null,
+            muted: muted ?? false,
+            pinned: false,
+            online: false,
+            isActive: true,
+            deliveredMessageIndex: 0,
+            readMessageIndex: 0,
+            roleId: 2,
+          );
 
           if (existingIndex != -1) {
-            // 更新现有参与者
             participants[existingIndex] = participantData;
           } else {
-            // 添加新参与者
             participants.add(participantData);
           }
           break;
 
         case 'remove':
           // 移除参与者
-          participants.removeWhere((p) => p['userId'] == userId);
+          participants.removeWhere((p) => p.userId == userId);
           break;
 
         case 'update':
           // 更新参与者信息
-          final existingIndex = participants.indexWhere(
-            (p) => p['userId'] == userId,
-          );
+          final existingIndex = participants.indexWhere((p) => p.userId == userId);
           
           if (existingIndex != -1) {
             final existingParticipant = participants[existingIndex];
-            participants[existingIndex] = {
-              ...existingParticipant,
-              if (role != null) 'role': role,
-              if (muted != null) 'muted': muted,
-            };
+            participants[existingIndex] = existingParticipant.copyWith(
+              role: role != null ? _roleStringToInt(role) : null,
+              muted: muted,
+            );
           }
           break;
 
         case 'block':
           // 屏蔽参与者（更新状态但不移除）
-          final existingIndex = participants.indexWhere(
-            (p) => p['userId'] == userId,
-          );
+          final existingIndex = participants.indexWhere((p) => p.userId == userId);
           
           if (existingIndex != -1) {
             final existingParticipant = participants[existingIndex];
-            participants[existingIndex] = {
-              ...existingParticipant,
-              'muted': true,
-              'blocked': true,
-              if (role != null) 'role': role,
-            };
+            participants[existingIndex] = existingParticipant.copyWith(
+              muted: true,
+              role: role != null ? _roleStringToInt(role) : null,
+            );
           }
           break;
 
@@ -2404,9 +2404,8 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       // 将更新后的参与者列表转换回JSON并保存
-      final updatedParticipantsJson = json.encode(participants);
       final updatedConversation = conversation.copyWith(
-        participants: updatedParticipantsJson,
+        participants: participants,
       );
 
       await _database.update(_database.conversations).replace(updatedConversation);
@@ -2456,6 +2455,78 @@ class ChatRepositoryImpl implements ChatRepository {
       _logger.e('发送会话移除事件失败', error: error, extra: {
         'conversationId': conversationId,
       });
+    }
+  }
+
+  void _handleParticipantIndexUpdated(
+      conversation_proto.ParticipantIndexUpdatedNotification data) async {
+    try {
+      _logger.i('收到参与者索引更新', extra: {
+        'conversationId': data.conversationId,
+        'userId': data.userId,
+        'readMessageIndex': data.hasReadMessageIndex()
+            ? data.readMessageIndex
+            : null,
+        'deliveredMessageIndex': data.hasDeliveredMessageIndex()
+            ? data.deliveredMessageIndex
+            : null,
+        'timestamp': data.timestamp,
+      });
+
+      // 仅处理他人索引更新（当前用户的read索引由本地乐观更新 & 响应处理）
+      if (data.userId == _currentUser.userId) return;
+
+      final conv = await (_database.select(_database.conversations)..where((c) => c.conversationId.equals(data.conversationId))).getSingleOrNull();
+      if (conv == null) return;
+
+      // 解析 participants，并推进对方的 readMessageIndex / deliveredMessageIndex
+      final plist = ConversationAdapter.parseParticipants(conv.participants);
+      bool changed = false;
+      for (int i = 0; i < plist.length; i++) {
+        final p = plist[i];
+        if (p.userId == data.userId) {
+          int newRead = p.readMessageIndex;
+          if (data.hasReadMessageIndex()) {
+            final int incoming = data.readMessageIndex;
+            if (incoming > newRead) {
+              newRead = incoming;
+            }
+          }
+
+          int newDelivered = p.deliveredMessageIndex;
+          if (data.hasDeliveredMessageIndex()) {
+            final int incoming = data.deliveredMessageIndex;
+            if (incoming > newDelivered) {
+              newDelivered = incoming;
+            }
+          }
+
+          if (newRead != p.readMessageIndex ||
+              newDelivered != p.deliveredMessageIndex) {
+            plist[i] = p.copyWith(
+              readMessageIndex: newRead,
+              deliveredMessageIndex: newDelivered,
+            );
+            changed = true;
+          }
+          break;
+        }
+      }
+
+      if (changed) {
+        final updatedConversation = conv.copyWith(participants: plist);
+        await _database.update(_database.conversations).replace(updatedConversation);
+        // 通知 ChatsRepository 的会话更新流（通过本地Socket或直接触发）
+        try {
+          final protoSocketService = ProtoSocketService();
+          protoSocketService.emit('local:conversation:updated', {
+            'conversationId': updatedConversation.conversationId,
+            'updatedFields': ['participants']
+          });
+        } catch (_) {}
+      }
+    } catch (e, s) {
+      _logger.e('处理消息已读事件失败', error: e, stackTrace: s);
     }
   }
 }

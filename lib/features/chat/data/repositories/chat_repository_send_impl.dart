@@ -10,7 +10,7 @@ import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/entities/message_update_event.dart';
 import 'package:cc/core/utils/timezone_utils.dart';
-import 'package:uuid/uuid.dart';
+import 'package:nanoid/nanoid.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 
@@ -21,7 +21,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
   final CurrentUser _currentUser;
   final ChatRepository _chatRepository;
   final LogService _logger = LogService.instance;
-  final Uuid _uuid = const Uuid(); // 💢💢💢 新增UUID生成器
+  // 使用 nanoid 生成消息ID
 
   // 数据库实例
   AppDatabase get _database => DatabaseInitializer.database;
@@ -298,8 +298,8 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
 
   /// 创建消息对象
   Future<Message> _createMessage(String conversationId, String text, String type, {Map<String, dynamic>? content, String? quotedMessageId}) async {
-    // 使用UUID生成唯一的消息ID
-    final messageId = _uuid.v4();
+    // 使用 nanoid 生成唯一的消息ID（默认长度21，包含URL安全字符集）
+    final messageId = nanoid(21);
     final now = TimezoneUtils.nowUtc();
 
     // 🔧 修复：将内容转换为MessageAdapter期望的JSON格式

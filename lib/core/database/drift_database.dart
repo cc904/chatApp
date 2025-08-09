@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/features/chat/domain/entities/participant.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 
 // 条件导入：根据平台选择不同的数据库实现
 import 'drift_database_stub.dart'
@@ -18,7 +21,7 @@ class Users extends Table {
   TextColumn get email => text().nullable()();    // email
   TextColumn get pinyin => text().nullable()();   // pinyin
   DateTimeColumn get lastActiveTime => dateTime().nullable()(); // last_active_time (DateTime)
-  TextColumn get status => text().nullable()();   // status
+  IntColumn get status => integer().nullable()();   // status (0=OFFLINE,1=ONLINE,2=AWAY)
   IntColumn get roleId => integer().withDefault(const Constant(2))(); // role_id 用户角色ID，默认为普通用户
   
   // 本地扩展字段
@@ -39,7 +42,7 @@ class CurrentUsers extends Table {
   TextColumn get phone => text().nullable()();    // phone
   TextColumn get email => text().nullable()();    // email
   DateTimeColumn get lastLoginTime => dateTime().nullable()(); // last_login_time (DateTime)
-  TextColumn get status => text().nullable()();   // status
+  IntColumn get status => integer().nullable()();   // status (0=OFFLINE,1=ONLINE,2=AWAY)
   BoolColumn get hasSetPassword => boolean().withDefault(const Constant(false))(); // has_set_password
   IntColumn get roleId => integer().withDefault(const Constant(2))(); // role_id 用户角色ID，默认为普通用户
   
@@ -65,8 +68,9 @@ class Conversations extends Table {
   TextColumn get lastMessagePreview => text().nullable()(); // last_message_preview
   TextColumn get lastMessageName => text().nullable()();   // last_message_name
   
-  // 参与者信息 (JSON 格式存储 ParticipantProto 列表)
-  TextColumn get participants => text()();        // participants
+  // 参与者信息（底层仍为 JSON 存储，但通过 TypeConverter 暴露为 List<Participant>）
+  TextColumn get participants =>
+      text().map(const ParticipantListConverter()).withDefault(const Constant('[]'))();
   
   // 会话扩展信息
   TextColumn get description => text().nullable()(); // description
@@ -81,6 +85,50 @@ class Conversations extends Table {
   
   @override
   Set<Column> get primaryKey => {conversationId};
+}
+
+/// Drift TypeConverter：List<Participant> <-> JSON String
+class ParticipantListConverter extends TypeConverter<List<Participant>, String> {
+  const ParticipantListConverter();
+
+  @override
+  List<Participant> fromSql(String fromDb) {
+    try {
+      if (fromDb.isEmpty) return const [];
+      final dynamic decoded = _decodeJson(fromDb);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .map((m) => Participant.fromMap(m))
+            .toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  String toSql(List<Participant> value) {
+    final list = value.map((e) => e.toMap()).toList();
+    return _encodeJson(list);
+  }
+
+  dynamic _decodeJson(String s) {
+    try {
+      return const JsonDecoder().convert(s);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  String _encodeJson(Object o) {
+    try {
+      return const JsonEncoder().convert(o);
+    } catch (_) {
+      return '[]';
+    }
+  }
 }
 
 /// 消息表 - 基于 MessageProto
@@ -170,7 +218,7 @@ class AppDatabase extends _$AppDatabase {
   }
   
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -210,6 +258,53 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(users, users.roleId);
         // sender_role_id字段已移除
         _logger.i('数据库迁移完成: 添加role_id字段到users表，跳过sender_role_id');
+      }
+      if (from < 5 && to >= 5) {
+        // 将 Users.status / CurrentUsers.status 从 TEXT 迁移为 INTEGER
+        // 简化处理：重建两张表并拷贝字段（服务未上线，允许重建）
+        _logger.i('数据库迁移到 v5：重建 users / current_users 以切换 status 为 INT');
+        // 备份旧表数据
+        await customStatement('ALTER TABLE users RENAME TO users_backup_v4');
+        await customStatement('ALTER TABLE current_users RENAME TO current_users_backup_v4');
+
+        // 重建新表结构
+        await m.createTable(users);
+        await m.createTable(currentUsers);
+
+        // 从备份表拷贝数据，status 尝试 CAST 为 INTEGER
+        await customStatement('''
+          INSERT OR IGNORE INTO users (user_id, name, avatar, phone, email, pinyin, last_active_time, status, role_id, online, is_friend, nickname, remark)
+          SELECT user_id, name, avatar, phone, email, pinyin, last_active_time,
+                 CASE
+                   WHEN status IS NULL THEN NULL
+                   WHEN status IN ('', 'offline','OFFLINE','0') THEN 0
+                   WHEN status IN ('online','ONLINE','1') THEN 1
+                   WHEN status IN ('away','AWAY','2') THEN 2
+                   WHEN CAST(status AS INTEGER) IN (0,1,2) THEN CAST(status AS INTEGER)
+                   ELSE NULL
+                 END as status,
+                 role_id, online, is_friend, nickname, remark
+          FROM users_backup_v4;
+        ''');
+        await customStatement('''
+          INSERT OR IGNORE INTO current_users (user_id, name, avatar, phone, email, last_login_time, status, has_set_password, role_id)
+          SELECT user_id, name, avatar, phone, email, last_login_time,
+                 CASE
+                   WHEN status IS NULL THEN NULL
+                   WHEN status IN ('', 'offline','OFFLINE','0') THEN 0
+                   WHEN status IN ('online','ONLINE','1') THEN 1
+                   WHEN status IN ('away','AWAY','2') THEN 2
+                   WHEN CAST(status AS INTEGER) IN (0,1,2) THEN CAST(status AS INTEGER)
+                   ELSE NULL
+                 END as status,
+                 has_set_password, role_id
+          FROM current_users_backup_v4;
+        ''');
+
+        // 删除备份表
+        await customStatement('DROP TABLE IF EXISTS users_backup_v4');
+        await customStatement('DROP TABLE IF EXISTS current_users_backup_v4');
+        _logger.i('v5 迁移完成：status 字段切换为 INT');
       }
     },
   );
@@ -287,7 +382,7 @@ class AppDatabase extends _$AppDatabase {
       final userPhone = currentUser.phone ?? '';
       final userEmail = currentUser.email ?? '';
       final userAvatar = currentUser.avatar ?? '';
-      final userStatus = currentUser.status ?? 'offline';
+      final userStatus = currentUser.status ?? 0; // 0=OFFLINE
       
       // 使用时间戳（已经是毫秒格式）
       final lastLoginTimeMs = currentUser.lastLoginTime;
@@ -299,7 +394,7 @@ class AppDatabase extends _$AppDatabase {
         phone: Value(userPhone.isEmpty ? null : userPhone),
         email: Value(userEmail.isEmpty ? null : userEmail),
         avatar: Value(userAvatar.isEmpty ? null : userAvatar),
-        status: Value(userStatus.isEmpty ? null : userStatus),
+        status: Value(userStatus),
         lastLoginTime: Value(lastLoginTimeMs),
         hasSetPassword: Value(currentUser.hasSetPassword),
         roleId: Value(currentUser.roleId), // 添加roleId字段
@@ -348,14 +443,9 @@ extension ConversationExtension on Conversation {
       return true;
     }
     
-    // 对于群组和频道，需要解析participants字段（JSON格式）
-    try {
-      final participantsList = participants.split(',');
-      return participantsList.contains(userId);
-    } catch (e) {
-      // 如果解析失败，默认返回false
-      return false;
-    }
+    // 对于群组和频道，解析强类型 participants
+    final list = ConversationAdapter.parseParticipants(participants);
+    return list.any((p) => p.userId == userId);
   }
   
   /// 获取用户在会话中的未读消息数
@@ -377,17 +467,9 @@ extension ConversationExtension on Conversation {
       return null;
     }
     
-    try {
-      // 对于私聊，participants包含两个用户ID
-      final participantsList = participants.split(',');
-      if (participantsList.length == 2) {
-        // 假设当前用户ID可以通过某种方式获取
-        // 这里需要传入当前用户ID来确定对方ID
-        // 暂时返回第一个参与者ID
-        return participantsList.first;
-      }
-    } catch (e) {
-      // 解析失败
+    final list = ConversationAdapter.parseParticipants(participants);
+    if (list.length == 2) {
+      return list.first.userId;
     }
     
     return null;

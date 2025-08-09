@@ -129,7 +129,7 @@ class ProfileRepository {
   Future<void> updateUserInfo({
     String? nickname,
     String? avatar,
-    String? status,
+    int? status,
   }) async {
     try {
       final currentUser = await getCurrentUser();

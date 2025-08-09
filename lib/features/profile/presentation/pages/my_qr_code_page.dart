@@ -126,16 +126,7 @@ class _MyQRCodePageState extends State<MyQRCodePage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    if (user?.status?.isNotEmpty == true)
-                      Text(
-                        user!.status!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    // status 改为数值枚举，这里不再展示个性签名/状态文本
                   ],
                 ),
               ),

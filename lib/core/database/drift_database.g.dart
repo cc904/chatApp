@@ -46,9 +46,9 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
-  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+  late final GeneratedColumn<int> status = GeneratedColumn<int>(
       'status', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _roleIdMeta = const VerificationMeta('roleId');
   @override
   late final GeneratedColumn<int> roleId = GeneratedColumn<int>(
@@ -194,7 +194,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       lastActiveTime: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}last_active_time']),
       status: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}status']),
+          .read(DriftSqlType.int, data['${effectivePrefix}status']),
       roleId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}role_id'])!,
       online: attachedDatabase.typeMapping
@@ -222,7 +222,7 @@ class User extends DataClass implements Insertable<User> {
   final String? email;
   final String? pinyin;
   final DateTime? lastActiveTime;
-  final String? status;
+  final int? status;
   final int roleId;
   final bool online;
   final bool isFriend;
@@ -263,7 +263,7 @@ class User extends DataClass implements Insertable<User> {
       map['last_active_time'] = Variable<DateTime>(lastActiveTime);
     }
     if (!nullToAbsent || status != null) {
-      map['status'] = Variable<String>(status);
+      map['status'] = Variable<int>(status);
     }
     map['role_id'] = Variable<int>(roleId);
     map['online'] = Variable<bool>(online);
@@ -316,7 +316,7 @@ class User extends DataClass implements Insertable<User> {
       email: serializer.fromJson<String?>(json['email']),
       pinyin: serializer.fromJson<String?>(json['pinyin']),
       lastActiveTime: serializer.fromJson<DateTime?>(json['lastActiveTime']),
-      status: serializer.fromJson<String?>(json['status']),
+      status: serializer.fromJson<int?>(json['status']),
       roleId: serializer.fromJson<int>(json['roleId']),
       online: serializer.fromJson<bool>(json['online']),
       isFriend: serializer.fromJson<bool>(json['isFriend']),
@@ -335,7 +335,7 @@ class User extends DataClass implements Insertable<User> {
       'email': serializer.toJson<String?>(email),
       'pinyin': serializer.toJson<String?>(pinyin),
       'lastActiveTime': serializer.toJson<DateTime?>(lastActiveTime),
-      'status': serializer.toJson<String?>(status),
+      'status': serializer.toJson<int?>(status),
       'roleId': serializer.toJson<int>(roleId),
       'online': serializer.toJson<bool>(online),
       'isFriend': serializer.toJson<bool>(isFriend),
@@ -352,7 +352,7 @@ class User extends DataClass implements Insertable<User> {
           Value<String?> email = const Value.absent(),
           Value<String?> pinyin = const Value.absent(),
           Value<DateTime?> lastActiveTime = const Value.absent(),
-          Value<String?> status = const Value.absent(),
+          Value<int?> status = const Value.absent(),
           int? roleId,
           bool? online,
           bool? isFriend,
@@ -444,7 +444,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String?> email;
   final Value<String?> pinyin;
   final Value<DateTime?> lastActiveTime;
-  final Value<String?> status;
+  final Value<int?> status;
   final Value<int> roleId;
   final Value<bool> online;
   final Value<bool> isFriend;
@@ -492,7 +492,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? email,
     Expression<String>? pinyin,
     Expression<DateTime>? lastActiveTime,
-    Expression<String>? status,
+    Expression<int>? status,
     Expression<int>? roleId,
     Expression<bool>? online,
     Expression<bool>? isFriend,
@@ -526,7 +526,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       Value<String?>? email,
       Value<String?>? pinyin,
       Value<DateTime?>? lastActiveTime,
-      Value<String?>? status,
+      Value<int?>? status,
       Value<int>? roleId,
       Value<bool>? online,
       Value<bool>? isFriend,
@@ -576,7 +576,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       map['last_active_time'] = Variable<DateTime>(lastActiveTime.value);
     }
     if (status.present) {
-      map['status'] = Variable<String>(status.value);
+      map['status'] = Variable<int>(status.value);
     }
     if (roleId.present) {
       map['role_id'] = Variable<int>(roleId.value);
@@ -660,9 +660,9 @@ class $CurrentUsersTable extends CurrentUsers
           type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
-  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+  late final GeneratedColumn<int> status = GeneratedColumn<int>(
       'status', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _hasSetPasswordMeta =
       const VerificationMeta('hasSetPassword');
   @override
@@ -768,7 +768,7 @@ class $CurrentUsersTable extends CurrentUsers
       lastLoginTime: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}last_login_time']),
       status: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}status']),
+          .read(DriftSqlType.int, data['${effectivePrefix}status']),
       hasSetPassword: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}has_set_password'])!,
       roleId: attachedDatabase.typeMapping
@@ -789,7 +789,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
   final String? phone;
   final String? email;
   final DateTime? lastLoginTime;
-  final String? status;
+  final int? status;
   final bool hasSetPassword;
   final int roleId;
   const CurrentUser(
@@ -820,7 +820,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       map['last_login_time'] = Variable<DateTime>(lastLoginTime);
     }
     if (!nullToAbsent || status != null) {
-      map['status'] = Variable<String>(status);
+      map['status'] = Variable<int>(status);
     }
     map['has_set_password'] = Variable<bool>(hasSetPassword);
     map['role_id'] = Variable<int>(roleId);
@@ -857,7 +857,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       phone: serializer.fromJson<String?>(json['phone']),
       email: serializer.fromJson<String?>(json['email']),
       lastLoginTime: serializer.fromJson<DateTime?>(json['lastLoginTime']),
-      status: serializer.fromJson<String?>(json['status']),
+      status: serializer.fromJson<int?>(json['status']),
       hasSetPassword: serializer.fromJson<bool>(json['hasSetPassword']),
       roleId: serializer.fromJson<int>(json['roleId']),
     );
@@ -872,7 +872,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
       'phone': serializer.toJson<String?>(phone),
       'email': serializer.toJson<String?>(email),
       'lastLoginTime': serializer.toJson<DateTime?>(lastLoginTime),
-      'status': serializer.toJson<String?>(status),
+      'status': serializer.toJson<int?>(status),
       'hasSetPassword': serializer.toJson<bool>(hasSetPassword),
       'roleId': serializer.toJson<int>(roleId),
     };
@@ -885,7 +885,7 @@ class CurrentUser extends DataClass implements Insertable<CurrentUser> {
           Value<String?> phone = const Value.absent(),
           Value<String?> email = const Value.absent(),
           Value<DateTime?> lastLoginTime = const Value.absent(),
-          Value<String?> status = const Value.absent(),
+          Value<int?> status = const Value.absent(),
           bool? hasSetPassword,
           int? roleId}) =>
       CurrentUser(
@@ -959,7 +959,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
   final Value<String?> phone;
   final Value<String?> email;
   final Value<DateTime?> lastLoginTime;
-  final Value<String?> status;
+  final Value<int?> status;
   final Value<bool> hasSetPassword;
   final Value<int> roleId;
   final Value<int> rowid;
@@ -995,7 +995,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
     Expression<String>? phone,
     Expression<String>? email,
     Expression<DateTime>? lastLoginTime,
-    Expression<String>? status,
+    Expression<int>? status,
     Expression<bool>? hasSetPassword,
     Expression<int>? roleId,
     Expression<int>? rowid,
@@ -1021,7 +1021,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
       Value<String?>? phone,
       Value<String?>? email,
       Value<DateTime?>? lastLoginTime,
-      Value<String?>? status,
+      Value<int?>? status,
       Value<bool>? hasSetPassword,
       Value<int>? roleId,
       Value<int>? rowid}) {
@@ -1061,7 +1061,7 @@ class CurrentUsersCompanion extends UpdateCompanion<CurrentUser> {
       map['last_login_time'] = Variable<DateTime>(lastLoginTime.value);
     }
     if (status.present) {
-      map['status'] = Variable<String>(status.value);
+      map['status'] = Variable<int>(status.value);
     }
     if (hasSetPassword.present) {
       map['has_set_password'] = Variable<bool>(hasSetPassword.value);
@@ -1166,12 +1166,14 @@ class $ConversationsTable extends Conversations
   late final GeneratedColumn<String> lastMessageName = GeneratedColumn<String>(
       'last_message_name', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _participantsMeta =
-      const VerificationMeta('participants');
   @override
-  late final GeneratedColumn<String> participants = GeneratedColumn<String>(
-      'participants', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+  late final GeneratedColumnWithTypeConverter<List<Participant>, String>
+      participants = GeneratedColumn<String>('participants', aliasedName, false,
+              type: DriftSqlType.string,
+              requiredDuringInsert: false,
+              defaultValue: const Constant('[]'))
+          .withConverter<List<Participant>>(
+              $ConversationsTable.$converterparticipants);
   static const VerificationMeta _descriptionMeta =
       const VerificationMeta('description');
   @override
@@ -1322,14 +1324,6 @@ class $ConversationsTable extends Conversations
           lastMessageName.isAcceptableOrUnknown(
               data['last_message_name']!, _lastMessageNameMeta));
     }
-    if (data.containsKey('participants')) {
-      context.handle(
-          _participantsMeta,
-          participants.isAcceptableOrUnknown(
-              data['participants']!, _participantsMeta));
-    } else if (isInserting) {
-      context.missing(_participantsMeta);
-    }
     if (data.containsKey('description')) {
       context.handle(
           _descriptionMeta,
@@ -1399,8 +1393,9 @@ class $ConversationsTable extends Conversations
           DriftSqlType.string, data['${effectivePrefix}last_message_preview']),
       lastMessageName: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}last_message_name']),
-      participants: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}participants'])!,
+      participants: $ConversationsTable.$converterparticipants.fromSql(
+          attachedDatabase.typeMapping.read(
+              DriftSqlType.string, data['${effectivePrefix}participants'])!),
       description: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}description']),
       requiresApproval: attachedDatabase.typeMapping.read(
@@ -1422,6 +1417,9 @@ class $ConversationsTable extends Conversations
   $ConversationsTable createAlias(String alias) {
     return $ConversationsTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<List<Participant>, String> $converterparticipants =
+      const ParticipantListConverter();
 }
 
 class Conversation extends DataClass implements Insertable<Conversation> {
@@ -1436,7 +1434,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
   final DateTime? lastMessageTime;
   final String? lastMessagePreview;
   final String? lastMessageName;
-  final String participants;
+  final List<Participant> participants;
   final String? description;
   final bool requiresApproval;
   final bool muted;
@@ -1490,7 +1488,10 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     if (!nullToAbsent || lastMessageName != null) {
       map['last_message_name'] = Variable<String>(lastMessageName);
     }
-    map['participants'] = Variable<String>(participants);
+    {
+      map['participants'] = Variable<String>(
+          $ConversationsTable.$converterparticipants.toSql(participants));
+    }
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
@@ -1558,7 +1559,8 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       lastMessagePreview:
           serializer.fromJson<String?>(json['lastMessagePreview']),
       lastMessageName: serializer.fromJson<String?>(json['lastMessageName']),
-      participants: serializer.fromJson<String>(json['participants']),
+      participants:
+          serializer.fromJson<List<Participant>>(json['participants']),
       description: serializer.fromJson<String?>(json['description']),
       requiresApproval: serializer.fromJson<bool>(json['requiresApproval']),
       muted: serializer.fromJson<bool>(json['muted']),
@@ -1583,7 +1585,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       'lastMessageTime': serializer.toJson<DateTime?>(lastMessageTime),
       'lastMessagePreview': serializer.toJson<String?>(lastMessagePreview),
       'lastMessageName': serializer.toJson<String?>(lastMessageName),
-      'participants': serializer.toJson<String>(participants),
+      'participants': serializer.toJson<List<Participant>>(participants),
       'description': serializer.toJson<String?>(description),
       'requiresApproval': serializer.toJson<bool>(requiresApproval),
       'muted': serializer.toJson<bool>(muted),
@@ -1606,7 +1608,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           Value<DateTime?> lastMessageTime = const Value.absent(),
           Value<String?> lastMessagePreview = const Value.absent(),
           Value<String?> lastMessageName = const Value.absent(),
-          String? participants,
+          List<Participant>? participants,
           Value<String?> description = const Value.absent(),
           bool? requiresApproval,
           bool? muted,
@@ -1772,7 +1774,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
   final Value<DateTime?> lastMessageTime;
   final Value<String?> lastMessagePreview;
   final Value<String?> lastMessageName;
-  final Value<String> participants;
+  final Value<List<Participant>> participants;
   final Value<String?> description;
   final Value<bool> requiresApproval;
   final Value<bool> muted;
@@ -1815,7 +1817,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     this.lastMessageTime = const Value.absent(),
     this.lastMessagePreview = const Value.absent(),
     this.lastMessageName = const Value.absent(),
-    required String participants,
+    this.participants = const Value.absent(),
     this.description = const Value.absent(),
     this.requiresApproval = const Value.absent(),
     this.muted = const Value.absent(),
@@ -1826,8 +1828,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     this.rowid = const Value.absent(),
   })  : conversationId = Value(conversationId),
         type = Value(type),
-        createdAt = Value(createdAt),
-        participants = Value(participants);
+        createdAt = Value(createdAt);
   static Insertable<Conversation> custom({
     Expression<String>? conversationId,
     Expression<String>? type,
@@ -1887,7 +1888,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
       Value<DateTime?>? lastMessageTime,
       Value<String?>? lastMessagePreview,
       Value<String?>? lastMessageName,
-      Value<String>? participants,
+      Value<List<Participant>>? participants,
       Value<String?>? description,
       Value<bool>? requiresApproval,
       Value<bool>? muted,
@@ -1957,7 +1958,8 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
       map['last_message_name'] = Variable<String>(lastMessageName.value);
     }
     if (participants.present) {
-      map['participants'] = Variable<String>(participants.value);
+      map['participants'] = Variable<String>(
+          $ConversationsTable.$converterparticipants.toSql(participants.value));
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -3798,7 +3800,7 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   Value<String?> email,
   Value<String?> pinyin,
   Value<DateTime?> lastActiveTime,
-  Value<String?> status,
+  Value<int?> status,
   Value<int> roleId,
   Value<bool> online,
   Value<bool> isFriend,
@@ -3814,7 +3816,7 @@ typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<String?> email,
   Value<String?> pinyin,
   Value<DateTime?> lastActiveTime,
-  Value<String?> status,
+  Value<int?> status,
   Value<int> roleId,
   Value<bool> online,
   Value<bool> isFriend,
@@ -3853,7 +3855,7 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
       column: $table.lastActiveTime,
       builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get status => $composableBuilder(
+  ColumnFilters<int> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get roleId => $composableBuilder(
@@ -3903,7 +3905,7 @@ class $$UsersTableOrderingComposer
       column: $table.lastActiveTime,
       builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get status => $composableBuilder(
+  ColumnOrderings<int> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<int> get roleId => $composableBuilder(
@@ -3952,7 +3954,7 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<DateTime> get lastActiveTime => $composableBuilder(
       column: $table.lastActiveTime, builder: (column) => column);
 
-  GeneratedColumn<String> get status =>
+  GeneratedColumn<int> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
   GeneratedColumn<int> get roleId =>
@@ -4001,7 +4003,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String?> email = const Value.absent(),
             Value<String?> pinyin = const Value.absent(),
             Value<DateTime?> lastActiveTime = const Value.absent(),
-            Value<String?> status = const Value.absent(),
+            Value<int?> status = const Value.absent(),
             Value<int> roleId = const Value.absent(),
             Value<bool> online = const Value.absent(),
             Value<bool> isFriend = const Value.absent(),
@@ -4033,7 +4035,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String?> email = const Value.absent(),
             Value<String?> pinyin = const Value.absent(),
             Value<DateTime?> lastActiveTime = const Value.absent(),
-            Value<String?> status = const Value.absent(),
+            Value<int?> status = const Value.absent(),
             Value<int> roleId = const Value.absent(),
             Value<bool> online = const Value.absent(),
             Value<bool> isFriend = const Value.absent(),
@@ -4084,7 +4086,7 @@ typedef $$CurrentUsersTableCreateCompanionBuilder = CurrentUsersCompanion
   Value<String?> phone,
   Value<String?> email,
   Value<DateTime?> lastLoginTime,
-  Value<String?> status,
+  Value<int?> status,
   Value<bool> hasSetPassword,
   Value<int> roleId,
   Value<int> rowid,
@@ -4097,7 +4099,7 @@ typedef $$CurrentUsersTableUpdateCompanionBuilder = CurrentUsersCompanion
   Value<String?> phone,
   Value<String?> email,
   Value<DateTime?> lastLoginTime,
-  Value<String?> status,
+  Value<int?> status,
   Value<bool> hasSetPassword,
   Value<int> roleId,
   Value<int> rowid,
@@ -4130,7 +4132,7 @@ class $$CurrentUsersTableFilterComposer
   ColumnFilters<DateTime> get lastLoginTime => $composableBuilder(
       column: $table.lastLoginTime, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get status => $composableBuilder(
+  ColumnFilters<int> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get hasSetPassword => $composableBuilder(
@@ -4169,7 +4171,7 @@ class $$CurrentUsersTableOrderingComposer
       column: $table.lastLoginTime,
       builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get status => $composableBuilder(
+  ColumnOrderings<int> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<bool> get hasSetPassword => $composableBuilder(
@@ -4207,7 +4209,7 @@ class $$CurrentUsersTableAnnotationComposer
   GeneratedColumn<DateTime> get lastLoginTime => $composableBuilder(
       column: $table.lastLoginTime, builder: (column) => column);
 
-  GeneratedColumn<String> get status =>
+  GeneratedColumn<int> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
   GeneratedColumn<bool> get hasSetPassword => $composableBuilder(
@@ -4249,7 +4251,7 @@ class $$CurrentUsersTableTableManager extends RootTableManager<
             Value<String?> phone = const Value.absent(),
             Value<String?> email = const Value.absent(),
             Value<DateTime?> lastLoginTime = const Value.absent(),
-            Value<String?> status = const Value.absent(),
+            Value<int?> status = const Value.absent(),
             Value<bool> hasSetPassword = const Value.absent(),
             Value<int> roleId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -4273,7 +4275,7 @@ class $$CurrentUsersTableTableManager extends RootTableManager<
             Value<String?> phone = const Value.absent(),
             Value<String?> email = const Value.absent(),
             Value<DateTime?> lastLoginTime = const Value.absent(),
-            Value<String?> status = const Value.absent(),
+            Value<int?> status = const Value.absent(),
             Value<bool> hasSetPassword = const Value.absent(),
             Value<int> roleId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -4325,7 +4327,7 @@ typedef $$ConversationsTableCreateCompanionBuilder = ConversationsCompanion
   Value<DateTime?> lastMessageTime,
   Value<String?> lastMessagePreview,
   Value<String?> lastMessageName,
-  required String participants,
+  Value<List<Participant>> participants,
   Value<String?> description,
   Value<bool> requiresApproval,
   Value<bool> muted,
@@ -4348,7 +4350,7 @@ typedef $$ConversationsTableUpdateCompanionBuilder = ConversationsCompanion
   Value<DateTime?> lastMessageTime,
   Value<String?> lastMessagePreview,
   Value<String?> lastMessageName,
-  Value<String> participants,
+  Value<List<Participant>> participants,
   Value<String?> description,
   Value<bool> requiresApproval,
   Value<bool> muted,
@@ -4407,8 +4409,10 @@ class $$ConversationsTableFilterComposer
       column: $table.lastMessageName,
       builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get participants => $composableBuilder(
-      column: $table.participants, builder: (column) => ColumnFilters(column));
+  ColumnWithTypeConverterFilters<List<Participant>, List<Participant>, String>
+      get participants => $composableBuilder(
+          column: $table.participants,
+          builder: (column) => ColumnWithTypeConverterFilters(column));
 
   ColumnFilters<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => ColumnFilters(column));
@@ -4553,8 +4557,9 @@ class $$ConversationsTableAnnotationComposer
   GeneratedColumn<String> get lastMessageName => $composableBuilder(
       column: $table.lastMessageName, builder: (column) => column);
 
-  GeneratedColumn<String> get participants => $composableBuilder(
-      column: $table.participants, builder: (column) => column);
+  GeneratedColumnWithTypeConverter<List<Participant>, String>
+      get participants => $composableBuilder(
+          column: $table.participants, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => column);
@@ -4615,7 +4620,7 @@ class $$ConversationsTableTableManager extends RootTableManager<
             Value<DateTime?> lastMessageTime = const Value.absent(),
             Value<String?> lastMessagePreview = const Value.absent(),
             Value<String?> lastMessageName = const Value.absent(),
-            Value<String> participants = const Value.absent(),
+            Value<List<Participant>> participants = const Value.absent(),
             Value<String?> description = const Value.absent(),
             Value<bool> requiresApproval = const Value.absent(),
             Value<bool> muted = const Value.absent(),
@@ -4659,7 +4664,7 @@ class $$ConversationsTableTableManager extends RootTableManager<
             Value<DateTime?> lastMessageTime = const Value.absent(),
             Value<String?> lastMessagePreview = const Value.absent(),
             Value<String?> lastMessageName = const Value.absent(),
-            required String participants,
+            Value<List<Participant>> participants = const Value.absent(),
             Value<String?> description = const Value.absent(),
             Value<bool> requiresApproval = const Value.absent(),
             Value<bool> muted = const Value.absent(),

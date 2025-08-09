@@ -10,6 +10,7 @@ import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+import 'package:cc/core/adapters/conversation_adapter.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -174,7 +175,7 @@ class _ChatsPageState extends State<ChatsPage>
 
     // 💢💢💢 应用从后台恢复时触发同步
     if (state == AppLifecycleState.resumed && _isPageVisible) {
-      _logger.i('应用从后台恢复，ChatsPage 检查是否需要同步');
+      // _logger.i('应用从后台恢复，ChatsPage 检查是否需要同步');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           // 💢💢💢 重要：检查当前是否是可见的Tab页面
@@ -184,11 +185,11 @@ class _ChatsPageState extends State<ChatsPage>
             final currentTabIndex = homeCubit.state.currentTabIndex;
             final isCurrentTabVisible = currentTabIndex == 0;
             
-            _logger.i('ChatsPage 应用恢复检查可见性', extra: {
-              'currentTabIndex': currentTabIndex,
-              'isChatsTabVisible': isCurrentTabVisible,
-              'shouldSync': isCurrentTabVisible,
-            });
+            // _logger.i('ChatsPage 应用恢复检查可见性', extra: {
+            //   'currentTabIndex': currentTabIndex,
+            //   'isChatsTabVisible': isCurrentTabVisible,
+            //   'shouldSync': isCurrentTabVisible,
+            // });
 
             if (isCurrentTabVisible) {
               _logger.i('ChatsPage 当前可见且应用恢复，执行同步');
@@ -423,37 +424,62 @@ class _ChatsPageState extends State<ChatsPage>
         // 检查各分类下是否有新消息 - 基于hasNewMessagesSinceLastRead
         final hasNewPrivateMessages = state.conversations
             .where((c) => c.type == 'PRIVATE')
-            .any((c) => c.readMessageIndex < c.lastMessageIndex);
+            .any((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            });
 
         final hasNewGroupMessages = state.conversations
             .where((c) => c.type == 'GROUP')
-            .any((c) => c.readMessageIndex < c.lastMessageIndex);
+            .any((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            });
 
         final hasNewChannelMessages = state.conversations
             .where((c) => c.type == 'CHANNEL')
-            .any((c) => c.readMessageIndex < c.lastMessageIndex);
+            .any((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            });
 
         // 计算未读会话数量（除了All Chats）- 基于hasNewMessagesSinceLastRead
         final privateUnreadCount = state.conversations
-            .where((c) =>
-                c.type == 'PRIVATE' &&
-                c.readMessageIndex < c.lastMessageIndex)
+            .where((c) => c.type == 'PRIVATE')
+            .where((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            })
             .length;
 
         final groupUnreadCount = state.conversations
-            .where((c) =>
-                c.type == 'GROUP' &&
-                c.readMessageIndex < c.lastMessageIndex)
+            .where((c) => c.type == 'GROUP')
+            .where((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            })
             .length;
 
         final channelUnreadCount = state.conversations
-            .where((c) =>
-                c.type == 'CHANNEL' &&
-                c.readMessageIndex < c.lastMessageIndex)
+            .where((c) => c.type == 'CHANNEL')
+            .where((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            })
             .length;
 
         final unreadConversationsCount = state.conversations
-            .where((c) => c.readMessageIndex < c.lastMessageIndex)
+            .where((c) {
+              final pi = ConversationAdapter.getParticipantInfo(c.participants, state.currentUser!.userId);
+              final readIdx = (pi?.readMessageIndex ?? c.lastMessageIndex);
+              return readIdx < c.lastMessageIndex;
+            })
             .length;
 
         return Container(
@@ -914,18 +940,17 @@ class _ChatsPageState extends State<ChatsPage>
             (context, index) {
               final conversation = pinnedConversations[index];
               // 调试：构建置顶会话item日志
-              final unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+              final pi = ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser?.userId ?? '');
+              final int? readMessageIndex = pi?.readMessageIndex;
+
               _logger.d('ChatsPage 构建置顶会话Item', extra: {
                 'conversationId': conversation.conversationId,
                 'name': conversation.name,
                 'type': conversation.type,
+                'readMessageIndex': readMessageIndex,
                 'lastMessageIndex': conversation.lastMessageIndex,
-                'readMessageIndex': conversation.readMessageIndex,
-                'unreadByIndex': unread,
                 'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
                 'lastMessagePreview': conversation.lastMessagePreview,
-                'pinned': conversation.pinned,
-                'muted': conversation.muted,
               });
 
               return ConversationItem(
@@ -950,18 +975,17 @@ class _ChatsPageState extends State<ChatsPage>
             (context, index) {
               final conversation = unpinnedConversations[index];
               // 调试：构建非置顶会话item日志
-              final unread = (conversation.lastMessageIndex - conversation.readMessageIndex).clamp(0, 1 << 30);
+              final pi = ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser?.userId ?? '');
+              final int? readMessageIndex = pi?.readMessageIndex;
+
               _logger.d('ChatsPage 构建会话Item', extra: {
                 'conversationId': conversation.conversationId,
                 'name': conversation.name,
                 'type': conversation.type,
+                'readMessageIndex': readMessageIndex,
                 'lastMessageIndex': conversation.lastMessageIndex,
-                'readMessageIndex': conversation.readMessageIndex,
-                'unreadByIndex': unread,
                 'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
                 'lastMessagePreview': conversation.lastMessagePreview,
-                'pinned': conversation.pinned,
-                'muted': conversation.muted,
               });
 
               return ConversationItem(

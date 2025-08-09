@@ -1,4 +1,5 @@
 import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/features/chat/domain/entities/participant.dart';
 import 'package:equatable/equatable.dart';
 
 /// 当前滚动位置信息
@@ -221,6 +222,9 @@ class ChatState extends Equatable {
   /// 正在回复的消息
   final Message? replyingToMessage;
 
+  /// 对方是否正在输入（仅私聊展示）
+  final bool isOtherUserTyping;
+
   /// 构造函数
   const ChatState({
     required this.conversation,
@@ -267,6 +271,7 @@ class ChatState extends Equatable {
     this.quickReplies,
     this.isQuickReplyLoading = false,
     this.replyingToMessage,
+    this.isOtherUserTyping = false,
   });
 
   /// 初始状态
@@ -285,7 +290,7 @@ class ChatState extends Equatable {
       lastMessageTime: null,
       lastMessagePreview: null,
       lastMessageName: null,
-      participants: '[]', // 空的参与者JSON数组
+      participants: const <Participant>[],
       description: null,
       requiresApproval: false,
       // 当前用户的参与者设置
@@ -334,6 +339,7 @@ class ChatState extends Equatable {
       quickReplies: null,
       isQuickReplyLoading: false,
       replyingToMessage: null,
+      isOtherUserTyping: false,
     );
   }
 
@@ -386,6 +392,7 @@ class ChatState extends Equatable {
     bool? isQuickReplyLoading,
     Message? replyingToMessage,
     bool clearReplyingToMessage = false,
+    bool? isOtherUserTyping,
   }) {
     return ChatState(
       conversation: conversation ?? this.conversation,
@@ -432,6 +439,7 @@ class ChatState extends Equatable {
       quickReplies: quickReplies ?? this.quickReplies,
       isQuickReplyLoading: isQuickReplyLoading ?? this.isQuickReplyLoading,
       replyingToMessage: clearReplyingToMessage ? null : (replyingToMessage ?? this.replyingToMessage),
+      isOtherUserTyping: isOtherUserTyping ?? this.isOtherUserTyping,
     );
   }
 
@@ -505,5 +513,6 @@ class ChatState extends Equatable {
         quickReplies,
         isQuickReplyLoading,
         replyingToMessage,
+        isOtherUserTyping,
       ];
 }

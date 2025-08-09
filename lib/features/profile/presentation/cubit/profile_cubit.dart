@@ -58,7 +58,7 @@ class ProfileCubit extends Cubit<ProfileState> {
   Future<void> updateUserInfo({
     String? nickname,
     String? avatar,
-    String? status,
+    int? status,
   }) async {
     // 🔧 修复：防止重复更新操作
     if (_isUpdating || isClosed) {

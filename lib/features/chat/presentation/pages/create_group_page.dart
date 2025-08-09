@@ -616,21 +616,13 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                subtitle: member.status?.isNotEmpty == true
-                    ? Text(
-                        member.status!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      )
-                    : Text(
-                        'last seen a long time ago',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
+                subtitle: Text(
+                  'last seen a long time ago',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
                 trailing: IconButton(
                   icon: Icon(Icons.close, color: Colors.grey[600]),
                   onPressed: () {

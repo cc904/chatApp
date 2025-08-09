@@ -90,7 +90,9 @@ extension CurrentUserBuilder on CurrentUser {
       phone: userData['phone']?.toString().isEmpty == true ? null : userData['phone']?.toString(),
       email: userData['email']?.toString().isEmpty == true ? null : userData['email']?.toString(),
       avatar: userData['avatar']?.toString().isEmpty == true ? null : userData['avatar']?.toString(),
-      status: userData['status']?.toString().isEmpty == true ? null : userData['status']?.toString(),
+      status: userData['status'] == null
+          ? null
+          : int.tryParse(userData['status'].toString()),
       lastLoginTime: lastLoginTime,
       hasSetPassword: userData['hasSetPassword'] as bool? ?? false,
       roleId: roleId,
@@ -156,7 +158,7 @@ extension CurrentUserBuilder on CurrentUser {
       lastLoginTime: proto.hasLastLoginTime()
           ? DateTime.fromMillisecondsSinceEpoch(proto.lastLoginTime.toInt())
           : null,
-      status: proto.status.isNotEmpty ? proto.status : null,
+      status: proto.hasStatus() ? proto.status.value : null,
       hasSetPassword: proto.hasSetPassword,
       roleId: roleId,
     );

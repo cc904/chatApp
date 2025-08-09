@@ -362,19 +362,33 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
 
   /// 计算图片宽高比
   double _calculateAspectRatio() {
-    // 1. 优先使用消息中保存的宽高信息（避免布局跳动）
-    if (_getWidth() != null && _getHeight() != null && _getWidth()! > 0 && _getHeight()! > 0) {
-      final ratio = _getWidth()! / _getHeight()!;
-      return ratio;
+    // Web 平台：优先使用消息中保存的宽高信息，其次使用实际宽高比，最后默认
+    if (kIsWeb) {
+      final w = _getWidth();
+      final h = _getHeight();
+      if (w != null && h != null && h > 0) {
+        return w / h;
+      }
+      if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
+        return _actualAspectRatio!;
+      }
+      return 1.33; // 4:3 默认
     }
 
-    // 2. 如果图片已加载且消息中没有宽高信息，使用实际宽高比
+    // 非 Web：优先使用消息中保存的宽高信息（避免布局跳动）
+    final w = _getWidth();
+    final h = _getHeight();
+    if (w != null && h != null && h > 0) {
+      return w / h;
+    }
+
+    // 若无元数据，使用已加载图片的实际比例
     if (_actualAspectRatio != null && _actualAspectRatio! > 0) {
       return _actualAspectRatio!;
     }
 
-    // 3. 默认比例
-    return 1.33; // 4:3 比例
+    // 默认比例
+    return 1.33;
   }
 
   /// 处理图片点击
@@ -427,53 +441,61 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
             constraints: BoxConstraints(
               maxWidth: maxWidth,
               maxHeight: maxHeight,
-              minWidth: 120.0,
-              minHeight: 80.0,
             ),
-            child: AspectRatio(
-              aspectRatio: _calculateAspectRatio(),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(8.0),
-                child: InkWell(
-                  onTap: _hasError ? _retryLoad : _onImageTap,
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(8.0),
-                      topRight: Radius.circular(8.0),
-                      bottomLeft: Radius.circular(0.0),
-                      bottomRight: Radius.circular(0.0),
-                    ),
-                    child: Stack(
-                      children: [
-                        _buildImageContent(),
-                        // 显示下载进度指示器
-                        if (_isDownloadingOriginal && _isShowingThumbnail)
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withAlpha(128),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              ),
-                            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final aspect = _calculateAspectRatio();
+                // 最小尺寸根据容器宽度动态设定，避免 web 上出现过高空白
+                final minW = constraints.maxWidth.clamp(120.0, double.infinity);
+                final minH = (minW / aspect).clamp(80.0, maxHeight);
+                return ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: minW, minHeight: minH),
+                  child: AspectRatio(
+                    aspectRatio: aspect,
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: InkWell(
+                        onTap: _hasError ? _retryLoad : _onImageTap,
+                        borderRadius: BorderRadius.circular(8.0),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8.0),
+                            topRight: Radius.circular(8.0),
+                            bottomLeft: Radius.circular(0.0),
+                            bottomRight: Radius.circular(0.0),
                           ),
-                      ],
+                          child: Stack(
+                            children: [
+                              _buildImageContent(),
+                              if (_isDownloadingOriginal && _isShowingThumbnail)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withAlpha(128),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
           // 文字说明部分
@@ -493,59 +515,66 @@ class _ImageMessageWidgetState extends State<ImageMessageWidget> {
       );
     } else {
       // 纯图片形式
-      return Container(
-        constraints: BoxConstraints(
-          maxWidth: maxWidth,
-          maxHeight: maxHeight,
-          minWidth: 120.0,
-          minHeight: 80.0,
-        ),
-        child: AspectRatio(
-          aspectRatio: _calculateAspectRatio(),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8.0),
-            child: InkWell(
-              onTap: _hasError ? _retryLoad : _onImageTap,
-              borderRadius: BorderRadius.circular(8.0),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(8.0),
-                  topRight: Radius.circular(8.0),
-                  bottomLeft: Radius.circular(0.0),
-                  bottomRight: Radius.circular(0.0),
-                ),
-                child: Stack(
-                  children: [
-                    _buildImageContent(),
-                    // 显示下载进度指示器
-                    if (_isDownloadingOriginal && _isShowingThumbnail)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(128),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          ),
+        return Container(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final aspect = _calculateAspectRatio();
+              final minW = constraints.maxWidth.clamp(120.0, double.infinity);
+              final minH = (minW / aspect).clamp(80.0, maxHeight);
+              return ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minW, minHeight: minH),
+                child: AspectRatio(
+                  aspectRatio: aspect,
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: InkWell(
+                      onTap: _hasError ? _retryLoad : _onImageTap,
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(8.0),
+                          topRight: Radius.circular(8.0),
+                          bottomLeft: Radius.circular(0.0),
+                          bottomRight: Radius.circular(0.0),
+                        ),
+                        child: Stack(
+                          children: [
+                            _buildImageContent(),
+                            if (_isDownloadingOriginal && _isShowingThumbnail)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withAlpha(128),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                  ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
-        ),
-      );
+        );
     }
   }
 

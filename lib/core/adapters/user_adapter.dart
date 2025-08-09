@@ -21,7 +21,7 @@ class UserAdapter {
       phone: protoUser.hasPhone() ? protoUser.phone : null,
       email: protoUser.hasEmail() ? protoUser.email : null,
       lastLoginTime: protoUser.hasLastLoginTime() ? DateTime.fromMillisecondsSinceEpoch(protoUser.lastLoginTime.toInt()) : null,
-      status: protoUser.hasStatus() ? protoUser.status : null,
+      status: protoUser.hasStatus() ? protoUser.status.value : null,
       hasSetPassword: protoUser.hasHasSetPassword() ? protoUser.hasSetPassword : false,
       roleId: protoUser.hasRoleId() ? protoUser.roleId : 2, // 默认为普通用户
     );
@@ -40,7 +40,7 @@ class UserAdapter {
       email: protoUser.hasEmail() ? protoUser.email : null,
       pinyin: protoUser.hasPinyin() ? protoUser.pinyin : null,
       lastActiveTime: protoUser.hasLastActiveTime() ? DateTime.fromMillisecondsSinceEpoch(protoUser.lastActiveTime.toInt()) : null,
-      status: protoUser.hasStatus() ? protoUser.status : null,
+      status: protoUser.hasStatus() ? protoUser.status.value : null,
       online: false, // 默认值
       isFriend: false, // 默认值，在调用处设置
       roleId: protoUser.hasRoleId() ? protoUser.roleId : 2, // 默认为普通用户
@@ -60,7 +60,9 @@ class UserAdapter {
       avatar: user.avatar,
       phone: user.phone,
       email: user.email,
-      status: user.status,
+      status: user.status != null
+          ? proto.UserStatusEnum.valueOf(user.status!)
+          : null,
       roleId: user.roleId,
       nickname: user.nickname,
       remark: user.remark,
@@ -79,7 +81,9 @@ class UserAdapter {
       phone: currentUser.phone,
       email: currentUser.email,
       lastLoginTime: currentUser.lastLoginTime != null ? Int64(currentUser.lastLoginTime!.millisecondsSinceEpoch) : null,
-      status: currentUser.status,
+      status: currentUser.status != null
+          ? proto.UserStatusEnum.valueOf(currentUser.status!)
+          : null,
       hasSetPassword: currentUser.hasSetPassword,
       roleId: currentUser.roleId,
     );
@@ -99,7 +103,7 @@ class UserAdapter {
       email: protoUser.hasEmail() ? protoUser.email : null,
       pinyin: protoUser.hasPinyin() ? protoUser.pinyin : null,
       lastActiveTime: protoUser.hasLastActiveTime() ? DateTime.fromMillisecondsSinceEpoch(protoUser.lastActiveTime.toInt()) : null,
-      status: protoUser.hasStatus() ? protoUser.status : null,
+      status: protoUser.hasStatus() ? protoUser.status.value : null,
       online: false, // 默认值
       isFriend: true, // 联系人标记为朋友
       roleId: protoUser.hasRoleId() ? protoUser.roleId : 2, // 默认为普通用户

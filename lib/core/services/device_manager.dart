@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
+import 'package:nanoid/nanoid.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/proto/generated/auth.pb.dart';
 import 'package:cc/core/services/secure_storage_service.dart';
@@ -69,10 +69,9 @@ class DeviceManager {
     }
   }
 
-  /// 生成UUID
+  /// 生成设备ID（使用 nanoid）
   static String _generateUUID() {
-    const uuid = Uuid();
-    return uuid.v4();
+    return nanoid(21);
   }
 
   /// 清理字符串，确保只包含HTTP Header允许的ASCII字符

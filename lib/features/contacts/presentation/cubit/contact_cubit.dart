@@ -466,10 +466,10 @@ class ContactCubit extends Cubit<ContactState> {
 
   /// 处理应用生命周期变化
   void _handleAppLifecycleChange(CustomAppLifecycleState newState) {
-    _logger.d('联系人模块收到应用状态变化', extra: {
-      'instanceId': _instanceId,
-      'newState': newState.toString(),
-    });
+    // _logger.d('联系人模块收到应用状态变化', extra: {
+    //   'instanceId': _instanceId,
+    //   'newState': newState.toString(),
+    // });
 
     // 当应用从后台恢复到前台时，仅清理错误，不自动同步，由页面切换逻辑决定
     if (newState == CustomAppLifecycleState.resumed) {

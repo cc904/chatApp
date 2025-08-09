@@ -4,7 +4,7 @@ import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/services/dynamic_file_server_config.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:uuid/uuid.dart';
+import 'package:nanoid/nanoid.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -18,7 +18,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 /// 负责处理文件的真实上传到服务器
 class FileUploadService {
   final _logger = LogService.instance;
-  final Uuid _uuid = const Uuid();
   final UploadApiService _uploadApiService = UploadApiService();
 
   // 单例模式
@@ -394,7 +393,7 @@ class FileUploadService {
       }
 
       // 生成唯一文件名
-      final fileName = '${_uuid.v4()}${path.extension(file.path)}';
+      final fileName = '${nanoid(21)}${path.extension(file.path)}';
       final localPath = '${mediaDir.path}/$fileName';
 
       // 复制文件到目标路径
@@ -417,7 +416,7 @@ class FileUploadService {
 
       // 创建临时目录用于存储缩略图
       final tempDir = await getTemporaryDirectory();
-      final thumbnailPath = '${tempDir.path}/${_uuid.v4()}_fallback.jpg';
+      final thumbnailPath = '${tempDir.path}/${nanoid(21)}_fallback.jpg';
 
       final String fileName = path.basename(videoPath);
 

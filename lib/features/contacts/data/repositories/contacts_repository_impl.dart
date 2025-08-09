@@ -99,7 +99,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
               email: Value(userProto.email.isEmpty ? null : userProto.email),
               pinyin: Value(userProto.pinyin.isEmpty ? null : userProto.pinyin),
               lastActiveTime: Value(userProto.hasLastActiveTime() ? DateTime.fromMillisecondsSinceEpoch(userProto.lastActiveTime.toInt()) : null),
-              status: Value(userProto.status.isEmpty ? null : userProto.status),
+              status: Value(userProto.hasStatus() ? userProto.status.value : null),
               roleId: const Value(0), // Proto中没有roleId字段
               isFriend: const Value(true),
             ));
@@ -173,7 +173,7 @@ class ContactsRepositoryImpl implements ContactsRepository {
       final user = await (_db.select(_db.users)..where((tbl) => tbl.userId.equals(userId))).getSingleOrNull();
       if (user != null) {
         await (_db.update(_db.users)..where((tbl) => tbl.userId.equals(userId))).write(UsersCompanion(
-          status: Value(isOnline ? 'online' : 'offline'),
+          status: Value(isOnline ? 1 : 0),
           lastActiveTime: Value(DateTime.now()),
         ));
 

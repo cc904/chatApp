@@ -39,5 +39,11 @@
 	<string>需要访问相册以保存图片</string>
 	<key>NSUserNotificationAlertStyle</key>
 	<string>alert</string>
+	<!-- 通知权限配置 -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>需要发送通知权限以便及时提醒您收到新消息</string>
+	<!-- 支持用户通知中心 -->
+	<key>NSUserNotificationCenter</key>
+	<true/>
 </dict>
 </plist>

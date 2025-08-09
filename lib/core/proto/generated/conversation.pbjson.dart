@@ -566,6 +566,47 @@ final $typed_data.Uint8List participantStatusUpdateResponseDescriptor =
         'Nlc3MSJwoPY29udmVyc2F0aW9uX2lkGAIgASgJUg5jb252ZXJzYXRpb25JZBI2CgtwYXJ0aWNp'
         'cGFudBgDIAEoCzIULmNjLlBhcnRpY2lwYW50UHJvdG9SC3BhcnRpY2lwYW50');
 
+@$core.Deprecated('Use participantIndexUpdatedNotificationDescriptor instead')
+const ParticipantIndexUpdatedNotification$json = {
+  '1': 'ParticipantIndexUpdatedNotification',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'user_id', '3': 2, '4': 1, '5': 9, '10': 'userId'},
+    {
+      '1': 'read_message_index',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 0,
+      '10': 'readMessageIndex',
+      '17': true
+    },
+    {
+      '1': 'delivered_message_index',
+      '3': 4,
+      '4': 1,
+      '5': 5,
+      '9': 1,
+      '10': 'deliveredMessageIndex',
+      '17': true
+    },
+    {'1': 'timestamp', '3': 5, '4': 1, '5': 3, '10': 'timestamp'},
+  ],
+  '8': [
+    {'1': '_read_message_index'},
+    {'1': '_delivered_message_index'},
+  ],
+};
+
+/// Descriptor for `ParticipantIndexUpdatedNotification`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List participantIndexUpdatedNotificationDescriptor = $convert.base64Decode(
+    'CiNQYXJ0aWNpcGFudEluZGV4VXBkYXRlZE5vdGlmaWNhdGlvbhInCg9jb252ZXJzYXRpb25faW'
+    'QYASABKAlSDmNvbnZlcnNhdGlvbklkEhcKB3VzZXJfaWQYAiABKAlSBnVzZXJJZBIxChJyZWFk'
+    'X21lc3NhZ2VfaW5kZXgYAyABKAVIAFIQcmVhZE1lc3NhZ2VJbmRleIgBARI7ChdkZWxpdmVyZW'
+    'RfbWVzc2FnZV9pbmRleBgEIAEoBUgBUhVkZWxpdmVyZWRNZXNzYWdlSW5kZXiIAQESHAoJdGlt'
+    'ZXN0YW1wGAUgASgDUgl0aW1lc3RhbXBCFQoTX3JlYWRfbWVzc2FnZV9pbmRleEIaChhfZGVsaX'
+    'ZlcmVkX21lc3NhZ2VfaW5kZXg=');
+
 @$core.Deprecated('Use conversationMembersRequestDescriptor instead')
 const ConversationMembersRequest$json = {
   '1': 'ConversationMembersRequest',

@@ -7,6 +7,7 @@ import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/services/notification_action_service.dart';
 import 'package:cc/core/services/notification_settings_service.dart';
+import 'dart:typed_data' show Int64List;
 
 // 条件导入：根据平台导入不同的通知服务实现
 import 'notification_platform_stub.dart'
@@ -44,7 +45,12 @@ class MessageNotificationService {
 
   /// 初始化通知服务
   Future<bool> initialize() async {
-    if (_isInitialized) return _hasPermission;
+    if (_isInitialized) {
+      _logger.d('通知服务已初始化，返回当前权限状态', extra: {
+        'hasPermission': _hasPermission,
+      });
+      return _hasPermission;
+    }
 
     try {
       _logger.i('初始化消息通知服务');
@@ -81,6 +87,11 @@ class MessageNotificationService {
         onDidReceiveBackgroundNotificationResponse: _onBackgroundNotificationTapped,
       );
 
+      _logger.d('flutter_local_notifications 初始化结果', extra: {
+        'initialized': initialized,
+        'platform': _getStandardizedPlatformName(),
+      });
+
       if (initialized == true) {
         await _createNotificationChannels();
         _hasPermission = await _requestPermissions();
@@ -89,8 +100,22 @@ class MessageNotificationService {
         _logger.i('消息通知服务初始化成功', extra: {
           'hasPermission': _hasPermission,
         });
+      } else if (initialized == false) {
+        _logger.e('flutter_local_notifications 初始化返回 false', extra: {
+          'platform': _getStandardizedPlatformName(),
+          'possibleCauses': [
+            'macOS: 需要在 Info.plist 中配置通知权限',
+            'iOS: 需要正确的证书和权限配置',
+            'Android: 需要正确的权限声明'
+          ]
+        });
+        _isInitialized = false;
+        _hasPermission = false;
       } else {
-        _logger.e('消息通知服务初始化失败');
+        // initialized == null 的情况
+        _logger.w('flutter_local_notifications 初始化返回 null，可能是平台不支持', extra: {
+          'platform': _getStandardizedPlatformName(),
+        });
         _isInitialized = false;
         _hasPermission = false;
       }
@@ -258,35 +283,38 @@ class MessageNotificationService {
       final body = _buildNotificationBody(message, notificationStyle.showPreview);
       final groupKey = 'chat_${conversation.conversationId}';
 
-      // Android特定配置
-      final androidDetails = AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDescription,
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        when: message.createdAt.millisecondsSinceEpoch,
-        groupKey: notificationStyle.groupMessages ? groupKey : null,
-        setAsGroupSummary: false,
-        autoCancel: true,
-        ongoing: false,
-        silent: !notificationStyle.soundEnabled,
-        // 设置通知样式
-        styleInformation: _buildAndroidStyle(message, conversation, unreadCount, notificationStyle.showPreview),
-        // 添加动作按钮
-        actions: _buildNotificationActions(),
-        // 设置通知图标和颜色
-        icon: '@mipmap/ic_launcher',
-        color: const Color.fromARGB(255, 7, 193, 96),
-        // 设置LED和振动（兼容旧版本Android）
-        enableLights: true,
-        ledColor: const Color.fromARGB(255, 7, 193, 96),
-        ledOnMs: 1000, // LED开启时间（毫秒）- Android O之前版本必需
-        ledOffMs: 500, // LED关闭时间（毫秒）- Android O之前版本必需
-        enableVibration: notificationStyle.vibrationEnabled,
-        vibrationPattern: notificationStyle.vibrationEnabled ? Int64List.fromList([0, 250, 250, 250]) : null,
-      );
+      // Android特定配置（仅在非Web且Android平台下创建，避免 Web 上 Int64List 不支持的问题）
+      AndroidNotificationDetails? androidDetails;
+      if (isAndroidPlatform() && !kIsWeb) {
+        androidDetails = AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          showWhen: true,
+          when: message.createdAt.millisecondsSinceEpoch,
+          groupKey: notificationStyle.groupMessages ? groupKey : null,
+          setAsGroupSummary: false,
+          autoCancel: true,
+          ongoing: false,
+          silent: !notificationStyle.soundEnabled,
+          // 设置通知样式
+          styleInformation: _buildAndroidStyle(message, conversation, unreadCount, notificationStyle.showPreview),
+          // 添加动作按钮
+          actions: _buildNotificationActions(),
+          // 设置通知图标和颜色
+          icon: '@mipmap/ic_launcher',
+          color: const Color.fromARGB(255, 7, 193, 96),
+          // 设置LED和振动（兼容旧版本Android）
+          enableLights: true,
+          ledColor: const Color.fromARGB(255, 7, 193, 96),
+          ledOnMs: 1000, // LED开启时间（毫秒）- Android O之前版本必需
+          ledOffMs: 500, // LED关闭时间（毫秒）- Android O之前版本必需
+          enableVibration: notificationStyle.vibrationEnabled,
+          vibrationPattern: notificationStyle.vibrationEnabled ? Int64List.fromList([0, 250, 250, 250]) : null,
+        );
+      }
 
       // iOS/macOS特定配置
       final darwinDetails = DarwinNotificationDetails(
@@ -353,20 +381,23 @@ class MessageNotificationService {
     final body = _buildNotificationBody(message, notificationStyle.showPreview);
 
     // 简化的Android配置，不包含LED设置
-    final androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
-      importance: Importance.high,
-      priority: Priority.high,
-      autoCancel: true,
-      ongoing: false,
-      silent: !notificationStyle.soundEnabled,
-      icon: '@mipmap/ic_launcher',
-      color: const Color.fromARGB(255, 7, 193, 96),
-      enableVibration: notificationStyle.vibrationEnabled,
-      vibrationPattern: notificationStyle.vibrationEnabled ? Int64List.fromList([0, 250, 250, 250]) : null,
-    );
+    AndroidNotificationDetails? androidDetails;
+    if (isAndroidPlatform() && !kIsWeb) {
+      androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        autoCancel: true,
+        ongoing: false,
+        silent: !notificationStyle.soundEnabled,
+        icon: '@mipmap/ic_launcher',
+        color: const Color.fromARGB(255, 7, 193, 96),
+        enableVibration: notificationStyle.vibrationEnabled,
+        vibrationPattern: notificationStyle.vibrationEnabled ? Int64List.fromList([0, 250, 250, 250]) : null,
+      );
+    }
 
     final darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -611,8 +642,12 @@ class MessageNotificationService {
   /// 检查通知权限状态
   Future<bool> checkPermissionStatus() async {
     if (!_isInitialized) {
-      _logger.w('通知服务未初始化，无法检查权限状态');
-      return false;
+      _logger.w('通知服务未初始化，尝试自动初始化后再检查权限状态');
+      final inited = await initialize();
+      if (!inited) {
+        _logger.w('自动初始化通知服务失败，无法检查权限状态');
+        return false;
+      }
     }
 
     try {
@@ -658,8 +693,20 @@ class MessageNotificationService {
         }
 
         try {
-          // 对于 macOS，我们可以尝试检查权限状态
-          // 但这个 API 可能不可用，所以我们先返回存储的状态
+          // 对于 macOS，检查系统通知权限状态
+          // 注意：这个检查依赖于系统设置，不是应用内权限
+          final systemPermissionGranted = await macosPlugin.checkPermissions();
+          _logger.d('macOS系统通知权限检查', extra: {
+            'systemGranted': systemPermissionGranted,
+            'storedPermission': _hasPermission,
+          });
+          
+          // 如果系统权限被撤销，更新本地状态
+          if (systemPermissionGranted != null && systemPermissionGranted == false && _hasPermission) {
+            _logger.w('检测到macOS系统通知权限被撤销，更新本地状态');
+            _hasPermission = false;
+          }
+          
           return _hasPermission;
         } catch (e) {
           _logger.d('macOS权限状态检查失败，返回存储状态', extra: {'error': e.toString()});
@@ -692,8 +739,12 @@ class MessageNotificationService {
   /// 用户可以调用此方法来重新授予权限
   Future<bool> requestPermissionAgain() async {
     if (!_isInitialized) {
-      _logger.w('通知服务未初始化，无法重新请求权限');
-      return false;
+      _logger.w('通知服务未初始化，尝试自动初始化后再请求权限');
+      final inited = await initialize();
+      if (!inited) {
+        _logger.w('自动初始化通知服务失败，无法请求权限');
+        return false;
+      }
     }
 
     _logger.i('用户主动重新请求通知权限');

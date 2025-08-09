@@ -1,0 +1,38 @@
+name: Build Flutter Web
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Web
+        run: flutter config --enable-web
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release --pwa-strategy=offline-first
+
+      - name: Upload Web Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+
+

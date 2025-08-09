@@ -76,11 +76,9 @@ class ProtoEvents {
     /// 新消息通知 → MessageProto
     'message:new': () => message.MessageProto(),
 
-    /// 消息送达通知 → MessageProto
-    'message:delivered': () => message.MessageProto(),
-
-    /// 消息已读通知 → MessageProto
-    'message:read': () => message.MessageProto(),
+    // 统一参与者索引事件（替代 message:read / message:delivered / 消息送达批量通知）
+    'conversation:participant:index:updated':
+        () => conversation.ParticipantIndexUpdatedNotification(),
 
     /// 发送消息请求 → MessageProto
     'message:send': () => message.MessageProto(),

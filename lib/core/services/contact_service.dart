@@ -340,7 +340,7 @@ class ContactService {
         }
 
         if (response.updatedFields.contains('status')) {
-          final status = response.contact.hasStatus() ? response.contact.status : null;
+          final status = response.contact.hasStatus() ? response.contact.status.value : null;
           updatedUser = updatedUser.copyWith(status: Value(status));
         }
 
@@ -539,7 +539,7 @@ class ContactService {
           }
 
           if (event.updatedFields.contains('status')) {
-            final status = event.contact.hasStatus() ? event.contact.status : null;
+            final status = event.contact.hasStatus() ? event.contact.status.value : null;
             updatedUser = updatedUser.copyWith(status: Value(status));
           }
 

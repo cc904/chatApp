@@ -3,6 +3,7 @@ import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as proto;
 import 'package:cc/core/services/log_service.dart';
 import 'dart:convert';
+import 'package:cc/features/chat/domain/entities/participant.dart';
 
 /// 会话数据转换适配器
 ///
@@ -20,15 +21,14 @@ class ConversationAdapter {
   /// [currentUserId] - 当前用户ID，用于从参与者中提取个人设置
   /// 返回：转换后的数据库对象
   static Conversation fromProto(proto.ConversationProto protoConv, {String? currentUserId}) {
-    // 将参与者Proto列表转换为JSON字符串
-    final participantMaps = protoConv.participants.map((p) {
-      return _participantProtoToMap(p);
-    }).toList();
+    // 将参与者Proto列表转换为通用结构（Map）后序列化（底层仍为字符串字段）
+    final participantMaps = protoConv.participants.map((p) => _participantProtoToMap(p)).toList();
+    final participantsData = participantMaps
+        .map((m) => Participant.fromMap(m))
+        .toList();
 
-    final participantsJson = jsonEncode(participantMaps);
-
-    // Extract current user's participant settings
-    final currentUserParticipant = currentUserId != null ? getParticipantInfo(participantsJson, currentUserId) : null;
+    // 提取当前用户的参与者设置（统一走解析函数，兼容 String/List）
+    final currentUserParticipant = currentUserId != null ? getParticipantInfo(participantsData, currentUserId) : null;
 
     return Conversation(
       conversationId: protoConv.conversationId,
@@ -42,14 +42,14 @@ class ConversationAdapter {
       lastMessageTime: protoConv.hasLastMessageTime() ? DateTime.fromMillisecondsSinceEpoch(protoConv.lastMessageTime.toInt()) : null,
       lastMessagePreview: protoConv.hasLastMessagePreview() ? protoConv.lastMessagePreview : null,
       lastMessageName: protoConv.hasLastMessageName() ? protoConv.lastMessageName : null,
-      participants: participantsJson,
+      participants: participantsData,
       description: protoConv.hasDescription() ? protoConv.description : null,
       requiresApproval: protoConv.hasRequiresApproval() ? protoConv.requiresApproval : false,
       // Current user's participant settings
-      muted: currentUserParticipant?['muted'] as bool? ?? false,
-      pinned: currentUserParticipant?['pinned'] as bool? ?? false,
-      readMessageIndex: currentUserParticipant?['read_message_index'] as int? ?? 0,
-      unreadCount: _calculateUnreadCount(protoConv, currentUserParticipant),
+      muted: currentUserParticipant?.muted ?? false,
+      pinned: currentUserParticipant?.pinned ?? false,
+      readMessageIndex: currentUserParticipant?.readMessageIndex ?? 0,
+      unreadCount: _calculateUnreadCount(protoConv, currentUserParticipant?.toMap()),
       lastReadTime: null, // This will be set separately if needed
     );
   }
@@ -62,8 +62,8 @@ class ConversationAdapter {
   /// [conversation] - 数据库会话对象
   /// 返回：转换后的Protocol Buffer对象
   static proto.ConversationProto toProto(Conversation conversation) {
-    // 从JSON字符串解析参与者列表
-    final participants = _parseParticipantsFromJson(conversation.participants);
+    // 解析参与者（兼容 String/List）
+    final participants = _toProtoParticipants(conversation.participants);
 
     final protoConversation = proto.ConversationProto(
       conversationId: conversation.conversationId,
@@ -102,26 +102,33 @@ class ConversationAdapter {
       'isActive': participant.hasIsActive() ? participant.isActive : true,
       'deliveredMessageIndex': participant.hasDeliveredMessageIndex() ? participant.deliveredMessageIndex : 0,
       'readMessageIndex': participant.hasReadMessageIndex() ? participant.readMessageIndex : 0,
-      'roleId': participant.hasRoleId() ? participant.roleId : 2, // 默认为普通用户
+      'roleId': participant.hasRoleId() ? participant.roleId : 2,
     };
   }
 
   /// 从Map创建ParticipantProto
   static proto.ParticipantProto _mapToParticipantProto(Map<String, dynamic> map) {
+    // 兼容蛇形 -> 驼峰
+    final readMessageIndex = (map['readMessageIndex'] as int?) ?? (map['read_message_index'] as int? ?? 0);
+    final deliveredMessageIndex = (map['deliveredMessageIndex'] as int?) ?? (map['delivered_message_index'] as int? ?? 0);
+    final joinedAt = (map['joinedAt'] as int?) ?? (map['joined_at'] as int?);
+    final addedBy = (map['addedBy'] as String?) ?? (map['added_by'] as String?);
+    final isActive = (map['isActive'] as bool?) ?? (map['is_active'] as bool? ?? true);
+
     return proto.ParticipantProto(
       userId: map['userId'] as String,
       name: map['name'] as String,
       avatar: map['avatar'] as String?,
       role: _intToMemberRole(map['role'] as int? ?? 0),
-      joinedAt: map['joined_at'] != null ? Int64(map['joined_at'] as int) : null,
-      addedBy: map['added_by'] as String?,
+      joinedAt: joinedAt != null ? Int64(joinedAt) : null,
+      addedBy: addedBy,
       muted: map['muted'] as bool? ?? false,
       pinned: map['pinned'] as bool? ?? false,
       online: map['online'] as bool? ?? false,
-      isActive: map['is_active'] as bool? ?? true,
-      deliveredMessageIndex: map['delivered_message_index'] as int? ?? 0,
-      readMessageIndex: map['read_message_index'] as int? ?? 0,
-      roleId: map['roleId'] as int? ?? 2, // 默认为普通用户
+      isActive: isActive,
+      deliveredMessageIndex: deliveredMessageIndex,
+      readMessageIndex: readMessageIndex,
+      roleId: map['roleId'] as int? ?? 2,
     );
   }
 
@@ -153,15 +160,10 @@ class ConversationAdapter {
     }
   }
 
-  /// 从JSON字符串解析参与者列表
-  static List<proto.ParticipantProto> _parseParticipantsFromJson(String participantsJson) {
-    try {
-      final List<dynamic> participantsList = jsonDecode(participantsJson);
-      return participantsList.cast<Map<String, dynamic>>().map((map) => _mapToParticipantProto(map)).toList();
-    } catch (e) {
-      // 如果解析失败，返回空列表
-      return [];
-    }
+  /// 将通用 participants 解析为 Proto 列表
+  static List<proto.ParticipantProto> _toProtoParticipants(dynamic participants) {
+    final list = parseParticipants(participants);
+    return list.map((p) => _mapToParticipantProto(p.toMap())).toList();
   }
 
   /// 将Proto会话类型转换为字符串
@@ -215,23 +217,40 @@ class ConversationAdapter {
     return _stringToProtoType(type);
   }
 
-  /// 从参与者JSON中提取特定用户的信息
-  ///
-  /// [participantsJson] - 参与者JSON字符串
-  /// [userId] - 用户ID
-  /// 返回：用户的参与者信息，如果不存在则返回null
-  static Map<String, dynamic>? getParticipantInfo(String participantsJson, String userId) {
-    try {
-      final List<dynamic> participantsList = jsonDecode(participantsJson);
-      final participantsMap = participantsList.cast<Map<String, dynamic>>();
-
-      return participantsMap.firstWhere(
-        (participant) => participant['userId'] == userId,
-        orElse: () => {},
-      );
-    } catch (e) {
-      return null;
+  /// 从参与者中提取特定用户的信息（支持 String/List）
+  static Participant? getParticipantInfo(dynamic participants, String userId) {
+    final list = parseParticipants(participants);
+    for (final p in list) {
+      if (p.userId == userId) return p;
     }
+    return null;
+  }
+
+  /// 解析参与者为 List<Participant>
+  /// - String: 按 JSON 解码
+  /// - List<Participant>: 直接返回
+  /// - List<Map<String,dynamic>>: 转换为 Participant 列表
+  static List<Participant> parseParticipants(dynamic participants) {
+    if (participants is List<Participant>) return participants;
+    if (participants is String) {
+      try {
+        final decoded = jsonDecode(participants);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map<String, dynamic>>()
+              .map((m) => Participant.fromMap(m))
+              .toList();
+        }
+      } catch (_) {}
+      return const [];
+    }
+    if (participants is List) {
+      return participants
+          .whereType<Map<String, dynamic>>()
+          .map((m) => Participant.fromMap(m))
+          .toList();
+    }
+    return const [];
   }
 
   /// 检查用户是否在会话中
@@ -239,9 +258,9 @@ class ConversationAdapter {
   /// [participantsJson] - 参与者JSON字符串
   /// [userId] - 用户ID
   /// 返回：如果用户在会话中返回true，否则返回false
-  static bool isUserInConversation(String participantsJson, String userId) {
-    final participantInfo = getParticipantInfo(participantsJson, userId);
-    return participantInfo != null && participantInfo.isNotEmpty;
+  static bool isUserInConversation(dynamic participants, String userId) {
+    final participantInfo = getParticipantInfo(participants, userId);
+    return participantInfo != null;
   }
 
   /// 获取用户在会话中的角色
@@ -249,9 +268,9 @@ class ConversationAdapter {
   /// [participantsJson] - 参与者JSON字符串
   /// [userId] - 用户ID
   /// 返回：用户角色（0=MEMBER, 1=ADMIN, 2=OWNER），如果用户不在会话中返回null
-  static int? getUserRole(String participantsJson, String userId) {
-    final participantInfo = getParticipantInfo(participantsJson, userId);
-    return participantInfo?['role'] as int?;
+  static int? getUserRole(dynamic participants, String userId) {
+    final participantInfo = getParticipantInfo(participants, userId);
+    return participantInfo?.role;
   }
 
   /// 检查用户是否已读到指定消息
@@ -260,12 +279,10 @@ class ConversationAdapter {
   /// [userId] - 用户ID
   /// [messageIndex] - 消息索引
   /// 返回：如果用户已读到该消息返回true，否则返回false
-  static bool hasUserReadMessage(String participantsJson, String userId, int messageIndex) {
-    final participantInfo = getParticipantInfo(participantsJson, userId);
+  static bool hasUserReadMessage(dynamic participants, String userId, int messageIndex) {
+    final participantInfo = getParticipantInfo(participants, userId);
     if (participantInfo == null) return false;
-
-    final readMessageIndex = participantInfo['read_message_index'] as int? ?? 0;
-    return readMessageIndex >= messageIndex;
+    return participantInfo.readMessageIndex >= messageIndex;
   }
 
   /// 计算用户的未读消息数量
@@ -277,7 +294,7 @@ class ConversationAdapter {
     if (currentUserParticipant == null) return 0;
 
     final lastMessageIndex = protoConv.hasLastMessageIndex() ? protoConv.lastMessageIndex : 0;
-    final readMessageIndex = currentUserParticipant['read_message_index'] as int? ?? 0;
+    final readMessageIndex = currentUserParticipant['readMessageIndex'] as int? ?? 0;
 
     return (lastMessageIndex - readMessageIndex).clamp(0, double.infinity).toInt();
   }
@@ -288,7 +305,7 @@ class ConversationAdapter {
   /// [conversationType] - 会话类型
   /// [currentUserId] - 当前用户ID
   /// 返回：应该显示的用户roleId，私聊返回对方roleId，群聊返回null
-  static int? getDisplayRoleId(String participantsJson, String conversationType, String currentUserId) {
+  static int? getDisplayRoleId(dynamic participants, String conversationType, String currentUserId) {
     final _logger = LogService.instance;
 
     try {
@@ -297,18 +314,14 @@ class ConversationAdapter {
         return null;
       }
 
-      final List<dynamic> participantsList = jsonDecode(participantsJson);
-      final participantsMap = participantsList.cast<Map<String, dynamic>>();
-
-      // 在私聊中找到对方用户的roleId
-      for (final participant in participantsMap) {
-        final userId = participant['userId'] as String?;
-        final roleId = participant['roleId'] as int? ?? 2; // 默认为普通用户
-
-        if (userId != null && userId != currentUserId) {
-          return roleId;
-        }
-      }
+      final list = parseParticipants(participants);
+      final other = list.firstWhere(
+        (p) => p.userId != currentUserId,
+        orElse: () => const Participant(
+          userId: '', name: '', role: 0, muted: false, pinned: false, online: false, isActive: true, deliveredMessageIndex: 0, readMessageIndex: 0, roleId: 2,
+        ),
+      );
+      if (other.userId.isNotEmpty) return other.roleId;
 
       return null;
     } catch (e) {
@@ -323,7 +336,7 @@ class ConversationAdapter {
   /// [conversationType] - 会话类型
   /// [currentUserId] - 当前用户ID
   /// 返回：私聊对方的名称，如果不是私聊或找不到对方则返回null
-  static String? getPrivateChatPartnerName(String participantsJson, String conversationType, String currentUserId) {
+  static String? getPrivateChatPartnerName(dynamic participants, String conversationType, String currentUserId) {
     final _logger = LogService.instance;
 
     try {
@@ -332,18 +345,14 @@ class ConversationAdapter {
         return null;
       }
 
-      final List<dynamic> participantsList = jsonDecode(participantsJson);
-      final participantsMap = participantsList.cast<Map<String, dynamic>>();
-
-      // 在私聊中找到对方用户的名称
-      for (final participant in participantsMap) {
-        final userId = participant['userId'] as String?;
-        final userName = participant['name'] as String?;
-
-        if (userId != null && userId != currentUserId) {
-          return userName;
-        }
-      }
+      final list = parseParticipants(participants);
+      final other = list.firstWhere(
+        (p) => p.userId != currentUserId,
+        orElse: () => const Participant(
+          userId: '', name: '', role: 0, muted: false, pinned: false, online: false, isActive: true, deliveredMessageIndex: 0, readMessageIndex: 0, roleId: 2,
+        ),
+      );
+      if (other.userId.isNotEmpty) return other.name;
 
       return null;
     } catch (e) {

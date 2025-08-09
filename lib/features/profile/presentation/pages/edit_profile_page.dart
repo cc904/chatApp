@@ -24,7 +24,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // 文本编辑控制器
   late TextEditingController _nicknameController;
-  late TextEditingController _statusController;
+  // status 改为数值枚举（0 离线 1 在线 2 挂起），编辑页暂不直接编辑该字段
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
 
@@ -52,14 +52,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final user = profileCubit.state.user;
 
     _nicknameController = TextEditingController(text: user?.name ?? '');
-    _statusController = TextEditingController(text: user?.status ?? '');
+    // 不再在此页直接编辑在线状态
     _phoneController = TextEditingController(text: user?.phone ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _currentAvatarUrl = user?.avatar;
 
     // 监听文本变化
     _nicknameController.addListener(_onTextChanged);
-    _statusController.addListener(_onTextChanged);
+    // 状态不在此页编辑
     _phoneController.addListener(_onTextChanged);
     _emailController.addListener(_onTextChanged);
   }
@@ -86,7 +86,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void dispose() {
     _nicknameController.dispose();
-    _statusController.dispose();
+    //
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -115,9 +115,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           if (_nicknameController.text != (user.name)) {
             _nicknameController.text = user.name;
           }
-          if (_statusController.text != (user.status ?? '')) {
-            _statusController.text = user.status ?? '';
-          }
+          //
           if (_phoneController.text != (user.phone ?? '')) {
             _phoneController.text = user.phone ?? '';
           }
@@ -741,12 +739,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       profileCubit.updateUserInfo(
         nickname: _nicknameController.text.trim(),
         avatar: avatarUrl,
-        status: _statusController.text.trim(),
+        // 在线状态不在此页修改
       );
 
       _logger.i('保存个人信息', extra: {
         'nickname': _nicknameController.text.trim(),
-        'status': _statusController.text.trim(),
+        // 'status': '(not edited here)',
         'hasNewAvatar': _selectedAvatarFile != null,
         'avatarUrl': avatarUrl,
       });

@@ -348,6 +348,23 @@ class UINotificationService {
           _logger.w('全局Navigator Overlay查找失败', extra: {'error': e.toString()});
         }
       }
+
+      // 如果拿到了一个 Overlay，但全局服务未初始化，则即时初始化并直接用全局服务展示，避免后续再次找不到 Overlay
+      if (overlay != null && !GlobalOverlayService.instance.hasOverlay) {
+        _logger.i('即时初始化全局Overlay服务以显示顶部通知');
+        GlobalOverlayService.instance.initialize(overlay);
+        final style = TopNotificationStyle.fromType(type);
+        GlobalOverlayService.instance.showTopNotification(
+          title: title,
+          message: message,
+          icon: style.icon,
+          backgroundColor: style.backgroundColor,
+          textColor: style.textColor,
+          duration: duration,
+          onTap: onTap,
+        );
+        return;
+      }
       
       if (overlay == null) {
         _logger.w('所有Overlay查找策略都失败，降级使用SnackBar');

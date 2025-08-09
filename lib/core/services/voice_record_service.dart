@@ -2,7 +2,7 @@ import 'dart:io' show File;
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cc/core/services/log_service.dart';
-import 'package:uuid/uuid.dart';
+import 'package:nanoid/nanoid.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// 语音录制结果
@@ -58,7 +58,6 @@ class VoiceRecordService {
 
   AudioRecorder? _recorder;
   final LogService _logger = LogService.instance;
-  final Uuid _uuid = const Uuid();
 
   String? _currentRecordingPath;
   DateTime? _recordingStartTime;
@@ -269,7 +268,7 @@ class VoiceRecordService {
   Future<String> _generateFilePath() async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final uuid = _uuid.v4();
+      final uuid = nanoid(21);
       
       // Web平台返回一个简单路径，record库会处理实际存储
       if (kIsWeb) {
@@ -282,7 +281,7 @@ class VoiceRecordService {
     } catch (e) {
       // 在测试环境中，path_provider可能不可用，使用固定路径
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final uuid = _uuid.v4();
+      final uuid = nanoid(21);
       return '/tmp/voice_${uuid}_$timestamp.m4a';
     }
   }

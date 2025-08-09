@@ -235,11 +235,11 @@ class _ContactsPageState extends State<ContactsPage>
 
     // 🔧 修复：移除重复的生命周期处理，ContactCubit已经有自己的生命周期监听
     // 应用生命周期同步由ContactCubit统一管理，避免重复触发
-    _logger.d('ContactsPage 收到应用生命周期变化', extra: {
-      'state': state.toString(),
-      'isPageVisible': _isPageVisible,
-      'note': '由ContactCubit统一处理生命周期同步，此处不再重复处理'
-    });
+    // _logger.d('ContactsPage 收到应用生命周期变化', extra: {
+    //   'state': state.toString(),
+    //   'isPageVisible': _isPageVisible,
+    //   'note': '由ContactCubit统一处理生命周期同步，此处不再重复处理'
+    // });
   }
 
   @override

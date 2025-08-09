@@ -5,6 +5,7 @@ import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/widgets/top_notification.dart';
 import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
 import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/services/sound_alert_service.dart'; // Added import for SoundAlertService
 
 // 条件导入：根据平台导入不同的通知帮助工具实现
 import 'notification_helper_stub.dart'
@@ -44,7 +45,7 @@ class ConversationPreviewNotificationService {
   }) async {
     try {
       _logger.i('处理会话预览更新通知', extra: {
-        'conversationId': previewUpdate.conversationId,
+        'conversation': previewUpdate,
         'isAppInForeground': isAppInForeground,
         'isChatsPageVisible': isChatsPageVisible,
         'isChatPageVisible': isChatPageVisible,
@@ -164,9 +165,24 @@ class ConversationPreviewNotificationService {
           'conversationId': previewUpdate.conversationId,
           'serviceStatus': serviceStatus,
         });
-        
-        // 尝试处理权限问题
-        await _handlePermissionDenied(previewUpdate.conversationId);
+
+        // 立即使用全局Overlay显示一次权限提示
+        const title = '需要通知权限';
+        final message = getPlatformPermissionMessage();
+        _uiNotificationService.showTopNotification(
+          title: title,
+          message: message,
+          type: TopNotificationType.warning,
+          duration: const Duration(seconds: 6),
+          onTap: () {
+            _logger.i('用户点击了权限引导', extra: {
+              'platform': getStandardizedPlatformName(),
+            });
+          },
+        );
+
+        // 同步降级为应用内通知，确保消息提示不丢失
+        await _showInAppNotification(previewUpdate, conversation, sender);
         return;
       }
 
@@ -198,7 +214,12 @@ class ConversationPreviewNotificationService {
         'conversationId': previewUpdate.conversationId,
         'errorType': error.runtimeType.toString(),
       });
-      
+
+      // 系统通知失败，播放声音作为兜底
+      try {
+        await SoundAlertService.instance.playMessageAlert();
+      } catch (_) {}
+
       // 如果系统通知失败，尝试降级到应用内通知（如果应用在前台）
       try {
         _logger.i('尝试降级到应用内通知');
@@ -223,7 +244,12 @@ class ConversationPreviewNotificationService {
       final senderName = sender?.name ?? previewUpdate.lastMessageName;
       final messageText = notificationStyle.showPreview ? previewUpdate.lastMessagePreview : '新消息';
       final conversationName = conversation.type == 'PRIVATE' ? null : conversation.name;
-      
+
+      // 播放提示音（前台）
+      try {
+        await SoundAlertService.instance.playMessageAlert();
+      } catch (_) {}
+
       _uiNotificationService.showMessageNotification(
         senderName: senderName,
         messageText: messageText,
@@ -256,6 +282,12 @@ class ConversationPreviewNotificationService {
       
       // 方式3A: 显示轻量Toast
       final messageText = notificationStyle.showPreview ? previewUpdate.lastMessagePreview : '新消息';
+
+      // 播放提示音（前台不在会话列表时）
+      try {
+        await SoundAlertService.instance.playMessageAlert();
+      } catch (_) {}
+
       _uiNotificationService.showToast(
         message: '${_buildNotificationTitle(conversation, sender)}: $messageText',
         duration: const Duration(seconds: 2),

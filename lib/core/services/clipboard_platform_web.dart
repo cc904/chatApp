@@ -7,6 +7,15 @@ import 'dart:js_interop';
 bool isMobilePlatform() => false; // Web不是移动平台
 bool isDesktopPlatform() => true; // Web 视作“支持粘贴”的平台
 
+Future<bool> platformHasClipboardImage() async {
+  final data = await readClipboardImageWeb();
+  return data != null;
+}
+
+Future<Map<String, dynamic>?> platformGetClipboardImageData() async {
+  return await readClipboardImageWeb();
+}
+
 /// 从浏览器剪贴板读取图片（若存在）。
 /// 返回 { 'data': Uint8List, 'name': String, 'mimeType': String, 'isUrl': false }
 Future<Map<String, dynamic>?> readClipboardImageWeb() async {

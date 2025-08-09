@@ -59,7 +59,6 @@ dependencies:
   # 工具依赖
   intl: ^0.20.2
   rxdart: ^0.27.7
-  uuid: ^4.3.3
   just_audio: ^0.10.2
   stack_trace: ^1.12.1
   socket_io_client: ^3.1.2
@@ -105,6 +104,7 @@ dependencies:
   url_launcher: ^6.3.1
   pasteboard: ^0.2.0
   web: ^1.1.1
+  nanoid: ^1.0.0
 
 dev_dependencies:
   flutter_test:
