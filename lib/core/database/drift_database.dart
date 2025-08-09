@@ -263,6 +263,10 @@ class AppDatabase extends _$AppDatabase {
         // 将 Users.status / CurrentUsers.status 从 TEXT 迁移为 INTEGER
         // 简化处理：重建两张表并拷贝字段（服务未上线，允许重建）
         _logger.i('数据库迁移到 v5：重建 users / current_users 以切换 status 为 INT');
+        // 先清理可能遗留的备份表，避免重名冲突
+        await customStatement('DROP TABLE IF EXISTS users_backup_v4');
+        await customStatement('DROP TABLE IF EXISTS current_users_backup_v4');
+
         // 备份旧表数据
         await customStatement('ALTER TABLE users RENAME TO users_backup_v4');
         await customStatement('ALTER TABLE current_users RENAME TO current_users_backup_v4');
@@ -272,34 +276,56 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(currentUsers);
 
         // 从备份表拷贝数据，status 尝试 CAST 为 INTEGER
-        await customStatement('''
-          INSERT OR IGNORE INTO users (user_id, name, avatar, phone, email, pinyin, last_active_time, status, role_id, online, is_friend, nickname, remark)
-          SELECT user_id, name, avatar, phone, email, pinyin, last_active_time,
-                 CASE
-                   WHEN status IS NULL THEN NULL
-                   WHEN status IN ('', 'offline','OFFLINE','0') THEN 0
-                   WHEN status IN ('online','ONLINE','1') THEN 1
-                   WHEN status IN ('away','AWAY','2') THEN 2
-                   WHEN CAST(status AS INTEGER) IN (0,1,2) THEN CAST(status AS INTEGER)
-                   ELSE NULL
-                 END as status,
-                 role_id, online, is_friend, nickname, remark
-          FROM users_backup_v4;
-        ''');
-        await customStatement('''
-          INSERT OR IGNORE INTO current_users (user_id, name, avatar, phone, email, last_login_time, status, has_set_password, role_id)
-          SELECT user_id, name, avatar, phone, email, last_login_time,
-                 CASE
-                   WHEN status IS NULL THEN NULL
-                   WHEN status IN ('', 'offline','OFFLINE','0') THEN 0
-                   WHEN status IN ('online','ONLINE','1') THEN 1
-                   WHEN status IN ('away','AWAY','2') THEN 2
-                   WHEN CAST(status AS INTEGER) IN (0,1,2) THEN CAST(status AS INTEGER)
-                   ELSE NULL
-                 END as status,
-                 has_set_password, role_id
-          FROM current_users_backup_v4;
-        ''');
+        // 兼容旧列名（如 users.nick_name/custom_nickname 等）
+        try {
+          final usersInfo = await customSelect('PRAGMA table_info(users_backup_v4)').get();
+          final cuInfo = await customSelect('PRAGMA table_info(current_users_backup_v4)').get();
+
+          bool _has(List<QueryRow> info, String col) =>
+              info.any((r) => (r.data['name'] as String?) == col);
+
+          final usersNameExpr = _has(usersInfo, 'name')
+              ? 'name'
+              : (_has(usersInfo, 'nick_name') ? 'nick_name' : "''");
+          final usersNicknameExpr = _has(usersInfo, 'nickname')
+              ? 'nickname'
+              : (_has(usersInfo, 'custom_nickname') ? 'custom_nickname' : 'NULL');
+          final usersRoleIdExpr = _has(usersInfo, 'role_id') ? 'role_id' : '2';
+
+          await customStatement('''
+            INSERT OR IGNORE INTO users (user_id, name, avatar, phone, email, pinyin, last_active_time, status, role_id, online, is_friend, nickname, remark)
+            SELECT user_id, $usersNameExpr, avatar, phone, email, pinyin, last_active_time,
+                   CASE
+                     WHEN status IS NULL THEN NULL
+                     WHEN status IN ('', 'offline','OFFLINE','0') THEN 0
+                     WHEN status IN ('online','ONLINE','1') THEN 1
+                     WHEN status IN ('away','AWAY','2') THEN 2
+                     WHEN CAST(status AS INTEGER) IN (0,1,2) THEN CAST(status AS INTEGER)
+                     ELSE NULL
+                   END as status,
+                   $usersRoleIdExpr, online, is_friend, $usersNicknameExpr, NULL
+            FROM users_backup_v4;
+          ''');
+
+          final cuRoleIdExpr = _has(cuInfo, 'role_id') ? 'role_id' : '2';
+          await customStatement('''
+            INSERT OR IGNORE INTO current_users (user_id, name, avatar, phone, email, last_login_time, status, has_set_password, role_id)
+            SELECT user_id, name, avatar, phone, email, last_login_time,
+                   CASE
+                     WHEN status IS NULL THEN NULL
+                     WHEN status IN ('', 'offline','OFFLINE','0') THEN 0
+                     WHEN status IN ('online','ONLINE','1') THEN 1
+                     WHEN status IN ('away','AWAY','2') THEN 2
+                     WHEN CAST(status AS INTEGER) IN (0,1,2) THEN CAST(status AS INTEGER)
+                     ELSE NULL
+                   END as status,
+                   has_set_password, $cuRoleIdExpr
+            FROM current_users_backup_v4;
+          ''');
+        } catch (e) {
+          _logger.e('v5 数据迁移（兼容旧列名）失败，降级为空表迁移：$e');
+          // 如果复制失败，保持新表为空，继续执行清理，避免应用不可用
+        }
 
         // 删除备份表
         await customStatement('DROP TABLE IF EXISTS users_backup_v4');

@@ -10,6 +10,8 @@ import 'package:cc/core/services/enhanced_token_manager.dart';
 import 'package:cc/core/utils/api_error_handler.dart';
 import 'package:cc/core/services/upload_api_service.dart';
 import 'package:cc/core/services/phone_history_service.dart';
+import 'package:cc/core/services/phone_user_map_service.dart';
+import 'package:cc/core/services/user_local_data_service.dart';
 
 part 'auth_state.dart';
 
@@ -38,7 +40,10 @@ class AuthCubit extends Cubit<AuthState> {
           password: initialPassword,
         )) {
     _init();
+    _serverUrl = serverUrl;
   }
+
+  late final String _serverUrl;
 
   /// 初始化
   Future<void> _init() async {
@@ -118,6 +123,20 @@ class AuthCubit extends Cubit<AuthState> {
   /// 从历史记录删除手机号码
   Future<void> removePhoneFromHistory(String phoneNumber) async {
     await _phoneHistoryService.removePhoneFromHistory(phoneNumber);
+    // 默认联动删除对应账号的本地数据库（如果能找到映射）
+    try {
+      final userId = await PhoneUserMapService.instance.getUserIdForPhone(
+        serverUrl: _serverUrl,
+        phone: phoneNumber,
+      );
+      if (userId != null && userId.isNotEmpty) {
+        await UserLocalDataService.instance.wipeLocalDbForUser(userId);
+        await PhoneUserMapService.instance.removeMapping(
+          serverUrl: _serverUrl,
+          phone: phoneNumber,
+        );
+      }
+    } catch (_) {}
   }
 
   /// 选择历史手机号码
@@ -194,6 +213,15 @@ class AuthCubit extends Cubit<AuthState> {
         
         // 使用 fromJson 创建 CurrentUser 对象
         final currentUser = CurrentUser.fromJson(normalizedUserData);
+
+        // 记录 (serverUrl, phone) -> userId 映射
+        if (state.phoneNumber != null && state.phoneNumber!.isNotEmpty) {
+          await PhoneUserMapService.instance.setUserIdForPhone(
+            serverUrl: _serverUrl,
+            phone: state.phoneNumber!,
+            userId: currentUser.userId,
+          );
+        }
 
         // 初始化文件上传服务
         await _initializeFileUploadService();
@@ -289,6 +317,15 @@ class AuthCubit extends Cubit<AuthState> {
       // 保存手机号码到历史记录 (仅在用户主动登录时保存)
       if (state.phoneNumber != null) {
         await _phoneHistoryService.addPhoneToHistory(state.phoneNumber!);
+      }
+
+      // 记录 (serverUrl, phone) -> userId 映射
+      if (state.phoneNumber != null && state.phoneNumber!.isNotEmpty) {
+        await PhoneUserMapService.instance.setUserIdForPhone(
+          serverUrl: _serverUrl,
+          phone: state.phoneNumber!,
+          userId: currentUser.userId,
+        );
       }
 
       emit(state.toAuthenticatedState(
