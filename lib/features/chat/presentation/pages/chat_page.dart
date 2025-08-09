@@ -113,6 +113,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 文本输入控制器
   final TextEditingController _textController = TextEditingController();
 
+  // 🆕 新消息自动滚动期间抑制未读指示器闪烁
+  bool _isAutoScrollingToBottom = false;
+  Timer? _autoScrollSuppressTimer;
+
   /// 💢💢💢 新增：搜索输入控制器
   final TextEditingController _searchController = TextEditingController();
 
@@ -362,6 +366,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _autoScrollSuppressTimer?.cancel();
     _textController.dispose();
     _searchController.dispose();
     _focusNode.dispose();
@@ -461,7 +466,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
       // 检查最新消息是否贴底
       // 在 reverse: true 中，itemLeadingEdge 接近 0.0 表示消息在屏幕底部
-      final isAtBottom = newestItemPosition.itemLeadingEdge <= 0.1;
+      final isAtBottom = newestItemPosition.itemLeadingEdge <= 0.02;
 
       _logger.d('💢 初始位置检查', extra: {
         'newestItemIndex': newestItemPosition.index,
@@ -1145,17 +1150,24 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
             // 💢💢💢 监听滚动位置变化（初始化时自动滚动到最新消息）
             final scrollPositionChanged = previous.currentScrollPosition.messageId != current.currentScrollPosition.messageId &&
+                previous.messages.isNotEmpty && // 首次加载不触发该分支，避免初始抖动
                 current.currentScrollPosition.messageId != null &&
                 !current.isSearchMode; // 非搜索模式下才响应滚动位置变化
 
             // 💢💢💢 新增：监听消息列表更新，以恢复滚动位置
-            final messageListUpdated = previous.messages.length != current.messages.length &&
+            final messageListUpdated = previous.messages.isNotEmpty &&
+                previous.messages.length != current.messages.length &&
                 current.currentScrollPosition.messageId != null &&
                 !current.isSearchMode &&
                 !current.isCleaningMessages; // 清理消息时不触发
 
-            // 🆕 监听新消息到达（用于自动滚动）
-            final newMessageArrived = !current.isSearchMode && !current.isCleaningMessages && current.messages.length > previous.messages.length && current.messages.isNotEmpty;
+    // 🆕 监听新消息到达（用于自动滚动）
+    // 排除首次加载（previous.messages 为空），仅在已有列表基础上新增时触发
+    final newMessageArrived = !current.isSearchMode &&
+        !current.isCleaningMessages &&
+        previous.messages.isNotEmpty &&
+        current.messages.length > previous.messages.length &&
+        current.messages.isNotEmpty;
 
             final shouldListen = searchResultChanged || scrollPositionChanged || messageListUpdated || newMessageArrived;
 
@@ -1178,7 +1190,28 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               });
             }
             // 🆕 新消息自动滚动逻辑
-            else if (!state.isSearchMode && !state.isCleaningMessages && state.messages.isNotEmpty) {}
+            else if (!state.isSearchMode && !state.isCleaningMessages && state.messages.isNotEmpty) {
+              // 仅当用户位于底部时才自动滚动，避免打断用户浏览历史消息
+              final atBottom = _isUserAtBottom();
+              if (atBottom) {
+                // 等 UI 完成渲染后再滚动，确保新消息已经加入列表
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  // 稍作延迟以等待列表布局稳定
+                  Timer(const Duration(milliseconds: 80), () {
+                    if (mounted) {
+                      // 在自动滚动期间抑制未读指示器显示，避免闪烁
+                      _isAutoScrollingToBottom = true;
+                      _autoScrollSuppressTimer?.cancel();
+                      _autoScrollSuppressTimer = Timer(const Duration(milliseconds: 600), () {
+                        _isAutoScrollingToBottom = false;
+                      });
+                      _scrollToBottom(animated: true);
+                    }
+                  });
+                });
+              }
+            }
           },
           child: BlocBuilder<ChatCubit, ChatState>(
             buildWhen: (previous, current) {
@@ -1359,32 +1392,28 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                           // 在 processedItems 中查找锚点消息对应的索引
                           final anchorIndex = processedItems.indexWhere((item) {
                             if (item is MessageListItemData) {
-                              if (item.message.messageId == anchorId) {
-                                // 找到锚点消息
-                                return true; // 🔥 找到匹配的消息，返回 true
-                              }
+                              return item.message.messageId == anchorId;
                             }
-                            return false; // 🔥 没有匹配，返回 false
+                            return false;
                           });
 
-                          // 计算锚点索引
                           if (anchorIndex >= 0) {
                             return anchorIndex;
                           }
                         }
-                        // 默认返回0，避免-1导致RangeError
+                        // 默认返回0（reverse: true 时代表最新消息），避免-1导致RangeError
                         return 0;
                       })(),
 
-                      // 💢💢💢 计算初始对齐：有锚点使用精确位置；否则让消息贴底
+                      // 💢💢💢 计算初始对齐：有锚点使用精确位置；否则让消息贴底（避免“先居中再滚到底部”的闪动）
                       initialAlignment: (() {
+                        final anchorId = state.currentScrollPosition.messageId;
+                        if (anchorId == null) {
+                          // 首次进入或无锚点：直接贴底
+                          return 0.0;
+                        }
+                        // 有锚点：按照保存的位置恢复
                         final itemLeadingEdge = state.currentScrollPosition.relativePosition ?? 0.0;
-                        // 💢💢💢 reverse: true 中的对齐恢复逻辑
-                        // 保存的 itemLeadingEdge 表示在反向列表中消息底部的逻辑位置：
-                        // - 0.0: 消息底部在物理屏幕底部（反向列表的逻辑起点）
-                        // - 1.0: 消息底部在物理屏幕顶部（反向列表的逻辑终点）
-                        // - 0.907: 消息底部在物理屏幕顶部附近（90.7%位置）
-                        // 恢复时直接使用 itemLeadingEdge 作为 initialAlignment
                         return itemLeadingEdge;
                       })(),
                       reverse: true,
@@ -4280,6 +4309,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   Widget _buildUnreadIndicator(ChatState state) {
     // 在搜索模式下不显示未读指示器
     if (state.isSearchMode) {
+      return const SizedBox.shrink();
+    }
+
+    // 🆕 自动滚动期间抑制未读浮标，避免出现-消失的闪烁体验
+    if (_isAutoScrollingToBottom) {
       return const SizedBox.shrink();
     }
 
