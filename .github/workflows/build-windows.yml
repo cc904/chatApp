@@ -34,38 +34,37 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      # 6) 安装 Inno Setup
-      - name: Install Inno Setup
+      # 6) 安装 NSIS
+      - name: Install NSIS
         shell: pwsh
         run: |
-          Write-Host "安装 Inno Setup..."
-          # 使用 Chocolatey 安装 Inno Setup
-          choco install innosetup -y
+          Write-Host "安装 NSIS (支持中文的安装包制作工具)..."
+          # 使用 Chocolatey 安装 NSIS
+          choco install nsis -y
           
           # 验证安装
-          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (Test-Path $innoPath) {
-            Write-Host "✓ Inno Setup 安装成功"
+          $nsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+          if (Test-Path $nsisPath) {
+            Write-Host "✓ NSIS 安装成功"
             
-            # 检查中文语言文件是否存在
-            $chineseLangFile = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
-            if (Test-Path $chineseLangFile) {
-              Write-Host "✓ 中文语言文件已存在"
-            } else {
-              Write-Host "⚠ 中文语言文件不存在，将使用英文界面"
-              Write-Host "语言文件路径: $chineseLangFile"
-              
-              # 列出可用的语言文件
-              $langDir = "C:\Program Files (x86)\Inno Setup 6\Languages"
-              if (Test-Path $langDir) {
-                Write-Host "可用的语言文件:"
-                Get-ChildItem $langDir -Filter "*.isl" | ForEach-Object { Write-Host "  - $($_.Name)" }
+            # 检查 NSIS 版本和插件
+            & $nsisPath /VERSION
+            
+            # 检查中文语言文件
+            $nsisLangDir = "C:\Program Files (x86)\NSIS\Contrib\Language files"
+            if (Test-Path $nsisLangDir) {
+              Write-Host "✓ 语言文件目录存在"
+              $chineseFiles = Get-ChildItem $nsisLangDir -Filter "*Chinese*" -Name
+              if ($chineseFiles.Count -gt 0) {
+                Write-Host "✓ 找到中文语言文件:"
+                $chineseFiles | ForEach-Object { Write-Host "  - $_" }
+              } else {
+                Write-Host "⚠ 未找到中文语言文件"
               }
             }
             
-            & $innoPath
           } else {
-            Write-Error "Inno Setup 安装失败！"
+            Write-Error "NSIS 安装失败！"
             exit 1
           }
 
@@ -79,11 +78,11 @@ jobs:
           }
           Write-Host "✓ 构建文件验证通过"
 
-      # 8) 创建 Inno Setup 脚本
-      - name: Create Inno Setup Script
+      # 8) 创建 NSIS 脚本
+      - name: Create NSIS Script
         shell: pwsh
         run: |
-          Write-Host "创建 Inno Setup 脚本..."
+          Write-Host "创建 NSIS 脚本 (支持中文界面)..."
           
           # 确保输出目录存在
           New-Item -ItemType Directory -Force -Path "build\windows\installer"
@@ -99,142 +98,213 @@ jobs:
           Get-ChildItem $sourceDir | ForEach-Object { Write-Host "  - $($_.Name)" }
           
           # 检查中文语言文件是否存在
-          $chineseLangFile = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+          $nsisLangDir = "C:\Program Files (x86)\NSIS\Contrib\Language files"
+          $chineseLangFile = Join-Path $nsisLangDir "SimpChinese.nlf"
           $hasChineseSupport = Test-Path $chineseLangFile
           
           if ($hasChineseSupport) {
             Write-Host "✓ 将创建支持中英文的安装程序"
             $languageSection = @"
-          [Languages]
-          Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
-          Name: "english"; MessagesFile: "compiler:Default.isl"
+          !include "MUI2.nsh"
+          !insertmacro MUI_LANGUAGE "SimpChinese"
+          !insertmacro MUI_LANGUAGE "English"
           "@
           } else {
             Write-Host "⚠ 将创建仅支持英文的安装程序"
             $languageSection = @"
-          [Languages]
-          Name: "english"; MessagesFile: "compiler:Default.isl"
+          !include "MUI2.nsh"
+          !insertmacro MUI_LANGUAGE "English"
           "@
           }
           
           $script = @"
-          [Setup]
-          AppName=CC Chat
-          AppVersion=1.0.2
-          AppPublisher=CC Team
-          AppPublisherURL=https://github.com/your-org/cc
-          AppSupportURL=https://github.com/your-org/cc/issues
-          AppUpdatesURL=https://github.com/your-org/cc/releases
-          DefaultDirName={autopf}\CC Chat
-          DefaultGroupName=CC Chat
-          AllowNoIcons=yes
-          OutputDir=build\windows\installer
-          OutputBaseFilename=cc-chat-setup
-          Compression=lzma
-          SolidCompression=yes
-          ArchitecturesInstallIn64BitMode=x64
-          ArchitecturesAllowed=x64
-          WizardStyle=modern
+          ; CC Chat NSIS 安装脚本
+          ; 支持中文界面的现代化安装程序
+          
+          !define APP_NAME "CC Chat"
+          !define APP_VERSION "1.0.2"
+          !define APP_PUBLISHER "CC Team"
+          !define APP_URL "https://github.com/your-org/cc"
+          !define APP_SUPPORT_URL "https://github.com/your-org/cc/issues"
+          !define APP_UPDATES_URL "https://github.com/your-org/cc/releases"
+          !define APP_EXE "ThisApp.exe"
+          
+          ; 安装程序属性
+          Name "`${APP_NAME}"
+          OutFile "build\windows\installer\cc-chat-setup.exe"
+          InstallDir "`$PROGRAMFILES64\`${APP_NAME}"
+          InstallDirRegKey HKLM "Software\`${APP_NAME}" "InstallDir"
+          RequestExecutionLevel admin
+          
+          ; 现代化界面
+          !include "MUI2.nsh"
+          
+          ; 界面设置
+          !define MUI_ABORTWARNING
+          !define MUI_ICON "`${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+          !define MUI_UNICON "`${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+          
+          ; 安装页面
+          !insertmacro MUI_PAGE_WELCOME
+          !insertmacro MUI_PAGE_LICENSE "LICENSE"
+          !insertmacro MUI_PAGE_COMPONENTS
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_PAGE_FINISH
+          
+          ; 卸载页面
+          !insertmacro MUI_UNPAGE_WELCOME
+          !insertmacro MUI_UNPAGE_CONFIRM
+          !insertmacro MUI_UNPAGE_INSTFILES
+          !insertmacro MUI_UNPAGE_FINISH
           
           $languageSection
           
-          [Tasks]
-          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-          Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
+          ; 版本信息
+          VIProductVersion "`${APP_VERSION}.0"
+          VIAddVersionKey "ProductName" "`${APP_NAME}"
+          VIAddVersionKey "ProductVersion" "`${APP_VERSION}"
+          VIAddVersionKey "CompanyName" "`${APP_PUBLISHER}"
+          VIAddVersionKey "LegalCopyright" "© 2024 `${APP_PUBLISHER}"
+          VIAddVersionKey "FileDescription" "`${APP_NAME} 安装程序"
+          VIAddVersionKey "FileVersion" "`${APP_VERSION}"
           
-          [Files]
-          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          ; 安装部分
+          Section "`${APP_NAME} (必需)" SecMain
+            SectionIn RO
+            
+            SetOutPath "`$INSTDIR"
+            File /r "build\windows\x64\runner\Release\*.*"
+            
+            ; 写入注册表
+            WriteRegStr HKLM "Software\`${APP_NAME}" "InstallDir" "`$INSTDIR"
+            WriteRegStr HKLM "Software\`${APP_NAME}" "Version" "`${APP_VERSION}"
+            
+            ; 创建卸载程序
+            WriteUninstaller "`$INSTDIR\Uninstall.exe"
+            
+            ; 添加到控制面板的程序列表
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "DisplayName" "`${APP_NAME}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "UninstallString" "`$INSTDIR\Uninstall.exe"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "DisplayIcon" "`$INSTDIR\`${APP_EXE}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "Publisher" "`${APP_PUBLISHER}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "DisplayVersion" "`${APP_VERSION}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "HelpLink" "`${APP_SUPPORT_URL}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "URLInfoAbout" "`${APP_URL}"
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "URLUpdateInfo" "`${APP_UPDATES_URL}"
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "NoModify" 1
+            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "NoRepair" 1
+          SectionEnd
           
-          [Icons]
-          Name: "{group}\CC Chat"; Filename: "{app}\ThisApp.exe"
-          Name: "{group}\{cm:UninstallProgram,CC Chat}"; Filename: "{uninstallexe}"
-          Name: "{autodesktop}\CC Chat"; Filename: "{app}\ThisApp.exe"; Tasks: desktopicon
-          Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\CC Chat"; Filename: "{app}\ThisApp.exe"; Tasks: quicklaunchicon
+          ; 开始菜单快捷方式
+          Section "开始菜单快捷方式" SecStartMenu
+            CreateDirectory "`$SMPROGRAMS\`${APP_NAME}"
+            CreateShortCut "`$SMPROGRAMS\`${APP_NAME}\`${APP_NAME}.lnk" "`$INSTDIR\`${APP_EXE}"
+            CreateShortCut "`$SMPROGRAMS\`${APP_NAME}\卸载 `${APP_NAME}.lnk" "`$INSTDIR\Uninstall.exe"
+          SectionEnd
           
-          [Run]
-          Filename: "{app}\ThisApp.exe"; Description: "{cm:LaunchProgram,CC Chat}"; Flags: nowait postinstall skipifsilent
+          ; 桌面快捷方式
+          Section "桌面快捷方式" SecDesktop
+            CreateShortCut "`$DESKTOP\`${APP_NAME}.lnk" "`$INSTDIR\`${APP_EXE}"
+          SectionEnd
           
-          [UninstallDelete]
-          Type: filesandordirs; Name: "{app}"
+          ; 安装后运行程序
+          Section "安装完成后运行 `${APP_NAME}" SecRunAfter
+            Exec "`$INSTDIR\`${APP_EXE}"
+          SectionEnd
+          
+          ; 卸载部分
+          Section "Uninstall"
+            ; 删除文件
+            RMDir /r "`$INSTDIR"
+            
+            ; 删除快捷方式
+            Delete "`$DESKTOP\`${APP_NAME}.lnk"
+            RMDir /r "`$SMPROGRAMS\`${APP_NAME}"
+            
+            ; 删除注册表项
+            DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}"
+            DeleteRegKey HKLM "Software\`${APP_NAME}"
+          SectionEnd
           "@
           
-          $script | Out-File -FilePath "setup.iss" -Encoding UTF8
-          Write-Host "✓ Inno Setup 脚本创建完成"
+          $script | Out-File -FilePath "setup.nsi" -Encoding UTF8
+          Write-Host "✓ NSIS 脚本创建完成"
           
           # 显示创建的脚本内容（调试用）
           Write-Host "脚本内容预览:"
           Write-Host "==============="
-          Get-Content "setup.iss" | Select-Object -First 20 | ForEach-Object { Write-Host $_ }
+          Get-Content "setup.nsi" | Select-Object -First 20 | ForEach-Object { Write-Host $_ }
           Write-Host "==============="
 
-      # 9) 使用 Inno Setup 创建安装程序
-      - name: Create Installer with Inno Setup
+      # 9) 使用 NSIS 创建安装程序
+      - name: Create Installer with NSIS
         shell: pwsh
         run: |
-          Write-Host "准备创建安装程序..."
+          Write-Host "使用 NSIS 创建安装程序..."
           
-          # 检查 Inno Setup 是否存在
-          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $innoPath)) {
-            Write-Error "Inno Setup 编译器未找到: $innoPath"
-            
-            # 尝试查找其他可能的路径
-            $altPaths = @(
-              "C:\Program Files\Inno Setup 6\ISCC.exe",
-              "C:\tools\innosetup\ISCC.exe"
-            )
-            
-            foreach ($path in $altPaths) {
+          # 查找 NSIS 编译器
+          $compilerPaths = @(
+            "C:\Program Files (x86)\NSIS\makensis.exe",
+            "C:\Program Files\NSIS\makensis.exe",
+            "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
+            "${env:ProgramFiles}\NSIS\makensis.exe"
+          )
+          
+          $compiler = $null
+          foreach ($path in $compilerPaths) {
             if (Test-Path $path) {
-                $innoPath = $path
-                Write-Host "找到 Inno Setup: $innoPath"
+              $compiler = $path
+              Write-Host "✓ 找到 NSIS 编译器: $compiler"
               break
             }
           }
           
-            if (-not (Test-Path $innoPath)) {
-              Write-Error "无法找到 Inno Setup 编译器！"
-            exit 1
-            }
-          }
-          
-          Write-Host "使用 Inno Setup: $innoPath"
-          
-          # 检查脚本文件
-          if (-not (Test-Path "setup.iss")) {
-            Write-Error "setup.iss 文件不存在！"
+          if (-not $compiler) {
+            Write-Error "未找到 NSIS 编译器"
+            Write-Host "尝试的路径:"
+            $compilerPaths | ForEach-Object { Write-Host "  - $_" }
             exit 1
           }
           
-          Write-Host "开始编译安装程序..."
+          # 验证脚本文件存在
+          if (-not (Test-Path "setup.nsi")) {
+            Write-Error "setup.nsi 脚本文件不存在"
+            exit 1
+          }
+          
+          Write-Host "使用编译器: $compiler"
+          Write-Host "编译脚本: setup.nsi"
+          
+          # 编译安装程序
           try {
-            & $innoPath setup.iss
-            $exitCode = $LASTEXITCODE
-            
-            if ($exitCode -ne 0) {
-              Write-Error "Inno Setup 编译失败，退出码: $exitCode"
+            & $compiler "/V3" "setup.nsi"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "NSIS 编译失败，退出代码: $LASTEXITCODE"
               exit 1
             }
+            Write-Host "✓ 安装程序编译成功"
           } catch {
-            Write-Error "执行 Inno Setup 时发生错误: $($_.Exception.Message)"
+            Write-Error "编译过程中发生错误: $($_.Exception.Message)"
             exit 1
           }
           
-          # 验证输出文件
+          # 验证安装程序文件
           $installerPath = "build\windows\installer\cc-chat-setup.exe"
-          if (-not (Test-Path $installerPath)) {
+          if (Test-Path $installerPath) {
+            $fileInfo = Get-Item $installerPath
+            Write-Host "✓ 安装程序创建成功: $installerPath"
+            Write-Host "  文件大小: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
+          } else {
             Write-Error "安装程序文件未生成: $installerPath"
-            
-            # 列出输出目录内容
+            Write-Host "输出目录内容:"
             if (Test-Path "build\windows\installer") {
-              Write-Host "输出目录内容:"
               Get-ChildItem "build\windows\installer" | ForEach-Object { Write-Host "  - $($_.Name)" }
+            } else {
+              Write-Host "  输出目录不存在"
             }
             exit 1
           }
-
-          $fileSize = (Get-Item $installerPath).Length / 1MB
-          Write-Host "✓ 安装程序创建成功: $installerPath (大小: $([math]::Round($fileSize, 2)) MB)"
 
       # 10) 压缩可执行文件目录（用于便携版）
       - name: Create Portable ZIP
