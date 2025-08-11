@@ -26,6 +26,18 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
+      - name: CocoaPods Repo Update (ios & macos)
+        run: |
+          sudo gem install cocoapods --no-document || true
+          pod --version
+          (cd ios && pod repo update || true)
+          (cd macos && pod repo update || true)
+
+      - name: Pod Install with Repo Update (ios & macos)
+        run: |
+          (cd ios && pod install --repo-update)
+          (cd macos && pod install --repo-update)
+
       - name: Build macOS App
         run: flutter build macos --release
 

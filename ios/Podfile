@@ -1,3 +1,6 @@
+# 使用 CocoaPods CDN，避免本地 Specs 仓库过期导致的安装失败
+source "https://cdn.cocoapods.org/"
+
 # Uncomment this line to define a global platform for your project
 # platform :ios, '12.0'
 
