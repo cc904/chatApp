@@ -181,6 +181,17 @@ jobs:
           ; 安装部分
           Section "`${APP_NAME} (必需)" SecMain
             SectionIn RO
+
+            ; 确保安装 VC++ 2015-2022 x64 运行时
+            ReadRegDWORD $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+            IntCmp $0 1 have_vc
+            SetOutPath "$TEMP"
+            ; 将随安装包打包的 vc_redist 提取到临时目录
+            File "build\windows\installer\vc_redist.x64.exe"
+            ; 静默安装（无重启）
+            ExecWait '"$TEMP\vc_redist.x64.exe" /install /quiet /norestart' $1
+            Delete "$TEMP\vc_redist.x64.exe"
+            have_vc:
             
             SetOutPath "`$INSTDIR"
             File /r "build\windows\x64\runner\Release\*.*"
@@ -245,6 +256,17 @@ jobs:
           Write-Host "==============="
           Get-Content "setup.nsi" | Select-Object -First 20 | ForEach-Object { Write-Host $_ }
           Write-Host "==============="
+
+      # 8.5) 下载 VC++ 运行时安装包（将被打包进安装程序）
+      - name: Download VC++ Redistributable (to embed)
+        shell: pwsh
+        run: |
+          $url = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          $dstDir = "build\windows\installer"
+          New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+          $dst = Join-Path $dstDir "vc_redist.x64.exe"
+          Write-Host "下载 VC++ 运行时: $url -> $dst"
+          Invoke-WebRequest -Uri $url -OutFile $dst -UseBasicParsing
 
       # 9) 使用 NSIS 创建安装程序
       - name: Create Installer with NSIS
