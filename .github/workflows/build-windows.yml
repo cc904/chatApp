@@ -2,9 +2,9 @@ name: Build Flutter Windows
 
 on:
   push:
-    branches: [ main ]
+    branches: [ 123 ]
   pull_request:
-    branches: [ main ]
+    branches: [ 123 ]
   workflow_dispatch:   # 允许手动触发
 
 jobs:
