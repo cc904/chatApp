@@ -52,9 +52,6 @@ jobs:
       - name: Build Android APK (per-ABI) - Mainstream
         run: flutter build apk --release --split-per-abi
 
-      - name: Build Android AppBundle - Mainstream
-        run: flutter build appbundle --release
-
       - name: Build Android Universal APK - Compatibility
         run: flutter build apk --release
 
@@ -65,11 +62,6 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/*.apk
 
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-aab-mainstream
-          path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload Universal APK (Compatibility)
         uses: actions/upload-artifact@v4
