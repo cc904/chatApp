@@ -2,9 +2,9 @@ name: Build Flutter Windows
 
 on:
   push:
-    branches: [ main ]
+    branches: [ 123 ]
   pull_request:
-    branches: [ main ]
+    branches: [ 123 ]
   workflow_dispatch:   # 允许手动触发
 
 jobs:
@@ -185,16 +185,16 @@ jobs:
             )
             
             foreach ($path in $altPaths) {
-              if (Test-Path $path) {
+            if (Test-Path $path) {
                 $innoPath = $path
                 Write-Host "找到 Inno Setup: $innoPath"
-                break
-              }
+              break
             }
-            
+          }
+          
             if (-not (Test-Path $innoPath)) {
               Write-Error "无法找到 Inno Setup 编译器！"
-              exit 1
+            exit 1
             }
           }
           
@@ -232,7 +232,7 @@ jobs:
             }
             exit 1
           }
-          
+
           $fileSize = (Get-Item $installerPath).Length / 1MB
           Write-Host "✓ 安装程序创建成功: $installerPath (大小: $([math]::Round($fileSize, 2)) MB)"
 
