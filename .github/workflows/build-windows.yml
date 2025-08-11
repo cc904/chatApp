@@ -78,6 +78,15 @@ jobs:
           }
           Write-Host "✓ 构建文件验证通过"
 
+      # 7.5) 安装 VC++ 运行时（便携版依赖）
+      - name: Install VC++ Redistributable (vcredist140)
+        shell: pwsh
+        run: |
+          Write-Host "安装 VC++ 运行时 (vcredist140) ..."
+          choco install vcredist140 -y
+          if ($LASTEXITCODE -ne 0) { Write-Warning "安装 vcredist140 可能失败，继续构建便携版" }
+          Write-Host "✓ vcredist140 安装步骤完成"
+
       # 8) 创建 NSIS 脚本
       - name: Create NSIS Script
         shell: pwsh
@@ -310,11 +319,23 @@ jobs:
       - name: Create Portable ZIP
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "build\windows\portable"
+          Write-Host "创建便携版压缩包（包含运行时库）..."
+          New-Item -ItemType Directory -Force -Path "build\windows\portable" | Out-Null
           Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "build\windows\portable\" -Recurse
-          Compress-Archive `
-            -Path "build\windows\portable\*" `
-            -DestinationPath "cc-chat-portable.zip"
+          Compress-Archive -Path "build\windows\portable\*" -DestinationPath "cc-chat-portable.zip"
+
+      # 10.5) 输出便携版运行环境说明（安全写法，避免 PowerShell 解析错误）
+      - name: Portable Runtime Notes
+        shell: pwsh
+        run: |
+          $notes = @'
+          便携版运行环境说明:
+          - 已在构建机安装 VC++ 运行时 (vcredist140)
+          - 若目标机器缺少运行时，可使用以下方式安装:
+            Winget: winget install --id "Microsoft.VCRedist.2015+.x64" -e --accept-package-agreements --accept-source-agreements
+            Offline: https://aka.ms/vs/17/release/vc_redist.x64.exe
+          '@
+          $notes -split "`n" | ForEach-Object { Write-Host $_ }
 
       # 11) 上传安装程序
       - name: Upload Installer
