@@ -2,9 +2,9 @@ name: Build Flutter Windows
 
 on:
   push:
-    branches: [ 123 ]
+    branches: [ main ]
   pull_request:
-    branches: [ 123 ]
+    branches: [ main ]
   workflow_dispatch:   # 允许手动触发
 
 jobs:
@@ -34,37 +34,38 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      # 6) 安装 NSIS
-      - name: Install NSIS
+      # 6) 安装 Inno Setup
+      - name: Install Inno Setup
         shell: pwsh
         run: |
-          Write-Host "安装 NSIS (支持中文的安装包制作工具)..."
-          # 使用 Chocolatey 安装 NSIS
-          choco install nsis -y
+          Write-Host "安装 Inno Setup..."
+          # 使用 Chocolatey 安装 Inno Setup
+          choco install innosetup -y
           
           # 验证安装
-          $nsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
-          if (Test-Path $nsisPath) {
-            Write-Host "✓ NSIS 安装成功"
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (Test-Path $innoPath) {
+            Write-Host "✓ Inno Setup 安装成功"
             
-            # 检查 NSIS 版本和插件
-            & $nsisPath /VERSION
-            
-            # 检查中文语言文件
-            $nsisLangDir = "C:\Program Files (x86)\NSIS\Contrib\Language files"
-            if (Test-Path $nsisLangDir) {
-              Write-Host "✓ 语言文件目录存在"
-              $chineseFiles = Get-ChildItem $nsisLangDir -Filter "*Chinese*" -Name
-              if ($chineseFiles.Count -gt 0) {
-                Write-Host "✓ 找到中文语言文件:"
-                $chineseFiles | ForEach-Object { Write-Host "  - $_" }
-              } else {
-                Write-Host "⚠ 未找到中文语言文件"
+            # 检查中文语言文件是否存在
+            $chineseLangFile = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+            if (Test-Path $chineseLangFile) {
+              Write-Host "✓ 中文语言文件已存在"
+            } else {
+              Write-Host "⚠ 中文语言文件不存在，将使用英文界面"
+              Write-Host "语言文件路径: $chineseLangFile"
+              
+              # 列出可用的语言文件
+              $langDir = "C:\Program Files (x86)\Inno Setup 6\Languages"
+              if (Test-Path $langDir) {
+                Write-Host "可用的语言文件:"
+                Get-ChildItem $langDir -Filter "*.isl" | ForEach-Object { Write-Host "  - $($_.Name)" }
               }
             }
             
+            & $innoPath
           } else {
-            Write-Error "NSIS 安装失败！"
+            Write-Error "Inno Setup 安装失败！"
             exit 1
           }
 
@@ -78,11 +79,11 @@ jobs:
           }
           Write-Host "✓ 构建文件验证通过"
 
-      # 8) 创建 NSIS 脚本
-      - name: Create NSIS Script
+      # 8) 创建 Inno Setup 脚本
+      - name: Create Inno Setup Script
         shell: pwsh
         run: |
-          Write-Host "创建 NSIS 脚本 (支持中文界面)..."
+          Write-Host "创建 Inno Setup 脚本..."
           
           # 确保输出目录存在
           New-Item -ItemType Directory -Force -Path "build\windows\installer"
@@ -98,487 +99,152 @@ jobs:
           Get-ChildItem $sourceDir | ForEach-Object { Write-Host "  - $($_.Name)" }
           
           # 检查中文语言文件是否存在
-          $nsisLangDir = "C:\Program Files (x86)\NSIS\Contrib\Language files"
-          $chineseLangFile = Join-Path $nsisLangDir "SimpChinese.nlf"
+          $chineseLangFile = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
           $hasChineseSupport = Test-Path $chineseLangFile
-          
-          # 检查 LICENSE 文件是否存在
-          $hasLicense = Test-Path "LICENSE"
           
           if ($hasChineseSupport) {
             Write-Host "✓ 将创建支持中英文的安装程序"
             $languageSection = @"
-          !include "MUI2.nsh"
-          !insertmacro MUI_LANGUAGE "SimpChinese"
-          !insertmacro MUI_LANGUAGE "English"
+          [Languages]
+          Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+          Name: "english"; MessagesFile: "compiler:Default.isl"
           "@
           } else {
             Write-Host "⚠ 将创建仅支持英文的安装程序"
             $languageSection = @"
-          !include "MUI2.nsh"
-          !insertmacro MUI_LANGUAGE "English"
+          [Languages]
+          Name: "english"; MessagesFile: "compiler:Default.isl"
           "@
-          }
-          
-          # 根据 LICENSE 文件存在性决定是否包含许可证页面
-          if ($hasLicense) {
-            Write-Host "✓ 将包含许可证页面"
-            $licensePageSection = @"
-          !insertmacro MUI_PAGE_LICENSE "LICENSE"
-          "@
-          } else {
-            Write-Host "⚠ 未找到 LICENSE 文件，跳过许可证页面"
-            $licensePageSection = ""
           }
           
           $script = @"
-          ; CC Chat NSIS 安装脚本
-          ; 支持中文界面的现代化安装程序
-          
-          !define APP_NAME "CC Chat"
-          !define APP_VERSION "1.0.2"
-          !define APP_PUBLISHER "CC Team"
-          !define APP_URL "https://github.com/your-org/cc"
-          !define APP_SUPPORT_URL "https://github.com/your-org/cc/issues"
-          !define APP_UPDATES_URL "https://github.com/your-org/cc/releases"
-          !define APP_EXE "ThisApp.exe"
-          
-          ; 安装程序属性
-          Name "`${APP_NAME}"
-          OutFile "build\windows\installer\cc-chat-setup.exe"
-          InstallDir "`$PROGRAMFILES64\`${APP_NAME}"
-          InstallDirRegKey HKLM "Software\`${APP_NAME}" "InstallDir"
-          RequestExecutionLevel admin
-          
-          ; 现代化界面
-          !include "MUI2.nsh"
-          
-          ; 界面设置
-          !define MUI_ABORTWARNING
-          !define MUI_ICON "`${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-          !define MUI_UNICON "`${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
-          
-          ; 安装页面
-          !insertmacro MUI_PAGE_WELCOME
-          $licensePageSection
-          !insertmacro MUI_PAGE_COMPONENTS
-          !insertmacro MUI_PAGE_DIRECTORY
-          !insertmacro MUI_PAGE_INSTFILES
-          !insertmacro MUI_PAGE_FINISH
-          
-          ; 卸载页面
-          !insertmacro MUI_UNPAGE_WELCOME
-          !insertmacro MUI_UNPAGE_CONFIRM
-          !insertmacro MUI_UNPAGE_INSTFILES
-          !insertmacro MUI_UNPAGE_FINISH
+          [Setup]
+          AppName=CC Chat
+          AppVersion=1.0.2
+          AppPublisher=CC Team
+          AppPublisherURL=https://github.com/your-org/cc
+          AppSupportURL=https://github.com/your-org/cc/issues
+          AppUpdatesURL=https://github.com/your-org/cc/releases
+          DefaultDirName={autopf}\CC Chat
+          DefaultGroupName=CC Chat
+          AllowNoIcons=yes
+          OutputDir=build\windows\installer
+          OutputBaseFilename=cc-chat-setup
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+          ArchitecturesAllowed=x64
+          WizardStyle=modern
           
           $languageSection
           
-          ; 版本信息
-          VIProductVersion "`${APP_VERSION}.0"
-          VIAddVersionKey "ProductName" "`${APP_NAME}"
-          VIAddVersionKey "ProductVersion" "`${APP_VERSION}"
-          VIAddVersionKey "CompanyName" "`${APP_PUBLISHER}"
-          VIAddVersionKey "LegalCopyright" "© 2024 `${APP_PUBLISHER}"
-          VIAddVersionKey "FileDescription" "`${APP_NAME} 安装程序"
-          VIAddVersionKey "FileVersion" "`${APP_VERSION}"
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
           
-          ; 安装部分
-          Section "`${APP_NAME} (必需)" SecMain
-            SectionIn RO
-            
-            SetOutPath "`$INSTDIR"
-            File /r "build\windows\x64\runner\Release\*.*"
-            
-            ; 写入注册表
-            WriteRegStr HKLM "Software\`${APP_NAME}" "InstallDir" "`$INSTDIR"
-            WriteRegStr HKLM "Software\`${APP_NAME}" "Version" "`${APP_VERSION}"
-            
-            ; 创建卸载程序
-            WriteUninstaller "`$INSTDIR\Uninstall.exe"
-            
-            ; 添加到控制面板的程序列表
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "DisplayName" "`${APP_NAME}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "UninstallString" "`$INSTDIR\Uninstall.exe"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "DisplayIcon" "`$INSTDIR\`${APP_EXE}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "Publisher" "`${APP_PUBLISHER}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "DisplayVersion" "`${APP_VERSION}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "HelpLink" "`${APP_SUPPORT_URL}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "URLInfoAbout" "`${APP_URL}"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "URLUpdateInfo" "`${APP_UPDATES_URL}"
-            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "NoModify" 1
-            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}" "NoRepair" 1
-          SectionEnd
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
           
-          ; 开始菜单快捷方式
-          Section "开始菜单快捷方式" SecStartMenu
-            CreateDirectory "`$SMPROGRAMS\`${APP_NAME}"
-            CreateShortCut "`$SMPROGRAMS\`${APP_NAME}\`${APP_NAME}.lnk" "`$INSTDIR\`${APP_EXE}"
-            CreateShortCut "`$SMPROGRAMS\`${APP_NAME}\卸载 `${APP_NAME}.lnk" "`$INSTDIR\Uninstall.exe"
-          SectionEnd
+          [Icons]
+          Name: "{group}\CC Chat"; Filename: "{app}\ThisApp.exe"
+          Name: "{group}\{cm:UninstallProgram,CC Chat}"; Filename: "{uninstallexe}"
+          Name: "{autodesktop}\CC Chat"; Filename: "{app}\ThisApp.exe"; Tasks: desktopicon
+          Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\CC Chat"; Filename: "{app}\ThisApp.exe"; Tasks: quicklaunchicon
           
-          ; 桌面快捷方式
-          Section "桌面快捷方式" SecDesktop
-            CreateShortCut "`$DESKTOP\`${APP_NAME}.lnk" "`$INSTDIR\`${APP_EXE}"
-          SectionEnd
+          [Run]
+          Filename: "{app}\ThisApp.exe"; Description: "{cm:LaunchProgram,CC Chat}"; Flags: nowait postinstall skipifsilent
           
-          ; 安装后运行程序
-          Section "安装完成后运行 `${APP_NAME}" SecRunAfter
-            Exec "`$INSTDIR\`${APP_EXE}"
-          SectionEnd
-          
-          ; 卸载部分
-          Section "Uninstall"
-            ; 删除文件
-            RMDir /r "`$INSTDIR"
-            
-            ; 删除快捷方式
-            Delete "`$DESKTOP\`${APP_NAME}.lnk"
-            RMDir /r "`$SMPROGRAMS\`${APP_NAME}"
-            
-            ; 删除注册表项
-            DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\`${APP_NAME}"
-            DeleteRegKey HKLM "Software\`${APP_NAME}"
-          SectionEnd
+          [UninstallDelete]
+          Type: filesandordirs; Name: "{app}"
           "@
           
-          $script | Out-File -FilePath "setup.nsi" -Encoding UTF8
-          Write-Host "✓ NSIS 脚本创建完成"
+          $script | Out-File -FilePath "setup.iss" -Encoding UTF8
+          Write-Host "✓ Inno Setup 脚本创建完成"
           
           # 显示创建的脚本内容（调试用）
           Write-Host "脚本内容预览:"
           Write-Host "==============="
-          Get-Content "setup.nsi" | Select-Object -First 20 | ForEach-Object { Write-Host $_ }
+          Get-Content "setup.iss" | Select-Object -First 20 | ForEach-Object { Write-Host $_ }
           Write-Host "==============="
 
-      # 9) 使用 NSIS 创建安装程序
-      - name: Create Installer with NSIS
+      # 9) 使用 Inno Setup 创建安装程序
+      - name: Create Installer with Inno Setup
         shell: pwsh
         run: |
-          Write-Host "使用 NSIS 创建安装程序..."
+          Write-Host "准备创建安装程序..."
           
-          # 查找 NSIS 编译器
-          $compilerPaths = @(
-            "C:\Program Files (x86)\NSIS\makensis.exe",
-            "C:\Program Files\NSIS\makensis.exe",
-            "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
-            "${env:ProgramFiles}\NSIS\makensis.exe"
-          )
-          
-          $compiler = $null
-          foreach ($path in $compilerPaths) {
-            if (Test-Path $path) {
-              $compiler = $path
-              Write-Host "✓ 找到 NSIS 编译器: $compiler"
-              break
+          # 检查 Inno Setup 是否存在
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $innoPath)) {
+            Write-Error "Inno Setup 编译器未找到: $innoPath"
+            
+            # 尝试查找其他可能的路径
+            $altPaths = @(
+              "C:\Program Files\Inno Setup 6\ISCC.exe",
+              "C:\tools\innosetup\ISCC.exe"
+            )
+            
+            foreach ($path in $altPaths) {
+              if (Test-Path $path) {
+                $innoPath = $path
+                Write-Host "找到 Inno Setup: $innoPath"
+                break
+              }
             }
-          }
-          
-          if (-not $compiler) {
-            Write-Error "未找到 NSIS 编译器"
-            Write-Host "尝试的路径:"
-            $compilerPaths | ForEach-Object { Write-Host "  - $_" }
-            exit 1
-          }
-          
-          # 验证脚本文件存在
-          if (-not (Test-Path "setup.nsi")) {
-            Write-Error "setup.nsi 脚本文件不存在"
-            exit 1
-          }
-          
-          Write-Host "使用编译器: $compiler"
-          Write-Host "编译脚本: setup.nsi"
-          
-          # 编译安装程序
-          try {
-            & $compiler "/V3" "setup.nsi"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "NSIS 编译失败，退出代码: $LASTEXITCODE"
+            
+            if (-not (Test-Path $innoPath)) {
+              Write-Error "无法找到 Inno Setup 编译器！"
               exit 1
             }
-            Write-Host "✓ 安装程序编译成功"
-          } catch {
-            Write-Error "编译过程中发生错误: $($_.Exception.Message)"
+          }
+          
+          Write-Host "使用 Inno Setup: $innoPath"
+          
+          # 检查脚本文件
+          if (-not (Test-Path "setup.iss")) {
+            Write-Error "setup.iss 文件不存在！"
             exit 1
           }
           
-          # 验证安装程序文件
+          Write-Host "开始编译安装程序..."
+          try {
+            & $innoPath setup.iss
+            $exitCode = $LASTEXITCODE
+            
+            if ($exitCode -ne 0) {
+              Write-Error "Inno Setup 编译失败，退出码: $exitCode"
+              exit 1
+            }
+          } catch {
+            Write-Error "执行 Inno Setup 时发生错误: $($_.Exception.Message)"
+            exit 1
+          }
+          
+          # 验证输出文件
           $installerPath = "build\windows\installer\cc-chat-setup.exe"
-          if (Test-Path $installerPath) {
-            $fileInfo = Get-Item $installerPath
-            Write-Host "✓ 安装程序创建成功: $installerPath"
-            Write-Host "  文件大小: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
-          } else {
+          if (-not (Test-Path $installerPath)) {
             Write-Error "安装程序文件未生成: $installerPath"
-            Write-Host "输出目录内容:"
+            
+            # 列出输出目录内容
             if (Test-Path "build\windows\installer") {
+              Write-Host "输出目录内容:"
               Get-ChildItem "build\windows\installer" | ForEach-Object { Write-Host "  - $($_.Name)" }
-            } else {
-              Write-Host "  输出目录不存在"
             }
             exit 1
           }
+          
+          $fileSize = (Get-Item $installerPath).Length / 1MB
+          Write-Host "✓ 安装程序创建成功: $installerPath (大小: $([math]::Round($fileSize, 2)) MB)"
 
-      # 10) 创建便携版（包含运行时库）
-      - name: Create Portable ZIP with Runtime
+      # 10) 压缩可执行文件目录（用于便携版）
+      - name: Create Portable ZIP
         shell: pwsh
         run: |
-          Write-Host "创建便携版压缩包（包含运行时库）..."
-          
-          # 创建便携版目录
           New-Item -ItemType Directory -Force -Path "build\windows\portable"
-          
-          # 复制应用程序文件
           Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "build\windows\portable\" -Recurse
-          Write-Host "✓ 应用程序文件复制完成"
-          
-          # 下载 Visual C++ Redistributable 运行时库
-          Write-Host "下载 Visual C++ Redistributable 运行时库..."
-          $vcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
-          $vcRedistPath = "build\windows\portable\vc_redist.x64.exe"
-          
-          try {
-            Invoke-WebRequest -Uri $vcRedistUrl -OutFile $vcRedistPath -UseBasicParsing
-            Write-Host "✓ Visual C++ Redistributable 下载完成"
-          } catch {
-            Write-Warning "无法下载 Visual C++ Redistributable: $($_.Exception.Message)"
-            Write-Host "用户需要手动安装 Visual C++ Redistributable"
-          }
-          
-          # 创建使用说明文件
-          $readmeLines = @(
-            "# CC Chat 便携版使用说明",
-            "",
-            "## 🚀 快速开始",
-            "",
-            "### 推荐方式（自动化）：",
-            "1. **双击运行 `"启动 CC Chat.bat`"** - 智能启动器会自动检测并安装所需依赖",
-            "2. 如果是首次运行，启动器会自动安装 Visual C++ 运行时库",
-            "3. 安装完成后会自动启动 CC Chat",
-            "",
-            "### 传统方式：",
-            "1. 如果遇到 `"缺少 vcruntime140_1.dll`" 错误",
-            "2. 双击运行 `"自动安装运行时库.bat`"",
-            "3. 安装完成后双击 `"ThisApp.exe`" 启动应用",
-            "",
-            "## 📁 文件说明",
-            "",
-            "- **启动 CC Chat.bat** - 智能启动器（推荐使用）",
-            "  - 自动检测运行时库",
-            "  - 自动安装缺失的依赖",
-            "  - 自动启动应用",
-            "",
-            "- **自动安装运行时库.bat** - 专用安装工具",
-            "  - 仅用于安装 Visual C++ 运行时库",
-            "  - 支持静默安装和交互式安装",
-            "",
-            "- **vc_redist.x64.exe** - Microsoft Visual C++ Redistributable",
-            "  - 官方运行时库安装程序",
-            "  - 可手动运行安装",
-            "",
-            "- **ThisApp.exe** - CC Chat 主程序",
-            "  - 需要运行时库支持",
-            "",
-            "## 🔧 故障排除",
-            "",
-            "### 如果自动安装失败：",
-            "",
-            "**方法一：手动安装（推荐）**",
-            "1. 双击运行 `"vc_redist.x64.exe`"",
-            "2. 按照安装向导完成安装",
-            "3. 重新运行应用",
-            "",
-            "**方法二：从官网下载**",
-            "1. 访问：https://aka.ms/vs/17/release/vc_redist.x64.exe",
-            "2. 下载并安装最新版本",
-            "3. 重新运行应用",
-            "",
-            "**方法三：使用包管理器**",
-            "- Chocolatey: `choco install vcredist140`",
-            "- Winget: `winget install Microsoft.VCRedist.2015+.x64`",
-            "",
-            "### 如果应用无法启动：",
-            "1. 确保已安装 Visual C++ 运行时库",
-            "2. 尝试以管理员身份运行",
-            "3. 检查防火墙和杀毒软件设置",
-            "4. 重启计算机后再试",
-            "",
-            "## 📝 注意事项",
-            "",
-            "- **便携版特性**：不会在系统中注册，删除文件夹即可完全卸载",
-            "- **数据存储**：应用数据保存在用户目录下，不会随便携版一起删除",
-            "- **完全卸载**：如需完全卸载，请同时删除用户数据目录",
-            "- **权限要求**：首次安装运行时库可能需要管理员权限",
-            "",
-            "## 🆘 技术支持",
-            "",
-            "如遇问题，请访问：https://github.com/your-org/cc/issues",
-            "",
-            "---",
-            "CC Chat 便携版 - 开箱即用，智能安装"
-          )
-          $readmeLines | Out-File -FilePath "build\windows\portable\README.txt" -Encoding UTF8
-          Write-Host "✓ 使用说明文件创建完成"
-          
-          # 创建智能启动脚本（自动检测和安装运行时库）
-          $launchLines = @(
-            "@echo off",
-            "chcp 65001 >nul",
-            "title CC Chat 启动器",
-            "echo.",
-            "echo ==========================================",
-            "echo           CC Chat 智能启动器",
-            "echo ==========================================",
-            "echo.",
-            "",
-            "REM 检查是否存在必要的运行时库",
-            "echo [1/3] 检查 Visual C++ 运行时库...",
-            "where vcruntime140_1.dll >nul 2>&1",
-            "if %errorlevel% equ 0 (",
-            "    echo ✓ Visual C++ 运行时库已安装",
-            "    goto :start_app",
-            ")",
-            "",
-            "echo ⚠ 检测到缺少 Visual C++ 运行时库",
-            "echo.",
-            "",
-            "REM 检查是否存在安装程序",
-            "if not exist `"vc_redist.x64.exe`" (",
-            "    echo ❌ 未找到运行时库安装程序",
-            "    echo 请手动下载并安装 Visual C++ Redistributable",
-            "    echo 下载地址: https://aka.ms/vs/17/release/vc_redist.x64.exe",
-            "    echo.",
-            "    pause",
-            "    exit /b 1",
-            ")",
-            "",
-            "echo [2/3] 自动安装 Visual C++ 运行时库...",
-            "echo.",
-            "echo 正在启动安装程序，请按照提示完成安装...",
-            "echo （安装程序可能需要管理员权限）",
-            "echo.",
-            "",
-            "REM 静默安装运行时库",
-            "start /wait `"`" `"vc_redist.x64.exe`" /quiet /norestart",
-            "if %errorlevel% equ 0 (",
-            "    echo ✓ Visual C++ 运行时库安装成功",
-            "    echo.",
-            ") else (",
-            "    echo ⚠ 自动安装失败，尝试交互式安装...",
-            "    echo 请在弹出的安装向导中完成安装",
-            "    start /wait `"`" `"vc_redist.x64.exe`"",
-            "    if %errorlevel% neq 0 (",
-            "        echo ❌ 安装失败，请手动安装运行时库",
-            "        echo 或查看 README.txt 了解详细说明",
-            "        pause",
-            "        exit /b 1",
-            "    )",
-            ")",
-            "",
-            "REM 再次检查安装结果",
-            "echo 验证安装结果...",
-            "timeout /t 2 /nobreak >nul",
-            "where vcruntime140_1.dll >nul 2>&1",
-            "if %errorlevel% neq 0 (",
-            "    echo ⚠ 运行时库可能未正确安装",
-            "    echo 请重启计算机后再试，或手动安装",
-            "    pause",
-            "    exit /b 1",
-            ")",
-            "",
-            ":start_app",
-            "echo [3/3] 启动 CC Chat...",
-            "echo ✓ 所有依赖项检查完成",
-            "echo.",
-            "timeout /t 1 /nobreak >nul",
-            "",
-            "REM 启动应用",
-            "start `"`" `"ThisApp.exe`"",
-            "if %errorlevel% equ 0 (",
-            "    echo ✓ CC Chat 启动成功",
-            "    timeout /t 2 /nobreak >nul",
-            ") else (",
-            "    echo ❌ 应用启动失败",
-            "    pause",
-            ")"
-          )
-          $launchLines | Out-File -FilePath "build\windows\portable\启动 CC Chat.bat" -Encoding Default
-          Write-Host "✓ 智能启动脚本创建完成"
-          
-          # 创建简单的自动安装脚本
-          $autoInstallLines = @(
-            "@echo off",
-            "chcp 65001 >nul",
-            "title 自动安装 Visual C++ 运行时库",
-            "echo.",
-            "echo ==========================================",
-            "echo      自动安装 Visual C++ 运行时库",
-            "echo ==========================================",
-            "echo.",
-            "",
-            "REM 检查运行时库是否已安装",
-            "where vcruntime140_1.dll >nul 2>&1",
-            "if %errorlevel% equ 0 (",
-            "    echo ✓ Visual C++ 运行时库已经安装",
-            "    echo 无需重复安装",
-            "    timeout /t 3 /nobreak >nul",
-            "    exit /b 0",
-            ")",
-            "",
-            "echo 正在检测运行时库安装程序...",
-            "if not exist `"vc_redist.x64.exe`" (",
-            "    echo ❌ 未找到 vc_redist.x64.exe",
-            "    echo 请确保该文件在同一目录下",
-            "    pause",
-            "    exit /b 1",
-            ")",
-            "",
-            "echo ✓ 找到安装程序，开始自动安装...",
-            "echo.",
-            "echo 注意：安装过程可能需要管理员权限",
-            "echo 如果弹出 UAC 提示，请点击 `"是`"",
-            "echo.",
-            "",
-            "REM 尝试静默安装",
-            "echo 尝试静默安装...",
-            "`"vc_redist.x64.exe`" /quiet /norestart",
-            "if %errorlevel% equ 0 (",
-            "    echo ✓ 安装成功！",
-            "    echo.",
-            "    echo 现在可以正常运行 CC Chat 了",
-            "    timeout /t 3 /nobreak >nul",
-            "    exit /b 0",
-            ")",
-            "",
-            "REM 如果静默安装失败，尝试交互式安装",
-            "echo 静默安装失败，启动交互式安装...",
-            "echo 请按照安装向导完成安装",
-            "`"vc_redist.x64.exe`"",
-            "if %errorlevel% equ 0 (",
-            "    echo ✓ 安装完成！",
-            ") else (",
-            "    echo ❌ 安装失败",
-            "    echo 请手动运行 vc_redist.x64.exe 或查看 README.txt",
-            ")",
-            "",
-            "pause"
-          )
-          $autoInstallLines | Out-File -FilePath "build\windows\portable\自动安装运行时库.bat" -Encoding Default
-          Write-Host "✓ 自动安装脚本创建完成"
-          
-          # 显示便携版目录内容
-          Write-Host "便携版目录内容："
-          Get-ChildItem "build\windows\portable" | ForEach-Object { 
-            $size = if ($_.PSIsContainer) { "文件夹" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-            Write-Host "  - $($_.Name) ($size)"
-          }
-          
-          # 创建压缩包
-          Compress-Archive -Path "build\windows\portable\*" -DestinationPath "cc-chat-portable.zip" -Force
-          
-          $zipSize = (Get-Item "cc-chat-portable.zip").Length / 1MB
-          Write-Host "✓ 便携版压缩包创建完成: cc-chat-portable.zip ($([math]::Round($zipSize, 2)) MB)"
+          Compress-Archive `
+            -Path "build\windows\portable\*" `
+            -DestinationPath "cc-chat-portable.zip"
 
       # 11) 上传安装程序
       - name: Upload Installer
