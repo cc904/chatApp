@@ -154,7 +154,6 @@ class ConversationItem extends StatelessWidget {
               : conversation.conversationId,
           name: _getAvatarDisplayName(conversation),
           radius: 60 / 2,
-          backgroundColor: AppColors.primary,
           roleId: displayRoleId,
         ),
       ),
