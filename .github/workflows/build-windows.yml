@@ -182,9 +182,8 @@ jobs:
           Section "`${APP_NAME} (必需)" SecMain
             SectionIn RO
 
-            ; 确保安装 VC++ 2015-2022 x64 运行时
-            ReadRegDWORD $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
-            IntCmp $0 1 have_vc
+            ; 确保安装 VC++ 2015-2022 x64 运行时（通过系统 DLL 判断）
+            IfFileExists "$SYSDIR\msvcp140.dll" have_vc
             SetOutPath "$TEMP"
             ; 将随安装包打包的 vc_redist 提取到临时目录
             File "build\windows\installer\vc_redist.x64.exe"
