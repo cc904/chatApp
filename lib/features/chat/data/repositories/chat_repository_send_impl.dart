@@ -324,6 +324,9 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       });
     }
 
+    // 为乐观消息设置临时高索引，确保排序靠前；待服务器回执后会被真实索引覆盖
+    final provisionalIndex = 1 << 30; // 足够大的占位索引
+
     final message = Message(
       messageId: messageId,
       conversationId: conversationId,
@@ -333,7 +336,7 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       // senderRoleId: _currentUser.roleId, // 字段已移除
       createdAt: now,
       updatedAt: null,
-      messageIndex: 0, // 初始为0，等待服务器返回真实索引
+      messageIndex: provisionalIndex, // 使用临时高索引，等待服务器返回真实索引
       messageType: type,
       messageStatus: 'SENDING',
       quotedMessageId: quotedMessageId,

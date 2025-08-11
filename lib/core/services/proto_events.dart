@@ -230,6 +230,14 @@ class ProtoEvents {
     'conversation:member:changed': () =>
         conversation.ConversationMemberChangeResponse(),
 
+    /// 会话成员变更回执（兼容事件名） → ConversationMemberChangeResponse
+    'conversation:member:response': () =>
+        conversation.ConversationMemberChangeResponse(),
+
+    /// 会话成员变更回执（兼容事件名） → ConversationMemberChangeResponse
+    'conversation:member:change:response': () =>
+        conversation.ConversationMemberChangeResponse(),
+
     /// 用户加入会话通知 → UserJoinedNotification
     'conversation:user:joined': () => conversation.UserJoinedNotification(),
 

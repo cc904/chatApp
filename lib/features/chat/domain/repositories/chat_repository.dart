@@ -222,6 +222,11 @@ abstract class ChatRepository {
   /// [userId] - 用户ID
   Future<bool> blockMemberInConversation(String conversationId, String userId);
 
+  /// 添加会话成员
+  /// [conversationId] - 会话ID
+  /// [userId] - 目标用户ID
+  Future<bool> addMemberToConversation(String conversationId, String userId);
+
   /// 💢💢💢💢💢💢💢💢💢💢💢💢💢💢    其他功能    💢💢💢💢💢💢💢💢💢💢💢💢💢💢
 
   /// 清空会话消息

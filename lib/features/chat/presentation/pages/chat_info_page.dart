@@ -1,6 +1,6 @@
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
-import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
+// import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,6 +25,10 @@ import 'package:cc/core/services/contact_service.dart';
 import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/core/services/media_cache_service.dart';
 import 'package:cc/core/services/thumbnail_cache_service.dart';
+import 'package:cc/features/contacts/presentation/widgets/contact_list_widget.dart';
+import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
+import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
+import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 
 import 'package:cc/features/chat/presentation/pages/chats_page.dart'; // 导入 routeObserver
 import 'package:cc/core/utils/user_display_utils.dart';
@@ -544,10 +548,10 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
                             // 刷新会话数据以显示最新的联系人信息
                             await chatCubit.syncCurrentConversation();
                             
-                            // 通知ChatsCubit刷新会话列表，确保会话列表中的显示名称也得到更新
+                            // 触发会话列表刷新（无需依赖 ChatsCubit），通过仓库同步
                             if (context.mounted) {
-                              final chatsCubit = context.read<ChatsCubit>();
-                              await chatsCubit.loadConversations();
+                              final chatsRepository = context.read<ChatsRepository>();
+                              await chatsRepository.requestSyncConversations();
                             }
                             
                             // 重新加载当前页面的联系人信息
@@ -2131,35 +2135,61 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
     return SlidableAutoCloseBehavior(
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: participants.length + 1, // +1 for Add Members button
+        itemCount: _shouldShowAddMembersButton(conversation)
+            ? participants.length + 1
+            : participants.length,
         itemBuilder: (context, index) {
-          if (index == 0) {
-            // Add Members按钮
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.person_add,
-                    color: AppColors.primary,
-                    size: 24,
+          if (_shouldShowAddMembersButton(conversation)) {
+            if (index == 0) {
+              // 添加成员按钮（仅管理员/群主显示）
+              final localizations = AppLocalizations.of(context);
+              return InkWell(
+                onTap: _openAddMembersSelector,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person_add,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        localizations.chatAddMembers,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Add Members',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              );
+            }
+
+            final participant = participants[index - 1];
+            final isLast = index == participants.length;
+
+            return Column(
+              children: [
+                _buildMemberItemWithSwipe({
+                  'userId': participant.userId,
+                  'name': participant.name,
+                  'avatar': participant.avatar,
+                  'role': participant.role,
+                  'online': participant.online,
+                  'roleId': participant.roleId,
+                }),
+                if (!isLast) const Divider(height: 1, indent: 68),
+              ],
             );
           }
 
-          final participant = participants[index - 1];
-          final isLast = index == participants.length;
+          final participant = participants[index];
+          final isLast = index == participants.length - 1;
 
           return Column(
             children: [
@@ -2176,6 +2206,138 @@ class _ChatInfoPageState extends State<ChatInfoPage> with TickerProviderStateMix
           );
         },
       ),
+    );
+  }
+
+  bool _shouldShowAddMembersButton(Conversation conversation) {
+    if (conversation.type == 'PRIVATE') return false;
+    final currentUser = context.read<ChatCubit>().state.currentUser;
+    return _hasEditPermission(conversation, currentUser.userId);
+  }
+
+  void _openAddMembersSelector() {
+    final state = context.read<ChatCubit>().state;
+    final conversation = state.conversation;
+    final existing = ConversationAdapter.parseParticipants(conversation.participants)
+        .map((p) => p.userId)
+        .toSet();
+
+    final List<User> selected = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        // 尝试获取联系人仓库，若上层未注入则就地创建，避免对外层的强依赖
+        ContactsRepository? contactsRepository;
+        try {
+          contactsRepository = context.read<ContactsRepository>();
+        } catch (_) {
+          contactsRepository = null;
+        }
+        final effectiveContactsRepository =
+            contactsRepository ?? ContactsRepositoryImpl(currentUser: state.currentUser);
+        return BlocProvider<ContactCubit>(
+          create: (_) => ContactCubit(contactsRepository: effectiveContactsRepository),
+          child: StatefulBuilder(
+            builder: (innerCtx, setModalState) => SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(ctx).size.height * 0.85,
+                child: Column(
+                  children: [
+                    // 标题栏
+                    Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.chatAddMembers,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(l10n.cancel, style: const TextStyle(color: AppColors.primary)),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () async {
+                          if (selected.isEmpty) {
+                            Navigator.pop(ctx);
+                            return;
+                          }
+                          final toAdd = selected.where((u) => !existing.contains(u.userId)).toList();
+                          int successCount = 0;
+                          _logger.i('准备添加成员', extra: {
+                            'selectedCount': selected.length,
+                            'toAddCount': toAdd.length,
+                            'selectedIds': selected.map((e) => e.userId).toList(),
+                            'existingIds': existing.toList(),
+                          });
+                          for (final u in toAdd) {
+                            try {
+                              await context.read<ChatCubit>().addMemberToConversation(u.userId);
+                              successCount++;
+                            } catch (_) {}
+                          }
+                          if (mounted) {
+                            final msg = successCount > 0
+                                ? '${l10n.addMembers}成功: $successCount'
+                                : '无可添加的联系人';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(msg)),
+                            );
+                          }
+                          if (mounted) Navigator.pop(ctx);
+                        },
+                        child: Text(l10n.confirm, style: const TextStyle(color: AppColors.primary)),
+                      ),
+                    ],
+                  ),
+                ),
+
+                    // 选择器
+                    Expanded(
+                  child: ContactListWidget(
+                    mode: ContactListMode.selection,
+                    selectedContacts: selected,
+                    disabledUserIds: existing,
+                    onSelectionChanged: (contact, isSelected) {
+                      _logger.i('选择联系人切换', extra: {
+                        'contactId': contact.userId,
+                        'contactName': contact.name,
+                        'isSelected': isSelected,
+                        'beforeSelectedIds': selected.map((e) => e.userId).toList(),
+                      });
+                      if (isSelected) {
+                        if (!selected.any((u) => u.userId == contact.userId)) {
+                          selected.add(contact);
+                        }
+                      } else {
+                        selected.removeWhere((u) => u.userId == contact.userId);
+                      }
+                      setModalState(() {});
+                      _logger.i('选择联系人结果', extra: {
+                        'afterSelectedIds': selected.map((e) => e.userId).toList(),
+                        'selectedCount': selected.length,
+                      });
+                    },
+                    // 搜索提示
+                    searchHint: '#',
+                  ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

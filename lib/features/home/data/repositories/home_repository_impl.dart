@@ -35,23 +35,17 @@ class HomeRepositoryImpl implements HomeRepository {
     try {
       _logger.i('初始化用户会话', extra: {'userId': _currentUser.userId});
 
-      // 💢💢💢 优化：并行初始化数据库和通信服务
-      final results = await Future.wait([
-        initDatabase(),
-        initCommunication(),
-      ]);
-
-      final dbInitialized = results[0];
-      final commInitialized = results[1];
-
+      // ⚠️ 顺序化初始化，避免通信连接期间触发的事件在数据库初始化/切换用户时并发写入导致连接关闭
+      final dbInitialized = await initDatabase();
       if (!dbInitialized) {
         _logger.e('数据库初始化失败');
         return false;
       }
 
+      final commInitialized = await initCommunication();
       if (!commInitialized) {
         _logger.w('通信服务初始化失败，但允许继续使用应用（离线模式）');
-        // 不返回false，允许应用在离线模式下运行
+        // 允许应用在离线模式下运行
       }
 
       _logger.i('用户会话初始化完成', extra: {

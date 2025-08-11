@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:cc/core/database/drift_database.dart';
 // Proto imports removed as they're not currently used
 import 'package:cc/core/services/log_service.dart';
+// import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
 import 'package:cc/features/chat/domain/entities/participant.dart';
@@ -21,7 +22,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 // Message class is now imported from drift_database.dart
 import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/features/chat/presentation/cubit/chat_state.dart';
-import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
+// import 'package:cc/features/chat/presentation/cubit/chats_cubit.dart';
 import 'package:cc/features/chat/presentation/widgets/message_item.dart';
 import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
@@ -43,6 +44,7 @@ import 'package:cc/core/utils/user_display_utils.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chats_repository.dart';
 import 'package:cc/features/chat/domain/repositories/chat_repository_send.dart';
+// import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/auth/presentation/pages/auth_page.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/constants/app_colors.dart';
@@ -1028,13 +1030,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 会话头像
         Padding(
           padding: const EdgeInsets.only(right: 8.0),
-          child: GestureDetector(
+            child: GestureDetector(
             onTap: () {
               final chatCubit = context.read<ChatCubit>();
               final chatRepository = context.read<ChatRepository>();
               final chatsRepository = context.read<ChatsRepository>();
               final chatRepositorySend = context.read<ChatRepositorySend>();
-              final chatsCubit = context.read<ChatsCubit>();
+              // ChatsCubit / ContactCubit / ContactsRepository 均不在此强制依赖
 
               Navigator.push(
                 context,
@@ -1048,7 +1050,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     child: MultiBlocProvider(
                       providers: [
                         BlocProvider<ChatCubit>.value(value: chatCubit),
-                        BlocProvider<ChatsCubit>.value(value: chatsCubit),
                       ],
                       child: const ChatInfoPage(),
                     ),

@@ -1648,6 +1648,35 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
+  /// 添加会话成员
+  Future<void> addMemberToConversation(String userId) async {
+    try {
+      _logger.i('添加会话成员', extra: {
+        'conversationId': _conversationId,
+        'userId': userId,
+      });
+
+      final success = await _chatRepository.addMemberToConversation(
+        _conversationId,
+        userId,
+      );
+
+      if (success) {
+        _logger.i('成员添加请求已发送', extra: {
+          'userId': userId,
+        });
+      } else {
+        throw Exception('发送成员添加请求失败');
+      }
+    } catch (error) {
+      _logger.e('添加会话成员失败', error: error);
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '添加会话成员失败: ${error.toString()}'));
+      }
+      rethrow;
+    }
+  }
+
   /// 获取当前会话信息
   Future<Conversation?> getCurrentConversation() async {
     try {
@@ -2200,13 +2229,12 @@ class ChatCubit extends Cubit<ChatState> {
     // 强制为 List<Message>，避免在 Web 上泛型擦除导致 reduce 类型不匹配
     List<Message> currentMessages = List<Message>.from(state.messages);
 
-    // 🆕 连续性检查：如果消息索引不连续，抛弃原有数据
+    // 🆕 调整：即使检测到不连续，也不丢弃现有窗口，改为合并保留，后续由加载更多补齐缺口
     if (currentMessages.isNotEmpty && !_isMessagesContinuous(currentMessages, newMessages)) {
-      _logger.w('❌ 消息不连续，抛弃原有数据', extra: {
+      _logger.w('⚠️ 检测到消息不连续，保留现有窗口并合并新批，后续依赖加载补齐', extra: {
         'currentRange': _getMessageIndexRange(currentMessages),
         'newRange': _getMessageIndexRange(newMessages),
       });
-      currentMessages = [];
     }
 
     // 合并消息：去重 + 排序
@@ -2222,8 +2250,13 @@ class ChatCubit extends Cubit<ChatState> {
       messageMap[message.messageId] = message;
     }
 
-    // 按时间排序（最新消息在前）
-    final mergedMessages = messageMap.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // 按消息索引排序（最新消息在前）；索引相同用时间兜底，避免同秒时间戳导致交错
+    final mergedMessages = messageMap.values.toList()
+      ..sort((a, b) {
+        final c = b.messageIndex.compareTo(a.messageIndex);
+        if (c != 0) return c;
+        return b.createdAt.compareTo(a.createdAt);
+      });
 
     final jumpMessage = mergedMessages.where((msg) => msg.messageIndex == jumpIndex).firstOrNull;
 
@@ -3083,8 +3116,13 @@ class ChatCubit extends Cubit<ChatState> {
     // 添加新消息（相同ID的新消息会覆盖旧消息）
     messageMap[newMessage.messageId] = newMessage;
 
-    // 按时间排序（最新消息在前）
-    final mergedMessages = messageMap.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // 按消息索引排序（最新消息在前）；索引相同用时间兜底
+    final mergedMessages = messageMap.values.toList()
+      ..sort((a, b) {
+        final c = b.messageIndex.compareTo(a.messageIndex);
+        if (c != 0) return c;
+        return b.createdAt.compareTo(a.createdAt);
+      });
 
     // 判断用户是否在底部
     final isUserAtBottom = _isUserAtBottomFromState();
@@ -3127,13 +3165,21 @@ class ChatCubit extends Cubit<ChatState> {
       return true;
     }
 
+    // 发送中的乐观消息一律允许合并（使用临时高索引进行排序）
+    if (newMessage.messageStatus == 'SENDING') {
+      _logger.d('🔄 新消息连续性检查：发送中的乐观消息，直接通过');
+      return true;
+    }
+
     // 获取新消息中的最新消息（按时间）
     final latestNewMessage = newMessage;
 
-    // 判断条件1：最新消息是lastMessageIndex或临时消息(0)
-    final isLatestOrTemp = latestNewMessage.messageIndex == state.conversation.lastMessageIndex ||
-        latestNewMessage.messageIndex == 0 ||
-        latestNewMessage.messageIndex == state.conversation.lastMessageIndex + 1; // 允许下一个索引
+    // 判断条件1：最新消息索引与会话接近
+    final isLatestOrTemp =
+        latestNewMessage.messageIndex == state.conversation.lastMessageIndex ||
+            latestNewMessage.messageIndex == 0 ||
+            latestNewMessage.messageIndex == state.conversation.lastMessageIndex + 1 ||
+            latestNewMessage.messageIndex >= state.conversation.lastMessageIndex; // 允许更大的临时占位索引
 
     // 判断条件2：当前最新消息是否在屏幕中（简化判断）
     final currentLatestMessage = currentMessages.isNotEmpty

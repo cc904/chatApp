@@ -172,6 +172,14 @@ class ChatsRepositoryImpl implements ChatsRepository {
     try {
       _logger.i('全量替换会话数据', extra: {'新会话数': newConversations.length});
 
+      // 避免与数据库关闭/切换并发：事务前做一次连接可用性探测
+      try {
+        await _database.customSelect('SELECT 1').getSingle();
+      } catch (e) {
+        _logger.w('数据库连接可能已关闭，跳过全量替换', extra: {'error': e.toString()});
+        throw Exception('数据库连接不可用');
+      }
+
       await _database.transaction(() async {
         // 💢💢💢 第一步：清空所有现有会话
         await _database.delete(_database.conversations).go();

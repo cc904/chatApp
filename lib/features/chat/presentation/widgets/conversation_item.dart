@@ -13,6 +13,7 @@ import 'package:cc/core/utils/timezone_utils.dart';
 
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/core/utils/user_display_utils.dart';
 
 /// 会话列表项组件
@@ -485,6 +486,7 @@ class ConversationItem extends StatelessWidget {
     final chatsRepository = context.read<ChatsRepository>();
     final chatRepositorySend = context.read<ChatRepositorySend>();
     final chatsCubit = context.read<ChatsCubit>();
+    final contactCubit = context.read<ContactCubit>();
     final navigator = Navigator.of(context);
 
     try {
@@ -516,6 +518,7 @@ class ConversationItem extends StatelessWidget {
                     ),
                   ),
                   BlocProvider<ChatsCubit>.value(value: chatsCubit),
+                  BlocProvider<ContactCubit>.value(value: contactCubit),
                 ],
                 child: ChatPage(
                   conversationId: conversation.conversationId,
@@ -537,14 +540,20 @@ class ConversationItem extends StatelessWidget {
                 RepositoryProvider<ChatsRepository>.value(value: chatsRepository),
                 RepositoryProvider<ChatRepositorySend>.value(value: chatRepositorySend),
               ],
-              child: BlocProvider<ChatCubit>(
-                create: (context) => ChatCubit(
-                  chatRepository: context.read<ChatRepository>(),
-                  chatRepositorySend: context.read<ChatRepositorySend>(),
-                  chatsRepository: context.read<ChatsRepository>(),
-                  currentUser: currentUser,
-                  initialConversation: conversation, // 💢💢💢 传入初始会话信息
-                ),
+              child: MultiBlocProvider(
+                providers: [
+                  BlocProvider<ChatCubit>(
+                    create: (context) => ChatCubit(
+                      chatRepository: context.read<ChatRepository>(),
+                      chatRepositorySend: context.read<ChatRepositorySend>(),
+                      chatsRepository: context.read<ChatsRepository>(),
+                      currentUser: currentUser,
+                      initialConversation: conversation, // 💢💢💢 传入初始会话信息
+                    ),
+                  ),
+                  BlocProvider<ChatsCubit>.value(value: chatsCubit),
+                  BlocProvider<ContactCubit>.value(value: contactCubit),
+                ],
                 child: ChatPage(
                   conversationId: conversation.conversationId,
                   initialConversation: conversation, // 💢💢💢 传入初始会话信息

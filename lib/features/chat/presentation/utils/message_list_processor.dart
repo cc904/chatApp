@@ -67,10 +67,9 @@ class MessageListProcessor {
   /// 获取日期的年月日部分，忽略时分秒
   /// 注意：输入的dateTime可能是UTC时间，需要转换为本地时区
   static DateTime _getDateOnly(DateTime dateTime) {
-    // 如果输入是UTC时间，我们需要转换为本地时区
-    // 但为了避免异步调用的复杂性，这里使用DateTime的本地转换
-    final localDateTime = dateTime.isUtc ? dateTime.toLocal() : dateTime;
-    return DateTime(localDateTime.year, localDateTime.month, localDateTime.day);
+    // 统一按 UTC 日期分组，避免本地/UTC转换导致分隔符错位从而引发索引映射抖动
+    final utc = dateTime.toUtc();
+    return DateTime.utc(utc.year, utc.month, utc.day);
   }
 
   /// 判断两个日期是否为同一天

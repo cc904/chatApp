@@ -46,6 +46,9 @@ class ContactListWidget extends StatefulWidget {
   /// 当前选中的联系人列表（选择模式下使用）
   final List<User> selectedContacts;
 
+  /// 禁止选择的联系人 userId 集合（例如：已在群内的成员）
+  final Set<String> disabledUserIds;
+
   /// 搜索框提示文本
   final String searchHint;
 
@@ -64,6 +67,7 @@ class ContactListWidget extends StatefulWidget {
     this.selectedContacts = const [],
     this.searchHint = 'Search',
     this.contactItemBuilder,
+    this.disabledUserIds = const {},
   });
 
   @override
@@ -107,8 +111,13 @@ class _ContactListWidgetState extends State<ContactListWidget> {
   void _ensureContactsLoaded() {
     final contactCubit = context.read<ContactCubit>();
     if (contactCubit.state.contacts.isEmpty && !contactCubit.state.isLoading) {
+      LogService.instance.i('ContactListWidget 触发加载联系人');
       contactCubit.loadContacts();
     } else {
+      LogService.instance.i('ContactListWidget 使用已有联系人', extra: {
+        'count': contactCubit.state.contacts.length,
+        'isLoading': contactCubit.state.isLoading,
+      });
       _updateGroupedContacts(contactCubit.state.contacts);
     }
   }
@@ -161,6 +170,7 @@ class _ContactListWidgetState extends State<ContactListWidget> {
 
   /// 搜索联系人
   void _searchContacts(String query) {
+    LogService.instance.i('ContactListWidget 搜索', extra: {'query': query});
     if (query.isEmpty) {
       setState(() {
         _isFiltering = false;
@@ -232,9 +242,14 @@ class _ContactListWidgetState extends State<ContactListWidget> {
 
   /// 处理联系人点击
   void _handleContactTap(User contact) {
+    // 禁止选择的联系人直接返回
+    if (widget.disabledUserIds.contains(contact.userId)) {
+      LogService.instance.i('点击了禁用联系人，忽略', extra: {'contactId': contact.userId});
+      return;
+    }
     if (widget.mode == ContactListMode.selection) {
-      // 选择模式：切换选择状态
-      final isSelected = widget.selectedContacts.contains(contact);
+      // 选择模式：按 userId 判断是否已选，避免对象实例变化导致 contains 失效
+      final isSelected = widget.selectedContacts.any((u) => u.userId == contact.userId);
       widget.onSelectionChanged?.call(contact, !isSelected);
     } else {
       // 普通模式或详情模式：调用回调
@@ -354,10 +369,12 @@ class _ContactListWidgetState extends State<ContactListWidget> {
   /// 构建联系人列表
   Widget _buildContactsList(ContactState state) {
     if (state.isLoading && state.contacts.isEmpty) {
+      LogService.instance.i('ContactListWidget 正在加载联系人');
       return const Center(child: CircularProgressIndicator());
     }
 
     if (state.errorMessage != null && state.contacts.isEmpty) {
+      LogService.instance.e('ContactListWidget 加载联系人失败', error: state.errorMessage);
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -378,6 +395,11 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     }
 
     final contactsToShow = _isFiltering ? _filteredContacts : state.contacts;
+    LogService.instance.i('ContactListWidget 渲染联系人列表', extra: {
+      'isFiltering': _isFiltering,
+      'total': contactsToShow.length,
+      'keys': _sortedKeys,
+    });
 
     if (contactsToShow.isEmpty) {
       return Center(
@@ -500,9 +522,12 @@ class _ContactListWidgetState extends State<ContactListWidget> {
 
   /// 构建带选择功能的联系人项
   Widget _buildSelectionContactItem(User contact) {
-    final isSelected = widget.selectedContacts.contains(contact);
+    final isSelected = widget.selectedContacts.any((u) => u.userId == contact.userId);
+    final isDisabled = widget.disabledUserIds.contains(contact.userId);
 
-    return ListTile(
+    return Opacity(
+      opacity: isDisabled ? 0.5 : 1,
+      child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Row(
         mainAxisSize: MainAxisSize.min,
@@ -512,11 +537,15 @@ class _ContactListWidgetState extends State<ContactListWidget> {
             height: 24,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? AppColors.primary : Colors.grey,
-                width: 2,
-              ),
-              color: isSelected ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: isDisabled
+                      ? Colors.grey
+                      : (isSelected ? AppColors.primary : Colors.grey),
+                  width: 2,
+                ),
+                color: isDisabled
+                    ? Colors.transparent
+                    : (isSelected ? AppColors.primary : Colors.transparent),
             ),
             child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
           ),
@@ -531,8 +560,9 @@ class _ContactListWidgetState extends State<ContactListWidget> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      subtitle: _buildContactSubtitle(contact),
-      onTap: () => _handleContactTap(contact),
+        subtitle: _buildContactSubtitle(contact),
+        onTap: () => _handleContactTap(contact),
+      ),
     );
   }
 

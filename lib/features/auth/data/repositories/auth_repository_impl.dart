@@ -479,17 +479,7 @@ class AuthRepositoryImpl implements AuthRepository {
         // 保存到安全存储
         await _secureStorage.saveUserCredentials(currentUser);
 
-        // 保存到数据库
-        if (DatabaseInitializer.isInitialized) {
-          await DatabaseInitializer.database.transaction(() async {
-            await DatabaseInitializer.database
-                .delete(DatabaseInitializer.database.currentUsers)
-                .go();
-            await DatabaseInitializer.database
-                .into(DatabaseInitializer.database.currentUsers)
-                .insert(currentUser);
-          });
-        }
+        // 不在此处写入数据库，交由 DatabaseInitializer.init(currentUser) 统一落库，避免与并行初始化/关闭冲突
 
         // 用户ID保存在CurrentUser对象中，不需要单独存储
       } else {

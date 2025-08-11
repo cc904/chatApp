@@ -413,18 +413,37 @@ class AppDatabase extends _$AppDatabase {
       // 使用时间戳（已经是毫秒格式）
       final lastLoginTimeMs = currentUser.lastLoginTime;
       
-      // 保存用户信息
-      await into(currentUsers).insertOnConflictUpdate(CurrentUsersCompanion.insert(
-        userId: currentUser.userId,
-        name: userName,
-        phone: Value(userPhone.isEmpty ? null : userPhone),
-        email: Value(userEmail.isEmpty ? null : userEmail),
-        avatar: Value(userAvatar.isEmpty ? null : userAvatar),
-        status: Value(userStatus),
-        lastLoginTime: Value(lastLoginTimeMs),
-        hasSetPassword: Value(currentUser.hasSetPassword),
-        roleId: Value(currentUser.roleId), // 添加roleId字段
-      ));
+      // 保存用户信息（增加重试，规避偶发的底层打开失败/锁竞争）
+      const int maxRetries = 3;
+      Duration backoff(int attempt) => Duration(milliseconds: 200 * attempt);
+      int attempt = 0;
+      while (true) {
+        attempt++;
+        try {
+          await into(currentUsers).insertOnConflictUpdate(CurrentUsersCompanion.insert(
+            userId: currentUser.userId,
+            name: userName,
+            phone: Value(userPhone.isEmpty ? null : userPhone),
+            email: Value(userEmail.isEmpty ? null : userEmail),
+            avatar: Value(userAvatar.isEmpty ? null : userAvatar),
+            status: Value(userStatus),
+            lastLoginTime: Value(lastLoginTimeMs),
+            hasSetPassword: Value(currentUser.hasSetPassword),
+            roleId: Value(currentUser.roleId), // 添加roleId字段
+          ));
+          break;
+        } catch (e) {
+          _logger.w('保存当前用户重试中', extra: {
+            'attempt': attempt,
+            'maxRetries': maxRetries,
+            'error': e.toString(),
+          });
+          if (attempt >= maxRetries) {
+            rethrow;
+          }
+          await Future.delayed(backoff(attempt));
+        }
+      }
       
       _logger.i('当前用户信息已保存到 Drift 数据库');
     } catch (error) {

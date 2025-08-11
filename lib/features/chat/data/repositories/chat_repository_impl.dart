@@ -261,6 +261,14 @@ class ChatRepositoryImpl implements ChatRepository {
             .onProto<conversation_proto.ConversationMemberChangeResponse>(
                 'conversation:member:changed')
             .listen(_handleMemberChangeNotification))
+        ..add(_communicationService
+            .onProto<conversation_proto.ConversationMemberChangeResponse>(
+                'conversation:member:response')
+            .listen(_handleMemberChangeNotification))
+        ..add(_communicationService
+            .onProto<conversation_proto.ConversationMemberChangeResponse>(
+                'conversation:member:change:response')
+            .listen(_handleMemberChangeNotification))
         // 💢💢💢 新增：退出会话相关事件监听器
         ..add(_communicationService
             .onProto<conversation_proto.ConversationExitResponse>(
@@ -2016,6 +2024,8 @@ class ChatRepositoryImpl implements ChatRepository {
               'add',
               role: notification.member.role.toString(),
               joinedAt: DateTime.fromMillisecondsSinceEpoch(notification.member.joinedAt.toInt()),
+              name: notification.member.name.isNotEmpty ? notification.member.name : null,
+              avatar: notification.member.avatar.isNotEmpty ? notification.member.avatar : null,
             );
             _logger.i('成员加入会话', extra: {
               'memberName': notification.member.name,
@@ -2093,15 +2103,19 @@ class ChatRepositoryImpl implements ChatRepository {
             return; // 未知操作，跳过后续处理
         }
 
-        // 保存更新后的会话
-        await _database.update(_database.conversations).replace(conversation);
+        // 2. 读取最新会话并通知UI更新参与者列表（确保携带已更新的 participants）
+        final latestConversation = await (_database
+                .select(_database.conversations)
+              ..where((tbl) =>
+                  tbl.conversationId.equals(notification.conversationId)))
+            .getSingleOrNull();
 
-        // 2. 发送会话更新事件通知UI更新参与者列表
         final notifyController =
             _conversationUpdateControllers[notification.conversationId];
-        if (notifyController != null && !notifyController.isClosed) {
+        if (notifyController != null && !notifyController.isClosed &&
+            latestConversation != null) {
           notifyController.add(ConversationUpdatedEvent(
-            updatedConversation: conversation,
+            updatedConversation: latestConversation,
             updatedFields: ['participants'],
             timestamp: DateTime.now(),
           ));
@@ -2308,6 +2322,41 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
+  @override
+  Future<bool> addMemberToConversation(
+      String conversationId, String userId) async {
+    try {
+      if (!_communicationService.isInitialized) {
+        _logger.w('通信服务未初始化，无法添加会话成员');
+        return false;
+      }
+
+      final memberRequest = conversation_proto.ConversationMemberChangeRequest()
+        ..conversationId = conversationId
+        ..userId = userId
+        ..action = 'add';
+
+      final success = await _communicationService.emitProto(
+        'conversation:member:change',
+        memberRequest,
+      );
+
+      if (success) {
+        _logger.i('成员添加请求已发送', extra: {
+          'conversationId': conversationId,
+          'userId': userId,
+        });
+      } else {
+        _logger.w('发送成员添加请求失败');
+      }
+
+      return success;
+    } catch (error) {
+      _logger.e('添加会话成员失败', error: error);
+      return false;
+    }
+  }
+
 
   /// 💢💢💢 新增：更新会话参与者列表
   /// 处理参与者的添加、移除、角色更新等操作
@@ -2318,6 +2367,8 @@ class ChatRepositoryImpl implements ChatRepository {
     String? role,
     DateTime? joinedAt,
     bool? muted,
+    String? name,
+    String? avatar,
   }) async {
     try {
       // 获取会话记录
@@ -2343,11 +2394,11 @@ class ChatRepositoryImpl implements ChatRepository {
           
           final participantData = Participant(
             userId: userId,
-            name: '',
+            name: name ?? '',
             role: _roleStringToInt(role),
             joinedAt: (joinedAt ?? DateTime.now()).millisecondsSinceEpoch,
             addedBy: null,
-            avatar: null,
+            avatar: avatar,
             muted: muted ?? false,
             pinned: false,
             online: false,
