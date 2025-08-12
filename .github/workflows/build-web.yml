@@ -1,10 +1,6 @@
 name: Build Flutter Web
 
 on:
-  push:
-    branches: [ 123 ]
-  pull_request:
-    branches: [ 123 ]
   workflow_dispatch:
 
 jobs:
