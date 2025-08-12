@@ -30,76 +30,34 @@ if ! command -v flutter &> /dev/null; then
 fi
 
 # 显示构建选项
-echo "请选择构建策略："
-echo "1. 🎯 最小APK (仅arm64-v8a) - 推荐"
-echo "2. 📱 兼容APK (arm64-v8a + armeabi-v7a)"
-echo "3. 🔄 分包APK (所有架构)"
-echo "4. 📦 App Bundle (推荐发布)"
-echo "5. 📊 仅分析当前APK大小"
-echo ""
+# 默认构建两个APK：一个最小（arm64-v8a），一个兼容（arm64-v8a + armeabi-v7a）
+BUILD_MINIMAL=true
+BUILD_COMPATIBLE=true
 
-read -p "请输入选择 (1-5): " choice
-
-case $choice in
-    1)
-        BUILD_TYPE="minimal"
-        BUILD_DESC="最小APK (arm64-v8a)"
-        ;;
-    2)
-        BUILD_TYPE="compatible"
-        BUILD_DESC="兼容APK (arm64-v8a + armeabi-v7a)"
-        ;;
-    3)
-        BUILD_TYPE="split"
-        BUILD_DESC="分包APK (所有架构)"
-        ;;
-    4)
-        BUILD_TYPE="bundle"
-        BUILD_DESC="App Bundle"
-        ;;
-    5)
-        BUILD_TYPE="analyze"
-        BUILD_DESC="分析现有APK"
-        ;;
-    *)
-        echo -e "${RED}❌ 无效选择${NC}"
-        exit 1
-        ;;
-esac
-
-echo -e "${YELLOW}📋 构建策略: $BUILD_DESC${NC}"
+echo -e "${YELLOW}📋 将构建以下产物：${NC}"
+echo "   • 最小APK (arm64-v8a)"
+echo "   • 兼容APK (arm64-v8a + armeabi-v7a)"
 echo ""
 
 # 清理和准备
-if [ "$BUILD_TYPE" != "analyze" ]; then
+if true; then
     echo -e "${YELLOW}🧹 清理之前的构建...${NC}"
     flutter clean
     flutter pub get
     echo ""
 fi
 
-# 执行构建
-case $BUILD_TYPE in
-    "minimal")
-        echo -e "${YELLOW}🔨 构建最小APK (arm64-v8a)...${NC}"
-        flutter build apk --release --target-platform android-arm64 --analyze-size
-        ;;
-    "compatible")
-        echo -e "${YELLOW}🔨 构建兼容APK...${NC}"
-        flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --analyze-size
-        ;;
-    "split")
-        echo -e "${YELLOW}🔨 构建分包APK...${NC}"
-        flutter build apk --release --split-per-abi --analyze-size
-        ;;
-    "bundle")
-        echo -e "${YELLOW}🔨 构建App Bundle...${NC}"
-        flutter build appbundle --release --analyze-size
-        ;;
-    "analyze")
-        echo -e "${YELLOW}📊 分析现有APK...${NC}"
-        ;;
-esac
+# 执行构建：最小APK
+if [ "$BUILD_MINIMAL" = true ]; then
+  echo -e "${YELLOW}🔨 构建最小APK (arm64-v8a)...${NC}"
+  flutter build apk --release --target-platform android-arm64 --analyze-size
+fi
+
+# 执行构建：兼容APK
+if [ "$BUILD_COMPATIBLE" = true ]; then
+  echo -e "${YELLOW}🔨 构建兼容APK (arm64-v8a + armeabi-v7a)...${NC}"
+  flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --analyze-size
+fi
 
 echo ""
 
@@ -167,25 +125,8 @@ echo ""
 echo -e "${GREEN}💡 优化建议：${NC}"
 echo "=================================="
 
-case $BUILD_TYPE in
-    "minimal")
-        echo "✅ 已选择最优策略 - arm64-v8a覆盖95%+现代设备"
-        echo "📱 建议发布此版本到应用商店"
-        ;;
-    "compatible")
-        echo "✅ 兼容性良好 - 覆盖新老设备"
-        echo "📱 适合需要支持老设备的场景"
-        ;;
-    "split")
-        echo "⚠️  生成了多个APK文件"
-        echo "📱 建议只发布arm64-v8a版本"
-        echo "🔄 或考虑使用App Bundle"
-        ;;
-    "bundle")
-        echo "✅ 最佳发布策略 - Google Play推荐"
-        echo "📱 用户将获得最优化的下载体验"
-        ;;
-esac
+echo "✅ 已构建：最小APK + 兼容APK"
+echo "📱 发布建议：优先 arm64-v8a；兼容包用于覆盖老设备"
 
 echo ""
 echo "🔧 进一步优化："
