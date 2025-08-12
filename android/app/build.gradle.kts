@@ -53,9 +53,11 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // 限定仅构建 arm64-v8a 与 armeabi-v7a 的本地库，避免生成/编译 x86* 任务
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        // 仅在未启用 ABI 分包时限制 ABI，避免与 splits.abi 冲突
+        if (!enableAbiSplits) {
+            ndk {
+                abiFilters += abiIncludeList
+            }
         }
     }
 
