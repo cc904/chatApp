@@ -30,13 +30,13 @@ if ! command -v flutter &> /dev/null; then
 fi
 
 # 显示构建选项
-# 默认构建两个APK：一个最小（arm64-v8a），一个兼容（arm64-v8a + armeabi-v7a）
+# 默认构建两个APK：一个最小（arm64-v8a），一个兼容（arm64-v8a + armeabi-v7a，单包）
 BUILD_MINIMAL=true
 BUILD_COMPATIBLE=true
 
 echo -e "${YELLOW}📋 将构建以下产物：${NC}"
 echo "   • 最小APK (arm64-v8a)"
-echo "   • 兼容APK (arm64-v8a + armeabi-v7a)"
+echo "   • 兼容APK (arm64-v8a + armeabi-v7a，单包)"
 echo ""
 
 # 清理和准备
@@ -47,16 +47,34 @@ if true; then
     echo ""
 fi
 
-# 执行构建：最小APK
+############################################################
+# 构建 1：最小 APK（仅 arm64-v8a）
+# 说明：
+# - 通过 Gradle 属性启用 ABI 拆分并仅包含 arm64-v8a
+# - 关闭通用 APK 以避免生成 ABI 为空的通用包
+############################################################
 if [ "$BUILD_MINIMAL" = true ]; then
-  echo -e "${YELLOW}🔨 构建最小APK (arm64-v8a)...${NC}"
-  flutter build apk --release --target-platform android-arm64 --analyze-size
+  echo -e "${YELLOW}🔨 构建最小APK (仅 arm64-v8a)...${NC}"
+  flutter build apk \
+    --release \
+    --target-platform android-arm64 \
+    -PenableAbiSplits=true -PabiInclude=arm64-v8a -PenableUniversalApk=false \
+    --analyze-size
 fi
 
-# 执行构建：兼容APK
+############################################################
+# 构建 2：兼容 APK（arm64-v8a + armeabi-v7a，单包）
+# 说明：
+# - 关闭 ABI 拆分，使一个 APK 同时包含 arm64-v8a 与 armeabi-v7a
+# - 不使用 --split-per-abi，避免生成多包
+############################################################
 if [ "$BUILD_COMPATIBLE" = true ]; then
-  echo -e "${YELLOW}🔨 构建兼容APK (arm64-v8a + armeabi-v7a)...${NC}"
-  flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi --analyze-size
+  echo -e "${YELLOW}🔨 构建兼容APK (arm64-v8a + armeabi-v7a，单包)...${NC}"
+  flutter build apk \
+    --release \
+    --target-platform android-arm,android-arm64 \
+    -PenableAbiSplits=false \
+    --analyze-size
 fi
 
 echo ""

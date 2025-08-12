@@ -15,6 +15,18 @@ if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// 通过 Gradle 属性控制 ABI 拆分
+// -PenableAbiSplits=true|false      是否启用 ABI 拆分（默认 true）
+// -PabiInclude=arm64-v8a,armeabi-v7a 指定包含的 ABI（默认 arm64-v8a,armeabi-v7a）
+// -PenableUniversalApk=true|false   是否生成通用 APK（默认 false）
+val enableAbiSplits: Boolean = (project.findProperty("enableAbiSplits") as String?)?.toBoolean() ?: true
+val abiIncludeList: List<String> = (project.findProperty("abiInclude") as String?)
+    ?.split(",")
+    ?.map { it.trim() }
+    ?.filter { it.isNotEmpty() }
+    ?: listOf("arm64-v8a", "armeabi-v7a")
+val enableUniversalApk: Boolean = (project.findProperty("enableUniversalApk") as String?)?.toBoolean() ?: false
+
 android {
     namespace = "com.xoxchat.cc"
     compileSdk = 35
@@ -40,6 +52,11 @@ android {
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 限定仅构建 arm64-v8a 与 armeabi-v7a 的本地库，避免生成/编译 x86* 任务
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     signingConfigs {
@@ -77,13 +94,13 @@ android {
         }
     }
     
-    // APK分包配置 - 按ABI分包减小单个APK大小
+    // APK分包配置 - 按ABI分包减小单个APK大小（可由属性开关控制）
     splits {
         abi {
-            isEnable = true
+            isEnable = enableAbiSplits
             reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = true // 生成通用APK以兼容Flutter工具
+            include(*abiIncludeList.toTypedArray())
+            isUniversalApk = enableUniversalApk
         }
     }
     
