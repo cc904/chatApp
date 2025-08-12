@@ -334,16 +334,23 @@ class _ContactListWidgetState extends State<ContactListWidget> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ],
       ),
       child: TextField(
         controller: _searchController,
         focusNode: _searchFocusNode,
         decoration: InputDecoration(
           hintText: widget.searchHint,
-          hintStyle: TextStyle(color: Colors.grey[600]),
-          prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+          hintStyle: const TextStyle(color: Colors.grey),
+          prefixIcon: const Icon(Icons.search, color: Colors.grey),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 18),
@@ -356,11 +363,11 @@ class _ContactListWidgetState extends State<ContactListWidget> {
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
+            horizontal: 12,
+            vertical: 10,
           ),
         ),
-        style: const TextStyle(fontSize: 16),
+        style: const TextStyle(fontSize: 14),
         onChanged: _searchContacts,
       ),
     );

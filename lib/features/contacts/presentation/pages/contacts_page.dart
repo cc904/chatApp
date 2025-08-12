@@ -15,6 +15,7 @@ import 'package:cc/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
+import 'package:cc/core/constants/app_colors.dart';
 import 'package:cc/features/chat/presentation/pages/chats_page.dart';
 import 'package:cc/features/home/presentation/cubit/home_cubit.dart';
 
@@ -313,6 +314,9 @@ class _ContactsPageState extends State<ContactsPage>
       builder: (context, state) {
         return Scaffold(
           appBar: AppBar(
+            backgroundColor: AppColors.surfaceVariant,
+            foregroundColor: AppColors.textPrimary,
+            elevation: 0,
             centerTitle: true,
             title: Row(
               mainAxisSize: MainAxisSize.max,
@@ -326,7 +330,7 @@ class _ContactsPageState extends State<ContactsPage>
             actions: [
               // 添加联系人按钮
               IconButton(
-                icon: const Icon(Icons.person_add),
+                icon: const Icon(Icons.person_add, color: AppColors.primary),
                 onPressed: () {
                   _logger.i('打开添加联系人页面');
 

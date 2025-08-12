@@ -710,8 +710,19 @@ class _ChatsPageState extends State<ChatsPage>
   /// 构建搜索框
   Widget _buildSearchBox() {
     return Container(
-      color: Colors.grey[200],
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -722,15 +733,8 @@ class _ChatsPageState extends State<ChatsPage>
                 hintText: AppLocalizations.of(context).search,
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 suffixIcon: BlocBuilder<ChatsCubit, ChatsState>(
                   buildWhen: (previous, current) =>
                       previous.isSearching != current.isSearching ||
@@ -777,41 +781,7 @@ class _ChatsPageState extends State<ChatsPage>
             buildWhen: (previous, current) =>
                 previous.isSearching != current.isSearching,
             builder: (context, state) {
-              return state.isSearching
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final query = _searchController.text;
-                          if (query.isNotEmpty) {
-                            _searchConversations(query);
-                          }
-                          // 收起键盘但保持聚焦
-                          FocusScope.of(context).unfocus();
-                          Future.delayed(const Duration(milliseconds: 100), () {
-                            if (mounted) {
-                              _searchFocusNode.requestFocus();
-                            }
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 0),
-                          minimumSize: const Size(0, 36),
-                        ),
-                        child: Text(
-                          AppLocalizations.of(context).searchButton,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ))
-                  : const SizedBox.shrink();
+              return const SizedBox.shrink();
             },
           ),
         ],
