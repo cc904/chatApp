@@ -5,6 +5,7 @@ import '../../../../core/database/drift_database.dart';
 import '../../../../core/database/database_initializer.dart';
 import '../../../../core/services/proto_socket_service.dart';
 import '../../../../core/services/log_service.dart';
+import '../../../../core/proto/generated/quick_reply.pb.dart' as qrpb;
 
 /// 快捷回复数据仓库 (使用数据库存储 + Socket.io同步)
 class QuickReplyRepository {
@@ -12,6 +13,10 @@ class QuickReplyRepository {
   
   final ProtoSocketService _socketService = ProtoSocketService();
   final LogService _logger = LogService.instance;
+  bool _listenersInitialized = false;
+  
+  // 缓存最近一次从服务器获取到的原始PB数据，便于获取媒体字段
+  final Map<int, qrpb.QuickReply> _pbCacheById = {};
   
   // 响应数据的Completer
   Completer<List<QuickReply>>? _syncCompleter;
@@ -19,51 +24,155 @@ class QuickReplyRepository {
   // 获取数据库实例
   AppDatabase get _db => DatabaseInitializer.database;
 
-  /// 初始化Socket.io事件监听
+  /// 初始化Socket.io事件监听（protobuf）
   void _initializeSocketListeners() {
-    // 注册事件处理器
-    _socketService.on('quick-replies:data', _handleQuickRepliesData);
-    _socketService.on('quick-replies:error', _handleQuickRepliesError);
-    _logger.i('快捷回复Socket.io监听器已注册');
+    if (_listenersInitialized) return;
+
+    // 列表
+    _socketService.onProto<qrpb.GetQuickRepliesResponse>(
+      'quickReplies:list',
+      () => qrpb.GetQuickRepliesResponse(),
+      _handleQuickRepliesList,
+    );
+
+    // 新增
+    _socketService.onProto<qrpb.QuickReplyResponse>(
+      'quickReplies:created',
+      () => qrpb.QuickReplyResponse(),
+      _handleQuickReplyCreated,
+    );
+
+    // 更新
+    _socketService.onProto<qrpb.QuickReplyResponse>(
+      'quickReplies:updated',
+      () => qrpb.QuickReplyResponse(),
+      _handleQuickReplyUpdated,
+    );
+
+    // 删除
+    _socketService.onProto<qrpb.DeleteQuickReplyResponse>(
+      'quickReplies:deleted',
+      () => qrpb.DeleteQuickReplyResponse(),
+      _handleQuickReplyDeleted,
+    );
+
+    // 错误
+    _socketService.onProto<qrpb.QuickReplyErrorResponse>(
+      'quickReplies:error',
+      () => qrpb.QuickReplyErrorResponse(),
+      _handleQuickRepliesError,
+    );
+
+    _listenersInitialized = true;
+    _logger.i('快捷回复Socket监听（protobuf）已注册');
   }
 
-  /// 处理快捷回复数据响应
-  void _handleQuickRepliesData(dynamic data) async {
+  /// 处理列表响应（protobuf）
+  void _handleQuickRepliesList(qrpb.GetQuickRepliesResponse resp) async {
     try {
-      _logger.i('收到快捷回复数据响应');
-      
-      if (data is Map<String, dynamic>) {
-        final List<dynamic> repliesData = data['quick_replies'] ?? [];
-        final replies = repliesData
-            .map((json) => QuickReplyExtension.fromServerJson(json as Map<String, dynamic>))
-            .toList();
-        
-        // 保存到数据库
-        await _saveToDatabase(replies);
-        await _updateLastSyncTime();
-        
-        _logger.i('快捷回复同步成功，共${replies.length}条');
-        
-        // 完成异步请求
-        if (_syncCompleter != null && !_syncCompleter!.isCompleted) {
-          _syncCompleter!.complete(replies);
-        }
-      } else {
-        throw Exception('服务器响应数据格式错误');
+      // 刷新PB缓存
+      _pbCacheById
+        ..clear()
+        ..addEntries(resp.quickReplies.map((e) => MapEntry(e.id.toInt(), e)));
+
+      // 详细输出同步项（使用 error 级别便于在控制台高亮）
+      try {
+        final detailed = resp.quickReplies.map((q) => {
+              'id': q.id.toInt(),
+              'name': (q.hasName() && q.name.isNotEmpty) ? q.name : null,
+              'content': q.hasContent() ? q.content : null,
+              'category': q.hasCategory() ? q.category : null,
+              'orderIndex': q.hasOrderIndex() ? q.orderIndex : null,
+              'isEnabled': q.hasIsEnabled() ? q.isEnabled : null,
+              'mediaType': q.hasMediaType() ? q.mediaType : null,
+              'mediaUrl': q.hasMediaUrl() ? q.mediaUrl : null,
+              'mimeType': q.hasMimeType() ? q.mimeType : null,
+              'width': q.hasWidth() ? q.width : null,
+              'height': q.hasHeight() ? q.height : null,
+              'duration': q.hasDuration() ? q.duration : null,
+              'fileSizeKb': q.hasFileSizeKb() ? q.fileSizeKb : null,
+              'fileName': q.hasFileName() ? q.fileName : null,
+              'fsId': q.hasFsId() ? q.fsId : null,
+              'caption': q.hasCaption() ? q.caption : null,
+              'thumbUrl': q.hasThumbUrl() ? q.thumbUrl : null,
+            }).toList();
+        _logger.e('快捷回复同步明细', extra: {
+          'count': detailed.length,
+          'items': detailed,
+        });
+      } catch (_) {
+        // 安全兜底，日志不影响主流程
+      }
+
+      final replies = resp.quickReplies.map(_mapPbToDb).toList();
+
+      await _saveToDatabase(replies);
+      await _updateLastSyncTime();
+
+      _logger.i('快捷回复同步成功，共${replies.length}条');
+
+      if (_syncCompleter != null && !_syncCompleter!.isCompleted) {
+        _syncCompleter!.complete(replies);
       }
     } catch (e) {
-      _logger.e('处理快捷回复数据失败', error: e);
+      _logger.e('处理快捷回复列表失败', error: e);
       if (_syncCompleter != null && !_syncCompleter!.isCompleted) {
         _syncCompleter!.completeError(e);
       }
     }
   }
 
-  /// 处理快捷回复错误响应
-  void _handleQuickRepliesError(dynamic data) {
-    final error = data is Map ? data['message'] ?? '未知错误' : '服务器错误';
-    _logger.e('快捷回复请求失败: $error');
-    
+  /// 新增响应（增量）
+  Future<void> _handleQuickReplyCreated(qrpb.QuickReplyResponse resp) async {
+    try {
+      // 更新PB缓存
+      _pbCacheById[resp.quickReply.id.toInt()] = resp.quickReply;
+
+      final item = _mapPbToDb(resp.quickReply);
+      await _upsertQuickReply(item, preferExistingCreatedAt: false);
+      _logger.i('快捷回复新增并已写入本地: ${item.id}');
+    } catch (e) {
+      _logger.e('处理快捷回复新增失败', error: e);
+    }
+  }
+
+  /// 更新响应（增量）
+  Future<void> _handleQuickReplyUpdated(qrpb.QuickReplyResponse resp) async {
+    try {
+      // 更新PB缓存
+      _pbCacheById[resp.quickReply.id.toInt()] = resp.quickReply;
+
+      final item = _mapPbToDb(resp.quickReply);
+      await _upsertQuickReply(item, preferExistingCreatedAt: true);
+      _logger.i('快捷回复更新并已写入本地: ${item.id}');
+    } catch (e) {
+      _logger.e('处理快捷回复更新失败', error: e);
+    }
+  }
+
+  /// 删除响应（增量）
+  Future<void> _handleQuickReplyDeleted(qrpb.DeleteQuickReplyResponse resp) async {
+    try {
+      // 同步删除缓存
+      _pbCacheById.remove(resp.id.toInt());
+
+      await (_db.delete(_db.quickReplies)
+            ..where((tbl) => tbl.id.equals(resp.id.toInt())))
+          .go();
+      _logger.i('快捷回复已从本地删除: ${resp.id}');
+    } catch (e) {
+      _logger.e('处理快捷回复删除失败', error: e);
+    }
+  }
+
+  /// 错误响应
+  void _handleQuickRepliesError(qrpb.QuickReplyErrorResponse err) {
+    final error = err.message.isNotEmpty ? err.message : '服务器错误';
+    _logger.e('快捷回复请求失败: $error', extra: {
+      'code': err.errorCode,
+      'timestamp': err.timestamp.toString(),
+    });
+
     if (_syncCompleter != null && !_syncCompleter!.isCompleted) {
       _syncCompleter!.completeError(Exception(error));
     }
@@ -80,10 +189,9 @@ class QuickReplyRepository {
       // 创建新的Completer
       _syncCompleter = Completer<List<QuickReply>>();
       
-      // 发送Socket.io请求 - 使用原始emit方法
-      _socketService.emit('quick-replies:get', {
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
+      // 发送protobuf请求
+      final req = qrpb.GetQuickRepliesRequest();
+      _socketService.emitProto('quickReplies:get', req);
       
       // 等待响应，设置超时时间
       final replies = await _syncCompleter!.future.timeout(
@@ -127,10 +235,44 @@ class QuickReplyRepository {
       final query = _db.select(_db.quickReplies)
           ..where((tbl) => tbl.isEnabled.equals(true))
           ..orderBy([
+            (tbl) => drift.OrderingTerm.asc(tbl.category),
             (tbl) => drift.OrderingTerm.asc(tbl.orderIndex),
-            (tbl) => drift.OrderingTerm.asc(tbl.id),
+            (tbl) => drift.OrderingTerm.asc(tbl.createdAt),
           ]);
-      return await query.get();
+      final rows = await query.get();
+
+      // 详细打印本地缓存读取（.e级别）
+      try {
+        final items = rows
+            .map((r) => {
+                  'id': r.id,
+                  'name': r.name,
+                  'content': r.content,
+                  'category': r.category,
+                  'mediaType': r.mediaType,
+                  'mediaUrl': r.mediaUrl,
+                  'caption': r.caption,
+                  'width': r.width,
+                  'height': r.height,
+                  'fileSizeKb': r.fileSizeKb,
+                  'fileName': r.fileName,
+                  'mimeType': r.mimeType,
+                  'thumbUrl': r.thumbUrl,
+                  'fsId': r.fsId,
+                  'orderIndex': r.orderIndex,
+                  'isEnabled': r.isEnabled,
+                  'createdAt': r.createdAt.toIso8601String(),
+                  'updatedAt': r.updatedAt?.toIso8601String(),
+                })
+            .toList();
+        _logger.e('快捷回复本地缓存读取明细', extra: {
+          'count': items.length,
+          'items': items,
+          'source': 'local_database',
+        });
+      } catch (_) {}
+
+      return rows;
     } catch (e) {
       _logger.e('从数据库获取快捷回复数据失败', error: e);
       return [];
@@ -248,17 +390,7 @@ class QuickReplyRepository {
         
         // 批量插入新数据
         for (final reply in replies) {
-          await _db.into(_db.quickReplies).insert(
-            QuickRepliesCompanion.insert(
-              id: drift.Value(reply.id),
-              content: reply.content,
-              category: drift.Value(reply.category),
-              orderIndex: drift.Value(reply.orderIndex),
-              isEnabled: drift.Value(reply.isEnabled),
-              createdAt: reply.createdAt,
-              updatedAt: drift.Value(reply.updatedAt),
-            )
-          );
+          await _db.into(_db.quickReplies).insertOnConflictUpdate(reply);
         }
       });
       
@@ -298,6 +430,24 @@ class QuickReplyRepository {
     return await syncFromServer();
   }
 
+  /// 创建快捷回复（protobuf）
+  Future<bool> createQuickReply(qrpb.CreateQuickReplyRequest request) async {
+    _initializeSocketListeners();
+    return _socketService.emitProto('quickReplies:create', request);
+  }
+
+  /// 更新快捷回复（protobuf）
+  Future<bool> updateQuickReply(qrpb.UpdateQuickReplyRequest request) async {
+    _initializeSocketListeners();
+    return _socketService.emitProto('quickReplies:update', request);
+  }
+
+  /// 删除快捷回复（protobuf）
+  Future<bool> deleteQuickReply(qrpb.DeleteQuickReplyRequest request) async {
+    _initializeSocketListeners();
+    return _socketService.emitProto('quickReplies:delete', request);
+  }
+
   /// 获取最后同步时间
   Future<DateTime?> getLastSyncTime() async {
     final prefs = await SharedPreferences.getInstance();
@@ -318,6 +468,56 @@ class QuickReplyRepository {
       _syncCompleter!.completeError(Exception('Repository disposed'));
     }
     _syncCompleter = null;
+    _pbCacheById.clear();
   }
 
+  /// 根据ID获取最近一次同步的PB详情（包含媒体字段）
+  qrpb.QuickReply? getPbById(int id) => _pbCacheById[id];
+
+  // 将 protobuf 的 QuickReply 映射到本地数据库实体
+  QuickReply _mapPbToDb(qrpb.QuickReply item) {
+    return QuickReply(
+      id: item.hasId() ? item.id.toInt() : 0,
+      content: item.hasContent() ? item.content : '',
+      category: item.hasCategory() ? item.category : null,
+      name: item.hasName() && item.name.isNotEmpty ? item.name : null,
+      userId: item.hasUserId() && item.userId.isNotEmpty ? item.userId : null,
+      mediaType: item.hasMediaType() && item.mediaType.isNotEmpty ? item.mediaType : null,
+      mediaUrl: item.hasMediaUrl() && item.mediaUrl.isNotEmpty ? item.mediaUrl : null,
+      caption: item.hasCaption() && item.caption.isNotEmpty ? item.caption : null,
+      width: item.hasWidth() ? item.width : null,
+      height: item.hasHeight() ? item.height : null,
+      fileSizeKb: item.hasFileSizeKb() ? item.fileSizeKb : null,
+      fileName: item.hasFileName() && item.fileName.isNotEmpty ? item.fileName : null,
+      mimeType: item.hasMimeType() && item.mimeType.isNotEmpty ? item.mimeType : null,
+      thumbUrl: item.hasThumbUrl() && item.thumbUrl.isNotEmpty ? item.thumbUrl : null,
+      fsId: item.hasFsId() && item.fsId.isNotEmpty ? item.fsId : null,
+      orderIndex: item.hasOrderIndex() ? item.orderIndex : 0,
+      isEnabled: item.hasIsEnabled() ? item.isEnabled : true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  // 本地增量 Upsert（保留已有 createdAt 可选）
+  Future<void> _upsertQuickReply(QuickReply row, {required bool preferExistingCreatedAt}) async {
+    final existing = await (_db.select(_db.quickReplies)
+          ..where((t) => t.id.equals(row.id)))
+        .getSingleOrNull();
+
+    final QuickReply finalRow;
+    if (existing != null) {
+      finalRow = row.copyWith(
+        createdAt: preferExistingCreatedAt ? existing.createdAt : row.createdAt,
+        updatedAt: drift.Value<DateTime?>(DateTime.now()),
+      );
+    } else {
+      finalRow = row.copyWith(
+        createdAt: DateTime.now(),
+        updatedAt: drift.Value<DateTime?>(DateTime.now()),
+      );
+    }
+
+    await _db.into(_db.quickReplies).insertOnConflictUpdate(finalRow);
+  }
 }

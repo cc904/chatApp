@@ -3417,6 +3417,73 @@ class $QuickRepliesTable extends QuickReplies
   late final GeneratedColumn<String> category = GeneratedColumn<String>(
       'category', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+      'user_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _mediaTypeMeta =
+      const VerificationMeta('mediaType');
+  @override
+  late final GeneratedColumn<String> mediaType = GeneratedColumn<String>(
+      'media_type', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _mediaUrlMeta =
+      const VerificationMeta('mediaUrl');
+  @override
+  late final GeneratedColumn<String> mediaUrl = GeneratedColumn<String>(
+      'media_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _captionMeta =
+      const VerificationMeta('caption');
+  @override
+  late final GeneratedColumn<String> caption = GeneratedColumn<String>(
+      'caption', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _widthMeta = const VerificationMeta('width');
+  @override
+  late final GeneratedColumn<int> width = GeneratedColumn<int>(
+      'width', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _heightMeta = const VerificationMeta('height');
+  @override
+  late final GeneratedColumn<int> height = GeneratedColumn<int>(
+      'height', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _fileSizeKbMeta =
+      const VerificationMeta('fileSizeKb');
+  @override
+  late final GeneratedColumn<double> fileSizeKb = GeneratedColumn<double>(
+      'file_size_kb', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _fileNameMeta =
+      const VerificationMeta('fileName');
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+      'file_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _mimeTypeMeta =
+      const VerificationMeta('mimeType');
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+      'mime_type', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _thumbUrlMeta =
+      const VerificationMeta('thumbUrl');
+  @override
+  late final GeneratedColumn<String> thumbUrl = GeneratedColumn<String>(
+      'thumb_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _fsIdMeta = const VerificationMeta('fsId');
+  @override
+  late final GeneratedColumn<String> fsId = GeneratedColumn<String>(
+      'fs_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _orderIndexMeta =
       const VerificationMeta('orderIndex');
   @override
@@ -3448,8 +3515,27 @@ class $QuickRepliesTable extends QuickReplies
       'updated_at', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, content, category, orderIndex, isEnabled, createdAt, updatedAt];
+  List<GeneratedColumn> get $columns => [
+        id,
+        content,
+        category,
+        name,
+        userId,
+        mediaType,
+        mediaUrl,
+        caption,
+        width,
+        height,
+        fileSizeKb,
+        fileName,
+        mimeType,
+        thumbUrl,
+        fsId,
+        orderIndex,
+        isEnabled,
+        createdAt,
+        updatedAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3472,6 +3558,56 @@ class $QuickRepliesTable extends QuickReplies
     if (data.containsKey('category')) {
       context.handle(_categoryMeta,
           category.isAcceptableOrUnknown(data['category']!, _categoryMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(_userIdMeta,
+          userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta));
+    }
+    if (data.containsKey('media_type')) {
+      context.handle(_mediaTypeMeta,
+          mediaType.isAcceptableOrUnknown(data['media_type']!, _mediaTypeMeta));
+    }
+    if (data.containsKey('media_url')) {
+      context.handle(_mediaUrlMeta,
+          mediaUrl.isAcceptableOrUnknown(data['media_url']!, _mediaUrlMeta));
+    }
+    if (data.containsKey('caption')) {
+      context.handle(_captionMeta,
+          caption.isAcceptableOrUnknown(data['caption']!, _captionMeta));
+    }
+    if (data.containsKey('width')) {
+      context.handle(
+          _widthMeta, width.isAcceptableOrUnknown(data['width']!, _widthMeta));
+    }
+    if (data.containsKey('height')) {
+      context.handle(_heightMeta,
+          height.isAcceptableOrUnknown(data['height']!, _heightMeta));
+    }
+    if (data.containsKey('file_size_kb')) {
+      context.handle(
+          _fileSizeKbMeta,
+          fileSizeKb.isAcceptableOrUnknown(
+              data['file_size_kb']!, _fileSizeKbMeta));
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(_fileNameMeta,
+          fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta));
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(_mimeTypeMeta,
+          mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta));
+    }
+    if (data.containsKey('thumb_url')) {
+      context.handle(_thumbUrlMeta,
+          thumbUrl.isAcceptableOrUnknown(data['thumb_url']!, _thumbUrlMeta));
+    }
+    if (data.containsKey('fs_id')) {
+      context.handle(
+          _fsIdMeta, fsId.isAcceptableOrUnknown(data['fs_id']!, _fsIdMeta));
     }
     if (data.containsKey('order_index')) {
       context.handle(
@@ -3508,6 +3644,30 @@ class $QuickRepliesTable extends QuickReplies
           .read(DriftSqlType.string, data['${effectivePrefix}content'])!,
       category: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}category']),
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name']),
+      userId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}user_id']),
+      mediaType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}media_type']),
+      mediaUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}media_url']),
+      caption: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}caption']),
+      width: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}width']),
+      height: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}height']),
+      fileSizeKb: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}file_size_kb']),
+      fileName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}file_name']),
+      mimeType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mime_type']),
+      thumbUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}thumb_url']),
+      fsId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}fs_id']),
       orderIndex: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}order_index'])!,
       isEnabled: attachedDatabase.typeMapping
@@ -3529,6 +3689,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
   final int id;
   final String content;
   final String? category;
+  final String? name;
+  final String? userId;
+  final String? mediaType;
+  final String? mediaUrl;
+  final String? caption;
+  final int? width;
+  final int? height;
+  final double? fileSizeKb;
+  final String? fileName;
+  final String? mimeType;
+  final String? thumbUrl;
+  final String? fsId;
   final int orderIndex;
   final bool isEnabled;
   final DateTime createdAt;
@@ -3537,6 +3709,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
       {required this.id,
       required this.content,
       this.category,
+      this.name,
+      this.userId,
+      this.mediaType,
+      this.mediaUrl,
+      this.caption,
+      this.width,
+      this.height,
+      this.fileSizeKb,
+      this.fileName,
+      this.mimeType,
+      this.thumbUrl,
+      this.fsId,
       required this.orderIndex,
       required this.isEnabled,
       required this.createdAt,
@@ -3548,6 +3732,42 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
     map['content'] = Variable<String>(content);
     if (!nullToAbsent || category != null) {
       map['category'] = Variable<String>(category);
+    }
+    if (!nullToAbsent || name != null) {
+      map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || mediaType != null) {
+      map['media_type'] = Variable<String>(mediaType);
+    }
+    if (!nullToAbsent || mediaUrl != null) {
+      map['media_url'] = Variable<String>(mediaUrl);
+    }
+    if (!nullToAbsent || caption != null) {
+      map['caption'] = Variable<String>(caption);
+    }
+    if (!nullToAbsent || width != null) {
+      map['width'] = Variable<int>(width);
+    }
+    if (!nullToAbsent || height != null) {
+      map['height'] = Variable<int>(height);
+    }
+    if (!nullToAbsent || fileSizeKb != null) {
+      map['file_size_kb'] = Variable<double>(fileSizeKb);
+    }
+    if (!nullToAbsent || fileName != null) {
+      map['file_name'] = Variable<String>(fileName);
+    }
+    if (!nullToAbsent || mimeType != null) {
+      map['mime_type'] = Variable<String>(mimeType);
+    }
+    if (!nullToAbsent || thumbUrl != null) {
+      map['thumb_url'] = Variable<String>(thumbUrl);
+    }
+    if (!nullToAbsent || fsId != null) {
+      map['fs_id'] = Variable<String>(fsId);
     }
     map['order_index'] = Variable<int>(orderIndex);
     map['is_enabled'] = Variable<bool>(isEnabled);
@@ -3565,6 +3785,35 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
       category: category == null && nullToAbsent
           ? const Value.absent()
           : Value(category),
+      name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      userId:
+          userId == null && nullToAbsent ? const Value.absent() : Value(userId),
+      mediaType: mediaType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mediaType),
+      mediaUrl: mediaUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mediaUrl),
+      caption: caption == null && nullToAbsent
+          ? const Value.absent()
+          : Value(caption),
+      width:
+          width == null && nullToAbsent ? const Value.absent() : Value(width),
+      height:
+          height == null && nullToAbsent ? const Value.absent() : Value(height),
+      fileSizeKb: fileSizeKb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fileSizeKb),
+      fileName: fileName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fileName),
+      mimeType: mimeType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mimeType),
+      thumbUrl: thumbUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbUrl),
+      fsId: fsId == null && nullToAbsent ? const Value.absent() : Value(fsId),
       orderIndex: Value(orderIndex),
       isEnabled: Value(isEnabled),
       createdAt: Value(createdAt),
@@ -3581,6 +3830,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
       id: serializer.fromJson<int>(json['id']),
       content: serializer.fromJson<String>(json['content']),
       category: serializer.fromJson<String?>(json['category']),
+      name: serializer.fromJson<String?>(json['name']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      mediaType: serializer.fromJson<String?>(json['mediaType']),
+      mediaUrl: serializer.fromJson<String?>(json['mediaUrl']),
+      caption: serializer.fromJson<String?>(json['caption']),
+      width: serializer.fromJson<int?>(json['width']),
+      height: serializer.fromJson<int?>(json['height']),
+      fileSizeKb: serializer.fromJson<double?>(json['fileSizeKb']),
+      fileName: serializer.fromJson<String?>(json['fileName']),
+      mimeType: serializer.fromJson<String?>(json['mimeType']),
+      thumbUrl: serializer.fromJson<String?>(json['thumbUrl']),
+      fsId: serializer.fromJson<String?>(json['fsId']),
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
       isEnabled: serializer.fromJson<bool>(json['isEnabled']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -3594,6 +3855,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
       'id': serializer.toJson<int>(id),
       'content': serializer.toJson<String>(content),
       'category': serializer.toJson<String?>(category),
+      'name': serializer.toJson<String?>(name),
+      'userId': serializer.toJson<String?>(userId),
+      'mediaType': serializer.toJson<String?>(mediaType),
+      'mediaUrl': serializer.toJson<String?>(mediaUrl),
+      'caption': serializer.toJson<String?>(caption),
+      'width': serializer.toJson<int?>(width),
+      'height': serializer.toJson<int?>(height),
+      'fileSizeKb': serializer.toJson<double?>(fileSizeKb),
+      'fileName': serializer.toJson<String?>(fileName),
+      'mimeType': serializer.toJson<String?>(mimeType),
+      'thumbUrl': serializer.toJson<String?>(thumbUrl),
+      'fsId': serializer.toJson<String?>(fsId),
       'orderIndex': serializer.toJson<int>(orderIndex),
       'isEnabled': serializer.toJson<bool>(isEnabled),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -3605,6 +3878,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
           {int? id,
           String? content,
           Value<String?> category = const Value.absent(),
+          Value<String?> name = const Value.absent(),
+          Value<String?> userId = const Value.absent(),
+          Value<String?> mediaType = const Value.absent(),
+          Value<String?> mediaUrl = const Value.absent(),
+          Value<String?> caption = const Value.absent(),
+          Value<int?> width = const Value.absent(),
+          Value<int?> height = const Value.absent(),
+          Value<double?> fileSizeKb = const Value.absent(),
+          Value<String?> fileName = const Value.absent(),
+          Value<String?> mimeType = const Value.absent(),
+          Value<String?> thumbUrl = const Value.absent(),
+          Value<String?> fsId = const Value.absent(),
           int? orderIndex,
           bool? isEnabled,
           DateTime? createdAt,
@@ -3613,6 +3898,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
         id: id ?? this.id,
         content: content ?? this.content,
         category: category.present ? category.value : this.category,
+        name: name.present ? name.value : this.name,
+        userId: userId.present ? userId.value : this.userId,
+        mediaType: mediaType.present ? mediaType.value : this.mediaType,
+        mediaUrl: mediaUrl.present ? mediaUrl.value : this.mediaUrl,
+        caption: caption.present ? caption.value : this.caption,
+        width: width.present ? width.value : this.width,
+        height: height.present ? height.value : this.height,
+        fileSizeKb: fileSizeKb.present ? fileSizeKb.value : this.fileSizeKb,
+        fileName: fileName.present ? fileName.value : this.fileName,
+        mimeType: mimeType.present ? mimeType.value : this.mimeType,
+        thumbUrl: thumbUrl.present ? thumbUrl.value : this.thumbUrl,
+        fsId: fsId.present ? fsId.value : this.fsId,
         orderIndex: orderIndex ?? this.orderIndex,
         isEnabled: isEnabled ?? this.isEnabled,
         createdAt: createdAt ?? this.createdAt,
@@ -3623,6 +3920,19 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
       id: data.id.present ? data.id.value : this.id,
       content: data.content.present ? data.content.value : this.content,
       category: data.category.present ? data.category.value : this.category,
+      name: data.name.present ? data.name.value : this.name,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      mediaType: data.mediaType.present ? data.mediaType.value : this.mediaType,
+      mediaUrl: data.mediaUrl.present ? data.mediaUrl.value : this.mediaUrl,
+      caption: data.caption.present ? data.caption.value : this.caption,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      fileSizeKb:
+          data.fileSizeKb.present ? data.fileSizeKb.value : this.fileSizeKb,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      thumbUrl: data.thumbUrl.present ? data.thumbUrl.value : this.thumbUrl,
+      fsId: data.fsId.present ? data.fsId.value : this.fsId,
       orderIndex:
           data.orderIndex.present ? data.orderIndex.value : this.orderIndex,
       isEnabled: data.isEnabled.present ? data.isEnabled.value : this.isEnabled,
@@ -3637,6 +3947,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
           ..write('id: $id, ')
           ..write('content: $content, ')
           ..write('category: $category, ')
+          ..write('name: $name, ')
+          ..write('userId: $userId, ')
+          ..write('mediaType: $mediaType, ')
+          ..write('mediaUrl: $mediaUrl, ')
+          ..write('caption: $caption, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('fileSizeKb: $fileSizeKb, ')
+          ..write('fileName: $fileName, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('thumbUrl: $thumbUrl, ')
+          ..write('fsId: $fsId, ')
           ..write('orderIndex: $orderIndex, ')
           ..write('isEnabled: $isEnabled, ')
           ..write('createdAt: $createdAt, ')
@@ -3647,7 +3969,25 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
 
   @override
   int get hashCode => Object.hash(
-      id, content, category, orderIndex, isEnabled, createdAt, updatedAt);
+      id,
+      content,
+      category,
+      name,
+      userId,
+      mediaType,
+      mediaUrl,
+      caption,
+      width,
+      height,
+      fileSizeKb,
+      fileName,
+      mimeType,
+      thumbUrl,
+      fsId,
+      orderIndex,
+      isEnabled,
+      createdAt,
+      updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3655,6 +3995,18 @@ class QuickReply extends DataClass implements Insertable<QuickReply> {
           other.id == this.id &&
           other.content == this.content &&
           other.category == this.category &&
+          other.name == this.name &&
+          other.userId == this.userId &&
+          other.mediaType == this.mediaType &&
+          other.mediaUrl == this.mediaUrl &&
+          other.caption == this.caption &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.fileSizeKb == this.fileSizeKb &&
+          other.fileName == this.fileName &&
+          other.mimeType == this.mimeType &&
+          other.thumbUrl == this.thumbUrl &&
+          other.fsId == this.fsId &&
           other.orderIndex == this.orderIndex &&
           other.isEnabled == this.isEnabled &&
           other.createdAt == this.createdAt &&
@@ -3665,6 +4017,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
   final Value<int> id;
   final Value<String> content;
   final Value<String?> category;
+  final Value<String?> name;
+  final Value<String?> userId;
+  final Value<String?> mediaType;
+  final Value<String?> mediaUrl;
+  final Value<String?> caption;
+  final Value<int?> width;
+  final Value<int?> height;
+  final Value<double?> fileSizeKb;
+  final Value<String?> fileName;
+  final Value<String?> mimeType;
+  final Value<String?> thumbUrl;
+  final Value<String?> fsId;
   final Value<int> orderIndex;
   final Value<bool> isEnabled;
   final Value<DateTime> createdAt;
@@ -3673,6 +4037,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
     this.id = const Value.absent(),
     this.content = const Value.absent(),
     this.category = const Value.absent(),
+    this.name = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.mediaType = const Value.absent(),
+    this.mediaUrl = const Value.absent(),
+    this.caption = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.fileSizeKb = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.thumbUrl = const Value.absent(),
+    this.fsId = const Value.absent(),
     this.orderIndex = const Value.absent(),
     this.isEnabled = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3682,6 +4058,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
     this.id = const Value.absent(),
     required String content,
     this.category = const Value.absent(),
+    this.name = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.mediaType = const Value.absent(),
+    this.mediaUrl = const Value.absent(),
+    this.caption = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.fileSizeKb = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.thumbUrl = const Value.absent(),
+    this.fsId = const Value.absent(),
     this.orderIndex = const Value.absent(),
     this.isEnabled = const Value.absent(),
     required DateTime createdAt,
@@ -3692,6 +4080,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
     Expression<int>? id,
     Expression<String>? content,
     Expression<String>? category,
+    Expression<String>? name,
+    Expression<String>? userId,
+    Expression<String>? mediaType,
+    Expression<String>? mediaUrl,
+    Expression<String>? caption,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<double>? fileSizeKb,
+    Expression<String>? fileName,
+    Expression<String>? mimeType,
+    Expression<String>? thumbUrl,
+    Expression<String>? fsId,
     Expression<int>? orderIndex,
     Expression<bool>? isEnabled,
     Expression<DateTime>? createdAt,
@@ -3701,6 +4101,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
       if (id != null) 'id': id,
       if (content != null) 'content': content,
       if (category != null) 'category': category,
+      if (name != null) 'name': name,
+      if (userId != null) 'user_id': userId,
+      if (mediaType != null) 'media_type': mediaType,
+      if (mediaUrl != null) 'media_url': mediaUrl,
+      if (caption != null) 'caption': caption,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (fileSizeKb != null) 'file_size_kb': fileSizeKb,
+      if (fileName != null) 'file_name': fileName,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (thumbUrl != null) 'thumb_url': thumbUrl,
+      if (fsId != null) 'fs_id': fsId,
       if (orderIndex != null) 'order_index': orderIndex,
       if (isEnabled != null) 'is_enabled': isEnabled,
       if (createdAt != null) 'created_at': createdAt,
@@ -3712,6 +4124,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
       {Value<int>? id,
       Value<String>? content,
       Value<String?>? category,
+      Value<String?>? name,
+      Value<String?>? userId,
+      Value<String?>? mediaType,
+      Value<String?>? mediaUrl,
+      Value<String?>? caption,
+      Value<int?>? width,
+      Value<int?>? height,
+      Value<double?>? fileSizeKb,
+      Value<String?>? fileName,
+      Value<String?>? mimeType,
+      Value<String?>? thumbUrl,
+      Value<String?>? fsId,
       Value<int>? orderIndex,
       Value<bool>? isEnabled,
       Value<DateTime>? createdAt,
@@ -3720,6 +4144,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
       id: id ?? this.id,
       content: content ?? this.content,
       category: category ?? this.category,
+      name: name ?? this.name,
+      userId: userId ?? this.userId,
+      mediaType: mediaType ?? this.mediaType,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      caption: caption ?? this.caption,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      fileSizeKb: fileSizeKb ?? this.fileSizeKb,
+      fileName: fileName ?? this.fileName,
+      mimeType: mimeType ?? this.mimeType,
+      thumbUrl: thumbUrl ?? this.thumbUrl,
+      fsId: fsId ?? this.fsId,
       orderIndex: orderIndex ?? this.orderIndex,
       isEnabled: isEnabled ?? this.isEnabled,
       createdAt: createdAt ?? this.createdAt,
@@ -3738,6 +4174,42 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
     }
     if (category.present) {
       map['category'] = Variable<String>(category.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (mediaType.present) {
+      map['media_type'] = Variable<String>(mediaType.value);
+    }
+    if (mediaUrl.present) {
+      map['media_url'] = Variable<String>(mediaUrl.value);
+    }
+    if (caption.present) {
+      map['caption'] = Variable<String>(caption.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (fileSizeKb.present) {
+      map['file_size_kb'] = Variable<double>(fileSizeKb.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (thumbUrl.present) {
+      map['thumb_url'] = Variable<String>(thumbUrl.value);
+    }
+    if (fsId.present) {
+      map['fs_id'] = Variable<String>(fsId.value);
     }
     if (orderIndex.present) {
       map['order_index'] = Variable<int>(orderIndex.value);
@@ -3760,6 +4232,18 @@ class QuickRepliesCompanion extends UpdateCompanion<QuickReply> {
           ..write('id: $id, ')
           ..write('content: $content, ')
           ..write('category: $category, ')
+          ..write('name: $name, ')
+          ..write('userId: $userId, ')
+          ..write('mediaType: $mediaType, ')
+          ..write('mediaUrl: $mediaUrl, ')
+          ..write('caption: $caption, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('fileSizeKb: $fileSizeKb, ')
+          ..write('fileName: $fileName, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('thumbUrl: $thumbUrl, ')
+          ..write('fsId: $fsId, ')
           ..write('orderIndex: $orderIndex, ')
           ..write('isEnabled: $isEnabled, ')
           ..write('createdAt: $createdAt, ')
@@ -5330,6 +5814,18 @@ typedef $$QuickRepliesTableCreateCompanionBuilder = QuickRepliesCompanion
   Value<int> id,
   required String content,
   Value<String?> category,
+  Value<String?> name,
+  Value<String?> userId,
+  Value<String?> mediaType,
+  Value<String?> mediaUrl,
+  Value<String?> caption,
+  Value<int?> width,
+  Value<int?> height,
+  Value<double?> fileSizeKb,
+  Value<String?> fileName,
+  Value<String?> mimeType,
+  Value<String?> thumbUrl,
+  Value<String?> fsId,
   Value<int> orderIndex,
   Value<bool> isEnabled,
   required DateTime createdAt,
@@ -5340,6 +5836,18 @@ typedef $$QuickRepliesTableUpdateCompanionBuilder = QuickRepliesCompanion
   Value<int> id,
   Value<String> content,
   Value<String?> category,
+  Value<String?> name,
+  Value<String?> userId,
+  Value<String?> mediaType,
+  Value<String?> mediaUrl,
+  Value<String?> caption,
+  Value<int?> width,
+  Value<int?> height,
+  Value<double?> fileSizeKb,
+  Value<String?> fileName,
+  Value<String?> mimeType,
+  Value<String?> thumbUrl,
+  Value<String?> fsId,
   Value<int> orderIndex,
   Value<bool> isEnabled,
   Value<DateTime> createdAt,
@@ -5363,6 +5871,42 @@ class $$QuickRepliesTableFilterComposer
 
   ColumnFilters<String> get category => $composableBuilder(
       column: $table.category, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get userId => $composableBuilder(
+      column: $table.userId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mediaType => $composableBuilder(
+      column: $table.mediaType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mediaUrl => $composableBuilder(
+      column: $table.mediaUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get caption => $composableBuilder(
+      column: $table.caption, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get width => $composableBuilder(
+      column: $table.width, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get height => $composableBuilder(
+      column: $table.height, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get fileSizeKb => $composableBuilder(
+      column: $table.fileSizeKb, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+      column: $table.fileName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+      column: $table.mimeType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get thumbUrl => $composableBuilder(
+      column: $table.thumbUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get fsId => $composableBuilder(
+      column: $table.fsId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get orderIndex => $composableBuilder(
       column: $table.orderIndex, builder: (column) => ColumnFilters(column));
@@ -5395,6 +5939,42 @@ class $$QuickRepliesTableOrderingComposer
   ColumnOrderings<String> get category => $composableBuilder(
       column: $table.category, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+      column: $table.userId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mediaType => $composableBuilder(
+      column: $table.mediaType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mediaUrl => $composableBuilder(
+      column: $table.mediaUrl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get caption => $composableBuilder(
+      column: $table.caption, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get width => $composableBuilder(
+      column: $table.width, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get height => $composableBuilder(
+      column: $table.height, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get fileSizeKb => $composableBuilder(
+      column: $table.fileSizeKb, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+      column: $table.fileName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+      column: $table.mimeType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get thumbUrl => $composableBuilder(
+      column: $table.thumbUrl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get fsId => $composableBuilder(
+      column: $table.fsId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get orderIndex => $composableBuilder(
       column: $table.orderIndex, builder: (column) => ColumnOrderings(column));
 
@@ -5425,6 +6005,42 @@ class $$QuickRepliesTableAnnotationComposer
 
   GeneratedColumn<String> get category =>
       $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get mediaType =>
+      $composableBuilder(column: $table.mediaType, builder: (column) => column);
+
+  GeneratedColumn<String> get mediaUrl =>
+      $composableBuilder(column: $table.mediaUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get caption =>
+      $composableBuilder(column: $table.caption, builder: (column) => column);
+
+  GeneratedColumn<int> get width =>
+      $composableBuilder(column: $table.width, builder: (column) => column);
+
+  GeneratedColumn<int> get height =>
+      $composableBuilder(column: $table.height, builder: (column) => column);
+
+  GeneratedColumn<double> get fileSizeKb => $composableBuilder(
+      column: $table.fileSizeKb, builder: (column) => column);
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<String> get thumbUrl =>
+      $composableBuilder(column: $table.thumbUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get fsId =>
+      $composableBuilder(column: $table.fsId, builder: (column) => column);
 
   GeneratedColumn<int> get orderIndex => $composableBuilder(
       column: $table.orderIndex, builder: (column) => column);
@@ -5465,6 +6081,18 @@ class $$QuickRepliesTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             Value<String> content = const Value.absent(),
             Value<String?> category = const Value.absent(),
+            Value<String?> name = const Value.absent(),
+            Value<String?> userId = const Value.absent(),
+            Value<String?> mediaType = const Value.absent(),
+            Value<String?> mediaUrl = const Value.absent(),
+            Value<String?> caption = const Value.absent(),
+            Value<int?> width = const Value.absent(),
+            Value<int?> height = const Value.absent(),
+            Value<double?> fileSizeKb = const Value.absent(),
+            Value<String?> fileName = const Value.absent(),
+            Value<String?> mimeType = const Value.absent(),
+            Value<String?> thumbUrl = const Value.absent(),
+            Value<String?> fsId = const Value.absent(),
             Value<int> orderIndex = const Value.absent(),
             Value<bool> isEnabled = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -5474,6 +6102,18 @@ class $$QuickRepliesTableTableManager extends RootTableManager<
             id: id,
             content: content,
             category: category,
+            name: name,
+            userId: userId,
+            mediaType: mediaType,
+            mediaUrl: mediaUrl,
+            caption: caption,
+            width: width,
+            height: height,
+            fileSizeKb: fileSizeKb,
+            fileName: fileName,
+            mimeType: mimeType,
+            thumbUrl: thumbUrl,
+            fsId: fsId,
             orderIndex: orderIndex,
             isEnabled: isEnabled,
             createdAt: createdAt,
@@ -5483,6 +6123,18 @@ class $$QuickRepliesTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             required String content,
             Value<String?> category = const Value.absent(),
+            Value<String?> name = const Value.absent(),
+            Value<String?> userId = const Value.absent(),
+            Value<String?> mediaType = const Value.absent(),
+            Value<String?> mediaUrl = const Value.absent(),
+            Value<String?> caption = const Value.absent(),
+            Value<int?> width = const Value.absent(),
+            Value<int?> height = const Value.absent(),
+            Value<double?> fileSizeKb = const Value.absent(),
+            Value<String?> fileName = const Value.absent(),
+            Value<String?> mimeType = const Value.absent(),
+            Value<String?> thumbUrl = const Value.absent(),
+            Value<String?> fsId = const Value.absent(),
             Value<int> orderIndex = const Value.absent(),
             Value<bool> isEnabled = const Value.absent(),
             required DateTime createdAt,
@@ -5492,6 +6144,18 @@ class $$QuickRepliesTableTableManager extends RootTableManager<
             id: id,
             content: content,
             category: category,
+            name: name,
+            userId: userId,
+            mediaType: mediaType,
+            mediaUrl: mediaUrl,
+            caption: caption,
+            width: width,
+            height: height,
+            fileSizeKb: fileSizeKb,
+            fileName: fileName,
+            mimeType: mimeType,
+            thumbUrl: thumbUrl,
+            fsId: fsId,
             orderIndex: orderIndex,
             isEnabled: isEnabled,
             createdAt: createdAt,

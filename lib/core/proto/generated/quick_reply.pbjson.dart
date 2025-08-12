@@ -25,6 +25,18 @@ const QuickReply$json = {
     {'1': 'is_enabled', '3': 5, '4': 1, '5': 8, '10': 'isEnabled'},
     {'1': 'user_id', '3': 6, '4': 1, '5': 9, '10': 'userId'},
     {'1': 'type', '3': 7, '4': 1, '5': 9, '10': 'type'},
+    {'1': 'media_type', '3': 8, '4': 1, '5': 9, '10': 'mediaType'},
+    {'1': 'media_url', '3': 9, '4': 1, '5': 9, '10': 'mediaUrl'},
+    {'1': 'mime_type', '3': 10, '4': 1, '5': 9, '10': 'mimeType'},
+    {'1': 'width', '3': 11, '4': 1, '5': 5, '10': 'width'},
+    {'1': 'height', '3': 12, '4': 1, '5': 5, '10': 'height'},
+    {'1': 'duration', '3': 13, '4': 1, '5': 5, '10': 'duration'},
+    {'1': 'file_size_kb', '3': 14, '4': 1, '5': 1, '10': 'fileSizeKb'},
+    {'1': 'file_name', '3': 15, '4': 1, '5': 9, '10': 'fileName'},
+    {'1': 'fs_id', '3': 16, '4': 1, '5': 9, '10': 'fsId'},
+    {'1': 'caption', '3': 17, '4': 1, '5': 9, '10': 'caption'},
+    {'1': 'thumb_url', '3': 18, '4': 1, '5': 9, '10': 'thumbUrl'},
+    {'1': 'name', '3': 19, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
@@ -33,7 +45,13 @@ final $typed_data.Uint8List quickReplyDescriptor = $convert.base64Decode(
     'CgpRdWlja1JlcGx5Eg4KAmlkGAEgASgDUgJpZBIYCgdjb250ZW50GAIgASgJUgdjb250ZW50Eh'
     'oKCGNhdGVnb3J5GAMgASgJUghjYXRlZ29yeRIfCgtvcmRlcl9pbmRleBgEIAEoBVIKb3JkZXJJ'
     'bmRleBIdCgppc19lbmFibGVkGAUgASgIUglpc0VuYWJsZWQSFwoHdXNlcl9pZBgGIAEoCVIGdX'
-    'NlcklkEhIKBHR5cGUYByABKAlSBHR5cGU=');
+    'NlcklkEhIKBHR5cGUYByABKAlSBHR5cGUSHQoKbWVkaWFfdHlwZRgIIAEoCVIJbWVkaWFUeXBl'
+    'EhsKCW1lZGlhX3VybBgJIAEoCVIIbWVkaWFVcmwSGwoJbWltZV90eXBlGAogASgJUghtaW1lVH'
+    'lwZRIUCgV3aWR0aBgLIAEoBVIFd2lkdGgSFgoGaGVpZ2h0GAwgASgFUgZoZWlnaHQSGgoIZHVy'
+    'YXRpb24YDSABKAVSCGR1cmF0aW9uEiAKDGZpbGVfc2l6ZV9rYhgOIAEoAVIKZmlsZVNpemVLYh'
+    'IbCglmaWxlX25hbWUYDyABKAlSCGZpbGVOYW1lEhMKBWZzX2lkGBAgASgJUgRmc0lkEhgKB2Nh'
+    'cHRpb24YESABKAlSB2NhcHRpb24SGwoJdGh1bWJfdXJsGBIgASgJUgh0aHVtYlVybBISCgRuYW'
+    '1lGBMgASgJUgRuYW1l');
 
 @$core.Deprecated('Use getQuickRepliesRequestDescriptor instead')
 const GetQuickRepliesRequest$json = {
@@ -78,6 +96,18 @@ const CreateQuickReplyRequest$json = {
     {'1': 'category', '3': 2, '4': 1, '5': 9, '10': 'category'},
     {'1': 'order_index', '3': 3, '4': 1, '5': 5, '10': 'orderIndex'},
     {'1': 'is_enabled', '3': 4, '4': 1, '5': 8, '10': 'isEnabled'},
+    {'1': 'media_type', '3': 5, '4': 1, '5': 9, '10': 'mediaType'},
+    {'1': 'media_url', '3': 6, '4': 1, '5': 9, '10': 'mediaUrl'},
+    {'1': 'mime_type', '3': 7, '4': 1, '5': 9, '10': 'mimeType'},
+    {'1': 'width', '3': 8, '4': 1, '5': 5, '10': 'width'},
+    {'1': 'height', '3': 9, '4': 1, '5': 5, '10': 'height'},
+    {'1': 'duration', '3': 10, '4': 1, '5': 5, '10': 'duration'},
+    {'1': 'file_size_kb', '3': 11, '4': 1, '5': 1, '10': 'fileSizeKb'},
+    {'1': 'file_name', '3': 12, '4': 1, '5': 9, '10': 'fileName'},
+    {'1': 'fs_id', '3': 13, '4': 1, '5': 9, '10': 'fsId'},
+    {'1': 'caption', '3': 14, '4': 1, '5': 9, '10': 'caption'},
+    {'1': 'thumb_url', '3': 15, '4': 1, '5': 9, '10': 'thumbUrl'},
+    {'1': 'name', '3': 16, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
@@ -85,7 +115,13 @@ const CreateQuickReplyRequest$json = {
 final $typed_data.Uint8List createQuickReplyRequestDescriptor = $convert.base64Decode(
     'ChdDcmVhdGVRdWlja1JlcGx5UmVxdWVzdBIYCgdjb250ZW50GAEgASgJUgdjb250ZW50EhoKCG'
     'NhdGVnb3J5GAIgASgJUghjYXRlZ29yeRIfCgtvcmRlcl9pbmRleBgDIAEoBVIKb3JkZXJJbmRl'
-    'eBIdCgppc19lbmFibGVkGAQgASgIUglpc0VuYWJsZWQ=');
+    'eBIdCgppc19lbmFibGVkGAQgASgIUglpc0VuYWJsZWQSHQoKbWVkaWFfdHlwZRgFIAEoCVIJbW'
+    'VkaWFUeXBlEhsKCW1lZGlhX3VybBgGIAEoCVIIbWVkaWFVcmwSGwoJbWltZV90eXBlGAcgASgJ'
+    'UghtaW1lVHlwZRIUCgV3aWR0aBgIIAEoBVIFd2lkdGgSFgoGaGVpZ2h0GAkgASgFUgZoZWlnaH'
+    'QSGgoIZHVyYXRpb24YCiABKAVSCGR1cmF0aW9uEiAKDGZpbGVfc2l6ZV9rYhgLIAEoAVIKZmls'
+    'ZVNpemVLYhIbCglmaWxlX25hbWUYDCABKAlSCGZpbGVOYW1lEhMKBWZzX2lkGA0gASgJUgRmc0'
+    'lkEhgKB2NhcHRpb24YDiABKAlSB2NhcHRpb24SGwoJdGh1bWJfdXJsGA8gASgJUgh0aHVtYlVy'
+    'bBISCgRuYW1lGBAgASgJUgRuYW1l');
 
 @$core.Deprecated('Use updateQuickReplyRequestDescriptor instead')
 const UpdateQuickReplyRequest$json = {
@@ -96,6 +132,18 @@ const UpdateQuickReplyRequest$json = {
     {'1': 'category', '3': 3, '4': 1, '5': 9, '10': 'category'},
     {'1': 'order_index', '3': 4, '4': 1, '5': 5, '10': 'orderIndex'},
     {'1': 'is_enabled', '3': 5, '4': 1, '5': 8, '10': 'isEnabled'},
+    {'1': 'media_type', '3': 6, '4': 1, '5': 9, '10': 'mediaType'},
+    {'1': 'media_url', '3': 7, '4': 1, '5': 9, '10': 'mediaUrl'},
+    {'1': 'mime_type', '3': 8, '4': 1, '5': 9, '10': 'mimeType'},
+    {'1': 'width', '3': 9, '4': 1, '5': 5, '10': 'width'},
+    {'1': 'height', '3': 10, '4': 1, '5': 5, '10': 'height'},
+    {'1': 'duration', '3': 11, '4': 1, '5': 5, '10': 'duration'},
+    {'1': 'file_size_kb', '3': 12, '4': 1, '5': 1, '10': 'fileSizeKb'},
+    {'1': 'file_name', '3': 13, '4': 1, '5': 9, '10': 'fileName'},
+    {'1': 'fs_id', '3': 14, '4': 1, '5': 9, '10': 'fsId'},
+    {'1': 'caption', '3': 15, '4': 1, '5': 9, '10': 'caption'},
+    {'1': 'thumb_url', '3': 16, '4': 1, '5': 9, '10': 'thumbUrl'},
+    {'1': 'name', '3': 17, '4': 1, '5': 9, '10': 'name'},
   ],
 };
 
@@ -103,7 +151,13 @@ const UpdateQuickReplyRequest$json = {
 final $typed_data.Uint8List updateQuickReplyRequestDescriptor = $convert.base64Decode(
     'ChdVcGRhdGVRdWlja1JlcGx5UmVxdWVzdBIOCgJpZBgBIAEoA1ICaWQSGAoHY29udGVudBgCIA'
     'EoCVIHY29udGVudBIaCghjYXRlZ29yeRgDIAEoCVIIY2F0ZWdvcnkSHwoLb3JkZXJfaW5kZXgY'
-    'BCABKAVSCm9yZGVySW5kZXgSHQoKaXNfZW5hYmxlZBgFIAEoCFIJaXNFbmFibGVk');
+    'BCABKAVSCm9yZGVySW5kZXgSHQoKaXNfZW5hYmxlZBgFIAEoCFIJaXNFbmFibGVkEh0KCm1lZG'
+    'lhX3R5cGUYBiABKAlSCW1lZGlhVHlwZRIbCgltZWRpYV91cmwYByABKAlSCG1lZGlhVXJsEhsK'
+    'CW1pbWVfdHlwZRgIIAEoCVIIbWltZVR5cGUSFAoFd2lkdGgYCSABKAVSBXdpZHRoEhYKBmhlaW'
+    'dodBgKIAEoBVIGaGVpZ2h0EhoKCGR1cmF0aW9uGAsgASgFUghkdXJhdGlvbhIgCgxmaWxlX3Np'
+    'emVfa2IYDCABKAFSCmZpbGVTaXplS2ISGwoJZmlsZV9uYW1lGA0gASgJUghmaWxlTmFtZRITCg'
+    'Vmc19pZBgOIAEoCVIEZnNJZBIYCgdjYXB0aW9uGA8gASgJUgdjYXB0aW9uEhsKCXRodW1iX3Vy'
+    'bBgQIAEoCVIIdGh1bWJVcmwSEgoEbmFtZRgRIAEoCVIEbmFtZQ==');
 
 @$core.Deprecated('Use deleteQuickReplyRequestDescriptor instead')
 const DeleteQuickReplyRequest$json = {

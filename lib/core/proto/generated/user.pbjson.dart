@@ -102,16 +102,7 @@ const SetCurrentUserRequest$json = {
     {'1': 'avatar', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'avatar', '17': true},
     {'1': 'phone', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'phone', '17': true},
     {'1': 'email', '3': 4, '4': 1, '5': 9, '9': 3, '10': 'email', '17': true},
-    {
-      '1': 'status',
-      '3': 5,
-      '4': 1,
-      '5': 14,
-      '6': '.cc.UserStatusEnum',
-      '9': 4,
-      '10': 'status',
-      '17': true
-    },
+    {'1': 'status', '3': 5, '4': 1, '5': 9, '9': 4, '10': 'status', '17': true},
     {'1': 'timestamp', '3': 6, '4': 1, '5': 3, '10': 'timestamp'},
   ],
   '8': [
@@ -127,9 +118,9 @@ const SetCurrentUserRequest$json = {
 final $typed_data.Uint8List setCurrentUserRequestDescriptor = $convert.base64Decode(
     'ChVTZXRDdXJyZW50VXNlclJlcXVlc3QSFwoEbmFtZRgBIAEoCUgAUgRuYW1liAEBEhsKBmF2YX'
     'RhchgCIAEoCUgBUgZhdmF0YXKIAQESGQoFcGhvbmUYAyABKAlIAlIFcGhvbmWIAQESGQoFZW1h'
-    'aWwYBCABKAlIA1IFZW1haWyIAQESLwoGc3RhdHVzGAUgASgOMhIuY2MuVXNlclN0YXR1c0VudW'
-    '1IBFIGc3RhdHVziAEBEhwKCXRpbWVzdGFtcBgGIAEoA1IJdGltZXN0YW1wQgcKBV9uYW1lQgkK'
-    'B19hdmF0YXJCCAoGX3Bob25lQggKBl9lbWFpbEIJCgdfc3RhdHVz');
+    'aWwYBCABKAlIA1IFZW1haWyIAQESGwoGc3RhdHVzGAUgASgJSARSBnN0YXR1c4gBARIcCgl0aW'
+    '1lc3RhbXAYBiABKANSCXRpbWVzdGFtcEIHCgVfbmFtZUIJCgdfYXZhdGFyQggKBl9waG9uZUII'
+    'CgZfZW1haWxCCQoHX3N0YXR1cw==');
 
 @$core.Deprecated('Use setCurrentUserResponseDescriptor instead')
 const SetCurrentUserResponse$json = {
@@ -185,23 +176,15 @@ const UserStatusUpdate$json = {
   '1': 'UserStatusUpdate',
   '2': [
     {'1': 'user_id', '3': 1, '4': 1, '5': 9, '10': 'userId'},
-    {
-      '1': 'status',
-      '3': 2,
-      '4': 1,
-      '5': 14,
-      '6': '.cc.UserStatusEnum',
-      '10': 'status'
-    },
+    {'1': 'status', '3': 2, '4': 1, '5': 9, '10': 'status'},
     {'1': 'timestamp', '3': 3, '4': 1, '5': 3, '10': 'timestamp'},
   ],
 };
 
 /// Descriptor for `UserStatusUpdate`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List userStatusUpdateDescriptor = $convert.base64Decode(
-    'ChBVc2VyU3RhdHVzVXBkYXRlEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIqCgZzdGF0dXMYAi'
-    'ABKA4yEi5jYy5Vc2VyU3RhdHVzRW51bVIGc3RhdHVzEhwKCXRpbWVzdGFtcBgDIAEoA1IJdGlt'
-    'ZXN0YW1w');
+    'ChBVc2VyU3RhdHVzVXBkYXRlEhcKB3VzZXJfaWQYASABKAlSBnVzZXJJZBIWCgZzdGF0dXMYAi'
+    'ABKAlSBnN0YXR1cxIcCgl0aW1lc3RhbXAYAyABKANSCXRpbWVzdGFtcA==');
 
 @$core.Deprecated('Use userTypingUpdateDescriptor instead')
 const UserTypingUpdate$json = {

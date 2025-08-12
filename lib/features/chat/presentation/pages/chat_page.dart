@@ -10,7 +10,6 @@ import 'package:cc/core/services/log_service.dart';
 // import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
-import 'package:cc/features/chat/domain/entities/participant.dart';
 import 'dart:convert';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
@@ -27,7 +26,6 @@ import 'package:cc/features/chat/presentation/widgets/message_item.dart';
 import 'package:cc/features/chat/presentation/widgets/message_separators.dart';
 import 'package:cc/features/chat/presentation/utils/message_list_processor.dart';
 import 'package:cc/core/services/voice_record_service.dart';
-import 'package:cc/core/services/file_upload_service.dart';
 import 'package:cc/core/services/media_service.dart';
 import 'package:cc/core/services/media_upload_integration_service.dart';
 import 'package:cc/core/services/audio_player_manager.dart';
@@ -176,27 +174,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 处理粘贴动作
   Future<void> _handlePasteAction() async {
     try {
-      _logger.i('检测到粘贴操作，开始检查剪贴板内容');
 
       // 检查是否支持图片剪贴板
       if (!_clipboardService.supportsImageClipboard) {
-        _logger.w('当前平台不支持图片剪贴板功能');
         return;
       }
 
       // 检查剪贴板是否有图片
       final hasImage = await _clipboardService.hasImage();
       if (!hasImage) {
-        _logger.d('剪贴板中没有图片，使用默认文本粘贴');
         return;
       }
 
-      _logger.i('剪贴板检测到图片，开始处理');
+      
 
       // 获取图片数据
       final imageData = await _clipboardService.getImageData();
       if (imageData == null) {
-        _logger.w('获取剪贴板图片数据失败');
         _showSnackBar('粘贴图片失败');
         return;
       }
@@ -204,17 +198,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       // 保存到临时文件
       final tempFile = await _clipboardService.saveImageToTempFile(imageData);
       if (tempFile == null) {
-        _logger.w('保存剪贴板图片到临时文件失败');
         _showSnackBar('粘贴图片失败');
         return;
       }
 
-      _logger.i('成功从剪贴板获取图片', extra: {
-        'fileName': imageData['name'],
-        'size': (imageData['data'] as List).length,
-        'mimeType': imageData['mimeType'],
-        'tempPath': tempFile.path,
-      });
+      
 
       // 隐藏面板
       if (mounted) {
@@ -285,48 +273,14 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         final roleId = state.currentUser.roleId;
         final hasPermission = _hasQuickReplyPermission(roleId);
 
-        _logger.i('📋📋📋 ChatCubit初始状态检查', extra: {
-          'currentUserId': state.currentUser.userId,
-          'currentUserName': state.currentUser.name,
-          'currentUserRoleId': roleId,
-          'hasQuickReplyPermission': hasPermission,
-          'conversationType': state.conversation.type,
-        });
+        
 
-        // 🚨🚨🚨 关键对比：ChatCubit的currentUser vs 会话参与者数据
-        int? participantRoleId;
+        // 解析参与者，忽略调试输出
         try {
-          final plist = ConversationAdapter.parseParticipants(state.conversation.participants);
-          Participant? me;
-          if (plist.isNotEmpty) {
-            me = plist.firstWhere(
-              (p) => p.userId == state.currentUser.userId,
-              orElse: () => plist.first,
-            );
-          }
-          participantRoleId = me?.roleId;
-        } catch (e) {
-          // ignore
-        }
+          ConversationAdapter.parseParticipants(state.conversation.participants);
+        } catch (_) {}
 
-        _logger.e('🚨🚨🚨 DATA_SOURCE_COMPARISON: 发现数据源不一致！', extra: {
-          'chatCubitCurrentUser': {
-            'userId': state.currentUser.userId,
-            'name': state.currentUser.name,
-            'roleId': state.currentUser.roleId,
-            'dataSource': 'ChatCubit (来自HomePage初始化时的安全存储)'
-          },
-          'conversationParticipantData': {'userId': state.currentUser.userId, 'roleIdFromParticipants': participantRoleId, 'dataSource': '会话参与者JSON (来自服务器最新数据)'},
-          'inconsistency': {
-            'chatCubitRoleId': state.currentUser.roleId,
-            'participantRoleId': participantRoleId,
-            'areEqual': state.currentUser.roleId == participantRoleId,
-            'conclusion': state.currentUser.roleId != participantRoleId ? '数据不一致！ChatCubit使用的是过期的用户数据' : '数据一致'
-          }
-        });
-
-        // 记录权限状态
-        _logger.i('📋📋📋 CHAT_CUBIT_INIT: userId=${state.currentUser.userId}, name=${state.currentUser.name}, roleId=$roleId, hasPermission=$hasPermission');
+        // 记录权限状态（移除冗余日志）
 
         // 🔥🔥🔥 额外的权限测试
         _testQuickReplyPermissions(roleId);
@@ -335,9 +289,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         if (hasPermission) {
           try {
             context.read<ChatCubit>().initializeQuickReplies();
-            _logger.i('✅ 快捷回复已初始化');
+            
           } catch (e) {
-            _logger.w('快捷回复初始化失败', extra: {'error': e.toString()});
+            
           }
         }
 
@@ -356,13 +310,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       final chatRepositorySend = chatCubit.chatRepositorySend;
 
       // 初始化文件上传服务
-      _fileUploadService.initialize();
+      // FileUploadService 为单例且无需显式初始化
 
       // 初始化媒体上传集成服务
       // UploadApiService使用独立文件服务器，无需认证token
       _mediaUploadIntegrationService.initialize(chatRepositorySend);
 
-      _logger.i('FileUploadService和MediaUploadIntegrationService已初始化');
+      
     });
   }
 
@@ -883,25 +837,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       listener: (context, state) {
         // 💢💢💢 处理导航回上一页
         if (state.shouldNavigateBack) {
-          _logger.i('收到导航回上一页指令，正在执行导航', extra: {
-            'canPop': Navigator.canPop(context),
-            'routeStack': ModalRoute.of(context)?.settings.name ?? 'unknown',
-          });
-
           // 导航回上一页
           if (Navigator.canPop(context)) {
-            _logger.i('使用 Navigator.pop() 返回上一页');
             Navigator.pop(context);
           } else {
-            _logger.w('无法使用 pop，尝试其他导航方式');
-            // 如果无法 pop，根据当前上下文寻找合适的导航方式
             try {
-              // 尝试回到根页面
               Navigator.popUntil(context, (route) => route.isFirst);
-              _logger.i('已回到根页面');
             } catch (e) {
-              _logger.e('导航失败，尝试重新构建路由栈', error: e);
-              // 最后的备选方案：直接跳转到认证页面让用户重新进入
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const AuthPage()),
@@ -914,7 +856,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               context.read<ChatCubit>().resetNavigationState();
-              _logger.i('导航状态已重置');
             }
           });
         }
@@ -1208,6 +1149,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                         _isAutoScrollingToBottom = false;
                       });
                       _scrollToBottom(animated: true);
+
+                      // 处理图片消息异步加载导致的高度变化，追加一次无动画对齐
+                      Timer(const Duration(milliseconds: 500), () {
+                        if (mounted) {
+                          _scrollToBottom(animated: false);
+                        }
+                      });
                     }
                   });
                 });
@@ -1576,6 +1524,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 return [
                   QuickReplyPanel(
                     isVisible: _showQuickReplyPanel,
+                    onRequestClose: () {
+                      setState(() {
+                        _showQuickReplyPanel = false;
+                      });
+                    },
                     onQuickReply: (content) {
                       _logger.i('🔥🔥🔥 快捷回复被选择', extra: {'content': content});
                       // 将快捷回复内容填入输入框，不直接发送
@@ -1932,6 +1885,12 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             _textNotifier.value = text;
             // 通知 Cubit 打字状态（节流/保活 由 Cubit 处理）
             context.read<ChatCubit>().onInputTextChanged(text);
+            // 若快捷回复面板展开，用户开始输入则自动隐藏
+            if (_showQuickReplyPanel) {
+              setState(() {
+                _showQuickReplyPanel = false;
+              });
+            }
           },
           onTap: () {
             // 🔧 优化：只在真正需要时才调用setState，避免不必要的重建
@@ -1939,6 +1898,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               setState(() {
                 _showMoreOptions = false;
                 _showEmojiPanel = false;
+                // 同步隐藏快捷回复面板
+                _showQuickReplyPanel = false;
               });
             }
           },
@@ -3224,8 +3185,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   /// 权限服务
   final PermissionService _permissionService = PermissionService();
 
-  /// 文件上传服务
-  final FileUploadService _fileUploadService = FileUploadService();
 
   /// 媒体服务
   final MediaService _mediaService = MediaService();

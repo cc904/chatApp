@@ -195,7 +195,7 @@ class ProtoSocketService {
 
       // macOS 上需要特别注意的配置选项
       _socket = io.io(serverUrl, <String, dynamic>{
-        'transports': ['websocket', 'polling'], // 支持两种传输方式
+        'transports': ['websocket'], // 仅 WebSocket，禁用 polling
         'autoConnect': true,
         'auth': {'token': token},
         'reconnection': true, // 启用Socket.io内置重连

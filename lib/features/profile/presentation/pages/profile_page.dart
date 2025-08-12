@@ -14,6 +14,7 @@ import 'package:cc/features/profile/presentation/pages/language_settings_page.da
 import 'package:cc/features/profile/presentation/pages/notification_settings_page.dart';
 import 'package:cc/features/profile/presentation/pages/account_security_page.dart';
 import 'package:cc/features/profile/presentation/pages/about_page.dart';
+import 'package:cc/features/profile/presentation/pages/quick_reply_manage_page.dart';
 import 'package:cc/core/services/notification_settings_service.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/user_service.dart';
@@ -738,6 +739,25 @@ class _ProfilePageState extends State<ProfilePage>
                 },
               ),
               const Divider(height: 1),
+
+              // 快捷回复管理（仅客服/主管可见）
+              if ((state.user?.roleId == 3) || (state.user?.roleId == 4)) ...[
+                ListTile(
+                  leading: const Icon(Icons.quickreply_outlined),
+                  title: const Text('快捷回复管理'),
+                  subtitle: const Text('仅客服/主管可见'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const QuickReplyManagePage(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+              ],
             ],
           ),
         ),

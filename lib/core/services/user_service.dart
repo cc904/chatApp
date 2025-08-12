@@ -93,7 +93,8 @@ class UserService {
       if (status != null) {
         final enumVal = UserStatusEnum.valueOf(status);
         if (enumVal != null) {
-          request.status = enumVal;
+          // SetCurrentUserRequest.status 为 String，需要传递枚举名
+          request.status = enumVal.name;
         }
       }
 

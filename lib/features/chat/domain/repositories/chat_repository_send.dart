@@ -34,6 +34,23 @@ abstract class ChatRepositorySend {
   Future<Message> sendImageMessage(String conversationId, String localPath,
       {String? mediaUrl, String? caption, String? fsId, String? fileName, int? width, int? height, double? fileSize, String? mimeType});
 
+  /// 从URL直接发送图片消息（无需本地路径/上传）
+  /// [conversationId] - 会话ID
+  /// [mediaUrl] - 服务器上的图片URL
+  /// 其余参数同上，用于补充元数据
+  Future<Message> sendImageFromUrl(
+    String conversationId, {
+    required String mediaUrl,
+    String? caption,
+    String? fsId,
+    String? fileName,
+    int? width,
+    int? height,
+    double? fileSize,
+    String? mimeType,
+    String? thumbUrl,
+  });
+
   /// 发送语音消息
   /// [conversationId] - 会话ID
   /// [localPath] - 语音文件本地路径

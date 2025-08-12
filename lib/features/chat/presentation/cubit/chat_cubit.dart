@@ -3378,6 +3378,54 @@ class ChatCubit extends Cubit<ChatState> {
     _quickReplyRepository.markReplyAsUsed(replyId);
   }
 
+  /// 提供给UI访问快捷回复仓库（仅读）
+  QuickReplyRepository get quickReplyRepository => _quickReplyRepository;
+
+  /// 从URL直接发送图片（用于快捷回复媒体）
+  Future<void> sendImageFromUrl({
+    required String mediaUrl,
+    String? fileName,
+    int? width,
+    int? height,
+    double? fileSize,
+    String? mimeType,
+    String? caption,
+    String? thumbUrl,
+    String? fsId,
+  }) async {
+    if (isClosed) return;
+
+    // 权限检查：频道普通成员不可发
+    if (_isChannel(state.conversation) && !_canSendMessage(state.conversation)) {
+      _logger.w('⚠️ 频道中普通成员无法发送消息');
+      if (!isClosed) {
+        emit(state.copyWith(errorMessage: '你没有权限在此频道发送消息'));
+      }
+      return;
+    }
+
+    try {
+      if (!isClosed) emit(state.copyWith(isSending: true));
+      await _chatRepositorySend.sendImageFromUrl(
+        _conversationId,
+        mediaUrl: mediaUrl,
+        caption: caption,
+        fsId: fsId,
+        fileName: fileName,
+        width: width,
+        height: height,
+        fileSize: fileSize,
+        mimeType: mimeType,
+        thumbUrl: thumbUrl,
+      );
+    } catch (e) {
+      _logger.e('通过URL发送图片失败', error: e);
+      if (!isClosed) emit(state.copyWith(errorMessage: '发送失败: ${e.toString()}'));
+    } finally {
+      if (!isClosed) emit(state.copyWith(isSending: false));
+    }
+  }
+
   /// 设置回复消息
   void setReplyingToMessage(Message message) {
     if (isClosed) return;

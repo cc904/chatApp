@@ -198,9 +198,7 @@ class MessageProto extends $pb.GeneratedMessage {
   void clearContent() => $_clearField($_whichOneof(0));
 
   /// 主要字段，完全匹配数据库模型
-  /// 🔥🔥🔥 消息ID - 客户端必须提供（UUID格式）
-  /// 支持UUID v4格式或至少15位的字母数字下划线组合
-  /// 示例: "f47ac10b-58cc-4372-a567-0e02b2c3d479" 或 "custom_message_id_1234567890"
+  /// 消息ID - 客户端可提供任意字符串ID（推荐 nanoid），未提供时由服务器生成
   @$pb.TagNumber(1)
   $core.String get messageId => $_getSZ(0);
   @$pb.TagNumber(1)

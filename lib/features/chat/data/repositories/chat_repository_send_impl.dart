@@ -104,6 +104,53 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
     return message;
   }
 
+  /// 从URL直接发送图片消息（无需上传）
+  @override
+  Future<Message> sendImageFromUrl(
+    String conversationId, {
+    required String mediaUrl,
+    String? caption,
+    String? fsId,
+    String? fileName,
+    int? width,
+    int? height,
+    double? fileSize,
+    String? mimeType,
+    String? thumbUrl,
+  }) async {
+    _logger.i('📤 通过URL发送图片消息', extra: {
+      'conversationId': conversationId,
+      'mediaUrl': mediaUrl,
+      'caption': caption,
+      'fsId': fsId,
+      'fileName': fileName,
+      'width': width,
+      'height': height,
+      'fileSize': fileSize,
+      'mimeType': mimeType,
+      'thumbUrl': thumbUrl,
+    });
+
+    final content = <String, dynamic>{
+      'media_message': {
+        'type': 'image',
+        'media_url': mediaUrl,
+        if (caption != null && caption.isNotEmpty) 'caption': caption,
+        if (fsId != null && fsId.isNotEmpty) 'fs_id': fsId,
+        if (fileName != null && fileName.isNotEmpty) 'file_name': fileName,
+        if (width != null) 'width': width,
+        if (height != null) 'height': height,
+        if (fileSize != null) 'file_size': fileSize,
+        if (mimeType != null && mimeType.isNotEmpty) 'mime_type': mimeType,
+        if (thumbUrl != null && thumbUrl.isNotEmpty) 'thumbnail_url': thumbUrl,
+      },
+    };
+
+    final message = await _createMessage(conversationId, '', 'IMAGE', content: content);
+    await sendMessageWithTimeout(message);
+    return message;
+  }
+
   /// 发送语音消息
   @override
   Future<Message> sendVoiceMessage(String conversationId, String localPath, int duration,

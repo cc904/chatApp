@@ -187,6 +187,20 @@ class QuickReplies extends Table {
   IntColumn get id => integer().autoIncrement()(); // id
   TextColumn get content => text()();             // content
   TextColumn get category => text().nullable()(); // category
+  TextColumn get name => text().nullable()();     // name (简要描述)
+  TextColumn get userId => text().nullable()();   // 所属用户（null/空 = public）
+  // 新增：媒体类型（用于本地回退显示icon，例如 image/video）
+  TextColumn get mediaType => text().nullable()();
+  // 媒体相关（用于本地预览/发送的回退数据）
+  TextColumn get mediaUrl => text().nullable()();
+  TextColumn get caption => text().nullable()();
+  IntColumn get width => integer().nullable()();
+  IntColumn get height => integer().nullable()();
+  RealColumn get fileSizeKb => real().nullable()();
+  TextColumn get fileName => text().nullable()();
+  TextColumn get mimeType => text().nullable()();
+  TextColumn get thumbUrl => text().nullable()();
+  TextColumn get fsId => text().nullable()();
   IntColumn get orderIndex => integer().withDefault(const Constant(0))(); // order_index
   BoolColumn get isEnabled => boolean().withDefault(const Constant(true))(); // is_enabled
   DateTimeColumn get createdAt => dateTime()();   // 本地创建时间 (DateTime)
@@ -208,6 +222,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase? _instance;
   static String? _currentUserId;
   static final _logger = LogService.instance;
+  String get currentUserId => _currentUserId ?? '';
   
   /// 获取数据库单例实例
   static AppDatabase get instance {
@@ -218,7 +233,7 @@ class AppDatabase extends _$AppDatabase {
   }
   
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 9;
   
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -331,6 +346,35 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('DROP TABLE IF EXISTS users_backup_v4');
         await customStatement('DROP TABLE IF EXISTS current_users_backup_v4');
         _logger.i('v5 迁移完成：status 字段切换为 INT');
+      }
+
+      if (from < 6 && to >= 6) {
+        // 为快捷回复表添加 name 字段（用于简要描述）
+        await m.addColumn(quickReplies, quickReplies.name);
+        _logger.i('数据库迁移到 v6：为 quick_replies 添加 name 字段');
+      }
+      if (from < 7 && to >= 7) {
+        // 为快捷回复表添加 mediaType 字段（用于本地判断是否为图片等媒体）
+        await m.addColumn(quickReplies, quickReplies.mediaType);
+        _logger.i('数据库迁移到 v7：为 quick_replies 添加 mediaType 字段');
+      }
+      if (from < 8 && to >= 8) {
+        // 为快捷回复表添加媒体详细字段，支持离线/缓存回退
+        await m.addColumn(quickReplies, quickReplies.mediaUrl);
+        await m.addColumn(quickReplies, quickReplies.caption);
+        await m.addColumn(quickReplies, quickReplies.width);
+        await m.addColumn(quickReplies, quickReplies.height);
+        await m.addColumn(quickReplies, quickReplies.fileSizeKb);
+        await m.addColumn(quickReplies, quickReplies.fileName);
+        await m.addColumn(quickReplies, quickReplies.mimeType);
+        await m.addColumn(quickReplies, quickReplies.thumbUrl);
+        await m.addColumn(quickReplies, quickReplies.fsId);
+        _logger.i('数据库迁移到 v8：为 quick_replies 添加媒体回退字段');
+      }
+      if (from < 9 && to >= 9) {
+        // 为快捷回复表添加 userId 字段，用于区分私有/公有
+        await m.addColumn(quickReplies, quickReplies.userId);
+        _logger.i('数据库迁移到 v9：为 quick_replies 添加 userId 字段');
       }
     },
   );

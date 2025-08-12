@@ -388,7 +388,7 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
     $core.String? avatar,
     $core.String? phone,
     $core.String? email,
-    UserStatusEnum? status,
+    $core.String? status,
     $fixnum.Int64? timestamp,
   }) {
     final result = create();
@@ -418,10 +418,7 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'avatar')
     ..aOS(3, _omitFieldNames ? '' : 'phone')
     ..aOS(4, _omitFieldNames ? '' : 'email')
-    ..e<UserStatusEnum>(5, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE,
-        defaultOrMaker: UserStatusEnum.OFFLINE,
-        valueOf: UserStatusEnum.valueOf,
-        enumValues: UserStatusEnum.values)
+    ..aOS(5, _omitFieldNames ? '' : 'status')
     ..aInt64(6, _omitFieldNames ? '' : 'timestamp')
     ..hasRequiredFields = false;
 
@@ -492,12 +489,12 @@ class SetCurrentUserRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearEmail() => $_clearField(4);
 
-  /// 状态（可选） 0=OFFLINE, 1=ONLINE, 2=AWAY
+  /// 状态（可选）
   /// 如果为空则不更新此字段
   @$pb.TagNumber(5)
-  UserStatusEnum get status => $_getN(4);
+  $core.String get status => $_getSZ(4);
   @$pb.TagNumber(5)
-  set status(UserStatusEnum value) => $_setField(5, value);
+  set status($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasStatus() => $_has(4);
   @$pb.TagNumber(5)
@@ -722,7 +719,7 @@ class CurrentUserUpdateEvent extends $pb.GeneratedMessage {
 class UserStatusUpdate extends $pb.GeneratedMessage {
   factory UserStatusUpdate({
     $core.String? userId,
-    UserStatusEnum? status,
+    $core.String? status,
     $fixnum.Int64? timestamp,
   }) {
     final result = create();
@@ -746,10 +743,7 @@ class UserStatusUpdate extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'cc'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'userId')
-    ..e<UserStatusEnum>(2, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE,
-        defaultOrMaker: UserStatusEnum.OFFLINE,
-        valueOf: UserStatusEnum.valueOf,
-        enumValues: UserStatusEnum.values)
+    ..aOS(2, _omitFieldNames ? '' : 'status')
     ..aInt64(3, _omitFieldNames ? '' : 'timestamp')
     ..hasRequiredFields = false;
 
@@ -783,11 +777,11 @@ class UserStatusUpdate extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearUserId() => $_clearField(1);
 
-  /// 使用数值枚举保持一致性（0=OFFLINE, 1=ONLINE, 2=AWAY）
+  /// 使用字符串保持一致性
   @$pb.TagNumber(2)
-  UserStatusEnum get status => $_getN(1);
+  $core.String get status => $_getSZ(1);
   @$pb.TagNumber(2)
-  set status(UserStatusEnum value) => $_setField(2, value);
+  set status($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasStatus() => $_has(1);
   @$pb.TagNumber(2)

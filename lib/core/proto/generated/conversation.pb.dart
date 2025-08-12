@@ -1953,7 +1953,7 @@ class ParticipantStatusUpdateResponse extends $pb.GeneratedMessage {
   ParticipantProto ensureParticipant() => $_ensure(2);
 }
 
-/// 会话参与者索引更新通知
+/// 参与者索引变更通知（统一的已读/送达索引通知）
 /// Socket.io事件: conversation:participant:index:updated
 class ParticipantIndexUpdatedNotification extends $pb.GeneratedMessage {
   factory ParticipantIndexUpdatedNotification({
@@ -2032,7 +2032,7 @@ class ParticipantIndexUpdatedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearConversationId() => $_clearField(1);
 
-  /// 用户ID（被更新索引的参与者）
+  /// 发生变更的用户ID
   @$pb.TagNumber(2)
   $core.String get userId => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2042,7 +2042,7 @@ class ParticipantIndexUpdatedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearUserId() => $_clearField(2);
 
-  /// 最新已读消息索引（可选，存在则表示有更新）
+  /// 更新后的已读消息索引（可选，只有在变化时才下发）
   @$pb.TagNumber(3)
   $core.int get readMessageIndex => $_getIZ(2);
   @$pb.TagNumber(3)
@@ -2052,7 +2052,7 @@ class ParticipantIndexUpdatedNotification extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearReadMessageIndex() => $_clearField(3);
 
-  /// 最新送达消息索引（可选，存在则表示有更新）
+  /// 更新后的送达消息索引（可选，只有在变化时才下发）
   @$pb.TagNumber(4)
   $core.int get deliveredMessageIndex => $_getIZ(3);
   @$pb.TagNumber(4)
