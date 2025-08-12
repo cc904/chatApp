@@ -54,10 +54,14 @@ jobs:
         run: yes | flutter doctor --android-licenses
 
       - name: Build Android APK (per-ABI) - Mainstream
-        run: flutter build apk --release --split-per-abi
+        run: |
+          flutter build apk --release --split-per-abi \
+            -PenableAbiSplits=true -PenableUniversalApk=false
 
       - name: Build Android Universal APK - Compatibility
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release \
+            -PenableAbiSplits=false -PenableUniversalApk=true
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
