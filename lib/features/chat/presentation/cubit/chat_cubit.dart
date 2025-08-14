@@ -212,6 +212,8 @@ class ChatCubit extends Cubit<ChatState> {
         });
         try {
           await joinConversation();
+          // 重连后主动同步一次会话详情，确保 lastMessageIndex 等元数据为最新
+          await syncCurrentConversation();
           await _emitTyping(_isTypingSelf);
         } catch (e) {
           _logger.e('重连后补发打字状态失败', error: e);
@@ -220,6 +222,9 @@ class ChatCubit extends Cubit<ChatState> {
 
       // 🔄 第2步：加入会话房间开始接收实时消息
       await joinConversation();
+
+      // 🔄 第2.5步：主动同步当前会话详情，确保拿到最新的 lastMessageIndex/成员/名称等
+      await syncCurrentConversation();
 
       // 🔄 第3步：执行消息同步（此时新消息会被暂存）
       initMessages();
@@ -304,14 +309,29 @@ class ChatCubit extends Cubit<ChatState> {
 
       final firstUnreadMessageIndex = _getFirstUnreadMessageIndex(state.conversation);
 
-      // 只有当没有未读消息且已经有消息数据时，才跳过初始化
-      // 这避免了重复加载已经存在的消息
+      // 优化：只有当没有未读消息且本地消息已经包含最新的 lastMessageIndex 时，才跳过初始化
+      // 之前的逻辑在有历史快照但不含最新消息时会误跳过，导致进入房间后看不到最新消息
       if (firstUnreadMessageIndex == null && state.messages.isNotEmpty) {
+        int currentMax = 0;
+        for (final m in state.messages) {
+          if (m.messageIndex > currentMax) currentMax = m.messageIndex;
+        }
+        final hasLatest = currentMax >= state.conversation.lastMessageIndex && state.conversation.lastMessageIndex > 0;
+        if (hasLatest) {
         _logger.w('🔍 没有未读消息且已有消息数据，跳过初始化', extra: {
           'conversationId': _conversationId,
           'currentMessageCount': state.messages.length,
+            'currentMaxIndex': currentMax,
+            'lastMessageIndex': state.conversation.lastMessageIndex,
         });
         return;
+        } else {
+          _logger.i('🔄 本地消息未包含最新索引，执行初始化加载', extra: {
+            'conversationId': _conversationId,
+            'currentMaxIndex': currentMax,
+            'lastMessageIndex': state.conversation.lastMessageIndex,
+          });
+        }
       }
 
       _logger.i('🔍 检查消息加载条件', extra: {
