@@ -2779,9 +2779,28 @@ class ChatCubit extends Cubit<ChatState> {
     });
 
     // 会话元数据更新
-
-    // 更新ChatPage中的会话状态，确保与ChatsPage同步
     emit(state.copyWith(conversation: updatedConversation));
+
+    // 🆕 如果 lastMessageIndex 前进了，而本地消息尚未包含这些索引，则立即增量拉取缺失消息
+    try {
+      final int updatedLast = updatedConversation.lastMessageIndex;
+      int currentMax = 0;
+      for (final m in state.messages) {
+        if (m.messageIndex > currentMax) currentMax = m.messageIndex;
+      }
+      if (updatedLast > currentMax && updatedLast > 0) {
+        final int indexA = (currentMax + 1) <= updatedLast ? (currentMax + 1) : updatedLast;
+        final int indexB = updatedLast;
+        final int jumpIndex = updatedLast;
+        _logger.i('检测到会话 lastMessageIndex 前进，增量拉取缺失消息', extra: {
+          'currentMax': currentMax,
+          'updatedLast': updatedLast,
+          'indexA': indexA,
+          'indexB': indexB,
+        });
+        unawaited(_chatRepository.loadMessages(_conversationId, indexA, indexB, jumpIndex));
+      }
+    } catch (_) {}
   }
 
   /// 💢💢💢 新增：加载媒体消息（图片、视频）

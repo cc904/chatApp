@@ -39,9 +39,10 @@ jobs:
           echo "Decoding keystore from secret..."
           mkdir -p android/app
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/cc-release-key.jks
-          echo "Creating key.properties at repo root..."
-          cat > key.properties <<PROP
-          storeFile=android/app/cc-release-key.jks
+          echo "Creating android/key.properties (Gradle loads from android/)..."
+          cat > android/key.properties <<PROP
+          # Path is relative to app module (android/app)
+          storeFile=cc-release-key.jks
           storePassword=${ANDROID_STORE_PASSWORD}
           keyAlias=${ANDROID_KEY_ALIAS}
           keyPassword=${ANDROID_KEY_PASSWORD}
