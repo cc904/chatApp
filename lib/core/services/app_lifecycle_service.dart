@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:cc/core/services/log_service.dart';
+import 'package:cc/core/services/communication_service.dart';
 
 /// 自定义应用生命周期状态枚举
 enum CustomAppLifecycleState {
@@ -124,7 +125,15 @@ class AppLifecycleService with WidgetsBindingObserver {
   /// 应用恢复到前台时的处理
   void _onAppResumed() {
     _logger.i('执行应用恢复逻辑');
-    // 在这里可以添加恢复时的逻辑，比如重新连接网络、刷新数据等
+    // 1) 主动触发通信层重连（在自动重连基础上再兜底一次）
+    try {
+      CommunicationService().reconnect();
+      _logger.d('已触发通信服务重连');
+    } catch (e) {
+      _logger.w('触发通信服务重连失败', extra: {'error': e.toString()});
+    }
+
+    // 2) 预留：如需在前台补偿当前可见会话，可在上层通过 addListener 注册并做精确补偿
   }
 
   /// 应用切换到后台时的处理

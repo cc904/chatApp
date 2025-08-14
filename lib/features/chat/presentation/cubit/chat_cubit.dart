@@ -341,6 +341,14 @@ class ChatCubit extends Cubit<ChatState> {
         indexB,
         jumpIndex,
       );
+
+      // 加载完成后进行一次连续性校验，若存在缺口则触发补偿重载
+      try {
+        if (_hasIndexGap(state.messages)) {
+          _logger.w('初始化后检测到 messageIndex 缺口，触发补偿重载');
+          _triggerGapCompensationReload();
+        }
+      } catch (_) {}
     } catch (error) {
       _logger.e('初始化消息列表失败', error: error);
     }
@@ -2229,12 +2237,15 @@ class ChatCubit extends Cubit<ChatState> {
     // 强制为 List<Message>，避免在 Web 上泛型擦除导致 reduce 类型不匹配
     List<Message> currentMessages = List<Message>.from(state.messages);
 
-    // 🆕 调整：即使检测到不连续，也不丢弃现有窗口，改为合并保留，后续由加载更多补齐缺口
-    if (currentMessages.isNotEmpty && !_isMessagesContinuous(currentMessages, newMessages)) {
-      _logger.w('⚠️ 检测到消息不连续，保留现有窗口并合并新批，后续依赖加载补齐', extra: {
+    // 🆕 连续性检测：若检测到 messageIndex 存在缺口，触发补偿重载并短路返回
+    final mergedPreviewForCheck = <Message>[...currentMessages, ...newMessages];
+    if (_hasIndexGap(mergedPreviewForCheck)) {
+      _logger.w('⚠️ 检测到 messageIndex 缺口，触发补偿重载', extra: {
         'currentRange': _getMessageIndexRange(currentMessages),
         'newRange': _getMessageIndexRange(newMessages),
       });
+      _triggerGapCompensationReload();
+      return;
     }
 
     // 合并消息：去重 + 排序
@@ -3552,6 +3563,61 @@ class ChatCubit extends Cubit<ChatState> {
         emit(state.copyWith(isSending: false));
         _logger.d('💬 清除发送状态');
       }
+    }
+  }
+
+  /// 基于 messageIndex 的简单缺口检测：期待数量 != 实际去重数量 即视为不连续
+  bool _hasIndexGap(List<Message> messages) {
+    final indexes = messages
+        .where((m) => m.messageIndex > 0)
+        .map((m) => m.messageIndex)
+        .toSet()
+        .toList()
+      ..sort();
+    if (indexes.isEmpty) return false;
+    final expected = indexes.last - indexes.first + 1;
+    final actual = indexes.length;
+    final hasGap = expected != actual;
+    if (hasGap) {
+      _logger.d('🔍 缺口检测: expected=$expected actual=$actual first=${indexes.first} last=${indexes.last}');
+    }
+    return hasGap;
+  }
+
+  /// 触发缺口补偿：退化方案为"重载最近窗口"，待服务端提供 afterIndex/beforeIndex 再精准补偿
+  void _triggerGapCompensationReload() {
+    if (state.isLoadingMessages || state.isLoadingMoreMessages || state.isFetching) {
+      _logger.i('跳过补偿重载：当前有加载进行中');
+      return;
+    }
+    // 异步执行，避免阻塞当前合并流程
+    unawaited(_reloadRecentWindow());
+  }
+
+  /// 重载最近窗口（例如最近 200 条），用于补偿丢失区间
+  Future<void> _reloadRecentWindow({int limit = 200}) async {
+    try {
+      _logger.i('🔄 执行补偿重载（最近窗口）', extra: {
+        'conversationId': _conversationId,
+        'limit': limit,
+      });
+      final lastIndex = state.conversation.lastMessageIndex;
+      if (lastIndex <= 0) {
+        _logger.w('补偿重载跳过：lastMessageIndex 无效或为 0');
+        return;
+      }
+      final int indexB = lastIndex;
+      final int indexA = (lastIndex - limit + 1) > 1 ? (lastIndex - limit + 1) : 1;
+      final int jumpIndex = indexB; // 补偿后定位到最新
+
+      await _chatRepository.loadMessages(
+        _conversationId,
+        indexA,
+        indexB,
+        jumpIndex,
+      );
+    } catch (e, s) {
+      _logger.e('补偿重载失败', error: e, stackTrace: s);
     }
   }
 }
