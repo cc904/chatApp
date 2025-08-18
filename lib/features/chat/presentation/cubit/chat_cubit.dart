@@ -1374,8 +1374,20 @@ class ChatCubit extends Cubit<ChatState> {
       messageMap[message.messageId] = message;
     }
 
-    // 转换为列表并按消息排序（临时消息在前，按规则排序）
-    final mergedList = messageMap.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // 统一排序器：哨兵优先→index降序→createdAt降序→messageId降序
+    final mergedList = messageMap.values.toList()
+      ..sort((a, b) {
+        const int sentinel = 1 << 30;
+        final bool aSentinel = a.messageIndex == sentinel;
+        final bool bSentinel = b.messageIndex == sentinel;
+        if (aSentinel && !bSentinel) return -1;
+        if (!aSentinel && bSentinel) return 1;
+        final int c = b.messageIndex.compareTo(a.messageIndex);
+        if (c != 0) return c;
+        final int t = b.createdAt.compareTo(a.createdAt);
+        if (t != 0) return t;
+        return b.messageId.compareTo(a.messageId);
+      });
 
     return mergedList;
   }
@@ -3142,36 +3154,35 @@ class ChatCubit extends Cubit<ChatState> {
 
     List<Message> currentMessages = List<Message>.from(state.messages);
 
-    // 检查消息连续性（考虑临时乐观更新消息）
-    bool isContinuous = _isNewMessageContinuous(currentMessages, newMessage);
-
-    if (!isContinuous) {
-      _logger.w('❌ 新消息不连续，直接抛弃新消息', extra: {
+    // 放宽：SENDING 直接合并；其他即使不连续也不丢弃，只告警
+    if (newMessage.messageStatus != 'SENDING' && !_isNewMessageContinuous(currentMessages, newMessage)) {
+      _logger.w('❗ 新消息连续性检查未通过，仍然合并以避免丢消息', extra: {
         'currentRange': _getMessageIndexRange(currentMessages),
         'newMessageIndex': newMessage.messageIndex,
         'newMessageId': newMessage.messageId,
       });
-      // 直接返回，不处理不连续的新消息
-      return;
     }
 
-    // 合并消息：去重 + 排序
+    // 合并消息：去重
     final messageMap = <String, Message>{};
-
-    // 添加现有消息
     for (final message in currentMessages) {
       messageMap[message.messageId] = message;
     }
-
-    // 添加新消息（相同ID的新消息会覆盖旧消息）
     messageMap[newMessage.messageId] = newMessage;
 
-    // 按消息索引排序（最新消息在前）；索引相同用时间兜底
+    // 统一排序器：哨兵优先→index降序→createdAt降序→messageId降序
     final mergedMessages = messageMap.values.toList()
       ..sort((a, b) {
-        final c = b.messageIndex.compareTo(a.messageIndex);
+        const int sentinel = 1 << 30;
+        final bool aSentinel = a.messageIndex == sentinel;
+        final bool bSentinel = b.messageIndex == sentinel;
+        if (aSentinel && !bSentinel) return -1;
+        if (!aSentinel && bSentinel) return 1;
+        final int c = b.messageIndex.compareTo(a.messageIndex);
         if (c != 0) return c;
-        return b.createdAt.compareTo(a.createdAt);
+        final int t = b.createdAt.compareTo(a.createdAt);
+        if (t != 0) return t;
+        return b.messageId.compareTo(a.messageId);
       });
 
     // 判断用户是否在底部
@@ -3183,7 +3194,7 @@ class ChatCubit extends Cubit<ChatState> {
       final latestMessage = mergedMessages.first; // 最新消息
       updatedScrollPosition = CurrentScrollPosition.fromAnchor(
         messageId: latestMessage.messageId,
-        relativePosition: 0.0, // 💢💢💢 修正：在reverse列表中，0.0表示物理屏幕顶部（最新消息位置）
+        relativePosition: 0.0,
       );
 
       _logger.i('🔖 用户在底部，设置滚动到最新消息', extra: {
@@ -3208,92 +3219,59 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   /// 💢💢💢 检查新消息是否与现有消息连续
-  /// 考虑临时乐观更新消息（messageIndex = 0）
+  /// 放宽：仅告警，不拒绝合并
   bool _isNewMessageContinuous(List<Message> currentMessages, Message newMessage) {
     if (currentMessages.isEmpty) {
       _logger.d('🔍 新消息连续性检查：无现有消息，返回true');
       return true;
     }
 
-    // 发送中的乐观消息一律允许合并（使用临时高索引进行排序）
     if (newMessage.messageStatus == 'SENDING') {
       _logger.d('🔄 新消息连续性检查：发送中的乐观消息，直接通过');
       return true;
     }
 
-    // 获取新消息中的最新消息（按时间）
-    final latestNewMessage = newMessage;
+    // 原有逻辑保留为告警参考，不再作为拒绝条件
+    try {
+      final List<Message> allMessages = <Message>[...currentMessages, newMessage];
+      allMessages.sort((Message a, Message b) => a.createdAt.compareTo(b.createdAt));
 
-    // 判断条件1：最新消息索引与会话接近
-    final isLatestOrTemp =
-        latestNewMessage.messageIndex == state.conversation.lastMessageIndex ||
-            latestNewMessage.messageIndex == 0 ||
-            latestNewMessage.messageIndex == state.conversation.lastMessageIndex + 1 ||
-            latestNewMessage.messageIndex >= state.conversation.lastMessageIndex; // 允许更大的临时占位索引
+      final validMessages = allMessages.where((msg) => msg.messageIndex > 0).toList();
+      final tempMessages = allMessages.where((msg) => msg.messageIndex == 0 || msg.messageIndex == (1 << 30)).toList();
 
-    // 判断条件2：当前最新消息是否在屏幕中（简化判断）
-    final currentLatestMessage = currentMessages.isNotEmpty
-        ? currentMessages.reduce((Message a, Message b) => a.createdAt.isAfter(b.createdAt) ? a : b)
-        : null;
+      if (validMessages.isEmpty) return true;
 
-    // 简化判断：如果当前有消息且最新消息的messageIndex接近conversation.lastMessageIndex，认为在屏幕中
-    final isCurrentLatestVisible =
-        currentLatestMessage != null && (currentLatestMessage.messageIndex >= state.conversation.lastMessageIndex - 10 || currentLatestMessage.messageIndex == 0); // 临时消息也算在屏幕中
+      for (int i = 1; i < validMessages.length; i++) {
+        final prevMsg = validMessages[i - 1];
+        final currentMsg = validMessages[i];
+        final prevIndex = prevMsg.messageIndex;
+        final currentIndex = currentMsg.messageIndex;
+        final gapSize = currentIndex - prevIndex - 1;
 
-    if (isLatestOrTemp && isCurrentLatestVisible) {
-      _logger.d('🔄 新消息连续性检查：最新消息续上，返回true', extra: {
-        'latestMessageIndex': latestNewMessage.messageIndex,
-        'conversationLastIndex': state.conversation.lastMessageIndex,
-        'isLatestOrTemp': isLatestOrTemp,
-        'isCurrentLatestVisible': isCurrentLatestVisible,
-        'currentLatestIndex': currentLatestMessage.messageIndex,
-        'messageId': latestNewMessage.messageId,
+        if (gapSize > 0) {
+          final tempMessagesInGap = tempMessages.where((tempMsg) {
+            return tempMsg.createdAt.isAfter(prevMsg.createdAt) && tempMsg.createdAt.isBefore(currentMsg.createdAt);
+          }).length;
+
+          if (tempMessagesInGap != gapSize) {
+            _logger.w('🔍 新消息连续性检查：间隙无法完整填补（仅告警，不拒绝）', extra: {
+              'prevIndex': prevIndex,
+              'currentIndex': currentIndex,
+              'gapSize': gapSize,
+              'tempInGap': tempMessagesInGap,
+            });
+            return true; // 放宽：不拒绝
+          }
+        }
+      }
+
+      return true;
+    } catch (e) {
+      _logger.w('连续性检查异常（仅告警，不拒绝）', extra: {
+        'error': e.toString(),
       });
       return true;
     }
-
-    // 进行详细的连续性检查
-    final List<Message> allMessages = <Message>[...currentMessages, newMessage];
-    allMessages.sort((Message a, Message b) => a.createdAt.compareTo(b.createdAt));
-
-    // 分离有效索引消息和临时消息用于分析
-    final validMessages = allMessages.where((msg) => msg.messageIndex > 0).toList();
-    final tempMessages = allMessages.where((msg) => msg.messageIndex == 0).toList();
-
-    // 如果只有临时消息，直接返回true
-    if (validMessages.isEmpty) {
-      _logger.d('🔍 新消息连续性检查：只有临时消息，返回true');
-      return true;
-    }
-
-    // 检查有效消息之间的连续性，考虑临时消息填补间隙
-    for (int i = 1; i < validMessages.length; i++) {
-      final prevMsg = validMessages[i - 1];
-      final currentMsg = validMessages[i];
-      final prevIndex = prevMsg.messageIndex;
-      final currentIndex = currentMsg.messageIndex;
-      final gapSize = currentIndex - prevIndex - 1;
-
-      if (gapSize > 0) {
-        // 有间隙，检查是否有足够的临时消息填补
-        final tempMessagesInGap = tempMessages.where((tempMsg) {
-          return tempMsg.createdAt.isAfter(prevMsg.createdAt) && tempMsg.createdAt.isBefore(currentMsg.createdAt);
-        }).toList();
-
-        if (tempMessagesInGap.length != gapSize) {
-          _logger.w('🔍 新消息连续性检查：间隙无法填补，返回false', extra: {
-            'prevIndex': prevIndex,
-            'currentIndex': currentIndex,
-            'gapSize': gapSize,
-            'tempMessagesInGap': tempMessagesInGap.length,
-          });
-          return false;
-        }
-      }
-    }
-
-    _logger.d('🔍 新消息连续性检查：通过，返回true');
-    return true;
   }
 
   /// 💢💢💢 从当前状态判断用户是否在底部

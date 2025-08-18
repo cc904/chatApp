@@ -194,15 +194,15 @@ class ContactsRepositoryImpl implements ContactsRepository {
       final users = await (_db.select(_db.users)..where((tbl) => tbl.isFriend.equals(true))).get();
 
       // 🔥🔥🔥 详细的数据库查询结果日志
-      for (final user in users) {
-        _logger.i('🗃️🗃️🗃️ 数据库中的联系人', extra: {
-          'userName': user.name,
-          'userId': user.userId,
-          'roleId': user.roleId,
-          'isFriend': user.isFriend,
-          'avatar': user.avatar,
-        });
-      }
+      // for (final user in users) {
+      //   _logger.i('🗃️🗃️🗃️ 数据库中的联系人', extra: {
+      //     'userName': user.name,
+      //     'userId': user.userId,
+      //     'roleId': user.roleId,
+      //     'isFriend': user.isFriend,
+      //     'avatar': user.avatar,
+      //   });
+      // }
 
       _logger.i('从本地数据库中获取 - ${users.length} 个联系人');
       return users;

@@ -7,7 +7,6 @@ import 'package:cc/core/proto/generated/contacts.pb.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
 import 'package:cc/core/services/proto_socket_service.dart';
-import 'package:cc/core/utils/user_display_utils.dart';
 import 'package:cc/features/contacts/data/repositories/contacts_repository_impl.dart';
 import 'package:cc/features/contacts/domain/repositories/contacts_repository.dart';
 import 'package:cc/features/contacts/presentation/cubit/contact_state.dart';
@@ -21,6 +20,10 @@ class ContactCubit extends Cubit<ContactState> {
 
   // 保存订阅，以便在dispose时取消
   final Map<String, StreamSubscription> _subscriptions = {};
+
+  // 刷新防抖
+  Timer? _refreshDebounceTimer;
+  static const Duration _refreshDebounceDuration = Duration(milliseconds: 250);
 
   // 实例计数器，用于调试多实例问题
   static int _instanceCount = 0;
@@ -87,8 +90,11 @@ class ContactCubit extends Cubit<ContactState> {
       // 监听联系人变化
       _subscriptions['contacts'] = _contactsRepository.watchContacts().listen(
         (_) {
-          // 数据库有变化时，直接从数据库获取最新数据
-          _refreshContactsFromDatabase();
+          // 使用防抖，合并同一事务内的多次变更通知
+          _refreshDebounceTimer?.cancel();
+          _refreshDebounceTimer = Timer(_refreshDebounceDuration, () {
+            _refreshContactsFromDatabase();
+          });
         },
         onError: (error) {
           _logger.e('联系人变化监听错误', error: error);
@@ -409,6 +415,8 @@ class ContactCubit extends Cubit<ContactState> {
 
   @override
   Future<void> close() {
+    _refreshDebounceTimer?.cancel();
+    _refreshDebounceTimer = null;
     _instanceCount--;
     _logger.i('关闭ContactCubit，取消所有订阅', extra: {
       'instanceId': _instanceId,

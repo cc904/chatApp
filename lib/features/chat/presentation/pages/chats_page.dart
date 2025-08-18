@@ -53,8 +53,7 @@ class _ChatsPageState extends State<ChatsPage>
   /// 💢💢💢 页面是否可见状态标记
   bool _isPageVisible = true;
 
-  /// 💢💢💢 最后一次同步时间
-  DateTime? _lastSyncTime;
+  // 已移除：不再使用基于时间的同步节流
 
   /// 搜索会话
   ///
@@ -93,45 +92,14 @@ class _ChatsPageState extends State<ChatsPage>
     final chatsCubit = context.read<ChatsCubit>();
     await chatsCubit.loadConversations();
     await chatsCubit.requestSyncConversations();
-    _lastSyncTime = DateTime.now();
   }
 
-  /// 💢💢💢 页面重新显示时的同步检查
-  ///
-  /// 这是一个被动检查机制，只在页面重新显示或应用恢复前台时触发
-  /// 检查规则：
-  /// 1. 强制同步 (force = true)
-  /// 2. 首次同步 (_lastSyncTime == null)
-  /// 3. 距离上次同步超过30秒 (防止频繁同步)
-  ///
-  /// 注意：没有定时器后台运行，只在特定事件触发时才检查
+  /// 页面重新显示或应用恢复前台时触发：直接请求同步（不做时间判断）
   Future<void> _checkAndSync({bool force = false}) async {
     try {
-      final now = DateTime.now();
-      final shouldSync = force ||
-          _lastSyncTime == null ||
-          now.difference(_lastSyncTime!).inSeconds > 30;
-
-      if (shouldSync) {
-        _logger.i('ChatsPage 触发会话同步', extra: {
-          'trigger': force
-              ? 'force'
-              : _lastSyncTime == null
-                  ? 'first_time'
-                  : 'time_interval',
-          'force': force,
-          'lastSyncTime': _lastSyncTime?.toIso8601String(),
-          'timeSinceLastSync': _lastSyncTime != null
-              ? now.difference(_lastSyncTime!).inSeconds
-              : null,
-        });
-
-        final chatsCubit = context.read<ChatsCubit>();
-        await chatsCubit.requestSyncConversations();
-        _lastSyncTime = now;
-      } else {
-        _logger.d('ChatsPage 跳过同步，距离上次同步时间较短');
-      }
+      _logger.i('ChatsPage 触发会话同步（无时间判断）', extra: {'force': force});
+      final chatsCubit = context.read<ChatsCubit>();
+      await chatsCubit.requestSyncConversations();
     } catch (e) {
       _logger.e('ChatsPage 同步检查失败', error: e);
     }
@@ -163,7 +131,6 @@ class _ChatsPageState extends State<ChatsPage>
     _logger.d('ChatsPage didChangeDependencies 触发', extra: {
       'isPageVisible': _isPageVisible,
       'mounted': mounted,
-      'lastSyncTime': _lastSyncTime?.toIso8601String(),
     });
 
     // 移除强制同步，专注于诊断真正的触发机制
@@ -803,6 +770,8 @@ class _ChatsPageState extends State<ChatsPage>
       ];
     }
 
+    // 移除列表区域骨架，骨架屏改由 HomePage 统一处理
+
     if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
       _logger.e('加载失败: ${state.errorMessage}');
       return [
@@ -910,14 +879,10 @@ class _ChatsPageState extends State<ChatsPage>
             (context, index) {
               final conversation = pinnedConversations[index];
               // 调试：构建置顶会话item日志
-              final pi = ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser?.userId ?? '');
-              final int? readMessageIndex = pi?.readMessageIndex;
-
               _logger.d('ChatsPage 构建置顶会话Item', extra: {
                 'conversationId': conversation.conversationId,
                 'name': conversation.name,
                 'type': conversation.type,
-                'readMessageIndex': readMessageIndex,
                 'lastMessageIndex': conversation.lastMessageIndex,
                 'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
                 'lastMessagePreview': conversation.lastMessagePreview,
@@ -945,18 +910,16 @@ class _ChatsPageState extends State<ChatsPage>
             (context, index) {
               final conversation = unpinnedConversations[index];
               // 调试：构建非置顶会话item日志
-              final pi = ConversationAdapter.getParticipantInfo(conversation.participants, state.currentUser?.userId ?? '');
-              final int? readMessageIndex = pi?.readMessageIndex;
 
-              _logger.d('ChatsPage 构建会话Item', extra: {
-                'conversationId': conversation.conversationId,
-                'name': conversation.name,
-                'type': conversation.type,
-                'readMessageIndex': readMessageIndex,
-                'lastMessageIndex': conversation.lastMessageIndex,
-                'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
-                'lastMessagePreview': conversation.lastMessagePreview,
-              });
+              // _logger.d('ChatsPage 构建会话Item', extra: {
+              //   'conversationId': conversation.conversationId,
+              //   'name': conversation.name,
+              //   'type': conversation.type,
+              //   'readMessageIndex': readMessageIndex,
+              //   'lastMessageIndex': conversation.lastMessageIndex,
+              //   'lastMessageTime': conversation.lastMessageTime?.toIso8601String(),
+              //   'lastMessagePreview': conversation.lastMessagePreview,
+              // });
 
               return ConversationItem(
                 key: ValueKey(conversation.conversationId),

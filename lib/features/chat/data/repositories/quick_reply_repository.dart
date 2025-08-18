@@ -9,11 +9,18 @@ import '../../../../core/proto/generated/quick_reply.pb.dart' as qrpb;
 
 /// 快捷回复数据仓库 (使用数据库存储 + Socket.io同步)
 class QuickReplyRepository {
+  // 单例实现，避免重复注册Socket监听导致重复日志/重复写库
+  static final QuickReplyRepository _instance = QuickReplyRepository._internal();
+  factory QuickReplyRepository() => _instance;
+  QuickReplyRepository._internal();
   static const String _keyLastSync = 'quick_replies_last_sync';
   
   final ProtoSocketService _socketService = ProtoSocketService();
   final LogService _logger = LogService.instance;
   bool _listenersInitialized = false;
+  // 去重：记录最近一次处理的列表签名与时间，避免重复处理同一批事件
+  String? _lastListSignature;
+  DateTime? _lastListHandledAt;
   
   // 缓存最近一次从服务器获取到的原始PB数据，便于获取媒体字段
   final Map<int, qrpb.QuickReply> _pbCacheById = {};
@@ -27,6 +34,14 @@ class QuickReplyRepository {
   /// 初始化Socket.io事件监听（protobuf）
   void _initializeSocketListeners() {
     if (_listenersInitialized) return;
+
+    // 先移除可能已存在的重复监听（防御性处理，避免重复输出日志）
+    _socketService.off('quickReplies:list');
+    _socketService.off('quickReplies:created');
+    _socketService.off('quickReplies:updated');
+    _socketService.off('quickReplies:deleted');
+    _socketService.off('quickReplies:delete');
+    _socketService.off('quickReplies:error');
 
     // 列表
     _socketService.onProto<qrpb.GetQuickRepliesResponse>(
@@ -70,6 +85,23 @@ class QuickReplyRepository {
   /// 处理列表响应（protobuf）
   void _handleQuickRepliesList(qrpb.GetQuickRepliesResponse resp) async {
     try {
+      // 去重判断：同样的列表在短时间内重复到达则忽略
+      try {
+        final ids = resp.quickReplies.map((e) => e.id.toInt()).toList(growable: false);
+        final signature = '${ids.length}:${ids.join(',')}';
+        final now = DateTime.now();
+        if (_lastListSignature == signature && _lastListHandledAt != null &&
+            now.difference(_lastListHandledAt!).inSeconds < 3) {
+          _logger.i('忽略重复的快捷回复列表事件', extra: {
+            'count': ids.length,
+            'signature': signature,
+          });
+          return;
+        }
+        _lastListSignature = signature;
+        _lastListHandledAt = now;
+      } catch (_) {}
+
       // 刷新PB缓存
       _pbCacheById
         ..clear()
@@ -96,10 +128,14 @@ class QuickReplyRepository {
               'caption': q.hasCaption() ? q.caption : null,
               'thumbUrl': q.hasThumbUrl() ? q.thumbUrl : null,
             }).toList();
-        _logger.e('快捷回复同步明细', extra: {
-          'count': detailed.length,
-          'items': detailed,
-        });
+        if (detailed.isEmpty) {
+          _logger.i('快捷回复同步明细（为空）', extra: {'count': 0});
+        } else {
+          _logger.i('快捷回复同步明细', extra: {
+            'count': detailed.length,
+            'items': detailed,
+          });
+        }
       } catch (_) {
         // 安全兜底，日志不影响主流程
       }

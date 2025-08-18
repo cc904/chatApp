@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:cc/core/services/url_opener.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/core/services/version_info_service.dart';
 import 'package:cc/core/constants/app_config.dart';
@@ -310,18 +310,16 @@ class VersionUpdateService {
   /// 返回true表示成功打开链接，false表示失败
   Future<bool> _openDownloadUrl(BuildContext context, String url) async {
     try {
-      final uri = Uri.parse(url);
-      
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication, // 在外部浏览器中打开
-        );
+      final opened = await UrlOpener.open(
+        url,
+        preferInApp: false,
+        isDownload: true,
+      );
+      if (opened) {
         _logger.i('已打开下载链接', extra: {'url': url});
         return true;
-      } else {
-        throw '无法打开链接: $url';
       }
+      throw '无法打开链接: $url';
     } catch (error) {
       _logger.e('打开下载链接失败', error: error);
       if (context.mounted) {

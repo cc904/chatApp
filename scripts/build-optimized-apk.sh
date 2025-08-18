@@ -30,13 +30,13 @@ if ! command -v flutter &> /dev/null; then
 fi
 
 # 显示构建选项
-# 默认构建两个APK：一个最小（arm64-v8a），一个兼容（arm64-v8a + armeabi-v7a，单包）
+# 仅构建：arm64-v8a 分包 + 通用包（arm64+v7a）；不输出 v7a 单包到 build-output
 BUILD_MINIMAL=true
 BUILD_COMPATIBLE=true
 
 echo -e "${YELLOW}📋 将构建以下产物：${NC}"
-echo "   • 最小APK (arm64-v8a)"
-echo "   • 兼容APK (arm64-v8a + armeabi-v7a，单包)"
+echo "   • arm64-v8a 分包"
+echo "   • 通用APK (arm64-v8a + armeabi-v7a，单包)"
 echo ""
 
 # 清理和准备
@@ -55,11 +55,28 @@ fi
 ############################################################
 if [ "$BUILD_MINIMAL" = true ]; then
   echo -e "${YELLOW}🔨 构建最小APK (仅 arm64-v8a)...${NC}"
+  # 使用 Flutter 官方 --split-per-abi，让工具正确感知产物位置，避免找不到APK的误判
+  set +e
   flutter build apk \
     --release \
     --target-platform android-arm64 \
+    --split-per-abi \
     -PenableAbiSplits=true -PabiInclude=arm64-v8a -PenableUniversalApk=false \
     --analyze-size
+  status=$?
+  set -e
+
+  # 某些组合下 Flutter 会误判“未生成APK”，这里做一次兜底检测
+  MIN_APK="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+  ALT_MIN_APK="build/app/outputs/apk/release/app-arm64-v8a-release.apk"
+  if [ $status -ne 0 ]; then
+    if [ -f "$MIN_APK" ] || [ -f "$ALT_MIN_APK" ]; then
+      echo -e "${YELLOW}⚠️ Flutter 返回非零退出码，但APK已生成，继续...${NC}"
+    else
+      echo -e "${RED}❌ 构建最小APK失败，且未找到产物${NC}"
+      exit 1
+    fi
+  fi
 fi
 
 ############################################################
@@ -69,12 +86,27 @@ fi
 # - 不使用 --split-per-abi，避免生成多包
 ############################################################
 if [ "$BUILD_COMPATIBLE" = true ]; then
-  echo -e "${YELLOW}🔨 构建兼容APK (arm64-v8a + armeabi-v7a，单包)...${NC}"
+  echo -e "${YELLOW}🔨 构建通用APK (arm64-v8a + armeabi-v7a，单包)...${NC}"
+  set +e
+  # 方案：关闭 splits，以生成单一多ABI APK（包含 v7a + v8a），避免生成各自分包
   flutter build apk \
     --release \
     --target-platform android-arm,android-arm64 \
-    -PenableAbiSplits=false \
-    --analyze-size
+    -PenableAbiSplits=false
+  status=$?
+  set -e
+
+  # 兜底检测“兼容单包”产物（Flutter 默认命名为 app-release.apk）
+  COMPAT_DIR="build/app/outputs/flutter-apk"
+  UNIVERSAL_APK="$COMPAT_DIR/app-release.apk"
+  if [ $status -ne 0 ]; then
+    if [ -f "$UNIVERSAL_APK" ]; then
+      echo -e "${YELLOW}⚠️ Flutter 返回非零退出码，但兼容APK已生成，继续...${NC}"
+    else
+      echo -e "${RED}❌ 构建兼容APK失败，且未找到产物${NC}"
+      exit 1
+    fi
+  fi
 fi
 
 echo ""
@@ -135,6 +167,29 @@ else
         
         echo ""
         echo -e "${BLUE}📍 APK位置: $APK_DIR${NC}"
+
+        # 输出目录
+        OUT_DIR="./build-output"
+        mkdir -p "$OUT_DIR"
+
+        # 如果存在 arm64-v8a 产物，复制到 output 目录
+        if [ -f "$APK_DIR/app-arm64-v8a-release.apk" ]; then
+          cp -f "$APK_DIR/app-arm64-v8a-release.apk" "$OUT_DIR/app-release-arm64.apk" || true
+          echo -e "${GREEN}✅ 已复制: $OUT_DIR/app-release-arm64.apk${NC}"
+        fi
+
+        # 不再复制 v7a 单包到输出目录（只保留 arm64 与 universal）
+
+        # 如果存在 universal 产物，复制到 output 目录
+        if [ -f "$APK_DIR/app-universal-release.apk" ]; then
+          cp -f "$APK_DIR/app-universal-release.apk" "$OUT_DIR/app-release-universal.apk" || true
+          echo -e "${GREEN}✅ 已复制: $OUT_DIR/app-release-universal.apk${NC}"
+        fi
+        # Flutter 默认 universal 名称（当 -PenableAbiSplits=false）
+        if [ -f "$APK_DIR/app-release.apk" ]; then
+          cp -f "$APK_DIR/app-release.apk" "$OUT_DIR/app-release-universal.apk" || true
+          echo -e "${GREEN}✅ 已复制: $OUT_DIR/app-release-universal.apk${NC}"
+        fi
     fi
 fi
 

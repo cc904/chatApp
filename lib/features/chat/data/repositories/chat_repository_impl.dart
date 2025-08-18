@@ -536,16 +536,31 @@ class ChatRepositoryImpl implements ChatRepository {
       if (response.success) {
         // 💢💢💢 发送成功，更新消息索引、状态和服务器时间戳
         await _database.transaction(() async {
+          // 日志：回写前后索引对比
+          _logger.i('📝 正在回写消息索引', extra: {
+            'messageId': message.messageId,
+            'conversationId': message.conversationId,
+            'oldIndex': message.messageIndex,
+            'serverIndex': response.messageIndex.toInt(),
+          });
+
           final updatedMessage = message.copyWith(
             messageIndex: response.messageIndex.toInt(),
             messageStatus: 'SENT',
             updatedAt: Value(TimezoneUtils.nowUtc()), // 🌍 使用UTC时间
-            createdAt: response.hasCreatedAt() 
-              ? TimezoneUtils.fromServerTimestamp(response.createdAt.toInt())
-              : message.createdAt,
+            createdAt: response.hasCreatedAt()
+                ? TimezoneUtils.fromServerTimestamp(response.createdAt.toInt())
+                : message.createdAt,
           );
 
           await _database.update(_database.messages).replace(updatedMessage);
+
+          _logger.i('✅ 已回写消息索引', extra: {
+            'messageId': updatedMessage.messageId,
+            'conversationId': updatedMessage.conversationId,
+            'newIndex': updatedMessage.messageIndex,
+            'status': updatedMessage.messageStatus,
+          });
         });
 
         // 💢💢💢 推送消息更新事件

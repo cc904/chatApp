@@ -141,10 +141,6 @@ class ChatsCubit extends Cubit<ChatsState> {
 
       // 调用仓库层的同步方法，数据库更新后会自动触发UI更新
       await _chatsRepository.requestSyncConversations();
-
-      // 同步请求发送成功，状态会在数据库更新时自动变为completed
-      emit(state.copyWith(
-          conversationSyncStatus: ConversationSyncStatus.completed));
     } catch (error) {
       _logger.e('同步会话失败', error: error);
       emit(state.copyWith(

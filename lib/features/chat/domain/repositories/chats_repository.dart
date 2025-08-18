@@ -45,24 +45,15 @@ abstract class ChatsRepository {
   Future<String?> createOrGetConversation(String userId);
 
   /// 同步会话列表
-  /// 从服务器同步最新的会话数据
+  /// 从服务器同步最新的会话数据（不依赖时间戳）
   /// 该方法只发送同步请求，不返回会话列表
   /// 会话数据将通过事件通知并由状态管理系统更新UI
-  /// 💢💢💢 新增：支持增量同步，自动使用上次同步时间
   Future<void> requestSyncConversations();
 
   /// 💢💢💢 新增：强制全量同步会话列表
-  /// 忽略上次同步时间，从服务器获取所有会话数据
-  /// 用于重置或修复数据时使用
+  /// 从服务器获取所有会话数据（与requestSyncConversations等价，作为显式API保留）
   Future<void> requestFullSyncConversations();
 
-  /// 💢💢💢 新增：获取上次同步时间
-  /// 返回上次成功同步会话的时间，如果从未同步则返回null
-  Future<DateTime?> getLastSyncTime();
-
-  /// 💢💢💢 新增：清除同步时间记录
-  /// 清除保存的同步时间，下次同步将执行全量同步
-  Future<void> clearSyncTime();
 
   /// 统一更新参与者设置（静音、置顶、已读状态）
   /// [conversationId] - 会话ID

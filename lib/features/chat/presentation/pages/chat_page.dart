@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:io' show File;
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:image_picker/image_picker.dart' show XFile;
 
 import 'package:cc/core/database/drift_database.dart';
+import 'package:cc/core/database/database_initializer.dart';
+import 'package:drift/drift.dart' show OrderingTerm;
 // Proto imports removed as they're not currently used
 import 'package:cc/core/services/log_service.dart';
 // import 'package:cc/features/contacts/presentation/cubit/contact_cubit.dart';
 import 'package:cc/core/adapters/conversation_adapter.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
-import 'dart:convert';
 import 'package:cc/core/widgets/connection_status_indicator.dart';
 import 'package:cc/features/chat/presentation/pages/chat_info_page.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +38,6 @@ import 'package:cc/features/chat/presentation/widgets/unread_indicator_button.da
 import 'package:cc/features/chat/presentation/widgets/quick_reply_panel.dart';
 import 'package:mime/mime.dart';
 import 'package:cc/core/widgets/user_avatar.dart';
-import 'package:cc/core/utils/debug_commands.dart';
 import 'package:cc/core/utils/user_display_utils.dart';
 
 import 'package:cc/features/chat/domain/repositories/chat_repository.dart';
@@ -271,7 +272,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         final chatCubit = context.read<ChatCubit>();
         final state = chatCubit.state;
         final roleId = state.currentUser.roleId;
-        final hasPermission = _hasQuickReplyPermission(roleId);
 
         
 
@@ -285,15 +285,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         // 🔥🔥🔥 额外的权限测试
         _testQuickReplyPermissions(roleId);
 
-        // 🔧 初始化快捷回复（如果用户有权限）
-        if (hasPermission) {
-          try {
-            context.read<ChatCubit>().initializeQuickReplies();
-            
-          } catch (e) {
-            
-          }
-        }
+        // 🔧 初始化快捷回复交由 ChatCubit 内部流程触发，避免重复调用导致重复响应
 
         context.read<ChatCubit>().syncCurrentConversation();
       }
@@ -341,29 +333,112 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  /// 调试ChatState状态
-  void _debugChatState() {
+  /// 调试：显示当前会话的本地消息索引与文本
+  Future<void> _showConversationLocalDump() async {
     try {
       final chatCubit = context.read<ChatCubit>();
-      DebugCommands.diagnoseChatStateWithCubit(chatCubit);
-      final localizations = AppLocalizations.of(context);
+      final conversationId = chatCubit.state.conversation.conversationId;
+      final db = DatabaseInitializer.database;
 
-      // 显示提示
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(localizations.debugStateOutputToConsole),
-          duration: const Duration(seconds: 2),
+      // 查询该会话所有消息，按 messageIndex 升序
+      final rows = await (db.select(db.messages)
+            ..where((m) => m.conversationId.equals(conversationId))
+            ..orderBy([(m) => OrderingTerm.asc(m.messageIndex)]))
+          .get();
+
+      // 生成展示用字符串（index + 文本内容预览）
+      final lines = <String>[];
+      for (final m in rows) {
+        String preview = '';
+        try {
+          if (m.content != null && m.content!.isNotEmpty) {
+            final map = jsonDecode(m.content!);
+            if (map is Map && map.containsKey('text_message')) {
+              final tm = map['text_message'];
+              if (tm is Map && tm['text'] is String) {
+                preview = (tm['text'] as String).trim();
+              }
+            }
+          }
+        } catch (_) {}
+        if (preview.length > 120) preview = preview.substring(0, 120) + '…';
+        lines.add('[${m.messageIndex}] ${preview.isEmpty ? '(非文本/无文本)' : preview}');
+      }
+
+      final body = lines.isEmpty
+          ? '无本地消息'
+          : lines.join('\n');
+
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('当前会话本地消息（index + 文本）'),
+          content: SingleChildScrollView(
+            child: SelectableText(body),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
         ),
       );
-    } catch (error) {
-      _logger.e('调试ChatState失败', error: error);
-      final localizations = AppLocalizations.of(context);
-
+    } catch (e) {
+      _logger.e('本地消息调试弹窗失败', error: e);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${localizations.debugStateFailed}: $error'),
-          duration: const Duration(seconds: 3),
+        SnackBar(content: Text('调试失败: $e')),
+      );
+    }
+  }
+
+  /// 调试：显示当前状态中的消息（index + mm:ss + 文本）
+  Future<void> _showStateMessagesDump() async {
+    try {
+      final chatCubit = context.read<ChatCubit>();
+      final messages = chatCubit.state.messages;
+
+      final lines = <String>[];
+      for (final m in messages) {
+        final created = m.createdAt.toLocal();
+        final mm = created.minute.toString().padLeft(2, '0');
+        final ss = created.second.toString().padLeft(2, '0');
+        String preview = '';
+        try {
+          if (m.content != null && m.content!.isNotEmpty) {
+            final map = jsonDecode(m.content!);
+            if (map is Map && map.containsKey('text_message')) {
+              final tm = map['text_message'];
+              if (tm is Map && tm['text'] is String) {
+                preview = (tm['text'] as String).trim();
+              }
+            }
+          }
+        } catch (_) {}
+        if (preview.length > 120) preview = preview.substring(0, 120) + '…';
+        lines.add('[${m.messageIndex}] $mm:$ss ${preview.isEmpty ? '(非文本/无文本)' : preview}');
+      }
+
+      final body = lines.isEmpty ? '无state消息' : lines.join('\n');
+
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('状态消息（index + mm:ss + 文本）'),
+          content: SingleChildScrollView(child: SelectableText(body)),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('关闭')),
+          ],
         ),
+      );
+    } catch (e) {
+      _logger.e('状态消息调试弹窗失败', error: e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('调试失败: $e')),
       );
     }
   }
@@ -962,12 +1037,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       ),
       actions: [
         // 调试按钮
-        if (kDebugMode)
+        if (kDebugMode) ...[
           IconButton(
             icon: const Icon(Icons.bug_report, size: 20),
-            onPressed: () => _debugChatState(),
-            tooltip: 'Debug Chat State',
+            onPressed: _showConversationLocalDump,
+            tooltip: '本地会话消息(index+文本)',
           ),
+          IconButton(
+            icon: const Icon(Icons.list_alt, size: 20),
+            onPressed: _showStateMessagesDump,
+            tooltip: '状态消息(index+时间+文本)',
+          ),
+        ],
         // 会话头像
         Padding(
           padding: const EdgeInsets.only(right: 8.0),
@@ -1011,13 +1092,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 userId: state.conversation.type == 'PRIVATE' ?
                   (() {
                     final other = UserDisplayUtils.getOtherUserFromConversation(state.conversation, state.currentUser.userId);
-                    LogService.instance.i('🧭 ChatPage AppBar 头像参数', extra: {
-                      'conversationId': state.conversation.conversationId,
-                      'conversationAvatar': state.conversation.avatar,
-                      'currentUserId': state.currentUser.userId,
-                      'otherUserId': other != null ? other['userId'] : null,
-                      'otherAvatar': other != null ? other['avatar'] : null,
-                    });
+                    // LogService.instance.i('🧭 ChatPage AppBar 头像参数', extra: {
+                    //   'conversationId': state.conversation.conversationId,
+                    //   'conversationAvatar': state.conversation.avatar,
+                    //   'currentUserId': state.currentUser.userId,
+                    //   'otherUserId': other != null ? other['userId'] : null,
+                    //   'otherAvatar': other != null ? other['avatar'] : null,
+                    // });
                     return other != null ? other['userId'] as String? : null;
                   })()
                   : state.conversation.conversationId,
@@ -1260,8 +1341,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               // 处理消息列表，添加分隔符
               final currentUserId = state.currentUser.userId;
               final isNotGroupChat = state.conversation.type != 'GROUP';
+              // 统一排序：先按index降序（最新在前）；若相同（哨兵），按createdAt降序；最后用messageId稳定
+              final displayMessages = List<Message>.from(state.messages)
+                ..sort((a, b) {
+                  const int sentinel = 1 << 30;
+                  final bool aSentinel = a.messageIndex == sentinel;
+                  final bool bSentinel = b.messageIndex == sentinel;
+                  if (aSentinel && !bSentinel) return -1; // 哨兵视为最大，最新在前
+                  if (!aSentinel && bSentinel) return 1;
+                  final int c = b.messageIndex.compareTo(a.messageIndex); // index降序
+                  if (c != 0) return c;
+                  final int t = b.createdAt.compareTo(a.createdAt); // 时间降序
+                  if (t != 0) return t;
+                  return b.messageId.compareTo(a.messageId);
+                });
+
               final processedItems = MessageListProcessor.processMessages(
-                messages: state.messages, // 直接使用state中的消息列表
+                messages: displayMessages,
                 currentUserId: currentUserId,
                 isNotGroupChat: isNotGroupChat,
               );
@@ -1354,7 +1450,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                         return 0;
                       })(),
 
-                      // 💢💢💢 计算初始对齐：有锚点使用精确位置；否则让消息贴底（避免“先居中再滚到底部”的闪动）
+                      // 💢💢💢 计算初始对齐：有锚点使用精确位置；否则让消息贴底（避免"先居中再滚到底部"的闪动）
                       initialAlignment: (() {
                         final anchorId = state.currentScrollPosition.messageId;
                         if (anchorId == null) {
@@ -1476,19 +1572,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         final currentUserId = state.currentUser.userId;
 
         // 🔥🔥🔥 详细记录用户roleId和快捷回复权限状态
-        final currentRoleId = state.currentUser.roleId;
-        final hasQuickReplyPermission = _hasQuickReplyPermission(currentRoleId);
+        // final currentRoleId = state.currentUser.roleId;
 
-        _logger.i('💬💬💬 ChatPage输入区域构建', extra: {
-          'currentUserId': currentUserId,
-          'currentUserRoleId': currentRoleId,
-          'conversationType': conversation.type,
-          'isEnabled': isEnabled,
-          'hasQuickReplyPermission': hasQuickReplyPermission,
-        });
+        // _logger.i('💬💬💬 ChatPage输入区域构建', extra: {
+        //   'currentUserId': currentUserId,
+        //   'currentUserRoleId': currentRoleId,
+        //   'conversationType': conversation.type,
+        //   'isEnabled': isEnabled,
+        //   'hasQuickReplyPermission': hasQuickReplyPermission,
+        // });
 
-        // 记录输入区域权限状态
-        _logger.d('🔥🔥🔥 INPUT_AREA_BUILD: userId=$currentUserId, roleId=$currentRoleId, hasPermission=$hasQuickReplyPermission');
+        // // 记录输入区域权限状态
+        // _logger.d('🔥🔥🔥 INPUT_AREA_BUILD: userId=$currentUserId, roleId=$currentRoleId, hasPermission=$hasQuickReplyPermission');
 
         // 检查是否为频道
         if (conversation.type == 'CHANNEL') {
@@ -1512,13 +1607,13 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             // 快捷回复面板 - 仅对有权限的用户显示
             ...() {
               final hasPermission = _hasQuickReplyPermission(state.currentUser.roleId);
-              _logger.i('🔥🔥🔥 快捷回复面板条件判断', extra: {
-                'currentUserRoleId': state.currentUser.roleId,
-                'hasPermission': hasPermission,
-                'willShowPanel': hasPermission,
-                'panelVisible': _showQuickReplyPanel,
-                'currentUserId': state.currentUser.userId,
-              });
+              // _logger.i('🔥🔥🔥 快捷回复面板条件判断', extra: {
+              //   'currentUserRoleId': state.currentUser.roleId,
+              //   'hasPermission': hasPermission,
+              //   'willShowPanel': hasPermission,
+              //   'panelVisible': _showQuickReplyPanel,
+              //   'currentUserId': state.currentUser.userId,
+              // });
 
               if (hasPermission) {
                 return [

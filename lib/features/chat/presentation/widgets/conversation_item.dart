@@ -130,15 +130,15 @@ class ConversationItem extends StatelessWidget {
         ? UserDisplayUtils.getOtherUserFromConversation(conversation, currentUser.userId)
         : null;
 
-    logger.i('🧭 ConversationItem 准备渲染头像', extra: {
-      'conversationId': conversation.conversationId,
-      'type': conversation.type,
-      'conversationAvatar': conversation.avatar,
-      'currentUserId': currentUser.userId,
-      'otherUserId': other != null ? other['userId'] : null,
-      'otherAvatar': other != null ? other['avatar'] : null,
-      'nameForAvatar': _getAvatarDisplayName(conversation),
-    });
+    // logger.i('🧭 ConversationItem 准备渲染头像', extra: {
+    //   'conversationId': conversation.conversationId,
+    //   'type': conversation.type,
+    //   'conversationAvatar': conversation.avatar,
+    //   'currentUserId': currentUser.userId,
+    //   'otherUserId': other != null ? other['userId'] : null,
+    //   'otherAvatar': other != null ? other['avatar'] : null,
+    //   'nameForAvatar': _getAvatarDisplayName(conversation),
+    // });
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),

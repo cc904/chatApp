@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cc/core/services/url_opener.dart';
 import 'package:cc/core/l10n/app_localizations.dart';
 import 'package:cc/core/services/log_service.dart';
 import 'package:cc/features/profile/presentation/pages/version_info_page.dart';
@@ -154,7 +155,7 @@ class _AboutPageState extends State<AboutPage> {
           icon: Icons.web,
           title: '官方网站',
           subtitle: 'www.ThisApp.com',
-          onTap: () => _copyToClipboard('https://www.ThisApp.com'),
+          onTap: () => UrlOpener.openInApp('https://www.ThisApp.com'),
         ),
         const Divider(height: 1),
         _buildContactTile(

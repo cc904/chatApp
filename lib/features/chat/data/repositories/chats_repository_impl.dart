@@ -11,11 +11,10 @@ import 'package:cc/features/chat/domain/entities/chat_state_snapshot.dart';
 import 'package:cc/features/chat/domain/entities/conversation_update_event.dart';
 
 import 'package:cc/core/proto/generated/conversation.pb.dart' as conversation_proto;
-import 'package:cc/core/services/secure_storage_service.dart';
 // import 'package:cc/features/chat/domain/entities/participant.dart';
 import 'package:cc/core/services/conversation_preview_notification.dart';
 import 'package:cc/core/services/app_lifecycle_service.dart';
-import 'package:fixnum/fixnum.dart';
+ 
 import 'package:drift/drift.dart';
 
 /// ChatsRepository的实现类
@@ -188,16 +187,16 @@ class ChatsRepositoryImpl implements ChatsRepository {
         // 💢💢💢 第二步：批量添加新会话
         if (newConversations.isNotEmpty) {
           // 🔥🔥🔥 添加私聊会话的详细日志
-          for (final conversation in newConversations) {
-            if (conversation.type == 'PRIVATE') {
-              _logger.i('📱📱📱 存储私聊会话到数据库', extra: {
-                'conversationId': conversation.conversationId,
-                'name': conversation.name,
-                'participants': conversation.participants,
-                'participantsLength': conversation.participants.length,
-              });
-            }
-          }
+          // for (final conversation in newConversations) {
+          //   if (conversation.type == 'PRIVATE') {
+          //     _logger.i('📱📱📱 存储私聊会话到数据库', extra: {
+          //       'conversationId': conversation.conversationId,
+          //       'name': conversation.name,
+          //       'participants': conversation.participants,
+          //       'participantsLength': conversation.participants.length,
+          //     });
+          //   }
+          // }
 
           await _database.batch((batch) {
             for (final conv in newConversations) {
@@ -288,7 +287,19 @@ class ChatsRepositoryImpl implements ChatsRepository {
       });
 
       // 💢💢💢 发送创建请求到服务器
+      // 打印通信服务状态
+      try {
+        final connInfo = ProtoSocketService().getConnectionInfo();
+        _logger.i('会话创建前连接信息', extra: connInfo);
+      } catch (_) {}
+
       final success = await _communicationService.emitProto('conversation:create', createRequest);
+
+      _logger.i('会话创建请求已发送', extra: {
+        'success': success,
+        'event': 'conversation:create',
+        'socketConnected': ProtoSocketService().isConnected,
+      });
 
       if (!success) {
         throw Exception('发送创建会话请求失败');
@@ -296,8 +307,33 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
       // 💢💢💢 等待服务器响应
       try {
-        final response =
-            await _communicationService.onProto<conversation_proto.ConversationCreateResponse>('conversation:create:response').timeout(const Duration(seconds: 10)).first;
+        // 订阅前打印订阅信息
+        _logger.i('准备订阅会话创建响应', extra: {
+          'event': 'conversation:create:response',
+          'timeoutSeconds': 10,
+        });
+
+        final stream = _communicationService.onProto<conversation_proto.ConversationCreateResponse>('conversation:create:response');
+
+        // 提前挂上一个debug监听（单次）用于日志
+        final sub = stream.listen((resp) {
+          _logger.i('收到会话创建响应(预监听)', extra: {
+            'success': resp.success,
+            'hasConversation': resp.hasConversation(),
+            'message': resp.message,
+          });
+        });
+
+        // 超时辅助告警（10秒）
+        final warnTimer = Timer(const Duration(seconds: 10), () {
+          _logger.w('等待会话创建响应超过10秒，可能网络慢或服务器繁忙');
+        });
+
+        final response = await stream.timeout(const Duration(seconds: 20)).first;
+
+        // 清理辅助
+        await sub.cancel();
+        warnTimer.cancel();
 
         if (!response.success) {
           throw Exception('服务器创建会话失败: ${response.message}');
@@ -318,11 +354,38 @@ class ChatsRepositoryImpl implements ChatsRepository {
           currentUserId: _currentUser.userId,
         );
 
-        await _database.into(_database.conversations).insert(conversation);
+        // 新增：如果本地已存在同conversationId，直接读取并返回，避免重复插入
+        final existed = await (_database.select(_database.conversations)
+              ..where((c) => c.conversationId.equals(conversation.conversationId)))
+            .getSingleOrNull();
+        if (existed != null) {
+          _logger.i('本地已有相同conversationId，直接复用', extra: {
+            'conversationId': existed.conversationId,
+          });
+          return existed;
+        }
+
+        try {
+          await _database.into(_database.conversations).insertOnConflictUpdate(conversation);
+        } catch (e) {
+          _logger.w('插入会话时唯一键冲突，改为覆盖更新', extra: {
+            'conversationId': conversation.conversationId,
+            'error': e.toString(),
+          });
+          await _database.into(_database.conversations).insertOnConflictUpdate(conversation);
+        }
 
         return conversation;
       } on TimeoutException {
-        _logger.e('等待服务器创建会话响应超时');
+        // 记录更详细的状态辅助排错
+        try {
+          final connInfo = ProtoSocketService().getConnectionInfo();
+          _logger.e('等待服务器创建会话响应超时', extra: {
+            'connectionInfo': connInfo,
+          });
+        } catch (_) {
+          _logger.e('等待服务器创建会话响应超时');
+        }
         throw Exception('创建会话超时，请重试');
       }
     } catch (error) {
@@ -445,9 +508,8 @@ class ChatsRepositoryImpl implements ChatsRepository {
   }
 
   /// 请求同步会话列表
-  /// 从服务器同步最新的会话数据
+  /// 从服务器同步最新的会话数据（不再依赖时间戳，始终由服务端决定返回范围）
   /// 会话数据将通过事件通知并由状态管理系统更新UI
-  /// 💢💢💢 新增：支持增量同步，只获取自上次同步以来有更新的会话
   @override
   Future<void> requestSyncConversations() async {
     try {
@@ -462,20 +524,9 @@ class ChatsRepositoryImpl implements ChatsRepository {
         }
       }
 
-      // 💢💢💢 新增：获取上次同步时间实现增量同步
-      final lastSyncTime = await _getLastSyncTime();
-
-      // 创建同步请求，包含上次同步时间
+      // 创建同步请求（不带 lastSyncTime）
       final syncRequest = conversation_proto.SyncConversationsRequest();
-      if (lastSyncTime != null) {
-        syncRequest.lastSyncTime = Int64(lastSyncTime.millisecondsSinceEpoch);
-        _logger.i('发送增量会话同步请求', extra: {
-          'lastSyncTime': lastSyncTime.toIso8601String(),
-          'lastSyncTimestamp': lastSyncTime.millisecondsSinceEpoch,
-        });
-      } else {
-        _logger.i('发送全量会话同步请求（首次同步）');
-      }
+      _logger.i('发送会话同步请求（无时间戳）');
 
       // 发送同步请求到服务器
       _communicationService.emitProto('conversation:sync', syncRequest);
@@ -525,38 +576,6 @@ class ChatsRepositoryImpl implements ChatsRepository {
     return success;
   }
 
-  /// 💢💢💢 新增：获取上次同步时间
-  Future<DateTime?> _getLastSyncTime() async {
-    try {
-      final secureStorage = SecureStorageService();
-      final timestampStr = await secureStorage.read('conversations_last_sync_time');
-      if (timestampStr != null) {
-        final timestamp = int.tryParse(timestampStr);
-        if (timestamp != null) {
-          return DateTime.fromMillisecondsSinceEpoch(timestamp);
-        }
-      }
-      return null;
-    } catch (error) {
-      _logger.w('获取上次同步时间失败: $error');
-      return null;
-    }
-  }
-
-  /// 💢💢💢 新增：保存同步时间
-  Future<void> _saveLastSyncTime(DateTime syncTime) async {
-    try {
-      final secureStorage = SecureStorageService();
-      await secureStorage.write('conversations_last_sync_time', syncTime.millisecondsSinceEpoch.toString());
-      _logger.d('已保存会话同步时间', extra: {
-        'syncTime': syncTime.toIso8601String(),
-        'timestamp': syncTime.millisecondsSinceEpoch,
-      });
-    } catch (error) {
-      _logger.w('保存同步时间失败: $error');
-    }
-  }
-
   /// 💢💢💢 新增：强制全量同步会话列表
   @override
   Future<void> requestFullSyncConversations() async {
@@ -578,23 +597,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
     }
   }
 
-  /// 💢💢💢 新增：获取上次同步时间（公开方法）
-  @override
-  Future<DateTime?> getLastSyncTime() async {
-    return await _getLastSyncTime();
-  }
-
-  /// 💢💢💢 新增：清除同步时间记录
-  @override
-  Future<void> clearSyncTime() async {
-    try {
-      final secureStorage = SecureStorageService();
-      await secureStorage.delete('conversations_last_sync_time');
-      _logger.i('已清除会话同步时间记录，下次同步将执行全量同步');
-    } catch (error) {
-      _logger.w('清除同步时间记录失败: $error');
-    }
-  }
+  
 
   /// 统一更新参与者设置（静音、置顶、已读状态）
   @override
@@ -627,13 +630,13 @@ class ChatsRepositoryImpl implements ChatsRepository {
             final conversation = await getConversationById(conversationId);
             if (conversation != null) {
               final participants = ConversationAdapter.parseParticipants(conversation.participants);
-              bool updated = false; // 保留变量以便未来使用（可用于其他字段变动）
+              // 原本用于检测其他字段变化的变量，当前未使用，先移除以避免lint警告
               for (int i = 0; i < participants.length; i++) {
                 final p = participants[i];
                 if (p.userId == _currentUser.userId) {
                   if (p.readMessageIndex != readMessageIndex) {
                     participants[i] = p.copyWith(readMessageIndex: readMessageIndex);
-                    updated = true;
+                    // 占位：当未来增加更多字段变动时可在此扩展
                   }
                   break;
                 }
@@ -1118,28 +1121,28 @@ class ChatsRepositoryImpl implements ChatsRepository {
         await getConversationById(conv.conversationId);
 
         // 🔥🔥🔥 详细的会话同步调试日志
-        _logger.i('🔄🔄🔄 会话同步处理', extra: {
-          'conversationId': conv.conversationId,
-          'type': conv.type.toString(),
-          'participantsCount': conv.participants.length,
-          'participants': conv.participants
-              .map((p) => {
-                    'userId': p.userId,
-                    'name': p.name,
-                    'roleId': p.hasRole() ? p.role.value : 0,
-                  })
-              .toList(),
-        });
+        // _logger.i('🔄🔄🔄 会话同步处理', extra: {
+        //   'conversationId': conv.conversationId,
+        //   'type': conv.type.toString(),
+        //   'participantsCount': conv.participants.length,
+        //   'participants': conv.participants
+        //       .map((p) => {
+        //             'userId': p.userId,
+        //             'name': p.name,
+        //             'roleId': p.hasRole() ? p.role.value : 0,
+        //           })
+        //       .toList(),
+        // });
 
         final dbConversation = ConversationAdapter.fromProto(
           conv,
           currentUserId: _currentUser.userId,
         );
 
-        _logger.i('✅✅✅ 会话转换完成', extra: {
-          'conversationId': dbConversation.conversationId,
-          'participants': dbConversation.participants,
-        });
+        // _logger.i('✅✅✅ 会话转换完成', extra: {
+        //   'conversationId': dbConversation.conversationId,
+        //   'participants': dbConversation.participants,
+        // });
 
         dbConversations.add(dbConversation);
       }
@@ -1153,8 +1156,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         timestamp: DateTime.now(),
       ));
 
-      // 💢💢💢 保存同步时间
-      await _saveLastSyncTime(DateTime.now());
+      // 不再保存"上次同步时间"
 
       _logger.i('会话全量同步完成，已完全替换本地数据', extra: {
         'newCount': dbConversations.length,
@@ -1390,7 +1392,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
         if (existing != null) {
           await _database.update(_database.conversations).replace(conversation);
         } else {
-          await _database.into(_database.conversations).insert(conversation);
+          await _database.into(_database.conversations).insertOnConflictUpdate(conversation);
         }
       });
 
@@ -1656,7 +1658,7 @@ class ChatsRepositoryImpl implements ChatsRepository {
 
           if (existing == null) {
             // 添加新会话
-            await _database.into(_database.conversations).insert(localConversation);
+            await _database.into(_database.conversations).insertOnConflictUpdate(localConversation);
             _logger.i('新会话已添加到本地数据库', extra: {
               'conversationId': conversation.conversationId,
               'name': conversation.name,

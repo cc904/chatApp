@@ -232,7 +232,6 @@ class MessageAdapter {
     final protoMessage = message_proto.MessageProto(
       messageId: message.messageId,
       conversationId: message.conversationId,
-      index: message.messageIndex,
       senderId: message.senderId,
       senderName: message.senderName,
       senderAvatar: message.senderAvatar,
@@ -249,6 +248,15 @@ class MessageAdapter {
       tags: message.tags != null ? _parseJsonStringList(message.tags!) : [],
       isPinned: message.isPinned,
     );
+
+    // 仅在明确为有效真实索引时设置 index，避免把哨兵值(1<<30)发给服务端
+    try {
+      const int sentinelIndex = 1 << 30;
+      final bool isSending = message.messageStatus.toUpperCase() == 'SENDING';
+      if (!isSending && message.messageIndex > 0 && message.messageIndex < sentinelIndex) {
+        protoMessage.index = message.messageIndex;
+      }
+    } catch (_) {}
 
     // 设置reactions字段
     if (message.reactions != null && message.reactions!.isNotEmpty) {

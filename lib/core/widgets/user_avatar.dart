@@ -115,17 +115,17 @@ class _UserAvatarState extends State<UserAvatar> {
 
   /// 加载头像
   void _loadAvatar() async {
-    _logger.i('🎯 UserAvatar 开始加载', extra: {
-      'name': widget.name,
-      'avatarUrl': widget.avatarUrl,
-      'userId': widget.userId,
-      'useThumbnail': widget.useThumbnail,
-    });
+    // _logger.i('🎯 UserAvatar 开始加载', extra: {
+    //   'name': widget.name,
+    //   'avatarUrl': widget.avatarUrl,
+    //   'userId': widget.userId,
+    //   'useThumbnail': widget.useThumbnail,
+    // });
     if (widget.avatarUrl == null || widget.avatarUrl!.isEmpty) {
       // 没有头像URL，直接显示首字母头像
-      _logger.w('⚠️ avatarUrl 为空，使用首字母头像', extra: {
-        'name': widget.name,
-      });
+      // _logger.w('⚠️ avatarUrl 为空，使用首字母头像', extra: {
+      //   'name': widget.name,
+      // });
       setState(() {
         _isLoading = false;
         _hasError = false;

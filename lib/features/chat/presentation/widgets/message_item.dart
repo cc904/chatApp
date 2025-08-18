@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import 'package:cc/core/services/url_opener.dart';
 import 'package:cc/core/database/drift_database.dart';
 import 'package:cc/core/utils/user_display_utils.dart';
 import 'package:cc/core/adapters/message_adapter.dart';
@@ -524,13 +526,60 @@ class MessageItem extends StatelessWidget {
 
   Widget _buildTextContent(BuildContext context) {
     // 💢💢💢 撤回和删除处理已移至_buildMessageContent统一处理
-    // 此方法只处理正常的文本显示
-    return Text(
-      _getTextFromMessage() ?? '',
-      style: const TextStyle(
-        color: Colors.black87,
-        fontSize: 16.0,
-      ),
+    // 此方法处理正常文本显示并识别可点击链接
+    final text = _getTextFromMessage() ?? '';
+
+    // 简单URL正则（http/https）
+    final urlRegex = RegExp(r'(https?:\/\/[^\s]+)', caseSensitive: false);
+    final spans = <TextSpan>[];
+
+    int currentIndex = 0;
+    final matches = urlRegex.allMatches(text).toList();
+
+    if (matches.isEmpty) {
+      return Text(
+        text,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 16.0,
+        ),
+      );
+    }
+
+    for (final match in matches) {
+      if (match.start > currentIndex) {
+        spans.add(TextSpan(
+          text: text.substring(currentIndex, match.start),
+          style: const TextStyle(color: Colors.black87, fontSize: 16.0),
+        ));
+      }
+
+      final url = text.substring(match.start, match.end);
+      spans.add(TextSpan(
+        text: url,
+        style: const TextStyle(
+          color: Colors.blue,
+          decoration: TextDecoration.underline,
+          fontSize: 16.0,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () {
+            UrlOpener.openInApp(url);
+          },
+      ));
+
+      currentIndex = match.end;
+    }
+
+    if (currentIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(currentIndex),
+        style: const TextStyle(color: Colors.black87, fontSize: 16.0),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
     );
   }
 

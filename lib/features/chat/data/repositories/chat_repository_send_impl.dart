@@ -371,8 +371,9 @@ class ChatRepositorySendImpl implements ChatRepositorySend {
       });
     }
 
-    // 为乐观消息设置临时高索引，确保排序靠前；待服务器回执后会被真实索引覆盖
-    final provisionalIndex = 1 << 30; // 足够大的占位索引
+    // 为乐观消息设置临时索引（仅本地使用，不向服务端传递）
+    // 使用哨兵值，避免连续发送时因 stale lastMessageIndex 导致重复 index
+    final int provisionalIndex = 1 << 30;
 
     final message = Message(
       messageId: messageId,

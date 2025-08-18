@@ -721,41 +721,59 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     );
   }
 
-  /// 构建Tab内容 - 根据初始化状态显示内容或骨架屏
+  /// 构建Tab内容 - 仅在依赖未就绪时返回轻量占位；骨架屏移除，改由子页面自行处理
   Widget _buildTabContent(int tabIndex, AppLocalizations localizations) {
-    // 🔧 增强调试：记录为什么显示骨架屏
-    final shouldShowSkeleton = _isInitializing || !_isInitialized || _homeCubit == null || _chatsCubit == null || _contactCubit == null;
+    // 仅在关键依赖未就绪时占位（不再显示整页骨架屏）
+    final shouldPlaceholder = _homeCubit == null || _chatsCubit == null || _contactCubit == null;
+    final bool isCurrent = _currentIndex.value == tabIndex;
 
-    if (shouldShowSkeleton) {
-      _logger.d('显示骨架屏', extra: {
-        'tabIndex': tabIndex,
-        'isInitializing': _isInitializing,
-        'isInitialized': _isInitialized,
-        'hasHomeCubit': _homeCubit != null,
-        'hasChatsCubit': _chatsCubit != null,
-        'hasContactCubit': _contactCubit != null,
-        'reason': _isInitializing
-            ? '正在初始化'
-            : !_isInitialized
-                ? '未初始化完成'
-                : _homeCubit == null
-                    ? 'HomeCubit为空'
-                    : _chatsCubit == null
-                        ? 'ChatsCubit为空'
-                        : _contactCubit == null
-                            ? 'ContactCubit为空'
-                            : '未知',
-      });
-      return _buildSkeletonContent(tabIndex, localizations);
+    if (shouldPlaceholder) {
+      // 显示顶部AppBar骨架 + 当前Tab的内容骨架（不覆盖底部TabBar）
+      if (isCurrent) {
+        _logger.d('显示Home骨架屏（不覆盖底部TabBar）', extra: {
+          'tabIndex': tabIndex,
+          'hasHomeCubit': _homeCubit != null,
+          'hasChatsCubit': _chatsCubit != null,
+          'hasContactCubit': _contactCubit != null,
+        });
+      }
+      return Column(
+        children: [
+          // 顶部AppBar骨架
+          Container(
+            height: 90,
+            padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+            ),
+            child: Row(
+              children: [
+                Container(width: 120, height: 20, color: Colors.grey[300]),
+                const Spacer(),
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!)),
+                ),
+              ],
+            ),
+          ),
+          // 内容骨架：根据tab简化不同形态
+          Expanded(
+            child: _buildHomeSkeletonForTab(tabIndex),
+          ),
+        ],
+      );
     }
 
     // 初始化完成，显示实际内容
-    _logger.d('显示实际内容', extra: {
-      'tabIndex': tabIndex,
-      'isInitialized': _isInitialized,
-      'isInitializing': _isInitializing,
-      'allCubitsReady': true,
-    });
+    // _logger.d('显示实际内容', extra: {
+    //   'tabIndex': tabIndex,
+    //   'isInitialized': _isInitialized,
+    //   'isInitializing': _isInitializing,
+    //   'allCubitsReady': true,
+    // });
 
     return MultiRepositoryProvider(
       providers: [
@@ -790,260 +808,94 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin, Widg
     }
   }
 
-  /// 构建骨架屏内容
-  Widget _buildSkeletonContent(int tabIndex, AppLocalizations localizations) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          // 顶部应用栏区域
-          Container(
-            height: 90,
-            padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  _getTabTitle(tabIndex, localizations),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const Spacer(),
-                if (_isInitializing)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // 内容区域骨架
-          Expanded(
-            child: _buildTabSkeleton(tabIndex),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 获取Tab标题
-  String _getTabTitle(int tabIndex, AppLocalizations localizations) {
+  /// Home页骨架：不覆盖底部TabBar，仅覆盖顶部+内容
+  Widget _buildHomeSkeletonForTab(int tabIndex) {
     switch (tabIndex) {
       case 0:
-        return localizations.chats;
-      case 1:
-        return localizations.contacts;
-      case 2:
-        return localizations.profile;
-      default:
-        return '';
-    }
-  }
-
-  /// 构建不同Tab的骨架屏
-  Widget _buildTabSkeleton(int tabIndex) {
-    switch (tabIndex) {
-      case 0:
-        return _buildChatsSkeleton();
-      case 1:
-        return _buildContactsSkeleton();
-      case 2:
-        return _buildProfileSkeleton();
-      default:
-        return Container();
-    }
-  }
-
-  /// 聊天列表骨架屏
-  Widget _buildChatsSkeleton() {
-    return ListView.builder(
-      itemCount: 8,
-      itemBuilder: (context, index) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              // 头像骨架
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(25),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // 内容骨架
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 名称骨架
-                    Container(
-                      width: double.infinity * 0.4,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // 消息预览骨架
-                    Container(
-                      width: double.infinity * 0.7,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 时间骨架
-              Container(
-                width: 40,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 联系人列表骨架屏
-  Widget _buildContactsSkeleton() {
-    return ListView.builder(
-      itemCount: 10,
-      itemBuilder: (context, index) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              // 头像骨架
-              Container(
-                width: 45,
-                height: 45,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(22.5),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // 名称骨架
-              Expanded(
-                child: Container(
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 个人资料骨架屏
-  Widget _buildProfileSkeleton() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // 用户头像和信息骨架
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                // 头像骨架
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // 用户名骨架
-                Container(
-                  width: 120,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // 用户ID骨架
-                Container(
-                  width: 80,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          // 菜单项骨架
-          ...List.generate(6, (index) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
+        // Chats骨架：头像+两行
+        return ListView.builder(
+          itemCount: 10,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Container(
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(height: 14, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6))),
+                      const SizedBox(height: 8),
+                      Container(width: 160, height: 12, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(6))),
+                    ]),
                   ),
+                  const SizedBox(width: 8),
+                  Container(width: 40, height: 12, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(6))),
                 ],
               ),
             );
-          }),
-        ],
-      ),
-    );
+          },
+        );
+      case 1:
+        // Contacts骨架：头像+单行
+        return ListView.builder(
+          itemCount: 12,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[300],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Container(height: 14, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6)))),
+              ]),
+            );
+          },
+        );
+      case 2:
+      default:
+        // Profile骨架：头像+数行
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey[300],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(child: Container(width: 120, height: 18, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(8)))),
+            const SizedBox(height: 8),
+            Center(child: Container(width: 80, height: 12, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(6)))),
+            const SizedBox(height: 24),
+            ...List.generate(6, (i) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Container(width: 24, height: 24, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(6))),
+                const SizedBox(width: 12),
+                Expanded(child: Container(height: 14, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(6)))),
+              ]),
+            )),
+          ],
+        );
+    }
   }
 }
